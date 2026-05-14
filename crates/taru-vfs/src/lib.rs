@@ -5,6 +5,10 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use taru_core::{Result, TaruError};
 
+mod local;
+
+pub use local::LocalFsBackend;
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct StorageUri(String);
@@ -13,13 +17,51 @@ impl StorageUri {
     pub fn parse(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
 
-        if !value.contains("://") {
+        let Some((scheme, _path)) = value.split_once("://") else {
             return Err(TaruError::InvalidInput {
                 message: format!("storage uri must include a scheme: {value}"),
+            });
+        };
+
+        if scheme.is_empty() {
+            return Err(TaruError::InvalidInput {
+                message: format!("storage uri scheme cannot be empty: {value}"),
             });
         }
 
         Ok(Self(value))
+    }
+
+    pub fn from_parts(scheme: &str, path: &str) -> Result<Self> {
+        if scheme.is_empty() {
+            return Err(TaruError::InvalidInput {
+                message: "storage uri scheme cannot be empty".to_owned(),
+            });
+        }
+
+        let path = path.trim_start_matches(['/', '\\']);
+
+        if path.is_empty() {
+            Self::parse(format!("{scheme}:///"))
+        } else {
+            Self::parse(format!("{scheme}:///{path}"))
+        }
+    }
+
+    #[must_use]
+    pub fn scheme(&self) -> &str {
+        self.0
+            .split_once("://")
+            .map(|(scheme, _path)| scheme)
+            .unwrap_or("")
+    }
+
+    #[must_use]
+    pub fn path_part(&self) -> &str {
+        self.0
+            .split_once("://")
+            .map(|(_scheme, path)| path)
+            .unwrap_or("")
     }
 
     #[must_use]
@@ -100,5 +142,19 @@ mod tests {
     fn storage_uri_requires_scheme() {
         assert!(StorageUri::parse("local://library/movie.mkv").is_ok());
         assert!(StorageUri::parse("library/movie.mkv").is_err());
+    }
+
+    #[test]
+    fn storage_uri_builds_root_and_relative_forms() {
+        assert_eq!(
+            StorageUri::from_parts("local", "").unwrap().as_str(),
+            "local:///"
+        );
+        assert_eq!(
+            StorageUri::from_parts("local", "/movies/demo.mkv")
+                .unwrap()
+                .as_str(),
+            "local:///movies/demo.mkv"
+        );
     }
 }

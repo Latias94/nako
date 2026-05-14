@@ -1,0 +1,338 @@
+use std::{
+    fs,
+    path::{Component, Path, PathBuf},
+    time::UNIX_EPOCH,
+};
+
+use async_trait::async_trait;
+use taru_core::{Result, TaruError};
+
+use crate::{
+    ByteRange, ObjectKind, ObjectMetadata, StorageBackend, StorageCapabilities, StorageUri,
+    VirtualFile,
+};
+
+#[derive(Clone, Debug)]
+pub struct LocalFsBackend {
+    root: PathBuf,
+}
+
+impl LocalFsBackend {
+    pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
+        let root = root.into();
+        let root = root.canonicalize().map_err(|err| TaruError::Storage {
+            uri: root.display().to_string(),
+            message: format!("failed to canonicalize local root: {err}"),
+        })?;
+
+        if !root.is_dir() {
+            return Err(TaruError::InvalidInput {
+                message: format!("local root must be a directory: {}", root.display()),
+            });
+        }
+
+        Ok(Self { root })
+    }
+
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    fn path_for(&self, uri: &StorageUri) -> Result<PathBuf> {
+        self.ensure_local_scheme(uri)?;
+
+        let relative = relative_path(uri)?;
+        let candidate = self.root.join(relative);
+        let canonical = candidate.canonicalize().map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to resolve local path: {err}"),
+        })?;
+
+        if !canonical.starts_with(&self.root) {
+            return Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "resolved local path escaped backend root".to_owned(),
+            });
+        }
+
+        Ok(candidate)
+    }
+
+    fn metadata_for(&self, path: &Path, uri: StorageUri) -> Result<ObjectMetadata> {
+        let metadata = fs::symlink_metadata(path).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to read local metadata: {err}"),
+        })?;
+
+        let file_type = metadata.file_type();
+        let kind = if file_type.is_file() {
+            ObjectKind::File
+        } else if file_type.is_dir() {
+            ObjectKind::Directory
+        } else if file_type.is_symlink() {
+            ObjectKind::Symlink
+        } else {
+            ObjectKind::Other
+        };
+
+        let modified_at = metadata
+            .modified()
+            .ok()
+            .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+            .map(|value| value.as_millis().to_string());
+
+        Ok(ObjectMetadata {
+            uri,
+            kind,
+            len: metadata.is_file().then_some(metadata.len()),
+            modified_at,
+            etag: None,
+            fingerprint: None,
+            capabilities: local_capabilities(kind),
+        })
+    }
+
+    fn uri_for_path(&self, path: &Path) -> Result<StorageUri> {
+        let relative = path
+            .strip_prefix(&self.root)
+            .map_err(|err| TaruError::Storage {
+                uri: path.display().to_string(),
+                message: format!("failed to build local uri: {err}"),
+            })?;
+
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        StorageUri::from_parts("local", &relative)
+    }
+
+    fn ensure_local_scheme(&self, uri: &StorageUri) -> Result<()> {
+        if uri.scheme() != self.scheme() {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "local backend only accepts '{}' uris, got '{}'",
+                    self.scheme(),
+                    uri.scheme()
+                ),
+            });
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl StorageBackend for LocalFsBackend {
+    fn scheme(&self) -> &'static str {
+        "local"
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        let path = self.path_for(uri)?;
+        self.metadata_for(&path, uri.clone())
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        let path = self.path_for(uri)?;
+        let stat = self.metadata_for(&path, uri.clone())?;
+
+        if stat.kind != ObjectKind::Directory {
+            return Err(TaruError::InvalidInput {
+                message: format!("cannot list non-directory local uri: {uri}"),
+            });
+        }
+
+        let mut entries = Vec::new();
+
+        for entry in fs::read_dir(&path).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to list local directory: {err}"),
+        })? {
+            let entry = entry.map_err(|err| TaruError::Storage {
+                uri: uri.to_string(),
+                message: format!("failed to read local directory entry: {err}"),
+            })?;
+            let entry_uri = self.uri_for_path(&entry.path())?;
+            entries.push(self.metadata_for(&entry.path(), entry_uri)?);
+        }
+
+        entries.sort_by(|left, right| left.uri.as_str().cmp(right.uri.as_str()));
+        Ok(entries)
+    }
+
+    async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
+        let path = self.path_for(uri)?;
+        let metadata = fs::metadata(&path).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to read local file metadata: {err}"),
+        })?;
+
+        if !metadata.is_file() {
+            return Err(TaruError::InvalidInput {
+                message: format!("cannot open non-file local uri: {uri}"),
+            });
+        }
+
+        if let Some(range) = range {
+            validate_range(uri, range, metadata.len())?;
+        }
+
+        Ok(VirtualFile {
+            uri: uri.clone(),
+            range,
+            local_path_hint: Some(path),
+        })
+    }
+}
+
+fn local_capabilities(kind: ObjectKind) -> StorageCapabilities {
+    let base = StorageCapabilities::SEEKABLE
+        | StorageCapabilities::RANGE_READABLE
+        | StorageCapabilities::WATCHABLE
+        | StorageCapabilities::LINKABLE
+        | StorageCapabilities::WRITABLE;
+
+    match kind {
+        ObjectKind::File | ObjectKind::Symlink => base,
+        ObjectKind::Directory => base,
+        ObjectKind::Other => StorageCapabilities::empty(),
+    }
+}
+
+fn relative_path(uri: &StorageUri) -> Result<PathBuf> {
+    let raw = uri.path_part().trim_start_matches(['/', '\\']);
+    let normalized = raw.replace('\\', "/");
+    let mut relative = PathBuf::new();
+
+    if normalized.is_empty() {
+        return Ok(relative);
+    }
+
+    for component in Path::new(&normalized).components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::Prefix(_) | Component::RootDir => {
+                return Err(TaruError::InvalidInput {
+                    message: format!("local uri path is not allowed to escape root: {uri}"),
+                });
+            }
+        }
+    }
+
+    Ok(relative)
+}
+
+fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
+    if range.offset > len {
+        return Err(TaruError::InvalidInput {
+            message: format!(
+                "range offset {} exceeds file length {len}: {uri}",
+                range.offset
+            ),
+        });
+    }
+
+    if let Some(length) = range.length {
+        let Some(end) = range.offset.checked_add(length) else {
+            return Err(TaruError::InvalidInput {
+                message: format!("range overflows file length: {uri}"),
+            });
+        };
+
+        if end > len {
+            return Err(TaruError::InvalidInput {
+                message: format!("range end {end} exceeds file length {len}: {uri}"),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn local_backend_lists_and_stats_files_under_root() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+            fs::write(temp.path().join("movies").join("demo.mkv"), b"taru").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let root_uri = StorageUri::from_parts("local", "movies").unwrap();
+            let entries = backend.list(&root_uri).await.unwrap();
+
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].uri.as_str(), "local:///movies/demo.mkv");
+            assert_eq!(entries[0].kind, ObjectKind::File);
+            assert_eq!(entries[0].len, Some(4));
+
+            let metadata = backend.stat(&entries[0].uri).await.unwrap();
+            assert_eq!(metadata.kind, ObjectKind::File);
+        });
+    }
+
+    #[test]
+    fn local_backend_returns_local_path_hint_for_ranges() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::write(temp.path().join("demo.mkv"), b"taru").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "demo.mkv").unwrap();
+            let file = backend
+                .open_range(
+                    &uri,
+                    Some(ByteRange {
+                        offset: 1,
+                        length: Some(2),
+                    }),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(file.uri, uri);
+            assert_eq!(
+                file.local_path_hint,
+                Some(temp.path().join("demo.mkv").canonicalize().unwrap())
+            );
+        });
+    }
+
+    #[test]
+    fn local_backend_rejects_path_traversal() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::parse("local:///../outside.mkv").unwrap();
+
+            assert!(backend.stat(&uri).await.is_err());
+        });
+    }
+
+    #[test]
+    fn local_backend_rejects_out_of_bounds_ranges() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::write(temp.path().join("demo.mkv"), b"taru").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "demo.mkv").unwrap();
+            let result = backend
+                .open_range(
+                    &uri,
+                    Some(ByteRange {
+                        offset: 3,
+                        length: Some(2),
+                    }),
+                )
+                .await;
+
+            assert!(result.is_err());
+        });
+    }
+}

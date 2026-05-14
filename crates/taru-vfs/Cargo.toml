@@ -12,3 +12,7 @@ async-trait.workspace = true
 bitflags.workspace = true
 serde.workspace = true
 taru-core = { path = "../taru-core" }
+
+[dev-dependencies]
+pollster.workspace = true
+tempfile.workspace = true
