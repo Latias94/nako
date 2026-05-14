@@ -358,6 +358,29 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.3: FFmpeg Command Builder and Remux Session Skeleton
+
+Outcome: Taru has an explicit FFmpeg planning boundary and a remux session
+skeleton before any process runner, HLS serving, or hardware acceleration is
+implemented.
+
+Deliverables:
+
+- FFmpeg command builder interface in `taru-transcode`.
+- Copy-only remux command planning for MP4 and Matroska outputs.
+- Remux request validation for empty and in-place paths.
+- In-memory transcode session model and lifecycle transition checks.
+- `ffmpeg_path` server configuration with default and config tests.
+- Workstream documentation for the remux skeleton and its non-goals.
+
+Exit criteria:
+
+- Remux planning produces `-map 0 -c copy` without spawning FFmpeg.
+- Invalid remux requests fail before a command plan is returned.
+- Session transitions reject invalid lifecycle moves.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

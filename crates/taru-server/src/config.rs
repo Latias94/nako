@@ -14,6 +14,8 @@ pub struct TaruServerConfig {
     pub database_url: String,
     #[serde(default = "default_ffprobe_path")]
     pub ffprobe_path: PathBuf,
+    #[serde(default = "default_ffmpeg_path")]
+    pub ffmpeg_path: PathBuf,
     #[serde(default = "default_scan_concurrency")]
     pub scan_concurrency: usize,
     #[serde(default = "default_probe_concurrency")]
@@ -92,6 +94,7 @@ pub fn example_config() -> Result<String> {
         listen_addr: default_listen_addr(),
         database_url: "sqlite://taru.db".to_owned(),
         ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: default_ffmpeg_path(),
         scan_concurrency: default_scan_concurrency(),
         probe_concurrency: default_probe_concurrency(),
         metadata_concurrency: default_metadata_concurrency(),
@@ -124,6 +127,10 @@ fn default_listen_addr() -> SocketAddr {
 
 fn default_ffprobe_path() -> PathBuf {
     PathBuf::from("ffprobe")
+}
+
+fn default_ffmpeg_path() -> PathBuf {
+    PathBuf::from("ffmpeg")
 }
 
 const fn default_scan_concurrency() -> usize {
@@ -171,6 +178,7 @@ mod tests {
             listen_addr = "127.0.0.1:4000"
             database_url = "sqlite://taru.db"
             ffprobe_path = "ffprobe"
+            ffmpeg_path = "ffmpeg"
             scan_concurrency = 2
             probe_concurrency = 3
             metadata_concurrency = 4
@@ -193,6 +201,7 @@ mod tests {
         assert_eq!(config.listen_addr, "127.0.0.1:4000".parse().unwrap());
         assert_eq!(config.database_url, "sqlite://taru.db");
         assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
+        assert_eq!(config.ffmpeg_path, PathBuf::from("ffmpeg"));
         assert_eq!(config.scan_concurrency, 2);
         assert_eq!(config.probe_concurrency, 3);
         assert_eq!(config.metadata_concurrency, 4);
@@ -238,6 +247,7 @@ mod tests {
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000)
         );
         assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
+        assert_eq!(config.ffmpeg_path, PathBuf::from("ffmpeg"));
         assert_eq!(config.scan_concurrency, 1);
         assert_eq!(config.probe_concurrency, 2);
         assert_eq!(config.metadata_concurrency, 2);

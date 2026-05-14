@@ -1833,6 +1833,8 @@ name = "taru-transcode"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "taru-core",
+ "uuid",
 ]
 
 [[package]]

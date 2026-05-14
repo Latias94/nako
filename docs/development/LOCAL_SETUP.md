@@ -14,6 +14,7 @@ rustc --version
 cargo --version
 cargo nextest --version
 ffprobe -version
+ffmpeg -version
 ```
 
 ## Common Commands
@@ -68,6 +69,7 @@ cargo run -p taru-server -- --config taru.toml refresh-metadata <item_id>
 listen_addr = "127.0.0.1:3000"
 database_url = "sqlite://taru.db"
 ffprobe_path = "ffprobe"
+ffmpeg_path = "ffmpeg"
 scan_concurrency = 1
 probe_concurrency = 2
 metadata_concurrency = 2

@@ -117,8 +117,10 @@
 - [x] Add direct play HTTP route with byte-range support.
 - [x] Move direct play response planning behind streaming and app boundaries.
 - [x] Add direct play HEAD preflight and range edge-case coverage.
-- [ ] Draft FFmpeg command builder interface.
-- [ ] Implement remux and HLS transcode session manager.
+- [x] Draft FFmpeg command builder interface.
+- [x] Add remux session manager skeleton.
+- [ ] Implement FFmpeg process runner for remux sessions.
+- [ ] Implement HLS transcode session manager.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
 - [ ] Define CPU/GPU transcode concurrency and queue policy.
 - [ ] Define remote source staging/cache behavior for FFmpeg.

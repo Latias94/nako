@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 4.2.1 Direct Play Boundary Hardening](PHASE4_2_1_DIRECT_PLAY_BOUNDARY_HARDENING.md).
+Current implementation focus: [Phase 4.3 FFmpeg Command Builder and Remux Session Skeleton](PHASE4_3_FFMPEG_COMMAND_REMUX_SESSION.md).
 
 ## Goals
 
