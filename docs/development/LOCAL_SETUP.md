@@ -77,6 +77,12 @@ remux_concurrency = 1
 remux_timeout_ms = 1800000
 remux_staging_root = "F:/Taru/cache/remux"
 
+[transcode]
+hardware_acceleration = "none"
+hardware_fallback = "cpu"
+cpu_concurrency = 1
+gpu_concurrency = 1
+
 [library]
 id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
@@ -90,6 +96,34 @@ image_base_url = "https://image.tmdb.org/t/p/original"
 language = "en-US"
 include_adult = false
 ```
+
+Runtime notes:
+
+- `scan_concurrency` bounds directory scan work.
+- `probe_concurrency` bounds ffprobe work.
+- `metadata_concurrency` bounds provider/NFO metadata jobs.
+- `remux_concurrency` bounds copy-remux FFmpeg sessions.
+- `remux_timeout_ms` bounds one remux or HLS FFmpeg process.
+- `remux_staging_root` stores staged remux outputs; HLS outputs are staged
+  below `remux_staging_root/hls`.
+- `[transcode].cpu_concurrency` and `[transcode].gpu_concurrency` bound HLS
+  transcode sessions by selected acceleration class.
+
+Hardware acceleration values:
+
+```text
+hardware_acceleration = "none"       # CPU-only x264 command planning
+hardware_acceleration = "vaapi"      # VAAPI command planning
+hardware_acceleration = "nvenc"      # NVIDIA NVENC command planning
+hardware_acceleration = "quick_sync" # Intel Quick Sync command planning
+
+hardware_fallback = "cpu"  # fall back to CPU when requested hardware is unavailable
+hardware_fallback = "fail" # fail planning when requested hardware is unavailable
+```
+
+Hardware acceleration is currently modeled as capability, policy, resource
+budget, and FFmpeg command planning. The workspace tests use mocked/static
+capabilities and do not require a real GPU.
 
 ## Logging
 

@@ -2882,6 +2882,15 @@ mod tests {
         };
         assert!(message.contains("already in progress"));
         assert!(message.contains(&active.id.to_string()));
+
+        let segment_err = app
+            .plan_hls_segment(active.id, "segment_00000.ts")
+            .await
+            .unwrap_err();
+        let TaruError::Conflict { message } = segment_err else {
+            panic!("expected hls segment readiness conflict");
+        };
+        assert!(message.contains("is not ready"));
     }
 
     #[tokio::test]

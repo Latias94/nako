@@ -683,9 +683,9 @@ mod tests {
         CanonicalMetadata, CatalogRepository, CreditRole, Genre, GenreId, ImageAsset, ImageAssetId,
         ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus,
         LibraryId, MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-        MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource, Person,
-        PersonId, Tag, TagId, TranscodeSessionKind, TranscodeSessionRepository,
-        TranscodeSessionState,
+        MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource,
+        NewTranscodeSession, Person, PersonId, Tag, TagId, TranscodeSessionId,
+        TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
@@ -1557,6 +1557,42 @@ mod tests {
             .unwrap();
 
         assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn hls_segment_route_rejects_unfinished_session() {
+        let (temp, router, source, store) = router_with_hls_source().await;
+        let active = store
+            .create_transcode_session(NewTranscodeSession {
+                id: TranscodeSessionId::new(),
+                source_id: source.id,
+                kind: TranscodeSessionKind::HlsTranscode,
+                request_key: "hls:single".to_owned(),
+                output_path: temp.path().join("active.m3u8"),
+                state: TranscodeSessionState::Running,
+            })
+            .await
+            .unwrap();
+        let path = format!(
+            "/playback/sessions/{}/hls/segments/segment_00000.ts",
+            active.id
+        );
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let error = body_json::<ErrorResponse>(response).await;
+        assert_eq!(error.code, "conflict");
+        assert!(error.message.contains("is not ready"));
     }
 
     #[tokio::test]

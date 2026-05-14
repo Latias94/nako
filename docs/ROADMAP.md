@@ -32,9 +32,9 @@ Important remaining breadth:
 - item-level metadata profile overrides.
 - image proxy/cache routes and preview-frame generation jobs.
 
-### Playback and Transcode: M4.2-M4.x
+### Playback and Transcode: M4.2-M4.10
 
-Status: active.
+Status: completed for the local video-library playback MVP.
 
 Completed:
 
@@ -55,10 +55,12 @@ Completed:
   route, and segment route.
 - hardware acceleration capability, fallback, and CPU/GPU budget policy for
   VAAPI, NVENC, and QuickSync command planning.
+- MVP stabilization for API docs, config docs, route error behavior, test
+  coverage, known limitations, and bounded resource notes.
 
 Recommended next goal:
 
-- MVP stabilization.
+- M5 extension and automation surface.
 
 Future playback work:
 
@@ -67,7 +69,7 @@ Future playback work:
 
 ### Extension and Automation: M5
 
-Status: planned.
+Status: recommended next.
 
 This phase turns the early architectural decisions into a usable external
 surface:

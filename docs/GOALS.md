@@ -41,9 +41,9 @@ Evidence:
 - TMDB movie refresh, NFO import/export jobs, metadata profile execution, and
   catalog/search planning are implemented or documented.
 
-### M4.0-M4.9: Catalog Ingestion and Playback Foundation
+### M4.0-M4.10: Catalog Ingestion and Playback MVP
 
-Status: completed through M4.9.
+Status: completed.
 
 Evidence:
 
@@ -57,7 +57,9 @@ Evidence:
   playlists and segments.
 - Hardware acceleration capability, policy, fallback, and resource-budget
   models are implemented without requiring real GPU hardware in tests.
-- Last completed implementation goal: M4.9 hardware acceleration policy.
+- MVP stabilization audited API docs, config docs, error behavior, test gaps,
+  performance constraints, and known limitations.
+- Last completed implementation goal: M4.10 MVP stabilization.
 
 ## Recently Completed Goals
 
@@ -169,21 +171,33 @@ Evidence:
 - HLS app-service concurrency uses CPU/GPU resource budgets based on the
   selected acceleration class.
 
+### M4.10: MVP Stabilization
+
+Status: completed.
+
+Evidence:
+
+- HTTP API docs match the current local playback routes, including remux, HLS,
+  persisted session lookup, and playback error behavior.
+- Local setup docs cover scan, probe, metadata, remux, HLS staging, hardware
+  policy, and CPU/GPU resource budget configuration.
+- Test strategy docs reflect current coverage for browse, metadata/NFO, direct
+  play, remux, HLS, persisted playback sessions, and hardware policy.
+- Known MVP limitations are documented in the phase note.
+- Focused HLS session readiness tests cover active-session conflict behavior at
+  the app and HTTP layers.
+
 ## Recommended Next Implementation Goal
-
-### MVP Stabilization
-
-Status: proposed.
-
-Audit and stabilize the local video-library playback MVP: API docs, error
-model, config docs, performance constraints, route behavior, and test coverage.
-
-## Later Goals
 
 ### M5: Extension and Automation Surface
 
+Status: proposed.
+
 Implement webhook outbox, automation jobs, addon manifest schema, and one
-reference addon.
+reference addon. Keep AI-like experience improvements as explicit external
+provider/API-key workflows rather than local model or vector infrastructure.
+
+## Later Goals
 
 ### M6: Remote Storage Preview
 

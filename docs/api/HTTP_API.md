@@ -2,9 +2,10 @@
 
 ## Scope
 
-This document describes the Phase 2.1 API discipline. It is not a complete
-OpenAPI specification yet, but it fixes response shapes, pagination rules, job
-envelopes, and error envelopes for current server routes.
+This document describes the current server API contract for the local
+video-library playback MVP. It is not a complete OpenAPI specification yet,
+but it fixes response shapes, pagination rules, job envelopes, playback
+session envelopes, and error envelopes for current server routes.
 
 ## Base Rules
 
@@ -200,12 +201,15 @@ creates a persisted playback session record so state can be inspected after the
 request completes or after a server restart.
 
 `GET /playback/sessions/{session_id}` returns the persisted session state for
-remux and future transcode sessions. The response includes the source ID,
-session kind, request key, staged output path, state, failure category/message,
-and lifecycle timestamps.
+remux and HLS transcode sessions. The response includes the source ID, session
+kind, request key, staged output path, state, failure category/message, and
+lifecycle timestamps. Missing sessions return `404 not_found`.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.
+HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
+`[transcode]` hardware/concurrency policy. HLS artifacts are staged below
+`remux_staging_root/hls`.
 Segment lines are rewritten to session-scoped URLs:
 
 ```text
@@ -214,4 +218,20 @@ Segment lines are rewritten to session-scoped URLs:
 
 `GET /playback/sessions/{session_id}/hls/segments/{segment_name}` serves a
 generated HLS segment for a finished HLS session. Segment names are constrained
-to the session output directory; missing segments return `404`.
+to the session output directory. Missing segments return `404 not_found`.
+Segments requested for a non-HLS session return `400 invalid_input`. Segments
+requested before the HLS session reaches `finished` return `409 conflict`.
+
+## Playback Error Summary
+
+Playback routes use the same error envelope as the rest of the API.
+
+```text
+unknown source/session/item       -> 404 not_found
+invalid client capability query   -> 400 invalid_input
+unsupported local playback source -> 400 unsupported
+in-flight equivalent remux/HLS    -> 409 conflict
+unfinished HLS segment session    -> 409 conflict
+storage read/metadata failures    -> 502 storage_error/provider_error
+database failures                 -> 500 database_error
+```
