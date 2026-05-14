@@ -2,10 +2,10 @@
 
 ## Architecture
 
-- [ ] Define workspace crate layout and dependency direction.
-- [ ] Create initial `taru-core` domain model draft.
+- [x] Define workspace crate layout and dependency direction.
+- [x] Create initial `taru-core` domain model draft.
 - [ ] Decide default database target for MVP.
-- [ ] Define service trait boundaries for library, metadata, VFS, transcode,
+- [x] Define service trait boundaries for library, metadata, VFS, transcode,
       search, events, automation, and addons.
 - [ ] Add ADR index and first accepted/rejected decisions.
 - [ ] Define shared job state, cancellation, retry, and resource-budget model.
@@ -13,9 +13,9 @@
 
 ## VFS and Storage
 
-- [ ] Draft `StorageBackend` and `VirtualFile` traits.
-- [ ] Define storage capability flags.
-- [ ] Define stable media locator format.
+- [x] Draft `StorageBackend` and `VirtualFile` traits.
+- [x] Define storage capability flags.
+- [x] Define stable media locator format.
 - [ ] Design directory metadata cache.
 - [ ] Design byte-range media cache.
 - [ ] Document local filesystem backend behavior.
@@ -33,9 +33,9 @@
 
 ## Streaming and Transcoding
 
-- [ ] Define media probe output model.
-- [ ] Persist media probe output and stream details.
-- [ ] Define bounded probe pipeline and default concurrency.
+- [x] Define media probe output model.
+- [x] Persist media probe output and stream details.
+- [x] Define bounded probe pipeline and default concurrency.
 - [ ] Define playback decision model.
 - [ ] Define direct play, remux, and transcode decision rules.
 - [ ] Draft FFmpeg command builder interface.

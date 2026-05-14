@@ -5,6 +5,8 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
+Current implementation focus: [Phase 1 Local Library Foundation](PHASE1_LOCAL_LIBRARY.md).
+
 ## Goals
 
 - Build Taru as a Rust workspace with clear server-side module boundaries.

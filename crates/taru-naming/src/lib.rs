@@ -81,11 +81,11 @@ fn parse_movie_name(cleaned: &str) -> ParsedName {
 }
 
 fn file_stem(path: &str) -> &str {
-    let file_name = path
-        .trim_matches('/')
+    let normalized = path.trim_matches('/');
+    let file_name = normalized
         .rsplit_once('/')
         .map(|(_parent, file_name)| file_name)
-        .unwrap_or(path);
+        .unwrap_or(normalized);
 
     file_name
         .rsplit_once('.')
@@ -212,6 +212,15 @@ mod tests {
         let parsed = parse_path("Some.Movie_Title.2024.1080p.mkv");
 
         assert_eq!(parsed.title, "Some Movie Title");
+        assert_eq!(parsed.year, Some(2024));
+    }
+
+    #[test]
+    fn handles_local_uri_path_parts_with_leading_slash() {
+        let parsed = parse_path("/Sample Movie (2024).mp4");
+
+        assert_eq!(parsed.kind_hint, MediaKind::Movie);
+        assert_eq!(parsed.title, "Sample Movie");
         assert_eq!(parsed.year, Some(2024));
     }
 }
