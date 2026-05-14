@@ -3,6 +3,8 @@
 ## Architecture
 
 - [x] Define workspace crate layout and dependency direction.
+- [x] Add top-level documentation index, roadmap, and goal map.
+- [x] Add refactoring policy for modular workspace evolution.
 - [x] Create initial `taru-core` domain model draft.
 - [x] Decide default database target for MVP.
 - [x] Define service trait boundaries for library, metadata, VFS, transcode,
@@ -121,6 +123,10 @@
 - [x] Add remux session manager skeleton.
 - [x] Implement FFmpeg process runner for remux sessions.
 - [x] Add remux process cancellation, timeout, concurrency guard, and temp cleanup.
+- [ ] Add remux application service in `taru-server::app`.
+- [ ] Define local remux staging directory policy.
+- [ ] Define duplicate remux request reuse or idempotency behavior.
+- [ ] Map remux runner errors into stable application/API errors.
 - [ ] Implement HLS transcode session manager.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
 - [ ] Define CPU/GPU transcode concurrency and queue policy beyond remux.
@@ -139,6 +145,9 @@
 
 - [x] Create MVP milestone document.
 - [x] Create initial API design notes.
+- [x] Create top-level roadmap and goal tracker.
+- [x] Create workstream index.
+- [x] Create fearless refactoring policy.
 - [x] Create local development setup guide.
 - [x] Create test strategy for crate-level and integration tests.
 - [x] Create licensing notes for reference-only GPL code.

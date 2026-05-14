@@ -13,6 +13,10 @@ Each ADR should include:
 - Alternatives considered
 - Related workstreams
 
+Implemented ADRs should be promoted from `proposed` to `accepted` during
+documentation hygiene. Do not batch status changes unless the implementation
+evidence has been reviewed.
+
 ## Index
 
 - [0001: Use a Modular Monolith Rust Workspace](0001-modular-monolith-rust-workspace.md)

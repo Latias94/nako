@@ -5,7 +5,13 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 4.4 Remux Process Runner and Runtime Resource Guard](PHASE4_4_REMUX_PROCESS_RUNNER_RESOURCE_GUARD.md).
+Top-level tracking:
+
+- [Goal map](../../GOALS.md)
+- [Roadmap](../../ROADMAP.md)
+- [Refactoring policy](../../development/REFACTORING_POLICY.md)
+
+Current implementation focus: [Phase 4.5 Remux App Service Integration and Local Staging Policy](PHASE4_5_REMUX_APP_SERVICE_STAGING_POLICY.md).
 
 ## Goals
 

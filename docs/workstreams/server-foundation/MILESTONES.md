@@ -83,6 +83,23 @@ Exit criteria:
 - Invalid pagination returns `400`.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3 Summary: Metadata and NFO
+
+Outcome: Taru can enrich indexed items and preserve local metadata control.
+
+Deliverables:
+
+- TMDB provider MVP.
+- NFO import/export MVP.
+- Provider priority, field lock, and external ID model.
+- Raw provider response cache.
+
+Exit criteria:
+
+- A movie and a series fixture can be matched and enriched.
+- Locked local fields survive metadata refresh.
+- NFO export round-trips core fields.
+
 ## M3.1: Metadata Model and NFO Policy Foundation
 
 Outcome: Taru has a provider-neutral metadata model, merge policy, raw provider
@@ -264,23 +281,6 @@ Exit criteria:
   resource class.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
-## M3: Metadata and NFO
-
-Outcome: Taru can enrich indexed items and preserve local metadata control.
-
-Deliverables:
-
-- TMDB provider MVP.
-- NFO import/export MVP.
-- Provider priority, field lock, and external ID model.
-- Raw provider response cache.
-
-Exit criteria:
-
-- A movie and a series fixture can be matched and enriched.
-- Locked local fields survive metadata refresh.
-- NFO export round-trips core fields.
-
 ## M4.1: Catalog Graph Hydration and Browse API
 
 Outcome: Taru hydrates the normalized catalog graph from metadata refresh and
@@ -405,6 +405,34 @@ Exit criteria:
 - Failed FFmpeg exits mark the session failed and leave no temporary output.
 - Runtime guard prevents more than the configured concurrent remux sessions.
 - No HTTP remux/playback route is exposed in this phase.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
+## M4.5: Remux App Service Integration and Local Staging Policy
+
+Outcome: Taru has an application-level remux orchestration boundary and a local
+staging policy that can support a future HTTP remux playback route without
+letting HTTP handlers own FFmpeg process details.
+
+Deliverables:
+
+- Remux application service in `taru-server::app`.
+- Local remux staging directory policy.
+- Deterministic output naming and cleanup rules.
+- Duplicate remux request reuse or explicit idempotency behavior.
+- API-safe error mapping for invalid requests, runner failures,
+  cancellation, and timeouts.
+- Tests using fake runners or command planning where possible.
+- Workstream documentation for app-service behavior and non-goals.
+
+Exit criteria:
+
+- Server composition can create and call the remux app service.
+- Staging paths cannot escape the configured staging root.
+- Duplicate remux requests have deterministic behavior.
+- Runner failures map to stable application errors without leaking process
+  internals.
+- No public HTTP remux/playback route is exposed in this phase.
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
