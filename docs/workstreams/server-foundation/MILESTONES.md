@@ -83,6 +83,28 @@ Exit criteria:
 - Invalid pagination returns `400`.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3.1: Metadata Model and NFO Policy Foundation
+
+Outcome: Taru has a provider-neutral metadata model, merge policy, raw provider
+cache, and minimal movie NFO codec.
+
+Deliverables:
+
+- Expanded canonical metadata model.
+- Image, rating, genre, and credit primitives.
+- Field-level metadata locks.
+- Provider raw response cache.
+- Minimal movie NFO import/export codec.
+- ADRs for metadata authority and NFO local boundary.
+
+Exit criteria:
+
+- Locked fields survive metadata merge.
+- Rich metadata round-trips through SQLite.
+- Provider raw cache round-trips through SQLite.
+- Movie NFO core fields round-trip through `taru-nfo`.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.

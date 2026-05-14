@@ -9,7 +9,7 @@ pub struct Library {
     pub roots: Vec<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MediaKind {
     Movie,
@@ -36,7 +36,60 @@ pub struct CanonicalMetadata {
     pub sort_title: Option<String>,
     pub overview: Option<String>,
     pub release_date: Option<String>,
+    pub runtime_minutes: Option<u32>,
+    pub tagline: Option<String>,
+    pub genres: Vec<String>,
+    pub ratings: Vec<ContentRating>,
+    pub images: Vec<ImageRef>,
+    pub credits: Vec<Credit>,
     pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ContentRating {
+    pub source: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ImageRef {
+    pub kind: ImageKind,
+    pub uri: String,
+    pub provider: ExternalProvider,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageKind {
+    Poster,
+    Backdrop,
+    Logo,
+    Thumbnail,
+    Banner,
+    Other(String),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Credit {
+    pub name: String,
+    pub role: CreditRole,
+    pub character: Option<String>,
+    pub order: Option<u32>,
+    pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CreditRole {
+    Actor,
+    Director,
+    Writer,
+    Producer,
+    Creator,
+    Other(String),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -97,4 +150,67 @@ pub enum ExternalProvider {
 pub struct ExternalId {
     pub provider: ExternalProvider,
     pub value: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataField {
+    Title,
+    OriginalTitle,
+    SortTitle,
+    Overview,
+    ReleaseDate,
+    RuntimeMinutes,
+    Tagline,
+    Genres,
+    Ratings,
+    Images,
+    Credits,
+    ExternalIds,
+}
+
+impl MetadataField {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Title => "title",
+            Self::OriginalTitle => "original_title",
+            Self::SortTitle => "sort_title",
+            Self::Overview => "overview",
+            Self::ReleaseDate => "release_date",
+            Self::RuntimeMinutes => "runtime_minutes",
+            Self::Tagline => "tagline",
+            Self::Genres => "genres",
+            Self::Ratings => "ratings",
+            Self::Images => "images",
+            Self::Credits => "credits",
+            Self::ExternalIds => "external_ids",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataFieldLock {
+    pub item_id: MediaItemId,
+    pub field: MetadataField,
+    pub locked: bool,
+    pub source: MetadataSource,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataSource {
+    Local,
+    Nfo,
+    Provider(ExternalProvider),
+    User,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderRawResponse {
+    pub item_id: MediaItemId,
+    pub provider: ExternalProvider,
+    pub provider_key: String,
+    pub fetched_at: String,
+    pub body_json: String,
 }

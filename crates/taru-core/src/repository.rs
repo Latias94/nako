@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     Job, JobId, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
-    MediaSourceId, NewJob, Result,
+    MediaSourceId, MetadataFieldLock, NewJob, ProviderRawResponse, Result,
 };
 
 #[async_trait]
@@ -47,6 +47,22 @@ pub trait MediaProbeRepository: Send + Sync {
     ) -> Result<()>;
 
     async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>>;
+}
+
+#[async_trait]
+pub trait MetadataRepository: Send + Sync {
+    async fn upsert_field_lock(&self, lock: &MetadataFieldLock) -> Result<()>;
+
+    async fn list_field_locks(&self, item_id: MediaItemId) -> Result<Vec<MetadataFieldLock>>;
+
+    async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()>;
+
+    async fn get_provider_raw_response(
+        &self,
+        item_id: MediaItemId,
+        provider: &crate::ExternalProvider,
+        provider_key: &str,
+    ) -> Result<Option<ProviderRawResponse>>;
 }
 
 #[async_trait]

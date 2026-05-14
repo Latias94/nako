@@ -8,7 +8,8 @@ use taru_core::{
     CanonicalMetadata, ExternalId, ExternalProvider, Job, JobId, JobKind, JobRepository, JobStatus,
     Library, LibraryId, LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, NewJob, PageRequest, Result, TaruError, TransactionManager,
+    MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository, MetadataSource, NewJob,
+    PageRequest, ProviderRawResponse, Result, TaruError, TransactionManager,
 };
 
 const MIGRATIONS: &[(&str, &str)] = &[
@@ -24,6 +25,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0004_job_input_payload",
         include_str!("../migrations/0004_job_input_payload.sql"),
+    ),
+    (
+        "0005_metadata_policy",
+        include_str!("../migrations/0005_metadata_policy.sql"),
     ),
 ];
 
@@ -209,9 +214,10 @@ impl MediaRepository for SqliteStore {
                 original_title,
                 sort_title,
                 overview,
-                release_date
+                release_date,
+                metadata_json
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
             ON CONFLICT(id) DO UPDATE SET
                 kind = excluded.kind,
                 parent_id = excluded.parent_id,
@@ -220,6 +226,7 @@ impl MediaRepository for SqliteStore {
                 sort_title = excluded.sort_title,
                 overview = excluded.overview,
                 release_date = excluded.release_date,
+                metadata_json = excluded.metadata_json,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
             "#,
         )
@@ -231,6 +238,7 @@ impl MediaRepository for SqliteStore {
         .bind(&item.metadata.sort_title)
         .bind(&item.metadata.overview)
         .bind(&item.metadata.release_date)
+        .bind(serialize_metadata_json(&item.metadata)?)
         .execute(&mut *transaction)
         .await
         .map_err(database_error)?;
@@ -264,7 +272,16 @@ impl MediaRepository for SqliteStore {
     async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
         let row = sqlx::query(
             r#"
-            SELECT id, kind, parent_id, title, original_title, sort_title, overview, release_date
+            SELECT
+                id,
+                kind,
+                parent_id,
+                title,
+                original_title,
+                sort_title,
+                overview,
+                release_date,
+                metadata_json
             FROM media_items
             WHERE id = ?1
             "#,
@@ -280,26 +297,23 @@ impl MediaRepository for SqliteStore {
 
         let external_ids = self.list_external_ids(id).await?;
 
-        Ok(Some(MediaItem {
-            id: parse_id(row_get::<String>(&row, "id")?)?,
-            kind: parse_media_kind(row_get::<String>(&row, "kind")?)?,
-            parent_id: parse_optional_id(row_get::<Option<String>>(&row, "parent_id")?)?,
-            metadata: CanonicalMetadata {
-                title: row_get(&row, "title")?,
-                original_title: row_get(&row, "original_title")?,
-                sort_title: row_get(&row, "sort_title")?,
-                overview: row_get(&row, "overview")?,
-                release_date: row_get(&row, "release_date")?,
-                external_ids,
-            },
-        }))
+        Ok(Some(row_to_media_item(row, external_ids)?))
     }
 
     async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>> {
         let page = page.clamped();
         let rows = sqlx::query(
             r#"
-            SELECT id, kind, parent_id, title, original_title, sort_title, overview, release_date
+            SELECT
+                id,
+                kind,
+                parent_id,
+                title,
+                original_title,
+                sort_title,
+                overview,
+                release_date,
+                metadata_json
             FROM media_items
             ORDER BY title ASC, id ASC
             LIMIT ?1 OFFSET ?2
@@ -533,6 +547,118 @@ impl MediaProbeRepository for SqliteStore {
 }
 
 #[async_trait::async_trait]
+impl MetadataRepository for SqliteStore {
+    async fn upsert_field_lock(&self, lock: &MetadataFieldLock) -> Result<()> {
+        let (source, source_key) = metadata_source_to_parts(&lock.source);
+
+        sqlx::query(
+            r#"
+            INSERT INTO metadata_field_locks (item_id, field, locked, source, source_key)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(item_id, field) DO UPDATE SET
+                locked = excluded.locked,
+                source = excluded.source,
+                source_key = excluded.source_key,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(lock.item_id.to_string())
+        .bind(lock.field.as_str())
+        .bind(bool_to_i64(lock.locked))
+        .bind(source)
+        .bind(source_key)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_field_locks(&self, item_id: MediaItemId) -> Result<Vec<MetadataFieldLock>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT item_id, field, locked, source, source_key
+            FROM metadata_field_locks
+            WHERE item_id = ?1
+            ORDER BY field ASC
+            "#,
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_metadata_field_lock).collect()
+    }
+
+    async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()> {
+        let (provider, provider_key) = provider_to_parts(&response.provider);
+        let provider_key = if response.provider_key.is_empty() {
+            provider_key
+        } else {
+            response.provider_key.clone()
+        };
+
+        sqlx::query(
+            r#"
+            INSERT INTO provider_raw_responses (
+                item_id,
+                provider,
+                provider_key,
+                body_json,
+                fetched_at
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(item_id, provider, provider_key) DO UPDATE SET
+                body_json = excluded.body_json,
+                fetched_at = excluded.fetched_at,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(response.item_id.to_string())
+        .bind(provider)
+        .bind(provider_key)
+        .bind(&response.body_json)
+        .bind(&response.fetched_at)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_provider_raw_response(
+        &self,
+        item_id: MediaItemId,
+        provider: &ExternalProvider,
+        provider_key: &str,
+    ) -> Result<Option<ProviderRawResponse>> {
+        let (provider, default_provider_key) = provider_to_parts(provider);
+        let provider_key = if provider_key.is_empty() {
+            default_provider_key
+        } else {
+            provider_key.to_owned()
+        };
+        let row = sqlx::query(
+            r#"
+            SELECT item_id, provider, provider_key, body_json, fetched_at
+            FROM provider_raw_responses
+            WHERE item_id = ?1 AND provider = ?2 AND provider_key = ?3
+            LIMIT 1
+            "#,
+        )
+        .bind(item_id.to_string())
+        .bind(provider)
+        .bind(provider_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_provider_raw_response).transpose()
+    }
+}
+
+#[async_trait::async_trait]
 impl JobRepository for SqliteStore {
     async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
         sqlx::query(
@@ -747,6 +873,31 @@ fn provider_from_parts(provider: String, provider_key: String) -> ExternalProvid
     }
 }
 
+fn metadata_source_to_parts(source: &MetadataSource) -> (String, String) {
+    match source {
+        MetadataSource::Local => ("local".to_owned(), String::new()),
+        MetadataSource::Nfo => ("nfo".to_owned(), String::new()),
+        MetadataSource::User => ("user".to_owned(), String::new()),
+        MetadataSource::Provider(provider) => {
+            let (provider, provider_key) = provider_to_parts(provider);
+            (format!("provider:{provider}"), provider_key)
+        }
+    }
+}
+
+fn metadata_source_from_parts(source: String, source_key: String) -> MetadataSource {
+    match source.as_str() {
+        "local" => MetadataSource::Local,
+        "nfo" => MetadataSource::Nfo,
+        "user" => MetadataSource::User,
+        value if value.starts_with("provider:") => {
+            let provider = value.trim_start_matches("provider:").to_owned();
+            MetadataSource::Provider(provider_from_parts(provider, source_key))
+        }
+        _ => MetadataSource::Provider(ExternalProvider::Other(source)),
+    }
+}
+
 fn stream_kind_to_parts(kind: &MediaStreamKind) -> (String, String) {
     match kind {
         MediaStreamKind::Video => ("video".to_owned(), String::new()),
@@ -820,6 +971,20 @@ fn optional_i64_to_u32(value: Option<i64>) -> Result<Option<u32>> {
         .transpose()
 }
 
+fn bool_to_i64(value: bool) -> i64 {
+    if value { 1 } else { 0 }
+}
+
+fn i64_to_bool(value: i64) -> Result<bool> {
+    match value {
+        0 => Ok(false),
+        1 => Ok(true),
+        _ => Err(TaruError::Database {
+            message: format!("SQLite integer cannot be converted to bool: {value}"),
+        }),
+    }
+}
+
 fn u32_to_i64(value: u32) -> i64 {
     i64::from(value)
 }
@@ -848,18 +1013,25 @@ fn row_to_library(row: SqliteRow) -> Result<Library> {
 }
 
 fn row_to_media_item(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<MediaItem> {
-    Ok(MediaItem {
-        id: parse_id(row_get::<String>(&row, "id")?)?,
-        kind: parse_media_kind(row_get::<String>(&row, "kind")?)?,
-        parent_id: parse_optional_id(row_get::<Option<String>>(&row, "parent_id")?)?,
-        metadata: CanonicalMetadata {
+    let metadata_json = row_get::<Option<String>>(&row, "metadata_json")?;
+    let mut metadata = match metadata_json {
+        Some(value) => serde_json::from_str::<CanonicalMetadata>(&value).map_err(database_error)?,
+        None => CanonicalMetadata {
             title: row_get(&row, "title")?,
             original_title: row_get(&row, "original_title")?,
             sort_title: row_get(&row, "sort_title")?,
             overview: row_get(&row, "overview")?,
             release_date: row_get(&row, "release_date")?,
-            external_ids,
+            ..CanonicalMetadata::default()
         },
+    };
+    metadata.external_ids = external_ids;
+
+    Ok(MediaItem {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        kind: parse_media_kind(row_get::<String>(&row, "kind")?)?,
+        parent_id: parse_optional_id(row_get::<Option<String>>(&row, "parent_id")?)?,
+        metadata,
     })
 }
 
@@ -906,6 +1078,49 @@ fn row_to_job(row: SqliteRow) -> Result<Job> {
     })
 }
 
+fn row_to_metadata_field_lock(row: SqliteRow) -> Result<MetadataFieldLock> {
+    Ok(MetadataFieldLock {
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        field: metadata_field_from_str(&row_get::<String>(&row, "field")?)?,
+        locked: i64_to_bool(row_get(&row, "locked")?)?,
+        source: metadata_source_from_parts(row_get(&row, "source")?, row_get(&row, "source_key")?),
+    })
+}
+
+fn row_to_provider_raw_response(row: SqliteRow) -> Result<ProviderRawResponse> {
+    Ok(ProviderRawResponse {
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        provider: provider_from_parts(row_get(&row, "provider")?, row_get(&row, "provider_key")?),
+        provider_key: row_get(&row, "provider_key")?,
+        body_json: row_get(&row, "body_json")?,
+        fetched_at: row_get(&row, "fetched_at")?,
+    })
+}
+
+fn serialize_metadata_json(metadata: &CanonicalMetadata) -> Result<String> {
+    serde_json::to_string(metadata).map_err(database_error)
+}
+
+fn metadata_field_from_str(value: &str) -> Result<MetadataField> {
+    match value {
+        "title" => Ok(MetadataField::Title),
+        "original_title" => Ok(MetadataField::OriginalTitle),
+        "sort_title" => Ok(MetadataField::SortTitle),
+        "overview" => Ok(MetadataField::Overview),
+        "release_date" => Ok(MetadataField::ReleaseDate),
+        "runtime_minutes" => Ok(MetadataField::RuntimeMinutes),
+        "tagline" => Ok(MetadataField::Tagline),
+        "genres" => Ok(MetadataField::Genres),
+        "ratings" => Ok(MetadataField::Ratings),
+        "images" => Ok(MetadataField::Images),
+        "credits" => Ok(MetadataField::Credits),
+        "external_ids" => Ok(MetadataField::ExternalIds),
+        _ => Err(TaruError::Database {
+            message: format!("unknown metadata field stored in database: {value}"),
+        }),
+    }
+}
+
 fn split_sql_statements(sql: &str) -> Vec<String> {
     sql.split(';')
         .map(str::trim)
@@ -929,7 +1144,7 @@ fn database_error(error: impl Display) -> TaruError {
 
 #[cfg(test)]
 mod tests {
-    use taru_core::MediaSourceId;
+    use taru_core::{ContentRating, Credit, CreditRole, ImageKind, ImageRef, MediaSourceId};
 
     use super::*;
 
@@ -970,6 +1185,28 @@ mod tests {
                 sort_title: Some("Matrix, The".to_owned()),
                 overview: Some("A hacker discovers the nature of reality.".to_owned()),
                 release_date: Some("1999-03-31".to_owned()),
+                runtime_minutes: Some(136),
+                tagline: Some("Welcome to the Real World".to_owned()),
+                genres: vec!["Action".to_owned(), "Science Fiction".to_owned()],
+                ratings: vec![ContentRating {
+                    source: "MPAA".to_owned(),
+                    value: "R".to_owned(),
+                }],
+                images: vec![ImageRef {
+                    kind: ImageKind::Poster,
+                    uri: "https://image.example/poster.jpg".to_owned(),
+                    provider: ExternalProvider::Tmdb,
+                    width: Some(1000),
+                    height: Some(1500),
+                    language: Some("en".to_owned()),
+                }],
+                credits: vec![Credit {
+                    name: "Keanu Reeves".to_owned(),
+                    role: CreditRole::Actor,
+                    character: Some("Neo".to_owned()),
+                    order: Some(0),
+                    external_ids: Vec::new(),
+                }],
                 external_ids: vec![
                     ExternalId {
                         provider: ExternalProvider::Tmdb,
@@ -1014,6 +1251,54 @@ mod tests {
                 .await
                 .unwrap(),
             vec![source]
+        );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_metadata_policy_records() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Policy Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let lock = MetadataFieldLock {
+            item_id: item.id,
+            field: MetadataField::Title,
+            locked: true,
+            source: MetadataSource::User,
+        };
+        let raw = ProviderRawResponse {
+            item_id: item.id,
+            provider: ExternalProvider::Tmdb,
+            provider_key: "603".to_owned(),
+            fetched_at: "2026-05-14T00:00:00.000Z".to_owned(),
+            body_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store.upsert_field_lock(&lock).await.unwrap();
+        store.upsert_provider_raw_response(&raw).await.unwrap();
+
+        assert_eq!(store.list_field_locks(item.id).await.unwrap(), vec![lock]);
+        assert_eq!(
+            store
+                .get_provider_raw_response(item.id, &ExternalProvider::Tmdb, "603")
+                .await
+                .unwrap(),
+            Some(raw)
         );
     }
 

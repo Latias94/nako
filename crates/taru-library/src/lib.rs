@@ -367,6 +367,7 @@ fn media_item_from_discovered(id: MediaItemId, discovered: &DiscoveredMediaSourc
             overview: None,
             release_date: discovered.parsed_name.year.map(|year| year.to_string()),
             external_ids: Vec::new(),
+            ..CanonicalMetadata::default()
         },
     }
 }

@@ -21,3 +21,5 @@ Each ADR should include:
 - [0004: Treat AI as External Automation First](0004-ai-as-external-automation-first.md)
 - [0005: Use Bounded Async Pipelines and Resource Budgets](0005-bounded-async-pipelines-and-resource-budgets.md)
 - [0006: Persist Job Inputs and Use Explicit Retry Policy](0006-persist-job-inputs-and-explicit-retry-policy.md)
+- [0007: Define Metadata Merge Policy and Local Authority](0007-metadata-merge-policy-and-local-authority.md)
+- [0008: Treat NFO as a Local Metadata Boundary](0008-nfo-as-local-metadata-boundary.md)

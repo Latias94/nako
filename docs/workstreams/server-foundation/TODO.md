@@ -31,11 +31,11 @@
 
 ## Metadata and NFO
 
-- [ ] Define canonical metadata fields.
-- [ ] Define external ID model for TMDB, Douban, Bangumi, IMDb, and local IDs.
-- [ ] Define provider priority and field-level lock policy.
-- [ ] Define raw provider response cache policy.
-- [ ] Define NFO import/export compatibility targets.
+- [x] Define canonical metadata fields.
+- [x] Define external ID model for TMDB, Douban, Bangumi, IMDb, and local IDs.
+- [x] Define provider priority and field-level lock policy.
+- [x] Define raw provider response cache policy.
+- [x] Define NFO import/export compatibility targets.
 
 ## Streaming and Transcoding
 

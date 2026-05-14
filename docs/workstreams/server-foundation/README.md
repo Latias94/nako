@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 2.1 Runtime Hardening and API Discipline](PHASE2_1_RUNTIME_HARDENING.md).
+Current implementation focus: [Phase 3.1 Metadata Model and NFO Policy Foundation](PHASE3_1_METADATA_NFO_FOUNDATION.md).
 
 ## Goals
 
