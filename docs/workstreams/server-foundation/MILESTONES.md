@@ -234,6 +234,36 @@ Exit criteria:
   remote listing policies are documented.
 - The workstream README points to the current design focus.
 
+## M4.0: Catalog Ingestion Foundation
+
+Outcome: Taru can run the first server-side library ingestion loop from local
+VFS scan to persisted media items, scan state, normalized catalog graph,
+search projection, and artwork task queue records.
+
+Deliverables:
+
+- Catalog graph domain models and SQLite tables for people, credits, genres,
+  tags, collections, studios, and image assets.
+- Durable scan snapshots, directory snapshots, source states, and tombstones.
+- Local VFS fingerprints based on lightweight file metadata.
+- SQLite search projection behind the `taru-search` adapter boundary.
+- HTTP search route for projected items.
+- Artwork task table with resource classes, retry state, and default concurrency
+  policy.
+- ADRs for catalog/search projection, scan state, and artwork resource classes.
+
+Exit criteria:
+
+- A local directory scan creates a library, media items, sources, scan state,
+  source states, and search documents.
+- A disappeared source becomes tombstoned on a later scan.
+- People, credits, tags, genres, collections, studios, and image assets
+  round-trip through SQLite.
+- Search can return projected items through the HTTP route.
+- Artwork preview/fetch/resize work can be persisted with retry state and
+  resource class.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.
@@ -251,7 +281,7 @@ Exit criteria:
 - Locked local fields survive metadata refresh.
 - NFO export round-trips core fields.
 
-## M4: Playback MVP
+## M4.1: Playback MVP
 
 Outcome: Taru can serve local media through direct play and a minimal HLS
 transcode path.

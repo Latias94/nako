@@ -15,6 +15,7 @@ serde.workspace = true
 taru-core = { path = "../taru-core" }
 taru-media-probe = { path = "../taru-media-probe" }
 taru-naming = { path = "../taru-naming" }
+taru-search = { path = "../taru-search" }
 taru-vfs = { path = "../taru-vfs" }
 
 [dev-dependencies]

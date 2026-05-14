@@ -5,13 +5,18 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
 };
 use taru_core::{
-    CanonicalMetadata, ExternalId, ExternalProvider, Job, JobId, JobKind, JobRepository, JobStatus,
+    ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, CanonicalMetadata,
+    CatalogRepository, Collection, CollectionId, CollectionItem, CreditRole, DirectorySnapshot,
+    ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobRepository, JobStatus,
     Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId,
     MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
     MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository,
-    MetadataSource, NewJob, PageRequest, ProviderRawResponse, Result, TaruError,
-    TransactionManager,
+    MetadataSource, NewJob, PageRequest, Person, PersonId, ProviderRawResponse, Result,
+    ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag,
+    TagId, TaruError, TransactionManager,
 };
+use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
 const MIGRATIONS: &[(&str, &str)] = &[
     (
@@ -34,6 +39,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0006_library_profiles",
         include_str!("../migrations/0006_library_profiles.sql"),
+    ),
+    (
+        "0007_catalog_ingestion",
+        include_str!("../migrations/0007_catalog_ingestion.sql"),
     ),
 ];
 
@@ -799,6 +808,1032 @@ impl JobRepository for SqliteStore {
     }
 }
 
+#[async_trait::async_trait]
+impl CatalogRepository for SqliteStore {
+    async fn upsert_person(&self, person: &Person) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO people (id, name, sort_name, overview)
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                sort_name = excluded.sort_name,
+                overview = excluded.overview,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(person.id.to_string())
+        .bind(&person.name)
+        .bind(&person.sort_name)
+        .bind(&person.overview)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM person_external_ids WHERE person_id = ?1")
+            .bind(person.id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        insert_external_ids(
+            &mut transaction,
+            "person_external_ids",
+            "person_id",
+            person.id,
+            &person.external_ids,
+        )
+        .await?;
+
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn get_person(&self, id: PersonId) -> Result<Option<Person>> {
+        let row = sqlx::query("SELECT id, name, sort_name, overview FROM people WHERE id = ?1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let external_ids = self
+            .list_entity_external_ids("person_external_ids", "person_id", id)
+            .await?;
+        row_to_person(row, external_ids).map(Some)
+    }
+
+    async fn list_people(&self, page: PageRequest) -> Result<Vec<Person>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, sort_name, overview
+            FROM people
+            ORDER BY name ASC, id ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut people = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id: PersonId = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self
+                .list_entity_external_ids("person_external_ids", "person_id", id)
+                .await?;
+            people.push(row_to_person(row, external_ids)?);
+        }
+
+        Ok(people)
+    }
+
+    async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()> {
+        let (role, role_key) = credit_role_to_parts(&credit.role);
+        sqlx::query(
+            r#"
+            INSERT INTO item_credits (
+                item_id, person_id, role, role_key, character, sort_order
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            ON CONFLICT(item_id, person_id, role, role_key, character) DO UPDATE SET
+                sort_order = excluded.sort_order,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(credit.item_id.to_string())
+        .bind(credit.person_id.to_string())
+        .bind(role)
+        .bind(role_key)
+        .bind(credit.character.clone().unwrap_or_default())
+        .bind(optional_u32_to_i64(credit.sort_order))
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_item_credits(&self, item_id: MediaItemId) -> Result<Vec<ItemCredit>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT item_id, person_id, role, role_key, character, sort_order
+            FROM item_credits
+            WHERE item_id = ?1
+            ORDER BY COALESCE(sort_order, 2147483647), role ASC, person_id ASC
+            "#,
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_item_credit).collect()
+    }
+
+    async fn list_person_credits(&self, person_id: PersonId) -> Result<Vec<ItemCredit>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT item_id, person_id, role, role_key, character, sort_order
+            FROM item_credits
+            WHERE person_id = ?1
+            ORDER BY role ASC, COALESCE(sort_order, 2147483647), item_id ASC
+            "#,
+        )
+        .bind(person_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_item_credit).collect()
+    }
+
+    async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
+        let (source, source_key) = metadata_source_to_parts(&genre.source);
+        sqlx::query(
+            r#"
+            INSERT INTO genres (id, name, source, source_key)
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                source = excluded.source,
+                source_key = excluded.source_key,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(genre.id.to_string())
+        .bind(&genre.name)
+        .bind(source)
+        .bind(source_key)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_genre(&self, id: GenreId) -> Result<Option<Genre>> {
+        let row = sqlx::query("SELECT id, name, source, source_key FROM genres WHERE id = ?1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_genre).transpose()
+    }
+
+    async fn list_genres(&self, page: PageRequest) -> Result<Vec<Genre>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, source, source_key
+            FROM genres
+            ORDER BY name ASC, id ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_genre).collect()
+    }
+
+    async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()> {
+        sqlx::query("INSERT OR IGNORE INTO item_genres (item_id, genre_id) VALUES (?1, ?2)")
+            .bind(item_genre.item_id.to_string())
+            .bind(item_genre.genre_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_item_genres(&self, item_id: MediaItemId) -> Result<Vec<ItemGenre>> {
+        let rows = sqlx::query(
+            "SELECT item_id, genre_id FROM item_genres WHERE item_id = ?1 ORDER BY genre_id ASC",
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_item_genre).collect()
+    }
+
+    async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
+        let (source, source_key) = metadata_source_to_parts(&tag.source);
+        sqlx::query(
+            r#"
+            INSERT INTO tags (id, name, source, source_key)
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                source = excluded.source,
+                source_key = excluded.source_key,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(tag.id.to_string())
+        .bind(&tag.name)
+        .bind(source)
+        .bind(source_key)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_tag(&self, id: TagId) -> Result<Option<Tag>> {
+        let row = sqlx::query("SELECT id, name, source, source_key FROM tags WHERE id = ?1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_tag).transpose()
+    }
+
+    async fn list_tags(&self, page: PageRequest) -> Result<Vec<Tag>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, source, source_key
+            FROM tags
+            ORDER BY name ASC, id ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_tag).collect()
+    }
+
+    async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()> {
+        sqlx::query("INSERT OR IGNORE INTO item_tags (item_id, tag_id) VALUES (?1, ?2)")
+            .bind(item_tag.item_id.to_string())
+            .bind(item_tag.tag_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_item_tags(&self, item_id: MediaItemId) -> Result<Vec<ItemTag>> {
+        let rows = sqlx::query(
+            "SELECT item_id, tag_id FROM item_tags WHERE item_id = ?1 ORDER BY tag_id ASC",
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_item_tag).collect()
+    }
+
+    async fn upsert_collection(&self, collection: &Collection) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let (source, source_key) = metadata_source_to_parts(&collection.source);
+
+        sqlx::query(
+            r#"
+            INSERT INTO collections (id, name, overview, source, source_key)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                overview = excluded.overview,
+                source = excluded.source,
+                source_key = excluded.source_key,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(collection.id.to_string())
+        .bind(&collection.name)
+        .bind(&collection.overview)
+        .bind(source)
+        .bind(source_key)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM collection_external_ids WHERE collection_id = ?1")
+            .bind(collection.id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        insert_external_ids(
+            &mut transaction,
+            "collection_external_ids",
+            "collection_id",
+            collection.id,
+            &collection.external_ids,
+        )
+        .await?;
+
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn get_collection(&self, id: CollectionId) -> Result<Option<Collection>> {
+        let row = sqlx::query(
+            "SELECT id, name, overview, source, source_key FROM collections WHERE id = ?1",
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let external_ids = self
+            .list_entity_external_ids("collection_external_ids", "collection_id", id)
+            .await?;
+        row_to_collection(row, external_ids).map(Some)
+    }
+
+    async fn list_collections(&self, page: PageRequest) -> Result<Vec<Collection>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, overview, source, source_key
+            FROM collections
+            ORDER BY name ASC, id ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut collections = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id: CollectionId = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self
+                .list_entity_external_ids("collection_external_ids", "collection_id", id)
+                .await?;
+            collections.push(row_to_collection(row, external_ids)?);
+        }
+
+        Ok(collections)
+    }
+
+    async fn upsert_collection_item(&self, item: &CollectionItem) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO collection_items (collection_id, item_id, sort_order)
+            VALUES (?1, ?2, ?3)
+            ON CONFLICT(collection_id, item_id) DO UPDATE SET
+                sort_order = excluded.sort_order
+            "#,
+        )
+        .bind(item.collection_id.to_string())
+        .bind(item.item_id.to_string())
+        .bind(optional_u32_to_i64(item.sort_order))
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_collection_items(
+        &self,
+        collection_id: CollectionId,
+    ) -> Result<Vec<CollectionItem>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT collection_id, item_id, sort_order
+            FROM collection_items
+            WHERE collection_id = ?1
+            ORDER BY COALESCE(sort_order, 2147483647), item_id ASC
+            "#,
+        )
+        .bind(collection_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_collection_item).collect()
+    }
+
+    async fn upsert_studio(&self, studio: &Studio) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let (source, source_key) = metadata_source_to_parts(&studio.source);
+
+        sqlx::query(
+            r#"
+            INSERT INTO studios (id, name, source, source_key)
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                source = excluded.source,
+                source_key = excluded.source_key,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(studio.id.to_string())
+        .bind(&studio.name)
+        .bind(source)
+        .bind(source_key)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM studio_external_ids WHERE studio_id = ?1")
+            .bind(studio.id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        insert_external_ids(
+            &mut transaction,
+            "studio_external_ids",
+            "studio_id",
+            studio.id,
+            &studio.external_ids,
+        )
+        .await?;
+
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn get_studio(&self, id: StudioId) -> Result<Option<Studio>> {
+        let row = sqlx::query("SELECT id, name, source, source_key FROM studios WHERE id = ?1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let external_ids = self
+            .list_entity_external_ids("studio_external_ids", "studio_id", id)
+            .await?;
+        row_to_studio(row, external_ids).map(Some)
+    }
+
+    async fn list_studios(&self, page: PageRequest) -> Result<Vec<Studio>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, source, source_key
+            FROM studios
+            ORDER BY name ASC, id ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut studios = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id: StudioId = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self
+                .list_entity_external_ids("studio_external_ids", "studio_id", id)
+                .await?;
+            studios.push(row_to_studio(row, external_ids)?);
+        }
+
+        Ok(studios)
+    }
+
+    async fn upsert_item_studio(&self, item_studio: &ItemStudio) -> Result<()> {
+        sqlx::query("INSERT OR IGNORE INTO item_studios (item_id, studio_id) VALUES (?1, ?2)")
+            .bind(item_studio.item_id.to_string())
+            .bind(item_studio.studio_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_item_studios(&self, item_id: MediaItemId) -> Result<Vec<ItemStudio>> {
+        let rows = sqlx::query(
+            "SELECT item_id, studio_id FROM item_studios WHERE item_id = ?1 ORDER BY studio_id ASC",
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_item_studio).collect()
+    }
+
+    async fn upsert_image_asset(&self, image: &ImageAsset) -> Result<()> {
+        let (owner_kind, owner_id) = image_owner_to_parts(&image.owner);
+        let (kind, kind_key) = image_kind_to_parts(&image.kind);
+        let (provider, provider_key) = provider_to_parts(&image.provider);
+
+        sqlx::query(
+            r#"
+            INSERT INTO image_assets (
+                id, owner_kind, owner_id, kind, kind_key, source_uri, provider,
+                provider_key, cache_uri, width, height, language, selected,
+                content_hash, etag
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+            ON CONFLICT(id) DO UPDATE SET
+                owner_kind = excluded.owner_kind,
+                owner_id = excluded.owner_id,
+                kind = excluded.kind,
+                kind_key = excluded.kind_key,
+                source_uri = excluded.source_uri,
+                provider = excluded.provider,
+                provider_key = excluded.provider_key,
+                cache_uri = excluded.cache_uri,
+                width = excluded.width,
+                height = excluded.height,
+                language = excluded.language,
+                selected = excluded.selected,
+                content_hash = excluded.content_hash,
+                etag = excluded.etag,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(image.id.to_string())
+        .bind(owner_kind)
+        .bind(owner_id)
+        .bind(kind)
+        .bind(kind_key)
+        .bind(&image.source_uri)
+        .bind(provider)
+        .bind(provider_key)
+        .bind(&image.cache_uri)
+        .bind(optional_u32_to_i64(image.width))
+        .bind(optional_u32_to_i64(image.height))
+        .bind(&image.language)
+        .bind(bool_to_i64(image.selected))
+        .bind(&image.content_hash)
+        .bind(&image.etag)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_image_asset(&self, id: ImageAssetId) -> Result<Option<ImageAsset>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id, owner_kind, owner_id, kind, kind_key, source_uri, provider,
+                provider_key, cache_uri, width, height, language, selected,
+                content_hash, etag
+            FROM image_assets
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_image_asset).transpose()
+    }
+
+    async fn list_item_images(&self, item_id: MediaItemId) -> Result<Vec<ImageAsset>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id, owner_kind, owner_id, kind, kind_key, source_uri, provider,
+                provider_key, cache_uri, width, height, language, selected,
+                content_hash, etag
+            FROM image_assets
+            WHERE owner_kind = 'item' AND owner_id = ?1
+            ORDER BY selected DESC, kind ASC, id ASC
+            "#,
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_image_asset).collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl ScanRepository for SqliteStore {
+    async fn begin_scan_snapshot(
+        &self,
+        id: ScanSnapshotId,
+        library_id: LibraryId,
+        root: &str,
+    ) -> Result<ScanSnapshot> {
+        sqlx::query(
+            r#"
+            INSERT INTO scan_snapshots (id, library_id, root, status)
+            VALUES (?1, ?2, ?3, ?4)
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(library_id.to_string())
+        .bind(root)
+        .bind(ScanStatus::Running.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_scan_snapshot(id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "scan_snapshot",
+                id: id.to_string(),
+            })
+    }
+
+    async fn complete_scan_snapshot(
+        &self,
+        id: ScanSnapshotId,
+        status: ScanStatus,
+        error: Option<String>,
+    ) -> Result<ScanSnapshot> {
+        sqlx::query(
+            r#"
+            UPDATE scan_snapshots
+            SET
+                status = ?2,
+                error = ?3,
+                completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(status.as_str())
+        .bind(error)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_scan_snapshot(id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "scan_snapshot",
+                id: id.to_string(),
+            })
+    }
+
+    async fn get_scan_snapshot(&self, id: ScanSnapshotId) -> Result<Option<ScanSnapshot>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, library_id, root, started_at, completed_at, status, error
+            FROM scan_snapshots
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_scan_snapshot).transpose()
+    }
+
+    async fn upsert_directory_snapshot(&self, snapshot: &DirectorySnapshot) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO directory_snapshots (
+                scan_id, uri, etag, modified_at, child_count
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(scan_id, uri) DO UPDATE SET
+                etag = excluded.etag,
+                modified_at = excluded.modified_at,
+                child_count = excluded.child_count
+            "#,
+        )
+        .bind(snapshot.scan_id.to_string())
+        .bind(&snapshot.uri)
+        .bind(&snapshot.etag)
+        .bind(&snapshot.modified_at)
+        .bind(u64_to_i64(snapshot.child_count)?)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_directory_snapshots(
+        &self,
+        scan_id: ScanSnapshotId,
+    ) -> Result<Vec<DirectorySnapshot>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT scan_id, uri, etag, modified_at, child_count
+            FROM directory_snapshots
+            WHERE scan_id = ?1
+            ORDER BY uri ASC
+            "#,
+        )
+        .bind(scan_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_directory_snapshot).collect()
+    }
+
+    async fn upsert_source_state(&self, state: &SourceState) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO source_states (
+                library_id, source_id, uri, size_bytes, modified_at, etag,
+                fingerprint, last_seen_scan_id, tombstoned
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            ON CONFLICT(library_id, uri) DO UPDATE SET
+                source_id = excluded.source_id,
+                size_bytes = excluded.size_bytes,
+                modified_at = excluded.modified_at,
+                etag = excluded.etag,
+                fingerprint = excluded.fingerprint,
+                last_seen_scan_id = excluded.last_seen_scan_id,
+                tombstoned = excluded.tombstoned,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(state.library_id.to_string())
+        .bind(state.source_id.map(|id| id.to_string()))
+        .bind(&state.uri)
+        .bind(optional_u64_to_i64(state.size_bytes)?)
+        .bind(&state.modified_at)
+        .bind(&state.etag)
+        .bind(&state.fingerprint)
+        .bind(state.last_seen_scan_id.to_string())
+        .bind(bool_to_i64(state.tombstoned))
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_source_state(
+        &self,
+        library_id: LibraryId,
+        uri: &str,
+    ) -> Result<Option<SourceState>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                library_id, source_id, uri, size_bytes, modified_at, etag,
+                fingerprint, last_seen_scan_id, tombstoned
+            FROM source_states
+            WHERE library_id = ?1 AND uri = ?2
+            "#,
+        )
+        .bind(library_id.to_string())
+        .bind(uri)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_source_state).transpose()
+    }
+
+    async fn list_source_states(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceState>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                library_id, source_id, uri, size_bytes, modified_at, etag,
+                fingerprint, last_seen_scan_id, tombstoned
+            FROM source_states
+            WHERE library_id = ?1
+            ORDER BY uri ASC
+            LIMIT ?2 OFFSET ?3
+            "#,
+        )
+        .bind(library_id.to_string())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_source_state).collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl ArtworkTaskRepository for SqliteStore {
+    async fn enqueue_artwork_task(&self, task: &ArtworkTask) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO artwork_tasks (
+                id, image_id, kind, status, resource_class, attempts,
+                max_attempts, error
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ON CONFLICT(id) DO UPDATE SET
+                image_id = excluded.image_id,
+                kind = excluded.kind,
+                status = excluded.status,
+                resource_class = excluded.resource_class,
+                attempts = excluded.attempts,
+                max_attempts = excluded.max_attempts,
+                error = excluded.error,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(task.id.to_string())
+        .bind(task.image_id.to_string())
+        .bind(task.kind.as_str())
+        .bind(task.status.as_str())
+        .bind(&task.resource_class)
+        .bind(u32_to_i64(task.attempts))
+        .bind(u32_to_i64(task.max_attempts))
+        .bind(&task.error)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_artwork_task(&self, id: ArtworkTaskId) -> Result<Option<ArtworkTask>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id, image_id, kind, status, resource_class, attempts,
+                max_attempts, error
+            FROM artwork_tasks
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_artwork_task).transpose()
+    }
+
+    async fn list_artwork_tasks(&self, page: PageRequest) -> Result<Vec<ArtworkTask>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id, image_id, kind, status, resource_class, attempts,
+                max_attempts, error
+            FROM artwork_tasks
+            ORDER BY id ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_artwork_task).collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl SearchIndex for SqliteStore {
+    async fn upsert(&self, document: SearchDocument) -> Result<()> {
+        let facets_json = serde_json::to_string(&document.facets).map_err(database_error)?;
+        let facets_text = document.facets.join(" ");
+
+        sqlx::query(
+            r#"
+            INSERT INTO search_documents (
+                item_id, title, body, facets_json, facets_text
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(item_id) DO UPDATE SET
+                title = excluded.title,
+                body = excluded.body,
+                facets_json = excluded.facets_json,
+                facets_text = excluded.facets_text,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(document.item_id.to_string())
+        .bind(document.title)
+        .bind(document.body)
+        .bind(facets_json)
+        .bind(facets_text)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn delete(&self, item_id: MediaItemId) -> Result<()> {
+        sqlx::query("DELETE FROM search_documents WHERE item_id = ?1")
+            .bind(item_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn search(&self, query: SearchQuery) -> Result<Vec<SearchHit>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT item_id, title, body, facets_json, facets_text
+            FROM search_documents
+            ORDER BY title ASC, item_id ASC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let needle = query.query.trim().to_lowercase();
+        let required_facets = query
+            .facets
+            .iter()
+            .map(|facet| facet.to_lowercase())
+            .collect::<Vec<_>>();
+        let offset = query.offset as usize;
+        let limit = if query.limit == 0 {
+            PageRequest::DEFAULT_LIMIT as usize
+        } else {
+            query.limit.min(PageRequest::MAX_LIMIT) as usize
+        };
+
+        let mut hits = Vec::new();
+
+        for row in rows {
+            let title: String = row_get(&row, "title")?;
+            let body: String = row_get(&row, "body")?;
+            let facets_text: String = row_get(&row, "facets_text")?;
+            let haystack = format!("{title} {body} {facets_text}").to_lowercase();
+
+            if !needle.is_empty() && !haystack.contains(&needle) {
+                continue;
+            }
+
+            let facet_haystack = facets_text.to_lowercase();
+            if required_facets
+                .iter()
+                .any(|facet| !facet_haystack.contains(facet))
+            {
+                continue;
+            }
+
+            let score = if !needle.is_empty() && title.to_lowercase().contains(&needle) {
+                1.0
+            } else if !needle.is_empty() && body.to_lowercase().contains(&needle) {
+                0.7
+            } else {
+                0.5
+            };
+
+            hits.push(SearchHit {
+                item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+                score,
+            });
+        }
+
+        hits.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left.item_id.cmp(&right.item_id))
+        });
+
+        Ok(hits.into_iter().skip(offset).take(limit).collect())
+    }
+}
+
 impl SqliteStore {
     async fn get_job_or_not_found(&self, id: JobId) -> Result<Job> {
         self.get_job(id).await?.ok_or_else(|| TaruError::NotFound {
@@ -835,6 +1870,66 @@ impl SqliteStore {
             })
             .collect()
     }
+
+    async fn list_entity_external_ids<T>(
+        &self,
+        table: &str,
+        owner_column: &str,
+        owner_id: T,
+    ) -> Result<Vec<ExternalId>>
+    where
+        T: Display,
+    {
+        let query = format!(
+            "SELECT provider, provider_key, value FROM {table} WHERE {owner_column} = ?1 ORDER BY provider ASC, provider_key ASC, value ASC"
+        );
+        let rows = sqlx::query(&query)
+            .bind(owner_id.to_string())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(ExternalId {
+                    provider: provider_from_parts(
+                        row_get(&row, "provider")?,
+                        row_get(&row, "provider_key")?,
+                    ),
+                    value: row_get(&row, "value")?,
+                })
+            })
+            .collect()
+    }
+}
+
+async fn insert_external_ids<T>(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    table: &str,
+    owner_column: &str,
+    owner_id: T,
+    external_ids: &[ExternalId],
+) -> Result<()>
+where
+    T: Display + Copy,
+{
+    let query = format!(
+        "INSERT INTO {table} ({owner_column}, provider, provider_key, value) VALUES (?1, ?2, ?3, ?4)"
+    );
+
+    for external_id in external_ids {
+        let (provider, provider_key) = provider_to_parts(&external_id.provider);
+        sqlx::query(&query)
+            .bind(owner_id.to_string())
+            .bind(provider)
+            .bind(provider_key)
+            .bind(&external_id.value)
+            .execute(&mut **transaction)
+            .await
+            .map_err(database_error)?;
+    }
+
+    Ok(())
 }
 
 fn media_kind_to_str(kind: MediaKind) -> &'static str {
@@ -932,6 +2027,73 @@ fn stream_kind_from_parts(kind: String, kind_key: String) -> MediaStreamKind {
         "attachment" => MediaStreamKind::Attachment,
         "other" => MediaStreamKind::Other(kind_key),
         _ => MediaStreamKind::Other(kind),
+    }
+}
+
+fn credit_role_to_parts(role: &CreditRole) -> (String, String) {
+    match role {
+        CreditRole::Actor => ("actor".to_owned(), String::new()),
+        CreditRole::Director => ("director".to_owned(), String::new()),
+        CreditRole::Writer => ("writer".to_owned(), String::new()),
+        CreditRole::Producer => ("producer".to_owned(), String::new()),
+        CreditRole::Creator => ("creator".to_owned(), String::new()),
+        CreditRole::Other(value) => ("other".to_owned(), value.clone()),
+    }
+}
+
+fn credit_role_from_parts(role: String, role_key: String) -> CreditRole {
+    match role.as_str() {
+        "actor" => CreditRole::Actor,
+        "director" => CreditRole::Director,
+        "writer" => CreditRole::Writer,
+        "producer" => CreditRole::Producer,
+        "creator" => CreditRole::Creator,
+        "other" => CreditRole::Other(role_key),
+        _ => CreditRole::Other(role),
+    }
+}
+
+fn image_kind_to_parts(kind: &ImageKind) -> (String, String) {
+    match kind {
+        ImageKind::Poster => ("poster".to_owned(), String::new()),
+        ImageKind::Backdrop => ("backdrop".to_owned(), String::new()),
+        ImageKind::Logo => ("logo".to_owned(), String::new()),
+        ImageKind::Thumbnail => ("thumbnail".to_owned(), String::new()),
+        ImageKind::Banner => ("banner".to_owned(), String::new()),
+        ImageKind::Other(value) => ("other".to_owned(), value.clone()),
+    }
+}
+
+fn image_kind_from_parts(kind: String, kind_key: String) -> ImageKind {
+    match kind.as_str() {
+        "poster" => ImageKind::Poster,
+        "backdrop" => ImageKind::Backdrop,
+        "logo" => ImageKind::Logo,
+        "thumbnail" => ImageKind::Thumbnail,
+        "banner" => ImageKind::Banner,
+        "other" => ImageKind::Other(kind_key),
+        _ => ImageKind::Other(kind),
+    }
+}
+
+fn image_owner_to_parts(owner: &ImageOwner) -> (String, String) {
+    match owner {
+        ImageOwner::Item(id) => ("item".to_owned(), id.to_string()),
+        ImageOwner::Person(id) => ("person".to_owned(), id.to_string()),
+        ImageOwner::Collection(id) => ("collection".to_owned(), id.to_string()),
+        ImageOwner::Studio(id) => ("studio".to_owned(), id.to_string()),
+    }
+}
+
+fn image_owner_from_parts(owner_kind: String, owner_id: String) -> Result<ImageOwner> {
+    match owner_kind.as_str() {
+        "item" => Ok(ImageOwner::Item(parse_id(owner_id)?)),
+        "person" => Ok(ImageOwner::Person(parse_id(owner_id)?)),
+        "collection" => Ok(ImageOwner::Collection(parse_id(owner_id)?)),
+        "studio" => Ok(ImageOwner::Studio(parse_id(owner_id)?)),
+        _ => Err(TaruError::Database {
+            message: format!("unknown image owner kind stored in database: {owner_kind}"),
+        }),
     }
 }
 
@@ -1131,6 +2293,158 @@ fn row_to_provider_raw_response(row: SqliteRow) -> Result<ProviderRawResponse> {
     })
 }
 
+fn row_to_person(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<Person> {
+    Ok(Person {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        sort_name: row_get(&row, "sort_name")?,
+        overview: row_get(&row, "overview")?,
+        external_ids,
+    })
+}
+
+fn row_to_item_credit(row: SqliteRow) -> Result<ItemCredit> {
+    let character = row_get::<String>(&row, "character")?;
+
+    Ok(ItemCredit {
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        person_id: parse_id(row_get::<String>(&row, "person_id")?)?,
+        role: credit_role_from_parts(row_get(&row, "role")?, row_get(&row, "role_key")?),
+        character: (!character.is_empty()).then_some(character),
+        sort_order: optional_i64_to_u32(row_get(&row, "sort_order")?)?,
+    })
+}
+
+fn row_to_genre(row: SqliteRow) -> Result<Genre> {
+    Ok(Genre {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        source: metadata_source_from_parts(row_get(&row, "source")?, row_get(&row, "source_key")?),
+    })
+}
+
+fn row_to_item_genre(row: SqliteRow) -> Result<ItemGenre> {
+    Ok(ItemGenre {
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        genre_id: parse_id(row_get::<String>(&row, "genre_id")?)?,
+    })
+}
+
+fn row_to_tag(row: SqliteRow) -> Result<Tag> {
+    Ok(Tag {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        source: metadata_source_from_parts(row_get(&row, "source")?, row_get(&row, "source_key")?),
+    })
+}
+
+fn row_to_item_tag(row: SqliteRow) -> Result<ItemTag> {
+    Ok(ItemTag {
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        tag_id: parse_id(row_get::<String>(&row, "tag_id")?)?,
+    })
+}
+
+fn row_to_collection(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<Collection> {
+    Ok(Collection {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        overview: row_get(&row, "overview")?,
+        source: metadata_source_from_parts(row_get(&row, "source")?, row_get(&row, "source_key")?),
+        external_ids,
+    })
+}
+
+fn row_to_collection_item(row: SqliteRow) -> Result<CollectionItem> {
+    Ok(CollectionItem {
+        collection_id: parse_id(row_get::<String>(&row, "collection_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        sort_order: optional_i64_to_u32(row_get(&row, "sort_order")?)?,
+    })
+}
+
+fn row_to_studio(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<Studio> {
+    Ok(Studio {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        source: metadata_source_from_parts(row_get(&row, "source")?, row_get(&row, "source_key")?),
+        external_ids,
+    })
+}
+
+fn row_to_item_studio(row: SqliteRow) -> Result<ItemStudio> {
+    Ok(ItemStudio {
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        studio_id: parse_id(row_get::<String>(&row, "studio_id")?)?,
+    })
+}
+
+fn row_to_image_asset(row: SqliteRow) -> Result<ImageAsset> {
+    Ok(ImageAsset {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        owner: image_owner_from_parts(row_get(&row, "owner_kind")?, row_get(&row, "owner_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        source_uri: row_get(&row, "source_uri")?,
+        provider: provider_from_parts(row_get(&row, "provider")?, row_get(&row, "provider_key")?),
+        cache_uri: row_get(&row, "cache_uri")?,
+        width: optional_i64_to_u32(row_get(&row, "width")?)?,
+        height: optional_i64_to_u32(row_get(&row, "height")?)?,
+        language: row_get(&row, "language")?,
+        selected: i64_to_bool(row_get(&row, "selected")?)?,
+        content_hash: row_get(&row, "content_hash")?,
+        etag: row_get(&row, "etag")?,
+    })
+}
+
+fn row_to_scan_snapshot(row: SqliteRow) -> Result<ScanSnapshot> {
+    Ok(ScanSnapshot {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        root: row_get(&row, "root")?,
+        started_at: row_get(&row, "started_at")?,
+        completed_at: row_get(&row, "completed_at")?,
+        status: ScanStatus::parse(&row_get::<String>(&row, "status")?)?,
+        error: row_get(&row, "error")?,
+    })
+}
+
+fn row_to_directory_snapshot(row: SqliteRow) -> Result<DirectorySnapshot> {
+    Ok(DirectorySnapshot {
+        scan_id: parse_id(row_get::<String>(&row, "scan_id")?)?,
+        uri: row_get(&row, "uri")?,
+        etag: row_get(&row, "etag")?,
+        modified_at: row_get(&row, "modified_at")?,
+        child_count: optional_i64_to_u64(Some(row_get(&row, "child_count")?))?.unwrap_or_default(),
+    })
+}
+
+fn row_to_source_state(row: SqliteRow) -> Result<SourceState> {
+    Ok(SourceState {
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
+        uri: row_get(&row, "uri")?,
+        size_bytes: optional_i64_to_u64(row_get(&row, "size_bytes")?)?,
+        modified_at: row_get(&row, "modified_at")?,
+        etag: row_get(&row, "etag")?,
+        fingerprint: row_get(&row, "fingerprint")?,
+        last_seen_scan_id: parse_id(row_get::<String>(&row, "last_seen_scan_id")?)?,
+        tombstoned: i64_to_bool(row_get(&row, "tombstoned")?)?,
+    })
+}
+
+fn row_to_artwork_task(row: SqliteRow) -> Result<ArtworkTask> {
+    Ok(ArtworkTask {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        image_id: parse_id(row_get::<String>(&row, "image_id")?)?,
+        kind: ArtworkTaskKind::parse(&row_get::<String>(&row, "kind")?)?,
+        status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
+        resource_class: row_get(&row, "resource_class")?,
+        attempts: i64_to_u32(row_get(&row, "attempts")?)?,
+        max_attempts: i64_to_u32(row_get(&row, "max_attempts")?)?,
+        error: row_get(&row, "error")?,
+    })
+}
+
 fn serialize_metadata_json(metadata: &CanonicalMetadata) -> Result<String> {
     serde_json::to_string(metadata).map_err(database_error)
 }
@@ -1179,8 +2493,8 @@ fn database_error(error: impl Display) -> TaruError {
 #[cfg(test)]
 mod tests {
     use taru_core::{
-        ContentRating, Credit, CreditRole, ImageKind, ImageRef, LibraryOptions, LibraryPreset,
-        MediaSourceId, MetadataRefreshMode,
+        ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions,
+        LibraryPreset, MediaSourceId, MetadataRefreshMode,
     };
 
     use super::*;
@@ -1450,6 +2764,305 @@ mod tests {
             store.get_media_probe(source.id).await.unwrap(),
             Some(result)
         );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_catalog_graph_records() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Graph Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let person = Person {
+            id: PersonId::new(),
+            name: "Keanu Reeves".to_owned(),
+            sort_name: Some("Reeves, Keanu".to_owned()),
+            overview: Some("Actor".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "6384".to_owned(),
+            }],
+        };
+        let credit = ItemCredit {
+            item_id: item.id,
+            person_id: person.id,
+            role: CreditRole::Actor,
+            character: Some("Neo".to_owned()),
+            sort_order: Some(0),
+        };
+        let genre = Genre {
+            id: GenreId::new(),
+            name: "Science Fiction".to_owned(),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+        };
+        let tag = Tag {
+            id: TagId::new(),
+            name: "Watchlist".to_owned(),
+            source: MetadataSource::User,
+        };
+        let collection = Collection {
+            id: CollectionId::new(),
+            name: "Matrix Collection".to_owned(),
+            overview: Some("Franchise".to_owned()),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "2344".to_owned(),
+            }],
+        };
+        let studio = Studio {
+            id: StudioId::new(),
+            name: "Warner Bros.".to_owned(),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "174".to_owned(),
+            }],
+        };
+        let image = ImageAsset {
+            id: ImageAssetId::new(),
+            owner: ImageOwner::Item(item.id),
+            kind: ImageKind::Poster,
+            source_uri: "https://image.example/poster.jpg".to_owned(),
+            provider: ExternalProvider::Tmdb,
+            cache_uri: Some("local:///cache/poster.webp".to_owned()),
+            width: Some(1000),
+            height: Some(1500),
+            language: Some("en".to_owned()),
+            selected: true,
+            content_hash: Some("hash".to_owned()),
+            etag: Some("etag".to_owned()),
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store.upsert_person(&person).await.unwrap();
+        store.upsert_item_credit(&credit).await.unwrap();
+        store.upsert_genre(&genre).await.unwrap();
+        store
+            .upsert_item_genre(&ItemGenre {
+                item_id: item.id,
+                genre_id: genre.id,
+            })
+            .await
+            .unwrap();
+        store.upsert_tag(&tag).await.unwrap();
+        store
+            .upsert_item_tag(&ItemTag {
+                item_id: item.id,
+                tag_id: tag.id,
+            })
+            .await
+            .unwrap();
+        store.upsert_collection(&collection).await.unwrap();
+        store
+            .upsert_collection_item(&CollectionItem {
+                collection_id: collection.id,
+                item_id: item.id,
+                sort_order: Some(1),
+            })
+            .await
+            .unwrap();
+        store.upsert_studio(&studio).await.unwrap();
+        store
+            .upsert_item_studio(&ItemStudio {
+                item_id: item.id,
+                studio_id: studio.id,
+            })
+            .await
+            .unwrap();
+        store.upsert_image_asset(&image).await.unwrap();
+
+        assert_eq!(store.get_person(person.id).await.unwrap(), Some(person));
+        assert_eq!(
+            store.list_item_credits(item.id).await.unwrap(),
+            vec![credit]
+        );
+        assert_eq!(store.get_genre(genre.id).await.unwrap(), Some(genre));
+        assert_eq!(store.list_item_genres(item.id).await.unwrap().len(), 1);
+        assert_eq!(store.get_tag(tag.id).await.unwrap(), Some(tag));
+        assert_eq!(store.list_item_tags(item.id).await.unwrap().len(), 1);
+        assert_eq!(
+            store.get_collection(collection.id).await.unwrap(),
+            Some(collection.clone())
+        );
+        assert_eq!(
+            store.list_collection_items(collection.id).await.unwrap(),
+            vec![CollectionItem {
+                collection_id: collection.id,
+                item_id: item.id,
+                sort_order: Some(1)
+            }]
+        );
+        assert_eq!(store.get_studio(studio.id).await.unwrap(), Some(studio));
+        assert_eq!(store.list_item_studios(item.id).await.unwrap().len(), 1);
+        assert_eq!(store.get_image_asset(image.id).await.unwrap(), Some(image));
+        assert_eq!(store.list_item_images(item.id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_scan_state_search_and_artwork_tasks() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Searchable Demo".to_owned(),
+                overview: Some("A searchable graph fixture.".to_owned()),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///Movies/Searchable Demo.mkv".to_owned(),
+            file_name: "Searchable Demo.mkv".to_owned(),
+            size_bytes: Some(10),
+            fingerprint: Some("fingerprint".to_owned()),
+        };
+        let scan_id = ScanSnapshotId::new();
+        let image = ImageAsset {
+            id: ImageAssetId::new(),
+            owner: ImageOwner::Item(item.id),
+            kind: ImageKind::Thumbnail,
+            source_uri: "local:///Movies/Searchable Demo.mkv#preview=10".to_owned(),
+            provider: ExternalProvider::Local,
+            cache_uri: None,
+            width: Some(320),
+            height: Some(180),
+            language: None,
+            selected: false,
+            content_hash: None,
+            etag: None,
+        };
+        let task = ArtworkTask {
+            id: ArtworkTaskId::new(),
+            image_id: image.id,
+            kind: ArtworkTaskKind::Preview,
+            status: JobStatus::Queued,
+            resource_class: ArtworkTaskKind::Preview.resource_class().to_owned(),
+            attempts: 0,
+            max_attempts: 3,
+            error: None,
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library.id, &source)
+            .await
+            .unwrap();
+        let running = store
+            .begin_scan_snapshot(scan_id, library.id, "local:///Movies")
+            .await
+            .unwrap();
+        store
+            .upsert_directory_snapshot(&DirectorySnapshot {
+                scan_id,
+                uri: "local:///Movies".to_owned(),
+                etag: Some("dir-etag".to_owned()),
+                modified_at: Some("1".to_owned()),
+                child_count: 1,
+            })
+            .await
+            .unwrap();
+        store
+            .upsert_source_state(&SourceState {
+                library_id: library.id,
+                source_id: Some(source.id),
+                uri: source.locator.clone(),
+                size_bytes: source.size_bytes,
+                modified_at: Some("1".to_owned()),
+                etag: None,
+                fingerprint: source.fingerprint.clone(),
+                last_seen_scan_id: scan_id,
+                tombstoned: false,
+            })
+            .await
+            .unwrap();
+        let completed = store
+            .complete_scan_snapshot(scan_id, ScanStatus::Succeeded, None)
+            .await
+            .unwrap();
+        let failed_scan_id = ScanSnapshotId::new();
+        store
+            .begin_scan_snapshot(failed_scan_id, library.id, "local:///Broken")
+            .await
+            .unwrap();
+        let failed = store
+            .complete_scan_snapshot(
+                failed_scan_id,
+                ScanStatus::Failed,
+                Some("scan failed".to_owned()),
+            )
+            .await
+            .unwrap();
+        store
+            .upsert(SearchDocument {
+                item_id: item.id,
+                title: item.metadata.title.clone(),
+                body: item.metadata.overview.clone().unwrap(),
+                facets: vec!["genre:sci-fi".to_owned()],
+            })
+            .await
+            .unwrap();
+        store.upsert_image_asset(&image).await.unwrap();
+        store.enqueue_artwork_task(&task).await.unwrap();
+
+        assert_eq!(running.status, ScanStatus::Running);
+        assert_eq!(completed.status, ScanStatus::Succeeded);
+        assert!(completed.completed_at.is_some());
+        assert_eq!(failed.status, ScanStatus::Failed);
+        assert_eq!(failed.error, Some("scan failed".to_owned()));
+        assert_eq!(
+            store.list_directory_snapshots(scan_id).await.unwrap().len(),
+            1
+        );
+        assert_eq!(
+            store
+                .get_source_state(library.id, &source.locator)
+                .await
+                .unwrap()
+                .unwrap()
+                .fingerprint,
+            Some("fingerprint".to_owned())
+        );
+        assert_eq!(
+            store
+                .search(SearchQuery {
+                    query: "searchable".to_owned(),
+                    facets: Vec::new(),
+                    limit: 10,
+                    offset: 0,
+                })
+                .await
+                .unwrap()[0]
+                .item_id,
+            item.id
+        );
+        assert_eq!(store.get_artwork_task(task.id).await.unwrap(), Some(task));
     }
 
     #[tokio::test]

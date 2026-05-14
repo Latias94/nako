@@ -21,6 +21,7 @@ pub fn build_router(app: TaruApp) -> Router {
         .route("/libraries/{library_id}/nfo/export", post(export_nfo))
         .route("/libraries/{library_id}/sources", get(list_library_sources))
         .route("/items", get(list_items))
+        .route("/search", get(search_items))
         .route(
             "/items/{item_id}/metadata/refresh",
             post(refresh_item_metadata),
@@ -96,6 +97,25 @@ async fn list_items(
 }
 
 #[instrument(skip(app))]
+async fn search_items(
+    State(app): State<TaruApp>,
+    Query(query): Query<SearchPageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page = query.page.try_into()?;
+    let facets = query
+        .facet
+        .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
+        .filter(|facet| !facet.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    Ok(Json(app.search_items(query.q, facets, page).await?))
+}
+
+#[instrument(skip(app))]
 async fn refresh_item_metadata(
     State(app): State<TaruApp>,
     Path(item_id): Path<MediaItemId>,
@@ -127,6 +147,15 @@ type ApiResult<T> = std::result::Result<T, ApiError>;
 struct PageQuery {
     limit: Option<u32>,
     offset: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct SearchPageQuery {
+    #[serde(default)]
+    q: String,
+    facet: Option<String>,
+    #[serde(flatten)]
+    page: PageQuery,
 }
 
 impl TryFrom<PageQuery> for PageRequest {
@@ -227,6 +256,7 @@ mod tests {
         MediaRepository, MediaSourceId,
     };
     use taru_db::SqliteStore;
+    use taru_search::{SearchDocument, SearchIndex};
     use tower::ServiceExt;
 
     use super::*;
@@ -450,6 +480,61 @@ mod tests {
         assert!(sources.sources.is_empty());
         assert_eq!(items.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
         assert!(items.items.is_empty());
+    }
+
+    #[tokio::test]
+    async fn search_route_returns_indexed_items() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Search Route Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert(SearchDocument {
+                item_id: item.id,
+                title: item.metadata.title.clone(),
+                body: "A route test fixture".to_owned(),
+                facets: vec!["genre:test".to_owned()],
+            })
+            .await
+            .unwrap();
+        let router = build_router(app);
+
+        let result = request_json::<taru_api::SearchResponse>(
+            &router,
+            Method::GET,
+            "/search?q=route&facet=genre:test",
+        )
+        .await;
+
+        assert_eq!(result.page.returned, 1);
+        assert_eq!(result.hits[0].item.id, item.id);
     }
 
     #[tokio::test]

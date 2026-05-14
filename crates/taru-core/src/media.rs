@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{LibraryId, MediaItemId, MediaSourceId};
+use crate::{
+    ArtworkTaskId, CollectionId, GenreId, ImageAssetId, JobStatus, LibraryId, MediaItemId,
+    MediaSourceId, PersonId, ScanSnapshotId, StudioId, TagId,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Library {
@@ -440,6 +443,256 @@ pub struct MediaSource {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Person {
+    pub id: PersonId,
+    pub name: String,
+    pub sort_name: Option<String>,
+    pub overview: Option<String>,
+    pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemCredit {
+    pub item_id: MediaItemId,
+    pub person_id: PersonId,
+    pub role: CreditRole,
+    pub character: Option<String>,
+    pub sort_order: Option<u32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Genre {
+    pub id: GenreId,
+    pub name: String,
+    pub source: MetadataSource,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemGenre {
+    pub item_id: MediaItemId,
+    pub genre_id: GenreId,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Tag {
+    pub id: TagId,
+    pub name: String,
+    pub source: MetadataSource,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemTag {
+    pub item_id: MediaItemId,
+    pub tag_id: TagId,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Collection {
+    pub id: CollectionId,
+    pub name: String,
+    pub overview: Option<String>,
+    pub source: MetadataSource,
+    pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CollectionItem {
+    pub collection_id: CollectionId,
+    pub item_id: MediaItemId,
+    pub sort_order: Option<u32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Studio {
+    pub id: StudioId,
+    pub name: String,
+    pub source: MetadataSource,
+    pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemStudio {
+    pub item_id: MediaItemId,
+    pub studio_id: StudioId,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ImageAsset {
+    pub id: ImageAssetId,
+    pub owner: ImageOwner,
+    pub kind: ImageKind,
+    pub source_uri: String,
+    pub provider: ExternalProvider,
+    pub cache_uri: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+    pub selected: bool,
+    pub content_hash: Option<String>,
+    pub etag: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageOwner {
+    Item(MediaItemId),
+    Person(PersonId),
+    Collection(CollectionId),
+    Studio(StudioId),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ScanSnapshot {
+    pub id: ScanSnapshotId,
+    pub library_id: LibraryId,
+    pub root: String,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub status: ScanStatus,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScanStatus {
+    Running,
+    Succeeded,
+    Failed,
+}
+
+impl ScanStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "running" => Ok(Self::Running),
+            "succeeded" => Ok(Self::Succeeded),
+            "failed" => Ok(Self::Failed),
+            _ => Err(crate::TaruError::Database {
+                message: format!("unknown scan status stored in database: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DirectorySnapshot {
+    pub scan_id: ScanSnapshotId,
+    pub uri: String,
+    pub etag: Option<String>,
+    pub modified_at: Option<String>,
+    pub child_count: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceState {
+    pub library_id: LibraryId,
+    pub source_id: Option<MediaSourceId>,
+    pub uri: String,
+    pub size_bytes: Option<u64>,
+    pub modified_at: Option<String>,
+    pub etag: Option<String>,
+    pub fingerprint: Option<String>,
+    pub last_seen_scan_id: ScanSnapshotId,
+    pub tombstoned: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ArtworkTask {
+    pub id: ArtworkTaskId,
+    pub image_id: ImageAssetId,
+    pub kind: ArtworkTaskKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub attempts: u32,
+    pub max_attempts: u32,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtworkTaskKind {
+    Fetch,
+    Resize,
+    Preview,
+    Cleanup,
+}
+
+impl ArtworkTaskKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fetch => "fetch",
+            Self::Resize => "resize",
+            Self::Preview => "preview",
+            Self::Cleanup => "cleanup",
+        }
+    }
+
+    #[must_use]
+    pub const fn resource_class(self) -> &'static str {
+        match self {
+            Self::Fetch => "artwork.fetch",
+            Self::Resize => "artwork.resize",
+            Self::Preview => "artwork.preview",
+            Self::Cleanup => "artwork.cleanup",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "fetch" => Ok(Self::Fetch),
+            "resize" => Ok(Self::Resize),
+            "preview" => Ok(Self::Preview),
+            "cleanup" => Ok(Self::Cleanup),
+            _ => Err(crate::TaruError::Database {
+                message: format!("unknown artwork task kind stored in database: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ArtworkTaskQueueOptions {
+    pub max_concurrent_fetches: usize,
+    pub max_concurrent_resizes: usize,
+    pub max_concurrent_previews: usize,
+    pub max_concurrent_cleanups: usize,
+    pub max_attempts: u32,
+}
+
+impl Default for ArtworkTaskQueueOptions {
+    fn default() -> Self {
+        Self {
+            max_concurrent_fetches: 4,
+            max_concurrent_resizes: 2,
+            max_concurrent_previews: 1,
+            max_concurrent_cleanups: 1,
+            max_attempts: 3,
+        }
+    }
+}
+
+impl ArtworkTaskQueueOptions {
+    #[must_use]
+    pub const fn limit_for(&self, kind: ArtworkTaskKind) -> usize {
+        match kind {
+            ArtworkTaskKind::Fetch => self.max_concurrent_fetches,
+            ArtworkTaskKind::Resize => self.max_concurrent_resizes,
+            ArtworkTaskKind::Preview => self.max_concurrent_previews,
+            ArtworkTaskKind::Cleanup => self.max_concurrent_cleanups,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MediaProbeResult {
     pub duration_ms: Option<u64>,
     pub container: Option<String>,
@@ -522,6 +775,21 @@ impl MetadataField {
             Self::Images => "images",
             Self::Credits => "credits",
             Self::ExternalIds => "external_ids",
+        }
+    }
+}
+
+impl MediaKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Movie => "movie",
+            Self::Series => "series",
+            Self::Season => "season",
+            Self::Episode => "episode",
+            Self::Collection => "collection",
+            Self::Extra => "extra",
+            Self::Unknown => "unknown",
         }
     }
 }

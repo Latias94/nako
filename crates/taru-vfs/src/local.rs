@@ -110,19 +110,23 @@ impl LocalFsBackend {
             ObjectKind::Other
         };
 
+        let len = metadata.is_file().then_some(metadata.len());
         let modified_at = metadata
             .modified()
             .ok()
             .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
             .map(|value| value.as_millis().to_string());
+        let fingerprint = len
+            .zip(modified_at.as_ref())
+            .map(|(len, modified_at)| format!("local:size={len}:mtime={modified_at}"));
 
         Ok(ObjectMetadata {
             uri,
             kind,
-            len: metadata.is_file().then_some(metadata.len()),
+            len,
             modified_at,
             etag: None,
-            fingerprint: None,
+            fingerprint,
             capabilities: local_capabilities(kind),
         })
     }

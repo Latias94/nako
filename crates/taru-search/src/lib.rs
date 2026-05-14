@@ -13,6 +13,7 @@ pub struct SearchDocument {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SearchQuery {
     pub query: String,
+    pub facets: Vec<String>,
     pub limit: u32,
     pub offset: u32,
 }

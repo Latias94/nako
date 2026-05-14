@@ -3,6 +3,7 @@ use std::{env, sync::Arc};
 use serde::Serialize;
 use taru_api::{
     ItemsResponse, LibraryListResponse, LibrarySourceResponse, LibrarySourcesResponse, PageInfo,
+    SearchItemHit, SearchResponse,
 };
 use taru_core::{
     ExternalProvider, Job, JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository,
@@ -23,6 +24,7 @@ use taru_nfo::{
     MovieNfoCodec, NfoExportRequest, NfoExportSummary, NfoImportRequest, NfoImportSummary,
     NfoJobInput, NfoService,
 };
+use taru_search::{SearchIndex, SearchQuery};
 use taru_vfs::LocalFsBackend;
 use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
@@ -144,6 +146,49 @@ impl TaruApp {
         Ok(ItemsResponse {
             page: PageInfo::new(page, items.len()),
             items,
+        })
+    }
+
+    pub async fn search_items(
+        &self,
+        query: String,
+        facets: Vec<String>,
+        page: PageRequest,
+    ) -> Result<SearchResponse> {
+        let page = page.clamped();
+        let hits = self
+            .inner
+            .store
+            .search(SearchQuery {
+                query,
+                facets,
+                limit: page.limit,
+                offset: u32::try_from(page.offset).map_err(|err| TaruError::InvalidInput {
+                    message: format!("search offset is too large: {err}"),
+                })?,
+            })
+            .await?;
+        let mut output_hits = Vec::with_capacity(hits.len());
+
+        for hit in hits {
+            let item = self
+                .inner
+                .store
+                .get_media_item(hit.item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: hit.item_id.to_string(),
+                })?;
+            output_hits.push(SearchItemHit {
+                item,
+                score: hit.score,
+            });
+        }
+
+        Ok(SearchResponse {
+            page: PageInfo::new(page, output_hits.len()),
+            hits: output_hits,
         })
     }
 

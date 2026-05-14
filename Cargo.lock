@@ -1687,6 +1687,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "taru-core",
+ "taru-search",
  "tokio",
 ]
 
@@ -1711,6 +1712,7 @@ dependencies = [
  "taru-db",
  "taru-media-probe",
  "taru-naming",
+ "taru-search",
  "taru-vfs",
  "tempfile",
  "tokio",
@@ -1788,6 +1790,7 @@ dependencies = [
  "taru-media-probe",
  "taru-metadata",
  "taru-nfo",
+ "taru-search",
  "taru-vfs",
  "tempfile",
  "tokio",

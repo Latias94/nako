@@ -113,6 +113,7 @@ POST /libraries/{library_id}/nfo/import
 POST /libraries/{library_id}/nfo/export
 GET  /libraries/{library_id}/sources?limit=50&offset=0
 GET  /items?limit=50&offset=0
+GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
 POST /items/{item_id}/metadata/refresh
 GET  /sources/{source_id}/probe
 GET  /jobs/{job_id}
@@ -130,3 +131,8 @@ profile provider order and records provider attempts in `GET /jobs/{job_id}`.
 jobs. Import reads same-stem `.nfo` files according to the library local
 metadata policy. Export writes sidecars only when the policy is
 `write_sidecar`.
+
+`GET /search` reads the SQLite search projection behind `taru-search`. `facet`
+is optional and comma-separated for the current lightweight route shape. Search
+results return projected media items and relevance scores; richer filters and
+ranking can be added behind the same search boundary.

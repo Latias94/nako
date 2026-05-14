@@ -1,8 +1,11 @@
 use async_trait::async_trait;
 
 use crate::{
-    Job, JobId, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
-    MediaSourceId, MetadataFieldLock, NewJob, ProviderRawResponse, Result,
+    ArtworkTask, ArtworkTaskId, Collection, CollectionId, CollectionItem, DirectorySnapshot, Genre,
+    GenreId, ImageAsset, ImageAssetId, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId,
+    Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
+    MetadataFieldLock, NewJob, Person, PersonId, ProviderRawResponse, Result, ScanSnapshot,
+    ScanSnapshotId, SourceState, Studio, StudioId, Tag, TagId,
 };
 
 #[async_trait]
@@ -47,6 +50,119 @@ pub trait MediaProbeRepository: Send + Sync {
     ) -> Result<()>;
 
     async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>>;
+}
+
+#[async_trait]
+pub trait CatalogRepository: Send + Sync {
+    async fn upsert_person(&self, person: &Person) -> Result<()>;
+
+    async fn get_person(&self, id: PersonId) -> Result<Option<Person>>;
+
+    async fn list_people(&self, page: PageRequest) -> Result<Vec<Person>>;
+
+    async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()>;
+
+    async fn list_item_credits(&self, item_id: MediaItemId) -> Result<Vec<ItemCredit>>;
+
+    async fn list_person_credits(&self, person_id: PersonId) -> Result<Vec<ItemCredit>>;
+
+    async fn upsert_genre(&self, genre: &Genre) -> Result<()>;
+
+    async fn get_genre(&self, id: GenreId) -> Result<Option<Genre>>;
+
+    async fn list_genres(&self, page: PageRequest) -> Result<Vec<Genre>>;
+
+    async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()>;
+
+    async fn list_item_genres(&self, item_id: MediaItemId) -> Result<Vec<ItemGenre>>;
+
+    async fn upsert_tag(&self, tag: &Tag) -> Result<()>;
+
+    async fn get_tag(&self, id: TagId) -> Result<Option<Tag>>;
+
+    async fn list_tags(&self, page: PageRequest) -> Result<Vec<Tag>>;
+
+    async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()>;
+
+    async fn list_item_tags(&self, item_id: MediaItemId) -> Result<Vec<ItemTag>>;
+
+    async fn upsert_collection(&self, collection: &Collection) -> Result<()>;
+
+    async fn get_collection(&self, id: CollectionId) -> Result<Option<Collection>>;
+
+    async fn list_collections(&self, page: PageRequest) -> Result<Vec<Collection>>;
+
+    async fn upsert_collection_item(&self, item: &CollectionItem) -> Result<()>;
+
+    async fn list_collection_items(
+        &self,
+        collection_id: CollectionId,
+    ) -> Result<Vec<CollectionItem>>;
+
+    async fn upsert_studio(&self, studio: &Studio) -> Result<()>;
+
+    async fn get_studio(&self, id: StudioId) -> Result<Option<Studio>>;
+
+    async fn list_studios(&self, page: PageRequest) -> Result<Vec<Studio>>;
+
+    async fn upsert_item_studio(&self, item_studio: &ItemStudio) -> Result<()>;
+
+    async fn list_item_studios(&self, item_id: MediaItemId) -> Result<Vec<ItemStudio>>;
+
+    async fn upsert_image_asset(&self, image: &ImageAsset) -> Result<()>;
+
+    async fn get_image_asset(&self, id: ImageAssetId) -> Result<Option<ImageAsset>>;
+
+    async fn list_item_images(&self, item_id: MediaItemId) -> Result<Vec<ImageAsset>>;
+}
+
+#[async_trait]
+pub trait ScanRepository: Send + Sync {
+    async fn begin_scan_snapshot(
+        &self,
+        id: ScanSnapshotId,
+        library_id: LibraryId,
+        root: &str,
+    ) -> Result<ScanSnapshot>;
+
+    async fn complete_scan_snapshot(
+        &self,
+        id: ScanSnapshotId,
+        status: crate::ScanStatus,
+        error: Option<String>,
+    ) -> Result<ScanSnapshot>;
+
+    async fn get_scan_snapshot(&self, id: ScanSnapshotId) -> Result<Option<ScanSnapshot>>;
+
+    async fn upsert_directory_snapshot(&self, snapshot: &DirectorySnapshot) -> Result<()>;
+
+    async fn list_directory_snapshots(
+        &self,
+        scan_id: ScanSnapshotId,
+    ) -> Result<Vec<DirectorySnapshot>>;
+
+    async fn upsert_source_state(&self, state: &SourceState) -> Result<()>;
+
+    async fn get_source_state(
+        &self,
+        library_id: LibraryId,
+        uri: &str,
+    ) -> Result<Option<SourceState>>;
+
+    async fn list_source_states(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceState>>;
+}
+
+#[async_trait]
+pub trait ArtworkTaskRepository: Send + Sync {
+    async fn enqueue_artwork_task(&self, task: &ArtworkTask) -> Result<()>;
+
+    async fn get_artwork_task(&self, id: ArtworkTaskId) -> Result<Option<ArtworkTask>>;
+
+    async fn list_artwork_tasks(&self, page: PageRequest) -> Result<Vec<ArtworkTask>>;
 }
 
 #[async_trait]

@@ -25,3 +25,6 @@ Each ADR should include:
 - [0008: Treat NFO as a Local Metadata Boundary](0008-nfo-as-local-metadata-boundary.md)
 - [0009: Resolve Provider Secrets from Environment References](0009-resolve-provider-secrets-from-environment.md)
 - [0010: Treat Library Presets as Configuration Templates](0010-library-presets-are-configuration-templates.md)
+- [0011: Normalize Catalog Graph and Project Search Documents](0011-normalized-catalog-graph-and-search-projection.md)
+- [0012: Persist Scan State and Source Tombstones](0012-durable-scan-state-and-source-tombstones.md)
+- [0013: Use Bounded Artwork Task Resource Classes](0013-bounded-artwork-task-resource-classes.md)

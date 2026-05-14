@@ -2,11 +2,13 @@ use async_trait::async_trait;
 use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    CanonicalMetadata, JobId, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
-    MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, PageRequest, Result,
+    CanonicalMetadata, CatalogRepository, DirectorySnapshot, JobId, Library, LibraryId,
+    LibraryRepository, MediaItem, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
+    MediaSourceId, PageRequest, Result, ScanRepository, ScanSnapshotId, ScanStatus, SourceState,
 };
 use taru_media_probe::{MediaProbe, MediaProbeRequest};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
+use taru_search::{SearchDocument, SearchIndex};
 use taru_vfs::{ByteRange, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -24,6 +26,7 @@ pub struct LibraryScanSummary {
     pub changed_files: u64,
     pub removed_files: u64,
     pub media_sources: Vec<DiscoveredMediaSource>,
+    pub directories: Vec<ScannedDirectory>,
 }
 
 #[async_trait]
@@ -42,10 +45,12 @@ pub struct LibraryIndexRequest {
 pub struct LibraryIndexSummary {
     pub job_id: JobId,
     pub library_id: LibraryId,
+    pub scan_id: ScanSnapshotId,
     pub scanned_roots: u64,
     pub discovered_files: u64,
     pub inserted_sources: u64,
     pub updated_sources: u64,
+    pub tombstoned_sources: u64,
 }
 
 #[derive(Debug)]
@@ -281,20 +286,59 @@ fn probe_failure(locator: String, err: impl ToString) -> ProbeSourceOutcome {
 impl<S, R> LibraryIndexService<S, R>
 where
     S: LibraryScanner,
-    R: LibraryRepository + MediaRepository,
+    R: CatalogRepository + LibraryRepository + MediaRepository + ScanRepository + SearchIndex,
 {
     pub async fn index_library(&self, request: LibraryIndexRequest) -> Result<LibraryIndexSummary> {
         self.repository.upsert_library(&request.library).await?;
+        let scan_id = ScanSnapshotId::new();
 
         let mut summary = LibraryIndexSummary {
             job_id: request.job_id,
             library_id: request.library.id,
+            scan_id,
             scanned_roots: 0,
             discovered_files: 0,
             inserted_sources: 0,
             updated_sources: 0,
+            tombstoned_sources: 0,
         };
 
+        let first_root = request
+            .library
+            .roots
+            .first()
+            .map(String::as_str)
+            .unwrap_or("local:///");
+        self.repository
+            .begin_scan_snapshot(scan_id, request.library.id, first_root)
+            .await?;
+
+        let result = self.index_roots(&request, scan_id, &mut summary).await;
+
+        match result {
+            Ok(()) => {
+                self.mark_missing_sources_tombstoned(request.library.id, scan_id, &mut summary)
+                    .await?;
+                self.repository
+                    .complete_scan_snapshot(scan_id, ScanStatus::Succeeded, None)
+                    .await?;
+                Ok(summary)
+            }
+            Err(err) => {
+                self.repository
+                    .complete_scan_snapshot(scan_id, ScanStatus::Failed, Some(err.to_string()))
+                    .await?;
+                Err(err)
+            }
+        }
+    }
+
+    async fn index_roots(
+        &self,
+        request: &LibraryIndexRequest,
+        scan_id: ScanSnapshotId,
+        summary: &mut LibraryIndexSummary,
+    ) -> Result<()> {
         for root in &request.library.roots {
             let root = StorageUri::parse(root)?;
             let scan = self
@@ -309,6 +353,18 @@ where
 
             summary.scanned_roots += 1;
             summary.discovered_files += scan.discovered_files;
+
+            for directory in scan.directories {
+                self.repository
+                    .upsert_directory_snapshot(&DirectorySnapshot {
+                        scan_id,
+                        uri: directory.uri.as_str().to_owned(),
+                        etag: directory.etag,
+                        modified_at: directory.modified_at,
+                        child_count: directory.child_count,
+                    })
+                    .await?;
+            }
 
             for discovered in scan.media_sources {
                 let locator = discovered.uri.as_str().to_owned();
@@ -327,12 +383,20 @@ where
                     .unwrap_or_else(MediaSourceId::new);
 
                 let item = media_item_from_discovered(item_id, &discovered);
+                let state = source_state_from_discovered(
+                    request.library.id,
+                    source_id,
+                    scan_id,
+                    &discovered,
+                );
                 let source = media_source_from_discovered(source_id, item_id, discovered);
 
                 self.repository.upsert_media_item(&item).await?;
                 self.repository
                     .upsert_media_source(request.library.id, &source)
                     .await?;
+                self.repository.upsert_source_state(&state).await?;
+                self.rebuild_search_document(item, source).await?;
 
                 if existing.is_some() {
                     summary.updated_sources += 1;
@@ -342,7 +406,108 @@ where
             }
         }
 
-        Ok(summary)
+        Ok(())
+    }
+
+    async fn rebuild_search_document(&self, item: MediaItem, source: MediaSource) -> Result<()> {
+        let item_credits = self.repository.list_item_credits(item.id).await?;
+        let item_genres = self.repository.list_item_genres(item.id).await?;
+        let item_tags = self.repository.list_item_tags(item.id).await?;
+        let item_studios = self.repository.list_item_studios(item.id).await?;
+        let mut body_parts = Vec::new();
+        let mut facets = vec![
+            format!("kind:{}", item.kind.as_str()),
+            format!("source:{}", source.file_name),
+        ];
+
+        if let Some(value) = &item.metadata.original_title {
+            body_parts.push(value.clone());
+        }
+        if let Some(value) = &item.metadata.overview {
+            body_parts.push(value.clone());
+        }
+        if let Some(value) = &item.metadata.tagline {
+            body_parts.push(value.clone());
+        }
+        if let Some(value) = &item.metadata.release_date {
+            facets.push(format!("release_date:{value}"));
+        }
+
+        for genre in item_genres {
+            if let Some(genre) = self.repository.get_genre(genre.genre_id).await? {
+                body_parts.push(genre.name.clone());
+                facets.push(format!("genre:{}", genre.name));
+            }
+        }
+
+        for tag in item_tags {
+            if let Some(tag) = self.repository.get_tag(tag.tag_id).await? {
+                body_parts.push(tag.name.clone());
+                facets.push(format!("tag:{}", tag.name));
+            }
+        }
+
+        for studio in item_studios {
+            if let Some(studio) = self.repository.get_studio(studio.studio_id).await? {
+                body_parts.push(studio.name.clone());
+                facets.push(format!("studio:{}", studio.name));
+            }
+        }
+
+        for credit in item_credits {
+            if let Some(person) = self.repository.get_person(credit.person_id).await? {
+                body_parts.push(person.name.clone());
+                facets.push(format!("credit:{}", person.name));
+            }
+        }
+
+        self.repository
+            .upsert(SearchDocument {
+                item_id: item.id,
+                title: item.metadata.title,
+                body: body_parts.join(" "),
+                facets,
+            })
+            .await
+    }
+
+    async fn mark_missing_sources_tombstoned(
+        &self,
+        library_id: LibraryId,
+        scan_id: ScanSnapshotId,
+        summary: &mut LibraryIndexSummary,
+    ) -> Result<()> {
+        let mut offset = 0;
+
+        loop {
+            let states = self
+                .repository
+                .list_source_states(
+                    library_id,
+                    PageRequest {
+                        limit: PageRequest::MAX_LIMIT,
+                        offset,
+                    },
+                )
+                .await?;
+            let returned = states.len();
+
+            for mut state in states {
+                if state.last_seen_scan_id != scan_id && !state.tombstoned {
+                    state.tombstoned = true;
+                    self.repository.upsert_source_state(&state).await?;
+                    summary.tombstoned_sources += 1;
+                }
+            }
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            offset += u64::from(PageRequest::MAX_LIMIT);
+        }
+
+        Ok(())
     }
 }
 
@@ -351,8 +516,18 @@ pub struct DiscoveredMediaSource {
     pub uri: StorageUri,
     pub file_name: String,
     pub size_bytes: Option<u64>,
+    pub modified_at: Option<String>,
+    pub etag: Option<String>,
     pub fingerprint: Option<String>,
     pub parsed_name: ParsedName,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ScannedDirectory {
+    pub uri: StorageUri,
+    pub etag: Option<String>,
+    pub modified_at: Option<String>,
+    pub child_count: u64,
 }
 
 fn media_item_from_discovered(id: MediaItemId, discovered: &DiscoveredMediaSource) -> MediaItem {
@@ -369,6 +544,25 @@ fn media_item_from_discovered(id: MediaItemId, discovered: &DiscoveredMediaSourc
             external_ids: Vec::new(),
             ..CanonicalMetadata::default()
         },
+    }
+}
+
+fn source_state_from_discovered(
+    library_id: LibraryId,
+    source_id: MediaSourceId,
+    scan_id: ScanSnapshotId,
+    discovered: &DiscoveredMediaSource,
+) -> SourceState {
+    SourceState {
+        library_id,
+        source_id: Some(source_id),
+        uri: discovered.uri.as_str().to_owned(),
+        size_bytes: discovered.size_bytes,
+        modified_at: discovered.modified_at.clone(),
+        etag: discovered.etag.clone(),
+        fingerprint: discovered.fingerprint.clone(),
+        last_seen_scan_id: scan_id,
+        tombstoned: false,
     }
 }
 
@@ -442,6 +636,7 @@ where
 {
     async fn scan(&self, request: LibraryScanRequest) -> Result<LibraryScanSummary> {
         let mut media_sources = Vec::new();
+        let mut directories = Vec::new();
         let mut stack = vec![(request.root.clone(), 0_usize)];
 
         while let Some((uri, depth)) = stack.pop() {
@@ -454,6 +649,12 @@ where
             match metadata.kind {
                 ObjectKind::Directory => {
                     let mut entries = self.backend.list(&uri).await?;
+                    directories.push(ScannedDirectory {
+                        uri: metadata.uri,
+                        etag: metadata.etag,
+                        modified_at: metadata.modified_at,
+                        child_count: entries.len() as u64,
+                    });
                     entries.sort_by(|left, right| right.uri.as_str().cmp(left.uri.as_str()));
 
                     for entry in entries {
@@ -475,6 +676,7 @@ where
             changed_files: 0,
             removed_files: 0,
             media_sources,
+            directories,
         })
     }
 }
@@ -502,6 +704,8 @@ impl<B> VfsLibraryScanner<B> {
             uri: metadata.uri,
             file_name,
             size_bytes: metadata.len,
+            modified_at: metadata.modified_at,
+            etag: metadata.etag,
             fingerprint: metadata.fingerprint,
             parsed_name,
         }
@@ -537,9 +741,10 @@ mod tests {
 
     use taru_core::{
         LibraryOptions, LibraryPreset, MediaProbeRepository, MediaProbeResult, MediaRepository,
-        MediaStreamInfo, MediaStreamKind, TaruError, TransactionManager,
+        MediaStreamInfo, MediaStreamKind, ScanRepository, TaruError, TransactionManager,
     };
     use taru_db::SqliteStore;
+    use taru_search::{SearchIndex, SearchQuery};
     use taru_vfs::LocalFsBackend;
     use tokio::time::sleep;
 
@@ -659,17 +864,86 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        let scan = store
+            .get_scan_snapshot(second_summary.scan_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let directories = store
+            .list_directory_snapshots(second_summary.scan_id)
+            .await
+            .unwrap();
+        let state = store
+            .get_source_state(library.id, "local:///Movies/The Matrix (1999).mkv")
+            .await
+            .unwrap()
+            .unwrap();
+        let hits = store
+            .search(SearchQuery {
+                query: "matrix".to_owned(),
+                facets: Vec::new(),
+                limit: 10,
+                offset: 0,
+            })
+            .await
+            .unwrap();
 
         assert_eq!(first_summary.discovered_files, 1);
         assert_eq!(first_summary.inserted_sources, 1);
         assert_eq!(first_summary.updated_sources, 0);
+        assert_eq!(first_summary.tombstoned_sources, 0);
         assert_eq!(second_summary.discovered_files, 1);
         assert_eq!(second_summary.inserted_sources, 0);
         assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(second_summary.tombstoned_sources, 0);
+        assert_eq!(scan.status, ScanStatus::Succeeded);
+        assert!(!directories.is_empty());
+        assert!(!state.tombstoned);
         assert_eq!(sources.len(), 1);
         assert_eq!(sources[0].file_name, "The Matrix (1999).mkv");
         assert_eq!(item.metadata.title, "The Matrix");
         assert_eq!(item.metadata.release_date, Some("1999".to_owned()));
+        assert_eq!(hits[0].item_id, item.id);
+    }
+
+    #[tokio::test]
+    async fn index_service_tombstones_sources_missing_from_rescan() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        let movie_path = temp.path().join("Movies").join("Gone Movie.mkv");
+        fs::write(&movie_path, b"movie").unwrap();
+
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let scanner = VfsLibraryScanner::new(backend);
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        fs::remove_file(movie_path).unwrap();
+        let second_summary = service.index_library(request).await.unwrap();
+        let state = store
+            .get_source_state(library.id, "local:///Movies/Gone Movie.mkv")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.discovered_files, 0);
+        assert_eq!(second_summary.tombstoned_sources, 1);
+        assert!(state.tombstoned);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

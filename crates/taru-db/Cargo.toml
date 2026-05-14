@@ -13,6 +13,7 @@ async-trait.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
 taru-core = { path = "../taru-core" }
+taru-search = { path = "../taru-search" }
 
 [dev-dependencies]
 tokio.workspace = true

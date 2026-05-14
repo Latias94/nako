@@ -104,6 +104,18 @@ pub struct ItemsResponse {
     pub page: PageInfo,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SearchResponse {
+    pub hits: Vec<SearchItemHit>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SearchItemHit {
+    pub item: MediaItem,
+    pub score: f32,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SourceProbeResponse {
     pub source_id: MediaSourceId,

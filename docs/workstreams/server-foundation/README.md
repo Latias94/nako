@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current design focus: [Phase 3.6 Catalog Graph, Artwork Cache, Search, and Scan Strategy](PHASE3_6_CATALOG_GRAPH_ARTWORK_SEARCH_SCAN.md).
+Current implementation focus: [Phase 4.0 Catalog Ingestion Foundation](PHASE4_0_CATALOG_INGESTION_FOUNDATION.md).
 
 ## Goals
 

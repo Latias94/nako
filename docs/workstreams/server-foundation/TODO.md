@@ -24,6 +24,7 @@
 - [x] Define stable media locator format.
 - [x] Design directory metadata cache.
 - [x] Design byte-range media cache.
+- [x] Add lightweight local file fingerprints for incremental scan state.
 - [ ] Document local filesystem backend behavior.
 - [ ] Document WebDAV/S3/rclone integration paths.
 - [ ] Decide how hard links and soft links are represented for non-local
@@ -74,8 +75,10 @@
 - [x] Define user tags, provider genres, collections, and studios as separate
       catalog concepts.
 - [x] Define artwork cache and preview-generation resource classes.
-- [ ] Persist people, credits, tags, genres, collections, studios, and image
+- [x] Persist people, credits, tags, genres, collections, studios, and image
       assets in SQLite.
+- [x] Persist artwork task queue records with resource class, status, attempts,
+      and max-attempt retry state.
 - [ ] Add image proxy/cache routes with etag and variant support.
 - [ ] Add thumbnail and preview-frame generation jobs.
 - [ ] Teach metadata providers and NFO import to upsert catalog graph records.
@@ -86,9 +89,19 @@
 - [x] Define initial catalog search document shape.
 - [x] Define search update triggers from scan, metadata refresh, NFO import, and
       user edits.
-- [ ] Implement SQLite FTS search adapter.
+- [x] Implement SQLite search projection fallback behind `SearchIndex`.
+- [ ] Upgrade SQLite fallback to FTS ranking/tokenization when bundled FTS
+      support is guaranteed.
 - [ ] Add item/person/tag/genre search filters.
 - [ ] Add optional Tantivy or Meilisearch adapter boundary after SQLite FTS.
+
+## Scan State and Ingestion
+
+- [x] Persist scan snapshots and directory snapshots.
+- [x] Persist source state with fingerprint, last-seen scan, and tombstone flag.
+- [x] Rebuild search projection when scan ingestion creates or updates an item.
+- [ ] Add scan failure table for isolated per-directory/per-object errors.
+- [ ] Add rename/move detection using strong fingerprints when available.
 
 ## Streaming and Transcoding
 

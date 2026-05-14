@@ -68,6 +68,14 @@ define_id!(MediaSourceId);
 define_id!(JobId);
 define_id!(EventId);
 define_id!(AddonId);
+define_id!(PersonId);
+define_id!(GenreId);
+define_id!(TagId);
+define_id!(CollectionId);
+define_id!(StudioId);
+define_id!(ImageAssetId);
+define_id!(ScanSnapshotId);
+define_id!(ArtworkTaskId);
 
 #[cfg(test)]
 mod tests {
