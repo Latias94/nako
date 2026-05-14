@@ -69,7 +69,7 @@ Future playback work:
 
 ### Extension and Automation: M5
 
-Status: recommended next.
+Status: active, completed through M5.0 design baseline.
 
 This phase turns the early architectural decisions into a usable external
 surface:
@@ -80,6 +80,16 @@ surface:
 - addon resource routes and response envelopes;
 - timeout, retry, authentication, and trust model;
 - one reference addon.
+
+Completed:
+
+- M5.0 design baseline with ADRs for durable event outbox, webhook/automation
+  trigger policy, capability-scoped HTTP addons, external provider boundaries,
+  resource classes, and security constraints.
+
+Recommended next goal:
+
+- M5.1 event outbox foundation.
 
 ### Remote Storage and VFS Expansion: M6
 
@@ -104,14 +114,14 @@ planning should start after the browse and playback surfaces are coherent.
 
 ## Workstream Split Direction
 
-`server-foundation` is still the active workstream, but it is carrying several
-large domains. As implementation grows, split it into narrower workstreams:
+`server-foundation` was the initial planning hub. M5 has split
+`addons-automation` into its own active workstream. As implementation grows,
+split the remaining broad domains into narrower workstreams:
 
 - `playback-streaming`: direct play, remux, HLS, transcode, hardware policy.
 - `metadata-catalog`: providers, NFO, catalog graph, artwork, search.
 - `storage-vfs`: local/remote backends, directory cache, byte-range cache.
-- `addons-automation`: webhooks, external automation, addon protocol.
 - `clients`: future Flutter and web client contracts.
 
-Do the split when a domain needs independent milestones or ADRs. Do not split
-just to make the directory tree look complete.
+Do future splits when a domain needs independent milestones or ADRs. Do not
+split merely because a domain exists conceptually.

@@ -1,0 +1,61 @@
+# Addons and Automation TODO
+
+## M5.0 Design Baseline
+
+- [x] Create addons and automation workstream.
+- [x] Add durable event outbox ADR.
+- [x] Add capability-scoped addon/provider ADR.
+- [x] Define M5 milestone split and validation strategy.
+- [x] Update roadmap, goal map, and workstream index.
+
+## Event Outbox
+
+- [ ] Define event ID, event type, subject, idempotency key, payload, and status
+      domain model.
+- [ ] Add SQLite event outbox migration.
+- [ ] Add repository trait and SQLite implementation.
+- [ ] Add transactional event write points for scan completion.
+- [ ] Add event write points for metadata refresh and NFO jobs.
+- [ ] Add event write points for playback session completion where useful.
+- [ ] Add tests for outbox persistence and idempotency.
+- [ ] Add tests that event payloads do not contain plaintext secrets or raw
+      local paths.
+
+## Webhooks
+
+- [ ] Define webhook endpoint configuration and secret references.
+- [ ] Define webhook event envelope and versioning.
+- [ ] Define webhook signature format.
+- [ ] Add delivery attempt persistence.
+- [ ] Add bounded webhook worker with timeout, retry, and backoff.
+- [ ] Add safe error mapping and delivery inspection API/CLI.
+- [ ] Add mocked webhook delivery tests.
+
+## Automation
+
+- [ ] Define automation provider configuration and capabilities.
+- [ ] Define automation job kinds for recommendation, summary, metadata cleanup,
+      and title matching.
+- [ ] Define suggestion/artifact persistence model.
+- [ ] Add bounded external provider runner.
+- [ ] Add explicit acceptance policy before generated results mutate canonical
+      metadata.
+- [ ] Add mocked provider tests without real API keys.
+
+## Addon Protocol
+
+- [ ] Draft manifest JSON schema and protocol versioning rules.
+- [ ] Define addon resource request/response envelopes.
+- [ ] Define addon scopes and explicit enablement model.
+- [ ] Add addon registration and manifest validation.
+- [ ] Add bounded addon HTTP caller.
+- [ ] Add invalid manifest and scope denial tests.
+- [ ] Add reference addon fixture.
+
+## Documentation
+
+- [ ] Add addon author guide.
+- [ ] Add webhook receiver guide.
+- [ ] Add automation provider configuration guide.
+- [ ] Update HTTP API docs when M5 routes are implemented.
+- [ ] Document M5 known limitations before stabilization.

@@ -7,7 +7,8 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
-- Active workstream: [server foundation](workstreams/server-foundation/README.md)
+- Active workstream: [addons and automation](workstreams/addons-automation/README.md)
+- Foundation archive: [server foundation](workstreams/server-foundation/README.md)
 - Refactoring policy: [development/REFACTORING_POLICY.md](development/REFACTORING_POLICY.md)
 
 ## Core Documents

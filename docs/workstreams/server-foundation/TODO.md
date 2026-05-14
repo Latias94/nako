@@ -136,12 +136,16 @@
 
 ## Addons and Automation
 
-- [ ] Draft Taru addon manifest schema.
-- [ ] Define addon resource routes and response envelopes.
-- [ ] Define addon timeout, retry, authentication, and trust model.
-- [ ] Define automation job model.
+- [x] Define design baseline for Taru addon manifest schema.
+- [x] Define design baseline for addon resource routes and response envelopes.
+- [x] Define design baseline for addon timeout, retry, authentication, and
+      trust model.
+- [x] Define design baseline for automation job model.
 - [x] Define API-key provider secret storage requirements.
-- [ ] Define webhook event envelope and delivery policy.
+- [x] Define design baseline for webhook event envelope and delivery policy.
+
+Detailed M5 execution tasks now live in
+`docs/workstreams/addons-automation/TODO.md`.
 
 ## Documentation
 

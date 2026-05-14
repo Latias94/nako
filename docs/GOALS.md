@@ -187,15 +187,51 @@ Evidence:
 - Focused HLS session readiness tests cover active-session conflict behavior at
   the app and HTTP layers.
 
-## Recommended Next Implementation Goal
+## Active Goal
 
 ### M5: Extension and Automation Surface
 
-Status: proposed.
+Status: active, completed through M5.0 design baseline.
 
 Implement webhook outbox, automation jobs, addon manifest schema, and one
 reference addon. Keep AI-like experience improvements as explicit external
 provider/API-key workflows rather than local model or vector infrastructure.
+
+Deliverables:
+
+- M5.0 Extension/Automation Design Baseline.
+- M5.1 Event Outbox Foundation.
+- M5.2 Webhook Delivery Worker.
+- M5.3 Automation Job Model.
+- M5.4 Addon Manifest and Resource Contract.
+- M5.5 Reference Addon and Stabilization.
+
+Non-goals:
+
+- no local model runtime or vector database;
+- no in-process native plugin ABI;
+- no embedded JavaScript runtime in the first M5 slice;
+- no remote storage backend implementation.
+
+Evidence for M5.0:
+
+- [ADR 0014](adr/0014-durable-event-outbox-for-webhooks-and-automation.md)
+  documents durable event outbox and webhook/automation trigger policy.
+- [ADR 0015](adr/0015-capability-scoped-http-addons-and-automation-providers.md)
+  documents capability-scoped HTTP addons and external automation providers.
+- [addons-automation workstream](workstreams/addons-automation/README.md)
+  tracks M5 milestones, TODOs, phase notes, resource classes, and security
+  boundaries.
+
+## Recommended Next Implementation Goal
+
+### M5.1: Event Outbox Foundation
+
+Status: proposed.
+
+Persist domain events and outbox state in SQLite, add repository boundaries,
+and write events from existing domain workflows without delivering webhooks
+yet.
 
 ## Later Goals
 

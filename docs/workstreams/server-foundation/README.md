@@ -11,8 +11,9 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus: M5 extension and automation surface.
-The local video-library playback MVP was stabilized in
+Current implementation focus has moved to
+[addons and automation](../addons-automation/README.md). The local
+video-library playback MVP was stabilized in
 [Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
 
 ## Goals

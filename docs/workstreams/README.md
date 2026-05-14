@@ -6,8 +6,11 @@ attention.
 
 ## Active Workstreams
 
-- [server-foundation](server-foundation/README.md): current backend foundation,
-  catalog, metadata, playback, transcode, VFS, and extension planning.
+- [addons-automation](addons-automation/README.md): M5 webhook, automation,
+  addon manifest, provider, and trust-boundary work.
+- [server-foundation](server-foundation/README.md): completed backend
+  foundation, catalog, metadata, playback, transcode, VFS, and historical
+  planning hub.
 
 ## When To Split A Workstream
 
@@ -24,11 +27,10 @@ Expected future splits:
 - `playback-streaming`
 - `metadata-catalog`
 - `storage-vfs`
-- `addons-automation`
 - `clients`
 
-Keep `server-foundation` as the hub until a split reduces real coordination
-cost. Avoid splitting merely because a domain exists conceptually.
+Keep unsplit domains in `server-foundation` until a split reduces real
+coordination cost. Avoid splitting merely because a domain exists conceptually.
 
 ## Standard Files
 

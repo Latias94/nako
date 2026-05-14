@@ -565,6 +565,9 @@ Exit criteria:
 
 Outcome: Taru has stable external automation and addon surfaces.
 
+Detailed M5 milestones are tracked in
+`docs/workstreams/addons-automation/MILESTONES.md`.
+
 Deliverables:
 
 - Webhook outbox.
