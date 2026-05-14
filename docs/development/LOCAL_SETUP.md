@@ -55,6 +55,13 @@ Run a synchronous local-library scan:
 cargo run -p taru-server -- --config taru.toml scan
 ```
 
+Refresh TMDB metadata for one indexed item:
+
+```powershell
+$env:TMDB_READ_ACCESS_TOKEN = "<tmdb read access token>"
+cargo run -p taru-server -- --config taru.toml refresh-metadata <item_id>
+```
+
 ## Minimal Config
 
 ```toml
@@ -63,11 +70,20 @@ database_url = "sqlite://taru.db"
 ffprobe_path = "ffprobe"
 scan_concurrency = 1
 probe_concurrency = 2
+metadata_concurrency = 2
 
 [library]
 id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
 root = "F:/Media/Movies"
+
+[metadata.tmdb]
+enabled = false
+access_token_env = "TMDB_READ_ACCESS_TOKEN"
+api_base_url = "https://api.themoviedb.org/3"
+image_base_url = "https://image.tmdb.org/t/p/original"
+language = "en-US"
+include_adult = false
 ```
 
 ## Logging

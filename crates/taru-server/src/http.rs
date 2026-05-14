@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 use taru_api::{API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse};
-use taru_core::{JobId, LibraryId, MediaSourceId, PageRequest, TaruError};
+use taru_core::{JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, TaruError};
 use tracing::{error, instrument, warn};
 
 use crate::app::TaruApp;
@@ -19,6 +19,10 @@ pub fn build_router(app: TaruApp) -> Router {
         .route("/libraries/{library_id}/scan", post(scan_library))
         .route("/libraries/{library_id}/sources", get(list_library_sources))
         .route("/items", get(list_items))
+        .route(
+            "/items/{item_id}/metadata/refresh",
+            post(refresh_item_metadata),
+        )
         .route("/sources/{source_id}/probe", get(get_source_probe))
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
@@ -67,6 +71,16 @@ async fn list_items(
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.list_items(page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+async fn refresh_item_metadata(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.enqueue_metadata_refresh(item_id).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
 
 #[instrument(skip(app))]
@@ -186,12 +200,15 @@ mod tests {
     };
     use serde::de::DeserializeOwned;
     use taru_api::{HealthResponse, JobResponse, LibraryListResponse};
-    use taru_core::{JobId, JobStatus, LibraryId, MediaSourceId};
+    use taru_core::{
+        CanonicalMetadata, JobId, JobKind, JobStatus, LibraryId, MediaItem, MediaKind,
+        MediaRepository, MediaSourceId,
+    };
     use taru_db::SqliteStore;
     use tower::ServiceExt;
 
     use super::*;
-    use crate::config::{LocalLibraryConfig, TaruServerConfig};
+    use crate::config::{LocalLibraryConfig, MetadataConfig, TaruServerConfig};
 
     #[tokio::test]
     async fn health_and_libraries_routes_work() {
@@ -264,6 +281,75 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn metadata_refresh_route_queues_background_job() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let mut metadata = MetadataConfig::default();
+        metadata.tmdb.enabled = true;
+        metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata,
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "The Matrix".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        let router = build_router(app);
+        let path = format!("/items/{}/metadata/refresh", item.id);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let job = body_json::<JobResponse>(response).await;
+        assert_eq!(job.kind, JobKind::MetadataRefresh);
+        assert_eq!(job.status, JobStatus::Queued);
+        assert_eq!(
+            job.input
+                .as_ref()
+                .and_then(|input| input.get("item_id"))
+                .and_then(serde_json::Value::as_str),
+            Some(item.id.to_string().as_str())
+        );
+        assert_eq!(
+            job.input
+                .as_ref()
+                .and_then(|input| input.get("provider"))
+                .and_then(serde_json::Value::as_str),
+            Some("tmdb")
+        );
     }
 
     #[tokio::test]
@@ -341,6 +427,8 @@ mod tests {
             ffprobe_path: PathBuf::from("ffprobe"),
             scan_concurrency: 1,
             probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

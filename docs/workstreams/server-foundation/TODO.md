@@ -36,6 +36,14 @@
 - [x] Define provider priority and field-level lock policy.
 - [x] Define raw provider response cache policy.
 - [x] Define NFO import/export compatibility targets.
+- [x] Implement TMDB movie search/fetch MVP.
+- [x] Add metadata refresh service using merge policy and field locks.
+- [x] Add persisted metadata refresh job input and summary.
+- [x] Add HTTP and CLI triggers for single-item metadata refresh.
+- [ ] Add TMDB series, season, and episode support.
+- [ ] Add NFO file discovery and import/export jobs.
+- [ ] Add Douban provider MVP.
+- [ ] Add Bangumi provider MVP.
 
 ## Streaming and Transcoding
 
@@ -55,7 +63,7 @@
 - [ ] Define addon resource routes and response envelopes.
 - [ ] Define addon timeout, retry, authentication, and trust model.
 - [ ] Define automation job model.
-- [ ] Define API-key provider secret storage requirements.
+- [x] Define API-key provider secret storage requirements.
 - [ ] Define webhook event envelope and delivery policy.
 
 ## Documentation

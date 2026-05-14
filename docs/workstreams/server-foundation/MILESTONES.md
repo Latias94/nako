@@ -105,6 +105,31 @@ Exit criteria:
 - Movie NFO core fields round-trip through `taru-nfo`.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3.2: TMDB Provider MVP and Metadata Refresh Job
+
+Outcome: Taru can enrich an indexed movie item through TMDB while preserving
+local metadata authority.
+
+Deliverables:
+
+- TMDB movie search and movie-detail provider implementation.
+- Provider trait with search and fetch paths.
+- Metadata refresh service using field locks and merge policy.
+- Persisted metadata refresh jobs with durable inputs and summaries.
+- Raw TMDB detail response cache.
+- Configured provider secret references resolved from environment variables.
+- HTTP and CLI triggers for refreshing one item.
+
+Exit criteria:
+
+- Refresh uses an existing TMDB external ID without search.
+- Refresh can search by title/year, fetch details, and merge canonical metadata.
+- Locked fields survive refresh.
+- Raw TMDB detail responses are stored in SQLite.
+- Job inputs do not include provider secrets.
+- Tests use mocked provider responses and do not require real TMDB network calls.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.

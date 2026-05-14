@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 3.1 Metadata Model and NFO Policy Foundation](PHASE3_1_METADATA_NFO_FOUNDATION.md).
+Current implementation focus: [Phase 3.2 TMDB Provider MVP and Metadata Refresh Job](PHASE3_2_TMDB_METADATA_REFRESH.md).
 
 ## Goals
 

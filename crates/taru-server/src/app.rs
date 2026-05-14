@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use serde::Serialize;
 use taru_api::{
     ItemsResponse, LibraryListResponse, LibrarySourceResponse, LibrarySourcesResponse, PageInfo,
 };
 use taru_core::{
-    Job, JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository,
-    MediaProbeRepository, MediaRepository, MediaSourceId, NewJob, PageRequest, Result, TaruError,
-    TransactionManager,
+    ExternalProvider, Job, JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository,
+    MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId, NewJob, PageRequest, Result,
+    TaruError, TransactionManager,
 };
 use taru_db::SqliteStore;
 use taru_library::{
@@ -15,6 +15,10 @@ use taru_library::{
     LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary,
 };
 use taru_media_probe::FfprobeMediaProbe;
+use taru_metadata::{
+    MetadataRefreshJobInput, MetadataRefreshRequest, MetadataRefreshService,
+    MetadataRefreshSummary, TmdbMetadataProvider, TmdbProviderConfig,
+};
 use taru_vfs::LocalFsBackend;
 use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
@@ -31,6 +35,7 @@ struct TaruAppInner {
     config: TaruServerConfig,
     store: SqliteStore,
     scan_permits: Arc<Semaphore>,
+    metadata_permits: Arc<Semaphore>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -38,6 +43,12 @@ pub struct ScanCommandOutput {
     pub job: Job,
     pub index: LibraryIndexSummary,
     pub probe: LibraryProbeSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MetadataRefreshCommandOutput {
+    pub job: Job,
+    pub refresh: MetadataRefreshSummary,
 }
 
 impl TaruApp {
@@ -52,6 +63,7 @@ impl TaruApp {
         let app = Self {
             inner: Arc::new(TaruAppInner {
                 scan_permits: Arc::new(Semaphore::new(config.scan_concurrency.max(1))),
+                metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 config,
                 store,
             }),
@@ -171,6 +183,34 @@ impl TaruApp {
         self.execute_library_scan_job(job.id, library_id).await
     }
 
+    pub async fn enqueue_metadata_refresh(&self, item_id: MediaItemId) -> Result<Job> {
+        let job = self.create_metadata_refresh_job(item_id).await?;
+        let job_id = job.id;
+        let app = self.clone();
+
+        tokio::spawn(
+            async move {
+                app.finish_metadata_refresh_job(job_id, item_id).await;
+            }
+            .instrument(info_span!(
+                "metadata_refresh_background_job",
+                job_id = %job_id,
+                item_id = %item_id,
+                resource_class = "metadata.tmdb"
+            )),
+        );
+
+        Ok(job)
+    }
+
+    pub async fn refresh_item_metadata(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<MetadataRefreshCommandOutput> {
+        let job = self.create_metadata_refresh_job(item_id).await?;
+        self.execute_metadata_refresh_job(job.id, item_id).await
+    }
+
     async fn ensure_configured_library(&self) -> Result<()> {
         let library = library_from_config(self.config());
         self.inner.store.upsert_library(&library).await?;
@@ -200,6 +240,50 @@ impl TaruApp {
             .await
     }
 
+    async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
+        if !self.config().metadata.tmdb.enabled {
+            return Err(TaruError::InvalidInput {
+                message: "TMDB metadata provider is disabled in config".to_owned(),
+            });
+        }
+
+        self.inner
+            .store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+
+        let language = self.config().metadata.tmdb.language.clone();
+        let input = MetadataRefreshJobInput {
+            item_id,
+            provider: ExternalProvider::Tmdb,
+            force: false,
+            language: if language.trim().is_empty() {
+                None
+            } else {
+                Some(language)
+            },
+        };
+        let input_json = serde_json::to_string(&input).map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to serialize metadata refresh job input: {err}"),
+        })?;
+
+        self.inner
+            .store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataRefresh,
+                resource_class: "metadata.tmdb".to_owned(),
+                library_id: None,
+                source_id: None,
+                input_json: Some(input_json),
+            })
+            .await
+    }
+
     async fn finish_library_scan_job(&self, job_id: JobId, library_id: LibraryId) {
         match self.execute_library_scan_job(job_id, library_id).await {
             Ok(output) => {
@@ -216,6 +300,28 @@ impl TaruApp {
                     library_id = %library_id,
                     error = %err,
                     "library scan job failed"
+                );
+            }
+        }
+    }
+
+    async fn finish_metadata_refresh_job(&self, job_id: JobId, item_id: MediaItemId) {
+        match self.execute_metadata_refresh_job(job_id, item_id).await {
+            Ok(output) => {
+                info!(
+                    job_id = %output.job.id,
+                    item_id = %item_id,
+                    provider_key = %output.refresh.provider_key,
+                    status = ?output.job.status,
+                    "metadata refresh job completed"
+                );
+            }
+            Err(err) => {
+                error!(
+                    job_id = %job_id,
+                    item_id = %item_id,
+                    error = %err,
+                    "metadata refresh job failed"
                 );
             }
         }
@@ -272,6 +378,53 @@ impl TaruApp {
         }
     }
 
+    async fn execute_metadata_refresh_job(
+        &self,
+        job_id: JobId,
+        item_id: MediaItemId,
+    ) -> Result<MetadataRefreshCommandOutput> {
+        let permit = self
+            .inner
+            .metadata_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| TaruError::InvalidInput {
+                message: format!("metadata concurrency limiter is unavailable: {err}"),
+            })?;
+        let _permit = permit;
+
+        self.inner.store.start_job(job_id).await?;
+
+        match self.run_metadata_refresh(job_id, item_id).await {
+            Ok(refresh) => {
+                let summary_json =
+                    serde_json::to_string(&refresh).map_err(|err| TaruError::InvalidInput {
+                        message: format!("failed to serialize metadata refresh job summary: {err}"),
+                    })?;
+                let job = self
+                    .inner
+                    .store
+                    .succeed_job(job_id, Some(summary_json))
+                    .await?;
+
+                Ok(MetadataRefreshCommandOutput { job, refresh })
+            }
+            Err(err) => {
+                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                    warn!(
+                        job_id = %job_id,
+                        item_id = %item_id,
+                        error = %update_err,
+                        "failed to persist failed metadata refresh job state"
+                    );
+                }
+
+                Err(err)
+            }
+        }
+    }
+
     async fn run_library_scan(
         &self,
         job_id: JobId,
@@ -317,6 +470,65 @@ impl TaruApp {
         Ok((index, probe))
     }
 
+    async fn run_metadata_refresh(
+        &self,
+        job_id: JobId,
+        item_id: MediaItemId,
+    ) -> Result<MetadataRefreshSummary> {
+        let provider = self.tmdb_provider()?;
+        let language = self.config().metadata.tmdb.language.clone();
+        let service = MetadataRefreshService::new(provider, self.inner.store.clone());
+
+        service
+            .refresh_item(MetadataRefreshRequest {
+                job_id,
+                item_id,
+                provider: ExternalProvider::Tmdb,
+                force: false,
+                language: if language.trim().is_empty() {
+                    None
+                } else {
+                    Some(language)
+                },
+            })
+            .await
+    }
+
+    fn tmdb_provider(&self) -> Result<TmdbMetadataProvider> {
+        let settings = &self.config().metadata.tmdb;
+
+        if !settings.enabled {
+            return Err(TaruError::InvalidInput {
+                message: "TMDB metadata provider is disabled in config".to_owned(),
+            });
+        }
+
+        let token =
+            env::var(&settings.access_token_env).map_err(|err| TaruError::InvalidInput {
+                message: format!(
+                    "failed to read TMDB access token from environment variable {}: {err}",
+                    settings.access_token_env
+                ),
+            })?;
+
+        if token.trim().is_empty() {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "TMDB access token environment variable {} is empty",
+                    settings.access_token_env
+                ),
+            });
+        }
+
+        let mut config = TmdbProviderConfig::new(token);
+        config.api_base_url = settings.api_base_url.clone();
+        config.image_base_url = settings.image_base_url.clone();
+        config.language = settings.language.clone();
+        config.include_adult = settings.include_adult;
+
+        Ok(TmdbMetadataProvider::new(config))
+    }
+
     fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
         let library = library_from_config(self.config());
 
@@ -358,10 +570,13 @@ struct LibraryScanJobInput {
 mod tests {
     use std::path::PathBuf;
 
-    use taru_core::{JobStatus, LibraryId};
+    use taru_core::{
+        CanonicalMetadata, JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind,
+        MediaRepository,
+    };
 
     use super::*;
-    use crate::config::LocalLibraryConfig;
+    use crate::config::{LocalLibraryConfig, MetadataConfig};
 
     #[tokio::test]
     async fn scan_configured_library_persists_job_success() {
@@ -373,6 +588,8 @@ mod tests {
             ffprobe_path: PathBuf::from("ffprobe"),
             scan_concurrency: 1,
             probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -389,5 +606,62 @@ mod tests {
         assert_eq!(job.status, JobStatus::Succeeded);
         assert_eq!(output.index.discovered_files, 0);
         assert_eq!(output.probe.total_sources, 0);
+    }
+
+    #[tokio::test]
+    async fn metadata_refresh_job_input_does_not_include_secrets() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let mut metadata = MetadataConfig::default();
+        metadata.tmdb.enabled = true;
+        metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata,
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "The Matrix".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+
+        let job = app.create_metadata_refresh_job(item.id).await.unwrap();
+        let input = job
+            .input_json
+            .as_ref()
+            .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+            .unwrap();
+
+        assert_eq!(job.kind, JobKind::MetadataRefresh);
+        assert_eq!(job.resource_class, "metadata.tmdb");
+        assert_eq!(
+            input.get("item_id").and_then(serde_json::Value::as_str),
+            Some(item.id.to_string().as_str())
+        );
+        assert_eq!(
+            input.get("provider").and_then(serde_json::Value::as_str),
+            Some("tmdb")
+        );
+        assert!(input.get("access_token").is_none());
+        assert!(input.get("api_key").is_none());
     }
 }

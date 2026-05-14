@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::ExitCode};
 use axum::Router;
 use clap::{Parser, Subcommand};
 use serde::Serialize;
-use taru_core::{Result, TaruError};
+use taru_core::{MediaItemId, Result, TaruError};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -37,6 +37,8 @@ enum Command {
     Scan,
     /// List indexed media sources and probe results as JSON.
     List,
+    /// Refresh TMDB metadata for one indexed media item.
+    RefreshMetadata { item_id: MediaItemId },
 }
 
 #[tokio::main]
@@ -80,6 +82,11 @@ async fn run(cli: Cli) -> Result<()> {
                 )
                 .await?,
             )
+        }
+        Command::RefreshMetadata { item_id } => {
+            let config = load_config(&cli.config)?;
+            let app = TaruApp::new(config).await?;
+            print_json(&app.refresh_item_metadata(item_id).await?)
         }
     }
 }

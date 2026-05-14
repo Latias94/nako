@@ -23,3 +23,4 @@ Each ADR should include:
 - [0006: Persist Job Inputs and Use Explicit Retry Policy](0006-persist-job-inputs-and-explicit-retry-policy.md)
 - [0007: Define Metadata Merge Policy and Local Authority](0007-metadata-merge-policy-and-local-authority.md)
 - [0008: Treat NFO as a Local Metadata Boundary](0008-nfo-as-local-metadata-boundary.md)
+- [0009: Resolve Provider Secrets from Environment References](0009-resolve-provider-secrets-from-environment.md)

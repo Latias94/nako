@@ -18,6 +18,10 @@ pub struct TaruServerConfig {
     pub scan_concurrency: usize,
     #[serde(default = "default_probe_concurrency")]
     pub probe_concurrency: usize,
+    #[serde(default = "default_metadata_concurrency")]
+    pub metadata_concurrency: usize,
+    #[serde(default)]
+    pub metadata: MetadataConfig,
     pub library: LocalLibraryConfig,
 }
 
@@ -26,6 +30,49 @@ pub struct LocalLibraryConfig {
     pub id: LibraryId,
     pub name: String,
     pub root: PathBuf,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataConfig {
+    #[serde(default)]
+    pub tmdb: TmdbMetadataConfig,
+}
+
+impl Default for MetadataConfig {
+    fn default() -> Self {
+        Self {
+            tmdb: TmdbMetadataConfig::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TmdbMetadataConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_tmdb_access_token_env")]
+    pub access_token_env: String,
+    #[serde(default = "default_tmdb_api_base_url")]
+    pub api_base_url: String,
+    #[serde(default = "default_tmdb_image_base_url")]
+    pub image_base_url: String,
+    #[serde(default = "default_tmdb_language")]
+    pub language: String,
+    #[serde(default)]
+    pub include_adult: bool,
+}
+
+impl Default for TmdbMetadataConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            access_token_env: default_tmdb_access_token_env(),
+            api_base_url: default_tmdb_api_base_url(),
+            image_base_url: default_tmdb_image_base_url(),
+            language: default_tmdb_language(),
+            include_adult: false,
+        }
+    }
 }
 
 pub fn load_config(path: &Path) -> Result<TaruServerConfig> {
@@ -45,6 +92,8 @@ pub fn example_config() -> Result<String> {
         ffprobe_path: PathBuf::from("ffprobe"),
         scan_concurrency: default_scan_concurrency(),
         probe_concurrency: default_probe_concurrency(),
+        metadata_concurrency: default_metadata_concurrency(),
+        metadata: MetadataConfig::default(),
         library: LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -81,6 +130,26 @@ const fn default_probe_concurrency() -> usize {
     2
 }
 
+const fn default_metadata_concurrency() -> usize {
+    2
+}
+
+fn default_tmdb_access_token_env() -> String {
+    "TMDB_READ_ACCESS_TOKEN".to_owned()
+}
+
+fn default_tmdb_api_base_url() -> String {
+    "https://api.themoviedb.org/3".to_owned()
+}
+
+fn default_tmdb_image_base_url() -> String {
+    "https://image.tmdb.org/t/p/original".to_owned()
+}
+
+fn default_tmdb_language() -> String {
+    "en-US".to_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use std::{net::SocketAddr, path::PathBuf};
@@ -96,11 +165,18 @@ mod tests {
             ffprobe_path = "ffprobe"
             scan_concurrency = 2
             probe_concurrency = 3
+            metadata_concurrency = 4
 
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
             root = "F:/Media/Movies"
+
+            [metadata.tmdb]
+            enabled = true
+            access_token_env = "TMDB_READ_ACCESS_TOKEN"
+            language = "zh-CN"
+            include_adult = false
             "#,
         )
         .unwrap();
@@ -110,6 +186,13 @@ mod tests {
         assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
         assert_eq!(config.scan_concurrency, 2);
         assert_eq!(config.probe_concurrency, 3);
+        assert_eq!(config.metadata_concurrency, 4);
+        assert!(config.metadata.tmdb.enabled);
+        assert_eq!(
+            config.metadata.tmdb.access_token_env,
+            "TMDB_READ_ACCESS_TOKEN"
+        );
+        assert_eq!(config.metadata.tmdb.language, "zh-CN");
         assert_eq!(config.library.name, "Movies");
         assert_eq!(config.library.root, PathBuf::from("F:/Media/Movies"));
         assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
@@ -136,5 +219,11 @@ mod tests {
         assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
         assert_eq!(config.scan_concurrency, 1);
         assert_eq!(config.probe_concurrency, 2);
+        assert_eq!(config.metadata_concurrency, 2);
+        assert!(!config.metadata.tmdb.enabled);
+        assert_eq!(
+            config.metadata.tmdb.access_token_env,
+            "TMDB_READ_ACCESS_TOKEN"
+        );
     }
 }

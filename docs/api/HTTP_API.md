@@ -96,6 +96,10 @@ Future integrations should store secret references instead.
 
 `summary` is written after success. Failed jobs use `error`.
 
+Metadata refresh jobs use the same envelope with kind `metadata_refresh`.
+Their input includes the item ID, provider, force flag, and language. It must
+not include the resolved provider token.
+
 ## Current Routes
 
 ```text
@@ -104,9 +108,14 @@ GET  /libraries?limit=50&offset=0
 POST /libraries/{library_id}/scan
 GET  /libraries/{library_id}/sources?limit=50&offset=0
 GET  /items?limit=50&offset=0
+POST /items/{item_id}/metadata/refresh
 GET  /sources/{source_id}/probe
 GET  /jobs/{job_id}
 ```
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
 The job runs in the background.
+
+`POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
+metadata refresh job. The current implementation uses the configured TMDB
+provider and records details in `GET /jobs/{job_id}`.
