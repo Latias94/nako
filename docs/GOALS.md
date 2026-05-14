@@ -41,17 +41,17 @@ Evidence:
 - TMDB movie refresh, NFO import/export jobs, metadata profile execution, and
   catalog/search planning are implemented or documented.
 
-### M4.0-M4.5: Catalog Ingestion and Playback Foundation
+### M4.0-M4.6: Catalog Ingestion and Playback Foundation
 
-Status: completed through M4.5.
+Status: completed through M4.6.
 
 Evidence:
 
 - Catalog ingestion, graph hydration, browse APIs, direct play, FFmpeg command
   planning, remux process runner guard, and remux application service
   integration are implemented.
-- Last completed implementation goal: M4.5 remux app service integration and
-  local staging policy.
+- HTTP remux playback route is implemented.
+- Last completed implementation goal: M4.6 remux playback route.
 
 ## Recently Completed Goals
 
@@ -105,22 +105,30 @@ Evidence:
 - Tests cover app-service runner execution, completed-output reuse, duplicate
   conflict behavior, staging path validation, and config defaults.
 
-## Recommended Next Implementation Goal
-
 ### M4.6: Remux Playback Route
 
-Status: proposed.
+Status: completed.
 
-Expose remuxed playback through an HTTP route after M4.5 has a clean
-application boundary. This should stream a staged remux output or return a
-clear pending/error state without blocking request handlers indefinitely.
+Evidence:
 
-## Later Goals
+- `GET /sources/{source_id}/stream/remux` is implemented.
+- The handler calls the remux app service and streams staged output.
+- `output_container=mp4|mkv` selects the staged remux container.
+- Completed staged outputs are reused.
+- In-flight duplicates map to `409 conflict`.
+- Tests cover range streaming, completed-output reuse, duplicate conflict, and
+  unchanged direct play behavior.
+
+## Recommended Next Implementation Goal
 
 ### M4.7: Transcode Session Persistence
 
+Status: proposed.
+
 Persist remux/transcode session records so cancellation, retry, observability,
 and later multi-client playback can survive process restarts.
+
+## Later Goals
 
 ### M4.8: HLS Transcode Foundation
 

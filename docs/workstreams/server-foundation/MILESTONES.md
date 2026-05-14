@@ -462,6 +462,31 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.7: Playback Session Persistence
+
+Outcome: remux and future transcode sessions are persisted so cancellation,
+retry, observability, and multi-client playback can survive process restarts.
+
+Deliverables:
+
+- SQLite schema for transcode/remux sessions.
+- Repository and domain model for session state, request key, source ID,
+  output path, kind, timestamps, and failure message.
+- App service integration that records planned, running, finished, failed, and
+  cancelled session states.
+- HTTP or app-level lookup path for current session state.
+- Cleanup and retry policy for stale or failed sessions.
+
+Exit criteria:
+
+- A remux route creates or reuses a persisted session record.
+- Session state transitions survive process restart through SQLite.
+- Duplicate request behavior uses persisted state rather than only in-memory
+  request keys.
+- Failed sessions retain safe error categories and diagnostic detail for logs.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

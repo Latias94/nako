@@ -11,7 +11,7 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus: [Phase 4.6 Remux Playback Route](PHASE4_6_REMUX_PLAYBACK_ROUTE.md).
+Current implementation focus: [Phase 4.7 Playback Session Persistence](PHASE4_7_PLAYBACK_SESSION_PERSISTENCE.md).
 
 ## Goals
 

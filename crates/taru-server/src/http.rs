@@ -1,4 +1,4 @@
-use std::io::SeekFrom;
+use std::{io::SeekFrom, path::Path as FsPath};
 
 use axum::{
     Json, Router,
@@ -15,13 +15,15 @@ use taru_core::{
 };
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
-    DirectPlayResponseStatus, parse_http_range_header,
+    DirectPlayResponseStatus, content_type_for_file_name, parse_http_range_header,
+    plan_direct_play_response,
 };
+use taru_transcode::RemuxContainer;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 use tracing::{error, instrument, warn};
 
-use crate::app::TaruApp;
+use crate::app::{RemuxSourceDisposition, RemuxSourceRequest, TaruApp};
 
 pub fn build_router(app: TaruApp) -> Router {
     Router::new()
@@ -55,6 +57,10 @@ pub fn build_router(app: TaruApp) -> Router {
         .route(
             "/sources/{source_id}/stream",
             get(stream_source).head(head_stream_source),
+        )
+        .route(
+            "/sources/{source_id}/stream/remux",
+            get(remux_stream_source),
         )
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
@@ -275,27 +281,12 @@ async fn stream_source(
         return Ok(empty_direct_play_response(&direct_play.response));
     }
 
-    let mut file = tokio::fs::File::open(&direct_play.local_path)
-        .await
-        .map_err(|err| TaruError::Storage {
-            uri: direct_play.source.locator.clone(),
-            message: format!("failed to open direct play source: {err}"),
-        })?;
-
-    if direct_play.response.seek_offset > 0 {
-        file.seek(SeekFrom::Start(direct_play.response.seek_offset))
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: direct_play.source.locator.clone(),
-                message: format!("failed to seek direct play source: {err}"),
-            })?;
-    }
-
-    let stream = ReaderStream::new(file.take(direct_play.response.body_len));
-    let mut response = Body::from_stream(stream).into_response();
-    apply_direct_play_headers(&mut response, &direct_play.response);
-
-    Ok(response)
+    stream_local_file_response(
+        &direct_play.local_path,
+        &direct_play.source.locator,
+        &direct_play.response,
+    )
+    .await
 }
 
 #[instrument(skip(app, headers))]
@@ -309,6 +300,55 @@ async fn head_stream_source(
         .await?;
 
     Ok(empty_direct_play_response(&direct_play.response))
+}
+
+#[instrument(skip(app, headers))]
+async fn remux_stream_source(
+    State(app): State<TaruApp>,
+    Path(source_id): Path<MediaSourceId>,
+    Query(query): Query<RemuxPlaybackQuery>,
+    headers: HeaderMap,
+) -> ApiResult<Response> {
+    let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
+    let remux = app
+        .remux_source(RemuxSourceRequest {
+            source_id,
+            client: query.capabilities.into(),
+            output_container,
+        })
+        .await?;
+
+    if remux.disposition == RemuxSourceDisposition::Cancelled {
+        return Err(TaruError::Provider {
+            provider: "ffmpeg_remux".to_owned(),
+            message: "remux session was cancelled".to_owned(),
+        }
+        .into());
+    }
+
+    let total_len = tokio::fs::metadata(&remux.output_path)
+        .await
+        .map_err(|err| TaruError::Storage {
+            uri: remux.output_path.display().to_string(),
+            message: format!("failed to read remux output length: {err}"),
+        })?
+        .len();
+    let response_plan = plan_direct_play_response(
+        total_len,
+        content_type_for_file_name(&format!("stream.{}", output_container.file_extension())),
+        direct_play_range_request(&headers),
+    );
+
+    if response_plan.is_range_not_satisfiable() {
+        return Ok(empty_direct_play_response(&response_plan));
+    }
+
+    stream_local_file_response(
+        &remux.output_path,
+        &remux.output_path.display().to_string(),
+        &response_plan,
+    )
+    .await
 }
 
 #[instrument(skip(app))]
@@ -342,6 +382,13 @@ struct PlaybackCapabilitiesQuery {
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct RemuxPlaybackQuery {
+    #[serde(flatten)]
+    capabilities: PlaybackCapabilitiesQuery,
+    output_container: Option<RemuxContainer>,
 }
 
 impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {
@@ -390,6 +437,34 @@ fn empty_direct_play_response(plan: &DirectPlayResponsePlan) -> Response {
     let mut response = Body::empty().into_response();
     apply_direct_play_headers(&mut response, plan);
     response
+}
+
+async fn stream_local_file_response(
+    path: &FsPath,
+    uri: &str,
+    plan: &DirectPlayResponsePlan,
+) -> ApiResult<Response> {
+    let mut file = tokio::fs::File::open(path)
+        .await
+        .map_err(|err| TaruError::Storage {
+            uri: uri.to_owned(),
+            message: format!("failed to open stream source: {err}"),
+        })?;
+
+    if plan.seek_offset > 0 {
+        file.seek(SeekFrom::Start(plan.seek_offset))
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: uri.to_owned(),
+                message: format!("failed to seek stream source: {err}"),
+            })?;
+    }
+
+    let stream = ReaderStream::new(file.take(plan.body_len));
+    let mut response = Body::from_stream(stream).into_response();
+    apply_direct_play_headers(&mut response, plan);
+
+    Ok(response)
 }
 
 fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponsePlan) {
@@ -511,7 +586,11 @@ fn public_message(error: &TaruError) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
+    use std::{
+        fs,
+        path::{Path as FsPath, PathBuf},
+        time::Duration,
+    };
 
     use axum::{
         body::{Body, to_bytes},
@@ -529,6 +608,7 @@ mod tests {
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
     use taru_streaming::PlaybackMode;
+    use tokio::time::sleep;
     use tower::ServiceExt;
 
     use super::*;
@@ -1210,6 +1290,114 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn remux_stream_route_runs_and_reuses_completed_output() {
+        let (_temp, router, source, _staging_root, ffmpeg_path, _marker) =
+            router_with_remux_source(false).await;
+        let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&path)
+                    .header(header::RANGE, "bytes=1-4")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("video/mp4")
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_RANGE)
+                .and_then(|value| value.to_str().ok()),
+            Some("bytes 1-4/7")
+        );
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&bytes[..], b"emux");
+
+        fs::remove_file(ffmpeg_path).unwrap();
+
+        let reused = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(reused.status(), StatusCode::OK);
+        let bytes = to_bytes(reused.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&bytes[..], b"remuxed");
+    }
+
+    #[tokio::test]
+    async fn remux_stream_route_maps_in_flight_duplicate_to_conflict() {
+        let (_temp, router, source, _staging_root, _ffmpeg_path, marker) =
+            router_with_remux_source(true).await;
+        let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+        let first_router = router.clone();
+        let first_path = path.clone();
+        let first = tokio::spawn(async move {
+            first_router
+                .oneshot(
+                    Request::builder()
+                        .method(Method::GET)
+                        .uri(first_path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
+        });
+
+        for _ in 0..50 {
+            if marker.exists() {
+                break;
+            }
+            sleep(Duration::from_millis(20)).await;
+        }
+        assert!(marker.exists());
+
+        let duplicate = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(duplicate.status(), StatusCode::CONFLICT);
+        let error = body_json::<ErrorResponse>(duplicate).await;
+        assert_eq!(error.code, "conflict");
+        assert!(error.message.contains("already in progress"));
+
+        let first_response = first.await.unwrap();
+        assert_eq!(first_response.status(), StatusCode::OK);
+        let bytes = to_bytes(first_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(&bytes[..], b"remuxed");
+    }
+
+    #[tokio::test]
     async fn missing_source_probe_returns_404() {
         let temp = tempfile::tempdir().unwrap();
         let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
@@ -1312,6 +1500,162 @@ mod tests {
         let router = build_router(app);
 
         (temp, router, source)
+    }
+
+    async fn router_with_remux_source(
+        slow: bool,
+    ) -> (
+        tempfile::TempDir,
+        Router,
+        MediaSource,
+        PathBuf,
+        PathBuf,
+        PathBuf,
+    ) {
+        let temp = tempfile::tempdir().unwrap();
+        let marker = temp.path().join("remux.started");
+        let ffmpeg_path = fake_ffmpeg_script(temp.path(), "remux", slow, &marker);
+        let library_root = temp.path().join("library");
+        let staging_root = temp.path().join("cache").join("remux");
+        fs::create_dir_all(&library_root).unwrap();
+        fs::write(library_root.join("demo.mkv"), b"media").unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: ffmpeg_path.clone(),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: staging_root.clone(),
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: library_root,
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///demo.mkv".to_owned(),
+            file_name: "demo.mkv".to_owned(),
+            size_bytes: Some(5),
+            fingerprint: None,
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+        store
+            .upsert_media_probe(source.id, &compatible_probe())
+            .await
+            .unwrap();
+        let router = build_router(app);
+
+        (temp, router, source, staging_root, ffmpeg_path, marker)
+    }
+
+    fn compatible_probe() -> MediaProbeResult {
+        MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                MediaStreamInfo {
+                    index: 0,
+                    kind: MediaStreamKind::Video,
+                    codec: Some("h264".to_owned()),
+                    language: None,
+                    duration_ms: None,
+                    bit_rate: None,
+                    width: Some(1920),
+                    height: Some(1080),
+                    channels: None,
+                    sample_rate: None,
+                },
+                MediaStreamInfo {
+                    index: 1,
+                    kind: MediaStreamKind::Audio,
+                    codec: Some("aac".to_owned()),
+                    language: None,
+                    duration_ms: None,
+                    bit_rate: None,
+                    width: None,
+                    height: None,
+                    channels: Some(2),
+                    sample_rate: Some(48_000),
+                },
+            ],
+        }
+    }
+
+    fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let path = root.join(name);
+            let mut content = String::from("#!/bin/sh\n");
+            content.push_str("for arg do out=\"$arg\"; done\n");
+            if slow {
+                content.push_str(&format!("printf started > \"{}\"\n", marker.display()));
+            }
+            content.push_str("printf remuxed > \"$out\"\n");
+            if slow {
+                content.push_str("sleep 1\n");
+            }
+            content.push_str("exit 0\n");
+            fs::write(&path, content).unwrap();
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+            path
+        }
+
+        #[cfg(windows)]
+        {
+            let path = root.join(format!("{name}.cmd"));
+            let mut content = String::from("@echo off\r\n");
+            content.push_str("setlocal enabledelayedexpansion\r\n");
+            content.push_str(":args\r\n");
+            content.push_str("if \"%~1\"==\"\" goto run\r\n");
+            content.push_str("set out=%~1\r\n");
+            content.push_str("shift\r\n");
+            content.push_str("goto args\r\n");
+            content.push_str(":run\r\n");
+            if slow {
+                content.push_str(&format!(
+                    "<nul set /p dummy=started>\"{}\"\r\n",
+                    marker.display()
+                ));
+            }
+            content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
+            if slow {
+                content.push_str("ping -n 3 127.0.0.1 > nul\r\n");
+            }
+            content.push_str("exit /b 0\r\n");
+            fs::write(&path, content).unwrap();
+            path
+        }
     }
 
     async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {

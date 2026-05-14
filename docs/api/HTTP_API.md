@@ -130,6 +130,7 @@ GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
 GET  /sources/{source_id}/stream
 HEAD /sources/{source_id}/stream
+GET  /sources/{source_id}/stream/remux
 GET  /jobs/{job_id}
 ```
 
@@ -180,3 +181,15 @@ and range validity before starting playback.
 Invalid, unsupported multi-range, or unsatisfiable ranges return
 `416 Range Not Satisfiable` with `Content-Range: bytes */{total_len}` and
 `Content-Length: 0`.
+
+`GET /sources/{source_id}/stream/remux` runs or reuses a staged copy-remux for
+sources whose playback decision is `remux`, then streams the staged output. It
+accepts the same client capability query parameters as the playback decision
+route plus:
+
+```text
+output_container=mp4|mkv
+```
+
+The default output container is `mp4`. Completed staged outputs are reused.
+Equivalent in-flight remux requests return `409 conflict`.

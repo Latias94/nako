@@ -48,10 +48,11 @@ Completed:
 - remux application service with local staging, deterministic output naming,
   completed-output reuse, in-flight duplicate conflict behavior, and API-safe
   error mapping.
+- HTTP remux playback route backed by the remux application service.
 
 Recommended next goal:
 
-- M4.6: remux playback route.
+- M4.7: playback session persistence.
 
 Future playback work:
 

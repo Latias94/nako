@@ -60,7 +60,6 @@ struct TaruAppInner {
     scan_permits: Arc<Semaphore>,
     metadata_permits: Arc<Semaphore>,
     nfo_permits: Arc<Semaphore>,
-    #[allow(dead_code)]
     remux: RemuxAppService,
 }
 
@@ -96,7 +95,6 @@ pub struct DirectPlaySourcePlan {
     pub response: DirectPlayResponsePlan,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemuxSourceRequest {
     pub source_id: MediaSourceId,
@@ -104,7 +102,6 @@ pub struct RemuxSourceRequest {
     pub output_container: RemuxContainer,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RemuxSourceDisposition {
@@ -113,7 +110,6 @@ pub enum RemuxSourceDisposition {
     Cancelled,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug, Serialize)]
 pub struct RemuxSourceOutput {
     pub source: MediaSource,
@@ -124,13 +120,11 @@ pub struct RemuxSourceOutput {
     pub session: Option<TranscodeSession>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct RemuxStagingPolicy {
     root: PathBuf,
 }
 
-#[allow(dead_code)]
 impl RemuxStagingPolicy {
     pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
@@ -151,11 +145,6 @@ impl RemuxStagingPolicy {
         }
 
         Ok(Self { root })
-    }
-
-    #[must_use]
-    pub fn root(&self) -> &Path {
-        &self.root
     }
 
     pub fn output_path(
@@ -179,7 +168,6 @@ impl RemuxStagingPolicy {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 struct RemuxAppService {
     builder: FfmpegCommandBuilder,
@@ -187,7 +175,6 @@ struct RemuxAppService {
     in_flight: Arc<Mutex<HashSet<RemuxRequestKey>>>,
 }
 
-#[allow(dead_code)]
 impl RemuxAppService {
     fn new(config: &TaruServerConfig) -> Self {
         let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
@@ -333,7 +320,6 @@ struct RemuxRequestKey {
     output_container: RemuxContainer,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum RemuxRequestAdmission {
     Run,
@@ -527,7 +513,6 @@ impl TaruApp {
         })
     }
 
-    #[allow(dead_code)]
     pub async fn remux_source(&self, request: RemuxSourceRequest) -> Result<RemuxSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe = self.inner.store.get_media_probe(source.id).await?;
@@ -1543,7 +1528,6 @@ fn provider_resource_name(provider: &ExternalProvider) -> &str {
     }
 }
 
-#[allow(dead_code)]
 fn map_remux_runner_error(error: TaruError) -> TaruError {
     match error {
         TaruError::Provider { provider, message } if provider == "ffmpeg" => {
@@ -2026,7 +2010,7 @@ mod tests {
             .output_path(MediaSourceId::new(), RemuxContainer::Mkv)
             .unwrap();
 
-        assert!(output.starts_with(policy.root()));
+        assert!(output.starts_with(&policy.root));
         assert_eq!(
             output.extension().and_then(|value| value.to_str()),
             Some("mkv")

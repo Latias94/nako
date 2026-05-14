@@ -127,9 +127,11 @@
 - [x] Define local remux staging directory policy.
 - [x] Define duplicate remux request reuse or idempotency behavior.
 - [x] Map remux runner errors into stable application/API errors.
+- [x] Add HTTP remux playback route backed by the remux app service.
 - [ ] Implement HLS transcode session manager.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
 - [ ] Define CPU/GPU transcode concurrency and queue policy beyond remux.
+- [ ] Persist remux/transcode session records.
 - [ ] Define remote source staging/cache behavior for FFmpeg.
 
 ## Addons and Automation
