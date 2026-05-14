@@ -123,10 +123,10 @@
 - [x] Add remux session manager skeleton.
 - [x] Implement FFmpeg process runner for remux sessions.
 - [x] Add remux process cancellation, timeout, concurrency guard, and temp cleanup.
-- [ ] Add remux application service in `taru-server::app`.
-- [ ] Define local remux staging directory policy.
-- [ ] Define duplicate remux request reuse or idempotency behavior.
-- [ ] Map remux runner errors into stable application/API errors.
+- [x] Add remux application service in `taru-server::app`.
+- [x] Define local remux staging directory policy.
+- [x] Define duplicate remux request reuse or idempotency behavior.
+- [x] Map remux runner errors into stable application/API errors.
 - [ ] Implement HLS transcode session manager.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
 - [ ] Define CPU/GPU transcode concurrency and queue policy beyond remux.

@@ -11,7 +11,7 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus: [Phase 4.5 Remux App Service Integration and Local Staging Policy](PHASE4_5_REMUX_APP_SERVICE_STAGING_POLICY.md).
+Current implementation focus: [Phase 4.6 Remux Playback Route](PHASE4_6_REMUX_PLAYBACK_ROUTE.md).
 
 ## Goals
 

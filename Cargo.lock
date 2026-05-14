@@ -1809,6 +1809,7 @@ dependencies = [
  "taru-nfo",
  "taru-search",
  "taru-streaming",
+ "taru-transcode",
  "taru-vfs",
  "tempfile",
  "tokio",

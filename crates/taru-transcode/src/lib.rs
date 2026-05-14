@@ -227,7 +227,7 @@ pub struct RemuxRequest {
     pub overwrite: FfmpegOverwritePolicy,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RemuxContainer {
     Mp4,
@@ -240,6 +240,14 @@ impl RemuxContainer {
         match self {
             Self::Mp4 => "mp4",
             Self::Mkv => "matroska",
+        }
+    }
+
+    #[must_use]
+    pub const fn file_extension(self) -> &'static str {
+        match self {
+            Self::Mp4 => "mp4",
+            Self::Mkv => "mkv",
         }
     }
 }

@@ -58,6 +58,7 @@ Current codes:
 ```text
 invalid_input
 not_found
+conflict
 unsupported
 provider_error
 storage_error

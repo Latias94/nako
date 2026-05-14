@@ -45,10 +45,13 @@ Completed:
 - remux session lifecycle model;
 - remux FFmpeg process runner with cancellation, timeout, concurrency guard,
   temporary output cleanup, and server runtime budget configuration.
+- remux application service with local staging, deterministic output naming,
+  completed-output reuse, in-flight duplicate conflict behavior, and API-safe
+  error mapping.
 
 Recommended next goal:
 
-- M4.5: remux app service integration and local staging policy.
+- M4.6: remux playback route.
 
 Future playback work:
 

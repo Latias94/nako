@@ -7,11 +7,11 @@ staging policy for remux outputs. This phase prepares the server for a future
 HTTP remux playback route without letting handlers own FFmpeg process details,
 temporary paths, cancellation, timeout, or cleanup behavior.
 
-## Proposed Shape
+## Implemented Shape
 
 ### Application Service Boundary
 
-`taru-server::app` should own a remux-facing application service that composes:
+`taru-server::app` owns a remux-facing application service that composes:
 
 - source lookup;
 - playback/remux decision context;
@@ -20,18 +20,18 @@ temporary paths, cancellation, timeout, or cleanup behavior.
 - duplicate request behavior;
 - application-safe error mapping.
 
-HTTP handlers should eventually call this service instead of directly touching
+HTTP handlers can later call this service instead of directly touching
 FFmpeg plans, process runners, or temporary files.
 
 ### Local Staging Policy
 
-The staging policy should define:
+The staging policy now defines:
 
 - configured staging root;
-- per-session or deterministic output directory;
+- deterministic output directory keyed by source ID and remux container;
 - final output extension based on planned remux container;
-- temporary output naming;
-- cleanup rules for failure, timeout, cancellation, and abandoned outputs;
+- temporary output naming remains owned by `taru-transcode`;
+- output parent creation before FFmpeg starts;
 - path normalization that prevents escaping the staging root.
 
 Remote-source staging remains out of scope. This phase only makes the local
@@ -40,10 +40,9 @@ staging contract explicit enough that remote storage can later plug into it.
 ### Duplicate Requests
 
 Duplicate remux requests should not spawn unbounded equivalent FFmpeg work.
-This phase should choose and test one behavior:
+This phase chooses and tests this behavior:
 
 - reuse an existing matching staged output when it is complete;
-- attach to an existing in-flight session when the request key matches;
 - reject duplicates with a stable conflict/pending error.
 
 The first implementation can be conservative, but it must be deterministic and
@@ -64,6 +63,18 @@ The app boundary should map lower-level errors into stable categories:
 Process stderr and command details should remain diagnostic data, not public
 HTTP response shape.
 
+## Config
+
+`taru-server` now accepts:
+
+```toml
+remux_staging_root = "taru-cache/remux"
+```
+
+Relative paths are resolved by the server process. Production deployments
+should choose a staging root outside watched media roots so staged outputs are
+not indexed as library items.
+
 ## Non-Goals
 
 - No public remux playback HTTP route yet.
@@ -80,12 +91,12 @@ Expected coverage:
 
 - staging paths stay under the configured staging root;
 - output names are deterministic for equivalent requests;
-- duplicates follow the selected reuse/attach/reject behavior;
-- runner failure, cancellation, timeout, and invalid request errors map to
-  stable application errors;
-- handlers remain thin once a public route is added later.
+- completed outputs are reused without spawning FFmpeg again;
+- in-flight duplicate requests return a stable conflict error;
+- the app service can run the FFmpeg runner through a fake process;
+- no public HTTP remux route is exposed.
 
-Required gates for the implementation phase:
+Validation used for this phase:
 
 ```text
 cargo fmt --all -- --check

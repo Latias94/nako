@@ -477,6 +477,7 @@ fn status_for_error(error: &TaruError) -> StatusCode {
     match error {
         TaruError::InvalidInput { .. } | TaruError::Unsupported(_) => StatusCode::BAD_REQUEST,
         TaruError::NotFound { .. } => StatusCode::NOT_FOUND,
+        TaruError::Conflict { .. } => StatusCode::CONFLICT,
         TaruError::Provider { .. } | TaruError::Storage { .. } => StatusCode::BAD_GATEWAY,
         TaruError::Database { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -486,6 +487,7 @@ fn code_for_error(error: &TaruError) -> &'static str {
     match error {
         TaruError::InvalidInput { .. } => "invalid_input",
         TaruError::NotFound { .. } => "not_found",
+        TaruError::Conflict { .. } => "conflict",
         TaruError::Unsupported(_) => "unsupported",
         TaruError::Provider { .. } => "provider_error",
         TaruError::Storage { .. } => "storage_error",
@@ -500,9 +502,10 @@ fn public_message(error: &TaruError) -> String {
             format!("external provider operation failed: {provider}")
         }
         TaruError::Storage { .. } => "storage operation failed".to_owned(),
-        TaruError::InvalidInput { .. } | TaruError::NotFound { .. } | TaruError::Unsupported(_) => {
-            error.to_string()
-        }
+        TaruError::InvalidInput { .. }
+        | TaruError::NotFound { .. }
+        | TaruError::Conflict { .. }
+        | TaruError::Unsupported(_) => error.to_string(),
     }
 }
 
@@ -670,6 +673,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -768,6 +772,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -826,6 +831,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -992,6 +998,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1267,6 +1274,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1317,6 +1325,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: root.join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,

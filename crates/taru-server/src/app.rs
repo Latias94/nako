@@ -1,4 +1,9 @@
-use std::{env, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashSet,
+    env,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use serde::Serialize;
 use taru_api::{
@@ -29,11 +34,16 @@ use taru_nfo::{
 };
 use taru_search::{SearchIndex, SearchQuery};
 use taru_streaming::{
-    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
-    content_type_for_file_name, decide_playback, plan_direct_play_response,
+    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
+    PlaybackMode, content_type_for_file_name, decide_playback, plan_direct_play_response,
+};
+use taru_transcode::{
+    CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
+    RemuxContainer, RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits,
+    TranscodeSession, TranscodeSessionManager,
 };
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
 use crate::config::{TaruServerConfig, library_from_config};
@@ -50,6 +60,8 @@ struct TaruAppInner {
     scan_permits: Arc<Semaphore>,
     metadata_permits: Arc<Semaphore>,
     nfo_permits: Arc<Semaphore>,
+    #[allow(dead_code)]
+    remux: RemuxAppService,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -84,6 +96,250 @@ pub struct DirectPlaySourcePlan {
     pub response: DirectPlayResponsePlan,
 }
 
+#[allow(dead_code)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RemuxSourceRequest {
+    pub source_id: MediaSourceId,
+    pub client: ClientPlaybackCapabilities,
+    pub output_container: RemuxContainer,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemuxSourceDisposition {
+    Finished,
+    ReusedExisting,
+    Cancelled,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Serialize)]
+pub struct RemuxSourceOutput {
+    pub source: MediaSource,
+    pub decision: PlaybackDecision,
+    pub output_path: PathBuf,
+    pub output_container: RemuxContainer,
+    pub disposition: RemuxSourceDisposition,
+    pub session: Option<TranscodeSession>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub struct RemuxStagingPolicy {
+    root: PathBuf,
+}
+
+#[allow(dead_code)]
+impl RemuxStagingPolicy {
+    pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
+        let root = root.into();
+
+        if root.as_os_str().is_empty() {
+            return Err(TaruError::InvalidInput {
+                message: "remux staging root cannot be empty".to_owned(),
+            });
+        }
+
+        if root
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+        {
+            return Err(TaruError::InvalidInput {
+                message: "remux staging root must not contain relative path components".to_owned(),
+            });
+        }
+
+        Ok(Self { root })
+    }
+
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn output_path(
+        &self,
+        source_id: MediaSourceId,
+        container: RemuxContainer,
+    ) -> Result<PathBuf> {
+        let output = self
+            .root
+            .join(source_id.to_string())
+            .join(format!("stream.{}", container.file_extension()));
+
+        if !output.starts_with(&self.root) {
+            return Err(TaruError::Storage {
+                uri: self.root.display().to_string(),
+                message: "remux staging output escaped the staging root".to_owned(),
+            });
+        }
+
+        Ok(output)
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+struct RemuxAppService {
+    builder: FfmpegCommandBuilder,
+    runner: FfmpegRemuxRunner,
+    in_flight: Arc<Mutex<HashSet<RemuxRequestKey>>>,
+}
+
+#[allow(dead_code)]
+impl RemuxAppService {
+    fn new(config: &TaruServerConfig) -> Self {
+        let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+            max_concurrent_sessions: config.remux_concurrency,
+            timeout_ms: config.remux_timeout_ms,
+        });
+
+        Self {
+            builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
+            runner: FfmpegRemuxRunner::new(guard),
+            in_flight: Arc::new(Mutex::new(HashSet::new())),
+        }
+    }
+
+    async fn run(
+        &self,
+        source: MediaSource,
+        decision: PlaybackDecision,
+        input_path: PathBuf,
+        output_path: PathBuf,
+        output_container: RemuxContainer,
+    ) -> Result<RemuxSourceOutput> {
+        let key = RemuxRequestKey {
+            source_id: source.id,
+            output_container,
+        };
+
+        match self.reserve(&key, &output_path).await? {
+            RemuxRequestAdmission::ReuseExisting => {
+                return Ok(RemuxSourceOutput {
+                    source,
+                    decision,
+                    output_path,
+                    output_container,
+                    disposition: RemuxSourceDisposition::ReusedExisting,
+                    session: None,
+                });
+            }
+            RemuxRequestAdmission::Run => {}
+        }
+
+        let result = self
+            .run_reserved(source, decision, input_path, output_path, output_container)
+            .await;
+        self.release(&key).await;
+        result
+    }
+
+    async fn reserve(
+        &self,
+        key: &RemuxRequestKey,
+        output_path: &Path,
+    ) -> Result<RemuxRequestAdmission> {
+        let mut in_flight = self.in_flight.lock().await;
+
+        if output_path.try_exists().map_err(|err| TaruError::Storage {
+            uri: output_path.display().to_string(),
+            message: format!("failed to check remux output path: {err}"),
+        })? {
+            return Ok(RemuxRequestAdmission::ReuseExisting);
+        }
+
+        if !in_flight.insert(*key) {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "remux request for source {} as {:?} is already in progress",
+                    key.source_id, key.output_container
+                ),
+            });
+        }
+
+        Ok(RemuxRequestAdmission::Run)
+    }
+
+    async fn run_reserved(
+        &self,
+        source: MediaSource,
+        decision: PlaybackDecision,
+        input_path: PathBuf,
+        output_path: PathBuf,
+        output_container: RemuxContainer,
+    ) -> Result<RemuxSourceOutput> {
+        ensure_remux_output_parent(&output_path).await?;
+
+        let mut manager = TranscodeSessionManager::new();
+        let session = manager.plan_remux(
+            RemuxRequest {
+                source_id: source.id,
+                input_path,
+                output_path: output_path.clone(),
+                output_container,
+                overwrite: FfmpegOverwritePolicy::Never,
+            },
+            &self.builder,
+        )?;
+        let session_id = session.id;
+        let cancel = CancellationToken::new();
+
+        match self
+            .runner
+            .run(&mut manager, session_id, cancel)
+            .await
+            .map_err(map_remux_runner_error)?
+        {
+            RemuxRunOutcome::Finished { .. } => {
+                let session =
+                    manager
+                        .get(session_id)
+                        .cloned()
+                        .ok_or_else(|| TaruError::NotFound {
+                            entity: "transcode_session",
+                            id: session_id.to_string(),
+                        })?;
+
+                Ok(RemuxSourceOutput {
+                    source,
+                    decision,
+                    output_path,
+                    output_container,
+                    disposition: RemuxSourceDisposition::Finished,
+                    session: Some(session),
+                })
+            }
+            RemuxRunOutcome::Cancelled { .. } => Ok(RemuxSourceOutput {
+                source,
+                decision,
+                output_path,
+                output_container,
+                disposition: RemuxSourceDisposition::Cancelled,
+                session: manager.get(session_id).cloned(),
+            }),
+        }
+    }
+
+    async fn release(&self, key: &RemuxRequestKey) {
+        self.in_flight.lock().await.remove(key);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct RemuxRequestKey {
+    source_id: MediaSourceId,
+    output_container: RemuxContainer,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RemuxRequestAdmission {
+    Run,
+    ReuseExisting,
+}
+
 impl TaruApp {
     pub async fn new(config: TaruServerConfig) -> Result<Self> {
         let store = SqliteStore::connect(&config.database_url).await?;
@@ -98,6 +354,7 @@ impl TaruApp {
                 scan_permits: Arc::new(Semaphore::new(config.scan_concurrency.max(1))),
                 metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
+                remux: RemuxAppService::new(&config),
                 config,
                 store,
             }),
@@ -259,12 +516,52 @@ impl TaruApp {
         range_request: DirectPlayRangeRequest,
     ) -> Result<DirectPlaySourcePlan> {
         let source = self.get_source_or_not_found(source_id).await?;
+        let (local_path, total_len) = self.local_source_path_and_len(&source).await?;
+        let content_type = content_type_for_file_name(&source.file_name).to_owned();
+        let response = plan_direct_play_response(total_len, content_type, range_request);
+
+        Ok(DirectPlaySourcePlan {
+            source,
+            local_path,
+            response,
+        })
+    }
+
+    #[allow(dead_code)]
+    pub async fn remux_source(&self, request: RemuxSourceRequest) -> Result<RemuxSourceOutput> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        let probe = self.inner.store.get_media_probe(source.id).await?;
+        let decision = decide_playback(&source, probe.as_ref(), &request.client);
+
+        if decision.mode != PlaybackMode::Remux {
+            return Err(TaruError::Unsupported(
+                "remux app service requires a remux playback decision",
+            ));
+        }
+
+        let (local_path, _total_len) = self.local_source_path_and_len(&source).await?;
+        let staging = RemuxStagingPolicy::new(&self.config().remux_staging_root)?;
+        let output_path = staging.output_path(source.id, request.output_container)?;
+
+        self.inner
+            .remux
+            .run(
+                source,
+                decision,
+                local_path,
+                output_path,
+                request.output_container,
+            )
+            .await
+    }
+
+    async fn local_source_path_and_len(&self, source: &MediaSource) -> Result<(PathBuf, u64)> {
         let uri = StorageUri::parse(&source.locator)?;
         let backend = LocalFsBackend::new(&self.config().library.root)?;
         let metadata = backend.stat(&uri).await?;
         let virtual_file = backend.open_range(&uri, None).await?;
         let local_path = virtual_file.local_path_hint.ok_or_else(|| {
-            TaruError::Unsupported("direct play currently requires a local path hint")
+            TaruError::Unsupported("local playback operations currently require a local path hint")
         })?;
         let total_len = match metadata.len {
             Some(len) => len,
@@ -276,14 +573,8 @@ impl TaruApp {
                 })?
                 .len(),
         };
-        let content_type = content_type_for_file_name(&source.file_name).to_owned();
-        let response = plan_direct_play_response(total_len, content_type, range_request);
 
-        Ok(DirectPlaySourcePlan {
-            source,
-            local_path,
-            response,
-        })
+        Ok((local_path, total_len))
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
@@ -1252,6 +1543,48 @@ fn provider_resource_name(provider: &ExternalProvider) -> &str {
     }
 }
 
+#[allow(dead_code)]
+fn map_remux_runner_error(error: TaruError) -> TaruError {
+    match error {
+        TaruError::Provider { provider, message } if provider == "ffmpeg" => {
+            let message = if message.to_ascii_lowercase().contains("timed out") {
+                "remux runner timed out".to_owned()
+            } else {
+                "remux runner failed".to_owned()
+            };
+
+            TaruError::Provider {
+                provider: "ffmpeg_remux".to_owned(),
+                message,
+            }
+        }
+        TaruError::Storage { uri, .. } => TaruError::Storage {
+            uri,
+            message: "remux staging operation failed".to_owned(),
+        },
+        TaruError::InvalidInput { message } => TaruError::InvalidInput {
+            message: format!("invalid remux request: {message}"),
+        },
+        other => other,
+    }
+}
+
+async fn ensure_remux_output_parent(output_path: &Path) -> Result<()> {
+    let Some(parent) = output_path.parent() else {
+        return Err(TaruError::Storage {
+            uri: output_path.display().to_string(),
+            message: "remux output path does not have a parent directory".to_owned(),
+        });
+    };
+
+    tokio::fs::create_dir_all(parent)
+        .await
+        .map_err(|err| TaruError::Storage {
+            uri: parent.display().to_string(),
+            message: format!("failed to create remux output directory: {err}"),
+        })
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum TmdbProviderBuildError {
     Disabled(String),
@@ -1272,13 +1605,17 @@ struct LibraryScanJobInput {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
 
     use taru_core::{
         CanonicalMetadata, JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind,
-        MediaRepository, MediaSource, MediaSourceId, MetadataField, MetadataRepository,
-        MetadataSource,
+        MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+        MediaStreamInfo, MediaStreamKind, MetadataField, MetadataRepository, MetadataSource,
     };
+    use taru_transcode::{RemuxContainer, TranscodeSessionState};
 
     use super::*;
     use crate::config::{LocalLibraryConfig, MetadataConfig};
@@ -1297,6 +1634,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1334,6 +1672,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1399,6 +1738,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1452,6 +1792,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1504,6 +1845,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1564,6 +1906,7 @@ mod tests {
             metadata_concurrency: 1,
             remux_concurrency: 1,
             remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1614,5 +1957,208 @@ mod tests {
         }));
         assert_eq!(job.status, JobStatus::Succeeded);
         assert!(job.summary_json.unwrap().contains("\"imported_items\":1"));
+    }
+
+    #[tokio::test]
+    async fn remux_source_runs_runner_and_reuses_completed_output() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
+        let (_temp, app, source) = remux_app_with_source(ffmpeg_path).await;
+        let request = RemuxSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        };
+
+        let output = app.remux_source(request.clone()).await.unwrap();
+        let session = output.session.as_ref().unwrap();
+
+        assert_eq!(output.disposition, RemuxSourceDisposition::Finished);
+        assert_eq!(session.state, TranscodeSessionState::Finished);
+        assert!(
+            output
+                .output_path
+                .starts_with(&app.config().remux_staging_root)
+        );
+        assert_eq!(fs::read_to_string(&output.output_path).unwrap(), "remuxed");
+
+        let reused = app.remux_source(request).await.unwrap();
+
+        assert_eq!(reused.disposition, RemuxSourceDisposition::ReusedExisting);
+        assert!(reused.session.is_none());
+        assert_eq!(reused.output_path, output.output_path);
+        assert_eq!(fs::read_to_string(reused.output_path).unwrap(), "remuxed");
+    }
+
+    #[tokio::test]
+    async fn remux_source_rejects_in_flight_duplicate() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
+        let (_temp, app, source) = remux_app_with_source(ffmpeg_path).await;
+        let key = RemuxRequestKey {
+            source_id: source.id,
+            output_container: RemuxContainer::Mp4,
+        };
+        app.inner.remux.in_flight.lock().await.insert(key);
+
+        let err = app
+            .remux_source(RemuxSourceRequest {
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                output_container: RemuxContainer::Mp4,
+            })
+            .await
+            .unwrap_err();
+
+        let TaruError::Conflict { message } = err else {
+            panic!("expected remux duplicate conflict");
+        };
+        assert!(message.contains("already in progress"));
+    }
+
+    #[test]
+    fn remux_staging_policy_rejects_escaping_roots() {
+        assert!(RemuxStagingPolicy::new(PathBuf::new()).is_err());
+        assert!(RemuxStagingPolicy::new(PathBuf::from("cache/../outside")).is_err());
+
+        let policy = RemuxStagingPolicy::new(PathBuf::from("cache/remux")).unwrap();
+        let output = policy
+            .output_path(MediaSourceId::new(), RemuxContainer::Mkv)
+            .unwrap();
+
+        assert!(output.starts_with(policy.root()));
+        assert_eq!(
+            output.extension().and_then(|value| value.to_str()),
+            Some("mkv")
+        );
+    }
+
+    fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let path = root.join(name);
+            let content =
+                "#!/bin/sh\nfor arg do out=\"$arg\"; done\nprintf remuxed > \"$out\"\nexit 0\n";
+            fs::write(&path, content).unwrap();
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+            path
+        }
+
+        #[cfg(windows)]
+        {
+            let path = root.join(format!("{name}.cmd"));
+            let mut content = String::from("@echo off\r\n");
+            content.push_str("setlocal enabledelayedexpansion\r\n");
+            content.push_str(":args\r\n");
+            content.push_str("if \"%~1\"==\"\" goto run\r\n");
+            content.push_str("set out=%~1\r\n");
+            content.push_str("shift\r\n");
+            content.push_str("goto args\r\n");
+            content.push_str(":run\r\n");
+            content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
+            content.push_str("exit /b 0\r\n");
+            fs::write(&path, content).unwrap();
+            path
+        }
+    }
+
+    async fn remux_app_with_source(
+        ffmpeg_path: PathBuf,
+    ) -> (tempfile::TempDir, TaruApp, MediaSource) {
+        let temp = tempfile::tempdir().unwrap();
+        let library_root = temp.path().join("library");
+        let staging_root = temp.path().join("cache").join("remux");
+        fs::create_dir_all(&library_root).unwrap();
+        fs::write(library_root.join("demo.mkv"), b"media").unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path,
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: staging_root,
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: library_root,
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///demo.mkv".to_owned(),
+            file_name: "demo.mkv".to_owned(),
+            size_bytes: Some(5),
+            fingerprint: None,
+        };
+
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+        store
+            .upsert_media_probe(
+                source.id,
+                &MediaProbeResult {
+                    duration_ms: Some(1_000),
+                    container: Some("matroska,webm".to_owned()),
+                    bit_rate: None,
+                    streams: vec![
+                        MediaStreamInfo {
+                            index: 0,
+                            kind: MediaStreamKind::Video,
+                            codec: Some("h264".to_owned()),
+                            language: None,
+                            duration_ms: None,
+                            bit_rate: None,
+                            width: Some(1920),
+                            height: Some(1080),
+                            channels: None,
+                            sample_rate: None,
+                        },
+                        MediaStreamInfo {
+                            index: 1,
+                            kind: MediaStreamKind::Audio,
+                            codec: Some("aac".to_owned()),
+                            language: None,
+                            duration_ms: None,
+                            bit_rate: None,
+                            width: None,
+                            height: None,
+                            channels: Some(2),
+                            sample_rate: Some(48_000),
+                        },
+                    ],
+                },
+            )
+            .await
+            .unwrap();
+
+        (temp, app, source)
     }
 }

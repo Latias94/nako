@@ -8,6 +8,9 @@ pub enum TaruError {
     #[error("not found: {entity} {id}")]
     NotFound { entity: &'static str, id: String },
 
+    #[error("conflict: {message}")]
+    Conflict { message: String },
+
     #[error("operation is not supported: {0}")]
     Unsupported(&'static str),
 

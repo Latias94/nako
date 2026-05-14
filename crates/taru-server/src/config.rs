@@ -26,6 +26,8 @@ pub struct TaruServerConfig {
     pub remux_concurrency: usize,
     #[serde(default = "default_remux_timeout_ms")]
     pub remux_timeout_ms: u64,
+    #[serde(default = "default_remux_staging_root")]
+    pub remux_staging_root: PathBuf,
     #[serde(default)]
     pub metadata: MetadataConfig,
     pub library: LocalLibraryConfig,
@@ -104,6 +106,7 @@ pub fn example_config() -> Result<String> {
         metadata_concurrency: default_metadata_concurrency(),
         remux_concurrency: default_remux_concurrency(),
         remux_timeout_ms: default_remux_timeout_ms(),
+        remux_staging_root: default_remux_staging_root(),
         metadata: MetadataConfig::default(),
         library: LocalLibraryConfig {
             id: LibraryId::new(),
@@ -159,6 +162,10 @@ const fn default_remux_timeout_ms() -> u64 {
     30 * 60 * 1_000
 }
 
+fn default_remux_staging_root() -> PathBuf {
+    PathBuf::from("taru-cache/remux")
+}
+
 fn default_tmdb_access_token_env() -> String {
     "TMDB_READ_ACCESS_TOKEN".to_owned()
 }
@@ -198,6 +205,7 @@ mod tests {
             metadata_concurrency = 4
             remux_concurrency = 2
             remux_timeout_ms = 60000
+            remux_staging_root = "F:/Taru/cache/remux"
 
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
@@ -223,6 +231,10 @@ mod tests {
         assert_eq!(config.metadata_concurrency, 4);
         assert_eq!(config.remux_concurrency, 2);
         assert_eq!(config.remux_timeout_ms, 60_000);
+        assert_eq!(
+            config.remux_staging_root,
+            PathBuf::from("F:/Taru/cache/remux")
+        );
         assert!(config.metadata.tmdb.enabled);
         assert_eq!(
             config.metadata.tmdb.access_token_env,
@@ -271,6 +283,7 @@ mod tests {
         assert_eq!(config.metadata_concurrency, 2);
         assert_eq!(config.remux_concurrency, 1);
         assert_eq!(config.remux_timeout_ms, 30 * 60 * 1_000);
+        assert_eq!(config.remux_staging_root, PathBuf::from("taru-cache/remux"));
         assert!(!config.metadata.tmdb.enabled);
         assert_eq!(config.library.preset, LibraryPreset::Movies);
         assert_eq!(

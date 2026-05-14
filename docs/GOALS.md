@@ -41,18 +41,19 @@ Evidence:
 - TMDB movie refresh, NFO import/export jobs, metadata profile execution, and
   catalog/search planning are implemented or documented.
 
-### M4.0-M4.4: Catalog Ingestion and Playback Foundation
+### M4.0-M4.5: Catalog Ingestion and Playback Foundation
 
-Status: completed through M4.4.
+Status: completed through M4.5.
 
 Evidence:
 
 - Catalog ingestion, graph hydration, browse APIs, direct play, FFmpeg command
-  planning, and remux process runner guard are implemented.
-- Last completed implementation goal: M4.4 remux process runner and runtime
-  resource guard.
+  planning, remux process runner guard, and remux application service
+  integration are implemented.
+- Last completed implementation goal: M4.5 remux app service integration and
+  local staging policy.
 
-## Recently Completed Planning Goal
+## Recently Completed Goals
 
 ### Planning Docs: Goal Map and Refactoring Policy
 
@@ -90,51 +91,31 @@ Evidence:
 
 - `git diff --check` passed for the docs-only change set.
 
-## Recommended Next Implementation Goal
-
 ### M4.5: Remux App Service Integration and Local Staging Policy
 
-Status: proposed.
+Status: completed.
 
-Objective:
+Evidence:
 
-- Move remux orchestration behind an application service that can later serve
-  HTTP remux playback without exposing process-runner details to handlers.
+- `taru-server::app` has a remux application service boundary.
+- `remux_staging_root` config defines the local staging root.
+- Remux outputs are deterministic by source ID and container.
+- Completed staged outputs are reused.
+- In-flight duplicate requests return `Conflict`.
+- Tests cover app-service runner execution, completed-output reuse, duplicate
+  conflict behavior, staging path validation, and config defaults.
 
-Deliverables:
-
-- application-level remux service in `taru-server::app`;
-- local staging directory policy for remux outputs;
-- deterministic output naming and cleanup rules;
-- duplicate request reuse or explicit idempotency behavior;
-- error mapping from transcode/remux failures to API-safe errors;
-- tests using fake runners or command planning where possible.
-
-Non-goals:
-
-- no public remux playback HTTP route yet;
-- no HLS segment serving;
-- no hardware acceleration detection;
-- no remote-source staging;
-- no persisted transcode session table unless needed for clean service shape.
-
-Exit criteria:
-
-- server composition can create and call the remux app service;
-- staging paths cannot escape the configured staging root;
-- duplicate remux requests have deterministic behavior;
-- runner errors, cancellation, timeout, and invalid requests are mapped without
-  leaking process internals;
-- `cargo fmt --all -- --check`, `cargo check --workspace`,
-  `cargo nextest run --workspace`, and `git diff --check` pass.
-
-## Later Goals
+## Recommended Next Implementation Goal
 
 ### M4.6: Remux Playback Route
+
+Status: proposed.
 
 Expose remuxed playback through an HTTP route after M4.5 has a clean
 application boundary. This should stream a staged remux output or return a
 clear pending/error state without blocking request handlers indefinitely.
+
+## Later Goals
 
 ### M4.7: Transcode Session Persistence
 

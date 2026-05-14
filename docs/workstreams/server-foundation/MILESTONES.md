@@ -436,6 +436,32 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.6: Remux Playback Route
+
+Outcome: Taru exposes remuxed playback through HTTP while keeping handlers as
+request/response translation around the remux application service.
+
+Deliverables:
+
+- HTTP remux playback route.
+- Client capability parsing for remux decisions.
+- Streaming response for completed staged remux outputs.
+- Conflict or pending response for equivalent in-flight remux requests.
+- API documentation for the route.
+- Handler tests proving the route does not bypass the app service.
+
+Exit criteria:
+
+- A local source with compatible codecs and unsupported container can be remuxed
+  and streamed through HTTP.
+- Completed staged outputs are reused.
+- In-flight duplicate remux requests return a stable conflict response.
+- Direct play route behavior remains unchanged.
+- No HLS, remote staging, or hardware acceleration route is exposed in this
+  phase.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

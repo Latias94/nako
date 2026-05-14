@@ -22,6 +22,7 @@ taru-metadata = { path = "../taru-metadata" }
 taru-nfo = { path = "../taru-nfo" }
 taru-search = { path = "../taru-search" }
 taru-streaming = { path = "../taru-streaming" }
+taru-transcode = { path = "../taru-transcode" }
 taru-vfs = { path = "../taru-vfs" }
 tokio.workspace = true
 tokio-util.workspace = true

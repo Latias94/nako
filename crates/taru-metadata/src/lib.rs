@@ -615,7 +615,10 @@ fn validate_refresh_profile(profile: &MetadataProfile) -> Result<()> {
 fn classify_provider_error(error: TaruError) -> MetadataProviderRefreshError {
     match error {
         TaruError::NotFound { .. } => MetadataProviderRefreshError::NoMatch(error.to_string()),
-        TaruError::Unsupported(_) | TaruError::InvalidInput { .. } | TaruError::Provider { .. } => {
+        TaruError::Unsupported(_)
+        | TaruError::InvalidInput { .. }
+        | TaruError::Conflict { .. }
+        | TaruError::Provider { .. } => {
             MetadataProviderRefreshError::ProviderFailed(error.to_string())
         }
         TaruError::Storage { .. } | TaruError::Database { .. } => {
