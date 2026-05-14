@@ -41,8 +41,8 @@ use taru_streaming::{
 };
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHlsRunner, FfmpegOverwritePolicy,
-    FfmpegRemuxRunner, HlsRequest, HlsRunOutcome, RemuxContainer, RemuxRequest, RemuxRunOutcome,
-    RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
+    FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
+    RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
@@ -522,19 +522,24 @@ enum RemuxRequestAdmission {
 struct HlsAppService {
     builder: FfmpegCommandBuilder,
     runner: FfmpegHlsRunner,
+    hardware_acceleration: HardwareAcceleration,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
 }
 
 impl HlsAppService {
     fn new(config: &TaruServerConfig) -> Self {
+        let hardware_policy = config.transcode.hardware_policy();
+        let hardware_acceleration = hardware_policy.requested;
+        let transcode_budget = config.transcode.resource_budget();
         let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
-            max_concurrent_sessions: config.remux_concurrency,
+            max_concurrent_sessions: transcode_budget.slots_for(hardware_acceleration),
             timeout_ms: config.remux_timeout_ms,
         });
 
         Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
             runner: FfmpegHlsRunner::new(guard),
+            hardware_acceleration,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         }
     }
@@ -666,6 +671,7 @@ impl HlsAppService {
                 playlist_path: layout.playlist_path.clone(),
                 segment_pattern: layout.segment_pattern.clone(),
                 segment_time_seconds: 6,
+                hardware_acceleration: self.hardware_acceleration,
                 overwrite: FfmpegOverwritePolicy::Allow,
             },
             &self.builder,
@@ -2247,7 +2253,7 @@ mod tests {
     use taru_transcode::RemuxContainer;
 
     use super::*;
-    use crate::config::{LocalLibraryConfig, MetadataConfig};
+    use crate::config::{LocalLibraryConfig, MetadataConfig, TranscodeConfig};
 
     #[tokio::test]
     async fn scan_configured_library_persists_job_success() {
@@ -2265,6 +2271,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2303,6 +2310,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2369,6 +2377,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2423,6 +2432,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
@@ -2476,6 +2486,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
@@ -2537,6 +2548,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3092,6 +3104,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: staging_root,
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

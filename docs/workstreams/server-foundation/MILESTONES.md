@@ -538,6 +538,29 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.10: MVP Stabilization
+
+Outcome: the local video-library playback MVP is documented, bounded, and
+validated before broader extension or remote-storage work begins.
+
+Deliverables:
+
+- HTTP API audit and documentation updates.
+- Config documentation for scan, metadata, remux, HLS, hardware policy, and
+  resource budgets.
+- Error mapping audit for playback/session/job routes.
+- Focused edge-case tests for gaps found during the audit.
+- Known limitations and MVP non-goals.
+
+Exit criteria:
+
+- API docs match implemented routes.
+- Config docs match implemented fields and defaults.
+- Validation gates pass for the workspace.
+- Any remaining MVP limitation is explicitly documented.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

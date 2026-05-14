@@ -41,9 +41,9 @@ Evidence:
 - TMDB movie refresh, NFO import/export jobs, metadata profile execution, and
   catalog/search planning are implemented or documented.
 
-### M4.0-M4.8: Catalog Ingestion and Playback Foundation
+### M4.0-M4.9: Catalog Ingestion and Playback Foundation
 
-Status: completed through M4.8.
+Status: completed through M4.9.
 
 Evidence:
 
@@ -55,7 +55,9 @@ Evidence:
   an app/API lookup path.
 - A minimal single-variant HLS transcode path can generate, persist, and serve
   playlists and segments.
-- Last completed implementation goal: M4.8 HLS transcode foundation.
+- Hardware acceleration capability, policy, fallback, and resource-budget
+  models are implemented without requiring real GPU hardware in tests.
+- Last completed implementation goal: M4.9 hardware acceleration policy.
 
 ## Recently Completed Goals
 
@@ -152,15 +154,29 @@ Evidence:
 - `GET /playback/sessions/{session_id}/hls/segments/{segment_name}` serves
   generated segments with path traversal protection.
 
+### M4.9: Hardware Acceleration Policy
+
+Status: completed.
+
+Evidence:
+
+- `taru-transcode` has a hardware acceleration capability report, detector
+  boundary, policy selection, fallback behavior, and resource-budget model.
+- HLS command planning can select CPU-only, VAAPI, NVENC, or QuickSync encoder
+  arguments without requiring real hardware in tests.
+- `taru-server` config exposes hardware acceleration, fallback, CPU slots, and
+  GPU slots with conservative defaults.
+- HLS app-service concurrency uses CPU/GPU resource budgets based on the
+  selected acceleration class.
+
 ## Recommended Next Implementation Goal
 
-### M4.9: Hardware Acceleration Policy
+### MVP Stabilization
 
 Status: proposed.
 
-Design VAAPI, NVENC, and QuickSync detection, capability modeling, queue
-policy, and CPU/GPU resource budgeting before enabling hardware acceleration in
-HLS execution.
+Audit and stabilize the local video-library playback MVP: API docs, error
+model, config docs, performance constraints, route behavior, and test coverage.
 
 ## Later Goals
 

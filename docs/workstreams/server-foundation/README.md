@@ -11,7 +11,7 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus: [Phase 4.9 Hardware Acceleration Policy](PHASE4_9_HARDWARE_ACCELERATION_POLICY.md).
+Current implementation focus: [MVP Stabilization](PHASE4_10_MVP_STABILIZATION.md).
 
 ## Goals
 

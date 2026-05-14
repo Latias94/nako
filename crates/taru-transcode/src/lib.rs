@@ -47,6 +47,195 @@ pub enum HardwareAcceleration {
     QuickSync,
 }
 
+impl HardwareAcceleration {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Vaapi => "vaapi",
+            Self::Nvenc => "nvenc",
+            Self::QuickSync => "quick_sync",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_gpu(self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareAccelerationFallback {
+    #[default]
+    Cpu,
+    Fail,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareAccelerationPolicy {
+    pub requested: HardwareAcceleration,
+    pub fallback: HardwareAccelerationFallback,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareAccelerationCapability {
+    pub accelerator: HardwareAcceleration,
+    pub available: bool,
+    pub device: Option<String>,
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareAccelerationReport {
+    pub capabilities: Vec<HardwareAccelerationCapability>,
+}
+
+impl HardwareAccelerationReport {
+    #[must_use]
+    pub fn cpu_only() -> Self {
+        Self {
+            capabilities: vec![HardwareAccelerationCapability {
+                accelerator: HardwareAcceleration::None,
+                available: true,
+                device: None,
+                reason: Some("cpu encode is always available".to_owned()),
+            }],
+        }
+    }
+
+    #[must_use]
+    pub fn with_available(accelerators: impl IntoIterator<Item = HardwareAcceleration>) -> Self {
+        Self {
+            capabilities: accelerators
+                .into_iter()
+                .map(|accelerator| HardwareAccelerationCapability {
+                    accelerator,
+                    available: true,
+                    device: None,
+                    reason: None,
+                })
+                .collect(),
+        }
+    }
+
+    #[must_use]
+    pub fn is_available(&self, accelerator: HardwareAcceleration) -> bool {
+        accelerator == HardwareAcceleration::None
+            || self
+                .capabilities
+                .iter()
+                .any(|capability| capability.accelerator == accelerator && capability.available)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareAccelerationSelection {
+    pub acceleration: HardwareAcceleration,
+    pub fallback_used: bool,
+    pub reason: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeResourceBudget {
+    pub cpu_slots: usize,
+    pub gpu_slots: usize,
+}
+
+impl Default for TranscodeResourceBudget {
+    fn default() -> Self {
+        Self {
+            cpu_slots: 1,
+            gpu_slots: 1,
+        }
+    }
+}
+
+impl TranscodeResourceBudget {
+    #[must_use]
+    pub const fn new(cpu_slots: usize, gpu_slots: usize) -> Self {
+        Self {
+            cpu_slots,
+            gpu_slots,
+        }
+    }
+
+    #[must_use]
+    pub fn bounded(self) -> Self {
+        Self {
+            cpu_slots: self.cpu_slots.max(1),
+            gpu_slots: self.gpu_slots.max(1),
+        }
+    }
+
+    #[must_use]
+    pub fn slots_for(self, acceleration: HardwareAcceleration) -> usize {
+        let budget = self.bounded();
+        if acceleration.is_gpu() {
+            budget.gpu_slots
+        } else {
+            budget.cpu_slots
+        }
+    }
+}
+
+pub trait HardwareAccelerationDetector: Send + Sync {
+    fn detect(&self) -> HardwareAccelerationReport;
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct StaticHardwareAccelerationDetector {
+    report: HardwareAccelerationReport,
+}
+
+impl StaticHardwareAccelerationDetector {
+    #[must_use]
+    pub fn new(report: HardwareAccelerationReport) -> Self {
+        Self { report }
+    }
+}
+
+impl HardwareAccelerationDetector for StaticHardwareAccelerationDetector {
+    fn detect(&self) -> HardwareAccelerationReport {
+        self.report.clone()
+    }
+}
+
+pub fn select_hardware_acceleration(
+    policy: HardwareAccelerationPolicy,
+    report: &HardwareAccelerationReport,
+) -> Result<HardwareAccelerationSelection> {
+    if policy.requested == HardwareAcceleration::None {
+        return Ok(HardwareAccelerationSelection {
+            acceleration: HardwareAcceleration::None,
+            fallback_used: false,
+            reason: "cpu encode requested".to_owned(),
+        });
+    }
+
+    if report.is_available(policy.requested) {
+        return Ok(HardwareAccelerationSelection {
+            acceleration: policy.requested,
+            fallback_used: false,
+            reason: format!("{} is available", policy.requested.as_str()),
+        });
+    }
+
+    match policy.fallback {
+        HardwareAccelerationFallback::Cpu => Ok(HardwareAccelerationSelection {
+            acceleration: HardwareAcceleration::None,
+            fallback_used: true,
+            reason: format!(
+                "{} is unavailable; falling back to cpu",
+                policy.requested.as_str()
+            ),
+        }),
+        HardwareAccelerationFallback::Fail => Err(TaruError::Unsupported(
+            "requested hardware accelerator is unavailable",
+        )),
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct FfmpegCommandPlan {
     pub program: PathBuf,
@@ -235,6 +424,7 @@ pub struct HlsRequest {
     pub playlist_path: PathBuf,
     pub segment_pattern: PathBuf,
     pub segment_time_seconds: u32,
+    pub hardware_acceleration: HardwareAcceleration,
     pub overwrite: FfmpegOverwritePolicy,
 }
 
@@ -392,34 +582,61 @@ impl FfmpegCommandBuilder {
         };
         let segment_time = request.segment_time_seconds.max(1).to_string();
 
-        Ok(FfmpegCommandPlan::new(
-            self.ffmpeg_path.clone(),
-            vec![
-                FfmpegArg::raw("-hide_banner"),
-                FfmpegArg::raw("-loglevel"),
-                FfmpegArg::raw("warning"),
-                FfmpegArg::raw(overwrite_arg),
-                FfmpegArg::raw("-i"),
-                FfmpegArg::path(request.input_path.clone()),
-                FfmpegArg::raw("-map"),
-                FfmpegArg::raw("0:v:0"),
-                FfmpegArg::raw("-map"),
-                FfmpegArg::raw("0:a:0?"),
-                FfmpegArg::raw("-c:v"),
-                FfmpegArg::raw("libx264"),
-                FfmpegArg::raw("-c:a"),
-                FfmpegArg::raw("aac"),
-                FfmpegArg::raw("-f"),
-                FfmpegArg::raw("hls"),
-                FfmpegArg::raw("-hls_time"),
-                FfmpegArg::raw(segment_time),
-                FfmpegArg::raw("-hls_playlist_type"),
-                FfmpegArg::raw("vod"),
-                FfmpegArg::raw("-hls_segment_filename"),
-                FfmpegArg::path(request.segment_pattern.clone()),
-                FfmpegArg::path(request.playlist_path.clone()),
-            ],
-        ))
+        let mut args = vec![
+            FfmpegArg::raw("-hide_banner"),
+            FfmpegArg::raw("-loglevel"),
+            FfmpegArg::raw("warning"),
+            FfmpegArg::raw(overwrite_arg),
+            FfmpegArg::raw("-i"),
+            FfmpegArg::path(request.input_path.clone()),
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw("0:v:0"),
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw("0:a:0?"),
+        ];
+        append_hls_video_encoder_args(&mut args, request.hardware_acceleration);
+        args.extend([
+            FfmpegArg::raw("-c:a"),
+            FfmpegArg::raw("aac"),
+            FfmpegArg::raw("-f"),
+            FfmpegArg::raw("hls"),
+            FfmpegArg::raw("-hls_time"),
+            FfmpegArg::raw(segment_time),
+            FfmpegArg::raw("-hls_playlist_type"),
+            FfmpegArg::raw("vod"),
+            FfmpegArg::raw("-hls_segment_filename"),
+            FfmpegArg::path(request.segment_pattern.clone()),
+            FfmpegArg::path(request.playlist_path.clone()),
+        ]);
+
+        Ok(FfmpegCommandPlan::new(self.ffmpeg_path.clone(), args))
+    }
+}
+
+fn append_hls_video_encoder_args(args: &mut Vec<FfmpegArg>, acceleration: HardwareAcceleration) {
+    match acceleration {
+        HardwareAcceleration::None => {
+            args.push(FfmpegArg::raw("-c:v"));
+            args.push(FfmpegArg::raw("libx264"));
+        }
+        HardwareAcceleration::Vaapi => {
+            args.push(FfmpegArg::raw("-hwaccel"));
+            args.push(FfmpegArg::raw("vaapi"));
+            args.push(FfmpegArg::raw("-vf"));
+            args.push(FfmpegArg::raw("format=nv12,hwupload"));
+            args.push(FfmpegArg::raw("-c:v"));
+            args.push(FfmpegArg::raw("h264_vaapi"));
+        }
+        HardwareAcceleration::Nvenc => {
+            args.push(FfmpegArg::raw("-c:v"));
+            args.push(FfmpegArg::raw("h264_nvenc"));
+        }
+        HardwareAcceleration::QuickSync => {
+            args.push(FfmpegArg::raw("-hwaccel"));
+            args.push(FfmpegArg::raw("qsv"));
+            args.push(FfmpegArg::raw("-c:v"));
+            args.push(FfmpegArg::raw("h264_qsv"));
+        }
     }
 }
 
@@ -1160,6 +1377,7 @@ mod tests {
             playlist_path: PathBuf::from("hls/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
+            hardware_acceleration: HardwareAcceleration::None,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
@@ -1206,10 +1424,81 @@ mod tests {
             playlist_path: PathBuf::from("outside/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
+            hardware_acceleration: HardwareAcceleration::None,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
         assert!(builder.hls(&request).is_err());
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_with_nvenc_policy() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 6,
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let command = builder.hls(&request).unwrap();
+        let argv = command.argv_lossy();
+
+        assert!(argv.contains(&"h264_nvenc".to_owned()));
+        assert!(!argv.contains(&"libx264".to_owned()));
+    }
+
+    #[test]
+    fn hardware_policy_selects_available_and_falls_back_to_cpu() {
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::Nvenc]);
+        let nvenc = select_hardware_acceleration(
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::Nvenc,
+                fallback: HardwareAccelerationFallback::Cpu,
+            },
+            &report,
+        )
+        .unwrap();
+        let fallback = select_hardware_acceleration(
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::Vaapi,
+                fallback: HardwareAccelerationFallback::Cpu,
+            },
+            &report,
+        )
+        .unwrap();
+
+        assert_eq!(nvenc.acceleration, HardwareAcceleration::Nvenc);
+        assert!(!nvenc.fallback_used);
+        assert_eq!(fallback.acceleration, HardwareAcceleration::None);
+        assert!(fallback.fallback_used);
+    }
+
+    #[test]
+    fn hardware_policy_can_fail_when_requested_acceleration_is_unavailable() {
+        let report = HardwareAccelerationReport::cpu_only();
+        let err = select_hardware_acceleration(
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::QuickSync,
+                fallback: HardwareAccelerationFallback::Fail,
+            },
+            &report,
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("unavailable"));
+    }
+
+    #[test]
+    fn transcode_resource_budget_is_bounded_by_resource_class() {
+        let budget = TranscodeResourceBudget::new(0, 2);
+
+        assert_eq!(budget.slots_for(HardwareAcceleration::None), 1);
+        assert_eq!(budget.slots_for(HardwareAcceleration::Vaapi), 2);
     }
 
     #[test]
@@ -1261,6 +1550,7 @@ mod tests {
             playlist_path: PathBuf::from("hls/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
+            hardware_acceleration: HardwareAcceleration::None,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
@@ -1559,6 +1849,7 @@ mod tests {
                     playlist_path: playlist_path.to_path_buf(),
                     segment_pattern: segment_pattern.to_path_buf(),
                     segment_time_seconds: 6,
+                    hardware_acceleration: HardwareAcceleration::None,
                     overwrite: FfmpegOverwritePolicy::Allow,
                 },
                 &builder,

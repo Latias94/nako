@@ -1,5 +1,7 @@
 # Phase 4.9: Hardware Acceleration Policy
 
+Status: completed.
+
 ## Goal
 
 Design the hardware acceleration policy for HLS/transcode execution before
@@ -7,14 +9,16 @@ enabling VAAPI, NVENC, or QuickSync in production command plans.
 
 ## Proposed Shape
 
-- Define a capability model for CPU-only, VAAPI, NVENC, and QuickSync.
-- Add detection hooks that can report available accelerators without starting a
-  transcode.
-- Model encode policy separately from HTTP handlers and FFmpeg runner code.
-- Define CPU and GPU resource budgets, queue classes, and conservative defaults.
-- Decide fallback behavior when requested acceleration is unavailable.
-- Keep command planning deterministic and testable without requiring real GPU
+- Defined a capability model for CPU-only, VAAPI, NVENC, and QuickSync.
+- Added detection hooks that can report available accelerators without starting
+  a transcode.
+- Modeled encode policy separately from HTTP handlers and FFmpeg runner code.
+- Defined CPU and GPU resource budgets with conservative defaults.
+- Added fallback behavior when requested acceleration is unavailable.
+- Kept command planning deterministic and testable without requiring real GPU
   hardware in CI.
+- Default server policy is CPU-only with CPU fallback, one CPU transcode slot,
+  and one GPU transcode slot.
 
 ## Non-Goals
 
@@ -25,7 +29,7 @@ enabling VAAPI, NVENC, or QuickSync in production command plans.
 
 ## Validation
 
-Expected coverage:
+Coverage:
 
 - capability records round-trip through domain/config code;
 - unsupported accelerators fail with stable errors or fall back by policy;

@@ -53,16 +53,17 @@ Completed:
   recovery and lookup API.
 - minimal single-variant HLS command planning, session orchestration, playlist
   route, and segment route.
+- hardware acceleration capability, fallback, and CPU/GPU budget policy for
+  VAAPI, NVENC, and QuickSync command planning.
 
 Recommended next goal:
 
-- M4.9: hardware acceleration policy.
+- MVP stabilization.
 
 Future playback work:
 
-- hardware acceleration detection and encode policy for VAAPI, NVENC, and QSV;
-- CPU/GPU queue policy;
 - remote-source staging/cache behavior for FFmpeg.
+- adaptive bitrate HLS ladder.
 
 ### Extension and Automation: M5
 

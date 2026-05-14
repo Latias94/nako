@@ -694,7 +694,7 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::config::{LocalLibraryConfig, MetadataConfig, TaruServerConfig};
+    use crate::config::{LocalLibraryConfig, MetadataConfig, TaruServerConfig, TranscodeConfig};
 
     #[tokio::test]
     async fn health_and_libraries_routes_work() {
@@ -837,6 +837,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -936,6 +937,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -995,6 +997,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1162,6 +1165,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1675,6 +1679,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1744,6 +1749,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: staging_root.clone(),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1814,6 +1820,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: staging_root,
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1999,6 +2006,7 @@ mod tests {
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: root.join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

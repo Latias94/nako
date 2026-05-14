@@ -130,8 +130,8 @@
 - [x] Add HTTP remux playback route backed by the remux app service.
 - [x] Persist remux/transcode session records.
 - [x] Implement HLS transcode session manager.
-- [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
-- [ ] Define CPU/GPU transcode concurrency and queue policy beyond remux.
+- [x] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
+- [x] Define CPU/GPU transcode concurrency and queue policy beyond remux.
 - [ ] Define remote source staging/cache behavior for FFmpeg.
 
 ## Addons and Automation

@@ -6,6 +6,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use taru_core::{Library, LibraryId, LibraryOptions, LibraryPreset, Result, TaruError};
+use taru_transcode::{
+    HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
+    TranscodeResourceBudget,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TaruServerConfig {
@@ -30,6 +34,8 @@ pub struct TaruServerConfig {
     pub remux_staging_root: PathBuf,
     #[serde(default)]
     pub metadata: MetadataConfig,
+    #[serde(default)]
+    pub transcode: TranscodeConfig,
     pub library: LocalLibraryConfig,
 }
 
@@ -53,6 +59,44 @@ impl Default for MetadataConfig {
         Self {
             tmdb: TmdbMetadataConfig::default(),
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeConfig {
+    #[serde(default)]
+    pub hardware_acceleration: HardwareAcceleration,
+    #[serde(default)]
+    pub hardware_fallback: HardwareAccelerationFallback,
+    #[serde(default = "default_transcode_cpu_concurrency")]
+    pub cpu_concurrency: usize,
+    #[serde(default = "default_transcode_gpu_concurrency")]
+    pub gpu_concurrency: usize,
+}
+
+impl Default for TranscodeConfig {
+    fn default() -> Self {
+        Self {
+            hardware_acceleration: HardwareAcceleration::None,
+            hardware_fallback: HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: default_transcode_cpu_concurrency(),
+            gpu_concurrency: default_transcode_gpu_concurrency(),
+        }
+    }
+}
+
+impl TranscodeConfig {
+    #[must_use]
+    pub const fn hardware_policy(self) -> HardwareAccelerationPolicy {
+        HardwareAccelerationPolicy {
+            requested: self.hardware_acceleration,
+            fallback: self.hardware_fallback,
+        }
+    }
+
+    #[must_use]
+    pub const fn resource_budget(self) -> TranscodeResourceBudget {
+        TranscodeResourceBudget::new(self.cpu_concurrency, self.gpu_concurrency)
     }
 }
 
@@ -108,6 +152,7 @@ pub fn example_config() -> Result<String> {
         remux_timeout_ms: default_remux_timeout_ms(),
         remux_staging_root: default_remux_staging_root(),
         metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
         library: LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -162,6 +207,14 @@ const fn default_remux_timeout_ms() -> u64 {
     30 * 60 * 1_000
 }
 
+const fn default_transcode_cpu_concurrency() -> usize {
+    1
+}
+
+const fn default_transcode_gpu_concurrency() -> usize {
+    1
+}
+
 fn default_remux_staging_root() -> PathBuf {
     PathBuf::from("taru-cache/remux")
 }
@@ -207,6 +260,12 @@ mod tests {
             remux_timeout_ms = 60000
             remux_staging_root = "F:/Taru/cache/remux"
 
+            [transcode]
+            hardware_acceleration = "nvenc"
+            hardware_fallback = "fail"
+            cpu_concurrency = 3
+            gpu_concurrency = 2
+
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
@@ -234,6 +293,27 @@ mod tests {
         assert_eq!(
             config.remux_staging_root,
             PathBuf::from("F:/Taru/cache/remux")
+        );
+        assert_eq!(
+            config.transcode.hardware_acceleration,
+            HardwareAcceleration::Nvenc
+        );
+        assert_eq!(
+            config.transcode.hardware_fallback,
+            HardwareAccelerationFallback::Fail
+        );
+        assert_eq!(config.transcode.cpu_concurrency, 3);
+        assert_eq!(config.transcode.gpu_concurrency, 2);
+        assert_eq!(
+            config.transcode.hardware_policy(),
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::Nvenc,
+                fallback: HardwareAccelerationFallback::Fail
+            }
+        );
+        assert_eq!(
+            config.transcode.resource_budget(),
+            TranscodeResourceBudget::new(3, 2)
         );
         assert!(config.metadata.tmdb.enabled);
         assert_eq!(
@@ -284,6 +364,16 @@ mod tests {
         assert_eq!(config.remux_concurrency, 1);
         assert_eq!(config.remux_timeout_ms, 30 * 60 * 1_000);
         assert_eq!(config.remux_staging_root, PathBuf::from("taru-cache/remux"));
+        assert_eq!(
+            config.transcode.hardware_acceleration,
+            HardwareAcceleration::None
+        );
+        assert_eq!(
+            config.transcode.hardware_fallback,
+            HardwareAccelerationFallback::Cpu
+        );
+        assert_eq!(config.transcode.cpu_concurrency, 1);
+        assert_eq!(config.transcode.gpu_concurrency, 1);
         assert!(!config.metadata.tmdb.enabled);
         assert_eq!(config.library.preset, LibraryPreset::Movies);
         assert_eq!(
