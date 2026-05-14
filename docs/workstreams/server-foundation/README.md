@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 3.3 Library Profiles and Metadata Strategy](PHASE3_3_LIBRARY_PROFILES_METADATA_STRATEGY.md).
+Current design focus: [Phase 3.6 Catalog Graph, Artwork Cache, Search, and Scan Strategy](PHASE3_6_CATALOG_GRAPH_ARTWORK_SEARCH_SCAN.md).
 
 ## Goals
 
@@ -123,6 +123,26 @@ Recommended direction:
 The search boundary should be an internal trait. Embedded search can start with
 SQLite FTS or Tantivy. Meilisearch should be an optional adapter for users who
 want a dedicated search service.
+
+Search should index the catalog graph rather than only raw item titles. People,
+roles, tags, genres, collections, studios, file names, external IDs, and
+localized aliases should become searchable through a denormalized index fed by
+catalog events.
+
+### Catalog Graph and Artwork
+
+Taru needs a normalized catalog graph before it grows more provider integrations:
+
+- people and item credits for actor/director/writer pages;
+- user tags separate from provider genres;
+- collections as first-class entities, not only labels;
+- studios and production companies as graph nodes;
+- image assets with owners, variants, cache state, and provider provenance.
+
+Artwork should be served through an explicit cache/proxy pipeline. List routes
+should return image references, not bytes. Poster grids, person images,
+backdrops, and preview frames must be lazy-loaded by clients and generated or
+downloaded through bounded background jobs.
 
 ### Library Profiles and Presets
 

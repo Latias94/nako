@@ -22,8 +22,8 @@
 - [x] Draft `StorageBackend` and `VirtualFile` traits.
 - [x] Define storage capability flags.
 - [x] Define stable media locator format.
-- [ ] Design directory metadata cache.
-- [ ] Design byte-range media cache.
+- [x] Design directory metadata cache.
+- [x] Design byte-range media cache.
 - [ ] Document local filesystem backend behavior.
 - [ ] Document WebDAV/S3/rclone integration paths.
 - [ ] Decide how hard links and soft links are represented for non-local
@@ -41,6 +41,9 @@
 - [x] Add persisted metadata refresh job input and summary.
 - [x] Add HTTP and CLI triggers for single-item metadata refresh.
 - [x] Add NFO file discovery and import/export jobs.
+- [x] Design catalog graph for people, credits, tags, genres, collections,
+      studios, and artwork.
+- [x] Design NFO actor/director mapping into the catalog graph.
 - [ ] Add TMDB series, season, and episode support.
 - [ ] Add Douban provider MVP.
 - [ ] Add Bangumi provider MVP.
@@ -62,7 +65,30 @@
       full refresh, and locked fields.
 - [x] Add multi-provider fallback when the first configured provider cannot
       handle an item.
+- [x] Design search indexing strategy for catalog graph fields.
 - [ ] Add item-level metadata profile overrides.
+
+## Catalog Graph and Artwork
+
+- [x] Define people and item credit relationship model.
+- [x] Define user tags, provider genres, collections, and studios as separate
+      catalog concepts.
+- [x] Define artwork cache and preview-generation resource classes.
+- [ ] Persist people, credits, tags, genres, collections, studios, and image
+      assets in SQLite.
+- [ ] Add image proxy/cache routes with etag and variant support.
+- [ ] Add thumbnail and preview-frame generation jobs.
+- [ ] Teach metadata providers and NFO import to upsert catalog graph records.
+
+## Search
+
+- [x] Define internal search adapter boundary.
+- [x] Define initial catalog search document shape.
+- [x] Define search update triggers from scan, metadata refresh, NFO import, and
+      user edits.
+- [ ] Implement SQLite FTS search adapter.
+- [ ] Add item/person/tag/genre search filters.
+- [ ] Add optional Tantivy or Meilisearch adapter boundary after SQLite FTS.
 
 ## Streaming and Transcoding
 

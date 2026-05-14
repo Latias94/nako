@@ -207,6 +207,33 @@ Exit criteria:
 - HTTP routes queue NFO import/export jobs.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3.6: Catalog Graph, Artwork Cache, Search, and Scan Strategy
+
+Outcome: Taru has an implementation plan for the catalog graph and performance
+foundations needed by actor/director pages, tag filters, image-heavy UI,
+search, and incremental scanning.
+
+Deliverables:
+
+- Catalog graph design for people, credits, tags, genres, collections, studios,
+  images, and external IDs.
+- Artwork cache and preview-generation performance strategy.
+- Search-index strategy covering embedded and optional external adapters.
+- Incremental scan and remote-storage scan strategy.
+- Updated roadmap and TODO tracking for these foundations.
+
+Exit criteria:
+
+- Actor/director relationship modeling is documented.
+- Tags, genres, collections, studios, and user/local authority boundaries are
+  documented.
+- Artwork list-page performance rules and resource classes are documented.
+- Search indexing sources, update triggers, and adapter boundaries are
+  documented.
+- Incremental scanning, directory cache, tombstones, rename detection, and
+  remote listing policies are documented.
+- The workstream README points to the current design focus.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.
