@@ -132,6 +132,10 @@ pub trait StorageBackend: Send + Sync {
     async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>>;
 
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile>;
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String>;
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()>;
 }
 
 #[cfg(test)]

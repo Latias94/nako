@@ -19,6 +19,7 @@ taru-core = { path = "../taru-core" }
 taru-library = { path = "../taru-library" }
 taru-media-probe = { path = "../taru-media-probe" }
 taru-metadata = { path = "../taru-metadata" }
+taru-nfo = { path = "../taru-nfo" }
 taru-vfs = { path = "../taru-vfs" }
 tokio.workspace = true
 toml.workspace = true

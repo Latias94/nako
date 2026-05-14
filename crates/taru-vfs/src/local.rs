@@ -1,5 +1,6 @@
 use std::{
     fs,
+    io::ErrorKind,
     path::{Component, Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -44,15 +45,48 @@ impl LocalFsBackend {
 
         let relative = relative_path(uri)?;
         let candidate = self.root.join(relative);
-        let canonical = candidate.canonicalize().map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to resolve local path: {err}"),
+        let canonical = candidate.canonicalize().map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                TaruError::NotFound {
+                    entity: "storage_object",
+                    id: uri.to_string(),
+                }
+            } else {
+                TaruError::Storage {
+                    uri: uri.to_string(),
+                    message: format!("failed to resolve local path: {err}"),
+                }
+            }
         })?;
 
         if !canonical.starts_with(&self.root) {
             return Err(TaruError::Storage {
                 uri: uri.to_string(),
                 message: "resolved local path escaped backend root".to_owned(),
+            });
+        }
+
+        Ok(candidate)
+    }
+
+    fn writable_path_for(&self, uri: &StorageUri) -> Result<PathBuf> {
+        self.ensure_local_scheme(uri)?;
+
+        let relative = relative_path(uri)?;
+        let candidate = self.root.join(relative);
+        let parent = candidate.parent().ok_or_else(|| TaruError::Storage {
+            uri: uri.to_string(),
+            message: "local write target has no parent directory".to_owned(),
+        })?;
+        let canonical_parent = parent.canonicalize().map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to resolve local write parent: {err}"),
+        })?;
+
+        if !canonical_parent.starts_with(&self.root) {
+            return Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "resolved local write path escaped backend root".to_owned(),
             });
         }
 
@@ -180,6 +214,22 @@ impl StorageBackend for LocalFsBackend {
             uri: uri.clone(),
             range,
             local_path_hint: Some(path),
+        })
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        let path = self.path_for(uri)?;
+        fs::read_to_string(&path).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to read local text file: {err}"),
+        })
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        let path = self.writable_path_for(uri)?;
+        fs::write(&path, content).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to write local text file: {err}"),
         })
     }
 }
@@ -333,6 +383,33 @@ mod tests {
                 .await;
 
             assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn local_backend_reads_and_writes_text_files_under_root() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            backend.write_string(&uri, "<movie />").await.unwrap();
+            let content = backend.read_to_string(&uri).await.unwrap();
+
+            assert_eq!(content, "<movie />");
+        });
+    }
+
+    #[test]
+    fn local_backend_rejects_text_writes_outside_root() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::parse("local:///../outside.nfo").unwrap();
+
+            assert!(backend.write_string(&uri, "bad").await.is_err());
         });
     }
 }

@@ -9,5 +9,12 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+async-trait.workspace = true
 serde.workspace = true
 taru-core = { path = "../taru-core" }
+taru-vfs = { path = "../taru-vfs" }
+
+[dev-dependencies]
+taru-db = { path = "../taru-db" }
+tempfile.workspace = true
+tokio.workspace = true

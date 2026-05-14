@@ -183,6 +183,30 @@ Exit criteria:
 - Server no longer rejects non-TMDB first providers with hard-coded logic.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3.5: NFO Discovery, Import, and Export Jobs
+
+Outcome: Taru can discover same-stem NFO sidecars, import them as local
+metadata, and export canonical metadata through persisted jobs.
+
+Deliverables:
+
+- VFS text read/write methods for sidecar files.
+- Same-stem NFO sidecar discovery.
+- NFO import service using local metadata policy.
+- NFO export service using `write_sidecar` policy.
+- NFO import and export job kinds, summaries, HTTP routes, and CLI commands.
+- Field locks written with `MetadataSource::Nfo` when NFO is local authority.
+
+Exit criteria:
+
+- `local_first` and `read_only` imports update unlocked fields and create NFO
+  locks.
+- `remote_first` imports only fill missing fields and do not create NFO locks.
+- User-locked fields survive NFO import.
+- `write_sidecar` exports movie NFO sidecars.
+- HTTP routes queue NFO import/export jobs.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.

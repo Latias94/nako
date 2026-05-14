@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::ExitCode};
 use axum::Router;
 use clap::{Parser, Subcommand};
 use serde::Serialize;
-use taru_core::{MediaItemId, Result, TaruError};
+use taru_core::{LibraryId, MediaItemId, Result, TaruError};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -39,6 +39,10 @@ enum Command {
     List,
     /// Refresh TMDB metadata for one indexed media item.
     RefreshMetadata { item_id: MediaItemId },
+    /// Import NFO sidecar metadata for one configured library.
+    ImportNfo { library_id: Option<LibraryId> },
+    /// Export canonical metadata to NFO sidecars for one configured library.
+    ExportNfo { library_id: Option<LibraryId> },
 }
 
 #[tokio::main]
@@ -87,6 +91,18 @@ async fn run(cli: Cli) -> Result<()> {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
             print_json(&app.refresh_item_metadata(item_id).await?)
+        }
+        Command::ImportNfo { library_id } => {
+            let config = load_config(&cli.config)?;
+            let app = TaruApp::new(config).await?;
+            let library_id = library_id.unwrap_or(app.config().library.id);
+            print_json(&app.import_library_nfo(library_id).await?)
+        }
+        Command::ExportNfo { library_id } => {
+            let config = load_config(&cli.config)?;
+            let app = TaruApp::new(config).await?;
+            let library_id = library_id.unwrap_or(app.config().library.id);
+            print_json(&app.export_library_nfo(library_id).await?)
         }
     }
 }

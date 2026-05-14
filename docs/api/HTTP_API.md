@@ -97,8 +97,11 @@ Future integrations should store secret references instead.
 `summary` is written after success. Failed jobs use `error`.
 
 Metadata refresh jobs use the same envelope with kind `metadata_refresh`.
-Their input includes the item ID, provider, force flag, and language. It must
-not include the resolved provider token.
+Their input includes the item ID, selected first provider, force flag, and
+language. It must not include the resolved provider token.
+
+NFO jobs use kinds `nfo_import` and `nfo_export`. Their input includes the
+library ID, local metadata policy, and force flag.
 
 ## Current Routes
 
@@ -106,6 +109,8 @@ not include the resolved provider token.
 GET  /health
 GET  /libraries?limit=50&offset=0
 POST /libraries/{library_id}/scan
+POST /libraries/{library_id}/nfo/import
+POST /libraries/{library_id}/nfo/export
 GET  /libraries/{library_id}/sources?limit=50&offset=0
 GET  /items?limit=50&offset=0
 POST /items/{item_id}/metadata/refresh
@@ -117,5 +122,11 @@ GET  /jobs/{job_id}
 The job runs in the background.
 
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
-metadata refresh job. The current implementation uses the configured TMDB
-provider and records details in `GET /jobs/{job_id}`.
+metadata refresh job. The current implementation uses the library metadata
+profile provider order and records provider attempts in `GET /jobs/{job_id}`.
+
+`POST /libraries/{library_id}/nfo/import` and
+`POST /libraries/{library_id}/nfo/export` return `202 Accepted` with queued NFO
+jobs. Import reads same-stem `.nfo` files according to the library local
+metadata policy. Export writes sidecars only when the policy is
+`write_sidecar`.

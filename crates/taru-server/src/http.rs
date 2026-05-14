@@ -17,6 +17,8 @@ pub fn build_router(app: TaruApp) -> Router {
         .route("/health", get(health))
         .route("/libraries", get(list_libraries))
         .route("/libraries/{library_id}/scan", post(scan_library))
+        .route("/libraries/{library_id}/nfo/import", post(import_nfo))
+        .route("/libraries/{library_id}/nfo/export", post(export_nfo))
         .route("/libraries/{library_id}/sources", get(list_library_sources))
         .route("/items", get(list_items))
         .route(
@@ -49,6 +51,26 @@ async fn scan_library(
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
     let job = app.enqueue_library_scan(library_id).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+}
+
+#[instrument(skip(app))]
+async fn import_nfo(
+    State(app): State<TaruApp>,
+    Path(library_id): Path<LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.enqueue_nfo_import(library_id).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+}
+
+#[instrument(skip(app))]
+async fn export_nfo(
+    State(app): State<TaruApp>,
+    Path(library_id): Path<LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.enqueue_nfo_export(library_id).await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
@@ -260,6 +282,55 @@ mod tests {
         let loaded_path = format!("/jobs/{}", job.id);
         let loaded_job = request_json::<JobResponse>(&router, Method::GET, &loaded_path).await;
         assert_eq!(loaded_job.id, job.id);
+    }
+
+    #[tokio::test]
+    async fn nfo_routes_queue_background_jobs() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+        let import_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/libraries/{library_id}/nfo/import"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let export_response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/libraries/{library_id}/nfo/export"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(import_response.status(), StatusCode::ACCEPTED);
+        assert_eq!(export_response.status(), StatusCode::ACCEPTED);
+        let import_job = body_json::<JobResponse>(import_response).await;
+        let export_job = body_json::<JobResponse>(export_response).await;
+
+        assert_eq!(import_job.kind, JobKind::NfoImport);
+        assert_eq!(import_job.resource_class, "metadata.nfo.import");
+        assert_eq!(import_job.library_id, Some(library_id));
+        assert_eq!(
+            import_job
+                .input
+                .as_ref()
+                .and_then(|input| input.get("policy"))
+                .and_then(serde_json::Value::as_str),
+            Some("local_first")
+        );
+        assert_eq!(export_job.kind, JobKind::NfoExport);
+        assert_eq!(export_job.resource_class, "metadata.nfo.export");
+        assert_eq!(export_job.library_id, Some(library_id));
     }
 
     #[tokio::test]

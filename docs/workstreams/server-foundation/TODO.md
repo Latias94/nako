@@ -40,8 +40,8 @@
 - [x] Add metadata refresh service using merge policy and field locks.
 - [x] Add persisted metadata refresh job input and summary.
 - [x] Add HTTP and CLI triggers for single-item metadata refresh.
+- [x] Add NFO file discovery and import/export jobs.
 - [ ] Add TMDB series, season, and episode support.
-- [ ] Add NFO file discovery and import/export jobs.
 - [ ] Add Douban provider MVP.
 - [ ] Add Bangumi provider MVP.
 

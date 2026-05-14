@@ -1755,8 +1755,13 @@ dependencies = [
 name = "taru-nfo"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "serde",
  "taru-core",
+ "taru-db",
+ "taru-vfs",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -1782,6 +1787,7 @@ dependencies = [
  "taru-library",
  "taru-media-probe",
  "taru-metadata",
+ "taru-nfo",
  "taru-vfs",
  "tempfile",
  "tokio",
