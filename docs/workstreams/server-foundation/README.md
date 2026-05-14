@@ -48,6 +48,16 @@ The initial binary can still be small. The important part is to keep domain
 boundaries explicit before cross-cutting concerns such as remote storage,
 transcoding, and extension hooks become entangled.
 
+## Foundation Constraints
+
+- Use bounded async pipelines for scan, probe, metadata, webhook, automation,
+  and transcode work.
+- Model expensive work with explicit resource classes and conservative defaults.
+- Keep batch work idempotent so retries and repeated scans are safe.
+- Isolate per-item failures unless a strict all-or-nothing mode is requested.
+- Prefer persisted job inputs and recoverable progress over in-memory-only
+  orchestration state.
+
 ## Research Summary
 
 ### Automation and AI
@@ -63,6 +73,14 @@ AI should start as a workflow capability:
 
 This keeps edge-case experience improvements possible without committing to
 local model serving, vector search, GPU scheduling, or model lifecycle work.
+
+### Async and Concurrency
+
+Taru should use async Rust for I/O-heavy orchestration, but async fan-out must
+always be bounded. Pipelines such as media probing, metadata refresh, webhook
+delivery, automation calls, and future transcode queues should define their
+own concurrency limits and resource classes. This keeps large libraries,
+remote drives, and weaker self-hosted machines stable under load.
 
 ### Internal Virtual Filesystem
 

@@ -19,3 +19,4 @@ Each ADR should include:
 - [0002: Build an Internal VFS Before OS Mounting](0002-internal-vfs-before-os-mounting.md)
 - [0003: Prefer HTTP Addons Before In-Process Plugins](0003-http-addons-before-in-process-plugins.md)
 - [0004: Treat AI as External Automation First](0004-ai-as-external-automation-first.md)
+- [0005: Use Bounded Async Pipelines and Resource Budgets](0005-bounded-async-pipelines-and-resource-budgets.md)

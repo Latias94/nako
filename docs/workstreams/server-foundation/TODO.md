@@ -8,6 +8,8 @@
 - [ ] Define service trait boundaries for library, metadata, VFS, transcode,
       search, events, automation, and addons.
 - [ ] Add ADR index and first accepted/rejected decisions.
+- [ ] Define shared job state, cancellation, retry, and resource-budget model.
+- [ ] Add observability conventions for async pipelines and background jobs.
 
 ## VFS and Storage
 
@@ -32,10 +34,13 @@
 ## Streaming and Transcoding
 
 - [ ] Define media probe output model.
+- [ ] Persist media probe output and stream details.
+- [ ] Define bounded probe pipeline and default concurrency.
 - [ ] Define playback decision model.
 - [ ] Define direct play, remux, and transcode decision rules.
 - [ ] Draft FFmpeg command builder interface.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
+- [ ] Define CPU/GPU transcode concurrency and queue policy.
 - [ ] Define remote source staging/cache behavior for FFmpeg.
 
 ## Addons and Automation

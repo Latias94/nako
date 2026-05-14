@@ -9,8 +9,10 @@ workspace = true
 
 [dependencies]
 async-trait.workspace = true
+futures-util.workspace = true
 serde.workspace = true
 taru-core = { path = "../taru-core" }
+taru-media-probe = { path = "../taru-media-probe" }
 taru-naming = { path = "../taru-naming" }
 taru-vfs = { path = "../taru-vfs" }
 

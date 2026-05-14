@@ -1,11 +1,13 @@
 use async_trait::async_trait;
+use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
 use taru_core::{
     CanonicalMetadata, JobId, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
-    MediaRepository, MediaSource, MediaSourceId, Result,
+    MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, Result,
 };
+use taru_media_probe::{MediaProbe, MediaProbeRequest};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
-use taru_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
+use taru_vfs::{ByteRange, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryScanRequest {
@@ -69,6 +71,186 @@ impl<S, R> LibraryIndexService<S, R> {
     pub fn repository(&self) -> &R {
         &self.repository
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryProbeRequest {
+    pub job_id: JobId,
+    pub library_id: LibraryId,
+    pub force: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryProbeSummary {
+    pub job_id: JobId,
+    pub library_id: LibraryId,
+    pub total_sources: u64,
+    pub probed_sources: u64,
+    pub skipped_sources: u64,
+    pub failed_sources: u64,
+    pub failures: Vec<LibraryProbeFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryProbeFailure {
+    pub locator: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LibraryProbeOptions {
+    pub max_concurrent_probes: usize,
+}
+
+impl Default for LibraryProbeOptions {
+    fn default() -> Self {
+        Self {
+            max_concurrent_probes: 2,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LibraryProbeService<B, P, R> {
+    backend: B,
+    probe: P,
+    repository: R,
+    options: LibraryProbeOptions,
+}
+
+impl<B, P, R> LibraryProbeService<B, P, R> {
+    pub fn new(backend: B, probe: P, repository: R) -> Self {
+        Self {
+            backend,
+            probe,
+            repository,
+            options: LibraryProbeOptions::default(),
+        }
+    }
+
+    pub fn with_options(backend: B, probe: P, repository: R, options: LibraryProbeOptions) -> Self {
+        Self {
+            backend,
+            probe,
+            repository,
+            options,
+        }
+    }
+
+    #[must_use]
+    pub fn options(&self) -> &LibraryProbeOptions {
+        &self.options
+    }
+}
+
+impl<B, P, R> LibraryProbeService<B, P, R>
+where
+    B: StorageBackend,
+    P: MediaProbe,
+    R: MediaRepository + MediaProbeRepository,
+{
+    pub async fn probe_library(&self, request: LibraryProbeRequest) -> Result<LibraryProbeSummary> {
+        let sources = self
+            .repository
+            .list_media_sources(request.library_id)
+            .await?;
+        let total_sources = sources.len() as u64;
+        let max_concurrent = self.options.max_concurrent_probes.max(1);
+        let outcomes = stream::iter(sources)
+            .map(|source| async move { self.probe_source(source, request.force).await })
+            .buffer_unordered(max_concurrent)
+            .collect::<Vec<_>>()
+            .await;
+
+        let mut summary = LibraryProbeSummary {
+            job_id: request.job_id,
+            library_id: request.library_id,
+            total_sources,
+            probed_sources: 0,
+            skipped_sources: 0,
+            failed_sources: 0,
+            failures: Vec::new(),
+        };
+
+        for outcome in outcomes {
+            match outcome {
+                ProbeSourceOutcome::Probed => summary.probed_sources += 1,
+                ProbeSourceOutcome::Skipped => summary.skipped_sources += 1,
+                ProbeSourceOutcome::Failed(failure) => {
+                    summary.failed_sources += 1;
+                    summary.failures.push(failure);
+                }
+            }
+        }
+
+        summary
+            .failures
+            .sort_by(|left, right| left.locator.cmp(&right.locator));
+
+        Ok(summary)
+    }
+
+    async fn probe_source(&self, source: MediaSource, force: bool) -> ProbeSourceOutcome {
+        if !force {
+            match self.repository.get_media_probe(source.id).await {
+                Ok(Some(_existing)) => return ProbeSourceOutcome::Skipped,
+                Ok(None) => {}
+                Err(err) => return probe_failure(source.locator, err),
+            }
+        }
+
+        let uri = match StorageUri::parse(&source.locator) {
+            Ok(uri) => uri,
+            Err(err) => return probe_failure(source.locator, err),
+        };
+        let virtual_file = match self
+            .backend
+            .open_range(
+                &uri,
+                Some(ByteRange {
+                    offset: 0,
+                    length: None,
+                }),
+            )
+            .await
+        {
+            Ok(virtual_file) => virtual_file,
+            Err(err) => return probe_failure(source.locator, err),
+        };
+        let probe_result = match self
+            .probe
+            .probe(MediaProbeRequest {
+                source: uri,
+                local_path_hint: virtual_file.local_path_hint,
+            })
+            .await
+        {
+            Ok(result) => result,
+            Err(err) => return probe_failure(source.locator, err),
+        };
+
+        match self
+            .repository
+            .upsert_media_probe(source.id, &probe_result)
+            .await
+        {
+            Ok(()) => ProbeSourceOutcome::Probed,
+            Err(err) => probe_failure(source.locator, err),
+        }
+    }
+}
+
+enum ProbeSourceOutcome {
+    Probed,
+    Skipped,
+    Failed(LibraryProbeFailure),
+}
+
+fn probe_failure(locator: String, err: impl ToString) -> ProbeSourceOutcome {
+    ProbeSourceOutcome::Failed(LibraryProbeFailure {
+        locator,
+        message: err.to_string(),
+    })
 }
 
 impl<S, R> LibraryIndexService<S, R>
@@ -318,11 +500,22 @@ const DEFAULT_MEDIA_EXTENSIONS: &[&str] = &[
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{
+        fs,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::Duration,
+    };
 
-    use taru_core::{MediaRepository, TransactionManager};
+    use taru_core::{
+        MediaProbeRepository, MediaProbeResult, MediaRepository, MediaStreamInfo, MediaStreamKind,
+        TaruError, TransactionManager,
+    };
     use taru_db::SqliteStore;
     use taru_vfs::LocalFsBackend;
+    use tokio::time::sleep;
 
     use super::*;
 
@@ -447,5 +640,196 @@ mod tests {
         assert_eq!(sources[0].file_name, "The Matrix (1999).mkv");
         assert_eq!(item.metadata.title, "The Matrix");
         assert_eq!(item.metadata.release_date, Some("1999".to_owned()));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn probe_service_uses_bounded_concurrency_and_persists_results() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+
+        for index in 0..4 {
+            fs::write(
+                temp.path()
+                    .join("Movies")
+                    .join(format!("Movie {index}.mkv")),
+                b"movie",
+            )
+            .unwrap();
+        }
+
+        let index_backend = LocalFsBackend::new(temp.path()).unwrap();
+        let probe_backend = LocalFsBackend::new(temp.path()).unwrap();
+        let scanner = VfsLibraryScanner::new(index_backend);
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+        };
+        let index_service = LibraryIndexService::new(scanner, store.clone());
+        index_service
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library: library.clone(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let probe = RecordingProbe::default();
+        let max_seen = probe.max_seen.clone();
+        let probe_service = LibraryProbeService::with_options(
+            probe_backend,
+            probe,
+            store.clone(),
+            LibraryProbeOptions {
+                max_concurrent_probes: 2,
+            },
+        );
+        let summary = probe_service
+            .probe_library(LibraryProbeRequest {
+                job_id: JobId::new(),
+                library_id: library.id,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.total_sources, 4);
+        assert_eq!(summary.probed_sources, 4);
+        assert_eq!(summary.skipped_sources, 0);
+        assert_eq!(summary.failed_sources, 0);
+        assert!(max_seen.load(Ordering::SeqCst) <= 2);
+
+        for source in store.list_media_sources(library.id).await.unwrap() {
+            assert!(store.get_media_probe(source.id).await.unwrap().is_some());
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn probe_service_isolates_failures_and_skips_existing_results() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("Good Movie.mkv"), b"good").unwrap();
+        fs::write(temp.path().join("Movies").join("Bad Movie.mkv"), b"bad").unwrap();
+
+        let index_backend = LocalFsBackend::new(temp.path()).unwrap();
+        let probe_backend = LocalFsBackend::new(temp.path()).unwrap();
+        let scanner = VfsLibraryScanner::new(index_backend);
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+        };
+        LibraryIndexService::new(scanner, store.clone())
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library: library.clone(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let probe_service = LibraryProbeService::with_options(
+            probe_backend,
+            RecordingProbe {
+                fail_locator_fragment: Some("Bad Movie".to_owned()),
+                ..RecordingProbe::default()
+            },
+            store.clone(),
+            LibraryProbeOptions {
+                max_concurrent_probes: 2,
+            },
+        );
+
+        let first_summary = probe_service
+            .probe_library(LibraryProbeRequest {
+                job_id: JobId::new(),
+                library_id: library.id,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let second_summary = probe_service
+            .probe_library(LibraryProbeRequest {
+                job_id: JobId::new(),
+                library_id: library.id,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(first_summary.total_sources, 2);
+        assert_eq!(first_summary.probed_sources, 1);
+        assert_eq!(first_summary.skipped_sources, 0);
+        assert_eq!(first_summary.failed_sources, 1);
+        assert_eq!(second_summary.total_sources, 2);
+        assert_eq!(second_summary.probed_sources, 0);
+        assert_eq!(second_summary.skipped_sources, 1);
+        assert_eq!(second_summary.failed_sources, 1);
+    }
+
+    #[derive(Clone, Default)]
+    struct RecordingProbe {
+        active: Arc<AtomicUsize>,
+        max_seen: Arc<AtomicUsize>,
+        fail_locator_fragment: Option<String>,
+    }
+
+    #[async_trait::async_trait]
+    impl MediaProbe for RecordingProbe {
+        async fn probe(&self, request: MediaProbeRequest) -> Result<MediaProbeResult> {
+            let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+            update_max(&self.max_seen, active);
+
+            sleep(Duration::from_millis(25)).await;
+
+            self.active.fetch_sub(1, Ordering::SeqCst);
+
+            if self
+                .fail_locator_fragment
+                .as_ref()
+                .is_some_and(|fragment| request.source.as_str().contains(fragment))
+            {
+                return Err(TaruError::Provider {
+                    provider: "recording-probe".to_owned(),
+                    message: format!("probe failed for {}", request.source),
+                });
+            }
+
+            Ok(MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: Some(1_000_000),
+                streams: vec![MediaStreamInfo {
+                    index: 0,
+                    kind: MediaStreamKind::Video,
+                    codec: Some("h264".to_owned()),
+                    language: None,
+                    duration_ms: Some(1_000),
+                    bit_rate: Some(1_000_000),
+                    width: Some(1920),
+                    height: Some(1080),
+                    channels: None,
+                    sample_rate: None,
+                }],
+            })
+        }
+    }
+
+    fn update_max(max_seen: &AtomicUsize, active: usize) {
+        let mut current = max_seen.load(Ordering::SeqCst);
+
+        while active > current {
+            match max_seen.compare_exchange(current, active, Ordering::SeqCst, Ordering::SeqCst) {
+                Ok(_) => break,
+                Err(observed) => current = observed,
+            }
+        }
     }
 }
