@@ -6,10 +6,11 @@ use sqlx::{
 };
 use taru_core::{
     CanonicalMetadata, ExternalId, ExternalProvider, Job, JobId, JobKind, JobRepository, JobStatus,
-    Library, LibraryId, LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository, MetadataSource, NewJob,
-    PageRequest, ProviderRawResponse, Result, TaruError, TransactionManager,
+    Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId,
+    MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository,
+    MetadataSource, NewJob, PageRequest, ProviderRawResponse, Result, TaruError,
+    TransactionManager,
 };
 
 const MIGRATIONS: &[(&str, &str)] = &[
@@ -29,6 +30,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0005_metadata_policy",
         include_str!("../migrations/0005_metadata_policy.sql"),
+    ),
+    (
+        "0006_library_profiles",
+        include_str!("../migrations/0006_library_profiles.sql"),
     ),
 ];
 
@@ -130,20 +135,27 @@ impl TransactionManager for SqliteStore {
 impl LibraryRepository for SqliteStore {
     async fn upsert_library(&self, library: &Library) -> Result<()> {
         let roots_json = serde_json::to_string(&library.roots).map_err(database_error)?;
+        let options_json = serde_json::to_string(&library.options).map_err(database_error)?;
 
         sqlx::query(
             r#"
-            INSERT INTO libraries (id, name, roots_json)
-            VALUES (?1, ?2, ?3)
+            INSERT INTO libraries (id, name, roots_json, domain, preset, options_json)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 roots_json = excluded.roots_json,
+                domain = excluded.domain,
+                preset = excluded.preset,
+                options_json = excluded.options_json,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
             "#,
         )
         .bind(library.id.to_string())
         .bind(&library.name)
         .bind(roots_json)
+        .bind(library.options.domain.as_str())
+        .bind(library.options.preset.as_str())
+        .bind(options_json)
         .execute(&self.pool)
         .await
         .map_err(database_error)?;
@@ -154,7 +166,7 @@ impl LibraryRepository for SqliteStore {
     async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
         let row = sqlx::query(
             r#"
-            SELECT id, name, roots_json
+            SELECT id, name, roots_json, domain, preset, options_json
             FROM libraries
             WHERE id = ?1
             "#,
@@ -171,11 +183,13 @@ impl LibraryRepository for SqliteStore {
         let id = parse_id(row_get::<String>(&row, "id")?)?;
         let roots_json = row_get::<String>(&row, "roots_json")?;
         let roots = serde_json::from_str(&roots_json).map_err(database_error)?;
+        let options = row_to_library_options(&row)?;
 
         Ok(Some(Library {
             id,
             name: row_get(&row, "name")?,
             roots,
+            options,
         }))
     }
 
@@ -183,7 +197,7 @@ impl LibraryRepository for SqliteStore {
         let page = page.clamped();
         let rows = sqlx::query(
             r#"
-            SELECT id, name, roots_json
+            SELECT id, name, roots_json, domain, preset, options_json
             FROM libraries
             ORDER BY name ASC, id ASC
             LIMIT ?1 OFFSET ?2
@@ -1004,12 +1018,32 @@ fn i64_to_u32(value: i64) -> Result<u32> {
 fn row_to_library(row: SqliteRow) -> Result<Library> {
     let roots_json = row_get::<String>(&row, "roots_json")?;
     let roots = serde_json::from_str(&roots_json).map_err(database_error)?;
+    let options = row_to_library_options(&row)?;
 
     Ok(Library {
         id: parse_id(row_get::<String>(&row, "id")?)?,
         name: row_get(&row, "name")?,
         roots,
+        options,
     })
+}
+
+fn row_to_library_options(row: &SqliteRow) -> Result<LibraryOptions> {
+    if let Some(options_json) = row_get::<Option<String>>(row, "options_json")? {
+        return serde_json::from_str(&options_json).map_err(database_error);
+    }
+
+    let domain = row_get::<String>(row, "domain")?;
+    let preset = row_get::<String>(row, "preset")?;
+    let preset = taru_core::LibraryPreset::parse(&preset).ok_or_else(|| TaruError::Database {
+        message: format!("unknown library preset stored in database: {preset}"),
+    })?;
+    let mut options = LibraryOptions::from_preset(preset);
+    options.domain = MediaDomain::parse(&domain).ok_or_else(|| TaruError::Database {
+        message: format!("unknown media domain stored in database: {domain}"),
+    })?;
+
+    Ok(options)
 }
 
 fn row_to_media_item(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<MediaItem> {
@@ -1144,7 +1178,10 @@ fn database_error(error: impl Display) -> TaruError {
 
 #[cfg(test)]
 mod tests {
-    use taru_core::{ContentRating, Credit, CreditRole, ImageKind, ImageRef, MediaSourceId};
+    use taru_core::{
+        ContentRating, Credit, CreditRole, ImageKind, ImageRef, LibraryOptions, LibraryPreset,
+        MediaSourceId, MetadataRefreshMode,
+    };
 
     use super::*;
 
@@ -1157,12 +1194,37 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
 
         store.upsert_library(&library).await.unwrap();
         let loaded = store.get_library(library.id).await.unwrap();
 
         assert_eq!(loaded, Some(library));
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_library_profiles() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let mut options = LibraryOptions::from_preset(LibraryPreset::Anime);
+        options.metadata_profile.refresh_mode = MetadataRefreshMode::MissingOnly;
+        options.metadata_profile.metadata_providers = vec![
+            ExternalProvider::Bangumi,
+            ExternalProvider::Tmdb,
+            ExternalProvider::Douban,
+        ];
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Anime".to_owned(),
+            roots: vec!["local:///Anime".to_owned()],
+            options,
+        };
+
+        store.upsert_library(&library).await.unwrap();
+
+        assert_eq!(store.get_library(library.id).await.unwrap(), Some(library));
     }
 
     #[tokio::test]
@@ -1174,6 +1236,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         let item = MediaItem {
             id: MediaItemId::new(),
@@ -1263,6 +1326,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         let item = MediaItem {
             id: MediaItemId::new(),
@@ -1311,6 +1375,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         let item = MediaItem {
             id: MediaItemId::new(),
@@ -1396,6 +1461,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         store.upsert_library(&library).await.unwrap();
 

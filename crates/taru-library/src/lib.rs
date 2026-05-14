@@ -536,8 +536,8 @@ mod tests {
     };
 
     use taru_core::{
-        MediaProbeRepository, MediaProbeResult, MediaRepository, MediaStreamInfo, MediaStreamKind,
-        TaruError, TransactionManager,
+        LibraryOptions, LibraryPreset, MediaProbeRepository, MediaProbeResult, MediaRepository,
+        MediaStreamInfo, MediaStreamKind, TaruError, TransactionManager,
     };
     use taru_db::SqliteStore;
     use taru_vfs::LocalFsBackend;
@@ -639,6 +639,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         let service = LibraryIndexService::new(scanner, store.clone());
         let request = LibraryIndexRequest {
@@ -696,6 +697,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         let index_service = LibraryIndexService::new(scanner, store.clone());
         index_service
@@ -758,6 +760,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         LibraryIndexService::new(scanner, store.clone())
             .index_library(LibraryIndexRequest {

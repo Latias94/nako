@@ -302,6 +302,7 @@ mod tests {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -336,6 +337,7 @@ mod tests {
         let job = body_json::<JobResponse>(response).await;
         assert_eq!(job.kind, JobKind::MetadataRefresh);
         assert_eq!(job.status, JobStatus::Queued);
+        assert_eq!(job.library_id, Some(library_id));
         assert_eq!(
             job.input
                 .as_ref()
@@ -349,6 +351,13 @@ mod tests {
                 .and_then(|input| input.get("provider"))
                 .and_then(serde_json::Value::as_str),
             Some("tmdb")
+        );
+        assert_eq!(
+            job.input
+                .as_ref()
+                .and_then(|input| input.get("refresh_mode"))
+                .and_then(serde_json::Value::as_str),
+            Some("default")
         );
     }
 
@@ -433,6 +442,7 @@ mod tests {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root,
+                preset: taru_core::LibraryPreset::Movies,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();

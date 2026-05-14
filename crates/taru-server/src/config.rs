@@ -5,7 +5,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use taru_core::{Library, LibraryId, Result, TaruError};
+use taru_core::{Library, LibraryId, LibraryOptions, LibraryPreset, Result, TaruError};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TaruServerConfig {
@@ -30,6 +30,8 @@ pub struct LocalLibraryConfig {
     pub id: LibraryId,
     pub name: String,
     pub root: PathBuf,
+    #[serde(default = "default_library_preset")]
+    pub preset: LibraryPreset,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -98,6 +100,7 @@ pub fn example_config() -> Result<String> {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             root: PathBuf::from("F:/Media/Movies"),
+            preset: default_library_preset(),
         },
     };
 
@@ -111,6 +114,7 @@ pub fn library_from_config(config: &TaruServerConfig) -> Library {
         id: config.library.id,
         name: config.library.name.clone(),
         roots: vec!["local:///".to_owned()],
+        options: LibraryOptions::from_preset(config.library.preset),
     }
 }
 
@@ -150,6 +154,10 @@ fn default_tmdb_language() -> String {
     "en-US".to_owned()
 }
 
+fn default_library_preset() -> LibraryPreset {
+    LibraryPreset::Movies
+}
+
 #[cfg(test)]
 mod tests {
     use std::{net::SocketAddr, path::PathBuf};
@@ -171,6 +179,7 @@ mod tests {
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
             root = "F:/Media/Movies"
+            preset = "anime"
 
             [metadata.tmdb]
             enabled = true
@@ -195,7 +204,19 @@ mod tests {
         assert_eq!(config.metadata.tmdb.language, "zh-CN");
         assert_eq!(config.library.name, "Movies");
         assert_eq!(config.library.root, PathBuf::from("F:/Media/Movies"));
+        assert_eq!(config.library.preset, LibraryPreset::Anime);
         assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
+        assert_eq!(
+            library_from_config(&config)
+                .options
+                .metadata_profile
+                .metadata_providers,
+            vec![
+                taru_core::ExternalProvider::Bangumi,
+                taru_core::ExternalProvider::Tmdb,
+                taru_core::ExternalProvider::Douban
+            ]
+        );
     }
 
     #[test]
@@ -221,6 +242,7 @@ mod tests {
         assert_eq!(config.probe_concurrency, 2);
         assert_eq!(config.metadata_concurrency, 2);
         assert!(!config.metadata.tmdb.enabled);
+        assert_eq!(config.library.preset, LibraryPreset::Movies);
         assert_eq!(
             config.metadata.tmdb.access_token_env,
             "TMDB_READ_ACCESS_TOKEN"

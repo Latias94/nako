@@ -6,8 +6,8 @@ use taru_api::{
 };
 use taru_core::{
     ExternalProvider, Job, JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository,
-    MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId, NewJob, PageRequest, Result,
-    TaruError, TransactionManager,
+    MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId, MetadataProfile, NewJob,
+    PageRequest, Result, TaruError, TransactionManager,
 };
 use taru_db::SqliteStore;
 use taru_library::{
@@ -241,13 +241,8 @@ impl TaruApp {
     }
 
     async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
-        if !self.config().metadata.tmdb.enabled {
-            return Err(TaruError::InvalidInput {
-                message: "TMDB metadata provider is disabled in config".to_owned(),
-            });
-        }
-
-        self.inner
+        let item = self
+            .inner
             .store
             .get_media_item(item_id)
             .await?
@@ -255,17 +250,15 @@ impl TaruApp {
                 entity: "media_item",
                 id: item_id.to_string(),
             })?;
-
-        let language = self.config().metadata.tmdb.language.clone();
+        let library = self.library_for_item(item_id).await?;
+        let profile = self.effective_metadata_profile(&library, item.kind)?;
+        let provider = self.first_supported_metadata_provider(&profile)?;
         let input = MetadataRefreshJobInput {
             item_id,
-            provider: ExternalProvider::Tmdb,
+            provider: Some(provider.clone()),
             force: false,
-            language: if language.trim().is_empty() {
-                None
-            } else {
-                Some(language)
-            },
+            language: profile.language.clone(),
+            refresh_mode: profile.refresh_mode,
         };
         let input_json = serde_json::to_string(&input).map_err(|err| TaruError::InvalidInput {
             message: format!("failed to serialize metadata refresh job input: {err}"),
@@ -276,8 +269,8 @@ impl TaruApp {
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::MetadataRefresh,
-                resource_class: "metadata.tmdb".to_owned(),
-                library_id: None,
+                resource_class: format!("metadata.{}", provider_resource_name(&provider)),
+                library_id: Some(library.id),
                 source_id: None,
                 input_json: Some(input_json),
             })
@@ -475,23 +468,110 @@ impl TaruApp {
         job_id: JobId,
         item_id: MediaItemId,
     ) -> Result<MetadataRefreshSummary> {
+        let item = self
+            .inner
+            .store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+        let library = self.library_for_item(item_id).await?;
+        let profile = self.effective_metadata_profile(&library, item.kind)?;
+        let provider = self.first_supported_metadata_provider(&profile)?;
+
+        if provider != ExternalProvider::Tmdb {
+            return Err(TaruError::Unsupported(
+                "only TMDB metadata provider is implemented in M3.3",
+            ));
+        }
+
         let provider = self.tmdb_provider()?;
-        let language = self.config().metadata.tmdb.language.clone();
         let service = MetadataRefreshService::new(provider, self.inner.store.clone());
 
         service
             .refresh_item(MetadataRefreshRequest {
                 job_id,
                 item_id,
-                provider: ExternalProvider::Tmdb,
+                profile,
                 force: false,
-                language: if language.trim().is_empty() {
-                    None
-                } else {
-                    Some(language)
-                },
             })
             .await
+    }
+
+    async fn library_for_item(&self, item_id: MediaItemId) -> Result<Library> {
+        let configured = library_from_config(self.config());
+        let mut offset = 0;
+
+        loop {
+            let sources = self
+                .inner
+                .store
+                .list_media_sources(
+                    configured.id,
+                    PageRequest {
+                        limit: PageRequest::MAX_LIMIT,
+                        offset,
+                    },
+                )
+                .await?;
+
+            if sources.iter().any(|source| source.item_id == item_id) {
+                return Ok(configured);
+            }
+
+            if sources.len() < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            offset += u64::from(PageRequest::MAX_LIMIT);
+        }
+
+        Ok(configured)
+    }
+
+    fn effective_metadata_profile(
+        &self,
+        library: &Library,
+        item_kind: taru_core::MediaKind,
+    ) -> Result<MetadataProfile> {
+        let mut profile = library.options.metadata_profile.clone();
+
+        if !profile.item_kinds.is_empty()
+            && !profile.item_kinds.contains(&item_kind)
+            && !profile.item_kinds.contains(&taru_core::MediaKind::Unknown)
+        {
+            return Err(TaruError::Unsupported(
+                "library metadata profile does not apply to this item kind",
+            ));
+        }
+
+        if profile.language.is_none() && !self.config().metadata.tmdb.language.trim().is_empty() {
+            profile.language = Some(self.config().metadata.tmdb.language.clone());
+        }
+
+        Ok(profile)
+    }
+
+    fn first_supported_metadata_provider(
+        &self,
+        profile: &MetadataProfile,
+    ) -> Result<ExternalProvider> {
+        let Some(provider) = profile.metadata_providers.first().cloned() else {
+            return Err(TaruError::InvalidInput {
+                message: "library metadata profile does not enable any metadata provider"
+                    .to_owned(),
+            });
+        };
+
+        if provider == ExternalProvider::Tmdb && !self.config().metadata.tmdb.enabled {
+            return Err(TaruError::InvalidInput {
+                message: "TMDB metadata provider is disabled in config".to_owned(),
+            });
+        }
+
+        Ok(provider)
     }
 
     fn tmdb_provider(&self) -> Result<TmdbMetadataProvider> {
@@ -554,6 +634,17 @@ impl TaruApp {
     }
 }
 
+fn provider_resource_name(provider: &ExternalProvider) -> &str {
+    match provider {
+        ExternalProvider::Tmdb => "tmdb",
+        ExternalProvider::Douban => "douban",
+        ExternalProvider::Bangumi => "bangumi",
+        ExternalProvider::Imdb => "imdb",
+        ExternalProvider::Local => "local",
+        ExternalProvider::Other(_) => "other",
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 struct ScanJobSummary {
     index: LibraryIndexSummary,
@@ -594,6 +685,7 @@ mod tests {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -627,6 +719,7 @@ mod tests {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -653,6 +746,7 @@ mod tests {
 
         assert_eq!(job.kind, JobKind::MetadataRefresh);
         assert_eq!(job.resource_class, "metadata.tmdb");
+        assert_eq!(job.library_id, Some(library_id));
         assert_eq!(
             input.get("item_id").and_then(serde_json::Value::as_str),
             Some(item.id.to_string().as_str())
@@ -661,7 +755,111 @@ mod tests {
             input.get("provider").and_then(serde_json::Value::as_str),
             Some("tmdb")
         );
+        assert_eq!(
+            input
+                .get("refresh_mode")
+                .and_then(serde_json::Value::as_str),
+            Some("default")
+        );
         assert!(input.get("access_token").is_none());
         assert!(input.get("api_key").is_none());
+    }
+
+    #[tokio::test]
+    async fn metadata_refresh_job_rejects_disabled_profile_provider() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "The Matrix".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+
+        let err = app.create_metadata_refresh_job(item.id).await.unwrap_err();
+
+        assert_eq!(
+            err,
+            TaruError::InvalidInput {
+                message: "TMDB metadata provider is disabled in config".to_owned()
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn metadata_refresh_resolves_provider_order_from_library_profile() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let mut metadata = MetadataConfig::default();
+        metadata.tmdb.enabled = true;
+        metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata,
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Anime".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Anime,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Anime Movie".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        let job = app.create_metadata_refresh_job(item.id).await.unwrap();
+        let input = job
+            .input_json
+            .as_ref()
+            .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+            .unwrap();
+
+        assert_eq!(job.resource_class, "metadata.bangumi");
+        assert_eq!(
+            input.get("provider").and_then(serde_json::Value::as_str),
+            Some("bangumi")
+        );
+        assert_eq!(
+            app.run_metadata_refresh(job.id, item.id).await.unwrap_err(),
+            TaruError::Unsupported("only TMDB metadata provider is implemented in M3.3")
+        );
     }
 }

@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed. This phase should be implemented after M3.2 so future TMDB series,
-Douban, Bangumi, NFO jobs, and addon metadata providers do not hard-code
-provider choices into server endpoints.
+Implemented in the current workspace. This phase adds the first library
+profile model and changes metadata refresh planning so provider choice comes
+from the effective library profile instead of the HTTP endpoint.
 
 ## Problem
 
@@ -158,15 +158,15 @@ locator such as an addon URL or feed URL, not a local path.
 
 ## Deliverables
 
-- Add ADR 0010 for presets as configuration templates.
-- Extend the library design with domain, preset, options, and metadata profile
+- [x] Add ADR 0010 for presets as configuration templates.
+- [x] Extend the library design with domain, preset, options, and metadata profile
   concepts.
-- Persist library options in SQLite.
-- Define provider order and refresh mode types.
-- Change metadata refresh planning to use the effective library profile instead
+- [x] Persist library options in SQLite.
+- [x] Define provider order and refresh mode types.
+- [x] Change metadata refresh planning to use the effective library profile instead
   of hard-coding TMDB.
-- Keep TMDB as the first implemented remote provider.
-- Add tests for provider order, disabled providers, missing-only refresh, full
+- [x] Keep TMDB as the first implemented remote provider.
+- [x] Add tests for provider order, disabled providers, missing-only refresh, full
   refresh, and locked fields.
 
 ## Exit Criteria
@@ -186,3 +186,6 @@ locator such as an addon URL or feed URL, not a local path.
 - MusicBrainz, podcast feed, or photo metadata implementations.
 - Online catalog addon execution.
 - Per-user library permissions.
+- Item-level metadata profile overrides.
+- Multi-provider fallback execution after the first provider fails or is not
+  implemented.

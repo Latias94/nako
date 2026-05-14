@@ -4,7 +4,8 @@ use std::{collections::HashSet, fmt};
 use taru_core::{
     CanonicalMetadata, ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
     ImageRef, JobId, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataField,
-    MetadataFieldLock, MetadataRepository, ProviderRawResponse, Result, TaruError,
+    MetadataFieldLock, MetadataProfile, MetadataRefreshMode, MetadataRepository,
+    ProviderRawResponse, Result, TaruError,
 };
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -59,18 +60,18 @@ pub trait MetadataProvider: Send + Sync {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataRefreshJobInput {
     pub item_id: MediaItemId,
-    pub provider: ExternalProvider,
+    pub provider: Option<ExternalProvider>,
     pub force: bool,
     pub language: Option<String>,
+    pub refresh_mode: MetadataRefreshMode,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataRefreshRequest {
     pub job_id: JobId,
     pub item_id: MediaItemId,
-    pub provider: ExternalProvider,
+    pub profile: MetadataProfile,
     pub force: bool,
-    pub language: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -80,6 +81,7 @@ pub struct MetadataRefreshSummary {
     pub provider: ExternalProvider,
     pub provider_key: String,
     pub matched_by: MetadataMatchKind,
+    pub refresh_mode: MetadataRefreshMode,
     pub updated: bool,
 }
 
@@ -124,9 +126,25 @@ where
         &self,
         request: MetadataRefreshRequest,
     ) -> Result<MetadataRefreshSummary> {
-        if request.provider != self.provider.provider() {
+        if !request
+            .profile
+            .metadata_providers
+            .contains(&self.provider.provider())
+        {
             return Err(TaruError::Unsupported(
-                "metadata refresh service was constructed for a different provider",
+                "metadata refresh profile does not enable this provider",
+            ));
+        }
+
+        if request.profile.refresh_mode == MetadataRefreshMode::None {
+            return Err(TaruError::Unsupported(
+                "metadata refresh profile disables metadata refresh",
+            ));
+        }
+
+        if request.profile.refresh_mode == MetadataRefreshMode::ValidationOnly {
+            return Err(TaruError::Unsupported(
+                "metadata refresh validation-only mode is not implemented yet",
             ));
         }
 
@@ -151,12 +169,12 @@ where
             .fetch(MetadataFetchRequest {
                 kind: existing.kind,
                 provider_key: provider_key.clone(),
-                language: request.language.clone(),
+                language: request.profile.language.clone(),
             })
             .await?;
 
         let locks = self.repository.list_field_locks(existing.id).await?;
-        let policy = MetadataMergePolicy::from_locks(&locks);
+        let policy = MetadataMergePolicy::from_locks_and_mode(&locks, request.profile.refresh_mode);
         let merged_metadata = policy.merge(&existing.metadata, &fetched.metadata);
         let updated = merged_metadata != existing.metadata;
         let updated_item = MediaItem {
@@ -181,6 +199,7 @@ where
             provider: fetched.provider,
             provider_key: fetched.provider_key,
             matched_by,
+            refresh_mode: request.profile.refresh_mode,
             updated,
         })
     }
@@ -194,7 +213,7 @@ where
             .metadata
             .external_ids
             .iter()
-            .find(|external_id| external_id.provider == request.provider)
+            .find(|external_id| external_id.provider == self.provider.provider())
         {
             return Ok((external_id.value.clone(), MetadataMatchKind::ExternalId));
         }
@@ -203,13 +222,13 @@ where
             kind: Some(item.kind),
             title: item.metadata.title.clone(),
             year: release_year(item.metadata.release_date.as_deref()),
-            language: request.language.clone(),
+            language: request.profile.language.clone(),
             external_ids: item.metadata.external_ids.clone(),
         };
         let candidates = self.provider.search(lookup).await?;
         let candidate = candidates
             .into_iter()
-            .filter(|candidate| candidate.provider == request.provider)
+            .filter(|candidate| candidate.provider == self.provider.provider())
             .max_by(|left, right| left.score.total_cmp(&right.score))
             .ok_or_else(|| TaruError::NotFound {
                 entity: "metadata_candidate",
@@ -223,17 +242,24 @@ where
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct MetadataMergePolicy {
     locked_fields: HashSet<MetadataField>,
+    mode: MetadataRefreshMode,
 }
 
 impl MetadataMergePolicy {
     #[must_use]
     pub fn from_locks(locks: &[MetadataFieldLock]) -> Self {
+        Self::from_locks_and_mode(locks, MetadataRefreshMode::FullRefresh)
+    }
+
+    #[must_use]
+    pub fn from_locks_and_mode(locks: &[MetadataFieldLock], mode: MetadataRefreshMode) -> Self {
         Self {
             locked_fields: locks
                 .iter()
                 .filter(|lock| lock.locked)
                 .map(|lock| lock.field)
                 .collect(),
+            mode,
         }
     }
 
@@ -245,40 +271,40 @@ impl MetadataMergePolicy {
     ) -> CanonicalMetadata {
         let mut merged = existing.clone();
 
-        if !self.is_locked(MetadataField::Title) {
+        if self.should_replace_text(MetadataField::Title, &existing.title) {
             merged.title = incoming.title.clone();
         }
-        if !self.is_locked(MetadataField::OriginalTitle) {
+        if self.should_replace_option(MetadataField::OriginalTitle, &existing.original_title) {
             merged.original_title = incoming.original_title.clone();
         }
-        if !self.is_locked(MetadataField::SortTitle) {
+        if self.should_replace_option(MetadataField::SortTitle, &existing.sort_title) {
             merged.sort_title = incoming.sort_title.clone();
         }
-        if !self.is_locked(MetadataField::Overview) {
+        if self.should_replace_option(MetadataField::Overview, &existing.overview) {
             merged.overview = incoming.overview.clone();
         }
-        if !self.is_locked(MetadataField::ReleaseDate) {
+        if self.should_replace_option(MetadataField::ReleaseDate, &existing.release_date) {
             merged.release_date = incoming.release_date.clone();
         }
-        if !self.is_locked(MetadataField::RuntimeMinutes) {
+        if self.should_replace_option(MetadataField::RuntimeMinutes, &existing.runtime_minutes) {
             merged.runtime_minutes = incoming.runtime_minutes;
         }
-        if !self.is_locked(MetadataField::Tagline) {
+        if self.should_replace_option(MetadataField::Tagline, &existing.tagline) {
             merged.tagline = incoming.tagline.clone();
         }
-        if !self.is_locked(MetadataField::Genres) {
+        if self.should_replace_list(MetadataField::Genres, &existing.genres) {
             merged.genres = incoming.genres.clone();
         }
-        if !self.is_locked(MetadataField::Ratings) {
+        if self.should_replace_list(MetadataField::Ratings, &existing.ratings) {
             merged.ratings = incoming.ratings.clone();
         }
-        if !self.is_locked(MetadataField::Images) {
+        if self.should_replace_list(MetadataField::Images, &existing.images) {
             merged.images = incoming.images.clone();
         }
-        if !self.is_locked(MetadataField::Credits) {
+        if self.should_replace_list(MetadataField::Credits, &existing.credits) {
             merged.credits = incoming.credits.clone();
         }
-        if !self.is_locked(MetadataField::ExternalIds) {
+        if self.should_replace_list(MetadataField::ExternalIds, &existing.external_ids) {
             merged.external_ids = incoming.external_ids.clone();
         }
 
@@ -287,6 +313,21 @@ impl MetadataMergePolicy {
 
     fn is_locked(&self, field: MetadataField) -> bool {
         self.locked_fields.contains(&field)
+    }
+
+    fn should_replace_text(&self, field: MetadataField, existing: &str) -> bool {
+        !self.is_locked(field)
+            && (self.mode != MetadataRefreshMode::MissingOnly || existing.is_empty())
+    }
+
+    fn should_replace_option<T>(&self, field: MetadataField, existing: &Option<T>) -> bool {
+        !self.is_locked(field)
+            && (self.mode != MetadataRefreshMode::MissingOnly || existing.is_none())
+    }
+
+    fn should_replace_list<T>(&self, field: MetadataField, existing: &[T]) -> bool {
+        !self.is_locked(field)
+            && (self.mode != MetadataRefreshMode::MissingOnly || existing.is_empty())
     }
 }
 
@@ -922,8 +963,8 @@ mod tests {
     };
 
     use taru_core::{
-        Library, LibraryId, LibraryRepository, MediaRepository, MetadataRepository, MetadataSource,
-        TransactionManager,
+        Library, LibraryId, LibraryOptions, LibraryPreset, LibraryRepository, MediaRepository,
+        MetadataRepository, MetadataSource, TransactionManager,
     };
     use taru_db::SqliteStore;
 
@@ -966,6 +1007,56 @@ mod tests {
         assert_eq!(merged.overview, Some("new".to_owned()));
         assert_eq!(merged.genres, vec!["Local"]);
         assert_eq!(merged.tagline, Some("Wake up.".to_owned()));
+    }
+
+    #[test]
+    fn missing_only_merge_fills_empty_fields_without_replacing_existing_values() {
+        let policy =
+            MetadataMergePolicy::from_locks_and_mode(&[], MetadataRefreshMode::MissingOnly);
+        let existing = CanonicalMetadata {
+            title: "Local Title".to_owned(),
+            overview: Some("old".to_owned()),
+            genres: Vec::new(),
+            ..CanonicalMetadata::default()
+        };
+        let incoming = CanonicalMetadata {
+            title: "Provider Title".to_owned(),
+            overview: Some("new".to_owned()),
+            genres: vec!["Action".to_owned()],
+            tagline: Some("Wake up.".to_owned()),
+            ..CanonicalMetadata::default()
+        };
+
+        let merged = policy.merge(&existing, &incoming);
+
+        assert_eq!(merged.title, "Local Title");
+        assert_eq!(merged.overview, Some("old".to_owned()));
+        assert_eq!(merged.genres, vec!["Action"]);
+        assert_eq!(merged.tagline, Some("Wake up.".to_owned()));
+    }
+
+    #[test]
+    fn full_refresh_replaces_unlocked_existing_values() {
+        let policy =
+            MetadataMergePolicy::from_locks_and_mode(&[], MetadataRefreshMode::FullRefresh);
+        let existing = CanonicalMetadata {
+            title: "Local Title".to_owned(),
+            overview: Some("old".to_owned()),
+            genres: vec!["Local".to_owned()],
+            ..CanonicalMetadata::default()
+        };
+        let incoming = CanonicalMetadata {
+            title: "Provider Title".to_owned(),
+            overview: Some("new".to_owned()),
+            genres: vec!["Action".to_owned()],
+            ..CanonicalMetadata::default()
+        };
+
+        let merged = policy.merge(&existing, &incoming);
+
+        assert_eq!(merged.title, "Provider Title");
+        assert_eq!(merged.overview, Some("new".to_owned()));
+        assert_eq!(merged.genres, vec!["Action"]);
     }
 
     #[tokio::test]
@@ -1020,9 +1111,8 @@ mod tests {
             .refresh_item(MetadataRefreshRequest {
                 job_id: JobId::new(),
                 item_id: item.id,
-                provider: ExternalProvider::Tmdb,
+                profile: MetadataProfile::from_preset(LibraryPreset::Movies),
                 force: false,
-                language: None,
             })
             .await
             .unwrap();
@@ -1035,6 +1125,7 @@ mod tests {
 
         assert_eq!(summary.provider_key, "603");
         assert_eq!(summary.matched_by, MetadataMatchKind::Search);
+        assert_eq!(summary.refresh_mode, MetadataRefreshMode::Default);
         assert!(summary.updated);
         assert_eq!(loaded.metadata.title, "Local Matrix");
         assert_eq!(
@@ -1090,9 +1181,8 @@ mod tests {
             .refresh_item(MetadataRefreshRequest {
                 job_id: JobId::new(),
                 item_id: item.id,
-                provider: ExternalProvider::Tmdb,
+                profile: MetadataProfile::from_preset(LibraryPreset::Movies),
                 force: false,
-                language: None,
             })
             .await
             .unwrap();
@@ -1186,6 +1276,7 @@ mod tests {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
             roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
         };
         let item = MediaItem {
             id: MediaItemId::new(),
