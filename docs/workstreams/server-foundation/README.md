@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 3.2 TMDB Provider MVP and Metadata Refresh Job](PHASE3_2_TMDB_METADATA_REFRESH.md).
+Current implementation focus: [Phase 3.3 Library Profiles and Metadata Strategy](PHASE3_3_LIBRARY_PROFILES_METADATA_STRATEGY.md).
 
 ## Goals
 
@@ -123,6 +123,28 @@ Recommended direction:
 The search boundary should be an internal trait. Embedded search can start with
 SQLite FTS or Tantivy. Meilisearch should be an optional adapter for users who
 want a dedicated search service.
+
+### Library Profiles and Presets
+
+Libraries should be management boundaries, not hard content-type boundaries.
+A library owns roots, scan rules, default naming strategy, metadata profile,
+refresh policy, local metadata policy, and later UI grouping or permissions.
+
+Taru should separate:
+
+- `MediaDomain`: broad processing capability such as video, audio, image,
+  document, mixed, or online
+- `LibraryPreset`: a user-facing template such as movies, TV, anime, music,
+  podcast, photos, home video, mixed video, or online catalog
+- `MediaKind`: the item-level graph type such as movie, series, season,
+  episode, collection, extra, or future audio/photo kinds
+- `MetadataProfile`: provider order, local readers, image providers, language,
+  country, refresh mode, and local authority policy
+
+Presets should populate editable defaults. For example, choosing anime may set
+Bangumi/TMDB defaults and anime naming rules, but it must not make anime a hard
+media kind. An anime movie is still a movie, and an anime episode is still an
+episode.
 
 ### Remote Storage
 

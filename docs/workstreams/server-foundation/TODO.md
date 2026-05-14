@@ -45,6 +45,22 @@
 - [ ] Add Douban provider MVP.
 - [ ] Add Bangumi provider MVP.
 
+## Library Profiles and Scraping Strategy
+
+- [x] Decide that library presets are editable configuration templates, not
+      hard content types.
+- [ ] Define `MediaDomain` for broad processing capabilities.
+- [ ] Define `LibraryPreset` for setup defaults.
+- [ ] Define `LibraryOptions` for scan, naming, local metadata, and refresh
+      behavior.
+- [ ] Define `MetadataProfile` for local readers, provider order, image
+      providers, language, country, and refresh mode.
+- [ ] Persist library options and metadata profiles in SQLite.
+- [ ] Resolve metadata refresh provider order from the effective library
+      profile instead of hard-coding TMDB.
+- [ ] Add tests for disabled providers, provider order, missing-only refresh,
+      full refresh, and locked fields.
+
 ## Streaming and Transcoding
 
 - [x] Define media probe output model.

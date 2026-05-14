@@ -24,3 +24,4 @@ Each ADR should include:
 - [0007: Define Metadata Merge Policy and Local Authority](0007-metadata-merge-policy-and-local-authority.md)
 - [0008: Treat NFO as a Local Metadata Boundary](0008-nfo-as-local-metadata-boundary.md)
 - [0009: Resolve Provider Secrets from Environment References](0009-resolve-provider-secrets-from-environment.md)
+- [0010: Treat Library Presets as Configuration Templates](0010-library-presets-are-configuration-templates.md)

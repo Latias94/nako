@@ -130,6 +130,35 @@ Exit criteria:
 - Tests use mocked provider responses and do not require real TMDB network calls.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3.3: Library Profiles and Metadata Strategy
+
+Outcome: Taru can choose metadata resolution behavior from library-level
+profiles instead of hard-coding provider behavior into refresh endpoints.
+
+Deliverables:
+
+- ADR for treating library presets as editable configuration templates.
+- Library domain and preset model.
+- Library options model for scan, naming, local metadata, and refresh behavior.
+- Metadata profile model for local readers, provider order, image providers,
+  language, country, refresh mode, and local authority policy.
+- SQLite persistence for library options and metadata profiles.
+- Metadata refresh planning based on the effective library profile.
+- Preset defaults for movies, TV, anime, music, podcast, photos, home video,
+  mixed video, and future online catalogs.
+
+Exit criteria:
+
+- A library can store domain, preset, and metadata profile options.
+- Preset defaults can be generated and then edited without changing the core
+  item type model.
+- Metadata refresh resolves provider order from the library profile.
+- Disabled providers are skipped.
+- `missing_only` fills empty unlocked fields without replacing populated
+  values.
+- `full_refresh` updates unlocked fields while preserving locked fields.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.
