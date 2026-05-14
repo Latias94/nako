@@ -309,24 +309,28 @@ Exit criteria:
 - Browse routes return graph-linked items through paginated list endpoints.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
-## M4.2: Playback MVP
+## M4.2: Playback Decision and Direct Play API
 
-Outcome: Taru can serve local media through direct play and a minimal HLS
-transcode path.
+Outcome: Taru can decide whether a source can direct play and serve local media
+through an HTTP byte-range direct play route.
 
 Deliverables:
 
 - Playback decision model.
-- Direct play route.
-- FFmpeg transcode session manager.
-- Minimal HLS segment route.
-- Transcode temp directory and cleanup policy.
+- Source-level playback decision route.
+- Direct play route with HTTP `Range` support.
+- MIME/container inference for common local video containers.
+- Source lookup by ID for playback/probe/API paths.
+- Tests for direct play decisions and partial-content streaming.
 
 Exit criteria:
 
-- Compatible files direct play without FFmpeg.
-- An incompatible fixture produces playable HLS output.
-- Session cancellation cleans up process and temporary files.
+- Compatible local files direct play without FFmpeg.
+- `Range: bytes=start-end` returns `206 Partial Content` with correct
+  `Content-Range`, `Content-Length`, and body bytes.
+- Unsupported containers/codecs produce remux or transcode decisions without
+  starting FFmpeg.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
 ## M5: Extension Surface
 

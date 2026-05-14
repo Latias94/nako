@@ -126,6 +126,8 @@ GET  /genres/{genre_id}/items?limit=50&offset=0
 GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
 POST /items/{item_id}/metadata/refresh
 GET  /sources/{source_id}/probe
+GET  /sources/{source_id}/playback/decision
+GET  /sources/{source_id}/stream
 GET  /jobs/{job_id}
 ```
 
@@ -152,3 +154,19 @@ items.
 is optional and comma-separated for the current lightweight route shape. Search
 results return projected media items and relevance scores; richer filters and
 ranking can be added behind the same search boundary.
+
+`GET /sources/{source_id}/playback/decision` returns the source, optional probe
+data, and a playback decision. Optional query parameters can narrow client
+capabilities:
+
+```text
+direct_play=true
+container=mp4,webm
+video_codec=h264,hevc
+audio_codec=aac,opus
+```
+
+`GET /sources/{source_id}/stream` serves direct play bytes for local sources.
+It supports HTTP `Range` requests and returns `206 Partial Content` with
+`Accept-Ranges`, `Content-Range`, and `Content-Length` when a satisfiable range
+is requested. Invalid or unsatisfiable ranges return `416`.

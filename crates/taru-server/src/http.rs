@@ -1,7 +1,10 @@
+use std::io::SeekFrom;
+
 use axum::{
     Json, Router,
+    body::Body,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -10,6 +13,9 @@ use taru_api::{API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourcePr
 use taru_core::{
     GenreId, JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, PersonId, TagId, TaruError,
 };
+use taru_streaming::{ClientPlaybackCapabilities, parse_http_range_header, resolve_byte_range};
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use tokio_util::io::ReaderStream;
 use tracing::{error, instrument, warn};
 
 use crate::app::TaruApp;
@@ -39,6 +45,11 @@ pub fn build_router(app: TaruApp) -> Router {
             post(refresh_item_metadata),
         )
         .route("/sources/{source_id}/probe", get(get_source_probe))
+        .route(
+            "/sources/{source_id}/playback/decision",
+            get(get_source_playback_decision),
+        )
+        .route("/sources/{source_id}/stream", get(stream_source))
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
 }
@@ -233,6 +244,88 @@ async fn get_source_probe(
 }
 
 #[instrument(skip(app))]
+async fn get_source_playback_decision(
+    State(app): State<TaruApp>,
+    Path(source_id): Path<MediaSourceId>,
+    Query(query): Query<PlaybackCapabilitiesQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.get_source_playback_decision(source_id, query.into())
+            .await?,
+    ))
+}
+
+#[instrument(skip(app, headers))]
+async fn stream_source(
+    State(app): State<TaruApp>,
+    Path(source_id): Path<MediaSourceId>,
+    headers: HeaderMap,
+) -> ApiResult<Response> {
+    let source = app.direct_play_source(source_id).await?;
+    let requested = match headers.get(header::RANGE) {
+        Some(value) => {
+            let Ok(value) = value.to_str() else {
+                return Ok(range_not_satisfiable(source.total_len));
+            };
+            match parse_http_range_header(value) {
+                Ok(range) => Some(range),
+                Err(_) => return Ok(range_not_satisfiable(source.total_len)),
+            }
+        }
+        None => None,
+    };
+    let resolved = match resolve_byte_range(requested, source.total_len) {
+        Ok(range) => range,
+        Err(_) => return Ok(range_not_satisfiable(source.total_len)),
+    };
+    let mut file = tokio::fs::File::open(&source.local_path)
+        .await
+        .map_err(|err| TaruError::Storage {
+            uri: source.source.locator.clone(),
+            message: format!("failed to open direct play source: {err}"),
+        })?;
+    let (status, length) = match resolved {
+        Some(range) => {
+            file.seek(SeekFrom::Start(range.start))
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: source.source.locator.clone(),
+                    message: format!("failed to seek direct play source: {err}"),
+                })?;
+            (StatusCode::PARTIAL_CONTENT, range.len())
+        }
+        None => (StatusCode::OK, source.total_len),
+    };
+    let stream = ReaderStream::new(file.take(length));
+    let mut response = Body::from_stream(stream).into_response();
+    *response.status_mut() = status;
+    let headers = response.headers_mut();
+    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&source.content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    headers.insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&length.to_string()).expect("content length is a valid header"),
+    );
+
+    if let Some(range) = resolved {
+        headers.insert(
+            header::CONTENT_RANGE,
+            HeaderValue::from_str(&format!(
+                "bytes {}-{}/{}",
+                range.start, range.end, source.total_len
+            ))
+            .expect("content range is a valid header"),
+        );
+    }
+
+    Ok(response)
+}
+
+#[instrument(skip(app))]
 async fn get_job(
     State(app): State<TaruApp>,
     Path(job_id): Path<JobId>,
@@ -255,6 +348,54 @@ struct SearchPageQuery {
     facet: Option<String>,
     #[serde(flatten)]
     page: PageQuery,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct PlaybackCapabilitiesQuery {
+    direct_play: Option<bool>,
+    container: Option<String>,
+    video_codec: Option<String>,
+    audio_codec: Option<String>,
+}
+
+impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {
+    fn from(value: PlaybackCapabilitiesQuery) -> Self {
+        let defaults = ClientPlaybackCapabilities::default();
+
+        Self {
+            direct_play: value.direct_play.unwrap_or(defaults.direct_play),
+            containers: csv_or_default(value.container, defaults.containers),
+            video_codecs: csv_or_default(value.video_codec, defaults.video_codecs),
+            audio_codecs: csv_or_default(value.audio_codec, defaults.audio_codecs),
+        }
+    }
+}
+
+fn csv_or_default(value: Option<String>, default: Vec<String>) -> Vec<String> {
+    let Some(value) = value else {
+        return default;
+    };
+    let values = value
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    if values.is_empty() { default } else { values }
+}
+
+fn range_not_satisfiable(total_len: u64) -> Response {
+    let mut response = Body::empty().into_response();
+    *response.status_mut() = StatusCode::RANGE_NOT_SATISFIABLE;
+    let headers = response.headers_mut();
+    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    headers.insert(
+        header::CONTENT_RANGE,
+        HeaderValue::from_str(&format!("bytes */{total_len}"))
+            .expect("content range is a valid header"),
+    );
+    response
 }
 
 impl TryFrom<PageQuery> for PageRequest {
@@ -342,22 +483,24 @@ fn public_message(error: &TaruError) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{fs, path::PathBuf};
 
     use axum::{
         body::{Body, to_bytes},
-        http::{Method, Request},
+        http::{Method, Request, header},
     };
     use serde::de::DeserializeOwned;
     use taru_api::{HealthResponse, JobResponse, LibraryListResponse};
     use taru_core::{
         CanonicalMetadata, CatalogRepository, CreditRole, Genre, GenreId, ImageAsset, ImageAssetId,
         ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus,
-        LibraryId, MediaItem, MediaKind, MediaRepository, MediaSource, MediaSourceId,
-        MetadataSource, Person, PersonId, Tag, TagId,
+        LibraryId, MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+        MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource, Person,
+        PersonId, Tag, TagId,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
+    use taru_streaming::PlaybackMode;
     use tower::ServiceExt;
 
     use super::*;
@@ -798,6 +941,122 @@ mod tests {
         assert_eq!(tag_items.items[0].id, item.id);
         assert_eq!(genres.genres[0].name, "Science Fiction");
         assert_eq!(genre_items.items[0].id, item.id);
+    }
+
+    #[tokio::test]
+    async fn playback_decision_and_direct_stream_routes_work() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(temp.path().join("demo.mp4"), b"0123456789").unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///demo.mp4".to_owned(),
+            file_name: "demo.mp4".to_owned(),
+            size_bytes: Some(10),
+            fingerprint: None,
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+        store
+            .upsert_media_probe(
+                source.id,
+                &MediaProbeResult {
+                    duration_ms: Some(1_000),
+                    container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+                    bit_rate: None,
+                    streams: vec![
+                        MediaStreamInfo {
+                            index: 0,
+                            kind: MediaStreamKind::Video,
+                            codec: Some("h264".to_owned()),
+                            language: None,
+                            duration_ms: None,
+                            bit_rate: None,
+                            width: Some(1920),
+                            height: Some(1080),
+                            channels: None,
+                            sample_rate: None,
+                        },
+                        MediaStreamInfo {
+                            index: 1,
+                            kind: MediaStreamKind::Audio,
+                            codec: Some("aac".to_owned()),
+                            language: None,
+                            duration_ms: None,
+                            bit_rate: None,
+                            width: None,
+                            height: None,
+                            channels: Some(2),
+                            sample_rate: Some(48_000),
+                        },
+                    ],
+                },
+            )
+            .await
+            .unwrap();
+        let router = build_router(app);
+
+        let decision = request_json::<taru_api::PlaybackDecisionResponse>(
+            &router,
+            Method::GET,
+            &format!("/sources/{}/playback/decision", source.id),
+        )
+        .await;
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/sources/{}/stream", source.id))
+                    .header(header::RANGE, "bytes=2-5")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(decision.decision.mode, PlaybackMode::DirectPlay);
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_RANGE)
+                .and_then(|value| value.to_str().ok()),
+            Some("bytes 2-5/10")
+        );
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&bytes[..], b"2345");
     }
 
     #[tokio::test]

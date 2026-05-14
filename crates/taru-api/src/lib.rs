@@ -4,6 +4,7 @@ use taru_core::{
     JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
     MediaSourceId, PageRequest, Person, Tag,
 };
+use taru_streaming::PlaybackDecision;
 
 pub const API_VERSION: &str = "v1";
 
@@ -128,6 +129,13 @@ pub struct ItemCreditsResponse {
 pub struct ImagesResponse {
     pub item_id: taru_core::MediaItemId,
     pub images: Vec<ImageAsset>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackDecisionResponse {
+    pub source: MediaSource,
+    pub probe: Option<MediaProbeResult>,
+    pub decision: PlaybackDecision,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

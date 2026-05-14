@@ -10,4 +10,5 @@ workspace = true
 
 [dependencies]
 serde.workspace = true
+taru-core = { path = "../taru-core" }
 taru-transcode = { path = "../taru-transcode" }

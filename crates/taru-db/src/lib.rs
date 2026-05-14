@@ -396,6 +396,22 @@ impl MediaRepository for SqliteStore {
         Ok(())
     }
 
+    async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, item_id, locator, file_name, size_bytes, fingerprint
+            FROM media_sources
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_media_source).transpose()
+    }
+
     async fn get_media_source_by_locator(&self, locator: &str) -> Result<Option<MediaSource>> {
         let row = sqlx::query(
             r#"
@@ -3099,6 +3115,10 @@ mod tests {
         assert_eq!(
             store.get_media_item(item.id).await.unwrap(),
             Some(expected_item)
+        );
+        assert_eq!(
+            store.get_media_source(source.id).await.unwrap(),
+            Some(source.clone())
         );
         assert_eq!(
             store

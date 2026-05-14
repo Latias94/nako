@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 4.1 Catalog Graph Hydration and Browse API](PHASE4_1_CATALOG_GRAPH_HYDRATION_BROWSE_API.md).
+Current implementation focus: [Phase 4.2 Playback Decision and Direct Play API](PHASE4_2_PLAYBACK_DECISION_DIRECT_PLAY.md).
 
 ## Goals
 

@@ -1,15 +1,15 @@
-use std::{env, sync::Arc};
+use std::{env, path::PathBuf, sync::Arc};
 
 use serde::Serialize;
 use taru_api::{
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
     ItemsResponse, LibraryListResponse, LibrarySourceResponse, LibrarySourcesResponse, PageInfo,
-    PeopleResponse, PersonItemsResponse, SearchItemHit, SearchResponse, TagItemsResponse,
-    TagsResponse,
+    PeopleResponse, PersonItemsResponse, PlaybackDecisionResponse, SearchItemHit, SearchResponse,
+    TagItemsResponse, TagsResponse,
 };
 use taru_core::{
     CatalogRepository, ExternalProvider, GenreId, Job, JobId, JobKind, JobRepository, Library,
-    LibraryId, LibraryRepository, MediaItemId, MediaProbeRepository, MediaRepository,
+    LibraryId, LibraryRepository, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
     MediaSourceId, MetadataProfile, NewJob, PageRequest, PersonId, Result, TagId, TaruError,
     TransactionManager,
 };
@@ -28,7 +28,8 @@ use taru_nfo::{
     NfoJobInput, NfoService,
 };
 use taru_search::{SearchIndex, SearchQuery};
-use taru_vfs::LocalFsBackend;
+use taru_streaming::{ClientPlaybackCapabilities, content_type_for_file_name, decide_playback};
+use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -71,6 +72,14 @@ pub struct NfoImportCommandOutput {
 pub struct NfoExportCommandOutput {
     pub job: Job,
     pub export: NfoExportSummary,
+}
+
+#[derive(Clone, Debug)]
+pub struct DirectPlaySource {
+    pub source: MediaSource,
+    pub local_path: PathBuf,
+    pub total_len: u64,
+    pub content_type: String,
 }
 
 impl TaruApp {
@@ -224,6 +233,51 @@ impl TaruApp {
         let images = self.inner.store.list_item_images(item_id).await?;
 
         Ok(ImagesResponse { item_id, images })
+    }
+
+    pub async fn get_source_playback_decision(
+        &self,
+        source_id: MediaSourceId,
+        client: ClientPlaybackCapabilities,
+    ) -> Result<PlaybackDecisionResponse> {
+        let source = self.get_source_or_not_found(source_id).await?;
+        let probe = self.inner.store.get_media_probe(source.id).await?;
+        let decision = decide_playback(&source, probe.as_ref(), &client);
+
+        Ok(PlaybackDecisionResponse {
+            source,
+            probe,
+            decision,
+        })
+    }
+
+    pub async fn direct_play_source(&self, source_id: MediaSourceId) -> Result<DirectPlaySource> {
+        let source = self.get_source_or_not_found(source_id).await?;
+        let uri = StorageUri::parse(&source.locator)?;
+        let backend = LocalFsBackend::new(&self.config().library.root)?;
+        let metadata = backend.stat(&uri).await?;
+        let virtual_file = backend.open_range(&uri, None).await?;
+        let local_path = virtual_file.local_path_hint.ok_or_else(|| {
+            TaruError::Unsupported("direct play currently requires a local path hint")
+        })?;
+        let total_len = match metadata.len {
+            Some(len) => len,
+            None => tokio::fs::metadata(&local_path)
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: source.locator.clone(),
+                    message: format!("failed to read direct play source length: {err}"),
+                })?
+                .len(),
+        };
+        let content_type = content_type_for_file_name(&source.file_name).to_owned();
+
+        Ok(DirectPlaySource {
+            source,
+            local_path,
+            total_len,
+            content_type,
+        })
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
@@ -389,6 +443,17 @@ impl TaruApp {
             })?;
 
         Ok(taru_api::SourceProbeResponse { source_id, probe })
+    }
+
+    async fn get_source_or_not_found(&self, source_id: MediaSourceId) -> Result<MediaSource> {
+        self.inner
+            .store
+            .get_media_source(source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: source_id.to_string(),
+            })
     }
 
     pub async fn get_job(&self, job_id: JobId) -> Result<Job> {
