@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use sqlx::{
     Decode, Row, Sqlite, SqlitePool, Type,
@@ -12,9 +12,11 @@ use taru_core::{
     Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId,
     MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
     MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository,
-    MetadataSource, NewJob, PageRequest, Person, PersonId, ProviderRawResponse, Result,
-    ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag,
-    TagId, TaruError, TransactionManager,
+    MetadataSource, NewJob, NewTranscodeSession, PageRequest, Person, PersonId,
+    ProviderRawResponse, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
+    SourceState, Studio, StudioId, Tag, TagId, TaruError, TransactionManager,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState,
 };
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
@@ -43,6 +45,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0007_catalog_ingestion",
         include_str!("../migrations/0007_catalog_ingestion.sql"),
+    ),
+    (
+        "0008_transcode_sessions",
+        include_str!("../migrations/0008_transcode_sessions.sql"),
     ),
 ];
 
@@ -846,6 +852,180 @@ impl JobRepository for SqliteStore {
         .map_err(database_error)?;
 
         row.map(row_to_job).transpose()
+    }
+}
+
+#[async_trait::async_trait]
+impl TranscodeSessionRepository for SqliteStore {
+    async fn create_transcode_session(
+        &self,
+        session: NewTranscodeSession,
+    ) -> Result<TranscodeSessionRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO transcode_sessions (
+                id, source_id, kind, request_key, output_path, state
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "#,
+        )
+        .bind(session.id.to_string())
+        .bind(session.source_id.to_string())
+        .bind(session.kind.as_str())
+        .bind(&session.request_key)
+        .bind(session.output_path.display().to_string())
+        .bind(session.state.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_transcode_session_or_not_found(session.id).await
+    }
+
+    async fn get_transcode_session(
+        &self,
+        id: TranscodeSessionId,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id, source_id, kind, request_key, output_path, state,
+                failure_category, failure_message, created_at, updated_at,
+                started_at, completed_at
+            FROM transcode_sessions
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_transcode_session).transpose()
+    }
+
+    async fn find_latest_transcode_session(
+        &self,
+        source_id: MediaSourceId,
+        kind: TranscodeSessionKind,
+        request_key: &str,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id, source_id, kind, request_key, output_path, state,
+                failure_category, failure_message, created_at, updated_at,
+                started_at, completed_at
+            FROM transcode_sessions
+            WHERE source_id = ?1 AND kind = ?2 AND request_key = ?3
+            ORDER BY updated_at DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(source_id.to_string())
+        .bind(kind.as_str())
+        .bind(request_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_transcode_session).transpose()
+    }
+
+    async fn find_active_transcode_session(
+        &self,
+        source_id: MediaSourceId,
+        kind: TranscodeSessionKind,
+        request_key: &str,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id, source_id, kind, request_key, output_path, state,
+                failure_category, failure_message, created_at, updated_at,
+                started_at, completed_at
+            FROM transcode_sessions
+            WHERE source_id = ?1
+                AND kind = ?2
+                AND request_key = ?3
+                AND state IN ('planned', 'starting', 'running', 'cancel_requested')
+            ORDER BY updated_at DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(source_id.to_string())
+        .bind(kind.as_str())
+        .bind(request_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_transcode_session).transpose()
+    }
+
+    async fn set_transcode_session_state(
+        &self,
+        id: TranscodeSessionId,
+        state: TranscodeSessionState,
+        failure_category: Option<TranscodeFailureCategory>,
+        failure_message: Option<String>,
+    ) -> Result<TranscodeSessionRecord> {
+        sqlx::query(
+            r#"
+            UPDATE transcode_sessions
+            SET
+                state = ?2,
+                failure_category = ?3,
+                failure_message = ?4,
+                started_at = CASE
+                    WHEN started_at IS NULL AND ?2 IN ('starting', 'running')
+                    THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    ELSE started_at
+                END,
+                completed_at = CASE
+                    WHEN ?2 IN ('cancelled', 'failed', 'finished')
+                    THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    ELSE completed_at
+                END,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(state.as_str())
+        .bind(failure_category.map(TranscodeFailureCategory::as_str))
+        .bind(failure_message)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_transcode_session_or_not_found(id).await
+    }
+
+    async fn fail_stale_transcode_sessions(
+        &self,
+        failure_category: TranscodeFailureCategory,
+        failure_message: String,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE transcode_sessions
+            SET
+                state = 'failed',
+                failure_category = ?1,
+                failure_message = ?2,
+                completed_at = COALESCE(completed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE state IN ('planned', 'starting', 'running', 'cancel_requested')
+            "#,
+        )
+        .bind(failure_category.as_str())
+        .bind(failure_message)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(result.rows_affected())
     }
 }
 
@@ -2318,6 +2498,18 @@ impl SqliteStore {
         })
     }
 
+    async fn get_transcode_session_or_not_found(
+        &self,
+        id: TranscodeSessionId,
+    ) -> Result<TranscodeSessionRecord> {
+        self.get_transcode_session(id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "transcode_session",
+                id: id.to_string(),
+            })
+    }
+
     async fn rows_to_media_items(&self, rows: Vec<SqliteRow>) -> Result<Vec<MediaItem>> {
         let mut items = Vec::with_capacity(rows.len());
 
@@ -2516,6 +2708,30 @@ fn stream_kind_from_parts(kind: String, kind_key: String) -> MediaStreamKind {
         "other" => MediaStreamKind::Other(kind_key),
         _ => MediaStreamKind::Other(kind),
     }
+}
+
+fn parse_transcode_session_kind(value: String) -> Result<TranscodeSessionKind> {
+    TranscodeSessionKind::parse(&value).ok_or_else(|| TaruError::Database {
+        message: format!("unknown transcode session kind stored in database: {value}"),
+    })
+}
+
+fn parse_transcode_session_state(value: String) -> Result<TranscodeSessionState> {
+    TranscodeSessionState::parse(&value).ok_or_else(|| TaruError::Database {
+        message: format!("unknown transcode session state stored in database: {value}"),
+    })
+}
+
+fn parse_transcode_failure_category(
+    value: Option<String>,
+) -> Result<Option<TranscodeFailureCategory>> {
+    value
+        .map(|value| {
+            TranscodeFailureCategory::parse(&value).ok_or_else(|| TaruError::Database {
+                message: format!("unknown transcode failure category stored in database: {value}"),
+            })
+        })
+        .transpose()
 }
 
 fn credit_role_to_parts(role: &CreditRole) -> (String, String) {
@@ -2757,6 +2973,23 @@ fn row_to_job(row: SqliteRow) -> Result<Job> {
         summary_json: row_get(&row, "summary_json")?,
         error: row_get(&row, "error")?,
         queued_at: row_get(&row, "queued_at")?,
+        started_at: row_get(&row, "started_at")?,
+        completed_at: row_get(&row, "completed_at")?,
+    })
+}
+
+fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessionRecord> {
+    Ok(TranscodeSessionRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        source_id: parse_id(row_get::<String>(&row, "source_id")?)?,
+        kind: parse_transcode_session_kind(row_get(&row, "kind")?)?,
+        request_key: row_get(&row, "request_key")?,
+        output_path: PathBuf::from(row_get::<String>(&row, "output_path")?),
+        state: parse_transcode_session_state(row_get(&row, "state")?)?,
+        failure_category: parse_transcode_failure_category(row_get(&row, "failure_category")?)?,
+        failure_message: row_get(&row, "failure_message")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
     })
@@ -3127,6 +3360,207 @@ mod tests {
                 .unwrap(),
             vec![source]
         );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_transcode_sessions() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Session Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///Movies/Session Demo.mkv".to_owned(),
+            file_name: "Session Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: None,
+        };
+        let session_id = TranscodeSessionId::new();
+        let request_key = "remux:mp4".to_owned();
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library.id, &source)
+            .await
+            .unwrap();
+
+        let planned = store
+            .create_transcode_session(NewTranscodeSession {
+                id: session_id,
+                source_id: source.id,
+                kind: TranscodeSessionKind::Remux,
+                request_key: request_key.clone(),
+                output_path: "cache/remux/stream.mp4".into(),
+                state: TranscodeSessionState::Planned,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(planned.id, session_id);
+        assert_eq!(planned.state, TranscodeSessionState::Planned);
+        assert!(planned.started_at.is_none());
+        assert!(planned.completed_at.is_none());
+        assert_eq!(
+            store
+                .find_active_transcode_session(
+                    source.id,
+                    TranscodeSessionKind::Remux,
+                    &request_key,
+                )
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+            session_id
+        );
+
+        let running = store
+            .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
+            .await
+            .unwrap();
+
+        assert_eq!(running.state, TranscodeSessionState::Running);
+        assert!(running.started_at.is_some());
+
+        let finished = store
+            .set_transcode_session_state(session_id, TranscodeSessionState::Finished, None, None)
+            .await
+            .unwrap();
+
+        assert_eq!(finished.state, TranscodeSessionState::Finished);
+        assert!(finished.completed_at.is_some());
+        assert!(
+            store
+                .find_active_transcode_session(
+                    source.id,
+                    TranscodeSessionKind::Remux,
+                    &request_key,
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            store
+                .find_latest_transcode_session(
+                    source.id,
+                    TranscodeSessionKind::Remux,
+                    &request_key,
+                )
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+            session_id
+        );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_marks_stale_transcode_sessions_failed() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Stale Session Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///Movies/Stale Session Demo.mkv".to_owned(),
+            file_name: "Stale Session Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: None,
+        };
+        let stale_id = TranscodeSessionId::new();
+        let finished_id = TranscodeSessionId::new();
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library.id, &source)
+            .await
+            .unwrap();
+        store
+            .create_transcode_session(NewTranscodeSession {
+                id: stale_id,
+                source_id: source.id,
+                kind: TranscodeSessionKind::Remux,
+                request_key: "remux:mp4".to_owned(),
+                output_path: "cache/remux/stale.mp4".into(),
+                state: TranscodeSessionState::Running,
+            })
+            .await
+            .unwrap();
+        store
+            .create_transcode_session(NewTranscodeSession {
+                id: finished_id,
+                source_id: source.id,
+                kind: TranscodeSessionKind::Remux,
+                request_key: "remux:mkv".to_owned(),
+                output_path: "cache/remux/finished.mkv".into(),
+                state: TranscodeSessionState::Planned,
+            })
+            .await
+            .unwrap();
+        store
+            .set_transcode_session_state(finished_id, TranscodeSessionState::Finished, None, None)
+            .await
+            .unwrap();
+
+        let recovered = store
+            .fail_stale_transcode_sessions(
+                TranscodeFailureCategory::Stale,
+                "session was active during server startup".to_owned(),
+            )
+            .await
+            .unwrap();
+
+        let stale = store
+            .get_transcode_session(stale_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let finished = store
+            .get_transcode_session(finished_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(recovered, 1);
+        assert_eq!(stale.state, TranscodeSessionState::Failed);
+        assert_eq!(
+            stale.failure_category,
+            Some(TranscodeFailureCategory::Stale)
+        );
+        assert_eq!(finished.state, TranscodeSessionState::Finished);
     }
 
     #[tokio::test]

@@ -11,7 +11,7 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus: [Phase 4.7 Playback Session Persistence](PHASE4_7_PLAYBACK_SESSION_PERSISTENCE.md).
+Current implementation focus: [Phase 4.8 HLS Transcode Foundation](PHASE4_8_HLS_TRANSCODE_FOUNDATION.md).
 
 ## Goals
 

@@ -76,6 +76,7 @@ define_id!(StudioId);
 define_id!(ImageAssetId);
 define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
+define_id!(TranscodeSessionId);
 
 #[cfg(test)]
 mod tests {

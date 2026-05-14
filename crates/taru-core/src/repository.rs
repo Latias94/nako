@@ -4,8 +4,10 @@ use crate::{
     ArtworkTask, ArtworkTaskId, Collection, CollectionId, CollectionItem, DirectorySnapshot, Genre,
     GenreId, ImageAsset, ImageAssetId, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId,
     Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
-    MetadataFieldLock, NewJob, Person, PersonId, ProviderRawResponse, Result, ScanSnapshot,
-    ScanSnapshotId, SourceState, Studio, StudioId, Tag, TagId,
+    MetadataFieldLock, NewJob, NewTranscodeSession, Person, PersonId, ProviderRawResponse, Result,
+    ScanSnapshot, ScanSnapshotId, SourceState, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState,
 };
 
 #[async_trait]
@@ -274,6 +276,47 @@ pub trait JobRepository: Send + Sync {
     async fn fail_job(&self, id: JobId, error: String) -> Result<Job>;
 
     async fn get_job(&self, id: JobId) -> Result<Option<Job>>;
+}
+
+#[async_trait]
+pub trait TranscodeSessionRepository: Send + Sync {
+    async fn create_transcode_session(
+        &self,
+        session: NewTranscodeSession,
+    ) -> Result<TranscodeSessionRecord>;
+
+    async fn get_transcode_session(
+        &self,
+        id: TranscodeSessionId,
+    ) -> Result<Option<TranscodeSessionRecord>>;
+
+    async fn find_latest_transcode_session(
+        &self,
+        source_id: MediaSourceId,
+        kind: TranscodeSessionKind,
+        request_key: &str,
+    ) -> Result<Option<TranscodeSessionRecord>>;
+
+    async fn find_active_transcode_session(
+        &self,
+        source_id: MediaSourceId,
+        kind: TranscodeSessionKind,
+        request_key: &str,
+    ) -> Result<Option<TranscodeSessionRecord>>;
+
+    async fn set_transcode_session_state(
+        &self,
+        id: TranscodeSessionId,
+        state: TranscodeSessionState,
+        failure_category: Option<TranscodeFailureCategory>,
+        failure_message: Option<String>,
+    ) -> Result<TranscodeSessionRecord>;
+
+    async fn fail_stale_transcode_sessions(
+        &self,
+        failure_category: TranscodeFailureCategory,
+        failure_message: String,
+    ) -> Result<u64>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

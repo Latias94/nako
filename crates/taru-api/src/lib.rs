@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use taru_core::{
     CollectionItem, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId,
     JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
-    MediaSourceId, PageRequest, Person, Tag,
+    MediaSourceId, PageRequest, Person, Tag, TranscodeSessionRecord,
 };
 use taru_streaming::PlaybackDecision;
 
@@ -77,6 +77,18 @@ impl JobResponse {
             started_at: job.started_at,
             completed_at: job.completed_at,
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeSessionResponse {
+    pub session: TranscodeSessionRecord,
+}
+
+impl TranscodeSessionResponse {
+    #[must_use]
+    pub fn from_session(session: TranscodeSessionRecord) -> Self {
+        Self { session }
     }
 }
 

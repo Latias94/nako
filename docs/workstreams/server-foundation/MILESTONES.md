@@ -487,6 +487,32 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.8: HLS Transcode Foundation
+
+Outcome: Taru can model and serve the first HLS playlist/segment lifecycle on
+top of persisted playback sessions before hardware acceleration policy is
+introduced.
+
+Deliverables:
+
+- HLS output layout and staging policy.
+- FFmpeg HLS command planning for a minimal single-variant stream.
+- HLS app-service boundary using persisted transcode sessions.
+- HTTP routes for playlists and segment bytes.
+- Duplicate request, stale session, and failure handling aligned with remux
+  session persistence.
+
+Exit criteria:
+
+- HLS session creation persists a playback session.
+- Playlist and segment paths cannot escape the staging root.
+- Active equivalent HLS requests return deterministic conflict or reuse
+  behavior.
+- Finished sessions can be reused when artifacts still exist.
+- Failed HLS runs persist a safe failure category/message.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

@@ -9,9 +9,13 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use taru_api::{API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse};
+use taru_api::{
+    API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse,
+    TranscodeSessionResponse,
+};
 use taru_core::{
     GenreId, JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, PersonId, TagId, TaruError,
+    TranscodeSessionId,
 };
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -62,6 +66,7 @@ pub fn build_router(app: TaruApp) -> Router {
             "/sources/{source_id}/stream/remux",
             get(remux_stream_source),
         )
+        .route("/playback/sessions/{session_id}", get(get_playback_session))
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
 }
@@ -359,6 +364,16 @@ async fn get_job(
     Ok(Json(JobResponse::from_job(app.get_job(job_id).await?)))
 }
 
+#[instrument(skip(app))]
+async fn get_playback_session(
+    State(app): State<TaruApp>,
+    Path(session_id): Path<TranscodeSessionId>,
+) -> ApiResult<Json<TranscodeSessionResponse>> {
+    Ok(Json(TranscodeSessionResponse::from_session(
+        app.get_transcode_session(session_id).await?,
+    )))
+}
+
 type ApiResult<T> = std::result::Result<T, ApiError>;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -597,13 +612,14 @@ mod tests {
         http::{Method, Request, header},
     };
     use serde::de::DeserializeOwned;
-    use taru_api::{HealthResponse, JobResponse, LibraryListResponse};
+    use taru_api::{HealthResponse, JobResponse, LibraryListResponse, TranscodeSessionResponse};
     use taru_core::{
         CanonicalMetadata, CatalogRepository, CreditRole, Genre, GenreId, ImageAsset, ImageAssetId,
         ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus,
         LibraryId, MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
         MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource, Person,
-        PersonId, Tag, TagId,
+        PersonId, Tag, TagId, TranscodeSessionKind, TranscodeSessionRepository,
+        TranscodeSessionState,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
@@ -1291,7 +1307,7 @@ mod tests {
 
     #[tokio::test]
     async fn remux_stream_route_runs_and_reuses_completed_output() {
-        let (_temp, router, source, _staging_root, ffmpeg_path, _marker) =
+        let (_temp, router, source, _staging_root, ffmpeg_path, _marker, _store) =
             router_with_remux_source(false).await;
         let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
 
@@ -1345,8 +1361,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn playback_session_route_returns_remux_session_state() {
+        let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+            router_with_remux_source(false).await;
+        let remux_path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&remux_path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let session = store
+            .find_latest_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
+            .await
+            .unwrap()
+            .unwrap();
+        let session_response = request_json::<TranscodeSessionResponse>(
+            &router,
+            Method::GET,
+            &format!("/playback/sessions/{}", session.id),
+        )
+        .await;
+
+        assert_eq!(session_response.session.id, session.id);
+        assert_eq!(
+            session_response.session.state,
+            TranscodeSessionState::Finished
+        );
+    }
+
+    #[tokio::test]
     async fn remux_stream_route_maps_in_flight_duplicate_to_conflict() {
-        let (_temp, router, source, _staging_root, _ffmpeg_path, marker) =
+        let (_temp, router, source, _staging_root, _ffmpeg_path, marker, _store) =
             router_with_remux_source(true).await;
         let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
         let first_router = router.clone();
@@ -1511,6 +1565,7 @@ mod tests {
         PathBuf,
         PathBuf,
         PathBuf,
+        SqliteStore,
     ) {
         let temp = tempfile::tempdir().unwrap();
         let marker = temp.path().join("remux.started");
@@ -1571,7 +1626,15 @@ mod tests {
             .unwrap();
         let router = build_router(app);
 
-        (temp, router, source, staging_root, ffmpeg_path, marker)
+        (
+            temp,
+            router,
+            source,
+            staging_root,
+            ffmpeg_path,
+            marker,
+            store,
+        )
     }
 
     fn compatible_probe() -> MediaProbeResult {

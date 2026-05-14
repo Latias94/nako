@@ -41,9 +41,9 @@ Evidence:
 - TMDB movie refresh, NFO import/export jobs, metadata profile execution, and
   catalog/search planning are implemented or documented.
 
-### M4.0-M4.6: Catalog Ingestion and Playback Foundation
+### M4.0-M4.7: Catalog Ingestion and Playback Foundation
 
-Status: completed through M4.6.
+Status: completed through M4.7.
 
 Evidence:
 
@@ -51,7 +51,9 @@ Evidence:
   planning, remux process runner guard, and remux application service
   integration are implemented.
 - HTTP remux playback route is implemented.
-- Last completed implementation goal: M4.6 remux playback route.
+- Remux/transcode session records are persisted in SQLite and exposed through
+  an app/API lookup path.
+- Last completed implementation goal: M4.7 playback session persistence.
 
 ## Recently Completed Goals
 
@@ -119,21 +121,29 @@ Evidence:
 - Tests cover range streaming, completed-output reuse, duplicate conflict, and
   unchanged direct play behavior.
 
+### M4.7: Playback Session Persistence
+
+Status: completed.
+
+Evidence:
+
+- `transcode_sessions` persists remux and future transcode session state.
+- Remux app-service requests create planned sessions, mark running sessions,
+  and persist finished, failed, cancelled, and stale recovery states.
+- Completed persisted remux sessions are reused after app restart.
+- Active persisted sessions drive duplicate `409 conflict` behavior.
+- `GET /playback/sessions/{session_id}` exposes current persisted state.
+
 ## Recommended Next Implementation Goal
-
-### M4.7: Transcode Session Persistence
-
-Status: proposed.
-
-Persist remux/transcode session records so cancellation, retry, observability,
-and later multi-client playback can survive process restarts.
-
-## Later Goals
 
 ### M4.8: HLS Transcode Foundation
 
+Status: proposed.
+
 Add HLS playlist/segment planning and process lifecycle management. Keep
 hardware acceleration optional until the queue and resource model are explicit.
+
+## Later Goals
 
 ### M5: Extension and Automation Surface
 

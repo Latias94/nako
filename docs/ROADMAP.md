@@ -49,15 +49,15 @@ Completed:
   completed-output reuse, in-flight duplicate conflict behavior, and API-safe
   error mapping.
 - HTTP remux playback route backed by the remux application service.
+- persisted remux/transcode session records with startup stale-session
+  recovery and lookup API.
 
 Recommended next goal:
 
-- M4.7: playback session persistence.
+- M4.8: HLS transcode foundation.
 
 Future playback work:
 
-- HTTP route for remuxed playback;
-- persisted transcode/remux session records;
 - HLS transcode session manager;
 - hardware acceleration detection and encode policy for VAAPI, NVENC, and QSV;
 - CPU/GPU queue policy;

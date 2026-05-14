@@ -15,8 +15,10 @@ use taru_api::{
 use taru_core::{
     CatalogRepository, ExternalProvider, GenreId, Job, JobId, JobKind, JobRepository, Library,
     LibraryId, LibraryRepository, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
-    MediaSourceId, MetadataProfile, NewJob, PageRequest, PersonId, Result, TagId, TaruError,
-    TransactionManager,
+    MediaSourceId, MetadataProfile, NewJob, NewTranscodeSession, PageRequest, PersonId, Result,
+    TagId, TaruError, TransactionManager, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionState,
 };
 use taru_db::SqliteStore;
 use taru_library::{
@@ -40,7 +42,7 @@ use taru_streaming::{
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
     RemuxContainer, RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits,
-    TranscodeSession, TranscodeSessionManager,
+    TranscodeSessionManager,
 };
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
@@ -117,7 +119,7 @@ pub struct RemuxSourceOutput {
     pub output_path: PathBuf,
     pub output_container: RemuxContainer,
     pub disposition: RemuxSourceDisposition,
-    pub session: Option<TranscodeSession>,
+    pub session: Option<TranscodeSessionRecord>,
 }
 
 #[derive(Clone, Debug)]
@@ -191,6 +193,7 @@ impl RemuxAppService {
 
     async fn run(
         &self,
+        sessions: &SqliteStore,
         source: MediaSource,
         decision: PlaybackDecision,
         input_path: PathBuf,
@@ -202,65 +205,126 @@ impl RemuxAppService {
             output_container,
         };
 
-        match self.reserve(&key, &output_path).await? {
-            RemuxRequestAdmission::ReuseExisting => {
+        match self.reserve(sessions, &key, &output_path).await? {
+            RemuxRequestAdmission::ReuseExisting { session } => {
                 return Ok(RemuxSourceOutput {
                     source,
                     decision,
                     output_path,
                     output_container,
                     disposition: RemuxSourceDisposition::ReusedExisting,
-                    session: None,
+                    session,
                 });
             }
-            RemuxRequestAdmission::Run => {}
+            RemuxRequestAdmission::Run { session } => {
+                let result = self
+                    .run_reserved(
+                        sessions,
+                        session,
+                        source,
+                        decision,
+                        input_path,
+                        output_path,
+                        output_container,
+                    )
+                    .await;
+                self.release(&key).await;
+                return result;
+            }
         }
-
-        let result = self
-            .run_reserved(source, decision, input_path, output_path, output_container)
-            .await;
-        self.release(&key).await;
-        result
     }
 
     async fn reserve(
         &self,
+        sessions: &SqliteStore,
         key: &RemuxRequestKey,
         output_path: &Path,
     ) -> Result<RemuxRequestAdmission> {
-        let mut in_flight = self.in_flight.lock().await;
-
-        if output_path.try_exists().map_err(|err| TaruError::Storage {
-            uri: output_path.display().to_string(),
-            message: format!("failed to check remux output path: {err}"),
-        })? {
-            return Ok(RemuxRequestAdmission::ReuseExisting);
-        }
-
-        if !in_flight.insert(*key) {
+        let request_key = key.persisted_request_key();
+        if let Some(active) = sessions
+            .find_active_transcode_session(key.source_id, TranscodeSessionKind::Remux, &request_key)
+            .await?
+        {
             return Err(TaruError::Conflict {
                 message: format!(
-                    "remux request for source {} as {:?} is already in progress",
-                    key.source_id, key.output_container
+                    "remux request for source {} as {:?} is already in progress in session {}",
+                    key.source_id, key.output_container, active.id
                 ),
             });
         }
 
-        Ok(RemuxRequestAdmission::Run)
+        let latest = sessions
+            .find_latest_transcode_session(key.source_id, TranscodeSessionKind::Remux, &request_key)
+            .await?;
+        let output_exists = path_exists(output_path)?;
+
+        if let Some(session) = latest.as_ref() {
+            if session.state == TranscodeSessionState::Finished
+                && session.output_path.as_path() == output_path
+                && output_exists
+            {
+                return Ok(RemuxRequestAdmission::ReuseExisting {
+                    session: Some(session.clone()),
+                });
+            }
+        }
+
+        if latest.is_none() && output_exists {
+            return Ok(RemuxRequestAdmission::ReuseExisting { session: None });
+        }
+
+        {
+            let mut in_flight = self.in_flight.lock().await;
+            if !in_flight.insert(*key) {
+                return Err(TaruError::Conflict {
+                    message: format!(
+                        "remux request for source {} as {:?} is already in progress",
+                        key.source_id, key.output_container
+                    ),
+                });
+            }
+        }
+
+        let session = sessions
+            .create_transcode_session(NewTranscodeSession {
+                id: TranscodeSessionId::new(),
+                source_id: key.source_id,
+                kind: TranscodeSessionKind::Remux,
+                request_key,
+                output_path: output_path.to_path_buf(),
+                state: TranscodeSessionState::Planned,
+            })
+            .await;
+
+        match session {
+            Ok(session) => Ok(RemuxRequestAdmission::Run { session }),
+            Err(error) => {
+                self.release(key).await;
+                Err(error)
+            }
+        }
     }
 
     async fn run_reserved(
         &self,
+        sessions: &SqliteStore,
+        persisted_session: TranscodeSessionRecord,
         source: MediaSource,
         decision: PlaybackDecision,
         input_path: PathBuf,
         output_path: PathBuf,
         output_container: RemuxContainer,
     ) -> Result<RemuxSourceOutput> {
-        ensure_remux_output_parent(&output_path).await?;
+        let session_id = persisted_session.id;
+
+        if let Err(error) = ensure_remux_output_parent(&output_path).await {
+            persist_session_failure(sessions, session_id, &error).await;
+            return Err(error);
+        }
 
         let mut manager = TranscodeSessionManager::new();
-        let session = manager.plan_remux(
+        if let Err(error) = manager.plan_remux_with_id(
+            session_id,
             RemuxRequest {
                 source_id: source.id,
                 input_path,
@@ -269,25 +333,33 @@ impl RemuxAppService {
                 overwrite: FfmpegOverwritePolicy::Never,
             },
             &self.builder,
-        )?;
-        let session_id = session.id;
+        ) {
+            persist_session_failure(sessions, session_id, &error).await;
+            return Err(error);
+        }
+
+        sessions
+            .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
+            .await?;
+
         let cancel = CancellationToken::new();
 
-        match self
+        let run_result = self
             .runner
             .run(&mut manager, session_id, cancel)
             .await
-            .map_err(map_remux_runner_error)?
-        {
-            RemuxRunOutcome::Finished { .. } => {
-                let session =
-                    manager
-                        .get(session_id)
-                        .cloned()
-                        .ok_or_else(|| TaruError::NotFound {
-                            entity: "transcode_session",
-                            id: session_id.to_string(),
-                        })?;
+            .map_err(map_remux_runner_error);
+
+        match run_result {
+            Ok(RemuxRunOutcome::Finished { .. }) => {
+                let session = sessions
+                    .set_transcode_session_state(
+                        session_id,
+                        TranscodeSessionState::Finished,
+                        None,
+                        None,
+                    )
+                    .await?;
 
                 Ok(RemuxSourceOutput {
                     source,
@@ -298,14 +370,29 @@ impl RemuxAppService {
                     session: Some(session),
                 })
             }
-            RemuxRunOutcome::Cancelled { .. } => Ok(RemuxSourceOutput {
-                source,
-                decision,
-                output_path,
-                output_container,
-                disposition: RemuxSourceDisposition::Cancelled,
-                session: manager.get(session_id).cloned(),
-            }),
+            Ok(RemuxRunOutcome::Cancelled { .. }) => {
+                let session = sessions
+                    .set_transcode_session_state(
+                        session_id,
+                        TranscodeSessionState::Cancelled,
+                        Some(TranscodeFailureCategory::Cancelled),
+                        Some("remux session was cancelled".to_owned()),
+                    )
+                    .await?;
+
+                Ok(RemuxSourceOutput {
+                    source,
+                    decision,
+                    output_path,
+                    output_container,
+                    disposition: RemuxSourceDisposition::Cancelled,
+                    session: Some(session),
+                })
+            }
+            Err(error) => {
+                persist_session_failure(sessions, session_id, &error).await;
+                Err(error)
+            }
         }
     }
 
@@ -320,10 +407,20 @@ struct RemuxRequestKey {
     output_container: RemuxContainer,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+impl RemuxRequestKey {
+    fn persisted_request_key(self) -> String {
+        format!("remux:{}", self.output_container.file_extension())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum RemuxRequestAdmission {
-    Run,
-    ReuseExisting,
+    Run {
+        session: TranscodeSessionRecord,
+    },
+    ReuseExisting {
+        session: Option<TranscodeSessionRecord>,
+    },
 }
 
 impl TaruApp {
@@ -334,6 +431,18 @@ impl TaruApp {
 
     pub async fn new_with_store(config: TaruServerConfig, store: SqliteStore) -> Result<Self> {
         store.migrate().await?;
+        let recovered_sessions = store
+            .fail_stale_transcode_sessions(
+                TranscodeFailureCategory::Stale,
+                "session was active during server startup".to_owned(),
+            )
+            .await?;
+        if recovered_sessions > 0 {
+            warn!(
+                recovered_sessions,
+                "marked stale transcode sessions failed during startup"
+            );
+        }
 
         let app = Self {
             inner: Arc::new(TaruAppInner {
@@ -531,6 +640,7 @@ impl TaruApp {
         self.inner
             .remux
             .run(
+                &self.inner.store,
                 source,
                 decision,
                 local_path,
@@ -538,6 +648,20 @@ impl TaruApp {
                 request.output_container,
             )
             .await
+    }
+
+    pub async fn get_transcode_session(
+        &self,
+        session_id: TranscodeSessionId,
+    ) -> Result<TranscodeSessionRecord> {
+        self.inner
+            .store
+            .get_transcode_session(session_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "transcode_session",
+                id: session_id.to_string(),
+            })
     }
 
     async fn local_source_path_and_len(&self, source: &MediaSource) -> Result<(PathBuf, u64)> {
@@ -1553,6 +1677,36 @@ fn map_remux_runner_error(error: TaruError) -> TaruError {
     }
 }
 
+fn path_exists(path: &Path) -> Result<bool> {
+    path.try_exists().map_err(|err| TaruError::Storage {
+        uri: path.display().to_string(),
+        message: format!("failed to check path: {err}"),
+    })
+}
+
+async fn persist_session_failure(
+    sessions: &SqliteStore,
+    session_id: TranscodeSessionId,
+    error: &TaruError,
+) {
+    let category = TranscodeFailureCategory::from_error(error);
+    if let Err(update_error) = sessions
+        .set_transcode_session_state(
+            session_id,
+            TranscodeSessionState::Failed,
+            Some(category),
+            Some(error.to_string()),
+        )
+        .await
+    {
+        error!(
+            session_id = %session_id,
+            error = %update_error,
+            "failed to persist transcode session failure"
+        );
+    }
+}
+
 async fn ensure_remux_output_parent(output_path: &Path) -> Result<()> {
     let Some(parent) = output_path.parent() else {
         return Err(TaruError::Storage {
@@ -1599,7 +1753,7 @@ mod tests {
         MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
         MediaStreamInfo, MediaStreamKind, MetadataField, MetadataRepository, MetadataSource,
     };
-    use taru_transcode::{RemuxContainer, TranscodeSessionState};
+    use taru_transcode::RemuxContainer;
 
     use super::*;
     use crate::config::{LocalLibraryConfig, MetadataConfig};
@@ -1947,7 +2101,7 @@ mod tests {
     async fn remux_source_runs_runner_and_reuses_completed_output() {
         let script_root = tempfile::tempdir().unwrap();
         let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
-        let (_temp, app, source) = remux_app_with_source(ffmpeg_path).await;
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path.clone()).await;
         let request = RemuxSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
@@ -1965,25 +2119,71 @@ mod tests {
                 .starts_with(&app.config().remux_staging_root)
         );
         assert_eq!(fs::read_to_string(&output.output_path).unwrap(), "remuxed");
+        assert_eq!(
+            app.get_transcode_session(session.id).await.unwrap().state,
+            TranscodeSessionState::Finished
+        );
+        assert_eq!(
+            store
+                .find_latest_transcode_session(
+                    source.id,
+                    TranscodeSessionKind::Remux,
+                    &RemuxRequestKey {
+                        source_id: source.id,
+                        output_container: RemuxContainer::Mp4,
+                    }
+                    .persisted_request_key(),
+                )
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+            session.id
+        );
 
-        let reused = app.remux_source(request).await.unwrap();
+        let reused = app.remux_source(request.clone()).await.unwrap();
 
         assert_eq!(reused.disposition, RemuxSourceDisposition::ReusedExisting);
-        assert!(reused.session.is_none());
+        assert_eq!(reused.session.as_ref().unwrap().id, session.id);
         assert_eq!(reused.output_path, output.output_path);
         assert_eq!(fs::read_to_string(reused.output_path).unwrap(), "remuxed");
+
+        let config = app.config().clone();
+        drop(app);
+        fs::remove_file(ffmpeg_path).unwrap();
+        let restarted = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let restarted_reused = restarted.remux_source(request).await.unwrap();
+
+        assert_eq!(
+            restarted_reused.disposition,
+            RemuxSourceDisposition::ReusedExisting
+        );
+        assert_eq!(restarted_reused.session.as_ref().unwrap().id, session.id);
     }
 
     #[tokio::test]
-    async fn remux_source_rejects_in_flight_duplicate() {
+    async fn remux_source_rejects_persisted_active_duplicate() {
         let script_root = tempfile::tempdir().unwrap();
         let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
-        let (_temp, app, source) = remux_app_with_source(ffmpeg_path).await;
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
         let key = RemuxRequestKey {
             source_id: source.id,
             output_container: RemuxContainer::Mp4,
         };
-        app.inner.remux.in_flight.lock().await.insert(key);
+        let staging = RemuxStagingPolicy::new(&app.config().remux_staging_root).unwrap();
+        let active = store
+            .create_transcode_session(NewTranscodeSession {
+                id: TranscodeSessionId::new(),
+                source_id: source.id,
+                kind: TranscodeSessionKind::Remux,
+                request_key: key.persisted_request_key(),
+                output_path: staging.output_path(source.id, RemuxContainer::Mp4).unwrap(),
+                state: TranscodeSessionState::Running,
+            })
+            .await
+            .unwrap();
 
         let err = app
             .remux_source(RemuxSourceRequest {
@@ -1998,6 +2198,91 @@ mod tests {
             panic!("expected remux duplicate conflict");
         };
         assert!(message.contains("already in progress"));
+        assert!(message.contains(&active.id.to_string()));
+    }
+
+    #[tokio::test]
+    async fn remux_source_persists_runner_failure() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_failing_ffmpeg_script(script_root.path(), "failure");
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+        let request_key = RemuxRequestKey {
+            source_id: source.id,
+            output_container: RemuxContainer::Mp4,
+        }
+        .persisted_request_key();
+
+        let err = app
+            .remux_source(RemuxSourceRequest {
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                output_container: RemuxContainer::Mp4,
+            })
+            .await
+            .unwrap_err();
+
+        let TaruError::Provider { provider, message } = err else {
+            panic!("expected remux provider failure");
+        };
+        assert_eq!(provider, "ffmpeg_remux");
+        assert_eq!(message, "remux runner failed");
+
+        let session = store
+            .find_latest_transcode_session(source.id, TranscodeSessionKind::Remux, &request_key)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(session.state, TranscodeSessionState::Failed);
+        assert_eq!(
+            session.failure_category,
+            Some(TranscodeFailureCategory::Runner)
+        );
+        assert_eq!(
+            session.failure_message.as_deref(),
+            Some("external provider error from ffmpeg_remux: remux runner failed")
+        );
+    }
+
+    #[tokio::test]
+    async fn app_startup_marks_stale_transcode_sessions_failed() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+        let config = app.config().clone();
+        let staging = RemuxStagingPolicy::new(&config.remux_staging_root).unwrap();
+        let stale_id = TranscodeSessionId::new();
+
+        store
+            .create_transcode_session(NewTranscodeSession {
+                id: stale_id,
+                source_id: source.id,
+                kind: TranscodeSessionKind::Remux,
+                request_key: RemuxRequestKey {
+                    source_id: source.id,
+                    output_container: RemuxContainer::Mp4,
+                }
+                .persisted_request_key(),
+                output_path: staging.output_path(source.id, RemuxContainer::Mp4).unwrap(),
+                state: TranscodeSessionState::Running,
+            })
+            .await
+            .unwrap();
+
+        drop(app);
+        let _restarted = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let stale = store
+            .get_transcode_session(stale_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(stale.state, TranscodeSessionState::Failed);
+        assert_eq!(
+            stale.failure_category,
+            Some(TranscodeFailureCategory::Stale)
+        );
     }
 
     #[test]
@@ -2050,9 +2335,34 @@ mod tests {
         }
     }
 
+    fn fake_failing_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let path = root.join(name);
+            let content = "#!/bin/sh\necho remux failed >&2\nexit 7\n";
+            fs::write(&path, content).unwrap();
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+            path
+        }
+
+        #[cfg(windows)]
+        {
+            let path = root.join(format!("{name}.cmd"));
+            let mut content = String::from("@echo off\r\n");
+            content.push_str("echo remux failed 1>&2\r\n");
+            content.push_str("exit /b 7\r\n");
+            fs::write(&path, content).unwrap();
+            path
+        }
+    }
+
     async fn remux_app_with_source(
         ffmpeg_path: PathBuf,
-    ) -> (tempfile::TempDir, TaruApp, MediaSource) {
+    ) -> (tempfile::TempDir, TaruApp, SqliteStore, MediaSource) {
         let temp = tempfile::tempdir().unwrap();
         let library_root = temp.path().join("library");
         let staging_root = temp.path().join("cache").join("remux");
@@ -2143,6 +2453,6 @@ mod tests {
             .await
             .unwrap();
 
-        (temp, app, source)
+        (temp, app, store, source)
     }
 }

@@ -131,6 +131,7 @@ GET  /sources/{source_id}/playback/decision
 GET  /sources/{source_id}/stream
 HEAD /sources/{source_id}/stream
 GET  /sources/{source_id}/stream/remux
+GET  /playback/sessions/{session_id}
 GET  /jobs/{job_id}
 ```
 
@@ -192,4 +193,11 @@ output_container=mp4|mkv
 ```
 
 The default output container is `mp4`. Completed staged outputs are reused.
-Equivalent in-flight remux requests return `409 conflict`.
+Equivalent in-flight remux requests return `409 conflict`. Remux playback
+creates a persisted playback session record so state can be inspected after the
+request completes or after a server restart.
+
+`GET /playback/sessions/{session_id}` returns the persisted session state for
+remux and future transcode sessions. The response includes the source ID,
+session kind, request key, staged output path, state, failure category/message,
+and lifecycle timestamps.

@@ -1,5 +1,7 @@
 # Phase 4.7: Playback Session Persistence
 
+Status: completed.
+
 ## Goal
 
 Persist remux and future transcode session state so playback orchestration is
@@ -9,15 +11,18 @@ and hardware acceleration add more state.
 
 ## Proposed Shape
 
-- Add a transcode session table.
-- Persist request key, source ID, session kind, output path, state,
-  timestamps, and safe failure category.
+- Added a `transcode_sessions` SQLite table.
+- Persisted request key, source ID, session kind, output path, state,
+  timestamps, and safe failure category/message.
+- Added `TranscodeSessionRepository` in `taru-core` with `taru-db`
+  implementation.
+- Moved shared transcode session ID/kind/state domain types into `taru-core`
+  while keeping FFmpeg execution details in `taru-transcode`.
 - Let the remux app service create and update persisted session records.
-- Reuse completed sessions from persisted state.
-- Treat in-flight records from dead processes as stale through explicit
-  recovery rules.
-- Expose a lookup path for session status before broader playback APIs depend
-  on it.
+- Reuse completed sessions from persisted state when the staged output still
+  exists.
+- Treat active records from dead processes as stale during server startup.
+- Expose `GET /playback/sessions/{session_id}` for session status lookup.
 
 ## Non-Goals
 
@@ -28,10 +33,11 @@ and hardware acceleration add more state.
 
 ## Validation
 
-Expected coverage:
+Coverage:
 
 - remux route creates a persisted session;
 - successful remux marks the session finished;
 - failed remux marks the session failed with a safe error category;
 - completed remux is reused after app restart;
-- stale running sessions are recovered deterministically.
+- stale running sessions are recovered deterministically;
+- playback session lookup returns the persisted state.

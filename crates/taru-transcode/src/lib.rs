@@ -12,13 +12,13 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use taru_core::{MediaSourceId, Result, TaruError};
+pub use taru_core::{TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState};
 use tokio::{
     io::AsyncReadExt,
     process::Command,
     sync::{OwnedSemaphorePermit, Semaphore},
     time,
 };
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodePlan {
@@ -321,58 +321,6 @@ impl FfmpegCommandBuilder {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct TranscodeSessionId(Uuid);
-
-impl TranscodeSessionId {
-    #[must_use]
-    pub fn new() -> Self {
-        Self(Uuid::now_v7())
-    }
-
-    #[must_use]
-    pub const fn from_uuid(value: Uuid) -> Self {
-        Self(value)
-    }
-
-    #[must_use]
-    pub const fn as_uuid(self) -> Uuid {
-        self.0
-    }
-}
-
-impl Default for TranscodeSessionId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl std::fmt::Display for TranscodeSessionId {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(formatter)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TranscodeSessionKind {
-    Remux,
-    HlsTranscode,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TranscodeSessionState {
-    Planned,
-    Starting,
-    Running,
-    CancelRequested,
-    Cancelled,
-    Failed,
-    Finished,
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeSession {
     pub id: TranscodeSessionId,
@@ -400,9 +348,18 @@ impl TranscodeSessionManager {
         request: RemuxRequest,
         builder: &FfmpegCommandBuilder,
     ) -> Result<TranscodeSession> {
+        self.plan_remux_with_id(TranscodeSessionId::new(), request, builder)
+    }
+
+    pub fn plan_remux_with_id(
+        &mut self,
+        session_id: TranscodeSessionId,
+        request: RemuxRequest,
+        builder: &FfmpegCommandBuilder,
+    ) -> Result<TranscodeSession> {
         let command = builder.remux(&request)?;
         let session = TranscodeSession {
-            id: TranscodeSessionId::new(),
+            id: session_id,
             source_id: request.source_id,
             kind: TranscodeSessionKind::Remux,
             state: TranscodeSessionState::Planned,
