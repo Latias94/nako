@@ -385,9 +385,11 @@ name = "taru-library"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "pollster",
  "serde",
  "taru-core",
  "taru-vfs",
+ "tempfile",
 ]
 
 [[package]]
