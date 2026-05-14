@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_core::{JobId, LibraryId, Result};
+use taru_naming::{DefaultNameParser, NameParser, ParsedName};
 use taru_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -31,6 +32,7 @@ pub struct DiscoveredMediaSource {
     pub file_name: String,
     pub size_bytes: Option<u64>,
     pub fingerprint: Option<String>,
+    pub parsed_name: ParsedName,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -55,6 +57,7 @@ impl Default for LibraryScannerOptions {
 pub struct VfsLibraryScanner<B> {
     backend: B,
     options: LibraryScannerOptions,
+    name_parser: DefaultNameParser,
 }
 
 impl<B> VfsLibraryScanner<B> {
@@ -62,11 +65,16 @@ impl<B> VfsLibraryScanner<B> {
         Self {
             backend,
             options: LibraryScannerOptions::default(),
+            name_parser: DefaultNameParser,
         }
     }
 
     pub fn with_options(backend: B, options: LibraryScannerOptions) -> Self {
-        Self { backend, options }
+        Self {
+            backend,
+            options,
+            name_parser: DefaultNameParser,
+        }
     }
 
     #[must_use]
@@ -101,7 +109,7 @@ where
                     }
                 }
                 ObjectKind::File | ObjectKind::Symlink if self.is_supported_media(&metadata) => {
-                    media_sources.push(to_media_source(metadata));
+                    media_sources.push(self.to_media_source(metadata));
                 }
                 ObjectKind::File | ObjectKind::Symlink | ObjectKind::Other => {}
             }
@@ -128,22 +136,23 @@ impl<B> VfsLibraryScanner<B> {
                 .any(|candidate| candidate.eq_ignore_ascii_case(extension))
         })
     }
-}
+    fn to_media_source(&self, metadata: ObjectMetadata) -> DiscoveredMediaSource {
+        let file_name = metadata
+            .uri
+            .path_part()
+            .rsplit_once('/')
+            .map(|(_parent, file_name)| file_name)
+            .unwrap_or_else(|| metadata.uri.path_part())
+            .to_owned();
+        let parsed_name = self.name_parser.parse_path(metadata.uri.path_part());
 
-fn to_media_source(metadata: ObjectMetadata) -> DiscoveredMediaSource {
-    let file_name = metadata
-        .uri
-        .path_part()
-        .rsplit_once('/')
-        .map(|(_parent, file_name)| file_name)
-        .unwrap_or_else(|| metadata.uri.path_part())
-        .to_owned();
-
-    DiscoveredMediaSource {
-        uri: metadata.uri,
-        file_name,
-        size_bytes: metadata.len,
-        fingerprint: metadata.fingerprint,
+        DiscoveredMediaSource {
+            uri: metadata.uri,
+            file_name,
+            size_bytes: metadata.len,
+            fingerprint: metadata.fingerprint,
+            parsed_name,
+        }
     }
 }
 
@@ -208,6 +217,7 @@ mod tests {
             assert_eq!(summary.discovered_files, 1);
             assert_eq!(summary.media_sources.len(), 1);
             assert_eq!(summary.media_sources[0].file_name, "demo.MKV");
+            assert_eq!(summary.media_sources[0].parsed_name.title, "demo");
             assert_eq!(
                 summary.media_sources[0].uri.as_str(),
                 "local:///Movies/Demo Movie/demo.MKV"

@@ -388,6 +388,7 @@ dependencies = [
  "pollster",
  "serde",
  "taru-core",
+ "taru-naming",
  "taru-vfs",
  "tempfile",
 ]

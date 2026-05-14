@@ -11,6 +11,7 @@ workspace = true
 async-trait.workspace = true
 serde.workspace = true
 taru-core = { path = "../taru-core" }
+taru-naming = { path = "../taru-naming" }
 taru-vfs = { path = "../taru-vfs" }
 
 [dev-dependencies]
