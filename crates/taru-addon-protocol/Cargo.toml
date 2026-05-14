@@ -1,0 +1,12 @@
+[package]
+name = "taru-addon-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+taru-core = { path = "../taru-core" }

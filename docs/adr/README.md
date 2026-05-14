@@ -1,0 +1,21 @@
+# Architecture Decision Records
+
+This directory tracks architecture decisions for Taru.
+
+## Format
+
+Each ADR should include:
+
+- Status: proposed, accepted, rejected, superseded
+- Context
+- Decision
+- Consequences
+- Alternatives considered
+- Related workstreams
+
+## Index
+
+- [0001: Use a Modular Monolith Rust Workspace](0001-modular-monolith-rust-workspace.md)
+- [0002: Build an Internal VFS Before OS Mounting](0002-internal-vfs-before-os-mounting.md)
+- [0003: Prefer HTTP Addons Before In-Process Plugins](0003-http-addons-before-in-process-plugins.md)
+- [0004: Treat AI as External Automation First](0004-ai-as-external-automation-first.md)
