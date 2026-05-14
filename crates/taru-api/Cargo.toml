@@ -9,3 +9,5 @@ workspace = true
 
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
+taru-core = { path = "../taru-core" }

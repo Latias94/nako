@@ -36,7 +36,30 @@ Exit criteria:
 - File changes are detected by rescan.
 - Probe data is stored and exposed through an internal API.
 
-## M2: Metadata and NFO
+## M2: Server Runtime and API Foundation
+
+Outcome: Taru can run as a long-lived local server with a minimal HTTP API and
+persisted background job state.
+
+Deliverables:
+
+- HTTP server bootstrap in `taru-server`.
+- Startup configuration for listen address, SQLite, ffprobe, local library, and
+  scan/probe concurrency.
+- Persisted job table and repository.
+- Background library scan job triggered through HTTP.
+- Minimal API for health, libraries, sources, items, probes, and jobs.
+- Structured logging and safe JSON error responses.
+- CLI scan/list commands sharing the same application service.
+
+Exit criteria:
+
+- `POST /libraries/{id}/scan` returns a queued job without blocking.
+- `GET /jobs/{id}` reports queued, running, succeeded, or failed state.
+- Scan and probe work remains bounded by configured limits.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
+## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.
 
@@ -53,7 +76,7 @@ Exit criteria:
 - Locked local fields survive metadata refresh.
 - NFO export round-trips core fields.
 
-## M3: Playback MVP
+## M4: Playback MVP
 
 Outcome: Taru can serve local media through direct play and a minimal HLS
 transcode path.
@@ -72,7 +95,7 @@ Exit criteria:
 - An incompatible fixture produces playable HLS output.
 - Session cancellation cleans up process and temporary files.
 
-## M4: Extension Surface
+## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.
 
@@ -89,7 +112,7 @@ Exit criteria:
 - An automation task can call a configured external provider.
 - A reference HTTP addon can return metadata or recommendations.
 
-## M5: Remote Storage Preview
+## M6: Remote Storage Preview
 
 Outcome: Taru can index and play a limited remote source through the internal
 VFS contract.

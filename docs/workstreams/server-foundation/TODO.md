@@ -4,12 +4,16 @@
 
 - [x] Define workspace crate layout and dependency direction.
 - [x] Create initial `taru-core` domain model draft.
-- [ ] Decide default database target for MVP.
+- [x] Decide default database target for MVP.
 - [x] Define service trait boundaries for library, metadata, VFS, transcode,
       search, events, automation, and addons.
 - [ ] Add ADR index and first accepted/rejected decisions.
-- [ ] Define shared job state, cancellation, retry, and resource-budget model.
-- [ ] Add observability conventions for async pipelines and background jobs.
+- [ ] Define shared job cancellation and retry policy.
+- [x] Define shared job state and resource-budget model.
+- [x] Add observability conventions for async pipelines and background jobs.
+- [x] Add persisted job lifecycle state for server runtime work.
+- [x] Add minimal HTTP API for health, libraries, sources, items, probes, and jobs.
+- [x] Add structured logging initialization for the server binary.
 
 ## VFS and Storage
 
@@ -54,8 +58,8 @@
 
 ## Documentation
 
-- [ ] Create MVP milestone document.
-- [ ] Create initial API design notes.
+- [x] Create MVP milestone document.
+- [x] Create initial API design notes.
 - [ ] Create local development setup guide.
 - [ ] Create test strategy for crate-level and integration tests.
 - [ ] Create licensing notes for reference-only GPL code.

@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use taru_core::{
+    Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
+    MediaSourceId,
+};
 
 pub const API_VERSION: &str = "v1";
 
@@ -6,4 +10,75 @@ pub const API_VERSION: &str = "v1";
 pub struct HealthResponse {
     pub status: String,
     pub version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ErrorResponse {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct JobResponse {
+    pub id: JobId,
+    pub kind: JobKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+    pub summary: Option<serde_json::Value>,
+    pub error: Option<String>,
+    pub queued_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl JobResponse {
+    #[must_use]
+    pub fn from_job(job: Job) -> Self {
+        Self {
+            id: job.id,
+            kind: job.kind,
+            status: job.status,
+            resource_class: job.resource_class,
+            library_id: job.library_id,
+            source_id: job.source_id,
+            summary: job
+                .summary_json
+                .and_then(|value| serde_json::from_str(&value).ok()),
+            error: job.error,
+            queued_at: job.queued_at,
+            started_at: job.started_at,
+            completed_at: job.completed_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryListResponse {
+    pub libraries: Vec<Library>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibrarySourcesResponse {
+    pub library: Library,
+    pub sources: Vec<LibrarySourceResponse>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibrarySourceResponse {
+    pub source: MediaSource,
+    pub item: Option<MediaItem>,
+    pub probe: Option<MediaProbeResult>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemsResponse {
+    pub items: Vec<MediaItem>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceProbeResponse {
+    pub source_id: MediaSourceId,
+    pub probe: MediaProbeResult,
 }

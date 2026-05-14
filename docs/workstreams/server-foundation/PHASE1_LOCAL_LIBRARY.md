@@ -78,6 +78,6 @@ Manual smoke verification performed:
 
 - Add a stable sample config file or documented config path convention.
 - Improve CLI help text and JSON output shape if needed.
-- Add persisted job state instead of summary-only execution.
-- Add structured logging and tracing initialization.
-- Decide whether Phase 1 should include a minimal HTTP API in addition to CLI.
+- Persisted job state is handled by Phase 2.
+- Structured logging and tracing initialization are handled by Phase 2.
+- Minimal HTTP API is handled by Phase 2.

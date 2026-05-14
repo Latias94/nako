@@ -1,18 +1,20 @@
-use std::{fs, path::PathBuf, process::ExitCode};
+use std::{path::PathBuf, process::ExitCode};
 
+use axum::Router;
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use taru_core::{
-    JobId, Library, LibraryId, LibraryRepository, MediaItem, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, Result, TaruError, TransactionManager,
-};
-use taru_db::SqliteStore;
-use taru_library::{
-    LibraryIndexRequest, LibraryIndexService, LibraryProbeOptions, LibraryProbeRequest,
-    LibraryProbeService,
-};
-use taru_media_probe::FfprobeMediaProbe;
-use taru_vfs::LocalFsBackend;
+use serde::Serialize;
+use taru_core::{Result, TaruError};
+use tokio::net::TcpListener;
+use tracing::{error, info};
+use tracing_subscriber::{EnvFilter, fmt};
+
+mod app;
+mod config;
+mod http;
+
+use app::TaruApp;
+use config::{example_config, load_config};
+use http::build_router;
 
 #[derive(Debug, Parser)]
 #[command(name = "taru-server")]
@@ -22,60 +24,29 @@ struct Cli {
     config: PathBuf,
 
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Print an example configuration.
     ConfigExample,
+    /// Run the HTTP server.
+    Serve,
     /// Scan the configured local library and probe discovered media.
     Scan,
     /// List indexed media sources and probe results as JSON.
     List,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-struct TaruServerConfig {
-    database_url: String,
-    #[serde(default = "default_ffprobe_path")]
-    ffprobe_path: PathBuf,
-    #[serde(default = "default_probe_concurrency")]
-    probe_concurrency: usize,
-    library: LocalLibraryConfig,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-struct LocalLibraryConfig {
-    id: LibraryId,
-    name: String,
-    root: PathBuf,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ScanCommandOutput {
-    index: taru_library::LibraryIndexSummary,
-    probe: taru_library::LibraryProbeSummary,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct LibraryListOutput {
-    library: Library,
-    sources: Vec<LibrarySourceOutput>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct LibrarySourceOutput {
-    source: MediaSource,
-    item: Option<MediaItem>,
-    probe: Option<MediaProbeResult>,
-}
-
 #[tokio::main]
 async fn main() -> ExitCode {
+    init_tracing();
+
     match run(Cli::parse()).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
+            error!(error = %err, "taru-server command failed");
             eprintln!("error: {err}");
             ExitCode::FAILURE
         }
@@ -83,124 +54,50 @@ async fn main() -> ExitCode {
 }
 
 async fn run(cli: Cli) -> Result<()> {
-    match cli.command {
+    match cli.command.unwrap_or(Command::Serve) {
         Command::ConfigExample => {
             println!("{}", example_config()?);
             Ok(())
         }
+        Command::Serve => {
+            let config = load_config(&cli.config)?;
+            let listen_addr = config.listen_addr;
+            let app = TaruApp::new(config).await?;
+            serve(listen_addr, build_router(app)).await
+        }
         Command::Scan => {
             let config = load_config(&cli.config)?;
-            let output = scan_configured_library(&config).await?;
-            print_json(&output)
+            let app = TaruApp::new(config).await?;
+            print_json(&app.scan_configured_library().await?)
         }
         Command::List => {
             let config = load_config(&cli.config)?;
-            let output = list_configured_library(&config).await?;
-            print_json(&output)
+            let app = TaruApp::new(config).await?;
+            print_json(&app.list_library_sources(app.config().library.id).await?)
         }
     }
 }
 
-async fn scan_configured_library(config: &TaruServerConfig) -> Result<ScanCommandOutput> {
-    let store = connect_store(config).await?;
-    let library = library_from_config(config);
+async fn serve(listen_addr: std::net::SocketAddr, router: Router) -> Result<()> {
+    let listener = TcpListener::bind(listen_addr)
+        .await
+        .map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to bind HTTP listener {listen_addr}: {err}"),
+        })?;
+    let local_addr = listener
+        .local_addr()
+        .map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to read HTTP listener address: {err}"),
+        })?;
 
-    let index_backend = LocalFsBackend::new(&config.library.root)?;
-    let scanner = taru_library::VfsLibraryScanner::new(index_backend);
-    let index_service = LibraryIndexService::new(scanner, store.clone());
-    let index = index_service
-        .index_library(LibraryIndexRequest {
-            job_id: JobId::new(),
-            library: library.clone(),
-            force: false,
+    info!(listen_addr = %local_addr, "taru HTTP server listening");
+
+    axum::serve(listener, router)
+        .await
+        .map_err(|err| TaruError::Provider {
+            provider: "http_server".to_owned(),
+            message: format!("HTTP server failed: {err}"),
         })
-        .await?;
-
-    let probe_backend = LocalFsBackend::new(&config.library.root)?;
-    let probe = FfprobeMediaProbe::new(&config.ffprobe_path);
-    let probe_service = LibraryProbeService::with_options(
-        probe_backend,
-        probe,
-        store,
-        LibraryProbeOptions {
-            max_concurrent_probes: config.probe_concurrency.max(1),
-        },
-    );
-    let probe = probe_service
-        .probe_library(LibraryProbeRequest {
-            job_id: JobId::new(),
-            library_id: library.id,
-            force: false,
-        })
-        .await?;
-
-    Ok(ScanCommandOutput { index, probe })
-}
-
-async fn list_configured_library(config: &TaruServerConfig) -> Result<LibraryListOutput> {
-    let store = connect_store(config).await?;
-    let library = store
-        .get_library(config.library.id)
-        .await?
-        .unwrap_or_else(|| library_from_config(config));
-    let sources = store.list_media_sources(library.id).await?;
-    let mut output_sources = Vec::with_capacity(sources.len());
-
-    for source in sources {
-        let item = store.get_media_item(source.item_id).await?;
-        let probe = store.get_media_probe(source.id).await?;
-        output_sources.push(LibrarySourceOutput {
-            source,
-            item,
-            probe,
-        });
-    }
-
-    Ok(LibraryListOutput {
-        library,
-        sources: output_sources,
-    })
-}
-
-async fn connect_store(config: &TaruServerConfig) -> Result<SqliteStore> {
-    let store = SqliteStore::connect(&config.database_url).await?;
-    store.migrate().await?;
-    Ok(store)
-}
-
-fn load_config(path: &PathBuf) -> Result<TaruServerConfig> {
-    let content = fs::read_to_string(path).map_err(|err| TaruError::InvalidInput {
-        message: format!("failed to read config {}: {err}", path.display()),
-    })?;
-
-    toml::from_str(&content).map_err(|err| TaruError::InvalidInput {
-        message: format!("failed to parse config {}: {err}", path.display()),
-    })
-}
-
-fn example_config() -> Result<String> {
-    let config = TaruServerConfig {
-        database_url: "sqlite://taru.db".to_owned(),
-        ffprobe_path: PathBuf::from("ffprobe"),
-        probe_concurrency: default_probe_concurrency(),
-        library: LocalLibraryConfig {
-            id: LibraryId::new(),
-            name: "Movies".to_owned(),
-            root: PathBuf::from("F:/Media/Movies"),
-        },
-    };
-
-    toml::to_string_pretty(&config).map_err(|err| TaruError::InvalidInput {
-        message: format!("failed to render example config: {err}"),
-    })
-}
-
-fn library_from_config(config: &TaruServerConfig) -> Library {
-    Library {
-        id: config.library.id,
-        name: config.library.name.clone(),
-        roots: vec!["local:///".to_owned()],
-    }
 }
 
 fn print_json(value: &impl Serialize) -> Result<()> {
@@ -211,57 +108,9 @@ fn print_json(value: &impl Serialize) -> Result<()> {
     Ok(())
 }
 
-fn default_ffprobe_path() -> PathBuf {
-    PathBuf::from("ffprobe")
-}
+fn init_tracing() {
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("taru_server=info"));
 
-const fn default_probe_concurrency() -> usize {
-    2
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn config_round_trips_from_toml() {
-        let config = toml::from_str::<TaruServerConfig>(
-            r#"
-            database_url = "sqlite://taru.db"
-            ffprobe_path = "ffprobe"
-            probe_concurrency = 3
-
-            [library]
-            id = "018f0000-0000-7000-8000-000000000001"
-            name = "Movies"
-            root = "F:/Media/Movies"
-            "#,
-        )
-        .unwrap();
-
-        assert_eq!(config.database_url, "sqlite://taru.db");
-        assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
-        assert_eq!(config.probe_concurrency, 3);
-        assert_eq!(config.library.name, "Movies");
-        assert_eq!(config.library.root, PathBuf::from("F:/Media/Movies"));
-        assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
-    }
-
-    #[test]
-    fn config_uses_default_probe_settings() {
-        let config = toml::from_str::<TaruServerConfig>(
-            r#"
-            database_url = "sqlite://taru.db"
-
-            [library]
-            id = "018f0000-0000-7000-8000-000000000001"
-            name = "Movies"
-            root = "F:/Media/Movies"
-            "#,
-        )
-        .unwrap();
-
-        assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
-        assert_eq!(config.probe_concurrency, 2);
-    }
+    let _ = fmt().with_env_filter(env_filter).try_init();
 }

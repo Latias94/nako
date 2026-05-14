@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 1 Local Library Foundation](PHASE1_LOCAL_LIBRARY.md).
+Current implementation focus: [Phase 2 Server Runtime and API Foundation](PHASE2_SERVER_RUNTIME.md).
 
 ## Goals
 

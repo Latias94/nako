@@ -5,10 +5,10 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
 };
 use taru_core::{
-    CanonicalMetadata, ExternalId, ExternalProvider, Library, LibraryId, LibraryRepository,
-    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, Result, TaruError,
-    TransactionManager,
+    CanonicalMetadata, ExternalId, ExternalProvider, Job, JobId, JobKind, JobRepository, JobStatus,
+    Library, LibraryId, LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, NewJob, Result, TaruError, TransactionManager,
 };
 
 const MIGRATIONS: &[(&str, &str)] = &[
@@ -20,6 +20,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0002_media_probe",
         include_str!("../migrations/0002_media_probe.sql"),
     ),
+    ("0003_jobs", include_str!("../migrations/0003_jobs.sql")),
 ];
 
 #[derive(Clone, Debug)]
@@ -168,6 +169,21 @@ impl LibraryRepository for SqliteStore {
             roots,
         }))
     }
+
+    async fn list_libraries(&self) -> Result<Vec<Library>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, roots_json
+            FROM libraries
+            ORDER BY name ASC, id ASC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_library).collect()
+    }
 }
 
 #[async_trait::async_trait]
@@ -269,6 +285,29 @@ impl MediaRepository for SqliteStore {
                 external_ids,
             },
         }))
+    }
+
+    async fn list_media_items(&self) -> Result<Vec<MediaItem>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, kind, parent_id, title, original_title, sort_title, overview, release_date
+            FROM media_items
+            ORDER BY title ASC, id ASC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut items = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self.list_external_ids(id).await?;
+            items.push(row_to_media_item(row, external_ids)?);
+        }
+
+        Ok(items)
     }
 
     async fn upsert_media_source(&self, library_id: LibraryId, source: &MediaSource) -> Result<()> {
@@ -473,7 +512,131 @@ impl MediaProbeRepository for SqliteStore {
     }
 }
 
+#[async_trait::async_trait]
+impl JobRepository for SqliteStore {
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
+        sqlx::query(
+            r#"
+            INSERT INTO jobs (id, kind, status, resource_class, library_id, source_id)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "#,
+        )
+        .bind(job.id.to_string())
+        .bind(job.kind.as_str())
+        .bind(JobStatus::Queued.as_str())
+        .bind(job.resource_class)
+        .bind(job.library_id.map(|id| id.to_string()))
+        .bind(job.source_id.map(|id| id.to_string()))
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_job_or_not_found(job.id).await
+    }
+
+    async fn start_job(&self, id: JobId) -> Result<Job> {
+        sqlx::query(
+            r#"
+            UPDATE jobs
+            SET
+                status = ?2,
+                started_at = COALESCE(started_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                completed_at = NULL,
+                error = NULL,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(JobStatus::Running.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_job_or_not_found(id).await
+    }
+
+    async fn succeed_job(&self, id: JobId, summary_json: Option<String>) -> Result<Job> {
+        sqlx::query(
+            r#"
+            UPDATE jobs
+            SET
+                status = ?2,
+                summary_json = ?3,
+                error = NULL,
+                completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(JobStatus::Succeeded.as_str())
+        .bind(summary_json)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_job_or_not_found(id).await
+    }
+
+    async fn fail_job(&self, id: JobId, error: String) -> Result<Job> {
+        sqlx::query(
+            r#"
+            UPDATE jobs
+            SET
+                status = ?2,
+                error = ?3,
+                completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(JobStatus::Failed.as_str())
+        .bind(error)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_job_or_not_found(id).await
+    }
+
+    async fn get_job(&self, id: JobId) -> Result<Option<Job>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                kind,
+                status,
+                resource_class,
+                library_id,
+                source_id,
+                summary_json,
+                error,
+                queued_at,
+                started_at,
+                completed_at
+            FROM jobs
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_job).transpose()
+    }
+}
+
 impl SqliteStore {
+    async fn get_job_or_not_found(&self, id: JobId) -> Result<Job> {
+        self.get_job(id).await?.ok_or_else(|| TaruError::NotFound {
+            entity: "job",
+            id: id.to_string(),
+        })
+    }
+
     async fn list_external_ids(&self, item_id: MediaItemId) -> Result<Vec<ExternalId>> {
         let rows = sqlx::query(
             r#"
@@ -637,6 +800,33 @@ fn i64_to_u32(value: i64) -> Result<u32> {
     })
 }
 
+fn row_to_library(row: SqliteRow) -> Result<Library> {
+    let roots_json = row_get::<String>(&row, "roots_json")?;
+    let roots = serde_json::from_str(&roots_json).map_err(database_error)?;
+
+    Ok(Library {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        roots,
+    })
+}
+
+fn row_to_media_item(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<MediaItem> {
+    Ok(MediaItem {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        kind: parse_media_kind(row_get::<String>(&row, "kind")?)?,
+        parent_id: parse_optional_id(row_get::<Option<String>>(&row, "parent_id")?)?,
+        metadata: CanonicalMetadata {
+            title: row_get(&row, "title")?,
+            original_title: row_get(&row, "original_title")?,
+            sort_title: row_get(&row, "sort_title")?,
+            overview: row_get(&row, "overview")?,
+            release_date: row_get(&row, "release_date")?,
+            external_ids,
+        },
+    })
+}
+
 fn row_to_media_source(row: SqliteRow) -> Result<MediaSource> {
     Ok(MediaSource {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -660,6 +850,22 @@ fn row_to_stream_info(row: SqliteRow) -> Result<MediaStreamInfo> {
         height: optional_i64_to_u32(row_get(&row, "height")?)?,
         channels: optional_i64_to_u32(row_get(&row, "channels")?)?,
         sample_rate: optional_i64_to_u32(row_get(&row, "sample_rate")?)?,
+    })
+}
+
+fn row_to_job(row: SqliteRow) -> Result<Job> {
+    Ok(Job {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
+        status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
+        resource_class: row_get(&row, "resource_class")?,
+        library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
+        source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
+        summary_json: row_get(&row, "summary_json")?,
+        error: row_get(&row, "error")?,
+        queued_at: row_get(&row, "queued_at")?,
+        started_at: row_get(&row, "started_at")?,
+        completed_at: row_get(&row, "completed_at")?,
     })
 }
 
@@ -854,6 +1060,68 @@ mod tests {
             store.get_media_probe(source.id).await.unwrap(),
             Some(result)
         );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_job_lifecycle() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+        };
+        store.upsert_library(&library).await.unwrap();
+
+        let id = JobId::new();
+        let queued = store
+            .enqueue_job(NewJob {
+                id,
+                kind: JobKind::LibraryScan,
+                resource_class: "disk.scan".to_owned(),
+                library_id: Some(library.id),
+                source_id: None,
+            })
+            .await
+            .unwrap();
+        let running = store.start_job(id).await.unwrap();
+        let succeeded = store
+            .succeed_job(id, Some(r#"{"discovered_files":1}"#.to_owned()))
+            .await
+            .unwrap();
+
+        assert_eq!(queued.status, JobStatus::Queued);
+        assert_eq!(running.status, JobStatus::Running);
+        assert!(running.started_at.is_some());
+        assert_eq!(succeeded.status, JobStatus::Succeeded);
+        assert_eq!(
+            succeeded.summary_json,
+            Some(r#"{"discovered_files":1}"#.to_owned())
+        );
+        assert!(succeeded.completed_at.is_some());
+        assert_eq!(store.get_job(id).await.unwrap(), Some(succeeded));
+
+        let failed_id = JobId::new();
+        store
+            .enqueue_job(NewJob {
+                id: failed_id,
+                kind: JobKind::LibraryProbe,
+                resource_class: "media.probe".to_owned(),
+                library_id: Some(library.id),
+                source_id: None,
+            })
+            .await
+            .unwrap();
+        store.start_job(failed_id).await.unwrap();
+        let failed = store
+            .fail_job(failed_id, "probe failed".to_owned())
+            .await
+            .unwrap();
+
+        assert_eq!(failed.status, JobStatus::Failed);
+        assert_eq!(failed.error, Some("probe failed".to_owned()));
+        assert!(failed.completed_at.is_some());
     }
 
     fn external_id_sort_key(external_id: &ExternalId) -> String {
