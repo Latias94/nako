@@ -51,14 +51,15 @@ Completed:
 - HTTP remux playback route backed by the remux application service.
 - persisted remux/transcode session records with startup stale-session
   recovery and lookup API.
+- minimal single-variant HLS command planning, session orchestration, playlist
+  route, and segment route.
 
 Recommended next goal:
 
-- M4.8: HLS transcode foundation.
+- M4.9: hardware acceleration policy.
 
 Future playback work:
 
-- HLS transcode session manager;
 - hardware acceleration detection and encode policy for VAAPI, NVENC, and QSV;
 - CPU/GPU queue policy;
 - remote-source staging/cache behavior for FFmpeg.

@@ -1,5 +1,7 @@
 # Phase 4.8: HLS Transcode Foundation
 
+Status: completed.
+
 ## Goal
 
 Add the first HLS transcode foundation on top of persisted playback sessions.
@@ -8,13 +10,13 @@ hardware acceleration policy is introduced.
 
 ## Proposed Shape
 
-- Add HLS output layout planning under the remux/transcode staging root.
-- Model playlist and segment paths as session-owned artifacts.
-- Add FFmpeg HLS command planning without enabling hardware acceleration yet.
-- Add an app-service boundary for starting or reusing an HLS session.
-- Add HTTP routes for HLS master/media playlists and segment bytes.
-- Use the existing `transcode_sessions` table for session lifecycle state.
-- Keep duplicate request behavior based on persisted active sessions.
+- Added HLS output layout planning under the remux/transcode staging root.
+- Modeled playlist and segment paths as session-owned artifacts.
+- Added FFmpeg HLS command planning without enabling hardware acceleration.
+- Added an app-service boundary for starting or reusing an HLS session.
+- Added HTTP routes for media playlists and segment bytes.
+- Reused the existing `transcode_sessions` table for lifecycle state.
+- Kept duplicate request behavior based on persisted active sessions.
 
 ## Non-Goals
 
@@ -25,7 +27,7 @@ hardware acceleration policy is introduced.
 
 ## Validation
 
-Expected coverage:
+Coverage:
 
 - HLS session creation persists a playback session;
 - playlist and segment paths cannot escape the staging root;

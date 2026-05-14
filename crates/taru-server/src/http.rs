@@ -27,7 +27,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 use tracing::{error, instrument, warn};
 
-use crate::app::{RemuxSourceDisposition, RemuxSourceRequest, TaruApp};
+use crate::app::{HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest, TaruApp};
 
 pub fn build_router(app: TaruApp) -> Router {
     Router::new()
@@ -66,7 +66,15 @@ pub fn build_router(app: TaruApp) -> Router {
             "/sources/{source_id}/stream/remux",
             get(remux_stream_source),
         )
+        .route(
+            "/sources/{source_id}/stream/hls/playlist.m3u8",
+            get(hls_playlist_source),
+        )
         .route("/playback/sessions/{session_id}", get(get_playback_session))
+        .route(
+            "/playback/sessions/{session_id}/hls/segments/{segment_name}",
+            get(hls_segment),
+        )
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
 }
@@ -357,6 +365,49 @@ async fn remux_stream_source(
 }
 
 #[instrument(skip(app))]
+async fn hls_playlist_source(
+    State(app): State<TaruApp>,
+    Path(source_id): Path<MediaSourceId>,
+    Query(query): Query<PlaybackCapabilitiesQuery>,
+) -> ApiResult<Response> {
+    let playlist = app
+        .hls_playlist(HlsSourceRequest {
+            source_id,
+            client: query.into(),
+        })
+        .await?;
+
+    Ok(hls_playlist_response(playlist.body))
+}
+
+#[instrument(skip(app))]
+async fn hls_segment(
+    State(app): State<TaruApp>,
+    Path((session_id, segment_name)): Path<(TranscodeSessionId, String)>,
+) -> ApiResult<Response> {
+    let segment = app.plan_hls_segment(session_id, &segment_name).await?;
+    let total_len = tokio::fs::metadata(&segment.path)
+        .await
+        .map_err(|err| TaruError::Storage {
+            uri: segment.path.display().to_string(),
+            message: format!("failed to read hls segment length: {err}"),
+        })?
+        .len();
+    let response_plan = plan_direct_play_response(
+        total_len,
+        segment.content_type,
+        DirectPlayRangeRequest::None,
+    );
+
+    stream_local_file_response(
+        &segment.path,
+        &segment.path.display().to_string(),
+        &response_plan,
+    )
+    .await
+}
+
+#[instrument(skip(app))]
 async fn get_job(
     State(app): State<TaruApp>,
     Path(job_id): Path<JobId>,
@@ -451,6 +502,21 @@ fn direct_play_range_request(headers: &HeaderMap) -> DirectPlayRangeRequest {
 fn empty_direct_play_response(plan: &DirectPlayResponsePlan) -> Response {
     let mut response = Body::empty().into_response();
     apply_direct_play_headers(&mut response, plan);
+    response
+}
+
+fn hls_playlist_response(body: String) -> Response {
+    let body_len = body.len();
+    let mut response = Body::from(body).into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/vnd.apple.mpegurl"),
+    );
+    headers.insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&body_len.to_string()).expect("content length is a valid header"),
+    );
     response
 }
 
@@ -1399,6 +1465,97 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn hls_playlist_and_segment_routes_work() {
+        let (_temp, router, source, store) = router_with_hls_source().await;
+        let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
+
+        let playlist_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&playlist_path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(playlist_response.status(), StatusCode::OK);
+        assert_eq!(
+            playlist_response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("application/vnd.apple.mpegurl")
+        );
+
+        let session = store
+            .find_latest_transcode_session(
+                source.id,
+                TranscodeSessionKind::HlsTranscode,
+                "hls:single",
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        let playlist = String::from_utf8(
+            to_bytes(playlist_response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        let segment_path = format!(
+            "/playback/sessions/{}/hls/segments/segment_00000.ts",
+            session.id
+        );
+
+        assert!(playlist.contains(&segment_path));
+
+        let segment_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&segment_path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(segment_response.status(), StatusCode::OK);
+        assert_eq!(
+            segment_response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("video/mp2t")
+        );
+        let segment = to_bytes(segment_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(&segment[..], b"segment");
+
+        let missing = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!(
+                        "/playback/sessions/{}/hls/segments/missing.ts",
+                        session.id
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
     async fn remux_stream_route_maps_in_flight_duplicate_to_conflict() {
         let (_temp, router, source, _staging_root, _ffmpeg_path, marker, _store) =
             router_with_remux_source(true).await;
@@ -1637,6 +1794,68 @@ mod tests {
         )
     }
 
+    async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+        let temp = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_hls_ffmpeg_script(temp.path(), "hls");
+        let library_root = temp.path().join("library");
+        let staging_root = temp.path().join("cache").join("remux");
+        fs::create_dir_all(&library_root).unwrap();
+        fs::write(library_root.join("demo.mkv"), b"media").unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path,
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: staging_root,
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: library_root,
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///demo.mkv".to_owned(),
+            file_name: "demo.mkv".to_owned(),
+            size_bytes: Some(5),
+            fingerprint: None,
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+        store
+            .upsert_media_probe(source.id, &compatible_probe())
+            .await
+            .unwrap();
+        let router = build_router(app);
+
+        (temp, router, source, store)
+    }
+
     fn compatible_probe() -> MediaProbeResult {
         MediaProbeResult {
             duration_ms: Some(1_000),
@@ -1715,6 +1934,52 @@ mod tests {
             if slow {
                 content.push_str("ping -n 3 127.0.0.1 > nul\r\n");
             }
+            content.push_str("exit /b 0\r\n");
+            fs::write(&path, content).unwrap();
+            path
+        }
+    }
+
+    fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let path = root.join(name);
+            let mut content = String::from("#!/bin/sh\n");
+            content.push_str("for arg do out=\"$arg\"; done\n");
+            content.push_str("dir=$(dirname \"$out\")\n");
+            content.push_str("mkdir -p \"$dir\"\n");
+            content.push_str(
+                "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
+            );
+            content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+            content.push_str("exit 0\n");
+            fs::write(&path, content).unwrap();
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+            path
+        }
+
+        #[cfg(windows)]
+        {
+            let path = root.join(format!("{name}.cmd"));
+            let mut content = String::from("@echo off\r\n");
+            content.push_str("setlocal enabledelayedexpansion\r\n");
+            content.push_str(":args\r\n");
+            content.push_str("if \"%~1\"==\"\" goto run\r\n");
+            content.push_str("set out=%~1\r\n");
+            content.push_str("shift\r\n");
+            content.push_str("goto args\r\n");
+            content.push_str(":run\r\n");
+            content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
+            content.push_str("if not exist \"%dir%\" mkdir \"%dir%\"\r\n");
+            content.push_str(">\"%out%\" echo #EXTM3U\r\n");
+            content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
+            content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
+            content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
+            content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
             content.push_str("exit /b 0\r\n");
             fs::write(&path, content).unwrap();
             path

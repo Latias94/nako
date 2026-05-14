@@ -131,7 +131,9 @@ GET  /sources/{source_id}/playback/decision
 GET  /sources/{source_id}/stream
 HEAD /sources/{source_id}/stream
 GET  /sources/{source_id}/stream/remux
+GET  /sources/{source_id}/stream/hls/playlist.m3u8
 GET  /playback/sessions/{session_id}
+GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
 GET  /jobs/{job_id}
 ```
 
@@ -201,3 +203,15 @@ request completes or after a server restart.
 remux and future transcode sessions. The response includes the source ID,
 session kind, request key, staged output path, state, failure category/message,
 and lifecycle timestamps.
+
+`GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
+single-variant HLS transcode session and returns a rewritten media playlist.
+Segment lines are rewritten to session-scoped URLs:
+
+```text
+/playback/sessions/{session_id}/hls/segments/{segment_name}
+```
+
+`GET /playback/sessions/{session_id}/hls/segments/{segment_name}` serves a
+generated HLS segment for a finished HLS session. Segment names are constrained
+to the session output directory; missing segments return `404`.

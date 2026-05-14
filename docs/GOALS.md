@@ -41,9 +41,9 @@ Evidence:
 - TMDB movie refresh, NFO import/export jobs, metadata profile execution, and
   catalog/search planning are implemented or documented.
 
-### M4.0-M4.7: Catalog Ingestion and Playback Foundation
+### M4.0-M4.8: Catalog Ingestion and Playback Foundation
 
-Status: completed through M4.7.
+Status: completed through M4.8.
 
 Evidence:
 
@@ -53,7 +53,9 @@ Evidence:
 - HTTP remux playback route is implemented.
 - Remux/transcode session records are persisted in SQLite and exposed through
   an app/API lookup path.
-- Last completed implementation goal: M4.7 playback session persistence.
+- A minimal single-variant HLS transcode path can generate, persist, and serve
+  playlists and segments.
+- Last completed implementation goal: M4.8 HLS transcode foundation.
 
 ## Recently Completed Goals
 
@@ -134,14 +136,31 @@ Evidence:
 - Active persisted sessions drive duplicate `409 conflict` behavior.
 - `GET /playback/sessions/{session_id}` exposes current persisted state.
 
+### M4.8: HLS Transcode Foundation
+
+Status: completed.
+
+Evidence:
+
+- `taru-transcode` plans and runs minimal single-variant HLS sessions through
+  FFmpeg.
+- HLS output uses a staging layout with temporary directory promotion.
+- HLS app service uses persisted transcode sessions for planned, running,
+  finished, failed, cancelled, stale, duplicate, and reuse behavior.
+- `GET /sources/{source_id}/stream/hls/playlist.m3u8` returns a rewritten HLS
+  playlist.
+- `GET /playback/sessions/{session_id}/hls/segments/{segment_name}` serves
+  generated segments with path traversal protection.
+
 ## Recommended Next Implementation Goal
 
-### M4.8: HLS Transcode Foundation
+### M4.9: Hardware Acceleration Policy
 
 Status: proposed.
 
-Add HLS playlist/segment planning and process lifecycle management. Keep
-hardware acceleration optional until the queue and resource model are explicit.
+Design VAAPI, NVENC, and QuickSync detection, capability modeling, queue
+policy, and CPU/GPU resource budgeting before enabling hardware acceleration in
+HLS execution.
 
 ## Later Goals
 

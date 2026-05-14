@@ -513,6 +513,31 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.9: Hardware Acceleration Policy
+
+Outcome: Taru has a deterministic hardware acceleration capability and policy
+model before VAAPI, NVENC, or QuickSync are enabled in transcode command
+execution.
+
+Deliverables:
+
+- Hardware acceleration domain model for CPU-only, VAAPI, NVENC, and QuickSync.
+- Detection boundary for available accelerators.
+- Encode policy model that can choose CPU-only or a declared accelerator.
+- CPU/GPU queue and resource-budget defaults.
+- Stable fallback/error behavior for unavailable accelerators.
+- Tests that do not require real GPU hardware.
+
+Exit criteria:
+
+- Capability and policy records can be planned without starting FFmpeg.
+- Unsupported or unavailable accelerators produce stable outcomes.
+- HLS command planning can consume a policy decision without HTTP handlers
+  knowing vendor-specific details.
+- Queue/resource defaults are bounded and documented.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

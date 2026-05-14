@@ -40,9 +40,9 @@ use taru_streaming::{
     PlaybackMode, content_type_for_file_name, decide_playback, plan_direct_play_response,
 };
 use taru_transcode::{
-    CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
-    RemuxContainer, RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits,
-    TranscodeSessionManager,
+    CancellationToken, FfmpegCommandBuilder, FfmpegHlsRunner, FfmpegOverwritePolicy,
+    FfmpegRemuxRunner, HlsRequest, HlsRunOutcome, RemuxContainer, RemuxRequest, RemuxRunOutcome,
+    RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
@@ -63,6 +63,7 @@ struct TaruAppInner {
     metadata_permits: Arc<Semaphore>,
     nfo_permits: Arc<Semaphore>,
     remux: RemuxAppService,
+    hls: HlsAppService,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -122,6 +123,44 @@ pub struct RemuxSourceOutput {
     pub session: Option<TranscodeSessionRecord>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HlsSourceRequest {
+    pub source_id: MediaSourceId,
+    pub client: ClientPlaybackCapabilities,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HlsSourceDisposition {
+    Finished,
+    ReusedExisting,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HlsSourceOutput {
+    pub source: MediaSource,
+    pub decision: PlaybackDecision,
+    pub playlist_path: PathBuf,
+    pub segment_dir: PathBuf,
+    pub disposition: HlsSourceDisposition,
+    pub session: TranscodeSessionRecord,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HlsPlaylistOutput {
+    pub source: MediaSource,
+    pub decision: PlaybackDecision,
+    pub session: TranscodeSessionRecord,
+    pub body: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct HlsSegmentPlan {
+    pub path: PathBuf,
+    pub content_type: &'static str,
+}
+
 #[derive(Clone, Debug)]
 pub struct RemuxStagingPolicy {
     root: PathBuf,
@@ -167,6 +206,62 @@ impl RemuxStagingPolicy {
         }
 
         Ok(output)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct HlsStagingPolicy {
+    root: PathBuf,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HlsOutputLayout {
+    pub output_dir: PathBuf,
+    pub playlist_path: PathBuf,
+    pub segment_pattern: PathBuf,
+}
+
+impl HlsStagingPolicy {
+    pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
+        let root = root.into();
+
+        if root.as_os_str().is_empty() {
+            return Err(TaruError::InvalidInput {
+                message: "hls staging root cannot be empty".to_owned(),
+            });
+        }
+
+        if root
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+        {
+            return Err(TaruError::InvalidInput {
+                message: "hls staging root must not contain relative path components".to_owned(),
+            });
+        }
+
+        Ok(Self { root })
+    }
+
+    pub fn single_variant_layout(&self, source_id: MediaSourceId) -> Result<HlsOutputLayout> {
+        let output_dir = self.root.join(source_id.to_string()).join("single");
+        let playlist_path = output_dir.join("playlist.m3u8");
+        let segment_pattern = output_dir.join("segment_%05d.ts");
+
+        for path in [&output_dir, &playlist_path, &segment_pattern] {
+            if !path.starts_with(&self.root) {
+                return Err(TaruError::Storage {
+                    uri: self.root.display().to_string(),
+                    message: "hls staging output escaped the staging root".to_owned(),
+                });
+            }
+        }
+
+        Ok(HlsOutputLayout {
+            output_dir,
+            playlist_path,
+            segment_pattern,
+        })
     }
 }
 
@@ -423,6 +518,241 @@ enum RemuxRequestAdmission {
     },
 }
 
+#[derive(Clone, Debug)]
+struct HlsAppService {
+    builder: FfmpegCommandBuilder,
+    runner: FfmpegHlsRunner,
+    in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
+}
+
+impl HlsAppService {
+    fn new(config: &TaruServerConfig) -> Self {
+        let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+            max_concurrent_sessions: config.remux_concurrency,
+            timeout_ms: config.remux_timeout_ms,
+        });
+
+        Self {
+            builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
+            runner: FfmpegHlsRunner::new(guard),
+            in_flight: Arc::new(Mutex::new(HashSet::new())),
+        }
+    }
+
+    async fn run(
+        &self,
+        sessions: &SqliteStore,
+        source: MediaSource,
+        decision: PlaybackDecision,
+        input_path: PathBuf,
+        layout: HlsOutputLayout,
+    ) -> Result<HlsSourceOutput> {
+        let key = HlsRequestKey {
+            source_id: source.id,
+        };
+
+        match self.reserve(sessions, &key, &layout).await? {
+            HlsRequestAdmission::ReuseExisting { session } => Ok(HlsSourceOutput {
+                source,
+                decision,
+                playlist_path: layout.playlist_path,
+                segment_dir: layout.output_dir,
+                disposition: HlsSourceDisposition::ReusedExisting,
+                session,
+            }),
+            HlsRequestAdmission::Run { session } => {
+                let result = self
+                    .run_reserved(sessions, session, source, decision, input_path, layout)
+                    .await;
+                self.release(&key).await;
+                result
+            }
+        }
+    }
+
+    async fn reserve(
+        &self,
+        sessions: &SqliteStore,
+        key: &HlsRequestKey,
+        layout: &HlsOutputLayout,
+    ) -> Result<HlsRequestAdmission> {
+        let request_key = key.persisted_request_key();
+        if let Some(active) = sessions
+            .find_active_transcode_session(
+                key.source_id,
+                TranscodeSessionKind::HlsTranscode,
+                &request_key,
+            )
+            .await?
+        {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "hls request for source {} is already in progress in session {}",
+                    key.source_id, active.id
+                ),
+            });
+        }
+
+        let latest = sessions
+            .find_latest_transcode_session(
+                key.source_id,
+                TranscodeSessionKind::HlsTranscode,
+                &request_key,
+            )
+            .await?;
+        let playlist_exists = path_exists(&layout.playlist_path)?;
+
+        if let Some(session) = latest.as_ref() {
+            if session.state == TranscodeSessionState::Finished
+                && session.output_path == layout.playlist_path
+                && playlist_exists
+            {
+                return Ok(HlsRequestAdmission::ReuseExisting {
+                    session: session.clone(),
+                });
+            }
+        }
+
+        {
+            let mut in_flight = self.in_flight.lock().await;
+            if !in_flight.insert(*key) {
+                return Err(TaruError::Conflict {
+                    message: format!(
+                        "hls request for source {} is already in progress",
+                        key.source_id
+                    ),
+                });
+            }
+        }
+
+        let session = sessions
+            .create_transcode_session(NewTranscodeSession {
+                id: TranscodeSessionId::new(),
+                source_id: key.source_id,
+                kind: TranscodeSessionKind::HlsTranscode,
+                request_key,
+                output_path: layout.playlist_path.clone(),
+                state: TranscodeSessionState::Planned,
+            })
+            .await;
+
+        match session {
+            Ok(session) => Ok(HlsRequestAdmission::Run { session }),
+            Err(error) => {
+                self.release(key).await;
+                Err(error)
+            }
+        }
+    }
+
+    async fn run_reserved(
+        &self,
+        sessions: &SqliteStore,
+        persisted_session: TranscodeSessionRecord,
+        source: MediaSource,
+        decision: PlaybackDecision,
+        input_path: PathBuf,
+        layout: HlsOutputLayout,
+    ) -> Result<HlsSourceOutput> {
+        let session_id = persisted_session.id;
+        let mut manager = TranscodeSessionManager::new();
+
+        if let Err(error) = manager.plan_hls_with_id(
+            session_id,
+            HlsRequest {
+                source_id: source.id,
+                input_path,
+                output_dir: layout.output_dir.clone(),
+                playlist_path: layout.playlist_path.clone(),
+                segment_pattern: layout.segment_pattern.clone(),
+                segment_time_seconds: 6,
+                overwrite: FfmpegOverwritePolicy::Allow,
+            },
+            &self.builder,
+        ) {
+            persist_session_failure(sessions, session_id, &error).await;
+            return Err(error);
+        }
+
+        sessions
+            .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
+            .await?;
+
+        let cancel = CancellationToken::new();
+        let run_result = self
+            .runner
+            .run(&mut manager, session_id, cancel)
+            .await
+            .map_err(map_hls_runner_error);
+
+        match run_result {
+            Ok(HlsRunOutcome::Finished { .. }) => {
+                let session = sessions
+                    .set_transcode_session_state(
+                        session_id,
+                        TranscodeSessionState::Finished,
+                        None,
+                        None,
+                    )
+                    .await?;
+
+                Ok(HlsSourceOutput {
+                    source,
+                    decision,
+                    playlist_path: layout.playlist_path,
+                    segment_dir: layout.output_dir,
+                    disposition: HlsSourceDisposition::Finished,
+                    session,
+                })
+            }
+            Ok(HlsRunOutcome::Cancelled { .. }) => {
+                let session = sessions
+                    .set_transcode_session_state(
+                        session_id,
+                        TranscodeSessionState::Cancelled,
+                        Some(TranscodeFailureCategory::Cancelled),
+                        Some("hls session was cancelled".to_owned()),
+                    )
+                    .await?;
+
+                Ok(HlsSourceOutput {
+                    source,
+                    decision,
+                    playlist_path: layout.playlist_path,
+                    segment_dir: layout.output_dir,
+                    disposition: HlsSourceDisposition::Cancelled,
+                    session,
+                })
+            }
+            Err(error) => {
+                persist_session_failure(sessions, session_id, &error).await;
+                Err(error)
+            }
+        }
+    }
+
+    async fn release(&self, key: &HlsRequestKey) {
+        self.in_flight.lock().await.remove(key);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct HlsRequestKey {
+    source_id: MediaSourceId,
+}
+
+impl HlsRequestKey {
+    fn persisted_request_key(self) -> String {
+        "hls:single".to_owned()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum HlsRequestAdmission {
+    Run { session: TranscodeSessionRecord },
+    ReuseExisting { session: TranscodeSessionRecord },
+}
+
 impl TaruApp {
     pub async fn new(config: TaruServerConfig) -> Result<Self> {
         let store = SqliteStore::connect(&config.database_url).await?;
@@ -450,6 +780,7 @@ impl TaruApp {
                 metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 remux: RemuxAppService::new(&config),
+                hls: HlsAppService::new(&config),
                 config,
                 store,
             }),
@@ -648,6 +979,96 @@ impl TaruApp {
                 request.output_container,
             )
             .await
+    }
+
+    pub async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        let probe = self.inner.store.get_media_probe(source.id).await?;
+        let decision = decide_playback(&source, probe.as_ref(), &request.client);
+        let (local_path, _total_len) = self.local_source_path_and_len(&source).await?;
+        let staging = HlsStagingPolicy::new(self.config().remux_staging_root.join("hls"))?;
+        let layout = staging.single_variant_layout(source.id)?;
+
+        self.inner
+            .hls
+            .run(&self.inner.store, source, decision, local_path, layout)
+            .await
+    }
+
+    pub async fn hls_playlist(&self, request: HlsSourceRequest) -> Result<HlsPlaylistOutput> {
+        let output = self.hls_source(request).await?;
+
+        if output.disposition == HlsSourceDisposition::Cancelled {
+            return Err(TaruError::Provider {
+                provider: "ffmpeg_hls".to_owned(),
+                message: "hls session was cancelled".to_owned(),
+            });
+        }
+
+        let body = tokio::fs::read_to_string(&output.playlist_path)
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: output.playlist_path.display().to_string(),
+                message: format!("failed to read hls playlist: {err}"),
+            })?;
+
+        Ok(HlsPlaylistOutput {
+            source: output.source,
+            decision: output.decision,
+            body: rewrite_hls_playlist(&body, output.session.id),
+            session: output.session,
+        })
+    }
+
+    pub async fn plan_hls_segment(
+        &self,
+        session_id: TranscodeSessionId,
+        segment_name: &str,
+    ) -> Result<HlsSegmentPlan> {
+        validate_hls_segment_name(segment_name)?;
+        let session = self.get_transcode_session(session_id).await?;
+
+        if session.kind != TranscodeSessionKind::HlsTranscode {
+            return Err(TaruError::InvalidInput {
+                message: format!("session {session_id} is not an hls transcode session"),
+            });
+        }
+
+        if session.state != TranscodeSessionState::Finished {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "hls session {session_id} is not ready; current state is {:?}",
+                    session.state
+                ),
+            });
+        }
+
+        let segment_dir = session
+            .output_path
+            .parent()
+            .ok_or_else(|| TaruError::Storage {
+                uri: session.output_path.display().to_string(),
+                message: "hls playlist path does not have a parent directory".to_owned(),
+            })?;
+        let path = segment_dir.join(segment_name);
+
+        if !path.starts_with(segment_dir) {
+            return Err(TaruError::InvalidInput {
+                message: "hls segment path escaped the session directory".to_owned(),
+            });
+        }
+
+        if !path_exists(&path)? {
+            return Err(TaruError::NotFound {
+                entity: "hls_segment",
+                id: segment_name.to_owned(),
+            });
+        }
+
+        Ok(HlsSegmentPlan {
+            path,
+            content_type: "video/mp2t",
+        })
     }
 
     pub async fn get_transcode_session(
@@ -1677,11 +2098,81 @@ fn map_remux_runner_error(error: TaruError) -> TaruError {
     }
 }
 
+fn map_hls_runner_error(error: TaruError) -> TaruError {
+    match error {
+        TaruError::Provider { provider, message } if provider == "ffmpeg" => {
+            let message = if message.to_ascii_lowercase().contains("timed out") {
+                "hls runner timed out".to_owned()
+            } else {
+                "hls runner failed".to_owned()
+            };
+
+            TaruError::Provider {
+                provider: "ffmpeg_hls".to_owned(),
+                message,
+            }
+        }
+        TaruError::Storage { uri, .. } => TaruError::Storage {
+            uri,
+            message: "hls staging operation failed".to_owned(),
+        },
+        TaruError::InvalidInput { message } => TaruError::InvalidInput {
+            message: format!("invalid hls request: {message}"),
+        },
+        other => other,
+    }
+}
+
 fn path_exists(path: &Path) -> Result<bool> {
     path.try_exists().map_err(|err| TaruError::Storage {
         uri: path.display().to_string(),
         message: format!("failed to check path: {err}"),
     })
+}
+
+fn rewrite_hls_playlist(body: &str, session_id: TranscodeSessionId) -> String {
+    let mut rewritten = body
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                line.to_owned()
+            } else {
+                format!("/playback/sessions/{session_id}/hls/segments/{trimmed}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if body.ends_with('\n') {
+        rewritten.push('\n');
+    }
+
+    rewritten
+}
+
+fn validate_hls_segment_name(segment_name: &str) -> Result<()> {
+    if segment_name.is_empty()
+        || segment_name.contains('/')
+        || segment_name.contains('\\')
+        || segment_name.contains("..")
+    {
+        return Err(TaruError::InvalidInput {
+            message: "invalid hls segment name".to_owned(),
+        });
+    }
+
+    let path = Path::new(segment_name);
+    if !path
+        .components()
+        .all(|component| matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err(TaruError::InvalidInput {
+            message: "invalid hls segment name".to_owned(),
+        });
+    }
+
+    Ok(())
 }
 
 async fn persist_session_failure(
@@ -2285,6 +2776,142 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn hls_source_runs_runner_and_reuses_completed_session() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_success");
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path.clone()).await;
+        let request = HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+        };
+
+        let output = app.hls_source(request.clone()).await.unwrap();
+        let session_id = output.session.id;
+
+        assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+        assert_eq!(output.session.kind, TranscodeSessionKind::HlsTranscode);
+        assert_eq!(output.session.state, TranscodeSessionState::Finished);
+        assert!(
+            fs::read_to_string(&output.playlist_path)
+                .unwrap()
+                .contains("#EXTM3U")
+        );
+        assert_eq!(
+            fs::read_to_string(output.segment_dir.join("segment_00000.ts")).unwrap(),
+            "segment"
+        );
+
+        let playlist = app.hls_playlist(request.clone()).await.unwrap();
+        assert!(playlist.body.contains(&format!(
+            "/playback/sessions/{session_id}/hls/segments/segment_00000.ts"
+        )));
+
+        let segment = app
+            .plan_hls_segment(session_id, "segment_00000.ts")
+            .await
+            .unwrap();
+        assert_eq!(segment.content_type, "video/mp2t");
+        assert!(segment.path.ends_with("segment_00000.ts"));
+        assert!(
+            app.plan_hls_segment(session_id, "../segment_00000.ts")
+                .await
+                .is_err()
+        );
+
+        fs::remove_file(ffmpeg_path).unwrap();
+        let reused = app.hls_source(request.clone()).await.unwrap();
+        assert_eq!(reused.disposition, HlsSourceDisposition::ReusedExisting);
+        assert_eq!(reused.session.id, session_id);
+
+        let config = app.config().clone();
+        drop(app);
+        let restarted = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let restarted_reused = restarted.hls_source(request).await.unwrap();
+
+        assert_eq!(
+            restarted_reused.disposition,
+            HlsSourceDisposition::ReusedExisting
+        );
+        assert_eq!(restarted_reused.session.id, session_id);
+    }
+
+    #[tokio::test]
+    async fn hls_source_rejects_persisted_active_duplicate() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_success");
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+        let staging = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls")).unwrap();
+        let layout = staging.single_variant_layout(source.id).unwrap();
+        let active = store
+            .create_transcode_session(NewTranscodeSession {
+                id: TranscodeSessionId::new(),
+                source_id: source.id,
+                kind: TranscodeSessionKind::HlsTranscode,
+                request_key: "hls:single".to_owned(),
+                output_path: layout.playlist_path,
+                state: TranscodeSessionState::Running,
+            })
+            .await
+            .unwrap();
+
+        let err = app
+            .hls_source(HlsSourceRequest {
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+            })
+            .await
+            .unwrap_err();
+
+        let TaruError::Conflict { message } = err else {
+            panic!("expected hls duplicate conflict");
+        };
+        assert!(message.contains("already in progress"));
+        assert!(message.contains(&active.id.to_string()));
+    }
+
+    #[tokio::test]
+    async fn hls_source_persists_runner_failure() {
+        let script_root = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_failing_hls_ffmpeg_script(script_root.path(), "hls_failure");
+        let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+
+        let err = app
+            .hls_source(HlsSourceRequest {
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+            })
+            .await
+            .unwrap_err();
+
+        let TaruError::Provider { provider, message } = err else {
+            panic!("expected hls provider failure");
+        };
+        assert_eq!(provider, "ffmpeg_hls");
+        assert_eq!(message, "hls runner failed");
+
+        let session = store
+            .find_latest_transcode_session(
+                source.id,
+                TranscodeSessionKind::HlsTranscode,
+                "hls:single",
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(session.state, TranscodeSessionState::Failed);
+        assert_eq!(
+            session.failure_category,
+            Some(TranscodeFailureCategory::Runner)
+        );
+        assert_eq!(
+            session.failure_message.as_deref(),
+            Some("external provider error from ffmpeg_hls: hls runner failed")
+        );
+    }
+
     #[test]
     fn remux_staging_policy_rejects_escaping_roots() {
         assert!(RemuxStagingPolicy::new(PathBuf::new()).is_err());
@@ -2299,6 +2926,26 @@ mod tests {
         assert_eq!(
             output.extension().and_then(|value| value.to_str()),
             Some("mkv")
+        );
+    }
+
+    #[test]
+    fn hls_staging_policy_rejects_escaping_roots() {
+        assert!(HlsStagingPolicy::new(PathBuf::new()).is_err());
+        assert!(HlsStagingPolicy::new(PathBuf::from("cache/../outside")).is_err());
+
+        let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
+        let layout = policy.single_variant_layout(MediaSourceId::new()).unwrap();
+
+        assert!(layout.output_dir.starts_with(&policy.root));
+        assert!(layout.playlist_path.starts_with(&policy.root));
+        assert!(layout.segment_pattern.starts_with(&policy.root));
+        assert_eq!(
+            layout
+                .playlist_path
+                .file_name()
+                .and_then(|value| value.to_str()),
+            Some("playlist.m3u8")
         );
     }
 
@@ -2355,6 +3002,70 @@ mod tests {
             let mut content = String::from("@echo off\r\n");
             content.push_str("echo remux failed 1>&2\r\n");
             content.push_str("exit /b 7\r\n");
+            fs::write(&path, content).unwrap();
+            path
+        }
+    }
+
+    fn fake_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+        hls_ffmpeg_script(root, name, true)
+    }
+
+    fn fake_failing_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+        hls_ffmpeg_script(root, name, false)
+    }
+
+    fn hls_ffmpeg_script(root: &Path, name: &str, success: bool) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let path = root.join(name);
+            let mut content = String::from("#!/bin/sh\n");
+            content.push_str("for arg do out=\"$arg\"; done\n");
+            content.push_str("dir=$(dirname \"$out\")\n");
+            content.push_str("mkdir -p \"$dir\"\n");
+            if success {
+                content.push_str("printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n");
+                content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+                content.push_str("exit 0\n");
+            } else {
+                content.push_str("printf partial > \"$out\"\n");
+                content.push_str("printf hls-failed >&2\n");
+                content.push_str("exit 42\n");
+            }
+            fs::write(&path, content).unwrap();
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+            path
+        }
+
+        #[cfg(windows)]
+        {
+            let path = root.join(format!("{name}.cmd"));
+            let mut content = String::from("@echo off\r\n");
+            content.push_str("setlocal enabledelayedexpansion\r\n");
+            content.push_str(":args\r\n");
+            content.push_str("if \"%~1\"==\"\" goto run\r\n");
+            content.push_str("set out=%~1\r\n");
+            content.push_str("shift\r\n");
+            content.push_str("goto args\r\n");
+            content.push_str(":run\r\n");
+            content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
+            content.push_str("if not exist \"%dir%\" mkdir \"%dir%\"\r\n");
+            if success {
+                content.push_str(">\"%out%\" echo #EXTM3U\r\n");
+                content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
+                content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
+                content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
+                content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+                content.push_str("exit /b 0\r\n");
+            } else {
+                content.push_str("<nul set /p dummy=partial>\"%out%\"\r\n");
+                content.push_str("echo hls-failed 1>&2\r\n");
+                content.push_str("exit /b 42\r\n");
+            }
             fs::write(&path, content).unwrap();
             path
         }

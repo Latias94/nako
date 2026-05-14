@@ -11,7 +11,7 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus: [Phase 4.8 HLS Transcode Foundation](PHASE4_8_HLS_TRANSCODE_FOUNDATION.md).
+Current implementation focus: [Phase 4.9 Hardware Acceleration Policy](PHASE4_9_HARDWARE_ACCELERATION_POLICY.md).
 
 ## Goals
 
