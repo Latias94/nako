@@ -6,14 +6,21 @@ use sqlx::{
 };
 use taru_core::{
     CanonicalMetadata, ExternalId, ExternalProvider, Library, LibraryId, LibraryRepository,
-    MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, Result, TaruError,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, Result, TaruError,
     TransactionManager,
 };
 
-const MIGRATIONS: &[(&str, &str)] = &[(
-    "0001_initial",
-    include_str!("../migrations/0001_initial.sql"),
-)];
+const MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "0001_initial",
+        include_str!("../migrations/0001_initial.sql"),
+    ),
+    (
+        "0002_media_probe",
+        include_str!("../migrations/0002_media_probe.sql"),
+    ),
+];
 
 #[derive(Clone, Debug)]
 pub struct SqliteStore {
@@ -335,6 +342,137 @@ impl MediaRepository for SqliteStore {
     }
 }
 
+#[async_trait::async_trait]
+impl MediaProbeRepository for SqliteStore {
+    async fn upsert_media_probe(
+        &self,
+        source_id: MediaSourceId,
+        result: &MediaProbeResult,
+    ) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO media_source_probes (source_id, duration_ms, container, bit_rate)
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(source_id) DO UPDATE SET
+                duration_ms = excluded.duration_ms,
+                container = excluded.container,
+                bit_rate = excluded.bit_rate,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(source_id.to_string())
+        .bind(optional_u64_to_i64(result.duration_ms)?)
+        .bind(&result.container)
+        .bind(optional_u64_to_i64(result.bit_rate)?)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM media_streams WHERE source_id = ?1")
+            .bind(source_id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+        for stream in &result.streams {
+            let (kind, kind_key) = stream_kind_to_parts(&stream.kind);
+
+            sqlx::query(
+                r#"
+                INSERT INTO media_streams (
+                    source_id,
+                    stream_index,
+                    kind,
+                    kind_key,
+                    codec,
+                    language,
+                    duration_ms,
+                    bit_rate,
+                    width,
+                    height,
+                    channels,
+                    sample_rate
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                "#,
+            )
+            .bind(source_id.to_string())
+            .bind(u32_to_i64(stream.index))
+            .bind(kind)
+            .bind(kind_key)
+            .bind(&stream.codec)
+            .bind(&stream.language)
+            .bind(optional_u64_to_i64(stream.duration_ms)?)
+            .bind(optional_u64_to_i64(stream.bit_rate)?)
+            .bind(optional_u32_to_i64(stream.width))
+            .bind(optional_u32_to_i64(stream.height))
+            .bind(optional_u32_to_i64(stream.channels))
+            .bind(optional_u32_to_i64(stream.sample_rate))
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>> {
+        let row = sqlx::query(
+            r#"
+            SELECT duration_ms, container, bit_rate
+            FROM media_source_probes
+            WHERE source_id = ?1
+            "#,
+        )
+        .bind(source_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let stream_rows = sqlx::query(
+            r#"
+            SELECT
+                stream_index,
+                kind,
+                kind_key,
+                codec,
+                language,
+                duration_ms,
+                bit_rate,
+                width,
+                height,
+                channels,
+                sample_rate
+            FROM media_streams
+            WHERE source_id = ?1
+            ORDER BY stream_index ASC
+            "#,
+        )
+        .bind(source_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let streams = stream_rows
+            .into_iter()
+            .map(row_to_stream_info)
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Some(MediaProbeResult {
+            duration_ms: optional_i64_to_u64(row_get(&row, "duration_ms")?)?,
+            container: row_get(&row, "container")?,
+            bit_rate: optional_i64_to_u64(row_get(&row, "bit_rate")?)?,
+            streams,
+        }))
+    }
+}
+
 impl SqliteStore {
     async fn list_external_ids(&self, item_id: MediaItemId) -> Result<Vec<ExternalId>> {
         let rows = sqlx::query(
@@ -416,6 +554,29 @@ fn provider_from_parts(provider: String, provider_key: String) -> ExternalProvid
     }
 }
 
+fn stream_kind_to_parts(kind: &MediaStreamKind) -> (String, String) {
+    match kind {
+        MediaStreamKind::Video => ("video".to_owned(), String::new()),
+        MediaStreamKind::Audio => ("audio".to_owned(), String::new()),
+        MediaStreamKind::Subtitle => ("subtitle".to_owned(), String::new()),
+        MediaStreamKind::Data => ("data".to_owned(), String::new()),
+        MediaStreamKind::Attachment => ("attachment".to_owned(), String::new()),
+        MediaStreamKind::Other(value) => ("other".to_owned(), value.clone()),
+    }
+}
+
+fn stream_kind_from_parts(kind: String, kind_key: String) -> MediaStreamKind {
+    match kind.as_str() {
+        "video" => MediaStreamKind::Video,
+        "audio" => MediaStreamKind::Audio,
+        "subtitle" => MediaStreamKind::Subtitle,
+        "data" => MediaStreamKind::Data,
+        "attachment" => MediaStreamKind::Attachment,
+        "other" => MediaStreamKind::Other(kind_key),
+        _ => MediaStreamKind::Other(kind),
+    }
+}
+
 fn parse_id<T>(value: String) -> Result<T>
 where
     T: FromStr,
@@ -452,6 +613,30 @@ fn optional_i64_to_u64(value: Option<i64>) -> Result<Option<u64>> {
         .transpose()
 }
 
+fn optional_u32_to_i64(value: Option<u32>) -> Option<i64> {
+    value.map(i64::from)
+}
+
+fn optional_i64_to_u32(value: Option<i64>) -> Result<Option<u32>> {
+    value
+        .map(|value| {
+            u32::try_from(value).map_err(|err| TaruError::Database {
+                message: format!("SQLite integer cannot be converted to u32: {err}"),
+            })
+        })
+        .transpose()
+}
+
+fn u32_to_i64(value: u32) -> i64 {
+    i64::from(value)
+}
+
+fn i64_to_u32(value: i64) -> Result<u32> {
+    u32::try_from(value).map_err(|err| TaruError::Database {
+        message: format!("SQLite integer cannot be converted to u32: {err}"),
+    })
+}
+
 fn row_to_media_source(row: SqliteRow) -> Result<MediaSource> {
     Ok(MediaSource {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -460,6 +645,21 @@ fn row_to_media_source(row: SqliteRow) -> Result<MediaSource> {
         file_name: row_get(&row, "file_name")?,
         size_bytes: optional_i64_to_u64(row_get(&row, "size_bytes")?)?,
         fingerprint: row_get(&row, "fingerprint")?,
+    })
+}
+
+fn row_to_stream_info(row: SqliteRow) -> Result<MediaStreamInfo> {
+    Ok(MediaStreamInfo {
+        index: i64_to_u32(row_get(&row, "stream_index")?)?,
+        kind: stream_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        codec: row_get(&row, "codec")?,
+        language: row_get(&row, "language")?,
+        duration_ms: optional_i64_to_u64(row_get(&row, "duration_ms")?)?,
+        bit_rate: optional_i64_to_u64(row_get(&row, "bit_rate")?)?,
+        width: optional_i64_to_u32(row_get(&row, "width")?)?,
+        height: optional_i64_to_u32(row_get(&row, "height")?)?,
+        channels: optional_i64_to_u32(row_get(&row, "channels")?)?,
+        sample_rate: optional_i64_to_u32(row_get(&row, "sample_rate")?)?,
     })
 }
 
@@ -568,6 +768,91 @@ mod tests {
         assert_eq!(
             store.list_media_sources(library.id).await.unwrap(),
             vec![source]
+        );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_media_probe_results() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Probe Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///Movies/Probe Demo.mkv".to_owned(),
+            file_name: "Probe Demo.mkv".to_owned(),
+            size_bytes: Some(1024),
+            fingerprint: None,
+        };
+        let result = MediaProbeResult {
+            duration_ms: Some(120_253),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: Some(4_200_000),
+            streams: vec![
+                MediaStreamInfo {
+                    index: 0,
+                    kind: MediaStreamKind::Video,
+                    codec: Some("h264".to_owned()),
+                    language: Some("und".to_owned()),
+                    duration_ms: Some(120_250),
+                    bit_rate: Some(4_000_000),
+                    width: Some(1920),
+                    height: Some(1080),
+                    channels: None,
+                    sample_rate: None,
+                },
+                MediaStreamInfo {
+                    index: 1,
+                    kind: MediaStreamKind::Audio,
+                    codec: Some("aac".to_owned()),
+                    language: Some("eng".to_owned()),
+                    duration_ms: Some(120_240),
+                    bit_rate: Some(128_000),
+                    width: None,
+                    height: None,
+                    channels: Some(2),
+                    sample_rate: Some(48_000),
+                },
+                MediaStreamInfo {
+                    index: 2,
+                    kind: MediaStreamKind::Other("timed_id3".to_owned()),
+                    codec: None,
+                    language: None,
+                    duration_ms: None,
+                    bit_rate: None,
+                    width: None,
+                    height: None,
+                    channels: None,
+                    sample_rate: None,
+                },
+            ],
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library.id, &source)
+            .await
+            .unwrap();
+        store.upsert_media_probe(source.id, &result).await.unwrap();
+
+        assert_eq!(
+            store.get_media_probe(source.id).await.unwrap(),
+            Some(result)
         );
     }
 

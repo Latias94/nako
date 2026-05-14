@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
-use crate::{Library, LibraryId, MediaItem, MediaItemId, MediaSource, Result};
+use crate::{
+    Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
+    Result,
+};
 
 #[async_trait]
 pub trait TransactionManager: Send + Sync {
@@ -25,4 +28,15 @@ pub trait MediaRepository: Send + Sync {
     async fn get_media_source_by_locator(&self, locator: &str) -> Result<Option<MediaSource>>;
 
     async fn list_media_sources(&self, library_id: LibraryId) -> Result<Vec<MediaSource>>;
+}
+
+#[async_trait]
+pub trait MediaProbeRepository: Send + Sync {
+    async fn upsert_media_probe(
+        &self,
+        source_id: MediaSourceId,
+        result: &MediaProbeResult,
+    ) -> Result<()>;
+
+    async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>>;
 }

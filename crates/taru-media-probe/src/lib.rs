@@ -2,7 +2,7 @@ use std::{path::PathBuf, process::Stdio};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use taru_core::{Result, TaruError};
+use taru_core::{MediaProbeResult, MediaStreamInfo, MediaStreamKind, Result, TaruError};
 use taru_vfs::StorageUri;
 use tokio::process::Command;
 
@@ -10,39 +10,6 @@ use tokio::process::Command;
 pub struct MediaProbeRequest {
     pub source: StorageUri,
     pub local_path_hint: Option<PathBuf>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MediaProbeResult {
-    pub duration_ms: Option<u64>,
-    pub container: Option<String>,
-    pub bit_rate: Option<u64>,
-    pub streams: Vec<MediaStreamInfo>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MediaStreamInfo {
-    pub index: u32,
-    pub kind: MediaStreamKind,
-    pub codec: Option<String>,
-    pub language: Option<String>,
-    pub duration_ms: Option<u64>,
-    pub bit_rate: Option<u64>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub channels: Option<u32>,
-    pub sample_rate: Option<u32>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MediaStreamKind {
-    Video,
-    Audio,
-    Subtitle,
-    Data,
-    Attachment,
-    Other(String),
 }
 
 #[async_trait]
