@@ -128,6 +128,7 @@ POST /items/{item_id}/metadata/refresh
 GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
 GET  /sources/{source_id}/stream
+HEAD /sources/{source_id}/stream
 GET  /jobs/{job_id}
 ```
 
@@ -169,4 +170,12 @@ audio_codec=aac,opus
 `GET /sources/{source_id}/stream` serves direct play bytes for local sources.
 It supports HTTP `Range` requests and returns `206 Partial Content` with
 `Accept-Ranges`, `Content-Range`, and `Content-Length` when a satisfiable range
-is requested. Invalid or unsatisfiable ranges return `416`.
+is requested.
+
+`HEAD /sources/{source_id}/stream` returns the same direct play headers without
+a body. Clients can use it to preflight source length, MIME type, range support,
+and range validity before starting playback.
+
+Invalid, unsupported multi-range, or unsatisfiable ranges return
+`416 Range Not Satisfiable` with `Content-Range: bytes */{total_len}` and
+`Content-Length: 0`.

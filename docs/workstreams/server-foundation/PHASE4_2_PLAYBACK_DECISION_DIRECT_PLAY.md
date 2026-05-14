@@ -29,16 +29,24 @@ The server exposes:
 ```text
 GET /sources/{source_id}/playback/decision
 GET /sources/{source_id}/stream
+HEAD /sources/{source_id}/stream
 ```
 
 The stream route serves local sources and supports:
 
 - full response with `200 OK`;
 - byte-range response with `206 Partial Content`;
+- range preflight through `HEAD`;
 - `Accept-Ranges: bytes`;
 - `Content-Range`;
 - `Content-Length`;
 - conservative MIME inference for common video containers.
+
+Phase 4.2.1 moves direct play response planning into `taru-streaming` and
+`taru-server::app`. The HTTP handler now maps headers into a range request,
+calls the service plan, and streams the requested body. Malformed,
+unsupported multi-range, and unsatisfiable ranges return
+`416 Range Not Satisfiable` with `Content-Range: bytes */{total_len}`.
 
 The implementation currently requires a local path hint from `taru-vfs`.
 Remote source staging and byte-range cache remain future work.
@@ -58,9 +66,12 @@ Coverage added or updated for:
 - direct-play decision for compatible MP4 sources;
 - remux decision for unsupported containers with compatible codecs;
 - HTTP range parsing and resolution;
+- direct play response planning for full, empty, partial, and invalid ranges;
 - source lookup by ID;
 - source-level playback decision route;
-- direct stream route returning exact partial bytes and `Content-Range`.
+- direct stream route returning exact partial bytes and `Content-Range`;
+- direct stream `HEAD`, zero-byte, unsatisfiable range, and multi-range
+  rejection behavior.
 
 Required gates:
 

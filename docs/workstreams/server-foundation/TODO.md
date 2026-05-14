@@ -115,6 +115,8 @@
 - [x] Define direct play, remux, and transcode decision rules.
 - [x] Add source-level playback decision API.
 - [x] Add direct play HTTP route with byte-range support.
+- [x] Move direct play response planning behind streaming and app boundaries.
+- [x] Add direct play HEAD preflight and range edge-case coverage.
 - [ ] Draft FFmpeg command builder interface.
 - [ ] Implement remux and HLS transcode session manager.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.

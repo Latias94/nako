@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 4.2 Playback Decision and Direct Play API](PHASE4_2_PLAYBACK_DECISION_DIRECT_PLAY.md).
+Current implementation focus: [Phase 4.2.1 Direct Play Boundary Hardening](PHASE4_2_1_DIRECT_PLAY_BOUNDARY_HARDENING.md).
 
 ## Goals
 

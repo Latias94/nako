@@ -28,7 +28,10 @@ use taru_nfo::{
     NfoJobInput, NfoService,
 };
 use taru_search::{SearchIndex, SearchQuery};
-use taru_streaming::{ClientPlaybackCapabilities, content_type_for_file_name, decide_playback};
+use taru_streaming::{
+    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
+    content_type_for_file_name, decide_playback, plan_direct_play_response,
+};
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
@@ -75,11 +78,10 @@ pub struct NfoExportCommandOutput {
 }
 
 #[derive(Clone, Debug)]
-pub struct DirectPlaySource {
+pub struct DirectPlaySourcePlan {
     pub source: MediaSource,
     pub local_path: PathBuf,
-    pub total_len: u64,
-    pub content_type: String,
+    pub response: DirectPlayResponsePlan,
 }
 
 impl TaruApp {
@@ -251,7 +253,11 @@ impl TaruApp {
         })
     }
 
-    pub async fn direct_play_source(&self, source_id: MediaSourceId) -> Result<DirectPlaySource> {
+    pub async fn plan_direct_play(
+        &self,
+        source_id: MediaSourceId,
+        range_request: DirectPlayRangeRequest,
+    ) -> Result<DirectPlaySourcePlan> {
         let source = self.get_source_or_not_found(source_id).await?;
         let uri = StorageUri::parse(&source.locator)?;
         let backend = LocalFsBackend::new(&self.config().library.root)?;
@@ -271,12 +277,12 @@ impl TaruApp {
                 .len(),
         };
         let content_type = content_type_for_file_name(&source.file_name).to_owned();
+        let response = plan_direct_play_response(total_len, content_type, range_request);
 
-        Ok(DirectPlaySource {
+        Ok(DirectPlaySourcePlan {
             source,
             local_path,
-            total_len,
-            content_type,
+            response,
         })
     }
 

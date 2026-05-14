@@ -63,6 +63,48 @@ impl ResolvedByteRange {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DirectPlayRangeRequest {
+    None,
+    Range(RequestedByteRange),
+    Invalid,
+}
+
+impl From<Option<RequestedByteRange>> for DirectPlayRangeRequest {
+    fn from(value: Option<RequestedByteRange>) -> Self {
+        match value {
+            Some(range) => Self::Range(range),
+            None => Self::None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectPlayResponseStatus {
+    Ok,
+    PartialContent,
+    RangeNotSatisfiable,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DirectPlayResponsePlan {
+    pub status: DirectPlayResponseStatus,
+    pub content_type: String,
+    pub total_len: u64,
+    pub body_len: u64,
+    pub range: Option<ResolvedByteRange>,
+    pub content_range: Option<String>,
+    pub seek_offset: u64,
+}
+
+impl DirectPlayResponsePlan {
+    #[must_use]
+    pub const fn is_range_not_satisfiable(&self) -> bool {
+        matches!(self.status, DirectPlayResponseStatus::RangeNotSatisfiable)
+    }
+}
+
 pub fn decide_playback(
     source: &MediaSource,
     probe: Option<&MediaProbeResult>,
@@ -128,6 +170,54 @@ pub fn decide_playback(
             supports_range_requests: true,
         }),
         transcode_plan: None,
+    }
+}
+
+#[must_use]
+pub fn plan_direct_play_response(
+    total_len: u64,
+    content_type: impl Into<String>,
+    range_request: DirectPlayRangeRequest,
+) -> DirectPlayResponsePlan {
+    let content_type = content_type.into();
+
+    match range_request {
+        DirectPlayRangeRequest::None => DirectPlayResponsePlan {
+            status: DirectPlayResponseStatus::Ok,
+            content_type,
+            total_len,
+            body_len: total_len,
+            range: None,
+            content_range: None,
+            seek_offset: 0,
+        },
+        DirectPlayRangeRequest::Invalid => range_not_satisfiable_response(total_len, content_type),
+        DirectPlayRangeRequest::Range(requested) => {
+            match resolve_byte_range(Some(requested), total_len) {
+                Ok(Some(range)) => DirectPlayResponsePlan {
+                    status: DirectPlayResponseStatus::PartialContent,
+                    content_type,
+                    total_len,
+                    body_len: range.len(),
+                    range: Some(range),
+                    content_range: Some(format!(
+                        "bytes {}-{}/{}",
+                        range.start, range.end, total_len
+                    )),
+                    seek_offset: range.start,
+                },
+                Ok(None) => DirectPlayResponsePlan {
+                    status: DirectPlayResponseStatus::Ok,
+                    content_type,
+                    total_len,
+                    body_len: total_len,
+                    range: None,
+                    content_range: None,
+                    seek_offset: 0,
+                },
+                Err(_) => range_not_satisfiable_response(total_len, content_type),
+            }
+        }
     }
 }
 
@@ -268,6 +358,18 @@ fn parse_optional_u64(value: &str) -> Result<Option<u64>> {
         })
 }
 
+fn range_not_satisfiable_response(total_len: u64, content_type: String) -> DirectPlayResponsePlan {
+    DirectPlayResponsePlan {
+        status: DirectPlayResponseStatus::RangeNotSatisfiable,
+        content_type,
+        total_len,
+        body_len: 0,
+        range: None,
+        content_range: Some(format!("bytes */{total_len}")),
+        seek_offset: 0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use taru_core::{MediaSourceId, MediaStreamInfo};
@@ -320,6 +422,49 @@ mod tests {
         );
 
         assert_eq!(decision.mode, PlaybackMode::Remux);
+    }
+
+    #[test]
+    fn direct_play_response_plan_handles_full_empty_and_partial_ranges() {
+        let empty = plan_direct_play_response(0, "video/mp4", DirectPlayRangeRequest::None);
+        assert_eq!(empty.status, DirectPlayResponseStatus::Ok);
+        assert_eq!(empty.body_len, 0);
+        assert_eq!(empty.seek_offset, 0);
+        assert_eq!(empty.content_range, None);
+
+        let requested = parse_http_range_header("bytes=2-5").unwrap();
+        let partial =
+            plan_direct_play_response(10, "video/mp4", DirectPlayRangeRequest::Range(requested));
+        assert_eq!(partial.status, DirectPlayResponseStatus::PartialContent);
+        assert_eq!(partial.body_len, 4);
+        assert_eq!(partial.seek_offset, 2);
+        assert_eq!(partial.content_range.as_deref(), Some("bytes 2-5/10"));
+    }
+
+    #[test]
+    fn direct_play_response_plan_maps_invalid_ranges_to_416() {
+        let out_of_bounds = RequestedByteRange {
+            start: Some(20),
+            end: Some(30),
+        };
+        let invalid = plan_direct_play_response(
+            10,
+            "video/mp4",
+            DirectPlayRangeRequest::Range(out_of_bounds),
+        );
+        assert_eq!(
+            invalid.status,
+            DirectPlayResponseStatus::RangeNotSatisfiable
+        );
+        assert_eq!(invalid.body_len, 0);
+        assert_eq!(invalid.content_range.as_deref(), Some("bytes */10"));
+
+        let malformed = plan_direct_play_response(10, "video/mp4", DirectPlayRangeRequest::Invalid);
+        assert_eq!(
+            malformed.status,
+            DirectPlayResponseStatus::RangeNotSatisfiable
+        );
+        assert_eq!(malformed.content_range.as_deref(), Some("bytes */10"));
     }
 
     #[test]

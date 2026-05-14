@@ -332,6 +332,32 @@ Exit criteria:
   starting FFmpeg.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M4.2.1: Direct Play Boundary Hardening
+
+Outcome: Taru has a direct play boundary that is ready for remux, HLS, and
+transcode work without keeping response policy in raw HTTP handlers.
+
+Deliverables:
+
+- Direct play response planning model in `taru-streaming`.
+- Application-level direct play planning in `taru-server::app`.
+- HTTP handler reduced to header translation, file streaming, and response
+  mapping.
+- `HEAD /sources/{source_id}/stream` support for playback preflight.
+- Edge-case tests for zero-byte files, invalid ranges, unsatisfiable ranges,
+  and unsupported multi-range requests.
+- Updated API and workstream documentation.
+
+Exit criteria:
+
+- Direct play response plans cover `200 OK`, `206 Partial Content`, and
+  `416 Range Not Satisfiable`.
+- `HEAD /sources/{source_id}/stream` returns direct play headers without a
+  body.
+- `416` direct play responses include `Content-Range: bytes */{total_len}`.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.
