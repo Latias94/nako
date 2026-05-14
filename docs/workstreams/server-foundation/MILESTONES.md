@@ -159,6 +159,30 @@ Exit criteria:
 - `full_refresh` updates unlocked fields while preserving locked fields.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M3.4: Metadata Strategy Executor and Provider Fallback
+
+Outcome: Taru can execute metadata refresh through a provider registry and
+profile-ordered fallback strategy instead of server-side provider branching.
+
+Deliverables:
+
+- Metadata provider registry with available, disabled, and unavailable states.
+- Metadata strategy executor that tries providers in profile order.
+- Refresh summaries containing attempted providers and selected provider.
+- Server integration that builds the provider registry from runtime config.
+- Fallback behavior for unimplemented, disabled, unavailable, no-match, and
+  provider-failure outcomes.
+
+Exit criteria:
+
+- Bangumi not implemented can fall back to TMDB when TMDB is registered.
+- Disabled and unavailable providers are skipped with attempt summaries.
+- All providers failing produces a failed metadata refresh job.
+- First successful provider short-circuits later providers.
+- Field locks, `missing_only`, and `full_refresh` behavior remain intact.
+- Server no longer rejects non-TMDB first providers with hard-coded logic.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.

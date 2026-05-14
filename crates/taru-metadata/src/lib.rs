@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    sync::Arc,
+};
 use taru_core::{
     CanonicalMetadata, ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
     ImageRef, JobId, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataField,
@@ -79,10 +83,30 @@ pub struct MetadataRefreshSummary {
     pub job_id: JobId,
     pub item_id: MediaItemId,
     pub provider: ExternalProvider,
+    pub selected_provider: ExternalProvider,
     pub provider_key: String,
     pub matched_by: MetadataMatchKind,
     pub refresh_mode: MetadataRefreshMode,
     pub updated: bool,
+    pub attempted_providers: Vec<MetadataProviderAttempt>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderAttempt {
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderAttemptStatus,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProviderAttemptStatus {
+    Succeeded,
+    SkippedDisabled,
+    SkippedUnavailable,
+    NotImplemented,
+    NoMatch,
+    Failed,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -90,6 +114,234 @@ pub struct MetadataRefreshSummary {
 pub enum MetadataMatchKind {
     ExternalId,
     Search,
+}
+
+#[derive(Clone, Default)]
+pub struct MetadataProviderRegistry {
+    providers: HashMap<ExternalProvider, RegisteredMetadataProvider>,
+}
+
+impl MetadataProviderRegistry {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register<P>(&mut self, provider: P) -> &mut Self
+    where
+        P: MetadataProvider + 'static,
+    {
+        let provider_id = provider.provider();
+        self.providers.insert(
+            provider_id,
+            RegisteredMetadataProvider::Available(Arc::new(provider)),
+        );
+        self
+    }
+
+    #[must_use]
+    pub fn with_provider<P>(mut self, provider: P) -> Self
+    where
+        P: MetadataProvider + 'static,
+    {
+        self.register(provider);
+        self
+    }
+
+    pub fn register_arc(
+        &mut self,
+        provider_id: ExternalProvider,
+        provider: Arc<dyn MetadataProvider>,
+    ) -> &mut Self {
+        self.providers
+            .insert(provider_id, RegisteredMetadataProvider::Available(provider));
+        self
+    }
+
+    pub fn register_disabled(
+        &mut self,
+        provider: ExternalProvider,
+        reason: impl Into<String>,
+    ) -> &mut Self {
+        self.providers.insert(
+            provider,
+            RegisteredMetadataProvider::Disabled {
+                reason: reason.into(),
+            },
+        );
+        self
+    }
+
+    pub fn register_unavailable(
+        &mut self,
+        provider: ExternalProvider,
+        reason: impl Into<String>,
+    ) -> &mut Self {
+        self.providers.insert(
+            provider,
+            RegisteredMetadataProvider::Unavailable {
+                reason: reason.into(),
+            },
+        );
+        self
+    }
+
+    fn get(&self, provider: &ExternalProvider) -> Option<&RegisteredMetadataProvider> {
+        self.providers.get(provider)
+    }
+}
+
+impl fmt::Debug for MetadataProviderRegistry {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("MetadataProviderRegistry")
+            .field("providers", &self.providers)
+            .finish()
+    }
+}
+
+#[derive(Clone)]
+enum RegisteredMetadataProvider {
+    Available(Arc<dyn MetadataProvider>),
+    Disabled { reason: String },
+    Unavailable { reason: String },
+}
+
+impl fmt::Debug for RegisteredMetadataProvider {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Available(provider) => formatter
+                .debug_struct("Available")
+                .field("provider", &provider.provider())
+                .field("provider_name", &provider.provider_name())
+                .finish(),
+            Self::Disabled { reason } => formatter
+                .debug_struct("Disabled")
+                .field("reason", reason)
+                .finish(),
+            Self::Unavailable { reason } => formatter
+                .debug_struct("Unavailable")
+                .field("reason", reason)
+                .finish(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct MetadataStrategyExecutor<R> {
+    registry: MetadataProviderRegistry,
+    repository: R,
+}
+
+impl<R> MetadataStrategyExecutor<R> {
+    pub fn new(registry: MetadataProviderRegistry, repository: R) -> Self {
+        Self {
+            registry,
+            repository,
+        }
+    }
+
+    #[must_use]
+    pub fn registry(&self) -> &MetadataProviderRegistry {
+        &self.registry
+    }
+
+    #[must_use]
+    pub fn repository(&self) -> &R {
+        &self.repository
+    }
+}
+
+impl<R> MetadataStrategyExecutor<R>
+where
+    R: MediaRepository + MetadataRepository,
+{
+    pub async fn refresh_item(
+        &self,
+        request: MetadataRefreshRequest,
+    ) -> Result<MetadataRefreshSummary> {
+        validate_refresh_profile(&request.profile)?;
+
+        let existing = self
+            .repository
+            .get_media_item(request.item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: request.item_id.to_string(),
+            })?;
+        let mut attempts = Vec::new();
+
+        for provider_id in &request.profile.metadata_providers {
+            match self.registry.get(provider_id) {
+                Some(RegisteredMetadataProvider::Available(provider)) => {
+                    match refresh_existing_with_provider(
+                        provider.as_ref(),
+                        &self.repository,
+                        &request,
+                        &existing,
+                    )
+                    .await
+                    {
+                        Ok(success) => {
+                            attempts.push(MetadataProviderAttempt {
+                                provider: provider_id.clone(),
+                                status: MetadataProviderAttemptStatus::Succeeded,
+                                message: None,
+                            });
+
+                            return Ok(success.into_summary(request.job_id, attempts));
+                        }
+                        Err(MetadataProviderRefreshError::NoMatch(message)) => {
+                            attempts.push(MetadataProviderAttempt {
+                                provider: provider_id.clone(),
+                                status: MetadataProviderAttemptStatus::NoMatch,
+                                message: Some(message),
+                            });
+                        }
+                        Err(MetadataProviderRefreshError::ProviderFailed(message)) => {
+                            attempts.push(MetadataProviderAttempt {
+                                provider: provider_id.clone(),
+                                status: MetadataProviderAttemptStatus::Failed,
+                                message: Some(message),
+                            });
+                        }
+                        Err(MetadataProviderRefreshError::Fatal(err)) => return Err(err),
+                    }
+                }
+                Some(RegisteredMetadataProvider::Disabled { reason }) => {
+                    attempts.push(MetadataProviderAttempt {
+                        provider: provider_id.clone(),
+                        status: MetadataProviderAttemptStatus::SkippedDisabled,
+                        message: Some(reason.clone()),
+                    });
+                }
+                Some(RegisteredMetadataProvider::Unavailable { reason }) => {
+                    attempts.push(MetadataProviderAttempt {
+                        provider: provider_id.clone(),
+                        status: MetadataProviderAttemptStatus::SkippedUnavailable,
+                        message: Some(reason.clone()),
+                    });
+                }
+                None => {
+                    attempts.push(MetadataProviderAttempt {
+                        provider: provider_id.clone(),
+                        status: MetadataProviderAttemptStatus::NotImplemented,
+                        message: Some("metadata provider is not registered".to_owned()),
+                    });
+                }
+            }
+        }
+
+        Err(TaruError::Provider {
+            provider: "metadata_strategy".to_owned(),
+            message: format!(
+                "metadata refresh exhausted all providers for item {}: {}",
+                request.item_id,
+                summarize_attempts(&attempts)
+            ),
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -136,17 +388,7 @@ where
             ));
         }
 
-        if request.profile.refresh_mode == MetadataRefreshMode::None {
-            return Err(TaruError::Unsupported(
-                "metadata refresh profile disables metadata refresh",
-            ));
-        }
-
-        if request.profile.refresh_mode == MetadataRefreshMode::ValidationOnly {
-            return Err(TaruError::Unsupported(
-                "metadata refresh validation-only mode is not implemented yet",
-            ));
-        }
+        validate_refresh_profile(&request.profile)?;
 
         let existing = self
             .repository
@@ -157,85 +399,259 @@ where
                 id: request.item_id.to_string(),
             })?;
 
-        if existing.kind != MediaKind::Movie {
-            return Err(TaruError::Unsupported(
-                "TMDB metadata refresh currently supports movie items only",
-            ));
-        }
-
-        let (provider_key, matched_by) = self.resolve_provider_key(&request, &existing).await?;
-        let fetched = self
-            .provider
-            .fetch(MetadataFetchRequest {
-                kind: existing.kind,
-                provider_key: provider_key.clone(),
-                language: request.profile.language.clone(),
-            })
-            .await?;
-
-        let locks = self.repository.list_field_locks(existing.id).await?;
-        let policy = MetadataMergePolicy::from_locks_and_mode(&locks, request.profile.refresh_mode);
-        let merged_metadata = policy.merge(&existing.metadata, &fetched.metadata);
-        let updated = merged_metadata != existing.metadata;
-        let updated_item = MediaItem {
-            metadata: merged_metadata,
-            ..existing
+        let success =
+            refresh_existing_with_provider(&self.provider, &self.repository, &request, &existing)
+                .await
+                .map_err(MetadataProviderRefreshError::into_error)?;
+        let attempt = MetadataProviderAttempt {
+            provider: self.provider.provider(),
+            status: MetadataProviderAttemptStatus::Succeeded,
+            message: None,
         };
 
-        self.repository.upsert_media_item(&updated_item).await?;
-        self.repository
-            .upsert_provider_raw_response(&ProviderRawResponse {
-                item_id: updated_item.id,
-                provider: fetched.provider.clone(),
-                provider_key: fetched.provider_key.clone(),
-                fetched_at: now_utc_string()?,
-                body_json: fetched.raw_json,
-            })
-            .await?;
+        Ok(success.into_summary(request.job_id, vec![attempt]))
+    }
+}
 
-        Ok(MetadataRefreshSummary {
-            job_id: request.job_id,
-            item_id: updated_item.id,
-            provider: fetched.provider,
-            provider_key: fetched.provider_key,
-            matched_by,
-            refresh_mode: request.profile.refresh_mode,
-            updated,
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct MetadataProviderRefreshSuccess {
+    item_id: MediaItemId,
+    provider: ExternalProvider,
+    provider_key: String,
+    matched_by: MetadataMatchKind,
+    refresh_mode: MetadataRefreshMode,
+    updated: bool,
+}
+
+impl MetadataProviderRefreshSuccess {
+    fn into_summary(
+        self,
+        job_id: JobId,
+        attempted_providers: Vec<MetadataProviderAttempt>,
+    ) -> MetadataRefreshSummary {
+        MetadataRefreshSummary {
+            job_id,
+            item_id: self.item_id,
+            provider: self.provider.clone(),
+            selected_provider: self.provider,
+            provider_key: self.provider_key,
+            matched_by: self.matched_by,
+            refresh_mode: self.refresh_mode,
+            updated: self.updated,
+            attempted_providers,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum MetadataProviderRefreshError {
+    NoMatch(String),
+    ProviderFailed(String),
+    Fatal(TaruError),
+}
+
+impl MetadataProviderRefreshError {
+    fn into_error(self) -> TaruError {
+        match self {
+            Self::NoMatch(message) => TaruError::NotFound {
+                entity: "metadata_candidate",
+                id: message,
+            },
+            Self::ProviderFailed(message) => TaruError::Provider {
+                provider: "metadata_provider".to_owned(),
+                message,
+            },
+            Self::Fatal(err) => err,
+        }
+    }
+}
+
+async fn refresh_existing_with_provider<P, R>(
+    provider: &P,
+    repository: &R,
+    request: &MetadataRefreshRequest,
+    existing: &MediaItem,
+) -> std::result::Result<MetadataProviderRefreshSuccess, MetadataProviderRefreshError>
+where
+    P: MetadataProvider + ?Sized,
+    R: MediaRepository + MetadataRepository,
+{
+    let (provider_key, matched_by) = resolve_provider_key(provider, request, existing).await?;
+    let fetched = provider
+        .fetch(MetadataFetchRequest {
+            kind: existing.kind,
+            provider_key: provider_key.clone(),
+            language: request.profile.language.clone(),
         })
+        .await
+        .map_err(classify_provider_error)?;
+
+    let provider_id = provider.provider();
+    if fetched.provider != provider_id {
+        return Err(MetadataProviderRefreshError::ProviderFailed(format!(
+            "provider {} returned metadata for {}",
+            provider_label(&provider_id),
+            provider_label(&fetched.provider)
+        )));
     }
 
-    async fn resolve_provider_key(
-        &self,
-        request: &MetadataRefreshRequest,
-        item: &MediaItem,
-    ) -> Result<(String, MetadataMatchKind)> {
-        if let Some(external_id) = item
-            .metadata
-            .external_ids
-            .iter()
-            .find(|external_id| external_id.provider == self.provider.provider())
-        {
-            return Ok((external_id.value.clone(), MetadataMatchKind::ExternalId));
+    let locks = repository
+        .list_field_locks(existing.id)
+        .await
+        .map_err(MetadataProviderRefreshError::Fatal)?;
+    let policy = MetadataMergePolicy::from_locks_and_mode(&locks, request.profile.refresh_mode);
+    let merged_metadata = policy.merge(&existing.metadata, &fetched.metadata);
+    let updated = merged_metadata != existing.metadata;
+    let updated_item = MediaItem {
+        metadata: merged_metadata,
+        ..existing.clone()
+    };
+
+    repository
+        .upsert_media_item(&updated_item)
+        .await
+        .map_err(MetadataProviderRefreshError::Fatal)?;
+    repository
+        .upsert_provider_raw_response(&ProviderRawResponse {
+            item_id: updated_item.id,
+            provider: fetched.provider.clone(),
+            provider_key: fetched.provider_key.clone(),
+            fetched_at: now_utc_string().map_err(MetadataProviderRefreshError::Fatal)?,
+            body_json: fetched.raw_json,
+        })
+        .await
+        .map_err(MetadataProviderRefreshError::Fatal)?;
+
+    Ok(MetadataProviderRefreshSuccess {
+        item_id: updated_item.id,
+        provider: fetched.provider,
+        provider_key: fetched.provider_key,
+        matched_by,
+        refresh_mode: request.profile.refresh_mode,
+        updated,
+    })
+}
+
+async fn resolve_provider_key<P>(
+    provider: &P,
+    request: &MetadataRefreshRequest,
+    item: &MediaItem,
+) -> std::result::Result<(String, MetadataMatchKind), MetadataProviderRefreshError>
+where
+    P: MetadataProvider + ?Sized,
+{
+    let provider_id = provider.provider();
+    if let Some(external_id) = item
+        .metadata
+        .external_ids
+        .iter()
+        .find(|external_id| external_id.provider == provider_id)
+    {
+        return Ok((external_id.value.clone(), MetadataMatchKind::ExternalId));
+    }
+
+    let lookup = MetadataLookup {
+        kind: Some(item.kind),
+        title: item.metadata.title.clone(),
+        year: release_year(item.metadata.release_date.as_deref()),
+        language: request.profile.language.clone(),
+        external_ids: item.metadata.external_ids.clone(),
+    };
+    let candidates = provider
+        .search(lookup)
+        .await
+        .map_err(classify_provider_error)?;
+    let candidate = candidates
+        .into_iter()
+        .filter(|candidate| candidate.provider == provider_id)
+        .max_by(|left, right| left.score.total_cmp(&right.score))
+        .ok_or_else(|| {
+            MetadataProviderRefreshError::NoMatch(format!(
+                "{} returned no metadata candidate for item {}",
+                provider_label(&provider_id),
+                item.id
+            ))
+        })?;
+
+    Ok((candidate.provider_key, MetadataMatchKind::Search))
+}
+
+fn validate_refresh_profile(profile: &MetadataProfile) -> Result<()> {
+    if profile.refresh_mode == MetadataRefreshMode::None {
+        return Err(TaruError::Unsupported(
+            "metadata refresh profile disables metadata refresh",
+        ));
+    }
+
+    if profile.refresh_mode == MetadataRefreshMode::ValidationOnly {
+        return Err(TaruError::Unsupported(
+            "metadata refresh validation-only mode is not implemented yet",
+        ));
+    }
+
+    if profile.metadata_providers.is_empty() {
+        return Err(TaruError::InvalidInput {
+            message: "library metadata profile does not enable any metadata provider".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn classify_provider_error(error: TaruError) -> MetadataProviderRefreshError {
+    match error {
+        TaruError::NotFound { .. } => MetadataProviderRefreshError::NoMatch(error.to_string()),
+        TaruError::Unsupported(_) | TaruError::InvalidInput { .. } | TaruError::Provider { .. } => {
+            MetadataProviderRefreshError::ProviderFailed(error.to_string())
         }
+        TaruError::Storage { .. } | TaruError::Database { .. } => {
+            MetadataProviderRefreshError::Fatal(error)
+        }
+    }
+}
 
-        let lookup = MetadataLookup {
-            kind: Some(item.kind),
-            title: item.metadata.title.clone(),
-            year: release_year(item.metadata.release_date.as_deref()),
-            language: request.profile.language.clone(),
-            external_ids: item.metadata.external_ids.clone(),
-        };
-        let candidates = self.provider.search(lookup).await?;
-        let candidate = candidates
-            .into_iter()
-            .filter(|candidate| candidate.provider == self.provider.provider())
-            .max_by(|left, right| left.score.total_cmp(&right.score))
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "metadata_candidate",
-                id: item.id.to_string(),
-            })?;
+fn summarize_attempts(attempts: &[MetadataProviderAttempt]) -> String {
+    if attempts.is_empty() {
+        return "no providers were attempted".to_owned();
+    }
 
-        Ok((candidate.provider_key, MetadataMatchKind::Search))
+    attempts
+        .iter()
+        .map(|attempt| {
+            let detail = attempt
+                .message
+                .as_deref()
+                .filter(|message| !message.trim().is_empty())
+                .unwrap_or("no detail");
+            format!(
+                "{}={} ({detail})",
+                provider_label(&attempt.provider),
+                attempt_status_label(attempt.status)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn attempt_status_label(status: MetadataProviderAttemptStatus) -> &'static str {
+    match status {
+        MetadataProviderAttemptStatus::Succeeded => "succeeded",
+        MetadataProviderAttemptStatus::SkippedDisabled => "skipped_disabled",
+        MetadataProviderAttemptStatus::SkippedUnavailable => "skipped_unavailable",
+        MetadataProviderAttemptStatus::NotImplemented => "not_implemented",
+        MetadataProviderAttemptStatus::NoMatch => "no_match",
+        MetadataProviderAttemptStatus::Failed => "failed",
+    }
+}
+
+fn provider_label(provider: &ExternalProvider) -> String {
+    match provider {
+        ExternalProvider::Tmdb => "tmdb".to_owned(),
+        ExternalProvider::Douban => "douban".to_owned(),
+        ExternalProvider::Bangumi => "bangumi".to_owned(),
+        ExternalProvider::Imdb => "imdb".to_owned(),
+        ExternalProvider::Local => "local".to_owned(),
+        ExternalProvider::Other(value) => format!("other:{value}"),
     }
 }
 
@@ -1075,19 +1491,10 @@ mod tests {
             .await
             .unwrap();
 
-        let provider = MockMetadataProvider {
-            search_count: Arc::new(AtomicUsize::new(0)),
-            fetch_count: Arc::new(AtomicUsize::new(0)),
-            search_candidates: vec![MetadataCandidate {
-                provider: ExternalProvider::Tmdb,
-                provider_key: "603".to_owned(),
-                score: 0.95,
-                metadata: CanonicalMetadata {
-                    title: "The Matrix".to_owned(),
-                    ..CanonicalMetadata::default()
-                },
-            }],
-            fetch_result: MetadataFetchResult {
+        let provider = mock_provider(
+            ExternalProvider::Tmdb,
+            vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
+            MetadataFetchResult {
                 provider: ExternalProvider::Tmdb,
                 provider_key: "603".to_owned(),
                 metadata: CanonicalMetadata {
@@ -1102,7 +1509,7 @@ mod tests {
                 },
                 raw_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
             },
-        };
+        );
         let search_count = provider.search_count.clone();
         let fetch_count = provider.fetch_count.clone();
         let service = MetadataRefreshService::new(provider, store.clone());
@@ -1124,8 +1531,18 @@ mod tests {
             .unwrap();
 
         assert_eq!(summary.provider_key, "603");
+        assert_eq!(summary.provider, ExternalProvider::Tmdb);
+        assert_eq!(summary.selected_provider, ExternalProvider::Tmdb);
         assert_eq!(summary.matched_by, MetadataMatchKind::Search);
         assert_eq!(summary.refresh_mode, MetadataRefreshMode::Default);
+        assert_eq!(
+            summary.attempted_providers,
+            vec![MetadataProviderAttempt {
+                provider: ExternalProvider::Tmdb,
+                status: MetadataProviderAttemptStatus::Succeeded,
+                message: None,
+            }]
+        );
         assert!(summary.updated);
         assert_eq!(loaded.metadata.title, "Local Matrix");
         assert_eq!(
@@ -1155,11 +1572,10 @@ mod tests {
             }],
         )
         .await;
-        let provider = MockMetadataProvider {
-            search_count: Arc::new(AtomicUsize::new(0)),
-            fetch_count: Arc::new(AtomicUsize::new(0)),
-            search_candidates: Vec::new(),
-            fetch_result: MetadataFetchResult {
+        let provider = mock_provider(
+            ExternalProvider::Tmdb,
+            Vec::new(),
+            MetadataFetchResult {
                 provider: ExternalProvider::Tmdb,
                 provider_key: "603".to_owned(),
                 metadata: CanonicalMetadata {
@@ -1173,7 +1589,7 @@ mod tests {
                 },
                 raw_json: r#"{"id":603,"runtime":136}"#.to_owned(),
             },
-        };
+        );
         let search_count = provider.search_count.clone();
         let service = MetadataRefreshService::new(provider, store.clone());
 
@@ -1198,6 +1614,263 @@ mod tests {
                 .metadata
                 .runtime_minutes,
             Some(136)
+        );
+    }
+
+    #[tokio::test]
+    async fn strategy_falls_back_from_unimplemented_bangumi_to_tmdb() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item = seed_movie(&store, "Anime Movie", Some("2024".to_owned()), vec![]).await;
+        let tmdb = mock_provider(
+            ExternalProvider::Tmdb,
+            vec![mock_candidate(ExternalProvider::Tmdb, "100", "Anime Movie")],
+            mock_fetch_result(
+                ExternalProvider::Tmdb,
+                "100",
+                CanonicalMetadata {
+                    title: "Anime Movie Provider Title".to_owned(),
+                    external_ids: vec![ExternalId {
+                        provider: ExternalProvider::Tmdb,
+                        value: "100".to_owned(),
+                    }],
+                    ..CanonicalMetadata::default()
+                },
+            ),
+        );
+        let mut registry = MetadataProviderRegistry::new();
+        registry.register(tmdb);
+        let executor = MetadataStrategyExecutor::new(registry, store.clone());
+
+        let summary = executor
+            .refresh_item(MetadataRefreshRequest {
+                job_id: JobId::new(),
+                item_id: item.id,
+                profile: MetadataProfile::from_preset(LibraryPreset::Anime),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.selected_provider, ExternalProvider::Tmdb);
+        assert_eq!(summary.provider_key, "100");
+        assert_eq!(
+            attempt_statuses(&summary),
+            vec![
+                (
+                    ExternalProvider::Bangumi,
+                    MetadataProviderAttemptStatus::NotImplemented
+                ),
+                (
+                    ExternalProvider::Tmdb,
+                    MetadataProviderAttemptStatus::Succeeded
+                )
+            ]
+        );
+        assert_eq!(
+            store
+                .get_media_item(item.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .metadata
+                .title,
+            "Anime Movie Provider Title"
+        );
+    }
+
+    #[tokio::test]
+    async fn strategy_skips_disabled_provider() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item = seed_movie(&store, "The Matrix", Some("1999".to_owned()), vec![]).await;
+        let tmdb = mock_provider(
+            ExternalProvider::Tmdb,
+            vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
+            mock_fetch_result(
+                ExternalProvider::Tmdb,
+                "603",
+                CanonicalMetadata {
+                    title: "The Matrix".to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            ),
+        );
+        let mut registry = MetadataProviderRegistry::new();
+        registry.register_disabled(ExternalProvider::Douban, "disabled by config");
+        registry.register(tmdb);
+        let mut profile = MetadataProfile::from_preset(LibraryPreset::Movies);
+        profile.metadata_providers = vec![ExternalProvider::Douban, ExternalProvider::Tmdb];
+        let executor = MetadataStrategyExecutor::new(registry, store.clone());
+
+        let summary = executor
+            .refresh_item(MetadataRefreshRequest {
+                job_id: JobId::new(),
+                item_id: item.id,
+                profile,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.selected_provider, ExternalProvider::Tmdb);
+        assert_eq!(
+            attempt_statuses(&summary),
+            vec![
+                (
+                    ExternalProvider::Douban,
+                    MetadataProviderAttemptStatus::SkippedDisabled
+                ),
+                (
+                    ExternalProvider::Tmdb,
+                    MetadataProviderAttemptStatus::Succeeded
+                )
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn strategy_fails_when_all_providers_fail() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item = seed_movie(&store, "Unknown Movie", None, vec![]).await;
+        let mut tmdb = mock_provider(
+            ExternalProvider::Tmdb,
+            Vec::new(),
+            mock_fetch_result(
+                ExternalProvider::Tmdb,
+                "never",
+                CanonicalMetadata::default(),
+            ),
+        );
+        tmdb.search_result = Ok(Vec::new());
+        let mut registry = MetadataProviderRegistry::new();
+        registry.register_unavailable(ExternalProvider::Bangumi, "credentials missing");
+        registry.register(tmdb);
+        let mut profile = MetadataProfile::from_preset(LibraryPreset::Anime);
+        profile.metadata_providers = vec![ExternalProvider::Bangumi, ExternalProvider::Tmdb];
+        let executor = MetadataStrategyExecutor::new(registry, store.clone());
+
+        let err = executor
+            .refresh_item(MetadataRefreshRequest {
+                job_id: JobId::new(),
+                item_id: item.id,
+                profile,
+                force: false,
+            })
+            .await
+            .unwrap_err();
+
+        let TaruError::Provider { provider, message } = err else {
+            panic!("expected provider exhaustion error");
+        };
+        assert_eq!(provider, "metadata_strategy");
+        assert!(message.contains("bangumi=skipped_unavailable"));
+        assert!(message.contains("tmdb=no_match"));
+    }
+
+    #[tokio::test]
+    async fn strategy_short_circuits_after_first_success() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item = seed_movie(&store, "The Matrix", Some("1999".to_owned()), vec![]).await;
+        let tmdb = mock_provider(
+            ExternalProvider::Tmdb,
+            vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
+            mock_fetch_result(
+                ExternalProvider::Tmdb,
+                "603",
+                CanonicalMetadata {
+                    title: "The Matrix".to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            ),
+        );
+        let douban = mock_provider(
+            ExternalProvider::Douban,
+            vec![mock_candidate(
+                ExternalProvider::Douban,
+                "douban-1",
+                "The Matrix",
+            )],
+            mock_fetch_result(
+                ExternalProvider::Douban,
+                "douban-1",
+                CanonicalMetadata {
+                    title: "The Matrix Douban".to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            ),
+        );
+        let douban_search_count = douban.search_count.clone();
+        let douban_fetch_count = douban.fetch_count.clone();
+        let mut registry = MetadataProviderRegistry::new();
+        registry.register(tmdb);
+        registry.register(douban);
+        let executor = MetadataStrategyExecutor::new(registry, store.clone());
+
+        let summary = executor
+            .refresh_item(MetadataRefreshRequest {
+                job_id: JobId::new(),
+                item_id: item.id,
+                profile: MetadataProfile::from_preset(LibraryPreset::Movies),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.selected_provider, ExternalProvider::Tmdb);
+        assert_eq!(summary.attempted_providers.len(), 1);
+        assert_eq!(douban_search_count.load(Ordering::SeqCst), 0);
+        assert_eq!(douban_fetch_count.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn strategy_preserves_locked_fields() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item = seed_movie(&store, "Local Matrix", Some("1999".to_owned()), vec![]).await;
+        store
+            .upsert_field_lock(&MetadataFieldLock {
+                item_id: item.id,
+                field: MetadataField::Title,
+                locked: true,
+                source: MetadataSource::User,
+            })
+            .await
+            .unwrap();
+        let tmdb = mock_provider(
+            ExternalProvider::Tmdb,
+            vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
+            mock_fetch_result(
+                ExternalProvider::Tmdb,
+                "603",
+                CanonicalMetadata {
+                    title: "The Matrix".to_owned(),
+                    overview: Some("A hacker discovers the nature of reality.".to_owned()),
+                    ..CanonicalMetadata::default()
+                },
+            ),
+        );
+        let mut registry = MetadataProviderRegistry::new();
+        registry.register(tmdb);
+        let executor = MetadataStrategyExecutor::new(registry, store.clone());
+
+        executor
+            .refresh_item(MetadataRefreshRequest {
+                job_id: JobId::new(),
+                item_id: item.id,
+                profile: MetadataProfile::from_preset(LibraryPreset::Movies),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+        assert_eq!(loaded.metadata.title, "Local Matrix");
+        assert_eq!(
+            loaded.metadata.overview,
+            Some("A hacker discovers the nature of reality.".to_owned())
         );
     }
 
@@ -1296,30 +1969,84 @@ mod tests {
     }
 
     struct MockMetadataProvider {
+        provider: ExternalProvider,
         search_count: Arc<AtomicUsize>,
         fetch_count: Arc<AtomicUsize>,
-        search_candidates: Vec<MetadataCandidate>,
-        fetch_result: MetadataFetchResult,
+        search_result: Result<Vec<MetadataCandidate>>,
+        fetch_result: Result<MetadataFetchResult>,
     }
 
     #[async_trait]
     impl MetadataProvider for MockMetadataProvider {
         fn provider(&self) -> ExternalProvider {
-            ExternalProvider::Tmdb
+            self.provider.clone()
         }
 
         fn provider_name(&self) -> &'static str {
-            "mock-tmdb"
+            "mock"
         }
 
         async fn search(&self, _lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>> {
             self.search_count.fetch_add(1, Ordering::SeqCst);
-            Ok(self.search_candidates.clone())
+            self.search_result.clone()
         }
 
         async fn fetch(&self, _request: MetadataFetchRequest) -> Result<MetadataFetchResult> {
             self.fetch_count.fetch_add(1, Ordering::SeqCst);
-            Ok(self.fetch_result.clone())
+            self.fetch_result.clone()
         }
+    }
+
+    fn mock_provider(
+        provider: ExternalProvider,
+        search_candidates: Vec<MetadataCandidate>,
+        fetch_result: MetadataFetchResult,
+    ) -> MockMetadataProvider {
+        MockMetadataProvider {
+            provider,
+            search_count: Arc::new(AtomicUsize::new(0)),
+            fetch_count: Arc::new(AtomicUsize::new(0)),
+            search_result: Ok(search_candidates),
+            fetch_result: Ok(fetch_result),
+        }
+    }
+
+    fn mock_candidate(
+        provider: ExternalProvider,
+        provider_key: &str,
+        title: &str,
+    ) -> MetadataCandidate {
+        MetadataCandidate {
+            provider,
+            provider_key: provider_key.to_owned(),
+            score: 0.95,
+            metadata: CanonicalMetadata {
+                title: title.to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        }
+    }
+
+    fn mock_fetch_result(
+        provider: ExternalProvider,
+        provider_key: &str,
+        metadata: CanonicalMetadata,
+    ) -> MetadataFetchResult {
+        MetadataFetchResult {
+            provider,
+            provider_key: provider_key.to_owned(),
+            metadata,
+            raw_json: format!(r#"{{"id":"{provider_key}"}}"#),
+        }
+    }
+
+    fn attempt_statuses(
+        summary: &MetadataRefreshSummary,
+    ) -> Vec<(ExternalProvider, MetadataProviderAttemptStatus)> {
+        summary
+            .attempted_providers
+            .iter()
+            .map(|attempt| (attempt.provider.clone(), attempt.status))
+            .collect()
     }
 }

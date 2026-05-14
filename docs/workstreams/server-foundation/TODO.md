@@ -60,9 +60,9 @@
       profile instead of hard-coding TMDB.
 - [x] Add tests for disabled providers, provider order, missing-only refresh,
       full refresh, and locked fields.
-- [ ] Add item-level metadata profile overrides.
-- [ ] Add multi-provider fallback when the first configured provider cannot
+- [x] Add multi-provider fallback when the first configured provider cannot
       handle an item.
+- [ ] Add item-level metadata profile overrides.
 
 ## Streaming and Transcoding
 

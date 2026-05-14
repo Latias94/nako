@@ -16,8 +16,8 @@ use taru_library::{
 };
 use taru_media_probe::FfprobeMediaProbe;
 use taru_metadata::{
-    MetadataRefreshJobInput, MetadataRefreshRequest, MetadataRefreshService,
-    MetadataRefreshSummary, TmdbMetadataProvider, TmdbProviderConfig,
+    MetadataProviderRegistry, MetadataRefreshJobInput, MetadataRefreshRequest,
+    MetadataRefreshSummary, MetadataStrategyExecutor, TmdbMetadataProvider, TmdbProviderConfig,
 };
 use taru_vfs::LocalFsBackend;
 use tokio::sync::Semaphore;
@@ -252,7 +252,7 @@ impl TaruApp {
             })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
-        let provider = self.first_supported_metadata_provider(&profile)?;
+        let provider = self.first_metadata_provider(&profile)?;
         let input = MetadataRefreshJobInput {
             item_id,
             provider: Some(provider.clone()),
@@ -479,18 +479,10 @@ impl TaruApp {
             })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
-        let provider = self.first_supported_metadata_provider(&profile)?;
+        let registry = self.metadata_provider_registry();
+        let executor = MetadataStrategyExecutor::new(registry, self.inner.store.clone());
 
-        if provider != ExternalProvider::Tmdb {
-            return Err(TaruError::Unsupported(
-                "only TMDB metadata provider is implemented in M3.3",
-            ));
-        }
-
-        let provider = self.tmdb_provider()?;
-        let service = MetadataRefreshService::new(provider, self.inner.store.clone());
-
-        service
+        executor
             .refresh_item(MetadataRefreshRequest {
                 job_id,
                 item_id,
@@ -554,10 +546,7 @@ impl TaruApp {
         Ok(profile)
     }
 
-    fn first_supported_metadata_provider(
-        &self,
-        profile: &MetadataProfile,
-    ) -> Result<ExternalProvider> {
+    fn first_metadata_provider(&self, profile: &MetadataProfile) -> Result<ExternalProvider> {
         let Some(provider) = profile.metadata_providers.first().cloned() else {
             return Err(TaruError::InvalidInput {
                 message: "library metadata profile does not enable any metadata provider"
@@ -565,39 +554,47 @@ impl TaruApp {
             });
         };
 
-        if provider == ExternalProvider::Tmdb && !self.config().metadata.tmdb.enabled {
-            return Err(TaruError::InvalidInput {
-                message: "TMDB metadata provider is disabled in config".to_owned(),
-            });
-        }
-
         Ok(provider)
     }
 
-    fn tmdb_provider(&self) -> Result<TmdbMetadataProvider> {
+    fn metadata_provider_registry(&self) -> MetadataProviderRegistry {
+        let mut registry = MetadataProviderRegistry::new();
+        match self.tmdb_provider() {
+            Ok(provider) => {
+                registry.register(provider);
+            }
+            Err(TmdbProviderBuildError::Disabled(message)) => {
+                registry.register_disabled(ExternalProvider::Tmdb, message);
+            }
+            Err(TmdbProviderBuildError::Unavailable(message)) => {
+                registry.register_unavailable(ExternalProvider::Tmdb, message);
+            }
+        }
+
+        registry
+    }
+
+    fn tmdb_provider(&self) -> std::result::Result<TmdbMetadataProvider, TmdbProviderBuildError> {
         let settings = &self.config().metadata.tmdb;
 
         if !settings.enabled {
-            return Err(TaruError::InvalidInput {
-                message: "TMDB metadata provider is disabled in config".to_owned(),
-            });
+            return Err(TmdbProviderBuildError::Disabled(
+                "TMDB metadata provider is disabled in config".to_owned(),
+            ));
         }
 
-        let token =
-            env::var(&settings.access_token_env).map_err(|err| TaruError::InvalidInput {
-                message: format!(
-                    "failed to read TMDB access token from environment variable {}: {err}",
-                    settings.access_token_env
-                ),
-            })?;
+        let token = env::var(&settings.access_token_env).map_err(|err| {
+            TmdbProviderBuildError::Unavailable(format!(
+                "failed to read TMDB access token from environment variable {}: {err}",
+                settings.access_token_env
+            ))
+        })?;
 
         if token.trim().is_empty() {
-            return Err(TaruError::InvalidInput {
-                message: format!(
-                    "TMDB access token environment variable {} is empty",
-                    settings.access_token_env
-                ),
-            });
+            return Err(TmdbProviderBuildError::Unavailable(format!(
+                "TMDB access token environment variable {} is empty",
+                settings.access_token_env
+            )));
         }
 
         let mut config = TmdbProviderConfig::new(token);
@@ -643,6 +640,12 @@ fn provider_resource_name(provider: &ExternalProvider) -> &str {
         ExternalProvider::Local => "local",
         ExternalProvider::Other(_) => "other",
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum TmdbProviderBuildError {
+    Disabled(String),
+    Unavailable(String),
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -766,7 +769,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn metadata_refresh_job_rejects_disabled_profile_provider() {
+    async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
         let temp = tempfile::tempdir().unwrap();
         let library_id = LibraryId::new();
         let config = TaruServerConfig {
@@ -799,14 +802,66 @@ mod tests {
         };
         store.upsert_media_item(&item).await.unwrap();
 
-        let err = app.create_metadata_refresh_job(item.id).await.unwrap_err();
+        let job = app.create_metadata_refresh_job(item.id).await.unwrap();
+        let err = app.run_metadata_refresh(job.id, item.id).await.unwrap_err();
 
-        assert_eq!(
-            err,
-            TaruError::InvalidInput {
-                message: "TMDB metadata provider is disabled in config".to_owned()
-            }
-        );
+        assert_eq!(job.kind, JobKind::MetadataRefresh);
+        assert_eq!(job.resource_class, "metadata.tmdb");
+        let TaruError::Provider { provider, message } = err else {
+            panic!("expected provider exhaustion error");
+        };
+        assert_eq!(provider, "metadata_strategy");
+        assert!(message.contains("tmdb=skipped_disabled"));
+        assert!(message.contains("disabled in config"));
+    }
+
+    #[tokio::test]
+    async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavailable() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let mut metadata = MetadataConfig::default();
+        metadata.tmdb.enabled = true;
+        metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata,
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Anime".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Anime,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Anime Movie".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        let job = app.create_metadata_refresh_job(item.id).await.unwrap();
+        let err = app.run_metadata_refresh(job.id, item.id).await.unwrap_err();
+
+        assert_eq!(job.resource_class, "metadata.bangumi");
+        let TaruError::Provider { provider, message } = err else {
+            panic!("expected provider exhaustion error");
+        };
+        assert_eq!(provider, "metadata_strategy");
+        assert!(message.contains("bangumi=not_implemented"));
+        assert!(message.contains("tmdb=skipped_unavailable"));
+        assert_eq!(app.get_job(job.id).await.unwrap().status, JobStatus::Queued);
     }
 
     #[tokio::test]
@@ -856,10 +911,6 @@ mod tests {
         assert_eq!(
             input.get("provider").and_then(serde_json::Value::as_str),
             Some("bangumi")
-        );
-        assert_eq!(
-            app.run_metadata_refresh(job.id, item.id).await.unwrap_err(),
-            TaruError::Unsupported("only TMDB metadata provider is implemented in M3.3")
         );
     }
 }
