@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use taru_core::{
     Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
-    MediaSourceId,
+    MediaSourceId, PageRequest,
 };
 
 pub const API_VERSION: &str = "v1";
@@ -18,6 +18,26 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PageInfo {
+    pub limit: u32,
+    pub offset: u64,
+    pub returned: u32,
+}
+
+impl PageInfo {
+    #[must_use]
+    pub fn new(page: PageRequest, returned: usize) -> Self {
+        let page = page.clamped();
+
+        Self {
+            limit: page.limit,
+            offset: page.offset,
+            returned: u32::try_from(returned).unwrap_or(u32::MAX),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct JobResponse {
     pub id: JobId,
@@ -26,6 +46,7 @@ pub struct JobResponse {
     pub resource_class: String,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
+    pub input: Option<serde_json::Value>,
     pub summary: Option<serde_json::Value>,
     pub error: Option<String>,
     pub queued_at: String,
@@ -43,6 +64,9 @@ impl JobResponse {
             resource_class: job.resource_class,
             library_id: job.library_id,
             source_id: job.source_id,
+            input: job
+                .input_json
+                .and_then(|value| serde_json::from_str(&value).ok()),
             summary: job
                 .summary_json
                 .and_then(|value| serde_json::from_str(&value).ok()),
@@ -57,12 +81,14 @@ impl JobResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryListResponse {
     pub libraries: Vec<Library>,
+    pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibrarySourcesResponse {
     pub library: Library,
     pub sources: Vec<LibrarySourceResponse>,
+    pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -75,6 +101,7 @@ pub struct LibrarySourceResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemsResponse {
     pub items: Vec<MediaItem>,
+    pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

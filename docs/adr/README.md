@@ -20,3 +20,4 @@ Each ADR should include:
 - [0003: Prefer HTTP Addons Before In-Process Plugins](0003-http-addons-before-in-process-plugins.md)
 - [0004: Treat AI as External Automation First](0004-ai-as-external-automation-first.md)
 - [0005: Use Bounded Async Pipelines and Resource Budgets](0005-bounded-async-pipelines-and-resource-budgets.md)
+- [0006: Persist Job Inputs and Use Explicit Retry Policy](0006-persist-job-inputs-and-explicit-retry-policy.md)

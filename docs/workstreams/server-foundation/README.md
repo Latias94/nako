@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 2 Server Runtime and API Foundation](PHASE2_SERVER_RUNTIME.md).
+Current implementation focus: [Phase 2.1 Runtime Hardening and API Discipline](PHASE2_1_RUNTIME_HARDENING.md).
 
 ## Goals
 

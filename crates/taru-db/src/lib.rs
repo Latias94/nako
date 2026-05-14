@@ -8,7 +8,7 @@ use taru_core::{
     CanonicalMetadata, ExternalId, ExternalProvider, Job, JobId, JobKind, JobRepository, JobStatus,
     Library, LibraryId, LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, NewJob, Result, TaruError, TransactionManager,
+    MediaStreamKind, NewJob, PageRequest, Result, TaruError, TransactionManager,
 };
 
 const MIGRATIONS: &[(&str, &str)] = &[
@@ -21,6 +21,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("../migrations/0002_media_probe.sql"),
     ),
     ("0003_jobs", include_str!("../migrations/0003_jobs.sql")),
+    (
+        "0004_job_input_payload",
+        include_str!("../migrations/0004_job_input_payload.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]
@@ -170,14 +174,18 @@ impl LibraryRepository for SqliteStore {
         }))
     }
 
-    async fn list_libraries(&self) -> Result<Vec<Library>> {
+    async fn list_libraries(&self, page: PageRequest) -> Result<Vec<Library>> {
+        let page = page.clamped();
         let rows = sqlx::query(
             r#"
             SELECT id, name, roots_json
             FROM libraries
             ORDER BY name ASC, id ASC
+            LIMIT ?1 OFFSET ?2
             "#,
         )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;
@@ -287,14 +295,18 @@ impl MediaRepository for SqliteStore {
         }))
     }
 
-    async fn list_media_items(&self) -> Result<Vec<MediaItem>> {
+    async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
         let rows = sqlx::query(
             r#"
             SELECT id, kind, parent_id, title, original_title, sort_title, overview, release_date
             FROM media_items
             ORDER BY title ASC, id ASC
+            LIMIT ?1 OFFSET ?2
             "#,
         )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;
@@ -363,16 +375,24 @@ impl MediaRepository for SqliteStore {
         row.map(row_to_media_source).transpose()
     }
 
-    async fn list_media_sources(&self, library_id: LibraryId) -> Result<Vec<MediaSource>> {
+    async fn list_media_sources(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        let page = page.clamped();
         let rows = sqlx::query(
             r#"
             SELECT id, item_id, locator, file_name, size_bytes, fingerprint
             FROM media_sources
             WHERE library_id = ?1
             ORDER BY locator ASC
+            LIMIT ?2 OFFSET ?3
             "#,
         )
         .bind(library_id.to_string())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;
@@ -517,8 +537,16 @@ impl JobRepository for SqliteStore {
     async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
         sqlx::query(
             r#"
-            INSERT INTO jobs (id, kind, status, resource_class, library_id, source_id)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            INSERT INTO jobs (
+                id,
+                kind,
+                status,
+                resource_class,
+                library_id,
+                source_id,
+                input_json
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             "#,
         )
         .bind(job.id.to_string())
@@ -527,6 +555,7 @@ impl JobRepository for SqliteStore {
         .bind(job.resource_class)
         .bind(job.library_id.map(|id| id.to_string()))
         .bind(job.source_id.map(|id| id.to_string()))
+        .bind(job.input_json)
         .execute(&self.pool)
         .await
         .map_err(database_error)?;
@@ -611,6 +640,7 @@ impl JobRepository for SqliteStore {
                 resource_class,
                 library_id,
                 source_id,
+                input_json,
                 summary_json,
                 error,
                 queued_at,
@@ -794,6 +824,12 @@ fn u32_to_i64(value: u32) -> i64 {
     i64::from(value)
 }
 
+fn u64_to_i64(value: u64) -> Result<i64> {
+    i64::try_from(value).map_err(|err| TaruError::Database {
+        message: format!("value does not fit into SQLite integer: {err}"),
+    })
+}
+
 fn i64_to_u32(value: i64) -> Result<u32> {
     u32::try_from(value).map_err(|err| TaruError::Database {
         message: format!("SQLite integer cannot be converted to u32: {err}"),
@@ -861,6 +897,7 @@ fn row_to_job(row: SqliteRow) -> Result<Job> {
         resource_class: row_get(&row, "resource_class")?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
+        input_json: row_get(&row, "input_json")?,
         summary_json: row_get(&row, "summary_json")?,
         error: row_get(&row, "error")?,
         queued_at: row_get(&row, "queued_at")?,
@@ -972,7 +1009,10 @@ mod tests {
             Some(expected_item)
         );
         assert_eq!(
-            store.list_media_sources(library.id).await.unwrap(),
+            store
+                .list_media_sources(library.id, PageRequest::first_page())
+                .await
+                .unwrap(),
             vec![source]
         );
     }
@@ -1082,6 +1122,7 @@ mod tests {
                 resource_class: "disk.scan".to_owned(),
                 library_id: Some(library.id),
                 source_id: None,
+                input_json: Some(r#"{"library_id":"demo"}"#.to_owned()),
             })
             .await
             .unwrap();
@@ -1092,6 +1133,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(queued.status, JobStatus::Queued);
+        assert_eq!(
+            queued.input_json,
+            Some(r#"{"library_id":"demo"}"#.to_owned())
+        );
         assert_eq!(running.status, JobStatus::Running);
         assert!(running.started_at.is_some());
         assert_eq!(succeeded.status, JobStatus::Succeeded);
@@ -1110,6 +1155,7 @@ mod tests {
                 resource_class: "media.probe".to_owned(),
                 library_id: Some(library.id),
                 source_id: None,
+                input_json: None,
             })
             .await
             .unwrap();

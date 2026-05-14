@@ -3,7 +3,7 @@ use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
 use taru_core::{
     CanonicalMetadata, JobId, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
-    MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, Result,
+    MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, PageRequest, Result,
 };
 use taru_media_probe::{MediaProbe, MediaProbeRequest};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
@@ -150,10 +150,7 @@ where
     R: MediaRepository + MediaProbeRepository,
 {
     pub async fn probe_library(&self, request: LibraryProbeRequest) -> Result<LibraryProbeSummary> {
-        let sources = self
-            .repository
-            .list_media_sources(request.library_id)
-            .await?;
+        let sources = self.list_all_media_sources(request.library_id).await?;
         let total_sources = sources.len() as u64;
         let max_concurrent = self.options.max_concurrent_probes.max(1);
         let outcomes = stream::iter(sources)
@@ -188,6 +185,34 @@ where
             .sort_by(|left, right| left.locator.cmp(&right.locator));
 
         Ok(summary)
+    }
+
+    async fn list_all_media_sources(&self, library_id: LibraryId) -> Result<Vec<MediaSource>> {
+        let mut offset = 0;
+        let mut sources = Vec::new();
+
+        loop {
+            let page = self
+                .repository
+                .list_media_sources(
+                    library_id,
+                    PageRequest {
+                        limit: PageRequest::MAX_LIMIT,
+                        offset,
+                    },
+                )
+                .await?;
+            let returned = page.len();
+            sources.extend(page);
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            offset += u64::from(PageRequest::MAX_LIMIT);
+        }
+
+        Ok(sources)
     }
 
     async fn probe_source(&self, source: MediaSource, force: bool) -> ProbeSourceOutcome {
@@ -623,7 +648,10 @@ mod tests {
 
         let first_summary = service.index_library(request.clone()).await.unwrap();
         let second_summary = service.index_library(request).await.unwrap();
-        let sources = store.list_media_sources(library.id).await.unwrap();
+        let sources = store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap();
         let item = store
             .get_media_item(sources[0].item_id)
             .await
@@ -703,7 +731,11 @@ mod tests {
         assert_eq!(summary.failed_sources, 0);
         assert!(max_seen.load(Ordering::SeqCst) <= 2);
 
-        for source in store.list_media_sources(library.id).await.unwrap() {
+        for source in store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap()
+        {
             assert!(store.get_media_probe(source.id).await.unwrap().is_some());
         }
     }

@@ -105,6 +105,7 @@ Each job records:
 - `resource_class`
 - `library_id`
 - `source_id`
+- `input_json`
 - `summary_json`
 - `error`
 - `queued_at`

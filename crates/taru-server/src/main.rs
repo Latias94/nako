@@ -73,7 +73,13 @@ async fn run(cli: Cli) -> Result<()> {
         Command::List => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            print_json(&app.list_library_sources(app.config().library.id).await?)
+            print_json(
+                &app.list_library_sources(
+                    app.config().library.id,
+                    taru_core::PageRequest::first_page(),
+                )
+                .await?,
+            )
         }
     }
 }

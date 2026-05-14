@@ -59,6 +59,30 @@ Exit criteria:
 - Scan and probe work remains bounded by configured limits.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
+## M2.1: Runtime Hardening and API Discipline
+
+Outcome: Taru's server runtime has durable job inputs, documented job
+semantics, pagination basics, and developer workflow documentation.
+
+Deliverables:
+
+- Persisted `input_json` for jobs.
+- Job lifecycle ADR covering cancellation, retry, idempotency, failure
+  isolation, and resource budgets.
+- Limit/offset pagination for current list routes.
+- API envelope documentation for errors, jobs, and pagination.
+- Local development guide.
+- Test strategy.
+- Licensing and GPL reference-code boundary notes.
+
+Exit criteria:
+
+- Job input is persisted in SQLite and returned by `GET /jobs/{id}`.
+- `GET /libraries`, `GET /libraries/{id}/sources`, and `GET /items` accept
+  `limit` and `offset`.
+- Invalid pagination returns `400`.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
 ## M3: Metadata and NFO
 
 Outcome: Taru can enrich indexed items and preserve local metadata control.

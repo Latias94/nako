@@ -1356,7 +1356,6 @@ name = "taru-addon-protocol"
 version = "0.1.0"
 dependencies = [
  "serde",
- "taru-core",
 ]
 
 [[package]]

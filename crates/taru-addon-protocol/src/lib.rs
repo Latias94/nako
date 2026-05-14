@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use taru_core::AddonId;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonManifest {
-    pub id: AddonId,
+    pub id: String,
     pub name: String,
     pub version: String,
     pub description: Option<String>,

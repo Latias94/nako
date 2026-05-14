@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use serde::Serialize;
-use taru_api::{ItemsResponse, LibraryListResponse, LibrarySourceResponse, LibrarySourcesResponse};
+use taru_api::{
+    ItemsResponse, LibraryListResponse, LibrarySourceResponse, LibrarySourcesResponse, PageInfo,
+};
 use taru_core::{
     Job, JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository,
-    MediaProbeRepository, MediaRepository, MediaSourceId, NewJob, Result, TaruError,
+    MediaProbeRepository, MediaRepository, MediaSourceId, NewJob, PageRequest, Result, TaruError,
     TransactionManager,
 };
 use taru_db::SqliteStore;
@@ -64,18 +66,28 @@ impl TaruApp {
         &self.inner.config
     }
 
-    pub async fn list_libraries(&self) -> Result<LibraryListResponse> {
+    pub async fn list_libraries(&self, page: PageRequest) -> Result<LibraryListResponse> {
+        let page = page.clamped();
+        let libraries = self.inner.store.list_libraries(page).await?;
+
         Ok(LibraryListResponse {
-            libraries: self.inner.store.list_libraries().await?,
+            page: PageInfo::new(page, libraries.len()),
+            libraries,
         })
     }
 
     pub async fn list_library_sources(
         &self,
         library_id: LibraryId,
+        page: PageRequest,
     ) -> Result<LibrarySourcesResponse> {
+        let page = page.clamped();
         let library = self.get_library_or_not_found(library_id).await?;
-        let sources = self.inner.store.list_media_sources(library.id).await?;
+        let sources = self
+            .inner
+            .store
+            .list_media_sources(library.id, page)
+            .await?;
         let mut output_sources = Vec::with_capacity(sources.len());
 
         for source in sources {
@@ -90,13 +102,18 @@ impl TaruApp {
 
         Ok(LibrarySourcesResponse {
             library,
+            page: PageInfo::new(page, output_sources.len()),
             sources: output_sources,
         })
     }
 
-    pub async fn list_items(&self) -> Result<ItemsResponse> {
+    pub async fn list_items(&self, page: PageRequest) -> Result<ItemsResponse> {
+        let page = page.clamped();
+        let items = self.inner.store.list_media_items(page).await?;
+
         Ok(ItemsResponse {
-            items: self.inner.store.list_media_items().await?,
+            page: PageInfo::new(page, items.len()),
+            items,
         })
     }
 
@@ -162,6 +179,13 @@ impl TaruApp {
 
     async fn create_library_scan_job(&self, library_id: LibraryId) -> Result<Job> {
         self.configured_library_for(library_id)?;
+        let input = LibraryScanJobInput {
+            library_id,
+            force: false,
+        };
+        let input_json = serde_json::to_string(&input).map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to serialize job input: {err}"),
+        })?;
 
         self.inner
             .store
@@ -171,6 +195,7 @@ impl TaruApp {
                 resource_class: "disk.scan".to_owned(),
                 library_id: Some(library_id),
                 source_id: None,
+                input_json: Some(input_json),
             })
             .await
     }
@@ -321,6 +346,12 @@ impl TaruApp {
 struct ScanJobSummary {
     index: LibraryIndexSummary,
     probe: LibraryProbeSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct LibraryScanJobInput {
+    library_id: LibraryId,
+    force: bool,
 }
 
 #[cfg(test)]

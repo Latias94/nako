@@ -81,6 +81,7 @@ pub struct NewJob {
     pub resource_class: String,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
+    pub input_json: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -91,6 +92,7 @@ pub struct Job {
     pub resource_class: String,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
+    pub input_json: Option<String>,
     pub summary_json: Option<String>,
     pub error: Option<String>,
     pub queued_at: String,

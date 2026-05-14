@@ -1,12 +1,13 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use serde::Deserialize;
 use taru_api::{API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse};
-use taru_core::{JobId, LibraryId, MediaSourceId, TaruError};
+use taru_core::{JobId, LibraryId, MediaSourceId, PageRequest, TaruError};
 use tracing::{error, instrument, warn};
 
 use crate::app::TaruApp;
@@ -31,8 +32,11 @@ async fn health() -> Json<HealthResponse> {
 }
 
 #[instrument(skip(app))]
-async fn list_libraries(State(app): State<TaruApp>) -> ApiResult<impl IntoResponse> {
-    Ok(Json(app.list_libraries().await?))
+async fn list_libraries(
+    State(app): State<TaruApp>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_libraries(page.try_into()?).await?))
 }
 
 #[instrument(skip(app))]
@@ -49,13 +53,20 @@ async fn scan_library(
 async fn list_library_sources(
     State(app): State<TaruApp>,
     Path(library_id): Path<LibraryId>,
+    Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(app.list_library_sources(library_id).await?))
+    Ok(Json(
+        app.list_library_sources(library_id, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
-async fn list_items(State(app): State<TaruApp>) -> ApiResult<impl IntoResponse> {
-    Ok(Json(app.list_items().await?))
+async fn list_items(
+    State(app): State<TaruApp>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_items(page.try_into()?).await?))
 }
 
 #[instrument(skip(app))]
@@ -75,6 +86,35 @@ async fn get_job(
 }
 
 type ApiResult<T> = std::result::Result<T, ApiError>;
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+struct PageQuery {
+    limit: Option<u32>,
+    offset: Option<u64>,
+}
+
+impl TryFrom<PageQuery> for PageRequest {
+    type Error = TaruError;
+
+    fn try_from(value: PageQuery) -> Result<Self, Self::Error> {
+        let limit = value.limit.unwrap_or(PageRequest::DEFAULT_LIMIT);
+
+        if limit > PageRequest::MAX_LIMIT {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "limit must be less than or equal to {}",
+                    PageRequest::MAX_LIMIT
+                ),
+            });
+        }
+
+        Ok(PageRequest {
+            limit,
+            offset: value.offset.unwrap_or_default(),
+        }
+        .clamped())
+    }
+}
 
 #[derive(Debug)]
 struct ApiError(TaruError);
@@ -192,6 +232,13 @@ mod tests {
         assert_eq!(job.kind, taru_core::JobKind::LibraryScan);
         assert_eq!(job.status, JobStatus::Queued);
         assert_eq!(job.library_id, Some(library_id));
+        assert_eq!(
+            job.input
+                .as_ref()
+                .and_then(|input| input.get("library_id"))
+                .and_then(serde_json::Value::as_str),
+            Some(library_id.to_string().as_str())
+        );
 
         let loaded_path = format!("/jobs/{}", job.id);
         let loaded_job = request_json::<JobResponse>(&router, Method::GET, &loaded_path).await;
@@ -232,7 +279,10 @@ mod tests {
         let items = request_json::<taru_api::ItemsResponse>(&router, Method::GET, "/items").await;
 
         assert_eq!(sources.library.id, library_id);
+        assert_eq!(sources.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
+        assert_eq!(sources.page.offset, 0);
         assert!(sources.sources.is_empty());
+        assert_eq!(items.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
         assert!(items.items.is_empty());
     }
 
@@ -255,6 +305,33 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn paginated_routes_echo_page_info_and_reject_large_limits() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let router = test_router(temp.path().to_path_buf(), library_id).await;
+        let sources_path = format!("/libraries/{library_id}/sources?limit=10&offset=20");
+
+        let sources =
+            request_json::<taru_api::LibrarySourcesResponse>(&router, Method::GET, &sources_path)
+                .await;
+        assert_eq!(sources.page.limit, 10);
+        assert_eq!(sources.page.offset, 20);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/items?limit=501")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
