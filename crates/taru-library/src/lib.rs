@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use taru_core::{JobId, LibraryId, Result};
+use taru_core::{
+    CanonicalMetadata, JobId, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
+    MediaRepository, MediaSource, MediaSourceId, Result,
+};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
 use taru_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 
@@ -27,12 +30,153 @@ pub trait LibraryScanner: Send + Sync {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryIndexRequest {
+    pub job_id: JobId,
+    pub library: Library,
+    pub force: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryIndexSummary {
+    pub job_id: JobId,
+    pub library_id: LibraryId,
+    pub scanned_roots: u64,
+    pub discovered_files: u64,
+    pub inserted_sources: u64,
+    pub updated_sources: u64,
+}
+
+#[derive(Debug)]
+pub struct LibraryIndexService<S, R> {
+    scanner: S,
+    repository: R,
+}
+
+impl<S, R> LibraryIndexService<S, R> {
+    pub fn new(scanner: S, repository: R) -> Self {
+        Self {
+            scanner,
+            repository,
+        }
+    }
+
+    #[must_use]
+    pub fn scanner(&self) -> &S {
+        &self.scanner
+    }
+
+    #[must_use]
+    pub fn repository(&self) -> &R {
+        &self.repository
+    }
+}
+
+impl<S, R> LibraryIndexService<S, R>
+where
+    S: LibraryScanner,
+    R: LibraryRepository + MediaRepository,
+{
+    pub async fn index_library(&self, request: LibraryIndexRequest) -> Result<LibraryIndexSummary> {
+        self.repository.upsert_library(&request.library).await?;
+
+        let mut summary = LibraryIndexSummary {
+            job_id: request.job_id,
+            library_id: request.library.id,
+            scanned_roots: 0,
+            discovered_files: 0,
+            inserted_sources: 0,
+            updated_sources: 0,
+        };
+
+        for root in &request.library.roots {
+            let root = StorageUri::parse(root)?;
+            let scan = self
+                .scanner
+                .scan(LibraryScanRequest {
+                    job_id: request.job_id,
+                    library_id: request.library.id,
+                    root,
+                    force: request.force,
+                })
+                .await?;
+
+            summary.scanned_roots += 1;
+            summary.discovered_files += scan.discovered_files;
+
+            for discovered in scan.media_sources {
+                let locator = discovered.uri.as_str().to_owned();
+                let existing = self
+                    .repository
+                    .get_media_source_by_locator(&locator)
+                    .await?;
+
+                let item_id = existing
+                    .as_ref()
+                    .map(|source| source.item_id)
+                    .unwrap_or_else(MediaItemId::new);
+                let source_id = existing
+                    .as_ref()
+                    .map(|source| source.id)
+                    .unwrap_or_else(MediaSourceId::new);
+
+                let item = media_item_from_discovered(item_id, &discovered);
+                let source = media_source_from_discovered(source_id, item_id, discovered);
+
+                self.repository.upsert_media_item(&item).await?;
+                self.repository
+                    .upsert_media_source(request.library.id, &source)
+                    .await?;
+
+                if existing.is_some() {
+                    summary.updated_sources += 1;
+                } else {
+                    summary.inserted_sources += 1;
+                }
+            }
+        }
+
+        Ok(summary)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DiscoveredMediaSource {
     pub uri: StorageUri,
     pub file_name: String,
     pub size_bytes: Option<u64>,
     pub fingerprint: Option<String>,
     pub parsed_name: ParsedName,
+}
+
+fn media_item_from_discovered(id: MediaItemId, discovered: &DiscoveredMediaSource) -> MediaItem {
+    MediaItem {
+        id,
+        kind: discovered.parsed_name.kind_hint,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: discovered.parsed_name.title.clone(),
+            original_title: None,
+            sort_title: None,
+            overview: None,
+            release_date: discovered.parsed_name.year.map(|year| year.to_string()),
+            external_ids: Vec::new(),
+        },
+    }
+}
+
+fn media_source_from_discovered(
+    id: MediaSourceId,
+    item_id: MediaItemId,
+    discovered: DiscoveredMediaSource,
+) -> MediaSource {
+    MediaSource {
+        id,
+        item_id,
+        locator: discovered.uri.as_str().to_owned(),
+        file_name: discovered.file_name,
+        size_bytes: discovered.size_bytes,
+        fingerprint: discovered.fingerprint,
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -176,6 +320,8 @@ const DEFAULT_MEDIA_EXTENSIONS: &[&str] = &[
 mod tests {
     use std::fs;
 
+    use taru_core::{MediaRepository, TransactionManager};
+    use taru_db::SqliteStore;
     use taru_vfs::LocalFsBackend;
 
     use super::*;
@@ -252,5 +398,54 @@ mod tests {
             assert_eq!(summary.discovered_files, 1);
             assert_eq!(summary.media_sources[0].file_name, "playlist.strm");
         });
+    }
+
+    #[tokio::test]
+    async fn index_service_persists_scan_results_idempotently() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(
+            temp.path().join("Movies").join("The Matrix (1999).mkv"),
+            b"movie",
+        )
+        .unwrap();
+        fs::write(temp.path().join("Movies").join("poster.jpg"), b"image").unwrap();
+
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let scanner = VfsLibraryScanner::new(backend);
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        let second_summary = service.index_library(request).await.unwrap();
+        let sources = store.list_media_sources(library.id).await.unwrap();
+        let item = store
+            .get_media_item(sources[0].item_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(first_summary.discovered_files, 1);
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(first_summary.updated_sources, 0);
+        assert_eq!(second_summary.discovered_files, 1);
+        assert_eq!(second_summary.inserted_sources, 0);
+        assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].file_name, "The Matrix (1999).mkv");
+        assert_eq!(item.metadata.title, "The Matrix");
+        assert_eq!(item.metadata.release_date, Some("1999".to_owned()));
     }
 }

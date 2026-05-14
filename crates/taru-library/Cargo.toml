@@ -16,4 +16,6 @@ taru-vfs = { path = "../taru-vfs" }
 
 [dev-dependencies]
 pollster.workspace = true
+taru-db = { path = "../taru-db" }
 tempfile.workspace = true
+tokio.workspace = true

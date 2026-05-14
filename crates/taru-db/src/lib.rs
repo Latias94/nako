@@ -1,42 +1,19 @@
 use std::{fmt::Display, str::FromStr};
 
-use async_trait::async_trait;
 use sqlx::{
     Decode, Row, Sqlite, SqlitePool, Type,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
 };
 use taru_core::{
-    CanonicalMetadata, ExternalId, ExternalProvider, Library, LibraryId, MediaItem, MediaItemId,
-    MediaKind, MediaSource, Result, TaruError,
+    CanonicalMetadata, ExternalId, ExternalProvider, Library, LibraryId, LibraryRepository,
+    MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, Result, TaruError,
+    TransactionManager,
 };
 
 const MIGRATIONS: &[(&str, &str)] = &[(
     "0001_initial",
     include_str!("../migrations/0001_initial.sql"),
 )];
-
-#[async_trait]
-pub trait TransactionManager: Send + Sync {
-    async fn migrate(&self) -> Result<()>;
-}
-
-#[async_trait]
-pub trait LibraryRepository: Send + Sync {
-    async fn upsert_library(&self, library: &Library) -> Result<()>;
-
-    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>>;
-}
-
-#[async_trait]
-pub trait MediaRepository: Send + Sync {
-    async fn upsert_media_item(&self, item: &MediaItem) -> Result<()>;
-
-    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
-
-    async fn upsert_media_source(&self, library_id: LibraryId, source: &MediaSource) -> Result<()>;
-
-    async fn list_media_sources(&self, library_id: LibraryId) -> Result<Vec<MediaSource>>;
-}
 
 #[derive(Clone, Debug)]
 pub struct SqliteStore {
@@ -77,7 +54,7 @@ impl SqliteStore {
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl TransactionManager for SqliteStore {
     async fn migrate(&self) -> Result<()> {
         sqlx::query(
@@ -132,7 +109,7 @@ impl TransactionManager for SqliteStore {
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl LibraryRepository for SqliteStore {
     async fn upsert_library(&self, library: &Library) -> Result<()> {
         let roots_json = serde_json::to_string(&library.roots).map_err(database_error)?;
@@ -186,7 +163,7 @@ impl LibraryRepository for SqliteStore {
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl MediaRepository for SqliteStore {
     async fn upsert_media_item(&self, item: &MediaItem) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
@@ -324,6 +301,22 @@ impl MediaRepository for SqliteStore {
         Ok(())
     }
 
+    async fn get_media_source_by_locator(&self, locator: &str) -> Result<Option<MediaSource>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, item_id, locator, file_name, size_bytes, fingerprint
+            FROM media_sources
+            WHERE locator = ?1
+            "#,
+        )
+        .bind(locator)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_media_source).transpose()
+    }
+
     async fn list_media_sources(&self, library_id: LibraryId) -> Result<Vec<MediaSource>> {
         let rows = sqlx::query(
             r#"
@@ -338,18 +331,7 @@ impl MediaRepository for SqliteStore {
         .await
         .map_err(database_error)?;
 
-        rows.into_iter()
-            .map(|row| {
-                Ok(MediaSource {
-                    id: parse_id(row_get::<String>(&row, "id")?)?,
-                    item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
-                    locator: row_get(&row, "locator")?,
-                    file_name: row_get(&row, "file_name")?,
-                    size_bytes: optional_i64_to_u64(row_get(&row, "size_bytes")?)?,
-                    fingerprint: row_get(&row, "fingerprint")?,
-                })
-            })
-            .collect()
+        rows.into_iter().map(row_to_media_source).collect()
     }
 }
 
@@ -468,6 +450,17 @@ fn optional_i64_to_u64(value: Option<i64>) -> Result<Option<u64>> {
             })
         })
         .transpose()
+}
+
+fn row_to_media_source(row: SqliteRow) -> Result<MediaSource> {
+    Ok(MediaSource {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        locator: row_get(&row, "locator")?,
+        file_name: row_get(&row, "file_name")?,
+        size_bytes: optional_i64_to_u64(row_get(&row, "size_bytes")?)?,
+        fingerprint: row_get(&row, "fingerprint")?,
+    })
 }
 
 fn split_sql_statements(sql: &str) -> Vec<String> {

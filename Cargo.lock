@@ -1009,6 +1009,7 @@ dependencies = [
 name = "taru-core"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "serde",
  "thiserror",
  "uuid",
@@ -1042,9 +1043,11 @@ dependencies = [
  "pollster",
  "serde",
  "taru-core",
+ "taru-db",
  "taru-naming",
  "taru-vfs",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
