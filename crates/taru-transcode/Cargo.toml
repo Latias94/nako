@@ -11,4 +11,8 @@ workspace = true
 [dependencies]
 serde.workspace = true
 taru-core = { path = "../taru-core" }
+tokio.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

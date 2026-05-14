@@ -381,6 +381,33 @@ Exit criteria:
 - `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
   pass for the workspace.
 
+## M4.4: Remux Process Runner and Runtime Resource Guard
+
+Outcome: Taru can run a planned remux session through a real FFmpeg process
+behind explicit lifecycle, cancellation, timeout, concurrency, and cleanup
+boundaries without exposing a playback HTTP route yet.
+
+Deliverables:
+
+- FFmpeg remux process runner in `taru-transcode`.
+- Cancellation token and timeout handling for remux sessions.
+- Semaphore-backed remux runtime guard.
+- Session-scoped temporary output path with promote-on-success behavior.
+- Temporary output cleanup on failure, cancellation, and timeout.
+- Server runtime config for remux concurrency and timeout.
+- Workstream documentation for runner behavior and non-goals.
+
+Exit criteria:
+
+- Runner promotes temporary output only after FFmpeg exits successfully.
+- Runner kills the child process and cleans temporary output on cancellation
+  and timeout.
+- Failed FFmpeg exits mark the session failed and leave no temporary output.
+- Runtime guard prevents more than the configured concurrent remux sessions.
+- No HTTP remux/playback route is exposed in this phase.
+- `cargo fmt`, `cargo check`, `cargo nextest run`, and `git diff --check`
+  pass for the workspace.
+
 ## M5: Extension Surface
 
 Outcome: Taru has stable external automation and addon surfaces.

@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 4.3 FFmpeg Command Builder and Remux Session Skeleton](PHASE4_3_FFMPEG_COMMAND_REMUX_SESSION.md).
+Current implementation focus: [Phase 4.4 Remux Process Runner and Runtime Resource Guard](PHASE4_4_REMUX_PROCESS_RUNNER_RESOURCE_GUARD.md).
 
 ## Goals
 

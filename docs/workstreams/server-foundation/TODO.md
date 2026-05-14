@@ -119,10 +119,11 @@
 - [x] Add direct play HEAD preflight and range edge-case coverage.
 - [x] Draft FFmpeg command builder interface.
 - [x] Add remux session manager skeleton.
-- [ ] Implement FFmpeg process runner for remux sessions.
+- [x] Implement FFmpeg process runner for remux sessions.
+- [x] Add remux process cancellation, timeout, concurrency guard, and temp cleanup.
 - [ ] Implement HLS transcode session manager.
 - [ ] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
-- [ ] Define CPU/GPU transcode concurrency and queue policy.
+- [ ] Define CPU/GPU transcode concurrency and queue policy beyond remux.
 - [ ] Define remote source staging/cache behavior for FFmpeg.
 
 ## Addons and Automation

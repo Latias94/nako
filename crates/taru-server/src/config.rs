@@ -22,6 +22,10 @@ pub struct TaruServerConfig {
     pub probe_concurrency: usize,
     #[serde(default = "default_metadata_concurrency")]
     pub metadata_concurrency: usize,
+    #[serde(default = "default_remux_concurrency")]
+    pub remux_concurrency: usize,
+    #[serde(default = "default_remux_timeout_ms")]
+    pub remux_timeout_ms: u64,
     #[serde(default)]
     pub metadata: MetadataConfig,
     pub library: LocalLibraryConfig,
@@ -98,6 +102,8 @@ pub fn example_config() -> Result<String> {
         scan_concurrency: default_scan_concurrency(),
         probe_concurrency: default_probe_concurrency(),
         metadata_concurrency: default_metadata_concurrency(),
+        remux_concurrency: default_remux_concurrency(),
+        remux_timeout_ms: default_remux_timeout_ms(),
         metadata: MetadataConfig::default(),
         library: LocalLibraryConfig {
             id: LibraryId::new(),
@@ -145,6 +151,14 @@ const fn default_metadata_concurrency() -> usize {
     2
 }
 
+const fn default_remux_concurrency() -> usize {
+    1
+}
+
+const fn default_remux_timeout_ms() -> u64 {
+    30 * 60 * 1_000
+}
+
 fn default_tmdb_access_token_env() -> String {
     "TMDB_READ_ACCESS_TOKEN".to_owned()
 }
@@ -182,6 +196,8 @@ mod tests {
             scan_concurrency = 2
             probe_concurrency = 3
             metadata_concurrency = 4
+            remux_concurrency = 2
+            remux_timeout_ms = 60000
 
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
@@ -205,6 +221,8 @@ mod tests {
         assert_eq!(config.scan_concurrency, 2);
         assert_eq!(config.probe_concurrency, 3);
         assert_eq!(config.metadata_concurrency, 4);
+        assert_eq!(config.remux_concurrency, 2);
+        assert_eq!(config.remux_timeout_ms, 60_000);
         assert!(config.metadata.tmdb.enabled);
         assert_eq!(
             config.metadata.tmdb.access_token_env,
@@ -251,6 +269,8 @@ mod tests {
         assert_eq!(config.scan_concurrency, 1);
         assert_eq!(config.probe_concurrency, 2);
         assert_eq!(config.metadata_concurrency, 2);
+        assert_eq!(config.remux_concurrency, 1);
+        assert_eq!(config.remux_timeout_ms, 30 * 60 * 1_000);
         assert!(!config.metadata.tmdb.enabled);
         assert_eq!(config.library.preset, LibraryPreset::Movies);
         assert_eq!(

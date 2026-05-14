@@ -1834,6 +1834,8 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "taru-core",
+ "tempfile",
+ "tokio",
  "uuid",
 ]
 

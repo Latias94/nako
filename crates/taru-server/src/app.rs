@@ -1295,6 +1295,8 @@ mod tests {
             scan_concurrency: 1,
             probe_concurrency: 1,
             metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1330,6 +1332,8 @@ mod tests {
             scan_concurrency: 1,
             probe_concurrency: 1,
             metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1393,6 +1397,8 @@ mod tests {
             scan_concurrency: 1,
             probe_concurrency: 1,
             metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1444,6 +1450,8 @@ mod tests {
             scan_concurrency: 1,
             probe_concurrency: 1,
             metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1494,6 +1502,8 @@ mod tests {
             scan_concurrency: 1,
             probe_concurrency: 1,
             metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
             metadata,
             library: LocalLibraryConfig {
                 id: library_id,
@@ -1552,6 +1562,8 @@ mod tests {
             scan_concurrency: 1,
             probe_concurrency: 1,
             metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
             metadata: MetadataConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,

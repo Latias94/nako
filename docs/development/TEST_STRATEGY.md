@@ -67,6 +67,7 @@ Streaming and transcode:
 - direct play decision fixtures
 - FFmpeg command planning without running FFmpeg
 - remux session lifecycle transitions
+- remux runner success, failure, cancellation, timeout, and concurrency guard
 - transcode session cancellation cleanup
 - hardware capability detection with mocked probes
 

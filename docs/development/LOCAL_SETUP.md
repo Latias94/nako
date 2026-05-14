@@ -73,6 +73,8 @@ ffmpeg_path = "ffmpeg"
 scan_concurrency = 1
 probe_concurrency = 2
 metadata_concurrency = 2
+remux_concurrency = 1
+remux_timeout_ms = 1800000
 
 [library]
 id = "018f0000-0000-7000-8000-000000000001"
