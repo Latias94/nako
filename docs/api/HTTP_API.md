@@ -113,6 +113,16 @@ POST /libraries/{library_id}/nfo/import
 POST /libraries/{library_id}/nfo/export
 GET  /libraries/{library_id}/sources?limit=50&offset=0
 GET  /items?limit=50&offset=0
+GET  /items/{item_id}
+GET  /items/{item_id}/credits
+GET  /items/{item_id}/images
+GET  /people?limit=50&offset=0
+GET  /people/{person_id}
+GET  /people/{person_id}/items?limit=50&offset=0
+GET  /tags?limit=50&offset=0
+GET  /tags/{tag_id}/items?limit=50&offset=0
+GET  /genres?limit=50&offset=0
+GET  /genres/{genre_id}/items?limit=50&offset=0
 GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
 POST /items/{item_id}/metadata/refresh
 GET  /sources/{source_id}/probe
@@ -131,6 +141,12 @@ profile provider order and records provider attempts in `GET /jobs/{job_id}`.
 jobs. Import reads same-stem `.nfo` files according to the library local
 metadata policy. Export writes sidecars only when the policy is
 `write_sidecar`.
+
+Browse routes expose the normalized catalog graph. `GET /items/{item_id}`
+returns the media item plus sources, graph relation IDs, and item image assets.
+`/credits` returns item credits with the referenced people. People, tags, and
+genres list routes are paginated, and their `/items` routes return linked media
+items.
 
 `GET /search` reads the SQLite search projection behind `taru-search`. `facet`
 is optional and comma-separated for the current lightweight route shape. Search

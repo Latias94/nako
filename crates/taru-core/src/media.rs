@@ -379,9 +379,15 @@ pub struct CanonicalMetadata {
     pub runtime_minutes: Option<u32>,
     pub tagline: Option<String>,
     pub genres: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub ratings: Vec<ContentRating>,
     pub images: Vec<ImageRef>,
     pub credits: Vec<Credit>,
+    #[serde(default)]
+    pub collections: Vec<CollectionRef>,
+    #[serde(default)]
+    pub studios: Vec<StudioRef>,
     pub external_ids: Vec<ExternalId>,
 }
 
@@ -418,6 +424,20 @@ pub struct Credit {
     pub role: CreditRole,
     pub character: Option<String>,
     pub order: Option<u32>,
+    pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CollectionRef {
+    pub name: String,
+    pub overview: Option<String>,
+    pub sort_order: Option<u32>,
+    pub external_ids: Vec<ExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StudioRef {
+    pub name: String,
     pub external_ids: Vec<ExternalId>,
 }
 
@@ -753,9 +773,12 @@ pub enum MetadataField {
     RuntimeMinutes,
     Tagline,
     Genres,
+    Tags,
     Ratings,
     Images,
     Credits,
+    Collections,
+    Studios,
     ExternalIds,
 }
 
@@ -771,9 +794,12 @@ impl MetadataField {
             Self::RuntimeMinutes => "runtime_minutes",
             Self::Tagline => "tagline",
             Self::Genres => "genres",
+            Self::Tags => "tags",
             Self::Ratings => "ratings",
             Self::Images => "images",
             Self::Credits => "credits",
+            Self::Collections => "collections",
+            Self::Studios => "studios",
             Self::ExternalIds => "external_ids",
         }
     }

@@ -1,5 +1,5 @@
 [package]
-name = "taru-metadata"
+name = "taru-catalog"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,15 +9,11 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-trait.workspace = true
-reqwest.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-taru-catalog = { path = "../taru-catalog" }
+serde = { workspace = true }
 taru-core = { path = "../taru-core" }
 taru-search = { path = "../taru-search" }
-time.workspace = true
 
 [dev-dependencies]
+pollster = { workspace = true }
 taru-db = { path = "../taru-db" }
-tokio.workspace = true
+tokio = { workspace = true }

@@ -79,9 +79,12 @@
       assets in SQLite.
 - [x] Persist artwork task queue records with resource class, status, attempts,
       and max-attempt retry state.
+- [x] Teach metadata providers and NFO import to upsert catalog graph records.
+- [x] Rebuild search projection after metadata refresh and NFO import.
+- [x] Add browse APIs for item detail, credits, images, people, tags, and
+      genres.
 - [ ] Add image proxy/cache routes with etag and variant support.
 - [ ] Add thumbnail and preview-frame generation jobs.
-- [ ] Teach metadata providers and NFO import to upsert catalog graph records.
 
 ## Search
 

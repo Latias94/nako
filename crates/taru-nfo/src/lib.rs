@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
+use taru_catalog::hydrate_item_catalog;
 use taru_core::{
-    CanonicalMetadata, ExternalId, JobId, LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind,
+    CanonicalMetadata, CatalogRepository, Credit, CreditRole, ExternalId, ExternalProvider,
+    ImageKind, ImageRef, JobId, LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind,
     MediaRepository, MediaSource, MediaSourceId, MetadataField, MetadataFieldLock,
     MetadataRepository, MetadataSource, PageRequest, Result, TaruError,
 };
+use taru_search::SearchIndex;
 use taru_vfs::{StorageBackend, StorageUri};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -99,7 +102,7 @@ impl<B, R, C> NfoService<B, R, C> {
 impl<B, R, C> NfoService<B, R, C>
 where
     B: StorageBackend,
-    R: MediaRepository + MetadataRepository,
+    R: CatalogRepository + MediaRepository + MetadataRepository + SearchIndex,
     C: NfoCodec,
 {
     pub async fn discover_sidecars(
@@ -276,6 +279,11 @@ where
         let merged = merge_nfo_metadata(&existing.metadata, &document.metadata, policy, &locks);
         let changed = merged != existing.metadata;
         if !changed && !force {
+            if let Err(err) =
+                hydrate_item_catalog(&self.repository, existing.id, MetadataSource::Nfo).await
+            {
+                return import_failure(&source, err);
+            }
             return NfoImportOutcome::Skipped { discovered: true };
         }
 
@@ -302,6 +310,12 @@ where
                     return import_failure(&source, err);
                 }
             }
+        }
+
+        if let Err(err) =
+            hydrate_item_catalog(&self.repository, updated.id, MetadataSource::Nfo).await
+        {
+            return import_failure(&source, err);
         }
 
         NfoImportOutcome::Imported
@@ -367,6 +381,9 @@ impl NfoCodec for MovieNfoCodec {
             runtime_minutes: optional_tag(xml, "runtime").and_then(|value| value.parse().ok()),
             tagline: optional_tag(xml, "tagline"),
             genres: tags(xml, "genre"),
+            tags: tags(xml, "tag"),
+            images: images_from_nfo(xml),
+            credits: credits_from_nfo(xml),
             ..CanonicalMetadata::default()
         };
 
@@ -395,6 +412,33 @@ impl NfoCodec for MovieNfoCodec {
         push_tag(&mut output, "tagline", metadata.tagline.as_deref());
         for genre in &metadata.genres {
             push_tag(&mut output, "genre", Some(genre));
+        }
+        for tag in &metadata.tags {
+            push_tag(&mut output, "tag", Some(tag));
+        }
+        for credit in &metadata.credits {
+            match &credit.role {
+                CreditRole::Actor => {
+                    output.push_str("  <actor>\n");
+                    push_tag(&mut output, "name", Some(&credit.name));
+                    push_tag(&mut output, "role", credit.character.as_deref());
+                    if let Some(order) = credit.order {
+                        push_tag(&mut output, "order", Some(&order.to_string()));
+                    }
+                    output.push_str("  </actor>\n");
+                }
+                CreditRole::Director => push_tag(&mut output, "director", Some(&credit.name)),
+                CreditRole::Writer => push_tag(&mut output, "writer", Some(&credit.name)),
+                _ => {}
+            }
+        }
+        for image in &metadata.images {
+            match &image.kind {
+                ImageKind::Poster => push_tag(&mut output, "poster", Some(&image.uri)),
+                ImageKind::Backdrop => push_tag(&mut output, "fanart", Some(&image.uri)),
+                ImageKind::Thumbnail => push_tag(&mut output, "thumb", Some(&image.uri)),
+                _ => {}
+            }
         }
 
         output.push_str("</movie>\n");
@@ -540,6 +584,9 @@ fn merge_with_mode(
     if should_replace_list(MetadataField::Genres, &merged.genres, locks, missing_only) {
         merged.genres = incoming.genres.clone();
     }
+    if should_replace_list(MetadataField::Tags, &merged.tags, locks, missing_only) {
+        merged.tags = incoming.tags.clone();
+    }
     if should_replace_list(MetadataField::Ratings, &merged.ratings, locks, missing_only) {
         merged.ratings = incoming.ratings.clone();
     }
@@ -548,6 +595,17 @@ fn merge_with_mode(
     }
     if should_replace_list(MetadataField::Credits, &merged.credits, locks, missing_only) {
         merged.credits = incoming.credits.clone();
+    }
+    if should_replace_list(
+        MetadataField::Collections,
+        &merged.collections,
+        locks,
+        missing_only,
+    ) {
+        merged.collections = incoming.collections.clone();
+    }
+    if should_replace_list(MetadataField::Studios, &merged.studios, locks, missing_only) {
+        merged.studios = incoming.studios.clone();
     }
     if should_replace_list(
         MetadataField::ExternalIds,
@@ -601,6 +659,7 @@ fn is_missing_metadata(item: &MediaItem) -> bool {
         || metadata.release_date.is_none()
         || metadata.runtime_minutes.is_none()
         || metadata.genres.is_empty()
+        || metadata.tags.is_empty()
 }
 
 fn locks_should_be_written(policy: LocalMetadataPolicy) -> bool {
@@ -637,6 +696,9 @@ fn populated_fields(metadata: &CanonicalMetadata) -> Vec<MetadataField> {
     if !metadata.genres.is_empty() {
         fields.push(MetadataField::Genres);
     }
+    if !metadata.tags.is_empty() {
+        fields.push(MetadataField::Tags);
+    }
     if !metadata.ratings.is_empty() {
         fields.push(MetadataField::Ratings);
     }
@@ -645,6 +707,12 @@ fn populated_fields(metadata: &CanonicalMetadata) -> Vec<MetadataField> {
     }
     if !metadata.credits.is_empty() {
         fields.push(MetadataField::Credits);
+    }
+    if !metadata.collections.is_empty() {
+        fields.push(MetadataField::Collections);
+    }
+    if !metadata.studios.is_empty() {
+        fields.push(MetadataField::Studios);
     }
     if !metadata.external_ids.is_empty() {
         fields.push(MetadataField::ExternalIds);
@@ -664,20 +732,122 @@ fn optional_tag(xml: &str, name: &str) -> Option<String> {
 }
 
 fn tags(xml: &str, name: &str) -> Vec<String> {
-    let open = format!("<{name}>");
+    element_blocks(xml, name)
+        .into_iter()
+        .map(|value| unescape_xml(value.trim()))
+        .collect()
+}
+
+fn element_blocks<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
+    let open_prefix = format!("<{name}");
     let close = format!("</{name}>");
     let mut values = Vec::new();
     let mut remaining = xml;
 
-    while let Some((_before, after_open)) = remaining.split_once(&open) {
+    while let Some(open_start) = remaining.find(&open_prefix) {
+        let after_prefix = &remaining[open_start + open_prefix.len()..];
+        let Some(next) = after_prefix.chars().next() else {
+            break;
+        };
+        if next != '>' && !next.is_whitespace() {
+            remaining = after_prefix;
+            continue;
+        }
+        let Some(open_end) = after_prefix.find('>') else {
+            break;
+        };
+        let after_open = &after_prefix[open_end + 1..];
         let Some((value, after_close)) = after_open.split_once(&close) else {
             break;
         };
-        values.push(unescape_xml(value.trim()));
+        values.push(value);
         remaining = after_close;
     }
 
     values
+}
+
+fn credits_from_nfo(xml: &str) -> Vec<Credit> {
+    let mut credits = Vec::new();
+
+    for block in element_blocks(xml, "actor") {
+        let Some(name) = optional_tag(block, "name") else {
+            continue;
+        };
+        credits.push(Credit {
+            name,
+            role: CreditRole::Actor,
+            character: optional_tag(block, "role"),
+            order: optional_tag(block, "order").and_then(|value| value.parse().ok()),
+            external_ids: Vec::new(),
+        });
+    }
+
+    for director in tags(xml, "director") {
+        credits.push(Credit {
+            name: director,
+            role: CreditRole::Director,
+            character: None,
+            order: None,
+            external_ids: Vec::new(),
+        });
+    }
+
+    for writer in tags(xml, "writer") {
+        credits.push(Credit {
+            name: writer,
+            role: CreditRole::Writer,
+            character: None,
+            order: None,
+            external_ids: Vec::new(),
+        });
+    }
+
+    credits
+}
+
+fn images_from_nfo(xml: &str) -> Vec<ImageRef> {
+    let mut images = Vec::new();
+
+    for uri in tags(xml, "poster") {
+        push_nfo_image(&mut images, ImageKind::Poster, uri);
+    }
+    for uri in tags(xml, "thumb") {
+        push_nfo_image(&mut images, ImageKind::Thumbnail, uri);
+    }
+    for block in element_blocks(xml, "fanart") {
+        let thumbs = tags(block, "thumb");
+        if thumbs.is_empty() {
+            push_nfo_image(&mut images, ImageKind::Backdrop, unescape_xml(block.trim()));
+        } else {
+            for uri in thumbs {
+                push_nfo_image(&mut images, ImageKind::Backdrop, uri);
+            }
+        }
+    }
+
+    images
+}
+
+fn push_nfo_image(images: &mut Vec<ImageRef>, kind: ImageKind, uri: String) {
+    let uri = uri.trim();
+
+    if uri.is_empty()
+        || images
+            .iter()
+            .any(|image| image.kind == kind && image.uri == uri)
+    {
+        return;
+    }
+
+    images.push(ImageRef {
+        kind,
+        uri: uri.to_owned(),
+        provider: ExternalProvider::Local,
+        width: None,
+        height: None,
+        language: None,
+    });
 }
 
 fn push_tag(output: &mut String, name: &str, value: Option<&str>) {
@@ -717,10 +887,12 @@ mod tests {
     use std::fs;
 
     use taru_core::{
-        Library, LibraryId, LibraryOptions, LibraryPreset, MediaRepository, TransactionManager,
-        repository::{LibraryRepository, MetadataRepository},
+        Library, LibraryId, LibraryOptions, LibraryPreset, MediaRepository, PageRequest,
+        TransactionManager,
+        repository::{CatalogRepository, LibraryRepository, MetadataRepository},
     };
     use taru_db::SqliteStore;
+    use taru_search::{SearchIndex, SearchQuery};
     use taru_vfs::LocalFsBackend;
 
     use super::*;
@@ -737,6 +909,14 @@ mod tests {
                 runtime_minutes: Some(136),
                 tagline: Some("Welcome to the Real World".to_owned()),
                 genres: vec!["Action".to_owned(), "Science Fiction".to_owned()],
+                tags: vec!["cyberpunk".to_owned()],
+                credits: vec![Credit {
+                    name: "Keanu Reeves".to_owned(),
+                    role: CreditRole::Actor,
+                    character: Some("Neo".to_owned()),
+                    order: Some(0),
+                    external_ids: Vec::new(),
+                }],
                 ..CanonicalMetadata::default()
             },
             external_ids: Vec::new(),
@@ -753,6 +933,8 @@ mod tests {
             parsed.metadata.genres,
             vec!["Action".to_owned(), "Science Fiction".to_owned()]
         );
+        assert_eq!(parsed.metadata.tags, vec!["cyberpunk".to_owned()]);
+        assert_eq!(parsed.metadata.credits[0].name, "Keanu Reeves");
     }
 
     #[tokio::test]
@@ -772,6 +954,14 @@ mod tests {
   <releasedate>1999-03-31</releasedate>
   <runtime>136</runtime>
   <genre>Action</genre>
+  <tag>cyberpunk</tag>
+  <actor>
+    <name>Demo Actor</name>
+    <role>Lead</role>
+    <order>0</order>
+  </actor>
+  <director>Demo Director</director>
+  <poster>local:///Movies/Demo/poster.jpg</poster>
 </movie>
 "#,
         )
@@ -796,6 +986,18 @@ mod tests {
 
         let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
         let locks = store.list_field_locks(item.id).await.unwrap();
+        let people = store.list_people(PageRequest::first_page()).await.unwrap();
+        let tags = store.list_tags(PageRequest::first_page()).await.unwrap();
+        let images = store.list_item_images(item.id).await.unwrap();
+        let hits = store
+            .search(SearchQuery {
+                query: "Demo Actor".to_owned(),
+                facets: vec!["tag:cyberpunk".to_owned()],
+                limit: 10,
+                offset: 0,
+            })
+            .await
+            .unwrap();
 
         assert_eq!(sidecars.len(), 1);
         assert_eq!(
@@ -807,6 +1009,11 @@ mod tests {
         assert_eq!(summary.imported_items, 1);
         assert_eq!(loaded.metadata.title, "NFO Title");
         assert_eq!(loaded.metadata.overview, Some("NFO overview".to_owned()));
+        assert_eq!(loaded.metadata.tags, vec!["cyberpunk"]);
+        assert!(people.iter().any(|person| person.name == "Demo Actor"));
+        assert_eq!(tags[0].name, "cyberpunk");
+        assert_eq!(images[0].source_uri, "local:///Movies/Demo/poster.jpg");
+        assert_eq!(hits[0].item_id, item.id);
         assert!(locks.iter().any(|lock| {
             lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::Nfo
         }));

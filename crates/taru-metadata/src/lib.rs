@@ -5,12 +5,14 @@ use std::{
     fmt,
     sync::Arc,
 };
+use taru_catalog::hydrate_item_catalog;
 use taru_core::{
-    CanonicalMetadata, ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
-    ImageRef, JobId, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataField,
-    MetadataFieldLock, MetadataProfile, MetadataRefreshMode, MetadataRepository,
-    ProviderRawResponse, Result, TaruError,
+    CanonicalMetadata, CatalogRepository, CollectionRef, ContentRating, Credit, CreditRole,
+    ExternalId, ExternalProvider, ImageKind, ImageRef, JobId, MediaItem, MediaItemId, MediaKind,
+    MediaRepository, MetadataField, MetadataFieldLock, MetadataProfile, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, ProviderRawResponse, Result, StudioRef, TaruError,
 };
+use taru_search::SearchIndex;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 const DEFAULT_TMDB_API_BASE_URL: &str = "https://api.themoviedb.org/3";
@@ -254,7 +256,7 @@ impl<R> MetadataStrategyExecutor<R> {
 
 impl<R> MetadataStrategyExecutor<R>
 where
-    R: MediaRepository + MetadataRepository,
+    R: CatalogRepository + MediaRepository + MetadataRepository + SearchIndex,
 {
     pub async fn refresh_item(
         &self,
@@ -284,6 +286,12 @@ where
                     .await
                     {
                         Ok(success) => {
+                            hydrate_item_catalog(
+                                &self.repository,
+                                success.item_id,
+                                MetadataSource::Provider(success.provider.clone()),
+                            )
+                            .await?;
                             attempts.push(MetadataProviderAttempt {
                                 provider: provider_id.clone(),
                                 status: MetadataProviderAttemptStatus::Succeeded,
@@ -372,7 +380,7 @@ impl<P, R> MetadataRefreshService<P, R> {
 impl<P, R> MetadataRefreshService<P, R>
 where
     P: MetadataProvider,
-    R: MediaRepository + MetadataRepository,
+    R: CatalogRepository + MediaRepository + MetadataRepository + SearchIndex,
 {
     pub async fn refresh_item(
         &self,
@@ -403,6 +411,12 @@ where
             refresh_existing_with_provider(&self.provider, &self.repository, &request, &existing)
                 .await
                 .map_err(MetadataProviderRefreshError::into_error)?;
+        hydrate_item_catalog(
+            &self.repository,
+            success.item_id,
+            MetadataSource::Provider(success.provider.clone()),
+        )
+        .await?;
         let attempt = MetadataProviderAttempt {
             provider: self.provider.provider(),
             status: MetadataProviderAttemptStatus::Succeeded,
@@ -711,6 +725,9 @@ impl MetadataMergePolicy {
         if self.should_replace_list(MetadataField::Genres, &existing.genres) {
             merged.genres = incoming.genres.clone();
         }
+        if self.should_replace_list(MetadataField::Tags, &existing.tags) {
+            merged.tags = incoming.tags.clone();
+        }
         if self.should_replace_list(MetadataField::Ratings, &existing.ratings) {
             merged.ratings = incoming.ratings.clone();
         }
@@ -719,6 +736,12 @@ impl MetadataMergePolicy {
         }
         if self.should_replace_list(MetadataField::Credits, &existing.credits) {
             merged.credits = incoming.credits.clone();
+        }
+        if self.should_replace_list(MetadataField::Collections, &existing.collections) {
+            merged.collections = incoming.collections.clone();
+        }
+        if self.should_replace_list(MetadataField::Studios, &existing.studios) {
+            merged.studios = incoming.studios.clone();
         }
         if self.should_replace_list(MetadataField::ExternalIds, &existing.external_ids) {
             merged.external_ids = incoming.external_ids.clone();
@@ -963,6 +986,10 @@ struct TmdbMovieDetails {
     #[serde(default)]
     genres: Vec<TmdbGenre>,
     #[serde(default)]
+    belongs_to_collection: Option<TmdbCollection>,
+    #[serde(default)]
+    production_companies: Vec<TmdbProductionCompany>,
+    #[serde(default)]
     poster_path: Option<String>,
     #[serde(default)]
     backdrop_path: Option<String>,
@@ -980,6 +1007,22 @@ struct TmdbMovieDetails {
 
 #[derive(Debug, Deserialize)]
 struct TmdbGenre {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbCollection {
+    id: u64,
+    name: String,
+    #[serde(default)]
+    poster_path: Option<String>,
+    #[serde(default)]
+    backdrop_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbProductionCompany {
+    id: u64,
     name: String,
 }
 
@@ -1204,6 +1247,27 @@ fn tmdb_movie_details_to_metadata(
         None,
     );
 
+    if let Some(collection) = details.belongs_to_collection.as_ref() {
+        push_image_path(
+            &mut images,
+            ImageKind::Poster,
+            collection.poster_path.as_deref(),
+            image_base_url,
+            None,
+            None,
+            None,
+        );
+        push_image_path(
+            &mut images,
+            ImageKind::Backdrop,
+            collection.backdrop_path.as_deref(),
+            image_base_url,
+            None,
+            None,
+            None,
+        );
+    }
+
     if let Some(tmdb_images) = details.images.as_ref() {
         for image in &tmdb_images.posters {
             push_tmdb_image(&mut images, ImageKind::Poster, image, image_base_url);
@@ -1232,6 +1296,32 @@ fn tmdb_movie_details_to_metadata(
         ratings: ratings_from_release_dates(details.release_dates.as_ref()),
         images,
         credits: credits_from_tmdb(details.credits.unwrap_or_default()),
+        collections: details
+            .belongs_to_collection
+            .into_iter()
+            .filter(|collection| !collection.name.trim().is_empty())
+            .map(|collection| CollectionRef {
+                name: collection.name,
+                overview: None,
+                sort_order: None,
+                external_ids: vec![ExternalId {
+                    provider: ExternalProvider::Tmdb,
+                    value: collection.id.to_string(),
+                }],
+            })
+            .collect(),
+        studios: details
+            .production_companies
+            .into_iter()
+            .filter(|company| !company.name.trim().is_empty())
+            .map(|company| StudioRef {
+                name: company.name,
+                external_ids: vec![ExternalId {
+                    provider: ExternalProvider::Tmdb,
+                    value: company.id.to_string(),
+                }],
+            })
+            .collect(),
         external_ids,
         ..CanonicalMetadata::default()
     }
@@ -1379,10 +1469,11 @@ mod tests {
     };
 
     use taru_core::{
-        Library, LibraryId, LibraryOptions, LibraryPreset, LibraryRepository, MediaRepository,
-        MetadataRepository, MetadataSource, TransactionManager,
+        CatalogRepository, Library, LibraryId, LibraryOptions, LibraryPreset, LibraryRepository,
+        MediaRepository, MetadataRepository, MetadataSource, PageRequest, TransactionManager,
     };
     use taru_db::SqliteStore;
+    use taru_search::{SearchIndex, SearchQuery};
 
     use super::*;
 
@@ -1529,6 +1620,16 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        let genres = store.list_genres(PageRequest::first_page()).await.unwrap();
+        let hits = store
+            .search(SearchQuery {
+                query: "Science Fiction".to_owned(),
+                facets: vec!["genre:Science Fiction".to_owned()],
+                limit: 10,
+                offset: 0,
+            })
+            .await
+            .unwrap();
 
         assert_eq!(summary.provider_key, "603");
         assert_eq!(summary.provider, ExternalProvider::Tmdb);
@@ -1554,6 +1655,8 @@ mod tests {
             vec!["Action".to_owned(), "Science Fiction".to_owned()]
         );
         assert_eq!(raw.body_json, r#"{"id":603,"title":"The Matrix"}"#);
+        assert!(genres.iter().any(|genre| genre.name == "Science Fiction"));
+        assert_eq!(hits[0].item_id, item.id);
         assert_eq!(search_count.load(Ordering::SeqCst), 1);
         assert_eq!(fetch_count.load(Ordering::SeqCst), 1);
     }
@@ -1887,6 +1990,8 @@ mod tests {
               "runtime": 136,
               "tagline": "Welcome to the Real World",
               "genres": [{"id": 28, "name": "Action"}],
+              "belongs_to_collection": {"id": 2344, "name": "The Matrix Collection"},
+              "production_companies": [{"id": 79, "name": "Village Roadshow Pictures"}],
               "poster_path": "/poster.jpg",
               "backdrop_path": "/backdrop.jpg",
               "external_ids": {"imdb_id": "tt0133093"},
@@ -1934,6 +2039,8 @@ mod tests {
         assert!(metadata.credits.iter().any(|credit| {
             credit.name == "Lana Wachowski" && credit.role == CreditRole::Director
         }));
+        assert_eq!(metadata.collections[0].name, "The Matrix Collection");
+        assert_eq!(metadata.studios[0].name, "Village Roadshow Pictures");
         assert!(metadata.external_ids.iter().any(|external_id| {
             external_id.provider == ExternalProvider::Imdb && external_id.value == "tt0133093"
         }));

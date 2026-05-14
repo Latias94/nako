@@ -281,7 +281,35 @@ Exit criteria:
 - Locked local fields survive metadata refresh.
 - NFO export round-trips core fields.
 
-## M4.1: Playback MVP
+## M4.1: Catalog Graph Hydration and Browse API
+
+Outcome: Taru hydrates the normalized catalog graph from metadata refresh and
+NFO import, rebuilds search projection after metadata changes, and exposes the
+first browse API surface needed by future clients.
+
+Deliverables:
+
+- Shared `taru-catalog` hydration module from canonical metadata to graph
+  records.
+- Metadata refresh graph hydration for people, credits, genres, tags,
+  collections, studios, image assets, and search projection.
+- NFO import graph hydration for genres, tags, actors, directors, writers,
+  local artwork references, and search projection.
+- SQLite repository methods for natural-key graph lookup and item reverse
+  lookup by person, tag, and genre.
+- Browse HTTP routes for item detail, item credits/images, people, tags, and
+  genres.
+
+Exit criteria:
+
+- TMDB refresh writes canonical metadata and normalized graph records.
+- NFO import writes canonical metadata and normalized graph records.
+- Search can find metadata-derived people, tags, and genres after refresh or
+  NFO import.
+- Browse routes return graph-linked items through paginated list endpoints.
+- `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
+
+## M4.2: Playback MVP
 
 Outcome: Taru can serve local media through direct play and a minimal HLS
 transcode path.

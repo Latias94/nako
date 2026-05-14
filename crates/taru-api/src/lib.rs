@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
-    MediaSourceId, PageRequest,
+    CollectionItem, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId,
+    JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
+    MediaSourceId, PageRequest, Person, Tag,
 };
 
 pub const API_VERSION: &str = "v1";
@@ -100,6 +101,70 @@ pub struct LibrarySourceResponse {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemsResponse {
+    pub items: Vec<MediaItem>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemDetailResponse {
+    pub item: MediaItem,
+    pub sources: Vec<MediaSource>,
+    pub credits: Vec<ItemCredit>,
+    pub genres: Vec<ItemGenre>,
+    pub tags: Vec<ItemTag>,
+    pub collections: Vec<CollectionItem>,
+    pub studios: Vec<ItemStudio>,
+    pub images: Vec<ImageAsset>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemCreditsResponse {
+    pub item_id: taru_core::MediaItemId,
+    pub credits: Vec<ItemCredit>,
+    pub people: Vec<Person>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ImagesResponse {
+    pub item_id: taru_core::MediaItemId,
+    pub images: Vec<ImageAsset>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PeopleResponse {
+    pub people: Vec<Person>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PersonItemsResponse {
+    pub person: Person,
+    pub items: Vec<MediaItem>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TagsResponse {
+    pub tags: Vec<Tag>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TagItemsResponse {
+    pub tag: Tag,
+    pub items: Vec<MediaItem>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GenreListResponse {
+    pub genres: Vec<Genre>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GenreItemsResponse {
+    pub genre: Genre,
     pub items: Vec<MediaItem>,
     pub page: PageInfo,
 }

@@ -7,7 +7,9 @@ use axum::{
 };
 use serde::Deserialize;
 use taru_api::{API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse};
-use taru_core::{JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, TaruError};
+use taru_core::{
+    GenreId, JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, PersonId, TagId, TaruError,
+};
 use tracing::{error, instrument, warn};
 
 use crate::app::TaruApp;
@@ -21,6 +23,16 @@ pub fn build_router(app: TaruApp) -> Router {
         .route("/libraries/{library_id}/nfo/export", post(export_nfo))
         .route("/libraries/{library_id}/sources", get(list_library_sources))
         .route("/items", get(list_items))
+        .route("/items/{item_id}", get(get_item))
+        .route("/items/{item_id}/credits", get(list_item_credits))
+        .route("/items/{item_id}/images", get(list_item_images))
+        .route("/people", get(list_people))
+        .route("/people/{person_id}", get(get_person))
+        .route("/people/{person_id}/items", get(list_person_items))
+        .route("/tags", get(list_tags))
+        .route("/tags/{tag_id}/items", get(list_tag_items))
+        .route("/genres", get(list_genres))
+        .route("/genres/{genre_id}/items", get(list_genre_items))
         .route("/search", get(search_items))
         .route(
             "/items/{item_id}/metadata/refresh",
@@ -94,6 +106,93 @@ async fn list_items(
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.list_items(page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+async fn get_item(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_item(item_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_item_credits(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_item_credits(item_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_item_images(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_item_images(item_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_people(
+    State(app): State<TaruApp>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_people(page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+async fn get_person(
+    State(app): State<TaruApp>,
+    Path(person_id): Path<PersonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_person(person_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_person_items(
+    State(app): State<TaruApp>,
+    Path(person_id): Path<PersonId>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.list_person_items(person_id, page.try_into()?).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+async fn list_tags(
+    State(app): State<TaruApp>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_tags(page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_tag_items(
+    State(app): State<TaruApp>,
+    Path(tag_id): Path<TagId>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_tag_items(tag_id, page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_genres(
+    State(app): State<TaruApp>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_genres(page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_genre_items(
+    State(app): State<TaruApp>,
+    Path(genre_id): Path<GenreId>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.list_genre_items(genre_id, page.try_into()?).await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -252,8 +351,10 @@ mod tests {
     use serde::de::DeserializeOwned;
     use taru_api::{HealthResponse, JobResponse, LibraryListResponse};
     use taru_core::{
-        CanonicalMetadata, JobId, JobKind, JobStatus, LibraryId, MediaItem, MediaKind,
-        MediaRepository, MediaSourceId,
+        CanonicalMetadata, CatalogRepository, CreditRole, Genre, GenreId, ImageAsset, ImageAssetId,
+        ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus,
+        LibraryId, MediaItem, MediaKind, MediaRepository, MediaSource, MediaSourceId,
+        MetadataSource, Person, PersonId, Tag, TagId,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
@@ -535,6 +636,168 @@ mod tests {
 
         assert_eq!(result.page.returned, 1);
         assert_eq!(result.hits[0].item.id, item.id);
+    }
+
+    #[tokio::test]
+    async fn browse_routes_return_catalog_graph() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            metadata: MetadataConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Browse Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "local:///Browse Demo.mkv".to_owned(),
+            file_name: "Browse Demo.mkv".to_owned(),
+            size_bytes: Some(5),
+            fingerprint: None,
+        };
+        let person = Person {
+            id: PersonId::new(),
+            name: "Demo Actor".to_owned(),
+            sort_name: None,
+            overview: None,
+            external_ids: Vec::new(),
+        };
+        let genre = Genre {
+            id: GenreId::new(),
+            name: "Science Fiction".to_owned(),
+            source: MetadataSource::Nfo,
+        };
+        let tag = Tag {
+            id: TagId::new(),
+            name: "favorite".to_owned(),
+            source: MetadataSource::User,
+        };
+        let image = ImageAsset {
+            id: ImageAssetId::new(),
+            owner: ImageOwner::Item(item.id),
+            kind: ImageKind::Poster,
+            source_uri: "local:///poster.jpg".to_owned(),
+            provider: taru_core::ExternalProvider::Local,
+            cache_uri: None,
+            width: None,
+            height: None,
+            language: None,
+            selected: true,
+            content_hash: None,
+            etag: None,
+        };
+
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+        store.upsert_person(&person).await.unwrap();
+        store
+            .upsert_item_credit(&ItemCredit {
+                item_id: item.id,
+                person_id: person.id,
+                role: CreditRole::Actor,
+                character: Some("Lead".to_owned()),
+                sort_order: Some(0),
+            })
+            .await
+            .unwrap();
+        store.upsert_genre(&genre).await.unwrap();
+        store
+            .upsert_item_genre(&ItemGenre {
+                item_id: item.id,
+                genre_id: genre.id,
+            })
+            .await
+            .unwrap();
+        store.upsert_tag(&tag).await.unwrap();
+        store
+            .upsert_item_tag(&ItemTag {
+                item_id: item.id,
+                tag_id: tag.id,
+            })
+            .await
+            .unwrap();
+        store.upsert_image_asset(&image).await.unwrap();
+        let router = build_router(app);
+
+        let detail = request_json::<taru_api::ItemDetailResponse>(
+            &router,
+            Method::GET,
+            &format!("/items/{}", item.id),
+        )
+        .await;
+        let credits = request_json::<taru_api::ItemCreditsResponse>(
+            &router,
+            Method::GET,
+            &format!("/items/{}/credits", item.id),
+        )
+        .await;
+        let images = request_json::<taru_api::ImagesResponse>(
+            &router,
+            Method::GET,
+            &format!("/items/{}/images", item.id),
+        )
+        .await;
+        let people =
+            request_json::<taru_api::PeopleResponse>(&router, Method::GET, "/people").await;
+        let person_items = request_json::<taru_api::PersonItemsResponse>(
+            &router,
+            Method::GET,
+            &format!("/people/{}/items", person.id),
+        )
+        .await;
+        let tags = request_json::<taru_api::TagsResponse>(&router, Method::GET, "/tags").await;
+        let tag_items = request_json::<taru_api::TagItemsResponse>(
+            &router,
+            Method::GET,
+            &format!("/tags/{}/items", tag.id),
+        )
+        .await;
+        let genres =
+            request_json::<taru_api::GenreListResponse>(&router, Method::GET, "/genres").await;
+        let genre_items = request_json::<taru_api::GenreItemsResponse>(
+            &router,
+            Method::GET,
+            &format!("/genres/{}/items", genre.id),
+        )
+        .await;
+
+        assert_eq!(detail.item.id, item.id);
+        assert_eq!(detail.sources[0].id, source.id);
+        assert_eq!(detail.credits.len(), 1);
+        assert_eq!(credits.people[0].name, "Demo Actor");
+        assert_eq!(images.images[0].id, image.id);
+        assert_eq!(people.people[0].id, person.id);
+        assert_eq!(person_items.items[0].id, item.id);
+        assert_eq!(tags.tags[0].name, "favorite");
+        assert_eq!(tag_items.items[0].id, item.id);
+        assert_eq!(genres.genres[0].name, "Science Fiction");
+        assert_eq!(genre_items.items[0].id, item.id);
     }
 
     #[tokio::test]

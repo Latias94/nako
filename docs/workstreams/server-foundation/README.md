@@ -5,7 +5,7 @@
 Draft. This workstream tracks the first server-side architecture decisions for
 Taru before implementation expands beyond the initial binary crate.
 
-Current implementation focus: [Phase 4.0 Catalog Ingestion Foundation](PHASE4_0_CATALOG_INGESTION_FOUNDATION.md).
+Current implementation focus: [Phase 4.1 Catalog Graph Hydration and Browse API](PHASE4_1_CATALOG_GRAPH_HYDRATION_BROWSE_API.md).
 
 ## Goals
 
@@ -33,6 +33,7 @@ crates/
   taru-core            # domain models, IDs, errors, service traits
   taru-db              # migrations, repositories, transaction boundaries
   taru-library         # library scan, item graph, media source lifecycle
+  taru-catalog         # catalog graph hydration and search projection updates
   taru-naming          # path and filename parsing
   taru-metadata        # TMDB/Douban/Bangumi providers and merge policy
   taru-nfo             # NFO import/export and local metadata source behavior

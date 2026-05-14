@@ -1670,6 +1670,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "taru-catalog"
+version = "0.1.0"
+dependencies = [
+ "pollster",
+ "serde",
+ "taru-core",
+ "taru-db",
+ "taru-search",
+ "tokio",
+]
+
+[[package]]
 name = "taru-core"
 version = "0.1.0"
 dependencies = [
@@ -1739,8 +1751,10 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "taru-catalog",
  "taru-core",
  "taru-db",
+ "taru-search",
  "time",
  "tokio",
 ]
@@ -1759,8 +1773,10 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "serde",
+ "taru-catalog",
  "taru-core",
  "taru-db",
+ "taru-search",
  "taru-vfs",
  "tempfile",
  "tokio",
