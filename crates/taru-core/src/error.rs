@@ -16,6 +16,9 @@ pub enum TaruError {
 
     #[error("storage error at {uri}: {message}")]
     Storage { uri: String, message: String },
+
+    #[error("database error: {message}")]
+    Database { message: String },
 }
 
 pub type Result<T> = std::result::Result<T, TaruError>;
