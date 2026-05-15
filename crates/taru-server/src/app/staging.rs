@@ -1,7 +1,9 @@
+use std::{io::ErrorKind, path::Path};
+
 use async_trait::async_trait;
 use taru_core::{
-    NewStagingManifestRecord, Result, StagingManifestId, StagingManifestRepository, StagingPurpose,
-    StagingState, TaruError,
+    NewStagingManifestRecord, PageRequest, Result, StagingManifestId, StagingManifestRepository,
+    StagingPurpose, StagingState, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_vfs::{
@@ -16,8 +18,10 @@ pub(super) async fn record_staged_input(
     purpose: StagingPurpose,
     uri: &StorageUri,
     staged: &StagedFile,
+    retention_ms: u64,
 ) -> Result<()> {
     let now_ms = current_time_ms()?;
+    let expires_at_ms = staging_expires_at_ms(now_ms, retention_ms)?;
     let local_path = staged.path.display().to_string();
     let existing = store
         .find_staging_manifest_record_by_path(&local_path)
@@ -45,7 +49,7 @@ pub(super) async fn record_staged_input(
             created_at_ms,
             updated_at_ms: now_ms,
             last_accessed_at_ms: now_ms,
-            expires_at_ms: None,
+            expires_at_ms: Some(expires_at_ms),
             active_leases: 0,
             validation_error: None,
         })
@@ -54,11 +58,55 @@ pub(super) async fn record_staged_input(
     Ok(())
 }
 
+pub(super) struct StagingCleanupSummary {
+    pub(super) deleted_records: usize,
+    pub(super) deleted_files: usize,
+}
+
+pub(super) async fn cleanup_expired_staging_inputs(
+    store: &SqliteStore,
+    now_ms: i64,
+) -> Result<StagingCleanupSummary> {
+    let mut summary = StagingCleanupSummary {
+        deleted_records: 0,
+        deleted_files: 0,
+    };
+
+    loop {
+        let candidates = store
+            .list_staging_cleanup_candidates(now_ms, PageRequest::new(100, 0))
+            .await?;
+        if candidates.is_empty() {
+            break;
+        }
+
+        for record in candidates {
+            match tokio::fs::remove_file(Path::new(&record.local_path)).await {
+                Ok(()) => {
+                    summary.deleted_files += 1;
+                }
+                Err(err) if err.kind() == ErrorKind::NotFound => {}
+                Err(err) => {
+                    return Err(TaruError::Storage {
+                        uri: record.local_path,
+                        message: format!("failed to delete expired staged input: {err}"),
+                    });
+                }
+            }
+            store.delete_staging_manifest_record(record.id).await?;
+            summary.deleted_records += 1;
+        }
+    }
+
+    Ok(summary)
+}
+
 pub(super) struct ManifestRecordingStorageBackend {
     inner: Box<dyn StorageBackend>,
     store: SqliteStore,
     purpose: StagingPurpose,
     max_bytes: u64,
+    retention_ms: u64,
 }
 
 impl ManifestRecordingStorageBackend {
@@ -67,12 +115,14 @@ impl ManifestRecordingStorageBackend {
         store: SqliteStore,
         purpose: StagingPurpose,
         max_bytes: u64,
+        retention_ms: u64,
     ) -> Self {
         Self {
             inner,
             store,
             purpose,
             max_bytes,
+            retention_ms,
         }
     }
 
@@ -151,7 +201,26 @@ impl StorageBackend for ManifestRecordingStorageBackend {
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.ensure_budget(&request).await?;
         let staged = self.inner.stage(request).await?;
-        record_staged_input(&self.store, self.purpose, &staged.uri, &staged).await?;
+        record_staged_input(
+            &self.store,
+            self.purpose,
+            &staged.uri,
+            &staged,
+            self.retention_ms,
+        )
+        .await?;
         Ok(staged)
     }
+}
+
+fn staging_expires_at_ms(now_ms: i64, retention_ms: u64) -> Result<i64> {
+    let retention_ms = i64::try_from(retention_ms).map_err(|err| TaruError::InvalidInput {
+        message: format!("staging retention does not fit i64 milliseconds: {err}"),
+    })?;
+
+    now_ms
+        .checked_add(retention_ms)
+        .ok_or_else(|| TaruError::InvalidInput {
+            message: "staging expiration timestamp overflowed".to_owned(),
+        })
 }

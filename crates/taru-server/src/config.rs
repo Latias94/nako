@@ -72,12 +72,18 @@ pub struct WebDavLibraryConfig {
 pub struct StagingConfig {
     #[serde(default = "default_staging_max_bytes")]
     pub max_bytes: u64,
+    #[serde(default = "default_staging_retention_ms")]
+    pub retention_ms: u64,
+    #[serde(default = "default_true")]
+    pub cleanup_on_startup: bool,
 }
 
 impl Default for StagingConfig {
     fn default() -> Self {
         Self {
             max_bytes: default_staging_max_bytes(),
+            retention_ms: default_staging_retention_ms(),
+            cleanup_on_startup: true,
         }
     }
 }
@@ -260,6 +266,14 @@ const fn default_staging_max_bytes() -> u64 {
     100 * 1024 * 1024 * 1024
 }
 
+const fn default_staging_retention_ms() -> u64 {
+    7 * 24 * 60 * 60 * 1_000
+}
+
+const fn default_true() -> bool {
+    true
+}
+
 const fn default_webdav_timeout_ms() -> u64 {
     30_000
 }
@@ -330,6 +344,8 @@ mod tests {
 
             [staging]
             max_bytes = 123456789
+            retention_ms = 86400000
+            cleanup_on_startup = false
 
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
@@ -390,6 +406,8 @@ mod tests {
             TranscodeResourceBudget::new(3, 2)
         );
         assert_eq!(config.staging.max_bytes, 123_456_789);
+        assert_eq!(config.staging.retention_ms, 86_400_000);
+        assert!(!config.staging.cleanup_on_startup);
         assert!(config.metadata.tmdb.enabled);
         assert_eq!(
             config.metadata.tmdb.access_token_env,

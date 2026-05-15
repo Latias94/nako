@@ -158,10 +158,12 @@ Completed:
   recording.
 - M7.2 disk budget wiring with `[staging].max_bytes` and app-side preflight
   checks before remote probe or FFmpeg input staging.
+- M7.2 startup cleanup for expired staged inputs, with active-lease protection.
 
 Recommended next goal:
 
-- continue M7.2 by adding active lease semantics and cleanup policy.
+- continue M7.2 by adding runtime lease acquisition/release, reuse validation,
+  and deciding whether bounded background cleanup is needed.
 
 ### Client and Product Experience: M8+
 

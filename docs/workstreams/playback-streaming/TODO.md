@@ -33,10 +33,11 @@
 - [x] Add disk budget configuration.
 - [x] Enforce disk budget before staging remote inputs.
 - [x] Add budget exhaustion test.
-- [ ] Add startup cleanup.
+- [x] Add startup cleanup.
 - [ ] Add bounded background cleanup worker if needed.
-- [ ] Ensure cleanup does not delete active staged inputs.
-- [ ] Add tests for stale cleanup, reuse, and validation mismatch.
+- [x] Ensure cleanup does not delete active staged inputs.
+- [x] Add stale cleanup test.
+- [ ] Add tests for reuse and validation mismatch.
 
 ## Playback Error Mapping
 

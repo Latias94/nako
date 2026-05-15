@@ -232,7 +232,8 @@ HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
 WebDAV source inputs are staged under `remux_staging_root/inputs` before HLS
 planning.
 Remote input staging is subject to the configured `[staging].max_bytes` disk
-budget.
+budget. Expired staged inputs are cleaned during startup when
+`[staging].cleanup_on_startup` is enabled.
 Segment lines are rewritten to session-scoped URLs:
 
 ```text

@@ -65,7 +65,7 @@ pub(crate) mod playback;
 mod staging;
 
 pub(crate) use playback::DirectPlaySourceBody;
-use staging::ManifestRecordingStorageBackend;
+use staging::{ManifestRecordingStorageBackend, cleanup_expired_staging_inputs};
 
 #[cfg(test)]
 use playback::plan_direct_play_with_backend;
@@ -837,6 +837,16 @@ impl TaruApp {
                 "marked stale transcode sessions failed during startup"
             );
         }
+        if config.staging.cleanup_on_startup {
+            let cleanup = cleanup_expired_staging_inputs(&store, current_time_ms()?).await?;
+            if cleanup.deleted_records > 0 || cleanup.deleted_files > 0 {
+                warn!(
+                    deleted_records = cleanup.deleted_records,
+                    deleted_files = cleanup.deleted_files,
+                    "cleaned expired staged inputs during startup"
+                );
+            }
+        }
 
         let app = Self {
             inner: Arc::new(TaruAppInner {
@@ -1124,6 +1134,7 @@ impl TaruApp {
             self.inner.store.clone(),
             StagingPurpose::FfmpegInput,
             self.config().staging.max_bytes,
+            self.config().staging.retention_ms,
         );
         match local_source_path_and_len(source, &uri, &backend).await {
             Ok((path, _len)) => Ok(path),
@@ -2494,6 +2505,7 @@ impl TaruApp {
             self.inner.store.clone(),
             StagingPurpose::ProbeInput,
             self.config().staging.max_bytes,
+            self.config().staging.retention_ms,
         ));
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
@@ -3034,7 +3046,7 @@ mod tests {
         JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
         MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
         MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
-        StagingManifestRepository, StagingState,
+        NewStagingManifestRecord, StagingManifestId, StagingManifestRepository, StagingState,
     };
     use taru_library::{LibraryScanRequest, LibraryScanner};
     use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus};
@@ -4000,6 +4012,7 @@ mod tests {
             store.clone(),
             StagingPurpose::ProbeInput,
             StagingConfig::default().max_bytes,
+            StagingConfig::default().retention_ms,
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 
@@ -4029,6 +4042,7 @@ mod tests {
         assert_eq!(record.size_bytes, Some(11));
         assert_eq!(record.etag.as_deref(), Some("etag-remote"));
         assert_eq!(record.fingerprint.as_deref(), Some("remote-fingerprint"));
+        assert!(record.expires_at_ms.unwrap() > record.created_at_ms);
     }
 
     #[tokio::test]
@@ -4044,6 +4058,7 @@ mod tests {
             store.clone(),
             StagingPurpose::ProbeInput,
             5,
+            StagingConfig::default().retention_ms,
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
         let staging_root = temp.path().join("probe-inputs");
@@ -4067,6 +4082,103 @@ mod tests {
             .await
             .unwrap();
         assert!(records.is_empty());
+    }
+
+    #[tokio::test]
+    async fn app_startup_cleans_expired_staging_inputs() {
+        let temp = tempfile::tempdir().unwrap();
+        let staged_path = temp
+            .path()
+            .join("cache")
+            .join("remux")
+            .join("probe-inputs")
+            .join("webdav")
+            .join("old.mkv");
+        fs::create_dir_all(staged_path.parent().unwrap()).unwrap();
+        fs::write(&staged_path, b"old").unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let record_id = StagingManifestId::new();
+        store
+            .upsert_staging_manifest_record(staging_manifest_record(
+                record_id,
+                &staged_path,
+                Some(1),
+                0,
+            ))
+            .await
+            .unwrap();
+        let library_id = LibraryId::new();
+
+        let _app = TaruApp::new_with_store(
+            TaruServerConfig {
+                listen_addr: "127.0.0.1:0".parse().unwrap(),
+                database_url: "sqlite::memory:".to_owned(),
+                ffprobe_path: PathBuf::from("ffprobe"),
+                ffmpeg_path: PathBuf::from("ffmpeg"),
+                scan_concurrency: 1,
+                probe_concurrency: 1,
+                metadata_concurrency: 1,
+                remux_concurrency: 1,
+                webhook_concurrency: 2,
+                remux_timeout_ms: 30 * 60 * 1_000,
+                remux_staging_root: temp.path().join("cache").join("remux"),
+                metadata: MetadataConfig::default(),
+                transcode: TranscodeConfig::default(),
+                staging: StagingConfig::default(),
+                library: LocalLibraryConfig {
+                    id: library_id,
+                    name: "Movies".to_owned(),
+                    root: temp.path().join("library"),
+                    preset: taru_core::LibraryPreset::Movies,
+                    webdav: None,
+                },
+            },
+            store.clone(),
+        )
+        .await
+        .unwrap();
+
+        assert!(!staged_path.exists());
+        assert!(
+            store
+                .get_staging_manifest_record(record_id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn staging_cleanup_preserves_active_leases() {
+        let temp = tempfile::tempdir().unwrap();
+        let staged_path = temp.path().join("active.mkv");
+        fs::write(&staged_path, b"active").unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let record_id = StagingManifestId::new();
+        store
+            .upsert_staging_manifest_record(staging_manifest_record(
+                record_id,
+                &staged_path,
+                Some(1),
+                1,
+            ))
+            .await
+            .unwrap();
+
+        let cleanup = cleanup_expired_staging_inputs(&store, 2_000).await.unwrap();
+
+        assert_eq!(cleanup.deleted_records, 0);
+        assert_eq!(cleanup.deleted_files, 0);
+        assert!(staged_path.exists());
+        assert!(
+            store
+                .get_staging_manifest_record(record_id)
+                .await
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -4133,6 +4245,7 @@ mod tests {
         assert_eq!(record.size_bytes, Some(4));
         assert_eq!(record.etag.as_deref(), Some("etag-demo"));
         assert_eq!(record.fingerprint.as_deref(), Some("webdav:etag=etag-demo"));
+        assert!(record.expires_at_ms.unwrap() > record.created_at_ms);
     }
 
     #[tokio::test]
@@ -4205,6 +4318,31 @@ mod tests {
             file_name: "Demo.mkv".to_owned(),
             size_bytes: Some(12),
             fingerprint: Some("remote-fingerprint".to_owned()),
+        }
+    }
+
+    fn staging_manifest_record(
+        id: StagingManifestId,
+        local_path: &Path,
+        expires_at_ms: Option<i64>,
+        active_leases: u32,
+    ) -> NewStagingManifestRecord {
+        NewStagingManifestRecord {
+            id,
+            source_uri: "webdav:///Movies/Demo.mkv".to_owned(),
+            source_scheme: "webdav".to_owned(),
+            purpose: StagingPurpose::ProbeInput,
+            local_path: local_path.display().to_string(),
+            size_bytes: Some(3),
+            etag: Some("etag-staged".to_owned()),
+            fingerprint: Some("fingerprint-staged".to_owned()),
+            state: StagingState::Ready,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            last_accessed_at_ms: 1,
+            expires_at_ms,
+            active_leases,
+            validation_error: None,
         }
     }
 

@@ -86,6 +86,8 @@ gpu_concurrency = 1
 
 [staging]
 max_bytes = 107374182400
+retention_ms = 604800000
+cleanup_on_startup = true
 
 [library]
 id = "018f0000-0000-7000-8000-000000000001"
@@ -133,6 +135,8 @@ remux and HLS inputs are staged under `remux_staging_root/inputs` before FFmpeg
 is invoked. Direct play streams WebDAV ranges through `taru-vfs` into the HTTP
 response body. `[staging].max_bytes` limits the total manifest-tracked remote
 input staging bytes before new probe or FFmpeg input staging starts.
+`[staging].retention_ms` controls when staged inputs become startup cleanup
+candidates.
 
 Runtime notes:
 
@@ -147,6 +151,9 @@ Runtime notes:
   uses children below this root.
 - `[staging].max_bytes` bounds manifest-tracked remote probe and FFmpeg input
   staging. The default is 100 GiB.
+- `[staging].retention_ms` defaults to 7 days, and
+  `[staging].cleanup_on_startup` removes expired staged input files and manifest
+  records during startup.
 - `[transcode].cpu_concurrency` and `[transcode].gpu_concurrency` bound HLS
   transcode sessions by selected acceleration class.
 
