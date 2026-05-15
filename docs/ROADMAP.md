@@ -69,7 +69,7 @@ Future playback work:
 
 ### Extension and Automation: M5
 
-Status: active, completed through M5.1 event outbox foundation.
+Status: active, completed through M5.2 webhook delivery worker.
 
 This phase turns the early architectural decisions into a usable external
 surface:
@@ -89,10 +89,13 @@ Completed:
 - M5.1 event outbox foundation with domain event records, SQLite persistence,
   repository boundary, idempotent enqueue behavior, and write points from scan,
   metadata, NFO, and playback session completion.
+- M5.2 webhook delivery worker with endpoint configuration, delivery attempts,
+  signed webhook envelopes, retry/backoff state, `webhook_concurrency`
+  budgeting, explicit event dispatch, and delivery inspection APIs.
 
 Recommended next goal:
 
-- M5.2 webhook delivery worker.
+- M5.3 automation job model.
 
 ### Remote Storage and VFS Expansion: M6
 

@@ -28,6 +28,8 @@ pub struct TaruServerConfig {
     pub metadata_concurrency: usize,
     #[serde(default = "default_remux_concurrency")]
     pub remux_concurrency: usize,
+    #[serde(default = "default_webhook_concurrency")]
+    pub webhook_concurrency: usize,
     #[serde(default = "default_remux_timeout_ms")]
     pub remux_timeout_ms: u64,
     #[serde(default = "default_remux_staging_root")]
@@ -149,6 +151,7 @@ pub fn example_config() -> Result<String> {
         probe_concurrency: default_probe_concurrency(),
         metadata_concurrency: default_metadata_concurrency(),
         remux_concurrency: default_remux_concurrency(),
+        webhook_concurrency: default_webhook_concurrency(),
         remux_timeout_ms: default_remux_timeout_ms(),
         remux_staging_root: default_remux_staging_root(),
         metadata: MetadataConfig::default(),
@@ -201,6 +204,10 @@ const fn default_metadata_concurrency() -> usize {
 
 const fn default_remux_concurrency() -> usize {
     1
+}
+
+const fn default_webhook_concurrency() -> usize {
+    2
 }
 
 const fn default_remux_timeout_ms() -> u64 {
@@ -257,6 +264,7 @@ mod tests {
             probe_concurrency = 3
             metadata_concurrency = 4
             remux_concurrency = 2
+            webhook_concurrency = 3
             remux_timeout_ms = 60000
             remux_staging_root = "F:/Taru/cache/remux"
 
@@ -289,6 +297,7 @@ mod tests {
         assert_eq!(config.probe_concurrency, 3);
         assert_eq!(config.metadata_concurrency, 4);
         assert_eq!(config.remux_concurrency, 2);
+        assert_eq!(config.webhook_concurrency, 3);
         assert_eq!(config.remux_timeout_ms, 60_000);
         assert_eq!(
             config.remux_staging_root,
@@ -362,6 +371,7 @@ mod tests {
         assert_eq!(config.probe_concurrency, 2);
         assert_eq!(config.metadata_concurrency, 2);
         assert_eq!(config.remux_concurrency, 1);
+        assert_eq!(config.webhook_concurrency, 2);
         assert_eq!(config.remux_timeout_ms, 30 * 60 * 1_000);
         assert_eq!(config.remux_staging_root, PathBuf::from("taru-cache/remux"));
         assert_eq!(

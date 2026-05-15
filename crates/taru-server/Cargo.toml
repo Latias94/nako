@@ -19,6 +19,7 @@ taru-core = { path = "../taru-core" }
 taru-library = { path = "../taru-library" }
 taru-media-probe = { path = "../taru-media-probe" }
 taru-metadata = { path = "../taru-metadata" }
+taru-events = { path = "../taru-events" }
 taru-nfo = { path = "../taru-nfo" }
 taru-search = { path = "../taru-search" }
 taru-streaming = { path = "../taru-streaming" }

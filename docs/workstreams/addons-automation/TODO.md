@@ -23,13 +23,13 @@
 
 ## Webhooks
 
-- [ ] Define webhook endpoint configuration and secret references.
-- [ ] Define webhook event envelope and versioning.
-- [ ] Define webhook signature format.
-- [ ] Add delivery attempt persistence.
-- [ ] Add bounded webhook worker with timeout, retry, and backoff.
-- [ ] Add safe error mapping and delivery inspection API/CLI.
-- [ ] Add mocked webhook delivery tests.
+- [x] Define webhook endpoint configuration and secret references.
+- [x] Define webhook event envelope and versioning.
+- [x] Define webhook signature format.
+- [x] Add delivery attempt persistence.
+- [x] Add bounded webhook worker with timeout, retry, and backoff.
+- [x] Add safe error mapping and delivery inspection API/CLI.
+- [x] Add mocked webhook delivery tests.
 
 ## Automation
 

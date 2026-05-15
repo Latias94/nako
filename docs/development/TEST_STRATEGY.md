@@ -65,6 +65,9 @@ Server tests:
   restart reuse
 - hardware acceleration policy, fallback behavior, CPU/GPU budget selection,
   and FFmpeg argument planning without requiring real GPU hardware
+- webhook endpoint and delivery-attempt persistence
+- webhook signing, failed retry state, mocked local webhook receiver delivery,
+  and HTTP configuration/inspection routes
 
 ## Gates
 
@@ -106,6 +109,5 @@ Remote storage:
 Addons and automation:
 
 - addon manifest validation
-- timeout and retry policy
 - authentication failure mapping
 - secret-reference handling without plaintext leakage

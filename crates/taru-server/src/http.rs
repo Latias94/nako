@@ -11,11 +11,11 @@ use axum::{
 use serde::Deserialize;
 use taru_api::{
     API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse,
-    TranscodeSessionResponse,
+    TranscodeSessionResponse, UpsertWebhookEndpointRequest,
 };
 use taru_core::{
-    GenreId, JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, PersonId, TagId, TaruError,
-    TranscodeSessionId,
+    EventId, GenreId, JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, PersonId, TagId,
+    TaruError, TranscodeSessionId, WebhookEndpointId,
 };
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -74,6 +74,22 @@ pub fn build_router(app: TaruApp) -> Router {
         .route(
             "/playback/sessions/{session_id}/hls/segments/{segment_name}",
             get(hls_segment),
+        )
+        .route(
+            "/webhooks/endpoints",
+            get(list_webhook_endpoints).post(upsert_webhook_endpoint),
+        )
+        .route(
+            "/webhooks/endpoints/{endpoint_id}",
+            get(get_webhook_endpoint),
+        )
+        .route(
+            "/events/{event_id}/webhook-attempts",
+            get(list_webhook_delivery_attempts),
+        )
+        .route(
+            "/events/{event_id}/webhooks/deliver",
+            post(deliver_webhooks_for_event),
         )
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
@@ -425,6 +441,43 @@ async fn get_playback_session(
     )))
 }
 
+#[instrument(skip(app))]
+async fn upsert_webhook_endpoint(
+    State(app): State<TaruApp>,
+    Json(request): Json<UpsertWebhookEndpointRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.upsert_webhook_endpoint(request).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_webhook_endpoints(State(app): State<TaruApp>) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_enabled_webhook_endpoints().await?))
+}
+
+#[instrument(skip(app))]
+async fn get_webhook_endpoint(
+    State(app): State<TaruApp>,
+    Path(endpoint_id): Path<WebhookEndpointId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_webhook_endpoint(endpoint_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_webhook_delivery_attempts(
+    State(app): State<TaruApp>,
+    Path(event_id): Path<EventId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_webhook_delivery_attempts(event_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn deliver_webhooks_for_event(
+    State(app): State<TaruApp>,
+    Path(event_id): Path<EventId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.deliver_webhooks_for_event(event_id).await?))
+}
+
 type ApiResult<T> = std::result::Result<T, ApiError>;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -677,15 +730,20 @@ mod tests {
         body::{Body, to_bytes},
         http::{Method, Request, header},
     };
-    use serde::de::DeserializeOwned;
-    use taru_api::{HealthResponse, JobResponse, LibraryListResponse, TranscodeSessionResponse};
+    use serde::{Serialize, de::DeserializeOwned};
+    use taru_api::{
+        HealthResponse, JobResponse, LibraryListResponse, TranscodeSessionResponse,
+        WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
+    };
     use taru_core::{
-        CanonicalMetadata, CatalogRepository, CreditRole, Genre, GenreId, ImageAsset, ImageAssetId,
-        ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus,
-        LibraryId, MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-        MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource,
+        CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject,
+        EventId, EventOutboxRepository, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+        ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus, LibraryId,
+        MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
+        MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource, NewOutboxEvent,
         NewTranscodeSession, Person, PersonId, Tag, TagId, TranscodeSessionId,
         TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
+        WebhookEndpointStatus,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
@@ -709,6 +767,125 @@ mod tests {
         assert_eq!(health.status, "ok");
         assert_eq!(libraries.libraries.len(), 1);
         assert_eq!(libraries.libraries[0].id, library_id);
+    }
+
+    #[tokio::test]
+    async fn webhook_endpoint_routes_validate_and_list_enabled_endpoints() {
+        let temp = tempfile::tempdir().unwrap();
+        let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+        let response = request_body_json::<WebhookEndpointResponse, _>(
+            &router,
+            Method::POST,
+            "/webhooks/endpoints",
+            &UpsertWebhookEndpointRequest {
+                id: None,
+                name: "receiver".to_owned(),
+                url: "https://example.test/taru-webhook".to_owned(),
+                secret_env: Some("TARU_WEBHOOK_SECRET".to_owned()),
+                subscribed_event_kinds: vec![DomainEventKind::LibraryScanned.as_str().to_owned()],
+                timeout_ms: Some(5_000),
+                max_attempts: Some(3),
+                status: WebhookEndpointStatus::Enabled,
+            },
+        )
+        .await;
+
+        assert_eq!(response.endpoint.name, "receiver");
+        assert_eq!(
+            response.endpoint.secret_env,
+            Some("TARU_WEBHOOK_SECRET".to_owned())
+        );
+
+        let list =
+            request_json::<WebhookEndpointsResponse>(&router, Method::GET, "/webhooks/endpoints")
+                .await;
+        assert_eq!(list.endpoints, vec![response.endpoint.clone()]);
+
+        let detail_path = format!("/webhooks/endpoints/{}", response.endpoint.id);
+        let detail =
+            request_json::<WebhookEndpointResponse>(&router, Method::GET, &detail_path).await;
+        assert_eq!(detail, response);
+
+        let invalid = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/webhooks/endpoints")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&UpsertWebhookEndpointRequest {
+                            id: None,
+                            name: "bad".to_owned(),
+                            url: "file:///tmp/webhook".to_owned(),
+                            secret_env: None,
+                            subscribed_event_kinds: vec![
+                                DomainEventKind::LibraryScanned.as_str().to_owned(),
+                            ],
+                            timeout_ms: Some(5_000),
+                            max_attempts: Some(3),
+                            status: WebhookEndpointStatus::Enabled,
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn webhook_attempt_route_lists_attempts_for_existing_event() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(
+            TaruServerConfig {
+                listen_addr: "127.0.0.1:0".parse().unwrap(),
+                database_url: "sqlite::memory:".to_owned(),
+                ffprobe_path: PathBuf::from("ffprobe"),
+                ffmpeg_path: PathBuf::from("ffmpeg"),
+                scan_concurrency: 1,
+                probe_concurrency: 1,
+                metadata_concurrency: 1,
+                remux_concurrency: 1,
+                webhook_concurrency: 2,
+                remux_timeout_ms: 30 * 60 * 1_000,
+                remux_staging_root: temp.path().join("taru-cache").join("remux"),
+                metadata: MetadataConfig::default(),
+                transcode: TranscodeConfig::default(),
+                library: LocalLibraryConfig {
+                    id: library_id,
+                    name: "Movies".to_owned(),
+                    root: temp.path().to_path_buf(),
+                    preset: taru_core::LibraryPreset::Movies,
+                },
+            },
+            store.clone(),
+        )
+        .await
+        .unwrap();
+        let event = store
+            .enqueue_outbox_event(NewOutboxEvent {
+                id: EventId::new(),
+                kind: DomainEventKind::LibraryScanned,
+                subject: DomainEventSubject::Library(library_id),
+                library_id: Some(library_id),
+                source_id: None,
+                idempotency_key: format!("library.scanned:{library_id}"),
+                payload_json: format!(r#"{{"library_id":"{library_id}"}}"#),
+            })
+            .await
+            .unwrap();
+        let router = build_router(app);
+        let path = format!("/events/{}/webhook-attempts", event.id);
+
+        let attempts =
+            request_json::<WebhookDeliveryAttemptsResponse>(&router, Method::GET, &path).await;
+
+        assert_eq!(attempts.event_id, event.id);
+        assert!(attempts.attempts.is_empty());
     }
 
     #[tokio::test]
@@ -834,6 +1011,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
@@ -934,6 +1112,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -994,6 +1173,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -1162,6 +1342,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -1712,6 +1893,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -1782,6 +1964,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: staging_root.clone(),
             metadata: MetadataConfig::default(),
@@ -1853,6 +2036,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: staging_root,
             metadata: MetadataConfig::default(),
@@ -2039,6 +2223,7 @@ mod tests {
             probe_concurrency: 1,
             metadata_concurrency: 1,
             remux_concurrency: 1,
+            webhook_concurrency: 2,
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: root.join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -2066,6 +2251,28 @@ mod tests {
                     .method(method)
                     .uri(uri)
                     .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        body_json(response).await
+    }
+
+    async fn request_body_json<T, B>(router: &Router, method: Method, uri: &str, body: &B) -> T
+    where
+        T: DeserializeOwned,
+        B: Serialize,
+    {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(body).unwrap()))
                     .unwrap(),
             )
             .await

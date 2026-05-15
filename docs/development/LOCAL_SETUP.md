@@ -74,6 +74,7 @@ scan_concurrency = 1
 probe_concurrency = 2
 metadata_concurrency = 2
 remux_concurrency = 1
+webhook_concurrency = 2
 remux_timeout_ms = 1800000
 remux_staging_root = "F:/Taru/cache/remux"
 
@@ -103,6 +104,7 @@ Runtime notes:
 - `probe_concurrency` bounds ffprobe work.
 - `metadata_concurrency` bounds provider/NFO metadata jobs.
 - `remux_concurrency` bounds copy-remux FFmpeg sessions.
+- `webhook_concurrency` bounds explicit webhook dispatch attempts.
 - `remux_timeout_ms` bounds one remux or HLS FFmpeg process.
 - `remux_staging_root` stores staged remux outputs; HLS outputs are staged
   below `remux_staging_root/hls`.

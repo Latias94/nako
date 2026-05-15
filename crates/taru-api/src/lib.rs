@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    CollectionItem, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId,
-    JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
-    MediaSourceId, PageRequest, Person, Tag, TranscodeSessionRecord,
+    CollectionItem, EventId, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job,
+    JobId, JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
+    MediaSourceId, OutboxEventRecord, PageRequest, Person, Tag, TranscodeSessionRecord,
+    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use taru_streaming::PlaybackDecision;
 
@@ -205,4 +206,43 @@ pub struct SearchItemHit {
 pub struct SourceProbeResponse {
     pub source_id: MediaSourceId,
     pub probe: MediaProbeResult,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UpsertWebhookEndpointRequest {
+    pub id: Option<WebhookEndpointId>,
+    pub name: String,
+    pub url: String,
+    pub secret_env: Option<String>,
+    pub subscribed_event_kinds: Vec<String>,
+    pub timeout_ms: Option<u64>,
+    pub max_attempts: Option<u32>,
+    pub status: WebhookEndpointStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WebhookEndpointResponse {
+    pub endpoint: WebhookEndpointRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WebhookEndpointsResponse {
+    pub endpoints: Vec<WebhookEndpointRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WebhookDeliveryAttemptsResponse {
+    pub event_id: EventId,
+    pub attempts: Vec<WebhookDeliveryAttemptRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WebhookDispatchResponse {
+    pub event: OutboxEventRecord,
+    pub attempted_endpoints: u32,
+    pub delivered: u32,
+    pub failed: u32,
+    pub skipped_endpoints: u32,
+    pub attempts: Vec<WebhookDeliveryAttemptRecord>,
+    pub errors: Vec<String>,
 }

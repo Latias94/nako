@@ -16,6 +16,7 @@ Top-level tracking:
 - [ADR 0015: capability-scoped addons and providers](../../adr/0015-capability-scoped-http-addons-and-automation-providers.md)
 - [Phase 5.0 design baseline](PHASE5_0_EXTENSION_AUTOMATION_DESIGN_BASELINE.md)
 - [Phase 5.1 event outbox foundation](PHASE5_1_EVENT_OUTBOX_FOUNDATION.md)
+- [Phase 5.2 webhook delivery worker](PHASE5_2_WEBHOOK_DELIVERY_WORKER.md)
 
 ## Goals
 

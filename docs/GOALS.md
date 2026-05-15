@@ -191,7 +191,7 @@ Evidence:
 
 ### M5: Extension and Automation Surface
 
-Status: active, completed through M5.1 event outbox foundation.
+Status: active, completed through M5.2 webhook delivery worker.
 
 Implement webhook outbox, automation jobs, addon manifest schema, and one
 reference addon. Keep AI-like experience improvements as explicit external
@@ -234,16 +234,32 @@ Evidence for M5.1:
 - Tests cover outbox persistence, idempotency, and payload safety constraints
   against plaintext secrets and raw local paths.
 
+Evidence for M5.2:
+
+- `taru-core` defines webhook endpoint configuration, delivery attempt records,
+  statuses, and `WebhookRepository`.
+- `taru-db` migration `0010_webhooks.sql` persists webhook endpoints and
+  delivery attempts with per-event inspection.
+- `taru-events` builds versioned webhook envelopes, signs payloads with
+  HMAC-SHA256, enforces request timeouts, records failed attempts with retry
+  timestamps, and provides a `reqwest` transport.
+- `taru-server` exposes webhook endpoint configuration/inspection, per-event
+  delivery-attempt inspection, explicit outbox event dispatch, and
+  `webhook_concurrency` resource budgeting.
+- Tests cover SQLite persistence, signed success delivery, failed retry state,
+  real transport delivery to a mocked local webhook server, and HTTP
+  configuration/inspection routes.
+
 ## Recommended Next Implementation Goal
 
-### M5.2: Webhook Delivery Worker
+### M5.3: Automation Job Model
 
 Status: proposed.
 
-Implement webhook endpoint configuration, delivery attempts, bounded dispatch,
-retry/backoff state, signing policy, safe error mapping, and delivery
-inspection. Delivery should consume the event outbox; domain workflows must not
-call webhook HTTP endpoints inline.
+Implement external API-key backed automation jobs for recommendation, metadata
+cleanup, summaries, title matching, and suggestion/artifact persistence. Keep
+generated results auditable and avoid mutating canonical metadata without an
+explicit acceptance policy.
 
 ## Later Goals
 

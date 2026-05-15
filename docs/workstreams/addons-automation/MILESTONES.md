@@ -50,6 +50,8 @@ Exit criteria:
 Outcome: Taru can deliver selected outbox events to configured webhook
 endpoints through bounded workers.
 
+Status: completed.
+
 Deliverables:
 
 - Webhook endpoint configuration and secret reference model.

@@ -3,9 +3,10 @@
 ## Scope
 
 This document describes the current server API contract for the local
-video-library playback MVP. It is not a complete OpenAPI specification yet,
-but it fixes response shapes, pagination rules, job envelopes, playback
-session envelopes, and error envelopes for current server routes.
+video-library playback MVP plus the first extension/automation surface. It is
+not a complete OpenAPI specification yet, but it fixes response shapes,
+pagination rules, job envelopes, playback session envelopes, webhook
+inspection envelopes, and error envelopes for current server routes.
 
 ## Base Rules
 
@@ -135,6 +136,11 @@ GET  /sources/{source_id}/stream/remux
 GET  /sources/{source_id}/stream/hls/playlist.m3u8
 GET  /playback/sessions/{session_id}
 GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
+POST /webhooks/endpoints
+GET  /webhooks/endpoints
+GET  /webhooks/endpoints/{endpoint_id}
+GET  /events/{event_id}/webhook-attempts
+POST /events/{event_id}/webhooks/deliver
 GET  /jobs/{job_id}
 ```
 
@@ -221,6 +227,55 @@ generated HLS segment for a finished HLS session. Segment names are constrained
 to the session output directory. Missing segments return `404 not_found`.
 Segments requested for a non-HLS session return `400 invalid_input`. Segments
 requested before the HLS session reaches `finished` return `409 conflict`.
+
+## Webhook Routes
+
+`POST /webhooks/endpoints` upserts a webhook endpoint. Request bodies use
+secret references, not plaintext secrets:
+
+```json
+{
+  "id": null,
+  "name": "receiver",
+  "url": "https://example.test/taru-webhook",
+  "secret_env": "TARU_WEBHOOK_SECRET",
+  "subscribed_event_kinds": ["library.scanned"],
+  "timeout_ms": 5000,
+  "max_attempts": 3,
+  "status": "enabled"
+}
+```
+
+`subscribed_event_kinds` accepts known event kind strings or `"*"`. The initial
+event kinds are `library.scanned`, `item.metadata_refreshed`, `nfo.imported`,
+`nfo.exported`, and `playback.session_finished`.
+
+Webhook endpoint responses return the persisted endpoint record, including
+`secret_env`, but never the resolved secret value.
+
+`GET /webhooks/endpoints` lists enabled endpoints. `GET
+/webhooks/endpoints/{endpoint_id}` returns one endpoint or `404 not_found`.
+
+`POST /events/{event_id}/webhooks/deliver` explicitly dispatches one persisted
+outbox event to enabled endpoints whose subscriptions match the event kind. It
+returns the outbox event, delivery counters, created attempts, skipped endpoint
+count, and safe per-endpoint errors when dispatch fails before an attempt can
+be recorded.
+
+Webhook delivery bodies use a versioned JSON envelope and include these
+headers:
+
+```text
+content-type: application/json
+x-taru-event-id: <event id>
+x-taru-event-kind: <event kind>
+x-taru-signature: sha256=<hmac hex>  # present when secret_env is configured
+```
+
+`GET /events/{event_id}/webhook-attempts` returns all recorded delivery
+attempts for one event. Attempts include endpoint ID, attempt number, status,
+HTTP status when available, safe error text, requested/completed timestamps,
+and `next_retry_at` for retryable failures.
 
 ## Playback Error Summary
 

@@ -5,6 +5,7 @@ pub mod job;
 pub mod media;
 pub mod repository;
 pub mod session;
+pub mod webhook;
 
 pub use error::{Result, TaruError};
 pub use event::*;
@@ -13,3 +14,4 @@ pub use job::*;
 pub use media::*;
 pub use repository::*;
 pub use session::*;
+pub use webhook::*;

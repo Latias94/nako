@@ -13,11 +13,14 @@ use taru_core::{
     LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId, MediaKind,
     MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
     MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository,
-    MetadataSource, NewJob, NewOutboxEvent, NewTranscodeSession, OutboxEventRecord,
-    OutboxEventStatus, PageRequest, Person, PersonId, ProviderRawResponse, Result, ScanRepository,
-    ScanSnapshot, ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag, TagId, TaruError,
-    TransactionManager, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
+    MetadataSource, NewJob, NewOutboxEvent, NewTranscodeSession, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus, PageRequest, Person, PersonId,
+    ProviderRawResponse, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
+    SourceState, Studio, StudioId, Tag, TagId, TaruError, TransactionManager,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState, WebhookDeliveryAttemptId,
+    WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
+    WebhookEndpointStatus, WebhookRepository,
 };
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
@@ -54,6 +57,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0009_event_outbox",
         include_str!("../migrations/0009_event_outbox.sql"),
+    ),
+    (
+        "0010_webhooks",
+        include_str!("../migrations/0010_webhooks.sql"),
     ),
 ];
 
@@ -1001,6 +1008,211 @@ impl EventOutboxRepository for SqliteStore {
         .map_err(database_error)?;
 
         rows.into_iter().map(row_to_outbox_event).collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl WebhookRepository for SqliteStore {
+    async fn upsert_webhook_endpoint(
+        &self,
+        endpoint: NewWebhookEndpoint,
+    ) -> Result<WebhookEndpointRecord> {
+        let event_kinds_json =
+            serde_json::to_string(&endpoint.subscribed_event_kinds).map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO webhook_endpoints (
+                id,
+                name,
+                url,
+                secret_env,
+                subscribed_event_kinds_json,
+                timeout_ms,
+                max_attempts,
+                status
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                url = excluded.url,
+                secret_env = excluded.secret_env,
+                subscribed_event_kinds_json = excluded.subscribed_event_kinds_json,
+                timeout_ms = excluded.timeout_ms,
+                max_attempts = excluded.max_attempts,
+                status = excluded.status,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(endpoint.id.to_string())
+        .bind(&endpoint.name)
+        .bind(&endpoint.url)
+        .bind(&endpoint.secret_env)
+        .bind(event_kinds_json)
+        .bind(u64_to_i64(endpoint.timeout_ms)?)
+        .bind(u32_to_i64(endpoint.max_attempts))
+        .bind(endpoint.status.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_webhook_endpoint(endpoint.id)
+            .await?
+            .ok_or_else(|| TaruError::Database {
+                message: format!(
+                    "webhook endpoint {} was not found after upsert",
+                    endpoint.id
+                ),
+            })
+    }
+
+    async fn get_webhook_endpoint(
+        &self,
+        id: WebhookEndpointId,
+    ) -> Result<Option<WebhookEndpointRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                name,
+                url,
+                secret_env,
+                subscribed_event_kinds_json,
+                timeout_ms,
+                max_attempts,
+                status,
+                created_at,
+                updated_at
+            FROM webhook_endpoints
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_webhook_endpoint).transpose()
+    }
+
+    async fn list_enabled_webhook_endpoints(&self) -> Result<Vec<WebhookEndpointRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                name,
+                url,
+                secret_env,
+                subscribed_event_kinds_json,
+                timeout_ms,
+                max_attempts,
+                status,
+                created_at,
+                updated_at
+            FROM webhook_endpoints
+            WHERE status = ?1
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )
+        .bind(WebhookEndpointStatus::Enabled.as_str())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_webhook_endpoint).collect()
+    }
+
+    async fn create_webhook_delivery_attempt(
+        &self,
+        attempt: NewWebhookDeliveryAttempt,
+    ) -> Result<WebhookDeliveryAttemptRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO webhook_delivery_attempts (
+                id,
+                endpoint_id,
+                event_id,
+                attempt_number,
+                status
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+        )
+        .bind(attempt.id.to_string())
+        .bind(attempt.endpoint_id.to_string())
+        .bind(attempt.event_id.to_string())
+        .bind(u32_to_i64(attempt.attempt_number))
+        .bind(WebhookDeliveryStatus::Pending.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_webhook_delivery_attempt_or_not_found(attempt.id)
+            .await
+    }
+
+    async fn set_webhook_delivery_attempt_result(
+        &self,
+        id: WebhookDeliveryAttemptId,
+        status: WebhookDeliveryStatus,
+        http_status: Option<u16>,
+        error: Option<String>,
+        next_retry_at: Option<String>,
+    ) -> Result<WebhookDeliveryAttemptRecord> {
+        sqlx::query(
+            r#"
+            UPDATE webhook_delivery_attempts
+            SET
+                status = ?2,
+                http_status = ?3,
+                error = ?4,
+                completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                next_retry_at = ?5
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(status.as_str())
+        .bind(http_status.map(i64::from))
+        .bind(error)
+        .bind(next_retry_at)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_webhook_delivery_attempt_or_not_found(id).await
+    }
+
+    async fn list_webhook_delivery_attempts(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<WebhookDeliveryAttemptRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                endpoint_id,
+                event_id,
+                attempt_number,
+                status,
+                http_status,
+                error,
+                requested_at,
+                completed_at,
+                next_retry_at
+            FROM webhook_delivery_attempts
+            WHERE event_id = ?1
+            ORDER BY attempt_number ASC, requested_at ASC, id ASC
+            "#,
+        )
+        .bind(event_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_webhook_delivery_attempt)
+            .collect()
     }
 }
 
@@ -2659,6 +2871,40 @@ impl SqliteStore {
             })
     }
 
+    async fn get_webhook_delivery_attempt_or_not_found(
+        &self,
+        id: WebhookDeliveryAttemptId,
+    ) -> Result<WebhookDeliveryAttemptRecord> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                endpoint_id,
+                event_id,
+                attempt_number,
+                status,
+                http_status,
+                error,
+                requested_at,
+                completed_at,
+                next_retry_at
+            FROM webhook_delivery_attempts
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_webhook_delivery_attempt)
+            .transpose()?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "webhook_delivery_attempt",
+                id: id.to_string(),
+            })
+    }
+
     async fn rows_to_media_items(&self, rows: Vec<SqliteRow>) -> Result<Vec<MediaItem>> {
         let mut items = Vec::with_capacity(rows.len());
 
@@ -2986,6 +3232,12 @@ fn optional_i64_to_u64(value: Option<i64>) -> Result<Option<u64>> {
         .transpose()
 }
 
+fn i64_to_u64(value: i64) -> Result<u64> {
+    u64::try_from(value).map_err(|err| TaruError::Database {
+        message: format!("negative SQLite integer cannot be converted to u64: {err}"),
+    })
+}
+
 fn optional_u32_to_i64(value: Option<u32>) -> Option<i64> {
     value.map(i64::from)
 }
@@ -3028,6 +3280,16 @@ fn i64_to_u32(value: i64) -> Result<u32> {
     u32::try_from(value).map_err(|err| TaruError::Database {
         message: format!("SQLite integer cannot be converted to u32: {err}"),
     })
+}
+
+fn optional_i64_to_u16(value: Option<i64>) -> Result<Option<u16>> {
+    value
+        .map(|value| {
+            u16::try_from(value).map_err(|err| TaruError::Database {
+                message: format!("SQLite integer cannot be converted to u16: {err}"),
+            })
+        })
+        .transpose()
 }
 
 fn row_to_library(row: SqliteRow) -> Result<Library> {
@@ -3145,6 +3407,40 @@ fn row_to_outbox_event(row: SqliteRow) -> Result<OutboxEventRecord> {
         occurred_at: row_get(&row, "occurred_at")?,
         updated_at: row_get(&row, "updated_at")?,
         next_attempt_at: row_get(&row, "next_attempt_at")?,
+    })
+}
+
+fn row_to_webhook_endpoint(row: SqliteRow) -> Result<WebhookEndpointRecord> {
+    let subscribed_event_kinds =
+        serde_json::from_str(&row_get::<String>(&row, "subscribed_event_kinds_json")?)
+            .map_err(database_error)?;
+
+    Ok(WebhookEndpointRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        name: row_get(&row, "name")?,
+        url: row_get(&row, "url")?,
+        secret_env: row_get(&row, "secret_env")?,
+        subscribed_event_kinds,
+        timeout_ms: i64_to_u64(row_get(&row, "timeout_ms")?)?,
+        max_attempts: i64_to_u32(row_get(&row, "max_attempts")?)?,
+        status: WebhookEndpointStatus::parse(&row_get::<String>(&row, "status")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+fn row_to_webhook_delivery_attempt(row: SqliteRow) -> Result<WebhookDeliveryAttemptRecord> {
+    Ok(WebhookDeliveryAttemptRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        endpoint_id: parse_id(row_get::<String>(&row, "endpoint_id")?)?,
+        event_id: parse_id(row_get::<String>(&row, "event_id")?)?,
+        attempt_number: i64_to_u32(row_get(&row, "attempt_number")?)?,
+        status: WebhookDeliveryStatus::parse(&row_get::<String>(&row, "status")?)?,
+        http_status: optional_i64_to_u16(row_get(&row, "http_status")?)?,
+        error: row_get(&row, "error")?,
+        requested_at: row_get(&row, "requested_at")?,
+        completed_at: row_get(&row, "completed_at")?,
+        next_retry_at: row_get(&row, "next_retry_at")?,
     })
 }
 
@@ -4296,6 +4592,88 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert!(!events[0].payload_json.contains("TMDB_READ_ACCESS_TOKEN"));
         assert!(!events[0].payload_json.contains("F:/"));
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_webhook_endpoint_and_attempts() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        store.upsert_library(&library).await.unwrap();
+
+        let event = store
+            .enqueue_outbox_event(NewOutboxEvent {
+                id: EventId::new(),
+                kind: DomainEventKind::LibraryScanned,
+                subject: DomainEventSubject::Library(library.id),
+                library_id: Some(library.id),
+                source_id: None,
+                idempotency_key: format!("library_scan:{}", library.id),
+                payload_json: format!(r#"{{"library_id":"{}"}}"#, library.id),
+            })
+            .await
+            .unwrap();
+        let endpoint_id = WebhookEndpointId::new();
+        let endpoint = store
+            .upsert_webhook_endpoint(NewWebhookEndpoint {
+                id: endpoint_id,
+                name: "Local Receiver".to_owned(),
+                url: "https://example.test/taru-webhook".to_owned(),
+                secret_env: Some("TARU_TEST_WEBHOOK_SECRET".to_owned()),
+                subscribed_event_kinds: vec![DomainEventKind::LibraryScanned.as_str().to_owned()],
+                timeout_ms: 5_000,
+                max_attempts: 3,
+                status: WebhookEndpointStatus::Enabled,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(endpoint.id, endpoint_id);
+        assert_eq!(
+            store.list_enabled_webhook_endpoints().await.unwrap().len(),
+            1
+        );
+        assert_eq!(
+            store.get_webhook_endpoint(endpoint_id).await.unwrap(),
+            Some(endpoint.clone())
+        );
+
+        let attempt = store
+            .create_webhook_delivery_attempt(NewWebhookDeliveryAttempt {
+                id: WebhookDeliveryAttemptId::new(),
+                endpoint_id,
+                event_id: event.id,
+                attempt_number: 1,
+            })
+            .await
+            .unwrap();
+        assert_eq!(attempt.status, WebhookDeliveryStatus::Pending);
+
+        let failed = store
+            .set_webhook_delivery_attempt_result(
+                attempt.id,
+                WebhookDeliveryStatus::Failed,
+                Some(503),
+                Some("receiver returned 503".to_owned()),
+                Some("2026-05-15T00:00:10Z".to_owned()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(failed.status, WebhookDeliveryStatus::Failed);
+        assert_eq!(failed.http_status, Some(503));
+        assert_eq!(
+            store
+                .list_webhook_delivery_attempts(event.id)
+                .await
+                .unwrap(),
+            vec![failed]
+        );
     }
 
     fn external_id_sort_key(external_id: &ExternalId) -> String {
