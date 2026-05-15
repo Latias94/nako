@@ -24,6 +24,7 @@ Top-level tracking:
 - [Phase 7.4 remote playback resource budgets](PHASE7_4_REMOTE_PLAYBACK_RESOURCE_BUDGETS.md)
 - [Phase 7.4.1 NFO storage boundary](PHASE7_4_1_NFO_STORAGE_BOUNDARY.md)
 - [Phase 7.5 multi-library backends](PHASE7_5_MULTI_LIBRARY_BACKENDS.md)
+- [Phase 7.6 stabilization audit](PHASE7_6_STABILIZATION_AUDIT.md)
 
 ## Goals
 

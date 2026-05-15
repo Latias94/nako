@@ -485,6 +485,7 @@ mod tests {
     fn media_source(file_name: &str) -> MediaSource {
         MediaSource {
             id: MediaSourceId::new(),
+            library_id: taru_core::LibraryId::new(),
             item_id: taru_core::MediaItemId::new(),
             locator: format!("local:///{file_name}"),
             file_name: file_name.to_owned(),

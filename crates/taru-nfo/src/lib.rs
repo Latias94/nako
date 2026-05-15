@@ -1207,6 +1207,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id,
             item_id: item.id,
             locator: locator.to_owned(),
             file_name: locator.rsplit('/').next().unwrap_or(locator).to_owned(),
@@ -1222,10 +1223,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library_id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
         item
     }
 }

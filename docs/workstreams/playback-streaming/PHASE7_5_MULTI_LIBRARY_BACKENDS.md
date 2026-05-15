@@ -2,39 +2,30 @@
 
 ## Summary
 
-M7.5 replaces the single configured library assumption with a compatibility
-model that accepts the legacy `[library]` table and the new `[[libraries]]`
-array. Each configured library can be local or can carry its own WebDAV backend
-configuration.
+M7.5 replaces the single configured library assumption with one clean
+`[[libraries]]` model. Each configured library can be local or can carry its
+own WebDAV backend configuration.
 
 ## Implemented
 
-- `TaruServerConfig` now has `library: Option<LocalLibraryConfig>` for legacy
-  configs and `libraries: Vec<LocalLibraryConfig>` for explicit multi-library
-  configs.
+- `TaruServerConfig` now has `libraries: Vec<LocalLibraryConfig>` as the only
+  library configuration field.
 - Startup persists every configured library, so `GET /libraries` and app
   workflows see more than the first configured library.
 - Storage backend creation is library-aware. Scan/probe/NFO use the requested
   library ID, while playback and FFmpeg staging resolve the persisted source
   back to its configured library before opening a backend.
+- `MediaSource` now carries `library_id`, so app services and API responses
+  have direct source-to-library identity without paged source scans.
 - WebDAV remains configured with secret references such as `password_env`;
   plaintext secrets are not stored in source locators or library roots.
-- Tests cover TOML parsing, legacy config compatibility, multiple configured
+- Tests cover TOML parsing, required `[[libraries]]` shape, multiple configured
   libraries, mixed local/WebDAV libraries, and remote direct-play backend
   resolution.
 
-## Migration Shape
+## Configuration Shape
 
-Legacy single-library config still works:
-
-```toml
-[library]
-id = "018f0000-0000-7000-8000-000000000001"
-name = "Movies"
-root = "F:/Media/Movies"
-```
-
-New multi-library config should use `[[libraries]]`:
+Single-library and multi-library deployments both use `[[libraries]]`:
 
 ```toml
 [[libraries]]
@@ -60,12 +51,8 @@ max_attempts = 2
 
 ## Known Limitations
 
-- `MediaSource` does not expose `library_id`, so app services currently resolve
-  source library identity by paged source lookup before falling back to URI-root
-  matching for unpersisted sources.
-- Multiple local libraries still use `local:///` source locators. Persisted
-  source identity keeps playback correct, but API responses do not yet expose
-  the library/root association directly on each source.
+- Multiple local libraries still use `local:///` source locators; callers must
+  treat `source.library_id` as the disambiguating identity.
 - WebDAV is still the only remote backend in this slice.
 
 ## Validation

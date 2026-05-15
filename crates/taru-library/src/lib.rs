@@ -417,12 +417,15 @@ where
                     scan_id,
                     &discovered,
                 );
-                let source = media_source_from_discovered(source_id, item_id, discovered);
+                let source = media_source_from_discovered(
+                    source_id,
+                    request.library.id,
+                    item_id,
+                    discovered,
+                );
 
                 self.repository.upsert_media_item(&item).await?;
-                self.repository
-                    .upsert_media_source(request.library.id, &source)
-                    .await?;
+                self.repository.upsert_media_source(&source).await?;
                 self.repository.upsert_source_state(&state).await?;
                 self.rebuild_search_document(item, source).await?;
 
@@ -603,11 +606,13 @@ fn source_state_from_discovered(
 
 fn media_source_from_discovered(
     id: MediaSourceId,
+    library_id: LibraryId,
     item_id: MediaItemId,
     discovered: DiscoveredMediaSource,
 ) -> MediaSource {
     MediaSource {
         id,
+        library_id,
         item_id,
         locator: discovered.uri.as_str().to_owned(),
         file_name: discovered.file_name,
@@ -963,6 +968,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "webdav:///Movies/Remote Movie.mkv".to_owned(),
             file_name: "Remote Movie.mkv".to_owned(),
@@ -971,10 +977,7 @@ mod tests {
         };
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let probe = RecordingProbe::default();
         let observed_paths = probe.observed_paths.clone();
@@ -1159,6 +1162,7 @@ mod tests {
         let first_summary = service.index_library(request.clone()).await.unwrap();
         let missing_source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: MediaItemId::new(),
             locator: "remote:///Movies/Missing During Outage.mkv".to_owned(),
             file_name: "Missing During Outage.mkv".to_owned(),
@@ -1177,10 +1181,7 @@ mod tests {
             })
             .await
             .unwrap();
-        store
-            .upsert_media_source(library.id, &missing_source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&missing_source).await.unwrap();
         store
             .upsert_source_state(&SourceState {
                 library_id: library.id,

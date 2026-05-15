@@ -624,6 +624,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "local:///Movies/The Matrix (1999).mkv".to_owned(),
             file_name: "The Matrix (1999).mkv".to_owned(),
@@ -633,10 +634,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let summary = hydrate_item_catalog(
             &store,

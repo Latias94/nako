@@ -40,7 +40,7 @@ pub trait MediaRepository: Send + Sync {
 
     async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>>;
 
-    async fn upsert_media_source(&self, library_id: LibraryId, source: &MediaSource) -> Result<()>;
+    async fn upsert_media_source(&self, source: &MediaSource) -> Result<()>;
 
     async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>>;
 

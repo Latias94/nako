@@ -1,6 +1,6 @@
 # Phase 7.3: Playback Error Mapping
 
-Status: active; first stable HTTP mappings implemented.
+Status: completed for M7 stable HTTP mappings.
 
 ## Goal
 
@@ -28,8 +28,8 @@ safe public messages instead of exposing raw backend details.
 ## Remaining Gaps
 
 - Core errors are still classified from current `TaruError` variants and
-  message patterns; a typed playback/storage error enum is still needed.
-- Route-level tests should cover real app paths for budget exhaustion,
-  backend authorization failures, and timeout-like storage failures.
-- HTTP API docs still need a fuller error taxonomy table before M7
-  stabilization.
+  message patterns. A typed playback/storage error enum remains follow-up
+  architecture work, but M7 has stable public HTTP/API codes and tests for the
+  representative mappings.
+- Additional route-level tests for real backend authorization and timeout paths
+  are useful hardening after M7.

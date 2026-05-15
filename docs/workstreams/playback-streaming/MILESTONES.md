@@ -27,7 +27,7 @@ Exit criteria:
 Outcome: Remote direct play streams selected ranges through HTTP response
 bodies without materializing the whole selected range in memory.
 
-Status: active; body streaming foundation implemented.
+Status: completed.
 
 Deliverables:
 
@@ -51,7 +51,7 @@ Exit criteria:
 Outcome: Remote staging has persistent records, configured disk limits, and a
 cleanup path that can be audited and tested.
 
-Status: active; manifest persistence foundation implemented.
+Status: completed.
 
 Deliverables:
 
@@ -73,7 +73,7 @@ Exit criteria:
 Outcome: Playback APIs expose stable failure categories for local, remote, and
 transcode playback paths.
 
-Status: implemented foundation.
+Status: completed for M7 stable HTTP mappings.
 
 Deliverables:
 
@@ -94,7 +94,7 @@ Exit criteria:
 Outcome: Remote playback work is bounded independently from listing/stat cache
 work and FFmpeg CPU/GPU work.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
@@ -114,14 +114,14 @@ Exit criteria:
 Outcome: Taru can configure multiple named libraries and remote backend
 instances without relying on a single `[library.webdav]` preview overlay.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
 - Explicit library configuration model.
 - Backend-specific WebDAV config blocks with secret references.
 - Stable source URI root and library identity rules.
-- Migration path from the current single-library preview config.
+- Replacement of the current single-library preview config.
 - Tests for multiple libraries, mixed local/WebDAV backends, and secret
   omission.
 
@@ -129,12 +129,13 @@ Exit criteria:
 
 - Server startup can build more than one library backend.
 - Scan/probe/playback can resolve sources to the correct configured backend.
-- Existing single-library local setup remains supported during migration.
+- Single-library local setup remains supported through one `[[libraries]]`
+  entry.
 
 Foundation notes:
 
-- `TaruServerConfig` keeps legacy `[library]` as a compatibility field and adds
-  `[[libraries]]` for explicit multi-library configuration.
+- `TaruServerConfig` uses `[[libraries]]` as the only server library
+  configuration model.
 - Startup upserts every configured library instead of only the first one.
 - Playback, FFmpeg staging, scan/probe, and NFO paths resolve the storage
   backend from the source's configured library when the source is persisted.
@@ -146,7 +147,7 @@ Foundation notes:
 Outcome: M7 is documented, validated, and ready for broader remote playback
 testing.
 
-Status: proposed.
+Status: completed after validation.
 
 Deliverables:
 

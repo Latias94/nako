@@ -404,7 +404,7 @@ Evidence:
 
 ### M7: Playback Streaming and Remote Hardening
 
-Status: active, completed through the M7.5 multi-library backend foundation.
+Status: completed.
 
 Objective:
 
@@ -443,8 +443,7 @@ Evidence for M7.0:
 
 Recommended next implementation goal:
 
-- Continue M7.1 hardening, then proceed to M7.2 Staging Manifest, Disk Budget,
-  and Cleanup.
+- Start M8 server modularization and provider runtime hardening.
 
 Evidence for M7.1 foundation:
 
@@ -511,12 +510,18 @@ Evidence for NFO/VFS storage boundary:
 
 Evidence for M7.5 multi-library backend foundation:
 
-- `TaruServerConfig` keeps legacy `[library]` compatibility and adds
-  `[[libraries]]` for explicit multi-library configuration.
+- `TaruServerConfig` uses `[[libraries]]` as the only server library
+  configuration model.
 - Server startup upserts every configured library.
-- Scan/probe/NFO resolve backends by requested library, and playback/FFmpeg
-  staging resolve persisted sources to their configured library backend.
+- `MediaSource.library_id` gives scan/probe/NFO/playback/FFmpeg staging a
+  direct library identity for backend resolution.
 - Mixed local/WebDAV library parsing and runtime backend resolution are covered
   by config and app-level tests.
 - [Phase 7.5](workstreams/playback-streaming/PHASE7_5_MULTI_LIBRARY_BACKENDS.md)
   records migration shape and known limitations.
+
+Evidence for M7.6 stabilization:
+
+- [Phase 7.6](workstreams/playback-streaming/PHASE7_6_STABILIZATION_AUDIT.md)
+  maps every M7 completion criterion to concrete code, tests, docs, and
+  validation gates.

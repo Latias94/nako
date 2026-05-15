@@ -60,8 +60,8 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
 use crate::config::{
-    LocalLibraryConfig, TaruServerConfig, WebDavLibraryConfig, configured_libraries,
-    configured_library_config_for, libraries_from_config, library_from_config,
+    LocalLibraryConfig, TaruServerConfig, WebDavLibraryConfig, configured_library_config_for,
+    libraries_from_config, library_from_config,
 };
 
 pub(crate) mod playback;
@@ -1213,49 +1213,28 @@ impl TaruApp {
         source: &MediaSource,
         uri: &StorageUri,
     ) -> Result<LocalLibraryConfig> {
-        let configs = configured_libraries(self.config());
+        match configured_library_config_for(self.config(), source.library_id) {
+            Ok(config) => Ok(config),
+            Err(TaruError::NotFound { .. }) => {
+                let matches = self
+                    .config()
+                    .libraries
+                    .clone()
+                    .into_iter()
+                    .filter(|config| library_config_matches_uri(config, uri))
+                    .collect::<Vec<_>>();
 
-        for config in &configs {
-            let mut offset = 0;
-
-            loop {
-                let sources = self
-                    .inner
-                    .store
-                    .list_media_sources(
-                        config.id,
-                        PageRequest {
-                            limit: PageRequest::MAX_LIMIT,
-                            offset,
-                        },
-                    )
-                    .await?;
-
-                if sources.iter().any(|candidate| candidate.id == source.id) {
-                    return Ok(config.clone());
+                match matches.as_slice() {
+                    [config] => Ok(config.clone()),
+                    [] => Err(TaruError::Unsupported(
+                        "source library is not configured and source URI does not match any configured library backend",
+                    )),
+                    _ => Err(TaruError::Unsupported(
+                        "source library is not configured and source URI matches multiple configured library backends",
+                    )),
                 }
-
-                if sources.len() < PageRequest::MAX_LIMIT as usize {
-                    break;
-                }
-
-                offset += u64::from(PageRequest::MAX_LIMIT);
             }
-        }
-
-        let matches = configs
-            .into_iter()
-            .filter(|config| library_config_matches_uri(config, uri))
-            .collect::<Vec<_>>();
-
-        match matches.as_slice() {
-            [config] => Ok(config.clone()),
-            [] => Err(TaruError::Unsupported(
-                "source URI does not match any configured library backend",
-            )),
-            _ => Err(TaruError::Unsupported(
-                "source URI matches multiple configured library backends; persisted source library is required",
-            )),
+            Err(err) => Err(err),
         }
     }
 
@@ -3218,14 +3197,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3275,7 +3253,7 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),
                 root: temp.path().join("unused-local-root"),
@@ -3288,8 +3266,7 @@ mod tests {
                     timeout_ms: 5_000,
                     max_attempts: 1,
                 }),
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store).await.unwrap();
@@ -3338,7 +3315,6 @@ mod tests {
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
                 playback: PlaybackConfig::default(),
-                library: None,
                 libraries: vec![
                     LocalLibraryConfig {
                         id: local_library_id,
@@ -3389,6 +3365,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: remote_library_id,
             item_id: item.id,
             locator: "webdav:///Movies/Demo.mkv".to_owned(),
             file_name: "Demo.mkv".to_owned(),
@@ -3396,10 +3373,7 @@ mod tests {
             fingerprint: None,
         };
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(remote_library_id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let plan = app
             .plan_direct_play(source.id, DirectPlayRangeRequest::None)
@@ -3433,7 +3407,7 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),
                 root: temp.path().join("unused-local-root"),
@@ -3446,8 +3420,7 @@ mod tests {
                     timeout_ms: 5_000,
                     max_attempts: 1,
                 }),
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3464,6 +3437,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id,
             item_id: item.id,
             locator: "webdav:///Movies/Demo.mkv".to_owned(),
             file_name: "Demo.mkv".to_owned(),
@@ -3471,10 +3445,7 @@ mod tests {
             fingerprint: None,
         };
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library_id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let output = app.import_library_nfo(library_id).await.unwrap();
         let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
@@ -3504,7 +3475,7 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),
                 root: temp.path().join("unused-local-root"),
@@ -3517,8 +3488,7 @@ mod tests {
                     timeout_ms: 5_000,
                     max_attempts: 1,
                 }),
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store).await.unwrap();
@@ -3554,14 +3524,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3626,14 +3595,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3686,14 +3654,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Anime,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3745,14 +3712,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Anime,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3802,14 +3768,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3890,14 +3855,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -3914,6 +3878,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id,
             item_id: item.id,
             locator: "local:///demo.mkv".to_owned(),
             file_name: "demo.mkv".to_owned(),
@@ -3921,10 +3886,7 @@ mod tests {
             fingerprint: None,
         };
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library_id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let output = app.import_library_nfo(library_id).await.unwrap();
         let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
@@ -4520,7 +4482,7 @@ mod tests {
                     remote_stream_concurrency: 1,
                     remote_stage_concurrency: 1,
                 },
-                library: Some(LocalLibraryConfig {
+                libraries: vec![LocalLibraryConfig {
                     id: library_id,
                     name: "Remote Movies".to_owned(),
                     root: temp.path().join("unused-local-root"),
@@ -4533,8 +4495,7 @@ mod tests {
                         timeout_ms: 5_000,
                         max_attempts: 1,
                     }),
-                }),
-                libraries: Vec::new(),
+                }],
             },
             store.clone(),
         )
@@ -4551,6 +4512,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id,
             item_id: item.id,
             locator: "webdav:///Movies/Demo.mkv".to_owned(),
             file_name: "Demo.mkv".to_owned(),
@@ -4558,10 +4520,7 @@ mod tests {
             fingerprint: None,
         };
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library_id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let plan = app
             .plan_direct_play(source.id, DirectPlayRangeRequest::None)
@@ -4619,14 +4578,13 @@ mod tests {
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
                 playback: PlaybackConfig::default(),
-                library: Some(LocalLibraryConfig {
+                libraries: vec![LocalLibraryConfig {
                     id: library_id,
                     name: "Movies".to_owned(),
                     root: temp.path().join("library"),
                     preset: taru_core::LibraryPreset::Movies,
                     webdav: None,
-                }),
-                libraries: Vec::new(),
+                }],
             },
             store.clone(),
         )
@@ -4699,7 +4657,7 @@ mod tests {
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
                 playback: PlaybackConfig::default(),
-                library: Some(LocalLibraryConfig {
+                libraries: vec![LocalLibraryConfig {
                     id: library_id,
                     name: "Remote Movies".to_owned(),
                     root: temp.path().join("unused-local-root"),
@@ -4712,8 +4670,7 @@ mod tests {
                         timeout_ms: 5_000,
                         max_attempts: 1,
                     }),
-                }),
-                libraries: Vec::new(),
+                }],
             },
             store.clone(),
         )
@@ -4809,6 +4766,7 @@ mod tests {
     fn remote_media_source(locator: &str) -> MediaSource {
         MediaSource {
             id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
             item_id: MediaItemId::new(),
             locator: locator.to_owned(),
             file_name: "Demo.mkv".to_owned(),
@@ -5230,14 +5188,13 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: Some(LocalLibraryConfig {
+            libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: library_root,
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            }),
-            libraries: Vec::new(),
+            }],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -5254,6 +5211,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id,
             item_id: item.id,
             locator: "local:///demo.mkv".to_owned(),
             file_name: "demo.mkv".to_owned(),
@@ -5262,10 +5220,7 @@ mod tests {
         };
 
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library_id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
         store
             .upsert_media_probe(
                 source.id,

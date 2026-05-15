@@ -42,8 +42,6 @@ pub struct TaruServerConfig {
     pub staging: StagingConfig,
     #[serde(default)]
     pub playback: PlaybackConfig,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub library: Option<LocalLibraryConfig>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LocalLibraryConfig>,
 }
@@ -218,7 +216,6 @@ pub fn example_config() -> Result<String> {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
-        library: None,
         libraries: vec![LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -241,25 +238,20 @@ pub fn library_from_config(config: &TaruServerConfig) -> Library {
 }
 
 pub fn libraries_from_config(config: &TaruServerConfig) -> Vec<Library> {
-    configured_libraries(config)
+    config
+        .libraries
         .iter()
         .map(library_from_library_config)
         .collect()
-}
-
-pub fn configured_libraries(config: &TaruServerConfig) -> Vec<LocalLibraryConfig> {
-    if !config.libraries.is_empty() {
-        config.libraries.clone()
-    } else {
-        config.library.clone().into_iter().collect()
-    }
 }
 
 pub fn configured_library_config_for(
     config: &TaruServerConfig,
     library_id: LibraryId,
 ) -> Result<LocalLibraryConfig> {
-    configured_libraries(config)
+    config
+        .libraries
+        .clone()
         .into_iter()
         .find(|library| library.id == library_id)
         .ok_or_else(|| TaruError::NotFound {
@@ -418,13 +410,13 @@ mod tests {
             remote_stream_concurrency = 7
             remote_stage_concurrency = 2
 
-            [library]
+            [[libraries]]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
             root = "F:/Media/Movies"
             preset = "anime"
 
-            [library.webdav]
+            [libraries.webdav]
             root = "webdav:///Movies"
             base_url = "https://webdav.example.test/dav"
             username = "media"
@@ -487,11 +479,12 @@ mod tests {
             "TMDB_READ_ACCESS_TOKEN"
         );
         assert_eq!(config.metadata.tmdb.language, "zh-CN");
-        let legacy_library = config.library.as_ref().unwrap();
-        assert_eq!(legacy_library.name, "Movies");
-        assert_eq!(legacy_library.root, PathBuf::from("F:/Media/Movies"));
-        assert_eq!(legacy_library.preset, LibraryPreset::Anime);
-        let webdav = legacy_library.webdav.as_ref().unwrap();
+        assert_eq!(config.libraries.len(), 1);
+        let library = &config.libraries[0];
+        assert_eq!(library.name, "Movies");
+        assert_eq!(library.root, PathBuf::from("F:/Media/Movies"));
+        assert_eq!(library.preset, LibraryPreset::Anime);
+        let webdav = library.webdav.as_ref().unwrap();
         assert_eq!(webdav.root, "webdav:///Movies");
         assert_eq!(webdav.base_url, "https://webdav.example.test/dav");
         assert_eq!(webdav.username.as_deref(), Some("media"));
@@ -541,15 +534,12 @@ mod tests {
         )
         .unwrap();
 
-        let libraries = configured_libraries(&config);
-
-        assert!(config.library.is_none());
-        assert_eq!(libraries.len(), 2);
-        assert_eq!(libraries[0].name, "Movies");
-        assert_eq!(libraries[1].name, "Remote Anime");
-        assert_eq!(libraries[1].preset, LibraryPreset::Anime);
+        assert_eq!(config.libraries.len(), 2);
+        assert_eq!(config.libraries[0].name, "Movies");
+        assert_eq!(config.libraries[1].name, "Remote Anime");
+        assert_eq!(config.libraries[1].preset, LibraryPreset::Anime);
         assert_eq!(
-            libraries[1].webdav.as_ref().unwrap().root,
+            config.libraries[1].webdav.as_ref().unwrap().root,
             "webdav:///Anime"
         );
         assert_eq!(
@@ -560,7 +550,7 @@ mod tests {
             vec!["local:///", "webdav:///Anime"]
         );
         assert_eq!(
-            configured_library_config_for(&config, libraries[1].id)
+            configured_library_config_for(&config, config.libraries[1].id)
                 .unwrap()
                 .webdav
                 .unwrap()
@@ -575,7 +565,7 @@ mod tests {
             r#"
             database_url = "sqlite://taru.db"
 
-            [library]
+            [[libraries]]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
             root = "F:/Media/Movies"
@@ -609,13 +599,13 @@ mod tests {
         assert_eq!(config.staging, StagingConfig::default());
         assert_eq!(config.playback, PlaybackConfig::default());
         assert!(!config.metadata.tmdb.enabled);
-        let legacy_library = config.library.as_ref().unwrap();
-        assert_eq!(legacy_library.preset, LibraryPreset::Movies);
+        let library = &config.libraries[0];
+        assert_eq!(library.preset, LibraryPreset::Movies);
         assert_eq!(
             config.metadata.tmdb.access_token_env,
             "TMDB_READ_ACCESS_TOKEN"
         );
-        assert!(legacy_library.webdav.is_none());
+        assert!(library.webdav.is_none());
         assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
     }
 }

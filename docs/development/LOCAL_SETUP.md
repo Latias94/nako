@@ -109,11 +109,10 @@ include_adult = false
 
 ## Library And WebDAV Config
 
-`[[libraries]]` is the preferred configuration shape. Legacy single-library
-`[library]` configs still load during migration. A library can be local, or it
-can include a per-library WebDAV backend with `[libraries.webdav]`. The WebDAV
-password is a secret environment reference; it must not be placed in `base_url`,
-source locators, jobs, logs, or scan state.
+`[[libraries]]` is the only supported configuration shape. A library can be
+local, or it can include a per-library WebDAV backend with `[libraries.webdav]`.
+The WebDAV password is a secret environment reference; it must not be placed in
+`base_url`, source locators, jobs, logs, or scan state.
 
 ```toml
 [[libraries]]

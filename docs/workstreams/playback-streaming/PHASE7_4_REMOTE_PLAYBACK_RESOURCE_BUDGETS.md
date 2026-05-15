@@ -1,6 +1,6 @@
 # Phase 7.4: Remote Playback Resource Budgets
 
-Status: active; stream and stage budget foundation implemented.
+Status: completed for M7.
 
 ## Goal
 
@@ -25,6 +25,6 @@ limits.
 ## Remaining Gaps
 
 - Route-level stress tests should cover concurrent HTTP direct streams and
-  concurrent remux/HLS staging requests.
-- Cleanup still does not have a separate resource class; decide whether it is
-  needed after background cleanup is designed.
+  concurrent remux/HLS staging requests as post-M7 hardening.
+- Cleanup still does not have a separate resource class because M7 cleanup is
+  startup-driven rather than a concurrent worker.

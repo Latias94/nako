@@ -1,6 +1,6 @@
 # Phase 7.2: Staging Manifest Foundation
 
-Status: active; persistence foundation implemented.
+Status: completed for M7.
 
 ## Goal
 
@@ -46,7 +46,9 @@ Focused validation:
 
 ## Remaining Gaps
 
-- Bounded background cleanup is not implemented yet.
-- Active lease acquisition/release is not yet connected to runtime playback
-  operations.
-- Reuse and validation mismatch tests still need to be added alongside cleanup.
+- M7 implements startup cleanup, manifest-backed disk budget enforcement, and
+  active-lease preservation. A recurring background cleanup worker can be added
+  later if startup cleanup is not enough operationally.
+- Reuse and validation-mismatch tests are still useful follow-up hardening, but
+  the M7 exit criteria are covered by manifest recording, budget exhaustion,
+  stale cleanup, and active-lease tests.

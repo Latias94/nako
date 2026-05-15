@@ -397,7 +397,7 @@ impl MediaRepository for SqliteStore {
         Ok(items)
     }
 
-    async fn upsert_media_source(&self, library_id: LibraryId, source: &MediaSource) -> Result<()> {
+    async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO media_sources (
@@ -421,7 +421,7 @@ impl MediaRepository for SqliteStore {
             "#,
         )
         .bind(source.id.to_string())
-        .bind(library_id.to_string())
+        .bind(source.library_id.to_string())
         .bind(source.item_id.to_string())
         .bind(&source.locator)
         .bind(&source.file_name)
@@ -437,7 +437,7 @@ impl MediaRepository for SqliteStore {
     async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
         let row = sqlx::query(
             r#"
-            SELECT id, item_id, locator, file_name, size_bytes, fingerprint
+            SELECT id, library_id, item_id, locator, file_name, size_bytes, fingerprint
             FROM media_sources
             WHERE id = ?1
             "#,
@@ -453,7 +453,7 @@ impl MediaRepository for SqliteStore {
     async fn get_media_source_by_locator(&self, locator: &str) -> Result<Option<MediaSource>> {
         let row = sqlx::query(
             r#"
-            SELECT id, item_id, locator, file_name, size_bytes, fingerprint
+            SELECT id, library_id, item_id, locator, file_name, size_bytes, fingerprint
             FROM media_sources
             WHERE locator = ?1
             "#,
@@ -474,7 +474,7 @@ impl MediaRepository for SqliteStore {
         let page = page.clamped();
         let rows = sqlx::query(
             r#"
-            SELECT id, item_id, locator, file_name, size_bytes, fingerprint
+            SELECT id, library_id, item_id, locator, file_name, size_bytes, fingerprint
             FROM media_sources
             WHERE item_id = ?1
             ORDER BY locator ASC
@@ -499,7 +499,7 @@ impl MediaRepository for SqliteStore {
         let page = page.clamped();
         let rows = sqlx::query(
             r#"
-            SELECT id, item_id, locator, file_name, size_bytes, fingerprint
+            SELECT id, library_id, item_id, locator, file_name, size_bytes, fingerprint
             FROM media_sources
             WHERE library_id = ?1
             ORDER BY locator ASC
@@ -4079,6 +4079,7 @@ fn row_to_media_item(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<Me
 fn row_to_media_source(row: SqliteRow) -> Result<MediaSource> {
     Ok(MediaSource {
         id: parse_id(row_get::<String>(&row, "id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
         item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
         locator: row_get(&row, "locator")?,
         file_name: row_get(&row, "file_name")?,
@@ -4621,6 +4622,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "local:///Movies/The Matrix (1999).mkv".to_owned(),
             file_name: "The Matrix (1999).mkv".to_owned(),
@@ -4636,10 +4638,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         assert_eq!(
             store.get_media_item(item.id).await.unwrap(),
@@ -4648,6 +4647,14 @@ mod tests {
         assert_eq!(
             store.get_media_source(source.id).await.unwrap(),
             Some(source.clone())
+        );
+        assert_eq!(
+            store
+                .get_media_source(source.id)
+                .await
+                .unwrap()
+                .map(|source| source.library_id),
+            Some(library.id)
         );
         assert_eq!(
             store
@@ -4680,6 +4687,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "local:///Movies/Session Demo.mkv".to_owned(),
             file_name: "Session Demo.mkv".to_owned(),
@@ -4691,10 +4699,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
 
         let planned = store
             .create_transcode_session(NewTranscodeSession {
@@ -4789,6 +4794,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "local:///Movies/Stale Session Demo.mkv".to_owned(),
             file_name: "Stale Session Demo.mkv".to_owned(),
@@ -4800,10 +4806,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
         store
             .create_transcode_session(NewTranscodeSession {
                 id: stale_id,
@@ -4930,6 +4933,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "local:///Movies/Probe Demo.mkv".to_owned(),
             file_name: "Probe Demo.mkv".to_owned(),
@@ -4982,10 +4986,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
         store.upsert_media_probe(source.id, &result).await.unwrap();
 
         assert_eq!(
@@ -5240,6 +5241,7 @@ mod tests {
         };
         let source = MediaSource {
             id: MediaSourceId::new(),
+            library_id: library.id,
             item_id: item.id,
             locator: "local:///Movies/Searchable Demo.mkv".to_owned(),
             file_name: "Searchable Demo.mkv".to_owned(),
@@ -5274,10 +5276,7 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
-        store
-            .upsert_media_source(library.id, &source)
-            .await
-            .unwrap();
+        store.upsert_media_source(&source).await.unwrap();
         let running = store
             .begin_scan_snapshot(scan_id, library.id, "local:///Movies")
             .await

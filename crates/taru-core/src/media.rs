@@ -455,6 +455,7 @@ pub enum CreditRole {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MediaSource {
     pub id: MediaSourceId,
+    pub library_id: LibraryId,
     pub item_id: MediaItemId,
     pub locator: String,
     pub file_name: String,

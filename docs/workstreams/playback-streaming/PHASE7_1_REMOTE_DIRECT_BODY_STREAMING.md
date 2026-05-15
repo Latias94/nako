@@ -1,6 +1,6 @@
 # Phase 7.1: Remote Direct Body Streaming
 
-Status: active; body streaming foundation implemented.
+Status: completed for M7.
 
 ## Goal
 
@@ -34,9 +34,7 @@ Focused validation:
 
 - `ReadRange` remains available for small in-process reads and legacy tests,
   but direct play no longer uses it for remote response bodies.
-- `playback.remote.stream` budget acquisition is still M7.4 work.
-- Staging manifest, disk budget, cleanup, and richer playback error taxonomy
-  remain M7.2 and M7.3 work.
-- This phase starts server module splitting; broader `taru-db` and route-module
-  splits remain follow-up refactors before the staging manifest grows the large
-  files further.
+- `ReadRange` remains available for small in-process reads and tests, but
+  direct play no longer uses it for remote response bodies.
+- Broader `taru-db` and route-module splits remain follow-up refactors outside
+  the M7 direct body streaming exit criteria.

@@ -1,6 +1,6 @@
 # Phase 7.4.1: NFO Storage Boundary
 
-Status: complete for the single-library WebDAV preview shape.
+Status: completed for M7.
 
 ## Goal
 
@@ -26,5 +26,5 @@ root.
 
 ## Remaining Gaps
 
-- Multi-library backend routing is still needed so NFO jobs can target more
-  than the single configured library.
+- Remote NFO export remains blocked for WebDAV because the current WebDAV
+  backend is read-only.
