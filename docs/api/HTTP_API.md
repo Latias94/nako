@@ -141,6 +141,12 @@ GET  /webhooks/endpoints
 GET  /webhooks/endpoints/{endpoint_id}
 GET  /events/{event_id}/webhook-attempts
 POST /events/{event_id}/webhooks/deliver
+POST /automation/providers
+GET  /automation/providers
+GET  /automation/providers/{provider_id}
+POST /automation/jobs
+GET  /automation/jobs/{job_id}/artifacts
+GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
 ```
 
@@ -276,6 +282,53 @@ x-taru-signature: sha256=<hmac hex>  # present when secret_env is configured
 attempts for one event. Attempts include endpoint ID, attempt number, status,
 HTTP status when available, safe error text, requested/completed timestamps,
 and `next_retry_at` for retryable failures.
+
+## Automation Routes
+
+`POST /automation/providers` upserts an external automation provider
+configuration. Provider credentials are secret references:
+
+```json
+{
+  "id": null,
+  "name": "gateway",
+  "base_url": "https://example.test/automation",
+  "secret_env": "TARU_AUTOMATION_SECRET",
+  "capabilities": ["summary", "recommendation"],
+  "timeout_ms": 30000,
+  "max_attempts": 2,
+  "status": "enabled"
+}
+```
+
+Initial capabilities are `recommendation`, `metadata_cleanup`, `summary`, and
+`title_match`.
+
+`POST /automation/jobs` enqueues an automation job and returns `202 Accepted`
+with the normal job envelope. The request stores a prompt snapshot and does not
+store the resolved provider secret:
+
+```json
+{
+  "provider_id": "018f0000-0000-7000-8000-000000000001",
+  "capability": "summary",
+  "library_id": null,
+  "item_id": null,
+  "source_id": null,
+  "prompt": {
+    "title": "The Matrix"
+  },
+  "idempotency_key": "summary:matrix"
+}
+```
+
+Generated results are stored as automation artifacts with status `proposed`.
+They are not canonical metadata until a future explicit acceptance/writeback
+policy is implemented.
+
+`GET /automation/jobs/{job_id}/artifacts` lists artifacts created by one job.
+`GET /items/{item_id}/automation/artifacts` lists artifacts associated with an
+item.
 
 ## Playback Error Summary
 

@@ -33,14 +33,14 @@
 
 ## Automation
 
-- [ ] Define automation provider configuration and capabilities.
-- [ ] Define automation job kinds for recommendation, summary, metadata cleanup,
+- [x] Define automation provider configuration and capabilities.
+- [x] Define automation job kinds for recommendation, summary, metadata cleanup,
       and title matching.
-- [ ] Define suggestion/artifact persistence model.
-- [ ] Add bounded external provider runner.
-- [ ] Add explicit acceptance policy before generated results mutate canonical
+- [x] Define suggestion/artifact persistence model.
+- [x] Add bounded external provider runner.
+- [x] Add explicit acceptance policy before generated results mutate canonical
       metadata.
-- [ ] Add mocked provider tests without real API keys.
+- [x] Add mocked provider tests without real API keys.
 
 ## Addon Protocol
 

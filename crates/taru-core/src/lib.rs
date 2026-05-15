@@ -1,3 +1,4 @@
+pub mod automation;
 pub mod error;
 pub mod event;
 pub mod id;
@@ -7,6 +8,7 @@ pub mod repository;
 pub mod session;
 pub mod webhook;
 
+pub use automation::*;
 pub use error::{Result, TaruError};
 pub use event::*;
 pub use id::*;

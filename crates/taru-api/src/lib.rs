@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    CollectionItem, EventId, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job,
-    JobId, JobKind, JobStatus, Library, LibraryId, MediaItem, MediaProbeResult, MediaSource,
+    AutomationArtifactRecord, AutomationCapability, AutomationJobInput,
+    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, CollectionItem,
+    EventId, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
+    JobStatus, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
     MediaSourceId, OutboxEventRecord, PageRequest, Person, Tag, TranscodeSessionRecord,
     WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
@@ -245,4 +247,56 @@ pub struct WebhookDispatchResponse {
     pub skipped_endpoints: u32,
     pub attempts: Vec<WebhookDeliveryAttemptRecord>,
     pub errors: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UpsertAutomationProviderRequest {
+    pub id: Option<AutomationProviderId>,
+    pub name: String,
+    pub base_url: String,
+    pub secret_env: Option<String>,
+    pub capabilities: Vec<AutomationCapability>,
+    pub timeout_ms: Option<u64>,
+    pub max_attempts: Option<u32>,
+    pub status: AutomationProviderStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AutomationProviderResponse {
+    pub provider: AutomationProviderConfigRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AutomationProvidersResponse {
+    pub providers: Vec<AutomationProviderConfigRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct EnqueueAutomationJobRequest {
+    pub provider_id: AutomationProviderId,
+    pub capability: AutomationCapability,
+    pub library_id: Option<LibraryId>,
+    pub item_id: Option<MediaItemId>,
+    pub source_id: Option<MediaSourceId>,
+    pub prompt: serde_json::Value,
+    pub idempotency_key: String,
+}
+
+impl EnqueueAutomationJobRequest {
+    pub fn into_job_input(self) -> Result<AutomationJobInput, serde_json::Error> {
+        Ok(AutomationJobInput {
+            provider_id: self.provider_id,
+            capability: self.capability,
+            library_id: self.library_id,
+            item_id: self.item_id,
+            source_id: self.source_id,
+            prompt_json: serde_json::to_string(&self.prompt)?,
+            idempotency_key: self.idempotency_key,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AutomationArtifactsResponse {
+    pub artifacts: Vec<AutomationArtifactRecord>,
 }

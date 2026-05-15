@@ -191,7 +191,7 @@ Evidence:
 
 ### M5: Extension and Automation Surface
 
-Status: active, completed through M5.2 webhook delivery worker.
+Status: active, completed through M5.3 automation job model.
 
 Implement webhook outbox, automation jobs, addon manifest schema, and one
 reference addon. Keep AI-like experience improvements as explicit external
@@ -250,16 +250,31 @@ Evidence for M5.2:
   real transport delivery to a mocked local webhook server, and HTTP
   configuration/inspection routes.
 
+Evidence for M5.3:
+
+- `taru-core` defines automation provider configuration, automation
+  capabilities, job input/summary envelopes, artifact records, and
+  `AutomationRepository`.
+- `taru-db` migration `0011_automation.sql` persists provider configuration and
+  generated artifacts.
+- `taru-automation` runs mockable external providers through a timeout and
+  cancellation-aware runner, persists proposed artifacts, writes job summaries,
+  and rejects implicit canonical metadata mutation.
+- `taru-server` exposes provider configuration, automation job enqueue, and
+  artifact inspection APIs without calling external providers inline.
+- Tests cover provider/artifact persistence, mocked provider execution, secret
+  omission from job input, canonical-mutation rejection, and HTTP enqueue and
+  inspection routes.
+
 ## Recommended Next Implementation Goal
 
-### M5.3: Automation Job Model
+### M5.4: Addon Manifest and Resource Contract
 
 Status: proposed.
 
-Implement external API-key backed automation jobs for recommendation, metadata
-cleanup, summaries, title matching, and suggestion/artifact persistence. Keep
-generated results auditable and avoid mutating canonical metadata without an
-explicit acceptance policy.
+Define the Taru addon manifest schema, registration/validation model, first
+resource request/response envelopes, timeout/retry/authentication policy, and
+scope denial behavior before adding a reference addon.
 
 ## Later Goals
 

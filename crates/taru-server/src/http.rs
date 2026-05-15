@@ -10,12 +10,13 @@ use axum::{
 };
 use serde::Deserialize;
 use taru_api::{
-    API_VERSION, ErrorResponse, HealthResponse, JobResponse, SourceProbeResponse,
-    TranscodeSessionResponse, UpsertWebhookEndpointRequest,
+    API_VERSION, EnqueueAutomationJobRequest, ErrorResponse, HealthResponse, JobResponse,
+    SourceProbeResponse, TranscodeSessionResponse, UpsertAutomationProviderRequest,
+    UpsertWebhookEndpointRequest,
 };
 use taru_core::{
-    EventId, GenreId, JobId, LibraryId, MediaItemId, MediaSourceId, PageRequest, PersonId, TagId,
-    TaruError, TranscodeSessionId, WebhookEndpointId,
+    AutomationProviderId, EventId, GenreId, JobId, LibraryId, MediaItemId, MediaSourceId,
+    PageRequest, PersonId, TagId, TaruError, TranscodeSessionId, WebhookEndpointId,
 };
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -90,6 +91,23 @@ pub fn build_router(app: TaruApp) -> Router {
         .route(
             "/events/{event_id}/webhooks/deliver",
             post(deliver_webhooks_for_event),
+        )
+        .route(
+            "/automation/providers",
+            get(list_automation_providers).post(upsert_automation_provider),
+        )
+        .route(
+            "/automation/providers/{provider_id}",
+            get(get_automation_provider),
+        )
+        .route("/automation/jobs", post(enqueue_automation_job))
+        .route(
+            "/automation/jobs/{job_id}/artifacts",
+            get(list_automation_job_artifacts),
+        )
+        .route(
+            "/items/{item_id}/automation/artifacts",
+            get(list_item_automation_artifacts),
         )
         .route("/jobs/{job_id}", get(get_job))
         .with_state(app)
@@ -478,6 +496,57 @@ async fn deliver_webhooks_for_event(
     Ok(Json(app.deliver_webhooks_for_event(event_id).await?))
 }
 
+#[instrument(skip(app))]
+async fn upsert_automation_provider(
+    State(app): State<TaruApp>,
+    Json(request): Json<UpsertAutomationProviderRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.upsert_automation_provider(request).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_automation_providers(State(app): State<TaruApp>) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_enabled_automation_providers().await?))
+}
+
+#[instrument(skip(app))]
+async fn get_automation_provider(
+    State(app): State<TaruApp>,
+    Path(provider_id): Path<AutomationProviderId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_automation_provider(provider_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn enqueue_automation_job(
+    State(app): State<TaruApp>,
+    Json(request): Json<EnqueueAutomationJobRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.enqueue_automation_job(request).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+}
+
+#[instrument(skip(app))]
+async fn list_automation_job_artifacts(
+    State(app): State<TaruApp>,
+    Path(job_id): Path<JobId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_automation_artifacts_for_job(job_id).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_item_automation_artifacts(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.list_automation_artifacts_for_item(item_id, page.try_into()?)
+            .await?,
+    ))
+}
+
 type ApiResult<T> = std::result::Result<T, ApiError>;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -732,18 +801,19 @@ mod tests {
     };
     use serde::{Serialize, de::DeserializeOwned};
     use taru_api::{
+        AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
         HealthResponse, JobResponse, LibraryListResponse, TranscodeSessionResponse,
         WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
     };
     use taru_core::{
-        CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject,
-        EventId, EventOutboxRepository, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-        ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus, LibraryId,
-        MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
-        MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataSource, NewOutboxEvent,
-        NewTranscodeSession, Person, PersonId, Tag, TagId, TranscodeSessionId,
-        TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
-        WebhookEndpointStatus,
+        AutomationCapability, AutomationProviderStatus, CanonicalMetadata, CatalogRepository,
+        CreditRole, DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Genre,
+        GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag,
+        JobId, JobKind, JobStatus, LibraryId, MediaItem, MediaKind, MediaProbeRepository,
+        MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+        MediaStreamKind, MetadataSource, NewOutboxEvent, NewTranscodeSession, Person, PersonId,
+        Tag, TagId, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
+        TranscodeSessionState, WebhookEndpointStatus,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
@@ -886,6 +956,82 @@ mod tests {
 
         assert_eq!(attempts.event_id, event.id);
         assert!(attempts.attempts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn automation_routes_configure_provider_and_enqueue_jobs_without_secrets() {
+        let temp = tempfile::tempdir().unwrap();
+        let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+        let provider = request_body_json::<AutomationProviderResponse, _>(
+            &router,
+            Method::POST,
+            "/automation/providers",
+            &UpsertAutomationProviderRequest {
+                id: None,
+                name: "gateway".to_owned(),
+                base_url: "https://example.test/automation".to_owned(),
+                secret_env: Some("TARU_AUTOMATION_SECRET".to_owned()),
+                capabilities: vec![
+                    AutomationCapability::Recommendation,
+                    AutomationCapability::Summary,
+                ],
+                timeout_ms: Some(10_000),
+                max_attempts: Some(2),
+                status: AutomationProviderStatus::Enabled,
+            },
+        )
+        .await;
+
+        assert_eq!(provider.provider.name, "gateway");
+        assert_eq!(
+            provider.provider.secret_env,
+            Some("TARU_AUTOMATION_SECRET".to_owned())
+        );
+
+        let providers = request_json::<AutomationProvidersResponse>(
+            &router,
+            Method::GET,
+            "/automation/providers",
+        )
+        .await;
+        assert_eq!(providers.providers, vec![provider.provider.clone()]);
+
+        let job_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/automation/jobs")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&EnqueueAutomationJobRequest {
+                            provider_id: provider.provider.id,
+                            capability: AutomationCapability::Summary,
+                            library_id: None,
+                            item_id: None,
+                            source_id: None,
+                            prompt: serde_json::json!({"title":"The Matrix"}),
+                            idempotency_key: "summary:matrix".to_owned(),
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(job_response.status(), StatusCode::ACCEPTED);
+        let job = body_json::<JobResponse>(job_response).await;
+        assert_eq!(job.kind, JobKind::Automation);
+        assert_eq!(job.resource_class, "automation.external_api");
+        let input = job.input.unwrap();
+        assert_eq!(input["capability"], "summary");
+        assert!(!input.to_string().contains("TARU_AUTOMATION_SECRET"));
+
+        let artifacts_path = format!("/automation/jobs/{}/artifacts", job.id);
+        let artifacts =
+            request_json::<AutomationArtifactsResponse>(&router, Method::GET, &artifacts_path)
+                .await;
+        assert!(artifacts.artifacts.is_empty());
     }
 
     #[tokio::test]

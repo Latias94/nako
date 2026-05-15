@@ -67,6 +67,8 @@ define_id!(MediaItemId);
 define_id!(MediaSourceId);
 define_id!(JobId);
 define_id!(EventId);
+define_id!(AutomationProviderId);
+define_id!(AutomationArtifactId);
 define_id!(WebhookEndpointId);
 define_id!(WebhookDeliveryAttemptId);
 define_id!(AddonId);

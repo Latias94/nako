@@ -69,7 +69,7 @@ Future playback work:
 
 ### Extension and Automation: M5
 
-Status: active, completed through M5.2 webhook delivery worker.
+Status: active, completed through M5.3 automation job model.
 
 This phase turns the early architectural decisions into a usable external
 surface:
@@ -92,10 +92,13 @@ Completed:
 - M5.2 webhook delivery worker with endpoint configuration, delivery attempts,
   signed webhook envelopes, retry/backoff state, `webhook_concurrency`
   budgeting, explicit event dispatch, and delivery inspection APIs.
+- M5.3 automation job model with external provider configuration, automation
+  job inputs/summaries, generated artifact persistence, timeout/cancellation
+  runner boundary, and provider/job/artifact inspection APIs.
 
 Recommended next goal:
 
-- M5.3 automation job model.
+- M5.4 addon manifest and resource contract.
 
 ### Remote Storage and VFS Expansion: M6
 

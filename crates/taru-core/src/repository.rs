@@ -1,13 +1,15 @@
 use async_trait::async_trait;
 
 use crate::{
-    ArtworkTask, ArtworkTaskId, Collection, CollectionId, CollectionItem, DirectorySnapshot,
-    DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId, ItemCredit, ItemGenre, ItemStudio,
-    ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
-    MediaSourceId, MetadataFieldLock, NewJob, NewOutboxEvent, NewTranscodeSession,
-    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person, PersonId,
-    ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId, SourceState, Studio, StudioId, Tag,
-    TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    ArtworkTask, ArtworkTaskId, AutomationArtifactId, AutomationArtifactRecord,
+    AutomationArtifactStatus, AutomationProviderConfigRecord, AutomationProviderId, Collection,
+    CollectionId, CollectionItem, DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset,
+    ImageAssetId, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId,
+    MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
+    NewTranscodeSession, NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person,
+    PersonId, ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId, SourceState, Studio,
+    StudioId, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
     TranscodeSessionRecord, TranscodeSessionState, WebhookDeliveryAttemptId,
     WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
 };
@@ -293,6 +295,45 @@ pub trait EventOutboxRepository: Send + Sync {
     ) -> Result<Option<OutboxEventRecord>>;
 
     async fn list_outbox_events(&self, page: PageRequest) -> Result<Vec<OutboxEventRecord>>;
+}
+
+#[async_trait]
+pub trait AutomationRepository: Send + Sync {
+    async fn upsert_automation_provider(
+        &self,
+        provider: NewAutomationProviderConfig,
+    ) -> Result<AutomationProviderConfigRecord>;
+
+    async fn get_automation_provider(
+        &self,
+        id: AutomationProviderId,
+    ) -> Result<Option<AutomationProviderConfigRecord>>;
+
+    async fn list_enabled_automation_providers(
+        &self,
+    ) -> Result<Vec<AutomationProviderConfigRecord>>;
+
+    async fn create_automation_artifact(
+        &self,
+        artifact: NewAutomationArtifact,
+    ) -> Result<AutomationArtifactRecord>;
+
+    async fn set_automation_artifact_status(
+        &self,
+        id: AutomationArtifactId,
+        status: AutomationArtifactStatus,
+    ) -> Result<AutomationArtifactRecord>;
+
+    async fn list_automation_artifacts_for_job(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<AutomationArtifactRecord>>;
+
+    async fn list_automation_artifacts_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<AutomationArtifactRecord>>;
 }
 
 #[async_trait]

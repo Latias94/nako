@@ -74,6 +74,8 @@ Exit criteria:
 Outcome: Taru can run explicit external automation jobs, such as
 recommendation, metadata cleanup, summary generation, or title matching.
 
+Status: completed.
+
 Deliverables:
 
 - Automation provider configuration with secret references.

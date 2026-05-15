@@ -68,6 +68,9 @@ Server tests:
 - webhook endpoint and delivery-attempt persistence
 - webhook signing, failed retry state, mocked local webhook receiver delivery,
   and HTTP configuration/inspection routes
+- automation provider and artifact persistence
+- automation mocked provider execution, timeout/cancellation boundary, secret
+  omission, canonical-mutation rejection, and HTTP enqueue/inspection routes
 
 ## Gates
 
@@ -110,4 +113,4 @@ Addons and automation:
 
 - addon manifest validation
 - authentication failure mapping
-- secret-reference handling without plaintext leakage
+- concrete external automation provider adapters
