@@ -134,7 +134,7 @@ Recommended next goal:
 
 ### Playback Streaming and Remote Hardening: M7
 
-Status: active, completed through M7.1 body streaming foundation.
+Status: active, completed through M7.2 manifest runtime recording.
 
 This phase hardens the remote playback path after the M6 WebDAV preview:
 
@@ -153,13 +153,14 @@ Completed:
   `ReadStream`, WebDAV byte streams, direct-play stream bodies, HEAD preflight,
   and initial playback app/http module split.
 - M7.2 foundation for durable staging manifest persistence, including core
-  records, repository contract, SQLite migration, a dedicated DB module, and
-  remux/HLS FFmpeg input manifest recording.
+  records, repository contract, SQLite migration, a dedicated DB module,
+  remote probe input manifest recording, and remux/HLS FFmpeg input manifest
+  recording.
 
 Recommended next goal:
 
-- continue M7.2 by wiring runtime staging paths to the manifest, disk budget,
-  and cleanup policy.
+- continue M7.2 by adding disk budget configuration, enforcement, active lease
+  semantics, and cleanup policy.
 
 ### Client and Product Experience: M8+
 

@@ -470,6 +470,9 @@ Evidence for M7.2 foundation:
   records.
 - `taru-db/src/staging.rs` implements the staging repository in a dedicated DB
   module instead of growing the large `lib.rs`.
+- `taru-server` records `probe_input` manifest entries when remote probe inputs
+  are staged, using an app-side VFS wrapper rather than coupling
+  `taru-library` to the staging repository.
 - `taru-server` records `ffmpeg_input` manifest entries when remote WebDAV
   sources are staged for remux or HLS.
 - [Phase 7.2](workstreams/playback-streaming/PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)

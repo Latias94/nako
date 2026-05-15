@@ -26,11 +26,10 @@ use taru_core::{
     DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, GenreId, Job, JobId,
     JobKind, JobRepository, Library, LibraryId, LibraryRepository, MediaItemId,
     MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, MetadataProfile,
-    NewAddonRegistration, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
-    NewStagingManifestRecord, NewTranscodeSession, NewWebhookEndpoint, OutboxEventRecord,
-    PageRequest, PersonId, Result, StagingManifestId, StagingManifestRepository, StagingPurpose,
-    StagingState, TagId, TaruError, TransactionManager, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
+    NewAddonRegistration, NewAutomationProviderConfig, NewJob, NewOutboxEvent, NewTranscodeSession,
+    NewWebhookEndpoint, OutboxEventRecord, PageRequest, PersonId, Result, StagingPurpose, TagId,
+    TaruError, TransactionManager, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
     TranscodeSessionState, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
     WebhookRepository,
 };
@@ -63,8 +62,10 @@ use tracing::{Instrument, error, info, info_span, warn};
 use crate::config::{TaruServerConfig, WebDavLibraryConfig, library_from_config};
 
 pub(crate) mod playback;
+mod staging;
 
 pub(crate) use playback::DirectPlaySourceBody;
+use staging::{ManifestRecordingStorageBackend, record_staged_input};
 
 #[cfg(test)]
 use playback::plan_direct_play_with_backend;
@@ -1140,43 +1141,7 @@ impl TaruApp {
         uri: &StorageUri,
         staged: &StagedFile,
     ) -> Result<()> {
-        let now_ms = current_time_ms()?;
-        let existing = self
-            .inner
-            .store
-            .find_staging_manifest_record_by_path(&staged.path.display().to_string())
-            .await?;
-        let id = existing
-            .as_ref()
-            .map(|record| record.id)
-            .unwrap_or_else(StagingManifestId::new);
-        let created_at_ms = existing
-            .as_ref()
-            .map(|record| record.created_at_ms)
-            .unwrap_or(now_ms);
-
-        self.inner
-            .store
-            .upsert_staging_manifest_record(NewStagingManifestRecord {
-                id,
-                source_uri: uri.to_string(),
-                source_scheme: uri.scheme().to_owned(),
-                purpose: StagingPurpose::FfmpegInput,
-                local_path: staged.path.display().to_string(),
-                size_bytes: staged.len,
-                etag: staged.etag.clone(),
-                fingerprint: staged.fingerprint.clone(),
-                state: StagingState::Ready,
-                created_at_ms,
-                updated_at_ms: now_ms,
-                last_accessed_at_ms: now_ms,
-                expires_at_ms: None,
-                active_leases: 0,
-                validation_error: None,
-            })
-            .await?;
-
-        Ok(())
+        record_staged_input(&self.inner.store, StagingPurpose::FfmpegInput, uri, staged).await
     }
 
     fn storage_backend_for_source(&self, uri: &StorageUri) -> Result<Box<dyn StorageBackend>> {
@@ -2528,7 +2493,11 @@ impl TaruApp {
             })
             .await?;
 
-        let probe_backend = self.storage_backend_for_library_root(&library)?;
+        let probe_backend = Box::new(ManifestRecordingStorageBackend::new(
+            self.storage_backend_for_library_root(&library)?,
+            self.inner.store.clone(),
+            StagingPurpose::ProbeInput,
+        ));
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
             probe_backend,
@@ -3068,6 +3037,7 @@ mod tests {
         JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
         MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
         MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
+        StagingManifestRepository, StagingState,
     };
     use taru_library::{LibraryScanRequest, LibraryScanner};
     use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus};
@@ -4010,6 +3980,49 @@ mod tests {
         assert!(input_path.starts_with(&staging_root));
         assert_eq!(fs::read(&input_path).unwrap(), b"remote-media");
         assert!(!input_path.display().to_string().contains("webdav://"));
+    }
+
+    #[tokio::test]
+    async fn manifest_recording_backend_records_probe_staging() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let backend = ManifestRecordingStorageBackend::new(
+            Box::new(RemotePlaybackBackend {
+                bytes: b"probe-media".to_vec(),
+                local_path_hint: None,
+            }),
+            store.clone(),
+            StagingPurpose::ProbeInput,
+        );
+        let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
+
+        let staged = backend
+            .stage(StageRequest::new(
+                uri.clone(),
+                temp.path().join("probe-inputs"),
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(fs::read(&staged.path).unwrap(), b"probe-media");
+        let records = store
+            .list_staging_manifest_records(
+                Some(StagingPurpose::ProbeInput),
+                Some(StagingState::Ready),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.source_uri, uri.to_string());
+        assert_eq!(record.source_scheme, "webdav");
+        assert_eq!(record.purpose, StagingPurpose::ProbeInput);
+        assert_eq!(record.local_path, staged.path.display().to_string());
+        assert_eq!(record.size_bytes, Some(11));
+        assert_eq!(record.etag.as_deref(), Some("etag-remote"));
+        assert_eq!(record.fingerprint.as_deref(), Some("remote-fingerprint"));
     }
 
     #[tokio::test]
