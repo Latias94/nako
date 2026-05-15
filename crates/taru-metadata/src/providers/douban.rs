@@ -1,12 +1,7 @@
-use std::convert::TryFrom;
-
 use async_trait::async_trait;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
-use taru_core::{
-    CanonicalMetadata, ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
-    MediaKind, Result, TaruError,
-};
+use taru_core::{ExternalProvider, MediaKind, Result, TaruError};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -15,7 +10,7 @@ use crate::{
 
 use super::{
     DEFAULT_DOUBAN_API_BASE_URL, DOUBAN_PROVIDER_NAME, api_key_query, header_map_from_pairs,
-    provider_parse_error, push_provider_image_uri, release_year,
+    provider_parse_error, release_year,
 };
 #[derive(Clone, Debug)]
 pub struct DoubanProviderConfig {
@@ -178,55 +173,55 @@ struct DoubanSearchResponse {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct DoubanSubject {
-    id: String,
+    pub(crate) id: String,
     #[serde(default)]
-    title: String,
+    pub(crate) title: String,
     #[serde(default)]
-    original_title: Option<String>,
+    pub(crate) original_title: Option<String>,
     #[serde(default)]
-    alt_title: Option<String>,
+    pub(crate) alt_title: Option<String>,
     #[serde(default)]
-    summary: Option<String>,
+    pub(crate) summary: Option<String>,
     #[serde(default)]
-    year: Option<String>,
+    pub(crate) year: Option<String>,
     #[serde(default)]
-    images: Option<DoubanImages>,
+    pub(crate) images: Option<DoubanImages>,
     #[serde(default)]
-    genres: Vec<String>,
+    pub(crate) genres: Vec<String>,
     #[serde(default)]
-    countries: Vec<String>,
+    pub(crate) countries: Vec<String>,
     #[serde(default)]
-    casts: Vec<DoubanPerson>,
+    pub(crate) casts: Vec<DoubanPerson>,
     #[serde(default)]
-    directors: Vec<DoubanPerson>,
+    pub(crate) directors: Vec<DoubanPerson>,
     #[serde(default)]
-    writers: Vec<DoubanPerson>,
+    pub(crate) writers: Vec<DoubanPerson>,
     #[serde(default)]
-    rating: Option<DoubanRating>,
+    pub(crate) rating: Option<DoubanRating>,
 }
 
 #[derive(Debug, Deserialize)]
-struct DoubanImages {
+pub(crate) struct DoubanImages {
     #[serde(default)]
-    small: Option<String>,
+    pub(crate) small: Option<String>,
     #[serde(default)]
-    medium: Option<String>,
+    pub(crate) medium: Option<String>,
     #[serde(default)]
-    large: Option<String>,
+    pub(crate) large: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct DoubanPerson {
+pub(crate) struct DoubanPerson {
     #[serde(default)]
-    id: Option<String>,
+    pub(crate) id: Option<String>,
     #[serde(default)]
-    name: String,
+    pub(crate) name: String,
 }
 
 #[derive(Debug, Deserialize)]
-struct DoubanRating {
+pub(crate) struct DoubanRating {
     #[serde(default)]
-    average: Option<f32>,
+    pub(crate) average: Option<f32>,
 }
 
 fn douban_search_score(lookup: &MetadataLookup, subject: &DoubanSubject) -> f32 {
@@ -255,109 +250,4 @@ fn douban_search_score(lookup: &MetadataLookup, subject: &DoubanSubject) -> f32 
             .and_then(|rating| rating.average)
             .unwrap_or(0.0)
             / 200.0
-}
-
-pub(crate) fn douban_subject_to_metadata(
-    subject: DoubanSubject,
-    image_base_url: Option<&str>,
-) -> CanonicalMetadata {
-    let mut images = Vec::new();
-    if let Some(subject_images) = subject.images.as_ref() {
-        for uri in [
-            subject_images.large.as_deref(),
-            subject_images.medium.as_deref(),
-            subject_images.small.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
-        {
-            push_provider_image_uri(
-                &mut images,
-                ImageKind::Poster,
-                Some(uri),
-                image_base_url.unwrap_or_default(),
-                ExternalProvider::Douban,
-                None,
-                None,
-                None,
-            );
-        }
-    }
-
-    let mut credits = Vec::new();
-    for person in subject.directors {
-        push_douban_credit(&mut credits, person, CreditRole::Director);
-    }
-    for person in subject.writers {
-        push_douban_credit(&mut credits, person, CreditRole::Writer);
-    }
-    for (order, person) in subject.casts.into_iter().enumerate() {
-        let mut credit = douban_person_credit(person, CreditRole::Actor);
-        credit.order = u32::try_from(order).ok();
-        credits.push(credit);
-    }
-
-    let release_date = subject
-        .year
-        .as_ref()
-        .filter(|year| year.len() == 4 && year.chars().all(|character| character.is_ascii_digit()))
-        .map(|year| format!("{year}-01-01"));
-
-    CanonicalMetadata {
-        title: subject.title,
-        original_title: subject.original_title.or(subject.alt_title),
-        overview: subject.summary.filter(|value| !value.trim().is_empty()),
-        release_date,
-        genres: subject
-            .genres
-            .into_iter()
-            .filter(|genre| !genre.trim().is_empty())
-            .collect(),
-        tags: subject
-            .countries
-            .into_iter()
-            .filter(|country| !country.trim().is_empty())
-            .collect(),
-        ratings: subject
-            .rating
-            .and_then(|rating| rating.average)
-            .map(|score| ContentRating {
-                source: "Douban:score".to_owned(),
-                value: score.to_string(),
-            })
-            .into_iter()
-            .collect(),
-        images,
-        credits,
-        external_ids: vec![ExternalId {
-            provider: ExternalProvider::Douban,
-            value: subject.id,
-        }],
-        ..CanonicalMetadata::default()
-    }
-}
-
-fn push_douban_credit(credits: &mut Vec<Credit>, person: DoubanPerson, role: CreditRole) {
-    if person.name.trim().is_empty() {
-        return;
-    }
-    credits.push(douban_person_credit(person, role));
-}
-
-fn douban_person_credit(person: DoubanPerson, role: CreditRole) -> Credit {
-    Credit {
-        name: person.name,
-        role,
-        character: None,
-        order: None,
-        external_ids: person
-            .id
-            .filter(|id| !id.trim().is_empty())
-            .map(|id| ExternalId {
-                provider: ExternalProvider::Douban,
-                value: id,
-            })
-            .into_iter()
-            .collect(),
-    }
 }

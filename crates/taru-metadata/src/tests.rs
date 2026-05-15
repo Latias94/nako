@@ -26,10 +26,12 @@ use taru_search::{SearchIndex, SearchQuery};
 use tokio::{net::TcpListener, time::Instant};
 
 use super::*;
+use crate::mapping::{
+    bangumi_subject_to_metadata, douban_subject_to_metadata, tmdb_movie_details_to_metadata,
+};
 use crate::providers::{
     BangumiSubject, DEFAULT_BANGUMI_IMAGE_BASE_URL, DEFAULT_TMDB_IMAGE_BASE_URL, DoubanSubject,
-    TmdbMovieDetails, bangumi_subject_to_metadata, douban_subject_to_metadata,
-    tmdb_movie_details_to_metadata,
+    TmdbMovieDetails,
 };
 
 mod fixtures;
