@@ -111,6 +111,31 @@ impl MetadataRepository for SqliteStore {
         row.map(row_to_provider_raw_response).transpose()
     }
 
+    async fn list_provider_raw_responses(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderRawResponse>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT item_id, provider, provider_key, body_json, fetched_at
+            FROM provider_raw_responses
+            WHERE item_id = ?1
+            ORDER BY fetched_at DESC, provider ASC, provider_key ASC
+            LIMIT ?2 OFFSET ?3
+            "#,
+        )
+        .bind(item_id.to_string())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_provider_raw_response).collect()
+    }
+
     async fn insert_metadata_provider_attempt(
         &self,
         attempt: NewMetadataProviderAttempt,
@@ -177,6 +202,44 @@ impl MetadataRepository for SqliteStore {
             "#,
         )
         .bind(job_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_metadata_provider_attempt)
+            .collect()
+    }
+
+    async fn list_metadata_provider_attempts_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                job_id,
+                item_id,
+                provider,
+                provider_key,
+                status,
+                matched_by,
+                started_at,
+                finished_at,
+                error_class,
+                message
+            FROM metadata_provider_attempts
+            WHERE item_id = ?1
+            ORDER BY started_at DESC, created_at DESC
+            LIMIT ?2 OFFSET ?3
+            "#,
+        )
+        .bind(item_id.to_string())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;

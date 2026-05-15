@@ -11,6 +11,7 @@ mod catalog;
 mod error;
 mod jobs;
 mod library;
+mod metadata;
 mod playback;
 mod query;
 mod system;
@@ -24,10 +25,14 @@ use automation::{
 use catalog::{
     get_item, get_person, get_source_probe, list_genre_items, list_genres, list_item_credits,
     list_item_images, list_items, list_people, list_person_items, list_tag_items, list_tags,
-    refresh_item_metadata, search_items,
+    search_items,
 };
 use jobs::get_job;
 use library::{export_nfo, import_nfo, list_libraries, list_library_sources, scan_library};
+use metadata::{
+    list_item_metadata_attempts, list_item_metadata_raw_responses, list_metadata_providers,
+    refresh_item_metadata,
+};
 use playback::{
     get_playback_session, get_source_playback_decision, head_stream_source, hls_playlist_source,
     hls_segment, remux_stream_source, stream_source,
@@ -62,6 +67,15 @@ pub fn build_router(app: TaruApp) -> Router {
             "/items/{item_id}/metadata/refresh",
             post(refresh_item_metadata),
         )
+        .route(
+            "/items/{item_id}/metadata/attempts",
+            get(list_item_metadata_attempts),
+        )
+        .route(
+            "/items/{item_id}/metadata/raw",
+            get(list_item_metadata_raw_responses),
+        )
+        .route("/metadata/providers", get(list_metadata_providers))
         .route("/sources/{source_id}/probe", get(get_source_probe))
         .route(
             "/sources/{source_id}/playback/decision",

@@ -382,6 +382,12 @@ pub trait MetadataRepository: Send + Sync {
         provider_key: &str,
     ) -> Result<Option<ProviderRawResponse>>;
 
+    async fn list_provider_raw_responses(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderRawResponse>>;
+
     async fn insert_metadata_provider_attempt(
         &self,
         attempt: NewMetadataProviderAttempt,
@@ -390,6 +396,12 @@ pub trait MetadataRepository: Send + Sync {
     async fn list_metadata_provider_attempts(
         &self,
         job_id: JobId,
+    ) -> Result<Vec<crate::MetadataProviderAttemptRecord>>;
+
+    async fn list_metadata_provider_attempts_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
     ) -> Result<Vec<crate::MetadataProviderAttemptRecord>>;
 }
 

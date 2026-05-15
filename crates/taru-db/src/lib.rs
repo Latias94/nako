@@ -1626,6 +1626,19 @@ mod tests {
                 .unwrap(),
             Some(raw)
         );
+        assert_eq!(
+            store
+                .list_provider_raw_responses(item.id, PageRequest::first_page())
+                .await
+                .unwrap(),
+            vec![ProviderRawResponse {
+                item_id: item.id,
+                provider: ExternalProvider::Tmdb,
+                provider_key: "603".to_owned(),
+                fetched_at: "2026-05-14T00:00:00.000Z".to_owned(),
+                body_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
+            }]
+        );
     }
 
     #[tokio::test]
@@ -1680,21 +1693,30 @@ mod tests {
             .await
             .unwrap();
 
+        let expected = MetadataProviderAttemptRecord {
+            id: attempt.id,
+            job_id: attempt.job_id,
+            item_id: attempt.item_id,
+            provider: attempt.provider,
+            status: attempt.status,
+            provider_key: attempt.provider_key,
+            matched_by: attempt.matched_by,
+            started_at: attempt.started_at,
+            finished_at: attempt.finished_at,
+            error_class: attempt.error_class,
+            message: attempt.message,
+        };
+
         assert_eq!(
             store.list_metadata_provider_attempts(job.id).await.unwrap(),
-            vec![MetadataProviderAttemptRecord {
-                id: attempt.id,
-                job_id: attempt.job_id,
-                item_id: attempt.item_id,
-                provider: attempt.provider,
-                status: attempt.status,
-                provider_key: attempt.provider_key,
-                matched_by: attempt.matched_by,
-                started_at: attempt.started_at,
-                finished_at: attempt.finished_at,
-                error_class: attempt.error_class,
-                message: attempt.message,
-            }]
+            vec![expected.clone()]
+        );
+        assert_eq!(
+            store
+                .list_metadata_provider_attempts_for_item(item.id, PageRequest::first_page())
+                .await
+                .unwrap(),
+            vec![expected]
         );
     }
 

@@ -17,19 +17,24 @@ use taru_addon_protocol::{
 use taru_api::{
     AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
     AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
-    ErrorResponse, HealthResponse, JobResponse, LibraryListResponse, RegisterAddonRequest,
+    ErrorResponse, HealthResponse, JobResponse, LibraryListResponse,
+    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
+    MetadataProviderDiagnosticsResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
     TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
     WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
     CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
-    EventOutboxRepository, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
-    ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus, LibraryId, MediaItem, MediaKind,
-    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamInfo, MediaStreamKind, MetadataSource, NewOutboxEvent, NewTranscodeSession, Person,
-    PersonId, Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
+    EventOutboxRepository, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository, JobStatus,
+    LibraryId, MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
+    MetadataRepository, MetadataSource, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
+    NewTranscodeSession, Person, PersonId, ProviderRawResponse, Tag, TagId, TaruError,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
+    WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex};
@@ -43,7 +48,8 @@ use tower::ServiceExt;
 use super::error::ApiError;
 use super::*;
 use crate::config::{
-    LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
+    LocalLibraryConfig, MetadataConfig, MetadataProviderConfig, MetadataProviderHeaderConfig,
+    MetadataProviderRuntimeConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
     TranscodeConfig,
 };
 use crate::http::playback::stream_direct_play_response;
@@ -662,6 +668,165 @@ async fn metadata_refresh_route_queues_background_job() {
             .and_then(serde_json::Value::as_str),
         Some("default")
     );
+}
+
+#[tokio::test]
+async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_without_secrets() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let mut metadata = MetadataConfig::default();
+    metadata.runtime = MetadataProviderRuntimeConfig {
+        timeout_ms: 4_000,
+        max_attempts: 3,
+        min_interval_ms: 125,
+        concurrency: 2,
+        user_agent: "taru-test/metadata-diagnostics".to_owned(),
+        proxy: Some("http://user:proxy-secret@127.0.0.1:10809".to_owned()),
+        circuit_breaker_failures: 4,
+    };
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Douban,
+        enabled: true,
+        token_env: None,
+        api_key_env: None,
+        api_base_url: Some("https://api.douban.example.test".to_owned()),
+        image_base_url: None,
+        language: None,
+        include_adult: false,
+        headers: vec![MetadataProviderHeaderConfig {
+            name: "X-Douban-Secret".to_owned(),
+            value: Some("diagnostics-header-secret".to_owned()),
+            value_env: None,
+        }],
+        runtime: None,
+    }];
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata,
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: taru_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Diagnostics Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    let job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.douban".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store
+        .insert_metadata_provider_attempt(NewMetadataProviderAttempt {
+            id: MetadataProviderAttemptId::new(),
+            job_id: job.id,
+            item_id: item.id,
+            provider: ExternalProvider::Douban,
+            status: MetadataProviderAttemptStatus::Failed,
+            provider_key: Some("douban-42".to_owned()),
+            matched_by: Some(MetadataMatchKind::Search),
+            started_at: "2026-05-16T00:00:00Z".to_owned(),
+            finished_at: "2026-05-16T00:00:01Z".to_owned(),
+            error_class: Some(MetadataProviderErrorClass::HttpStatus),
+            message: Some("HTTP 503".to_owned()),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_provider_raw_response(&ProviderRawResponse {
+            item_id: item.id,
+            provider: ExternalProvider::Douban,
+            provider_key: "douban-42".to_owned(),
+            fetched_at: "2026-05-16T00:00:02Z".to_owned(),
+            body_json: r#"{"id":"douban-42","title":"Diagnostics Demo"}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let attempts_path = format!("/items/{}/metadata/attempts", item.id);
+    let raw_path = format!("/items/{}/metadata/raw", item.id);
+
+    let attempts =
+        request_json::<MetadataProviderAttemptsResponse>(&router, Method::GET, &attempts_path)
+            .await;
+    let raw = request_json::<MetadataRawResponsesResponse>(&router, Method::GET, &raw_path).await;
+
+    assert_eq!(attempts.item_id, item.id);
+    assert_eq!(attempts.page.returned, 1);
+    assert_eq!(attempts.attempts[0].provider, ExternalProvider::Douban);
+    assert_eq!(
+        attempts.attempts[0].status,
+        MetadataProviderAttemptStatus::Failed
+    );
+    assert_eq!(raw.item_id, item.id);
+    assert_eq!(raw.page.returned, 1);
+    assert_eq!(raw.responses[0].provider_key, "douban-42");
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/metadata/providers")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(!body.contains("diagnostics-header-secret"));
+    assert!(!body.contains("proxy-secret"));
+    let providers: MetadataProviderDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+    assert_eq!(providers.providers.len(), 1);
+    assert_eq!(providers.providers[0].provider, ExternalProvider::Douban);
+    assert_eq!(
+        providers.providers[0].status,
+        MetadataProviderDiagnosticStatus::Available
+    );
+    assert!(providers.providers[0].runtime.proxy_configured);
+    assert_eq!(providers.providers[0].runtime.timeout_ms, 4_000);
+    assert_eq!(providers.providers[0].runtime.max_attempts, 3);
 }
 
 #[tokio::test]

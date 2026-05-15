@@ -3,10 +3,11 @@ use taru_addon_protocol::{AddonManifest, AddonScope};
 use taru_core::{
     AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
     AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, CollectionItem, EventId, Genre, ImageAsset, ItemCredit, ItemGenre,
-    ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem,
-    MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, OutboxEventRecord, PageRequest,
-    Person, Tag, TranscodeSessionRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId,
+    AutomationProviderStatus, CollectionItem, EventId, ExternalProvider, Genre, ImageAsset,
+    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId,
+    MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
+    MetadataProviderAttemptRecord, OutboxEventRecord, PageRequest, Person, ProviderRawResponse,
+    Tag, TranscodeSessionRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId,
     WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use taru_streaming::PlaybackDecision;
@@ -210,6 +211,53 @@ pub struct SearchItemHit {
 pub struct SourceProbeResponse {
     pub source_id: MediaSourceId,
     pub probe: MediaProbeResult,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderAttemptsResponse {
+    pub item_id: MediaItemId,
+    pub attempts: Vec<MetadataProviderAttemptRecord>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataRawResponsesResponse {
+    pub item_id: MediaItemId,
+    pub responses: Vec<ProviderRawResponse>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderDiagnosticsResponse {
+    pub providers: Vec<MetadataProviderDiagnostic>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderDiagnostic {
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderDiagnosticStatus,
+    pub provider_name: Option<String>,
+    pub reason: Option<String>,
+    pub runtime: MetadataProviderRuntimeDiagnostic,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProviderDiagnosticStatus {
+    Available,
+    Disabled,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderRuntimeDiagnostic {
+    pub timeout_ms: u64,
+    pub max_attempts: u32,
+    pub min_interval_ms: u64,
+    pub concurrency: usize,
+    pub user_agent: String,
+    pub proxy_configured: bool,
+    pub circuit_breaker_failures: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

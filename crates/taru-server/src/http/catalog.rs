@@ -1,10 +1,9 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::StatusCode,
     response::IntoResponse,
 };
-use taru_api::{JobResponse, SourceProbeResponse};
+use taru_api::SourceProbeResponse;
 use taru_core::{GenreId, MediaItemId, MediaSourceId, PersonId, TagId};
 use tracing::instrument;
 
@@ -127,16 +126,6 @@ pub(super) async fn search_items(
         .collect::<Vec<_>>();
 
     Ok(Json(app.search_items(query.q, facets, page).await?))
-}
-
-#[instrument(skip(app))]
-pub(super) async fn refresh_item_metadata(
-    State(app): State<TaruApp>,
-    Path(item_id): Path<MediaItemId>,
-) -> ApiResult<impl IntoResponse> {
-    let job = app.enqueue_metadata_refresh(item_id).await?;
-
-    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
 
 #[instrument(skip(app))]

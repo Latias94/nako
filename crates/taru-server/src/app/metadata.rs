@@ -1,16 +1,21 @@
 use std::env;
 
 use serde::Serialize;
+use taru_api::{
+    MetadataProviderAttemptsResponse, MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
+    MetadataProviderDiagnosticsResponse, MetadataProviderRuntimeDiagnostic,
+    MetadataRawResponsesResponse, PageInfo,
+};
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, ExternalProvider, Job, JobId, JobKind,
-    JobRepository, MediaItemId, MediaRepository, MetadataProfile, NewJob, NewOutboxEvent, Result,
-    TaruError,
+    JobRepository, MediaItemId, MediaRepository, MetadataProfile, MetadataRepository, NewJob,
+    NewOutboxEvent, PageRequest, Result, TaruError,
 };
 use taru_metadata::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
-    MetadataHttpRuntimeConfig, MetadataProviderRegistry, MetadataRefreshJobInput,
-    MetadataRefreshRequest, MetadataRefreshSummary, MetadataStrategyExecutor, TmdbMetadataProvider,
-    TmdbProviderConfig,
+    MetadataHttpRuntimeConfig, MetadataProvider as _, MetadataProviderRegistry,
+    MetadataRefreshJobInput, MetadataRefreshRequest, MetadataRefreshSummary,
+    MetadataStrategyExecutor, TmdbMetadataProvider, TmdbProviderConfig,
 };
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -233,6 +238,63 @@ impl TaruApp {
             .await
     }
 
+    pub async fn list_metadata_provider_attempts_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<MetadataProviderAttemptsResponse> {
+        self.ensure_metadata_item_exists(item_id).await?;
+        let attempts = self
+            .inner
+            .store
+            .list_metadata_provider_attempts_for_item(item_id, page)
+            .await?;
+
+        Ok(MetadataProviderAttemptsResponse {
+            item_id,
+            page: PageInfo::new(page, attempts.len()),
+            attempts,
+        })
+    }
+
+    pub async fn list_provider_raw_responses_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<MetadataRawResponsesResponse> {
+        self.ensure_metadata_item_exists(item_id).await?;
+        let responses = self
+            .inner
+            .store
+            .list_provider_raw_responses(item_id, page)
+            .await?;
+
+        Ok(MetadataRawResponsesResponse {
+            item_id,
+            page: PageInfo::new(page, responses.len()),
+            responses,
+        })
+    }
+
+    pub fn list_metadata_provider_diagnostics(&self) -> MetadataProviderDiagnosticsResponse {
+        MetadataProviderDiagnosticsResponse {
+            providers: self.metadata_provider_diagnostics(),
+        }
+    }
+
+    async fn ensure_metadata_item_exists(&self, item_id: MediaItemId) -> Result<()> {
+        self.inner
+            .store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+
+        Ok(())
+    }
+
     fn effective_metadata_profile(
         &self,
         library: &taru_core::Library,
@@ -302,6 +364,56 @@ impl TaruApp {
         registry
     }
 
+    fn metadata_provider_diagnostics(&self) -> Vec<MetadataProviderDiagnostic> {
+        if self.config().metadata.providers.is_empty() {
+            return vec![self.legacy_tmdb_provider_diagnostic()];
+        }
+
+        self.config()
+            .metadata
+            .providers
+            .iter()
+            .map(|settings| self.configured_provider_diagnostic(settings))
+            .collect()
+    }
+
+    fn legacy_tmdb_provider_diagnostic(&self) -> MetadataProviderDiagnostic {
+        let runtime = provider_runtime_diagnostic(&self.config().metadata.runtime);
+
+        match build_legacy_tmdb_provider(
+            &self.config().metadata.tmdb,
+            &self.config().metadata.runtime,
+        ) {
+            Ok(provider) => available_provider_diagnostic(
+                provider.provider(),
+                Some(provider.provider_name().to_owned()),
+                runtime,
+            ),
+            Err(err) => build_error_diagnostic(err, runtime),
+        }
+    }
+
+    fn configured_provider_diagnostic(
+        &self,
+        settings: &MetadataProviderConfig,
+    ) -> MetadataProviderDiagnostic {
+        let runtime = provider_runtime_diagnostic(
+            settings
+                .runtime
+                .as_ref()
+                .unwrap_or(&self.config().metadata.runtime),
+        );
+
+        match self.build_metadata_provider(settings) {
+            Ok(provider) => available_provider_diagnostic(
+                provider.provider(),
+                Some(provider.provider_name().to_owned()),
+                runtime,
+            ),
+            Err(err) => build_error_diagnostic(err, runtime),
+        }
+    }
+
     fn build_metadata_provider(
         &self,
         settings: &MetadataProviderConfig,
@@ -361,6 +473,77 @@ enum BuiltMetadataProvider {
     Tmdb(TmdbMetadataProvider),
     Bangumi(BangumiMetadataProvider),
     Douban(DoubanMetadataProvider),
+}
+
+impl BuiltMetadataProvider {
+    fn provider(&self) -> ExternalProvider {
+        match self {
+            Self::Tmdb(provider) => provider.provider(),
+            Self::Bangumi(provider) => provider.provider(),
+            Self::Douban(provider) => provider.provider(),
+        }
+    }
+
+    fn provider_name(&self) -> &'static str {
+        match self {
+            Self::Tmdb(provider) => provider.provider_name(),
+            Self::Bangumi(provider) => provider.provider_name(),
+            Self::Douban(provider) => provider.provider_name(),
+        }
+    }
+}
+
+fn available_provider_diagnostic(
+    provider: ExternalProvider,
+    provider_name: Option<String>,
+    runtime: MetadataProviderRuntimeDiagnostic,
+) -> MetadataProviderDiagnostic {
+    MetadataProviderDiagnostic {
+        provider,
+        status: MetadataProviderDiagnosticStatus::Available,
+        provider_name,
+        reason: None,
+        runtime,
+    }
+}
+
+fn build_error_diagnostic(
+    error: MetadataProviderBuildError,
+    runtime: MetadataProviderRuntimeDiagnostic,
+) -> MetadataProviderDiagnostic {
+    match error {
+        MetadataProviderBuildError::Disabled(provider, reason) => MetadataProviderDiagnostic {
+            provider,
+            status: MetadataProviderDiagnosticStatus::Disabled,
+            provider_name: None,
+            reason: Some(reason),
+            runtime,
+        },
+        MetadataProviderBuildError::Unavailable(provider, reason) => MetadataProviderDiagnostic {
+            provider,
+            status: MetadataProviderDiagnosticStatus::Unavailable,
+            provider_name: None,
+            reason: Some(reason),
+            runtime,
+        },
+    }
+}
+
+fn provider_runtime_diagnostic(
+    config: &MetadataProviderRuntimeConfig,
+) -> MetadataProviderRuntimeDiagnostic {
+    MetadataProviderRuntimeDiagnostic {
+        timeout_ms: config.timeout_ms,
+        max_attempts: config.max_attempts,
+        min_interval_ms: config.min_interval_ms,
+        concurrency: config.concurrency,
+        user_agent: config.user_agent.clone(),
+        proxy_configured: config
+            .proxy
+            .as_ref()
+            .is_some_and(|proxy| !proxy.trim().is_empty()),
+        circuit_breaker_failures: config.circuit_breaker_failures,
+    }
 }
 
 fn register_legacy_tmdb_provider(
