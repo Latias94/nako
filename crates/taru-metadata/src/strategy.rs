@@ -368,22 +368,39 @@ fn attempt_from_result(
             matched_by: None,
             error_class: Some(MetadataProviderErrorClass::NoMatch),
         },
-        Err(MetadataProviderRefreshError::ProviderFailed(message)) => MetadataProviderAttempt {
-            provider,
-            status: MetadataProviderAttemptStatus::Failed,
-            message: Some(message.clone()),
-            provider_key: None,
-            matched_by: None,
-            error_class: Some(classify_provider_failure_message(message)),
-        },
-        Err(MetadataProviderRefreshError::Fatal(err)) => MetadataProviderAttempt {
-            provider,
-            status: MetadataProviderAttemptStatus::Failed,
-            message: Some(err.to_string()),
-            provider_key: None,
-            matched_by: None,
-            error_class: Some(classify_provider_error_class(err)),
-        },
+        Err(MetadataProviderRefreshError::ProviderFailed(message)) => {
+            let error_class = classify_provider_failure_message(message);
+
+            MetadataProviderAttempt {
+                provider,
+                status: attempt_status_for_error_class(error_class),
+                message: Some(message.clone()),
+                provider_key: None,
+                matched_by: None,
+                error_class: Some(error_class),
+            }
+        }
+        Err(MetadataProviderRefreshError::Fatal(err)) => {
+            let error_class = classify_provider_error_class(err);
+
+            MetadataProviderAttempt {
+                provider,
+                status: attempt_status_for_error_class(error_class),
+                message: Some(err.to_string()),
+                provider_key: None,
+                matched_by: None,
+                error_class: Some(error_class),
+            }
+        }
+    }
+}
+
+fn attempt_status_for_error_class(
+    error_class: MetadataProviderErrorClass,
+) -> MetadataProviderAttemptStatus {
+    match error_class {
+        MetadataProviderErrorClass::RateLimited => MetadataProviderAttemptStatus::RateLimited,
+        _ => MetadataProviderAttemptStatus::Failed,
     }
 }
 
@@ -408,6 +425,7 @@ fn skipped_attempt(
             Some(MetadataProviderErrorClass::Unsupported)
         }
         MetadataProviderAttemptStatus::NoMatch => Some(MetadataProviderErrorClass::NoMatch),
+        MetadataProviderAttemptStatus::RateLimited => Some(MetadataProviderErrorClass::RateLimited),
         MetadataProviderAttemptStatus::Failed => Some(MetadataProviderErrorClass::Unknown),
         MetadataProviderAttemptStatus::Succeeded => None,
     };

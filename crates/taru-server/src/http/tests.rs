@@ -787,11 +787,15 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
 
     assert_eq!(attempts.item_id, item.id);
     assert_eq!(attempts.page.returned, 1);
-    assert_eq!(attempts.attempts[0].provider, ExternalProvider::Douban);
     assert_eq!(
-        attempts.attempts[0].status,
+        attempts.attempts[0].attempt.provider,
+        ExternalProvider::Douban
+    );
+    assert_eq!(
+        attempts.attempts[0].attempt.status,
         MetadataProviderAttemptStatus::Failed
     );
+    assert!(attempts.attempts[0].retryable);
     assert_eq!(raw.item_id, item.id);
     assert_eq!(raw.page.returned, 1);
     assert_eq!(raw.responses[0].provider_key, "douban-42");

@@ -18,8 +18,8 @@ use taru_core::{
     ImageKind, JobId, JobKind, JobRepository, Library, LibraryId, LibraryOptions, LibraryPreset,
     LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataField,
     MetadataFieldLock, MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob, PageRequest, Result,
-    TaruError, TransactionManager,
+    MetadataProviderErrorClass, MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob,
+    PageRequest, Result, TaruError, TransactionManager,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchIndex, SearchQuery};
@@ -466,6 +466,69 @@ async fn strategy_fails_when_all_providers_fail() {
 }
 
 #[tokio::test]
+async fn strategy_persists_rate_limited_attempts() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let item = seed_movie(
+        &store,
+        "Rate Limited Movie",
+        Some("2026".to_owned()),
+        vec![],
+    )
+    .await;
+    let job_id = seed_metadata_job(&store, &item).await;
+    let mut tmdb = mock_provider(
+        ExternalProvider::Tmdb,
+        vec![mock_candidate(
+            ExternalProvider::Tmdb,
+            "rate-limited",
+            "Rate Limited Movie",
+        )],
+        mock_fetch_result(
+            ExternalProvider::Tmdb,
+            "rate-limited",
+            CanonicalMetadata::default(),
+        ),
+    );
+    tmdb.fetch_result = Err(TaruError::Provider {
+        provider: "tmdb".to_owned(),
+        message: "fetch returned HTTP 429: rate limit exceeded".to_owned(),
+    });
+    let registry = MetadataProviderRegistry::new().with_provider(tmdb);
+    let mut profile = MetadataProfile::from_preset(LibraryPreset::Movies);
+    profile.metadata_providers = vec![ExternalProvider::Tmdb];
+    let executor = MetadataStrategyExecutor::new(registry, store.clone());
+
+    let err = executor
+        .refresh_item(MetadataRefreshRequest {
+            job_id,
+            item_id: item.id,
+            profile,
+            force: false,
+        })
+        .await
+        .unwrap_err();
+
+    let TaruError::Provider { provider, message } = err else {
+        panic!("expected provider exhaustion error");
+    };
+    assert_eq!(provider, "metadata_strategy");
+    assert!(message.contains("tmdb=rate_limited"));
+    let attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
+    assert_eq!(attempts.len(), 1);
+    assert_eq!(
+        attempts[0].status,
+        MetadataProviderAttemptStatus::RateLimited
+    );
+    assert_eq!(
+        attempts[0].error_class,
+        Some(MetadataProviderErrorClass::RateLimited)
+    );
+    assert!(attempts[0].status.is_retryable());
+    assert!(attempts[0].error_class.unwrap().is_retryable());
+}
+
+#[tokio::test]
 async fn strategy_short_circuits_after_first_success() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -776,6 +839,52 @@ async fn metadata_http_runtime_rate_limits_requests() {
 }
 
 #[tokio::test]
+async fn tmdb_provider_uses_runtime_and_maps_http_response() {
+    let server = MockMetadataServer::start().await;
+    let provider = TmdbMetadataProvider::new(TmdbProviderConfig {
+        read_access_token: "tmdb-token".to_owned(),
+        api_base_url: server.url("/tmdb"),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            user_agent: "taru-tmdb-test".to_owned(),
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..TmdbProviderConfig::new("tmdb-token".to_owned())
+    })
+    .unwrap();
+
+    let candidates = provider
+        .search(MetadataLookup {
+            kind: Some(MediaKind::Movie),
+            title: "The Matrix".to_owned(),
+            year: Some(1999),
+            language: Some("en-US".to_owned()),
+            external_ids: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let fetched = provider
+        .fetch(MetadataFetchRequest {
+            kind: MediaKind::Movie,
+            provider_key: candidates[0].provider_key.clone(),
+            language: Some("en-US".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(candidates[0].provider, ExternalProvider::Tmdb);
+    assert_eq!(fetched.metadata.title, "The Matrix");
+    assert_eq!(
+        server.user_agents(),
+        vec!["taru-tmdb-test", "taru-tmdb-test"]
+    );
+    assert_eq!(
+        server.authorizations(),
+        vec!["Bearer tmdb-token", "Bearer tmdb-token"]
+    );
+}
+
+#[tokio::test]
 async fn bangumi_provider_uses_runtime_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = BangumiMetadataProvider::new(BangumiProviderConfig {
@@ -1029,6 +1138,8 @@ impl MockMetadataServer {
         let router = Router::new()
             .route("/ok", get(mock_ok))
             .route("/flaky", get(mock_flaky))
+            .route("/tmdb/search/movie", get(mock_tmdb_search_movie))
+            .route("/tmdb/movie/{id}", get(mock_tmdb_movie_details))
             .route("/v0/search/subjects", post(mock_bangumi_search))
             .route("/v0/subjects/{id}", get(mock_bangumi_subject))
             .route("/movie/search", get(mock_douban_search))
@@ -1162,6 +1273,48 @@ async fn mock_bangumi_search(
             "tags": [{"name": "科幻"}],
             "rating": {"score": 9.1}
         }]
+    }))
+}
+
+async fn mock_tmdb_search_movie(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "results": [{
+            "id": 603,
+            "title": "The Matrix",
+            "original_title": "The Matrix",
+            "overview": "A hacker discovers the nature of reality.",
+            "release_date": "1999-03-31",
+            "poster_path": "/matrix.jpg",
+            "popularity": 99.0
+        }]
+    }))
+}
+
+async fn mock_tmdb_movie_details(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "id": 603,
+        "title": "The Matrix",
+        "original_title": "The Matrix",
+        "overview": "A hacker discovers the nature of reality.",
+        "release_date": "1999-03-31",
+        "runtime": 136,
+        "tagline": "Welcome to the Real World.",
+        "genres": [{"name": "Action"}, {"name": "Science Fiction"}],
+        "poster_path": "/matrix.jpg",
+        "credits": {"cast": [], "crew": []},
+        "images": {"posters": [], "backdrops": []},
+        "release_dates": {"results": []},
+        "external_ids": {"imdb_id": "tt0133093"}
     }))
 }
 

@@ -2,7 +2,8 @@ use std::env;
 
 use serde::Serialize;
 use taru_api::{
-    MetadataProviderAttemptsResponse, MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
+    MetadataProviderAttemptDiagnostic, MetadataProviderAttemptsResponse,
+    MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
     MetadataProviderDiagnosticsResponse, MetadataProviderRuntimeDiagnostic,
     MetadataRawResponsesResponse, PageInfo,
 };
@@ -249,11 +250,15 @@ impl TaruApp {
             .store
             .list_metadata_provider_attempts_for_item(item_id, page)
             .await?;
+        let returned = attempts.len();
 
         Ok(MetadataProviderAttemptsResponse {
             item_id,
-            page: PageInfo::new(page, attempts.len()),
-            attempts,
+            page: PageInfo::new(page, returned),
+            attempts: attempts
+                .into_iter()
+                .map(MetadataProviderAttemptDiagnostic::from_record)
+                .collect(),
         })
     }
 

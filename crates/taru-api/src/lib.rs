@@ -216,8 +216,25 @@ pub struct SourceProbeResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataProviderAttemptsResponse {
     pub item_id: MediaItemId,
-    pub attempts: Vec<MetadataProviderAttemptRecord>,
+    pub attempts: Vec<MetadataProviderAttemptDiagnostic>,
     pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderAttemptDiagnostic {
+    #[serde(flatten)]
+    pub attempt: MetadataProviderAttemptRecord,
+    pub retryable: bool,
+}
+
+impl MetadataProviderAttemptDiagnostic {
+    #[must_use]
+    pub fn from_record(attempt: MetadataProviderAttemptRecord) -> Self {
+        Self {
+            retryable: attempt.is_retryable(),
+            attempt,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

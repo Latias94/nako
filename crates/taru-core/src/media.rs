@@ -877,6 +877,16 @@ pub struct MetadataProviderAttemptRecord {
     pub message: Option<String>,
 }
 
+impl MetadataProviderAttemptRecord {
+    #[must_use]
+    pub fn is_retryable(&self) -> bool {
+        self.status.is_retryable()
+            || self
+                .error_class
+                .is_some_and(MetadataProviderErrorClass::is_retryable)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MetadataProviderAttemptStatus {
@@ -885,6 +895,7 @@ pub enum MetadataProviderAttemptStatus {
     SkippedUnavailable,
     NotImplemented,
     NoMatch,
+    RateLimited,
     Failed,
 }
 
@@ -897,8 +908,14 @@ impl MetadataProviderAttemptStatus {
             Self::SkippedUnavailable => "skipped_unavailable",
             Self::NotImplemented => "not_implemented",
             Self::NoMatch => "no_match",
+            Self::RateLimited => "rate_limited",
             Self::Failed => "failed",
         }
+    }
+
+    #[must_use]
+    pub const fn is_retryable(self) -> bool {
+        matches!(self, Self::SkippedUnavailable | Self::RateLimited)
     }
 
     pub fn parse(value: &str) -> crate::Result<Self> {
@@ -908,6 +925,7 @@ impl MetadataProviderAttemptStatus {
             "skipped_unavailable" => Ok(Self::SkippedUnavailable),
             "not_implemented" => Ok(Self::NotImplemented),
             "no_match" => Ok(Self::NoMatch),
+            "rate_limited" => Ok(Self::RateLimited),
             "failed" => Ok(Self::Failed),
             _ => Err(crate::TaruError::InvalidInput {
                 message: format!("unknown metadata provider attempt status: {value}"),
@@ -973,6 +991,19 @@ impl MetadataProviderErrorClass {
             Self::Unavailable => "unavailable",
             Self::Unknown => "unknown",
         }
+    }
+
+    #[must_use]
+    pub const fn is_retryable(self) -> bool {
+        matches!(
+            self,
+            Self::Timeout
+                | Self::RateLimited
+                | Self::Network
+                | Self::HttpStatus
+                | Self::Unavailable
+                | Self::Unknown
+        )
     }
 
     pub fn parse(value: &str) -> crate::Result<Self> {
