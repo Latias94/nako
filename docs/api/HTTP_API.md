@@ -64,6 +64,12 @@ conflict
 unsupported
 provider_error
 storage_error
+ffmpeg_error
+staging_budget_exhausted
+staging_validation_mismatch
+storage_timeout
+storage_unauthorized
+storage_rate_limited
 database_error
 ```
 
@@ -424,5 +430,11 @@ unsupported local playback source -> 400 unsupported
 in-flight equivalent remux/HLS    -> 409 conflict
 unfinished HLS segment session    -> 409 conflict
 storage read/metadata failures    -> 502 storage_error/provider_error
+storage timeout                   -> 504 storage_timeout
+storage unauthorized/forbidden    -> 502 storage_unauthorized
+storage rate-limited              -> 503 storage_rate_limited
+staging budget exhausted          -> 507 staging_budget_exhausted
+staging validation mismatch       -> 502 staging_validation_mismatch
+FFmpeg runner failure             -> 502 ffmpeg_error
 database failures                 -> 500 database_error
 ```

@@ -159,11 +159,13 @@ Completed:
 - M7.2 disk budget wiring with `[staging].max_bytes` and app-side preflight
   checks before remote probe or FFmpeg input staging.
 - M7.2 startup cleanup for expired staged inputs, with active-lease protection.
+- M7.3 first HTTP error-mapping slice for staging budget, staging validation,
+  storage timeout/auth/rate-limit, and FFmpeg provider failures.
 
 Recommended next goal:
 
-- continue M7.2 by adding runtime lease acquisition/release, reuse validation,
-  and deciding whether bounded background cleanup is needed.
+- continue M7.3 by replacing message-pattern classification with typed
+  playback/storage errors, then add route-level failure tests.
 
 ### Client and Product Experience: M8+
 

@@ -686,6 +686,15 @@ impl IntoResponse for ApiError {
 
 fn status_for_error(error: &TaruError) -> StatusCode {
     match error {
+        TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
+            StatusCode::INSUFFICIENT_STORAGE
+        }
+        TaruError::Storage { message, .. } if is_storage_timeout(message) => {
+            StatusCode::GATEWAY_TIMEOUT
+        }
+        TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
+            StatusCode::SERVICE_UNAVAILABLE
+        }
         TaruError::InvalidInput { .. } | TaruError::Unsupported(_) => StatusCode::BAD_REQUEST,
         TaruError::NotFound { .. } => StatusCode::NOT_FOUND,
         TaruError::Conflict { .. } => StatusCode::CONFLICT,
@@ -700,7 +709,21 @@ fn code_for_error(error: &TaruError) -> &'static str {
         TaruError::NotFound { .. } => "not_found",
         TaruError::Conflict { .. } => "conflict",
         TaruError::Unsupported(_) => "unsupported",
+        TaruError::Provider { provider, .. } if is_ffmpeg_provider(provider) => "ffmpeg_error",
         TaruError::Provider { .. } => "provider_error",
+        TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
+            "staging_budget_exhausted"
+        }
+        TaruError::Storage { message, .. } if is_staging_validation_mismatch(message) => {
+            "staging_validation_mismatch"
+        }
+        TaruError::Storage { message, .. } if is_storage_timeout(message) => "storage_timeout",
+        TaruError::Storage { message, .. } if is_storage_unauthorized(message) => {
+            "storage_unauthorized"
+        }
+        TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
+            "storage_rate_limited"
+        }
         TaruError::Storage { .. } => "storage_error",
         TaruError::Database { .. } => "database_error",
     }
@@ -709,8 +732,26 @@ fn code_for_error(error: &TaruError) -> &'static str {
 fn public_message(error: &TaruError) -> String {
     match error {
         TaruError::Database { .. } => "database operation failed".to_owned(),
+        TaruError::Provider { provider, .. } if is_ffmpeg_provider(provider) => {
+            "ffmpeg operation failed".to_owned()
+        }
         TaruError::Provider { provider, .. } => {
             format!("external provider operation failed: {provider}")
+        }
+        TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
+            "staging disk budget exhausted".to_owned()
+        }
+        TaruError::Storage { message, .. } if is_staging_validation_mismatch(message) => {
+            "staged input validation failed".to_owned()
+        }
+        TaruError::Storage { message, .. } if is_storage_timeout(message) => {
+            "storage backend timed out".to_owned()
+        }
+        TaruError::Storage { message, .. } if is_storage_unauthorized(message) => {
+            "storage backend rejected credentials".to_owned()
+        }
+        TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
+            "storage backend rate limited the request".to_owned()
         }
         TaruError::Storage { .. } => "storage operation failed".to_owned(),
         TaruError::InvalidInput { .. }
@@ -718,6 +759,43 @@ fn public_message(error: &TaruError) -> String {
         | TaruError::Conflict { .. }
         | TaruError::Unsupported(_) => error.to_string(),
     }
+}
+
+fn is_ffmpeg_provider(provider: &str) -> bool {
+    provider == "ffmpeg" || provider == "ffmpeg_remux" || provider == "ffmpeg_hls"
+}
+
+fn is_staging_budget_exhausted(message: &str) -> bool {
+    message.contains("staging disk budget exhausted")
+}
+
+fn is_staging_validation_mismatch(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("staged") && message.contains("did not match")
+        || message.contains("staging validation")
+}
+
+fn is_storage_timeout(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("timed out")
+        || message.contains("timeout")
+        || message.contains("request timeout")
+        || message.contains("408")
+}
+
+fn is_storage_unauthorized(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("unauthorized")
+        || message.contains("forbidden")
+        || message.contains("401")
+        || message.contains("403")
+}
+
+fn is_storage_rate_limited(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("too many requests")
+        || message.contains("rate limit")
+        || message.contains("429")
 }
 
 #[cfg(test)]
@@ -778,6 +856,76 @@ mod tests {
         assert_eq!(health.status, "ok");
         assert_eq!(libraries.libraries.len(), 1);
         assert_eq!(libraries.libraries[0].id, library_id);
+    }
+
+    #[tokio::test]
+    async fn api_errors_map_playback_storage_categories() {
+        let cases = [
+            (
+                TaruError::Storage {
+                    uri: "webdav:///Movies/Demo.mkv".to_owned(),
+                    message: "staging disk budget exhausted: used=10, additional=4, max=12"
+                        .to_owned(),
+                },
+                StatusCode::INSUFFICIENT_STORAGE,
+                "staging_budget_exhausted",
+                "staging disk budget exhausted",
+            ),
+            (
+                TaruError::Storage {
+                    uri: "webdav:///Movies/Demo.mkv".to_owned(),
+                    message: "staged WebDAV file did not match expected size".to_owned(),
+                },
+                StatusCode::BAD_GATEWAY,
+                "staging_validation_mismatch",
+                "staged input validation failed",
+            ),
+            (
+                TaruError::Storage {
+                    uri: "webdav:///Movies/Demo.mkv".to_owned(),
+                    message: "WebDAV request failed: operation timed out".to_owned(),
+                },
+                StatusCode::GATEWAY_TIMEOUT,
+                "storage_timeout",
+                "storage backend timed out",
+            ),
+            (
+                TaruError::Storage {
+                    uri: "webdav:///Movies/Demo.mkv".to_owned(),
+                    message: "WebDAV GET returned 401 Unauthorized".to_owned(),
+                },
+                StatusCode::BAD_GATEWAY,
+                "storage_unauthorized",
+                "storage backend rejected credentials",
+            ),
+            (
+                TaruError::Storage {
+                    uri: "webdav:///Movies/Demo.mkv".to_owned(),
+                    message: "WebDAV GET returned 429 Too Many Requests".to_owned(),
+                },
+                StatusCode::SERVICE_UNAVAILABLE,
+                "storage_rate_limited",
+                "storage backend rate limited the request",
+            ),
+            (
+                TaruError::Provider {
+                    provider: "ffmpeg_hls".to_owned(),
+                    message: "hls runner failed".to_owned(),
+                },
+                StatusCode::BAD_GATEWAY,
+                "ffmpeg_error",
+                "ffmpeg operation failed",
+            ),
+        ];
+
+        for (error, status, code, message) in cases {
+            let response = ApiError(error).into_response();
+
+            assert_eq!(response.status(), status);
+            let body = body_json::<ErrorResponse>(response).await;
+            assert_eq!(body.code, code);
+            assert_eq!(body.message, message);
+        }
     }
 
     #[tokio::test]

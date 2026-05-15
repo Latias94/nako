@@ -481,3 +481,11 @@ Evidence for M7.2 foundation:
   cleanup of expired staged inputs; cleanup preserves active leases.
 - [Phase 7.2](workstreams/playback-streaming/PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)
   records validation and remaining runtime gaps.
+
+Evidence for M7.3 first error-mapping slice:
+
+- Playback/storage HTTP errors now expose stable codes for staging budget
+  exhaustion, staging validation mismatch, storage timeout, storage
+  unauthorized, storage rate limiting, and FFmpeg failures.
+- [Phase 7.3](workstreams/playback-streaming/PHASE7_3_PLAYBACK_ERROR_MAPPING.md)
+  records validation and remaining typed-error gaps.

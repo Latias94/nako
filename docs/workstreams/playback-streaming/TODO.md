@@ -41,6 +41,8 @@
 
 ## Playback Error Mapping
 
+- [x] Add initial stable HTTP codes for staging budget, staging validation,
+      storage timeout/auth/rate-limit, and FFmpeg provider failures.
 - [ ] Define typed playback/storage error categories.
 - [ ] Map remote not found, unauthorized, timeout, transient backend failure,
       stale cache fallback, unsupported range, staging budget exhaustion,
