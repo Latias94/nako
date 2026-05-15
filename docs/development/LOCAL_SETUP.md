@@ -84,6 +84,9 @@ hardware_fallback = "cpu"
 cpu_concurrency = 1
 gpu_concurrency = 1
 
+[staging]
+max_bytes = 107374182400
+
 [library]
 id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
@@ -128,7 +131,8 @@ cargo run -p taru-server -- --config taru.toml scan
 Remote probe inputs are staged under `remux_staging_root/probe-inputs`. Remote
 remux and HLS inputs are staged under `remux_staging_root/inputs` before FFmpeg
 is invoked. Direct play streams WebDAV ranges through `taru-vfs` into the HTTP
-response body.
+response body. `[staging].max_bytes` limits the total manifest-tracked remote
+input staging bytes before new probe or FFmpeg input staging starts.
 
 Runtime notes:
 
@@ -141,6 +145,8 @@ Runtime notes:
 - `remux_staging_root` stores staged remux outputs; HLS outputs are staged
   below `remux_staging_root/hls`. Remote probe and FFmpeg input staging also
   uses children below this root.
+- `[staging].max_bytes` bounds manifest-tracked remote probe and FFmpeg input
+  staging. The default is 100 GiB.
 - `[transcode].cpu_concurrency` and `[transcode].gpu_concurrency` bound HLS
   transcode sessions by selected acceleration class.
 

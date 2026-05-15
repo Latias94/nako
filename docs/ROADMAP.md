@@ -134,7 +134,7 @@ Recommended next goal:
 
 ### Playback Streaming and Remote Hardening: M7
 
-Status: active, completed through M7.2 manifest runtime recording.
+Status: active, completed through M7.2 manifest and disk budget wiring.
 
 This phase hardens the remote playback path after the M6 WebDAV preview:
 
@@ -156,11 +156,12 @@ Completed:
   records, repository contract, SQLite migration, a dedicated DB module,
   remote probe input manifest recording, and remux/HLS FFmpeg input manifest
   recording.
+- M7.2 disk budget wiring with `[staging].max_bytes` and app-side preflight
+  checks before remote probe or FFmpeg input staging.
 
 Recommended next goal:
 
-- continue M7.2 by adding disk budget configuration, enforcement, active lease
-  semantics, and cleanup policy.
+- continue M7.2 by adding active lease semantics and cleanup policy.
 
 ### Client and Product Experience: M8+
 

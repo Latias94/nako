@@ -231,6 +231,8 @@ HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
 `remux_staging_root/hls`.
 WebDAV source inputs are staged under `remux_staging_root/inputs` before HLS
 planning.
+Remote input staging is subject to the configured `[staging].max_bytes` disk
+budget.
 Segment lines are rewritten to session-scoped URLs:
 
 ```text
@@ -248,9 +250,10 @@ requested before the HLS session reaches `finished` return `409 conflict`.
 The M6 WebDAV preview is read-only and supports one configured library. WebDAV
 scan/list/stat/open-range, probe staging, direct range reads, remux staging,
 and HLS staging are covered. M7.1 adds remote direct-play response-body
-streaming. Remux and HLS still stage full remote objects before FFmpeg.
-Staging cleanup, disk budgets, remote-byte cache, S3-compatible storage, and
-remote NFO sidecar writes are not part of the M6 preview.
+streaming, and M7.2 adds a staging manifest plus a disk budget. Remux and HLS
+still stage full remote objects before FFmpeg. Staging cleanup, remote-byte
+cache, S3-compatible storage, and remote NFO sidecar writes are not part of the
+M6 preview.
 
 ## Webhook Routes
 

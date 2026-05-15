@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use taru_core::{
     NewStagingManifestRecord, Result, StagingManifestId, StagingManifestRepository, StagingPurpose,
-    StagingState,
+    StagingState, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
-    StorageBackend, StorageUri, VirtualFile,
+    StorageBackend, StorageUri, VirtualFile, deterministic_stage_path,
 };
 
 use super::current_time_ms;
@@ -58,6 +58,7 @@ pub(super) struct ManifestRecordingStorageBackend {
     inner: Box<dyn StorageBackend>,
     store: SqliteStore,
     purpose: StagingPurpose,
+    max_bytes: u64,
 }
 
 impl ManifestRecordingStorageBackend {
@@ -65,12 +66,47 @@ impl ManifestRecordingStorageBackend {
         inner: Box<dyn StorageBackend>,
         store: SqliteStore,
         purpose: StagingPurpose,
+        max_bytes: u64,
     ) -> Self {
         Self {
             inner,
             store,
             purpose,
+            max_bytes,
         }
+    }
+
+    async fn ensure_budget(&self, request: &StageRequest) -> Result<()> {
+        let metadata = self.inner.stat(&request.uri).await?;
+        let incoming_bytes = metadata.len.ok_or_else(|| TaruError::Storage {
+            uri: request.uri.to_string(),
+            message: "staging disk budget requires a known source size".to_owned(),
+        })?;
+        let candidate_path = deterministic_stage_path(
+            &request.root,
+            &request.uri,
+            metadata.fingerprint.as_deref().or(metadata.etag.as_deref()),
+        )?;
+        let existing = self
+            .store
+            .find_staging_manifest_record_by_path(&candidate_path.display().to_string())
+            .await?;
+        let existing_bytes = existing.and_then(|record| record.size_bytes).unwrap_or(0);
+        let additional_bytes = incoming_bytes.saturating_sub(existing_bytes);
+        let used_bytes = self.store.sum_staging_manifest_bytes().await?;
+        let projected_bytes = used_bytes.saturating_add(additional_bytes);
+
+        if additional_bytes > 0 && projected_bytes > self.max_bytes {
+            return Err(TaruError::Storage {
+                uri: request.uri.to_string(),
+                message: format!(
+                    "staging disk budget exhausted: used={used_bytes}, additional={additional_bytes}, max={}",
+                    self.max_bytes
+                ),
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -113,6 +149,7 @@ impl StorageBackend for ManifestRecordingStorageBackend {
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        self.ensure_budget(&request).await?;
         let staged = self.inner.stage(request).await?;
         record_staged_input(&self.store, self.purpose, &staged.uri, &staged).await?;
         Ok(staged)

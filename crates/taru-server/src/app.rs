@@ -55,7 +55,7 @@ use taru_transcode::{
     FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
-use taru_vfs::{LocalFsBackend, StageRequest, StagedFile, StorageBackend, StorageUri};
+use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -65,7 +65,7 @@ pub(crate) mod playback;
 mod staging;
 
 pub(crate) use playback::DirectPlaySourceBody;
-use staging::{ManifestRecordingStorageBackend, record_staged_input};
+use staging::ManifestRecordingStorageBackend;
 
 #[cfg(test)]
 use playback::plan_direct_play_with_backend;
@@ -1119,8 +1119,13 @@ impl TaruApp {
 
     async fn source_path_for_ffmpeg(&self, source: &MediaSource) -> Result<PathBuf> {
         let uri = StorageUri::parse(&source.locator)?;
-        let backend = self.storage_backend_for_source(&uri)?;
-        match local_source_path_and_len(source, &uri, backend.as_ref()).await {
+        let backend = ManifestRecordingStorageBackend::new(
+            self.storage_backend_for_source(&uri)?,
+            self.inner.store.clone(),
+            StagingPurpose::FfmpegInput,
+            self.config().staging.max_bytes,
+        );
+        match local_source_path_and_len(source, &uri, &backend).await {
             Ok((path, _len)) => Ok(path),
             Err(TaruError::Unsupported(_)) => {
                 let staged = backend
@@ -1129,19 +1134,10 @@ impl TaruApp {
                         self.config().remux_staging_root.join("inputs"),
                     ))
                     .await?;
-                self.record_staged_ffmpeg_input(&uri, &staged).await?;
                 Ok(staged.path)
             }
             Err(err) => Err(err),
         }
-    }
-
-    async fn record_staged_ffmpeg_input(
-        &self,
-        uri: &StorageUri,
-        staged: &StagedFile,
-    ) -> Result<()> {
-        record_staged_input(&self.inner.store, StagingPurpose::FfmpegInput, uri, staged).await
     }
 
     fn storage_backend_for_source(&self, uri: &StorageUri) -> Result<Box<dyn StorageBackend>> {
@@ -2497,6 +2493,7 @@ impl TaruApp {
             self.storage_backend_for_library_root(&library)?,
             self.inner.store.clone(),
             StagingPurpose::ProbeInput,
+            self.config().staging.max_bytes,
         ));
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
@@ -3050,7 +3047,7 @@ mod tests {
     use tokio::net::TcpListener;
 
     use super::*;
-    use crate::config::{LocalLibraryConfig, MetadataConfig, TranscodeConfig};
+    use crate::config::{LocalLibraryConfig, MetadataConfig, StagingConfig, TranscodeConfig};
 
     #[tokio::test]
     async fn scan_configured_library_persists_job_success() {
@@ -3070,6 +3067,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3124,6 +3122,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),
@@ -3183,6 +3182,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3252,6 +3252,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3309,6 +3310,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
@@ -3365,6 +3367,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
@@ -3419,6 +3422,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3504,6 +3508,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3994,6 +3999,7 @@ mod tests {
             }),
             store.clone(),
             StagingPurpose::ProbeInput,
+            StagingConfig::default().max_bytes,
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 
@@ -4026,6 +4032,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn manifest_recording_backend_rejects_staging_over_disk_budget() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let backend = ManifestRecordingStorageBackend::new(
+            Box::new(RemotePlaybackBackend {
+                bytes: b"probe-media".to_vec(),
+                local_path_hint: None,
+            }),
+            store.clone(),
+            StagingPurpose::ProbeInput,
+            5,
+        );
+        let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
+        let staging_root = temp.path().join("probe-inputs");
+
+        let err = backend
+            .stage(StageRequest::new(uri.clone(), staging_root.clone()))
+            .await
+            .unwrap_err();
+
+        let TaruError::Storage { message, .. } = err else {
+            panic!("expected storage budget error");
+        };
+        assert!(message.contains("staging disk budget exhausted"));
+        assert!(!staging_root.exists());
+        let records = store
+            .list_staging_manifest_records(
+                Some(StagingPurpose::ProbeInput),
+                Some(StagingState::Ready),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert!(records.is_empty());
+    }
+
+    #[tokio::test]
     async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
         let server = MockWebDavServer::start().await;
         let temp = tempfile::tempdir().unwrap();
@@ -4047,6 +4091,7 @@ mod tests {
                 remux_staging_root: staging_root.clone(),
                 metadata: MetadataConfig::default(),
                 transcode: TranscodeConfig::default(),
+                staging: StagingConfig::default(),
                 library: LocalLibraryConfig {
                     id: library_id,
                     name: "Remote Movies".to_owned(),
@@ -4521,6 +4566,7 @@ mod tests {
             remux_staging_root: staging_root,
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

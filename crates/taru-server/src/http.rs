@@ -761,7 +761,9 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::config::{LocalLibraryConfig, MetadataConfig, TaruServerConfig, TranscodeConfig};
+    use crate::config::{
+        LocalLibraryConfig, MetadataConfig, StagingConfig, TaruServerConfig, TranscodeConfig,
+    };
 
     #[tokio::test]
     async fn health_and_libraries_routes_work() {
@@ -864,6 +866,7 @@ mod tests {
                 remux_staging_root: temp.path().join("taru-cache").join("remux"),
                 metadata: MetadataConfig::default(),
                 transcode: TranscodeConfig::default(),
+                staging: StagingConfig::default(),
                 library: LocalLibraryConfig {
                     id: library_id,
                     name: "Movies".to_owned(),
@@ -1255,6 +1258,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata,
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1357,6 +1361,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1419,6 +1424,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1589,6 +1595,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2179,6 +2186,7 @@ mod tests {
             remux_staging_root: temp.path().join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2251,6 +2259,7 @@ mod tests {
             remux_staging_root: staging_root.clone(),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2324,6 +2333,7 @@ mod tests {
             remux_staging_root: staging_root,
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2512,6 +2522,7 @@ mod tests {
             remux_staging_root: root.join("taru-cache").join("remux"),
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

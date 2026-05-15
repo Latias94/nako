@@ -38,6 +38,8 @@ pub struct TaruServerConfig {
     pub metadata: MetadataConfig,
     #[serde(default)]
     pub transcode: TranscodeConfig,
+    #[serde(default)]
+    pub staging: StagingConfig,
     pub library: LocalLibraryConfig,
 }
 
@@ -64,6 +66,20 @@ pub struct WebDavLibraryConfig {
     pub timeout_ms: u64,
     #[serde(default = "default_webdav_max_attempts")]
     pub max_attempts: u32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StagingConfig {
+    #[serde(default = "default_staging_max_bytes")]
+    pub max_bytes: u64,
+}
+
+impl Default for StagingConfig {
+    fn default() -> Self {
+        Self {
+            max_bytes: default_staging_max_bytes(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -172,6 +188,7 @@ pub fn example_config() -> Result<String> {
         remux_staging_root: default_remux_staging_root(),
         metadata: MetadataConfig::default(),
         transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
         library: LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -237,6 +254,10 @@ const fn default_webhook_concurrency() -> usize {
 
 const fn default_remux_timeout_ms() -> u64 {
     30 * 60 * 1_000
+}
+
+const fn default_staging_max_bytes() -> u64 {
+    100 * 1024 * 1024 * 1024
 }
 
 const fn default_webdav_timeout_ms() -> u64 {
@@ -307,6 +328,9 @@ mod tests {
             cpu_concurrency = 3
             gpu_concurrency = 2
 
+            [staging]
+            max_bytes = 123456789
+
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
@@ -365,6 +389,7 @@ mod tests {
             config.transcode.resource_budget(),
             TranscodeResourceBudget::new(3, 2)
         );
+        assert_eq!(config.staging.max_bytes, 123_456_789);
         assert!(config.metadata.tmdb.enabled);
         assert_eq!(
             config.metadata.tmdb.access_token_env,
@@ -432,6 +457,7 @@ mod tests {
         );
         assert_eq!(config.transcode.cpu_concurrency, 1);
         assert_eq!(config.transcode.gpu_concurrency, 1);
+        assert_eq!(config.staging, StagingConfig::default());
         assert!(!config.metadata.tmdb.enabled);
         assert_eq!(config.library.preset, LibraryPreset::Movies);
         assert_eq!(

@@ -475,5 +475,7 @@ Evidence for M7.2 foundation:
   `taru-library` to the staging repository.
 - `taru-server` records `ffmpeg_input` manifest entries when remote WebDAV
   sources are staged for remux or HLS.
+- `[staging].max_bytes` config and the app-side staging wrapper enforce a
+  manifest-backed disk budget before remote probe or FFmpeg input staging.
 - [Phase 7.2](workstreams/playback-streaming/PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)
   records validation and remaining runtime gaps.

@@ -25,6 +25,9 @@ growing the already large `taru-db/src/lib.rs` implementation file.
 - Remote probe input staging now records `probe_input` manifest entries through
   a server-side `StorageBackend` wrapper, keeping repository writes out of
   `taru-library`.
+- Added `[staging].max_bytes` config with a conservative default.
+- Probe and FFmpeg remote input staging now check the manifest-backed disk
+  budget before creating staged files.
 
 ## Validation
 
@@ -35,10 +38,11 @@ Focused validation:
 - `cargo check -p taru-server`
 - `cargo nextest run -p taru-server source_path_for_ffmpeg_records_manifest_for_remote_staging ffmpeg_source_path_stages_remote_backend_without_local_path_hint ffmpeg_source_path_reuses_local_path_hint_without_staging`
 - `cargo nextest run -p taru-server manifest_recording_backend_records_probe_staging`
+- `cargo nextest run -p taru-server manifest_recording_backend_rejects_staging_over_disk_budget`
 
 ## Remaining Gaps
 
-- Disk budget configuration and enforcement are not connected yet.
 - Cleanup worker and startup cleanup are not implemented yet.
 - Active lease management is represented in the manifest schema but not yet
   acquired/released by runtime staging paths.
+- Reuse and validation mismatch tests still need to be added alongside cleanup.

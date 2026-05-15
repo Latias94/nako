@@ -30,13 +30,13 @@
       state, last access, and expiration.
 - [x] Record remote probe input staging in the manifest.
 - [x] Record remux/HLS remote FFmpeg input staging in the manifest.
-- [ ] Add disk budget configuration.
-- [ ] Enforce disk budget before staging remote inputs.
+- [x] Add disk budget configuration.
+- [x] Enforce disk budget before staging remote inputs.
+- [x] Add budget exhaustion test.
 - [ ] Add startup cleanup.
 - [ ] Add bounded background cleanup worker if needed.
 - [ ] Ensure cleanup does not delete active staged inputs.
-- [ ] Add tests for stale cleanup, budget exhaustion, reuse, and validation
-      mismatch.
+- [ ] Add tests for stale cleanup, reuse, and validation mismatch.
 
 ## Playback Error Mapping
 
