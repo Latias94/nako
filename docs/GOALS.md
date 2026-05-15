@@ -499,3 +499,12 @@ Evidence for M7.4 resource-budget foundation:
   remote probe/FFmpeg staging acquires a stage permit around staging.
 - [Phase 7.4](workstreams/playback-streaming/PHASE7_4_REMOTE_PLAYBACK_RESOURCE_BUDGETS.md)
   records validation and remaining route-level stress-test gaps.
+
+Evidence for NFO/VFS storage boundary:
+
+- `run_nfo_import` and `run_nfo_export` now use
+  `storage_backend_for_library_root`.
+- NFO export checks `StorageCapabilities::WRITABLE`; WebDAV import works
+  through the configured VFS backend and WebDAV export is rejected as read-only.
+- [Phase 7.4.1](workstreams/playback-streaming/PHASE7_4_1_NFO_STORAGE_BOUNDARY.md)
+  records validation.

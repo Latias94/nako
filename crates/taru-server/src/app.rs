@@ -55,7 +55,7 @@ use taru_transcode::{
     FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
-use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageUri};
+use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -2594,7 +2594,7 @@ impl TaruApp {
             "starting NFO import job"
         );
 
-        let backend = LocalFsBackend::new(&self.config().library.root)?;
+        let backend = self.storage_backend_for_library_root(&library)?;
         let service = NfoService::new(backend, self.inner.store.clone(), MovieNfoCodec);
 
         service
@@ -2620,7 +2620,8 @@ impl TaruApp {
             "starting NFO export job"
         );
 
-        let backend = LocalFsBackend::new(&self.config().library.root)?;
+        let backend = self.storage_backend_for_library_root(&library)?;
+        ensure_nfo_export_writable(backend.as_ref(), &library).await?;
         let service = NfoService::new(backend, self.inner.store.clone(), MovieNfoCodec);
 
         service
@@ -2883,6 +2884,30 @@ fn webdav_backend_config(config: &WebDavLibraryConfig) -> taru_vfs::WebDavBacken
         password_env: config.password_env.clone(),
         timeout_ms: config.timeout_ms,
         max_attempts: config.max_attempts,
+    }
+}
+
+async fn ensure_nfo_export_writable(
+    backend: &dyn StorageBackend,
+    library: &taru_core::Library,
+) -> Result<()> {
+    let root = library
+        .roots
+        .first()
+        .map(String::as_str)
+        .unwrap_or("local:///");
+    let uri = StorageUri::parse(root)?;
+    let metadata = backend.stat(&uri).await?;
+
+    if metadata
+        .capabilities
+        .contains(StorageCapabilities::WRITABLE)
+    {
+        Ok(())
+    } else {
+        Err(TaruError::Unsupported(
+            "NFO export requires a writable storage backend",
+        ))
     }
 }
 
@@ -3200,6 +3225,123 @@ mod tests {
         assert_eq!(
             summary.media_sources[0].uri.as_str(),
             "webdav:///Movies/Demo.mkv"
+        );
+    }
+
+    #[tokio::test]
+    async fn nfo_import_uses_configured_webdav_backend() {
+        let server = MockWebDavServer::start().await;
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Remote Movies".to_owned(),
+                root: temp.path().join("unused-local-root"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: server.base_url(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 5_000,
+                    max_attempts: 1,
+                }),
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Original".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "webdav:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(4),
+            fingerprint: None,
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+
+        let output = app.import_library_nfo(library_id).await.unwrap();
+        let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+
+        assert_eq!(output.import.imported_items, 1);
+        assert_eq!(loaded.metadata.title, "Remote NFO");
+    }
+
+    #[tokio::test]
+    async fn nfo_export_rejects_read_only_webdav_backend() {
+        let server = MockWebDavServer::start().await;
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Remote Movies".to_owned(),
+                root: temp.path().join("unused-local-root"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: server.base_url(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 5_000,
+                    max_attempts: 1,
+                }),
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store).await.unwrap();
+
+        let err = app.export_library_nfo(library_id).await.unwrap_err();
+
+        assert_eq!(
+            err,
+            TaruError::Unsupported("NFO export requires a writable storage backend")
         );
     }
 
@@ -4655,6 +4797,12 @@ mod tests {
                             len: Some(4),
                             etag: Some("etag-demo"),
                         },
+                        MockWebDavFixture {
+                            href: "/dav/Movies/Demo.nfo",
+                            collection: false,
+                            len: Some(40),
+                            etag: Some("etag-demo-nfo"),
+                        },
                     ]),
                 )
                     .into_response();
@@ -4673,10 +4821,32 @@ mod tests {
                 )
                     .into_response();
             }
+
+            if path.ends_with("/Movies/Demo.nfo") {
+                return (
+                    AxumStatusCode::MULTI_STATUS,
+                    [(header::CONTENT_TYPE, "application/xml")],
+                    mock_multistatus(&[MockWebDavFixture {
+                        href: "/dav/Movies/Demo.nfo",
+                        collection: false,
+                        len: Some(40),
+                        etag: Some("etag-demo-nfo"),
+                    }]),
+                )
+                    .into_response();
+            }
         }
 
         if method == Method::GET && path.ends_with("/Movies/Demo.mkv") {
             return (AxumStatusCode::OK, [(header::CONTENT_LENGTH, "4")], "demo").into_response();
+        }
+        if method == Method::GET && path.ends_with("/Movies/Demo.nfo") {
+            return (
+                AxumStatusCode::OK,
+                [(header::CONTENT_LENGTH, "40")],
+                "<movie><title>Remote NFO</title></movie>",
+            )
+                .into_response();
         }
 
         AxumStatusCode::NOT_FOUND.into_response()

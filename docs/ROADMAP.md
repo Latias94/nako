@@ -163,11 +163,12 @@ Completed:
   storage timeout/auth/rate-limit, and FFmpeg provider failures.
 - M7.4 resource-budget foundation with independent remote stream and stage
   concurrency limits.
+- NFO import/export now use the configured VFS backend boundary and gate export
+  on writable storage capabilities.
 
 Recommended next goal:
 
-- continue M7.4 with route-level concurrency stress tests, then proceed to
-  multi-library and multi-remote backend configuration.
+- proceed to multi-library and multi-remote backend configuration.
 
 ### Client and Product Experience: M8+
 

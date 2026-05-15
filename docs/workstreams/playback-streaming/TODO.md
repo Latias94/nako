@@ -69,6 +69,13 @@
 - [ ] Keep credentials as secret references only.
 - [ ] Add config parsing and app-level tests.
 
+## NFO Storage Boundary
+
+- [x] Route NFO import through the configured library VFS backend.
+- [x] Route NFO export through the configured library VFS backend.
+- [x] Gate NFO export on `StorageCapabilities::WRITABLE`.
+- [x] Add WebDAV import and read-only export tests.
+
 ## Stabilization
 
 - [ ] Update local setup docs.

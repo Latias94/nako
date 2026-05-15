@@ -22,6 +22,7 @@ Top-level tracking:
 - [Phase 7.2 staging manifest foundation](PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)
 - [Phase 7.3 playback error mapping](PHASE7_3_PLAYBACK_ERROR_MAPPING.md)
 - [Phase 7.4 remote playback resource budgets](PHASE7_4_REMOTE_PLAYBACK_RESOURCE_BUDGETS.md)
+- [Phase 7.4.1 NFO storage boundary](PHASE7_4_1_NFO_STORAGE_BOUNDARY.md)
 
 ## Goals
 

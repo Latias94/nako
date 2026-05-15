@@ -243,6 +243,8 @@ budget. Expired staged inputs are cleaned during startup when
 Remote direct-play response bodies are bounded by
 `[playback].remote_stream_concurrency`; remote probe and FFmpeg input staging
 are bounded by `[playback].remote_stage_concurrency`.
+NFO import/export use the configured library VFS backend. Export requires a
+writable backend; read-only remote backends return `400 unsupported`.
 Segment lines are rewritten to session-scoped URLs:
 
 ```text
