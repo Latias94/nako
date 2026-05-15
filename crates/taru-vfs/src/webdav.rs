@@ -1,6 +1,7 @@
 use std::{env, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use reqwest::{
     Client, Method, StatusCode, Url,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue, RANGE},
@@ -9,8 +10,8 @@ use roxmltree::Document;
 use taru_core::{Result, TaruError};
 
 use crate::{
-    ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
-    StorageCapabilities, StorageUri, VirtualFile, deterministic_stage_path,
+    ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
+    StorageBackend, StorageCapabilities, StorageUri, VirtualFile, deterministic_stage_path,
 };
 
 #[derive(Clone, Debug)]
@@ -374,6 +375,34 @@ impl StorageBackend for WebDavBackend {
         })
     }
 
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        let metadata = self.stat(uri).await?;
+        if metadata.kind != ObjectKind::File {
+            return Err(TaruError::InvalidInput {
+                message: format!("cannot stream non-file WebDAV uri: {uri}"),
+            });
+        }
+        if let Some(range) = range {
+            if let Some(len) = metadata.len {
+                validate_range(uri, range, len)?;
+            }
+        }
+
+        let response = self.get_range_response(uri, range).await?;
+        let stream_uri = uri.to_string();
+        let body = response
+            .bytes_stream()
+            .map(move |chunk| {
+                chunk.map_err(|err| TaruError::Storage {
+                    uri: stream_uri.clone(),
+                    message: format!("failed to stream WebDAV range response: {err}"),
+                })
+            })
+            .boxed();
+
+        Ok(ReadStream::new(uri.clone(), range, body))
+    }
+
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
         self.get_response(uri)
             .await?
@@ -725,6 +754,7 @@ mod tests {
         response::{IntoResponse, Response},
         routing::any,
     };
+    use futures_util::StreamExt;
     use tokio::net::TcpListener;
 
     use super::*;
@@ -807,6 +837,40 @@ mod tests {
             })
         );
         assert_eq!(read.bytes, b"ar");
+        assert_eq!(server.last_range().as_deref(), Some("bytes=1-2"));
+    }
+
+    #[tokio::test]
+    async fn webdav_backend_streams_byte_ranges_with_http_range_header() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig::new(server.base_url())).unwrap();
+        let movie = StorageUri::from_parts("webdav", "Movies/Demo.mkv").unwrap();
+
+        let mut read = backend
+            .stream_range(
+                &movie,
+                Some(ByteRange {
+                    offset: 1,
+                    length: Some(2),
+                }),
+            )
+            .await
+            .unwrap();
+
+        let mut bytes = Vec::new();
+        while let Some(chunk) = read.body.next().await {
+            bytes.extend_from_slice(&chunk.unwrap());
+        }
+
+        assert_eq!(read.uri, movie);
+        assert_eq!(
+            read.range,
+            Some(ByteRange {
+                offset: 1,
+                length: Some(2)
+            })
+        );
+        assert_eq!(bytes, b"ar");
         assert_eq!(server.last_range().as_deref(), Some("bytes=1-2"));
     }
 

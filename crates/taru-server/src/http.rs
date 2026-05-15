@@ -1,10 +1,7 @@
-use std::{io::SeekFrom, path::Path as FsPath};
-
 use axum::{
     Json, Router,
-    body::Body,
     extract::{Path, Query, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -19,17 +16,19 @@ use taru_core::{
     MediaSourceId, PageRequest, PersonId, TagId, TaruError, TranscodeSessionId, WebhookEndpointId,
 };
 use taru_streaming::{
-    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
-    DirectPlayResponseStatus, content_type_for_file_name, parse_http_range_header,
+    ClientPlaybackCapabilities, DirectPlayRangeRequest, content_type_for_file_name,
     plan_direct_play_response,
 };
 use taru_transcode::RemuxContainer;
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
-use tokio_util::io::ReaderStream;
 use tracing::{error, instrument, warn};
 
-use crate::app::{
-    DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest, TaruApp,
+use crate::app::{HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest, TaruApp};
+
+mod playback;
+
+use playback::{
+    direct_play_range_request, empty_direct_play_response, hls_playlist_response,
+    stream_direct_play_response, stream_local_file_response,
 };
 
 pub fn build_router(app: TaruApp) -> Router {
@@ -332,12 +331,8 @@ async fn stream_source(
         return Ok(empty_direct_play_response(&direct_play.response));
     }
 
-    stream_direct_play_response(
-        &direct_play.body,
-        &direct_play.source.locator,
-        &direct_play.response,
-    )
-    .await
+    let uri = direct_play.source.locator.clone();
+    stream_direct_play_response(direct_play.body, &uri, &direct_play.response).await
 }
 
 #[instrument(skip(app, headers))]
@@ -346,11 +341,11 @@ async fn head_stream_source(
     Path(source_id): Path<MediaSourceId>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
-    let direct_play = app
-        .plan_direct_play(source_id, direct_play_range_request(&headers))
+    let response = app
+        .plan_direct_play_preflight(source_id, direct_play_range_request(&headers))
         .await?;
 
-    Ok(empty_direct_play_response(&direct_play.response))
+    Ok(empty_direct_play_response(&response))
 }
 
 #[instrument(skip(app, headers))]
@@ -639,116 +634,6 @@ fn csv_or_default(value: Option<String>, default: Vec<String>) -> Vec<String> {
     if values.is_empty() { default } else { values }
 }
 
-fn direct_play_range_request(headers: &HeaderMap) -> DirectPlayRangeRequest {
-    let Some(value) = headers.get(header::RANGE) else {
-        return DirectPlayRangeRequest::None;
-    };
-
-    let Ok(value) = value.to_str() else {
-        return DirectPlayRangeRequest::Invalid;
-    };
-
-    match parse_http_range_header(value) {
-        Ok(range) => DirectPlayRangeRequest::Range(range),
-        Err(_) => DirectPlayRangeRequest::Invalid,
-    }
-}
-
-fn empty_direct_play_response(plan: &DirectPlayResponsePlan) -> Response {
-    let mut response = Body::empty().into_response();
-    apply_direct_play_headers(&mut response, plan);
-    response
-}
-
-fn hls_playlist_response(body: String) -> Response {
-    let body_len = body.len();
-    let mut response = Body::from(body).into_response();
-    let headers = response.headers_mut();
-    headers.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("application/vnd.apple.mpegurl"),
-    );
-    headers.insert(
-        header::CONTENT_LENGTH,
-        HeaderValue::from_str(&body_len.to_string()).expect("content length is a valid header"),
-    );
-    response
-}
-
-async fn stream_local_file_response(
-    path: &FsPath,
-    uri: &str,
-    plan: &DirectPlayResponsePlan,
-) -> ApiResult<Response> {
-    let mut file = tokio::fs::File::open(path)
-        .await
-        .map_err(|err| TaruError::Storage {
-            uri: uri.to_owned(),
-            message: format!("failed to open stream source: {err}"),
-        })?;
-
-    if plan.seek_offset > 0 {
-        file.seek(SeekFrom::Start(plan.seek_offset))
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: uri.to_owned(),
-                message: format!("failed to seek stream source: {err}"),
-            })?;
-    }
-
-    let stream = ReaderStream::new(file.take(plan.body_len));
-    let mut response = Body::from_stream(stream).into_response();
-    apply_direct_play_headers(&mut response, plan);
-
-    Ok(response)
-}
-
-async fn stream_direct_play_response(
-    body: &DirectPlaySourceBody,
-    uri: &str,
-    plan: &DirectPlayResponsePlan,
-) -> ApiResult<Response> {
-    match body {
-        DirectPlaySourceBody::LocalPath(path) => stream_local_file_response(path, uri, plan).await,
-        DirectPlaySourceBody::Bytes(bytes) => {
-            let mut response = Body::from(bytes.clone()).into_response();
-            apply_direct_play_headers(&mut response, plan);
-            Ok(response)
-        }
-    }
-}
-
-fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponsePlan) {
-    *response.status_mut() = direct_play_status_code(plan.status);
-    let headers = response.headers_mut();
-    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
-    headers.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_str(&plan.content_type)
-            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
-    );
-    headers.insert(
-        header::CONTENT_LENGTH,
-        HeaderValue::from_str(&plan.body_len.to_string())
-            .expect("content length is a valid header"),
-    );
-
-    if let Some(content_range) = &plan.content_range {
-        headers.insert(
-            header::CONTENT_RANGE,
-            HeaderValue::from_str(content_range).expect("content range is a valid header"),
-        );
-    }
-}
-
-fn direct_play_status_code(status: DirectPlayResponseStatus) -> StatusCode {
-    match status {
-        DirectPlayResponseStatus::Ok => StatusCode::OK,
-        DirectPlayResponseStatus::PartialContent => StatusCode::PARTIAL_CONTENT,
-        DirectPlayResponseStatus::RangeNotSatisfiable => StatusCode::RANGE_NOT_SATISFIABLE,
-    }
-}
-
 impl TryFrom<PageQuery> for PageRequest {
     type Error = TaruError;
 
@@ -870,7 +755,8 @@ mod tests {
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
-    use taru_streaming::PlaybackMode;
+    use taru_streaming::{DirectPlayRangeRequest, PlaybackMode, RequestedByteRange};
+    use taru_vfs::{ByteRange, ReadStream, StorageUri};
     use tokio::{net::TcpListener, task::yield_now, time::sleep};
     use tower::ServiceExt;
 
@@ -1873,6 +1759,44 @@ mod tests {
         );
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         assert!(bytes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn direct_stream_response_proxies_vfs_body_stream() {
+        let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
+        let range = Some(ByteRange {
+            offset: 2,
+            length: Some(4),
+        });
+        let body = crate::app::DirectPlaySourceBody::Stream(ReadStream::from_bytes(
+            uri,
+            range,
+            b"2345".to_vec(),
+        ));
+        let response_plan = plan_direct_play_response(
+            10,
+            "video/mp4",
+            DirectPlayRangeRequest::Range(RequestedByteRange {
+                start: Some(2),
+                end: Some(5),
+            }),
+        );
+
+        let response =
+            stream_direct_play_response(body, "webdav:///Movies/Demo.mkv", &response_plan)
+                .await
+                .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_RANGE)
+                .and_then(|value| value.to_str().ok()),
+            Some("bytes 2-5/10")
+        );
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&bytes[..], b"2345");
     }
 
     #[tokio::test]

@@ -27,14 +27,15 @@ Exit criteria:
 Outcome: Remote direct play streams selected ranges through HTTP response
 bodies without materializing the whole selected range in memory.
 
-Status: proposed.
+Status: active; body streaming foundation implemented.
 
 Deliverables:
 
 - VFS/app body abstraction for local files and remote range streams.
 - Remote direct-play route using bounded streaming bodies.
 - HEAD and Range behavior preserved for local and remote sources.
-- Stream timeout, cancellation, and resource-budget acquisition.
+- WebDAV stream timeout through backend request policy.
+- Resource-budget acquisition remains M7.4.
 - Tests proving large remote ranges are not buffered as `Vec<u8>` bodies.
 
 Exit criteria:
@@ -42,7 +43,8 @@ Exit criteria:
 - Direct play can serve remote range-readable sources through streaming body
   responses.
 - Local direct play behavior remains unchanged.
-- Backpressure and cancellation do not leak remote requests.
+- Backpressure and cancellation use the HTTP body stream/drop boundary.
+- Dedicated remote stream resource budgeting is added in M7.4.
 
 ## M7.2: Staging Manifest, Disk Budget, and Cleanup
 

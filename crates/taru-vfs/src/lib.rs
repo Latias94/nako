@@ -5,6 +5,8 @@ use std::{
 
 use async_trait::async_trait;
 use bitflags::bitflags;
+use bytes::Bytes;
+use futures_util::{StreamExt, stream::BoxStream};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use taru_core::{Result, TaruError};
@@ -163,6 +165,40 @@ pub struct ReadRange {
     pub bytes: Vec<u8>,
 }
 
+pub type ByteStream = BoxStream<'static, Result<Bytes>>;
+
+pub struct ReadStream {
+    pub uri: StorageUri,
+    pub range: Option<ByteRange>,
+    pub body: ByteStream,
+}
+
+impl ReadStream {
+    #[must_use]
+    pub fn new(uri: StorageUri, range: Option<ByteRange>, body: ByteStream) -> Self {
+        Self { uri, range, body }
+    }
+
+    #[must_use]
+    pub fn from_bytes(uri: StorageUri, range: Option<ByteRange>, bytes: Vec<u8>) -> Self {
+        Self {
+            uri,
+            range,
+            body: futures_util::stream::once(async move { Ok(Bytes::from(bytes)) }).boxed(),
+        }
+    }
+}
+
+impl fmt::Debug for ReadStream {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ReadStream")
+            .field("uri", &self.uri)
+            .field("range", &self.range)
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StageRequest {
     pub uri: StorageUri,
@@ -212,6 +248,13 @@ pub trait StorageBackend: Send + Sync {
         ))
     }
 
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        let _ = (uri, range);
+        Err(TaruError::Unsupported(
+            "storage backend does not support streaming range reads",
+        ))
+    }
+
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String>;
 
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()>;
@@ -251,6 +294,10 @@ where
 
     async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
         self.as_ref().read_range(uri, range).await
+    }
+
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        self.as_ref().stream_range(uri, range).await
     }
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {

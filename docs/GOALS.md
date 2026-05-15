@@ -443,4 +443,21 @@ Evidence for M7.0:
 
 Recommended next implementation goal:
 
-- M7.1 Remote Direct Body Streaming.
+- Continue M7.1 hardening, then proceed to M7.2 Staging Manifest, Disk Budget,
+  and Cleanup.
+
+Evidence for M7.1 foundation:
+
+- `taru-vfs` defines `ReadStream` and `StorageBackend::stream_range`.
+- `WebDavBackend::stream_range` proxies remote byte streams without
+  accumulating chunks into an in-memory direct-play body.
+- `taru-server` direct play returns `DirectPlaySourceBody::Stream` for remote
+  sources without local path hints, while local sources still use local file
+  streaming.
+- `HEAD /sources/{source_id}/stream` uses a preflight plan without opening the
+  direct-play body.
+- Playback app planning and HTTP response helpers are split into
+  `crates/taru-server/src/app/playback.rs` and
+  `crates/taru-server/src/http/playback.rs`.
+- [Phase 7.1](workstreams/playback-streaming/PHASE7_1_REMOTE_DIRECT_BODY_STREAMING.md)
+  records validation and remaining gaps.

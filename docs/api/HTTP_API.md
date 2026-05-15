@@ -192,8 +192,8 @@ audio_codec=aac,opus
 and configured WebDAV preview sources. It supports HTTP `Range` requests and
 returns `206 Partial Content` with `Accept-Ranges`, `Content-Range`, and
 `Content-Length` when a satisfiable range is requested. For WebDAV sources,
-Taru reads the selected range through `taru-vfs`; the M6 preview buffers the
-selected range bytes in memory before returning the response.
+Taru streams the selected range through `taru-vfs` into the HTTP response body
+instead of buffering the selected bytes in memory.
 
 `HEAD /sources/{source_id}/stream` returns the same direct play headers without
 a body. Clients can use it to preflight source length, MIME type, range support,
@@ -247,11 +247,10 @@ requested before the HLS session reaches `finished` return `409 conflict`.
 
 The M6 WebDAV preview is read-only and supports one configured library. WebDAV
 scan/list/stat/open-range, probe staging, direct range reads, remux staging,
-and HLS staging are covered. Remote direct play still buffers the selected
-range in memory instead of proxying a streaming response body. Remux and HLS
-stage full remote objects before FFmpeg. Staging cleanup, disk budgets,
-remote-byte cache, S3-compatible storage, and remote NFO sidecar writes are not
-part of the M6 preview.
+and HLS staging are covered. M7.1 adds remote direct-play response-body
+streaming. Remux and HLS still stage full remote objects before FFmpeg.
+Staging cleanup, disk budgets, remote-byte cache, S3-compatible storage, and
+remote NFO sidecar writes are not part of the M6 preview.
 
 ## Webhook Routes
 

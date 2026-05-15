@@ -10,14 +10,17 @@
 
 ## Remote Direct Body Streaming
 
-- [ ] Replace remote direct-play `Vec<u8>` response bodies with an async body
+- [x] Replace remote direct-play `Vec<u8>` response bodies with an async body
       stream abstraction.
-- [ ] Preserve local file streaming behavior.
-- [ ] Preserve HTTP Range, HEAD, content length, and content range behavior.
-- [ ] Add timeout and cancellation handling for remote body streams.
+- [x] Preserve local file streaming behavior.
+- [x] Preserve HTTP Range, HEAD, content length, and content range behavior.
+- [x] Use backend request timeout and HTTP body drop/cancellation behavior for
+      remote body streams.
 - [ ] Acquire `playback.remote.stream` budget before opening remote bodies.
-- [ ] Add tests proving selected remote ranges are streamed rather than fully
+- [x] Add tests proving selected remote ranges are streamed rather than fully
       buffered.
+- [x] Split direct-play app planning and HTTP response helpers out of the
+      largest server files.
 
 ## Staging Manifest and Cleanup
 

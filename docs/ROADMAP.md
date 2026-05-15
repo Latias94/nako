@@ -134,7 +134,7 @@ Recommended next goal:
 
 ### Playback Streaming and Remote Hardening: M7
 
-Status: active, completed through M7.0 design baseline.
+Status: active, completed through M7.1 body streaming foundation.
 
 This phase hardens the remote playback path after the M6 WebDAV preview:
 
@@ -149,10 +149,13 @@ Completed:
 - M7.0 design baseline with ADR 0017, a dedicated `playback-streaming`
   workstream, M7 milestone split, and ownership for M6 deferred playback
   hardening tasks.
+- M7.1 foundation for remote direct response-body streaming, including VFS
+  `ReadStream`, WebDAV byte streams, direct-play stream bodies, HEAD preflight,
+  and initial playback app/http module split.
 
 Recommended next goal:
 
-- M7.1 remote direct body streaming.
+- finish M7.1 hardening, then M7.2 staging manifest, disk budget, and cleanup.
 
 ### Client and Product Experience: M8+
 

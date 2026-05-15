@@ -13,10 +13,10 @@ use taru_api::{
     AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
     ItemsResponse, LibraryListResponse, LibrarySourceResponse, LibrarySourcesResponse, PageInfo,
-    PeopleResponse, PersonItemsResponse, PlaybackDecisionResponse, RegisterAddonRequest,
-    SearchItemHit, SearchResponse, TagItemsResponse, TagsResponse, UpsertAutomationProviderRequest,
-    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookDispatchResponse,
-    WebhookEndpointResponse, WebhookEndpointsResponse,
+    PeopleResponse, PersonItemsResponse, RegisterAddonRequest, SearchItemHit, SearchResponse,
+    TagItemsResponse, TagsResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
+    WebhookDeliveryAttemptsResponse, WebhookDispatchResponse, WebhookEndpointResponse,
+    WebhookEndpointsResponse,
 };
 use taru_automation::AutomationJobService;
 use taru_core::{
@@ -47,20 +47,24 @@ use taru_nfo::{
     NfoJobInput, NfoService,
 };
 use taru_search::{SearchIndex, SearchQuery};
-use taru_streaming::{
-    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
-    PlaybackMode, content_type_for_file_name, decide_playback, plan_direct_play_response,
-};
+use taru_streaming::{ClientPlaybackCapabilities, PlaybackDecision, PlaybackMode, decide_playback};
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHlsRunner, FfmpegOverwritePolicy,
     FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
-use taru_vfs::{ByteRange, LocalFsBackend, StageRequest, StorageBackend, StorageUri};
+use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
 use crate::config::{TaruServerConfig, WebDavLibraryConfig, library_from_config};
+
+pub(crate) mod playback;
+
+pub(crate) use playback::DirectPlaySourceBody;
+
+#[cfg(test)]
+use playback::plan_direct_play_with_backend;
 
 #[derive(Clone, Debug)]
 pub struct TaruApp {
@@ -102,19 +106,6 @@ pub struct NfoImportCommandOutput {
 pub struct NfoExportCommandOutput {
     pub job: Job,
     pub export: NfoExportSummary,
-}
-
-#[derive(Clone, Debug)]
-pub struct DirectPlaySourcePlan {
-    pub source: MediaSource,
-    pub body: DirectPlaySourceBody,
-    pub response: DirectPlayResponsePlan,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum DirectPlaySourceBody {
-    LocalPath(PathBuf),
-    Bytes(Vec<u8>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -988,40 +979,6 @@ impl TaruApp {
         let images = self.inner.store.list_item_images(item_id).await?;
 
         Ok(ImagesResponse { item_id, images })
-    }
-
-    pub async fn get_source_playback_decision(
-        &self,
-        source_id: MediaSourceId,
-        client: ClientPlaybackCapabilities,
-    ) -> Result<PlaybackDecisionResponse> {
-        let source = self.get_source_or_not_found(source_id).await?;
-        let probe = self.inner.store.get_media_probe(source.id).await?;
-        let decision = decide_playback(&source, probe.as_ref(), &client);
-
-        Ok(PlaybackDecisionResponse {
-            source,
-            probe,
-            decision,
-        })
-    }
-
-    pub async fn plan_direct_play(
-        &self,
-        source_id: MediaSourceId,
-        range_request: DirectPlayRangeRequest,
-    ) -> Result<DirectPlaySourcePlan> {
-        let source = self.get_source_or_not_found(source_id).await?;
-        let uri = StorageUri::parse(&source.locator)?;
-        let backend = self.storage_backend_for_source(&uri)?;
-        let (response, body) =
-            plan_direct_play_with_backend(&source, &uri, backend.as_ref(), range_request).await?;
-
-        Ok(DirectPlaySourcePlan {
-            source,
-            body,
-            response,
-        })
     }
 
     pub async fn remux_source(&self, request: RemuxSourceRequest) -> Result<RemuxSourceOutput> {
@@ -2820,41 +2777,6 @@ fn map_hls_runner_error(error: TaruError) -> TaruError {
     }
 }
 
-async fn plan_direct_play_with_backend(
-    source: &MediaSource,
-    uri: &StorageUri,
-    backend: &dyn StorageBackend,
-    range_request: DirectPlayRangeRequest,
-) -> Result<(DirectPlayResponsePlan, DirectPlaySourceBody)> {
-    let metadata = backend.stat(uri).await?;
-    let total_len = metadata.len.ok_or_else(|| TaruError::Storage {
-        uri: source.locator.clone(),
-        message: "direct play requires a known source length".to_owned(),
-    })?;
-    let content_type = content_type_for_file_name(&source.file_name).to_owned();
-    let response = plan_direct_play_response(total_len, content_type, range_request);
-
-    if response.is_range_not_satisfiable() {
-        return Ok((response, DirectPlaySourceBody::Bytes(Vec::new())));
-    }
-
-    match local_source_path_and_len(source, uri, backend).await {
-        Ok((local_path, _total_len)) => {
-            return Ok((response, DirectPlaySourceBody::LocalPath(local_path)));
-        }
-        Err(TaruError::Unsupported(_)) => {}
-        Err(err) => return Err(err),
-    }
-
-    let range = response.range.map(|range| ByteRange {
-        offset: range.start,
-        length: Some(range.len()),
-    });
-    let read = backend.read_range(uri, range).await?;
-
-    Ok((response, DirectPlaySourceBody::Bytes(read.bytes)))
-}
-
 async fn source_path_for_ffmpeg_with_backend(
     source: &MediaSource,
     uri: &StorageUri,
@@ -3082,9 +3004,11 @@ mod tests {
     };
     use taru_library::{LibraryScanRequest, LibraryScanner};
     use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus};
+    use taru_streaming::DirectPlayRangeRequest;
     use taru_transcode::RemuxContainer;
     use taru_vfs::{
-        ObjectKind, ObjectMetadata, ReadRange, StagedFile, StorageCapabilities, VirtualFile,
+        ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StagedFile,
+        StorageCapabilities, VirtualFile,
     };
     use tokio::net::TcpListener;
 
@@ -3965,7 +3889,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn direct_play_uses_vfs_bytes_when_backend_has_no_local_path() {
+    async fn direct_play_uses_vfs_stream_when_backend_has_no_local_path() {
         let backend = RemotePlaybackBackend {
             bytes: b"remote-media".to_vec(),
             local_path_hint: None,
@@ -3988,7 +3912,16 @@ mod tests {
 
         assert_eq!(response.body_len, 4);
         assert_eq!(response.content_range.as_deref(), Some("bytes 2-5/12"));
-        assert_eq!(body, DirectPlaySourceBody::Bytes(b"mote".to_vec()));
+        let DirectPlaySourceBody::Stream(stream) = body else {
+            panic!("expected direct play to return a VFS stream");
+        };
+        assert_eq!(
+            stream.range,
+            Some(ByteRange {
+                offset: 2,
+                length: Some(4)
+            })
+        );
     }
 
     #[tokio::test]
@@ -4128,9 +4061,17 @@ mod tests {
 
         async fn read_range(
             &self,
+            _uri: &StorageUri,
+            _range: Option<ByteRange>,
+        ) -> Result<ReadRange> {
+            panic!("direct play should use stream_range instead of read_range");
+        }
+
+        async fn stream_range(
+            &self,
             uri: &StorageUri,
             range: Option<ByteRange>,
-        ) -> Result<ReadRange> {
+        ) -> Result<ReadStream> {
             let bytes = match range {
                 Some(range) => {
                     let start = range.offset as usize;
@@ -4143,11 +4084,7 @@ mod tests {
                 None => self.bytes.clone(),
             };
 
-            Ok(ReadRange {
-                uri: uri.clone(),
-                range,
-                bytes,
-            })
+            Ok(ReadStream::from_bytes(uri.clone(), range, bytes))
         }
 
         async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {

@@ -8,8 +8,8 @@ use taru_core::{
 
 use crate::{
     ByteRange, ObjectCacheState, ObjectCacheStatus, ObjectKind, ObjectListing, ObjectMetadata,
-    ReadRange, StageRequest, StagedFile, StorageBackend, StorageCapabilities, StorageUri,
-    VirtualFile,
+    ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend, StorageCapabilities,
+    StorageUri, VirtualFile,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -227,6 +227,10 @@ where
 
     async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
         self.inner.read_range(uri, range).await
+    }
+
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        self.inner.stream_range(uri, range).await
     }
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {

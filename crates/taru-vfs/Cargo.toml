@@ -11,6 +11,8 @@ workspace = true
 [dependencies]
 async-trait.workspace = true
 bitflags.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
 reqwest.workspace = true
 roxmltree.workspace = true
 serde.workspace = true

@@ -127,8 +127,8 @@ cargo run -p taru-server -- --config taru.toml scan
 
 Remote probe inputs are staged under `remux_staging_root/probe-inputs`. Remote
 remux and HLS inputs are staged under `remux_staging_root/inputs` before FFmpeg
-is invoked. Direct play reads WebDAV ranges through `taru-vfs`; the current
-preview buffers the selected range bytes in memory.
+is invoked. Direct play streams WebDAV ranges through `taru-vfs` into the HTTP
+response body.
 
 Runtime notes:
 
