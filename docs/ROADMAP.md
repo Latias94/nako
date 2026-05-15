@@ -108,16 +108,25 @@ Recommended next goal:
 
 ### Remote Storage and VFS Expansion: M6
 
-Status: planned.
+Status: active, completed through M6.0 design baseline.
 
 This phase proves that remote sources are first-class storage backends instead
 of pretending to be local paths:
 
-- WebDAV or S3-compatible backend preview;
-- directory metadata cache;
-- byte-range cache or local staging path;
+- WebDAV read-only backend preview;
+- directory and stat cache;
+- remote byte-range reads and local staging path;
 - remote listing rate limits and retry policy;
 - remote-source playback policy.
+
+Completed:
+
+- M6.0 design baseline with ADR 0016, a dedicated `storage-vfs` workstream,
+  local-path dependency audit, WebDAV-first decision, and M6 milestone split.
+
+Recommended next goal:
+
+- M6.1 WebDAV read-only VFS backend.
 
 ### Client and Product Experience: M7+
 
@@ -129,13 +138,13 @@ planning should start after the browse and playback surfaces are coherent.
 
 ## Workstream Split Direction
 
-`server-foundation` was the initial planning hub. M5 has split
-`addons-automation` into its own active workstream. As implementation grows,
-split the remaining broad domains into narrower workstreams:
+`server-foundation` was the initial planning hub. M5 split
+`addons-automation` into its own completed workstream, and M6 split
+`storage-vfs` into the active remote-storage workstream. As implementation
+grows, split the remaining broad domains into narrower workstreams:
 
 - `playback-streaming`: direct play, remux, HLS, transcode, hardware policy.
 - `metadata-catalog`: providers, NFO, catalog graph, artwork, search.
-- `storage-vfs`: local/remote backends, directory cache, byte-range cache.
 - `clients`: future Flutter and web client contracts.
 
 Do future splits when a domain needs independent milestones or ADRs. Do not

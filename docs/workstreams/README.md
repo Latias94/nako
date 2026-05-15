@@ -6,6 +6,8 @@ attention.
 
 ## Current Workstreams
 
+- [storage-vfs](storage-vfs/README.md): active M6 remote storage, VFS cache,
+  remote staging, and WebDAV preview work.
 - [addons-automation](addons-automation/README.md): completed M5 webhook,
   automation, addon manifest, provider, and trust-boundary work.
 - [server-foundation](server-foundation/README.md): completed backend
@@ -26,7 +28,6 @@ Expected future splits:
 
 - `playback-streaming`
 - `metadata-catalog`
-- `storage-vfs`
 - `clients`
 
 Keep unsplit domains in `server-foundation` until a split reduces real

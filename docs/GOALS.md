@@ -294,11 +294,40 @@ Evidence for M5.5:
 - [Phase 5.5](workstreams/addons-automation/PHASE5_5_REFERENCE_ADDON_STABILIZATION.md)
   documents M5 known limitations and stabilization evidence.
 
+### M6.0: Remote Storage and VFS Design Baseline
+
+Status: completed.
+
+Objective:
+
+- Define the remote-storage architecture before adding WebDAV or S3-compatible
+  backend code.
+
+Deliverables:
+
+- ADR 0016 for remote storage and VFS cache boundaries.
+- Dedicated `storage-vfs` workstream.
+- Local-path dependency audit for `taru-vfs`, scan/probe, direct play, remux,
+  and HLS.
+- M6 milestone split with WebDAV selected as the first backend preview.
+- Roadmap, goal map, ADR index, and workstream index updates.
+
+Evidence:
+
+- [ADR 0016](adr/0016-remote-storage-and-vfs-cache-boundary.md) documents
+  WebDAV-first remote storage, VFS cache, staging, credential, and local-path
+  boundaries.
+- [storage-vfs workstream](workstreams/storage-vfs/README.md) owns M6 remote
+  storage, VFS cache, remote staging, and playback policy work.
+- [Phase 6.0](workstreams/storage-vfs/PHASE6_0_REMOTE_STORAGE_DESIGN_BASELINE.md)
+  records the local-path dependency audit and M6 milestone split.
+
 ## Recommended Next Implementation Goal
 
-### M6: Remote Storage Preview
+### M6.1: WebDAV Read-Only VFS Backend
 
 Status: proposed.
 
-Implement one limited remote storage backend and prove scan/probe/playback can
-work through `taru-vfs` without local-path assumptions.
+Implement a read-only WebDAV backend for `taru-vfs`, including configuration
+with secret references, `stat`, `list`, `open_range`, conservative timeout and
+retry behavior, and mocked WebDAV server tests.
