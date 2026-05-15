@@ -281,6 +281,49 @@ pub trait StagingManifestRepository: Send + Sync {
         record: NewStagingManifestRecord,
     ) -> Result<StagingManifestRecord>;
 
+    async fn reserve_staging_manifest_record(
+        &self,
+        record: NewStagingManifestRecord,
+        max_total_bytes: u64,
+        now_ms: i64,
+    ) -> Result<StagingManifestRecord>;
+
+    async fn complete_staging_manifest_record(
+        &self,
+        record: NewStagingManifestRecord,
+    ) -> Result<StagingManifestRecord>;
+
+    async fn fail_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        failed_at_ms: i64,
+        validation_error: String,
+    ) -> Result<Option<StagingManifestRecord>>;
+
+    async fn expire_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        expired_at_ms: i64,
+    ) -> Result<Option<StagingManifestRecord>>;
+
+    async fn mark_deleted_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        deleted_at_ms: i64,
+    ) -> Result<Option<StagingManifestRecord>>;
+
+    async fn acquire_staging_manifest_lease(
+        &self,
+        id: StagingManifestId,
+        leased_at_ms: i64,
+    ) -> Result<StagingManifestRecord>;
+
+    async fn release_staging_manifest_lease(
+        &self,
+        id: StagingManifestId,
+        released_at_ms: i64,
+    ) -> Result<StagingManifestRecord>;
+
     async fn get_staging_manifest_record(
         &self,
         id: StagingManifestId,

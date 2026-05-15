@@ -31,7 +31,7 @@ use taru_streaming::{ClientPlaybackCapabilities, DirectPlayRangeRequest};
 use taru_transcode::RemuxContainer;
 use taru_vfs::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
-    StorageCapabilities, VirtualFile,
+    StorageBackend, StorageCapabilities, VirtualFile,
 };
 use tokio::{net::TcpListener, sync::Notify};
 
@@ -187,7 +187,10 @@ async fn webdav_preview_config_builds_scanner_backend() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     let library = default_library_from_config(app.config()).unwrap();
-    let backend = app.storage_backend_for_library_root(&library).unwrap();
+    let backend = app
+        .storage_backend_for_library_root(&library)
+        .await
+        .unwrap();
     let scanner = taru_library::VfsLibraryScanner::new(backend);
     let summary = scanner
         .scan(LibraryScanRequest {
@@ -1254,7 +1257,7 @@ async fn manifest_recording_backend_records_probe_staging() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
-        Box::new(RemotePlaybackBackend {
+        Arc::new(RemotePlaybackBackend {
             bytes: b"probe-media".to_vec(),
             local_path_hint: None,
         }),
@@ -1263,7 +1266,6 @@ async fn manifest_recording_backend_records_probe_staging() {
         StagingConfig::default().max_bytes,
         StagingConfig::default().retention_ms,
         Arc::new(Semaphore::new(1)),
-        Arc::new(Mutex::new(())),
     );
     let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 
@@ -1302,7 +1304,7 @@ async fn manifest_recording_backend_rejects_staging_over_disk_budget() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
-        Box::new(RemotePlaybackBackend {
+        Arc::new(RemotePlaybackBackend {
             bytes: b"probe-media".to_vec(),
             local_path_hint: None,
         }),
@@ -1311,7 +1313,6 @@ async fn manifest_recording_backend_rejects_staging_over_disk_budget() {
         5,
         StagingConfig::default().retention_ms,
         Arc::new(Semaphore::new(1)),
-        Arc::new(Mutex::new(())),
     );
     let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
     let staging_root = temp.path().join("probe-inputs");
@@ -1343,7 +1344,7 @@ async fn manifest_recording_backend_serializes_budget_check_and_record() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = Arc::new(ManifestRecordingStorageBackend::new(
-        Box::new(RemotePlaybackBackend {
+        Arc::new(RemotePlaybackBackend {
             bytes: vec![b'x'; 8],
             local_path_hint: None,
         }),
@@ -1352,7 +1353,6 @@ async fn manifest_recording_backend_serializes_budget_check_and_record() {
         10,
         StagingConfig::default().retention_ms,
         Arc::new(Semaphore::new(2)),
-        Arc::new(Mutex::new(())),
     ));
     let first_uri = StorageUri::parse("webdav:///Movies/First.mkv").unwrap();
     let second_uri = StorageUri::parse("webdav:///Movies/Second.mkv").unwrap();
@@ -1410,7 +1410,7 @@ async fn manifest_recording_backend_reserves_budget_without_serializing_download
     store.migrate().await.unwrap();
     let control = ConcurrentStageControl::new();
     let backend = Arc::new(ManifestRecordingStorageBackend::new(
-        Box::new(ConcurrentStageBackend {
+        Arc::new(ConcurrentStageBackend {
             bytes: vec![b'x'; 8],
             control: control.clone(),
         }),
@@ -1419,7 +1419,6 @@ async fn manifest_recording_backend_reserves_budget_without_serializing_download
         32,
         StagingConfig::default().retention_ms,
         Arc::new(Semaphore::new(2)),
-        Arc::new(Mutex::new(())),
     ));
     let first_uri = StorageUri::parse("webdav:///Movies/First.mkv").unwrap();
     let second_uri = StorageUri::parse("webdav:///Movies/Second.mkv").unwrap();
@@ -1472,7 +1471,7 @@ async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
-        Box::new(FailingStageBackend {
+        Arc::new(FailingStageBackend {
             len: 8,
             fingerprint: "failing-stage".to_owned(),
         }),
@@ -1481,7 +1480,6 @@ async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
         32,
         StagingConfig::default().retention_ms,
         Arc::new(Semaphore::new(1)),
-        Arc::new(Mutex::new(())),
     );
     let uri = StorageUri::parse("webdav:///Movies/Failing.mkv").unwrap();
 
@@ -1503,7 +1501,8 @@ async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
         )
         .await
         .unwrap();
-    assert!(records.is_empty());
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].state, StagingState::Failed);
 }
 
 #[tokio::test]
@@ -1536,7 +1535,7 @@ async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() 
         .await
         .unwrap();
     let backend = ManifestRecordingStorageBackend::new(
-        Box::new(FailingStageBackend {
+        Arc::new(FailingStageBackend {
             len: 8,
             fingerprint: "reserved".to_owned(),
         }),
@@ -1545,7 +1544,6 @@ async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() 
         32,
         StagingConfig::default().retention_ms,
         Arc::new(Semaphore::new(1)),
-        Arc::new(Mutex::new(())),
     );
 
     let err = backend
@@ -1568,7 +1566,7 @@ async fn manifest_recording_backend_waits_for_stage_budget() {
     let stage_permits = Arc::new(Semaphore::new(1));
     let held_permit = stage_permits.clone().acquire_owned().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
-        Box::new(RemotePlaybackBackend {
+        Arc::new(RemotePlaybackBackend {
             bytes: b"probe-media".to_vec(),
             local_path_hint: None,
         }),
@@ -1577,7 +1575,6 @@ async fn manifest_recording_backend_waits_for_stage_budget() {
         StagingConfig::default().max_bytes,
         StagingConfig::default().retention_ms,
         stage_permits,
-        Arc::new(Mutex::new(())),
     );
     let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 
@@ -1673,9 +1670,14 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
     let DirectPlaySourceBody::Stream(_) = &plan.body else {
         panic!("expected remote direct play to hold a VFS stream");
     };
-    assert_eq!(app.inner.remote_stream_permits.available_permits(), 0);
+    let backend = app
+        .storage_backend_for_media_source(&source)
+        .await
+        .unwrap()
+        .1;
+    assert_eq!(backend.available_stream_permits(), 0);
     drop(plan);
-    assert_eq!(app.inner.remote_stream_permits.available_permits(), 1);
+    assert_eq!(backend.available_stream_permits(), 1);
 }
 
 #[tokio::test]
@@ -1735,13 +1737,12 @@ async fn app_startup_cleans_expired_staging_inputs() {
     .unwrap();
 
     assert!(!staged_path.exists());
-    assert!(
-        store
-            .get_staging_manifest_record(record_id)
-            .await
-            .unwrap()
-            .is_none()
-    );
+    let record = store
+        .get_staging_manifest_record(record_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.state, StagingState::Deleted);
 }
 
 #[tokio::test]
@@ -1794,13 +1795,46 @@ async fn staging_cleanup_removes_expired_pending_reservations() {
     assert_eq!(cleanup.deleted_files, 1);
     assert!(!staged_path.exists());
     assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 0);
-    assert!(
-        store
-            .get_staging_manifest_record(record_id)
-            .await
-            .unwrap()
-            .is_none()
-    );
+    let record = store
+        .get_staging_manifest_record(record_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.state, StagingState::Deleted);
+}
+
+#[tokio::test]
+async fn staging_lease_transitions_between_ready_and_leased() {
+    let temp = tempfile::tempdir().unwrap();
+    let staged_path = temp.path().join("leased.mkv");
+    fs::write(&staged_path, b"leased").unwrap();
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let record_id = StagingManifestId::new();
+    store
+        .upsert_staging_manifest_record(staging_manifest_record(
+            record_id,
+            &staged_path,
+            Some(1_000),
+            0,
+        ))
+        .await
+        .unwrap();
+
+    let lease = super::staging::StagingLease::acquire(store.clone(), record_id)
+        .await
+        .unwrap();
+    let leased = store
+        .get_staging_manifest_record(record_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(leased.state, StagingState::Leased);
+    assert_eq!(leased.active_leases, 1);
+
+    let released = lease.release().await.unwrap();
+    assert_eq!(released.state, StagingState::Ready);
+    assert_eq!(released.active_leases, 0);
 }
 
 #[tokio::test]

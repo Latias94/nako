@@ -34,6 +34,9 @@ impl StagingPurpose {
 pub enum StagingState {
     Staging,
     Ready,
+    Leased,
+    Expired,
+    Deleted,
     Failed,
 }
 
@@ -43,6 +46,9 @@ impl StagingState {
         match self {
             Self::Staging => "staging",
             Self::Ready => "ready",
+            Self::Leased => "leased",
+            Self::Expired => "expired",
+            Self::Deleted => "deleted",
             Self::Failed => "failed",
         }
     }
@@ -51,6 +57,9 @@ impl StagingState {
         match value {
             "staging" => Ok(Self::Staging),
             "ready" => Ok(Self::Ready),
+            "leased" => Ok(Self::Leased),
+            "expired" => Ok(Self::Expired),
+            "deleted" => Ok(Self::Deleted),
             "failed" => Ok(Self::Failed),
             _ => Err(TaruError::Database {
                 message: format!("unknown staging state stored in database: {value}"),
@@ -100,8 +109,10 @@ pub struct StagingManifestRecord {
 impl StagingManifestRecord {
     #[must_use]
     pub const fn is_cleanup_candidate_at(&self, now_ms: i64) -> bool {
-        matches!(self.state, StagingState::Staging | StagingState::Ready)
-            && self.active_leases == 0
+        matches!(
+            self.state,
+            StagingState::Staging | StagingState::Ready | StagingState::Failed
+        ) && self.active_leases == 0
             && matches!(self.expires_at_ms, Some(expires_at_ms) if expires_at_ms <= now_ms)
     }
 }

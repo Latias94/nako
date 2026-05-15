@@ -31,8 +31,8 @@ use taru_core::{
 use taru_db::SqliteStore;
 use taru_events::{ReqwestWebhookTransport, WebhookDeliveryService, endpoint_subscribes_to};
 use taru_search::{SearchIndex, SearchQuery};
-use taru_vfs::{StorageBackend, StorageUri};
-use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
+use taru_vfs::StorageUri;
+use tokio::sync::Semaphore;
 use tracing::warn;
 
 use crate::config::{TaruServerConfig, default_library_from_config, libraries_from_config};
@@ -51,7 +51,7 @@ pub(crate) use playback::{
 };
 use playback::{HlsAppService, RemuxAppService};
 use staging::{ManifestRecordingStorageBackend, cleanup_expired_staging_inputs};
-use storage::{StorageBackendFactory, remote_probe_staging_root};
+use storage::{LibraryStorageBackend, StorageBackendRegistry, remote_probe_staging_root};
 
 #[cfg(test)]
 use playback::plan_direct_play_with_backend;
@@ -69,9 +69,7 @@ struct TaruAppInner {
     metadata_permits: Arc<Semaphore>,
     nfo_permits: Arc<Semaphore>,
     webhook_permits: Arc<Semaphore>,
-    remote_stream_permits: Arc<Semaphore>,
-    remote_stage_permits: Arc<Semaphore>,
-    remote_stage_budget_lock: Arc<Mutex<()>>,
+    storage_backends: StorageBackendRegistry,
     remux: RemuxAppService,
     hls: HlsAppService,
 }
@@ -155,13 +153,7 @@ impl TaruApp {
                 metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 webhook_permits: Arc::new(Semaphore::new(config.webhook_concurrency.max(1))),
-                remote_stream_permits: Arc::new(Semaphore::new(
-                    config.playback.remote_stream_concurrency.max(1),
-                )),
-                remote_stage_permits: Arc::new(Semaphore::new(
-                    config.playback.remote_stage_concurrency.max(1),
-                )),
-                remote_stage_budget_lock: Arc::new(Mutex::new(())),
+                storage_backends: StorageBackendRegistry::new(&config, store.clone()),
                 remux: RemuxAppService::new(&config),
                 hls: HlsAppService::new(&config),
                 config,
@@ -176,18 +168,6 @@ impl TaruApp {
     #[must_use]
     pub fn config(&self) -> &TaruServerConfig {
         &self.inner.config
-    }
-
-    async fn acquire_remote_stream_permit(&self) -> Result<OwnedSemaphorePermit> {
-        self.inner
-            .remote_stream_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: "playback.remote.stream".to_owned(),
-                message: format!("remote stream resource budget was closed: {err}"),
-            })
     }
 
     pub async fn list_libraries(&self, page: PageRequest) -> Result<LibraryListResponse> {
@@ -315,25 +295,24 @@ impl TaruApp {
         Ok(ImagesResponse { item_id, images })
     }
 
-    fn storage_backend_for_library_root(
+    async fn storage_backend_for_library_root(
         &self,
         library: &taru_core::Library,
-    ) -> Result<Box<dyn StorageBackend>> {
-        self.storage_backend_factory()
+    ) -> Result<Arc<LibraryStorageBackend>> {
+        self.inner
+            .storage_backends
             .backend_for_library_root(library)
+            .await
     }
 
     async fn storage_backend_for_media_source(
         &self,
         source: &MediaSource,
-    ) -> Result<(StorageUri, Box<dyn StorageBackend>)> {
-        self.storage_backend_factory()
+    ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
+        self.inner
+            .storage_backends
             .backend_for_media_source(source)
             .await
-    }
-
-    fn storage_backend_factory(&self) -> StorageBackendFactory<'_> {
-        StorageBackendFactory::new(self.config(), self.inner.store.clone())
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {

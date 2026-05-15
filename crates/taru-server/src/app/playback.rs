@@ -10,9 +10,10 @@ use serde::Serialize;
 use taru_api::PlaybackDecisionResponse;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
-    MediaSource, MediaSourceId, NewOutboxEvent, NewTranscodeSession, Result, StagingPurpose,
-    TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
+    MediaSource, MediaSourceId, NewOutboxEvent, NewTranscodeSession, Result,
+    StagingManifestRepository, StagingPurpose, TaruError, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionState,
 };
 use taru_db::SqliteStore;
 use taru_streaming::{
@@ -30,13 +31,18 @@ use tracing::{error, warn};
 
 use crate::config::TaruServerConfig;
 
-use super::{ManifestRecordingStorageBackend, TaruApp};
+use super::{ManifestRecordingStorageBackend, TaruApp, staging::StagingLease};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemuxSourceRequest {
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
     pub output_container: RemuxContainer,
+}
+
+struct FfmpegSourceInput {
+    path: PathBuf,
+    lease: Option<StagingLease>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -304,7 +310,7 @@ impl TaruApp {
         let source = self.get_source_or_not_found(source_id).await?;
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let stream_permit = if should_budget_remote_stream(&uri) {
-            Some(self.acquire_remote_stream_permit().await?)
+            Some(backend.acquire_stream_permit().await?)
         } else {
             None
         };
@@ -346,35 +352,71 @@ impl TaruApp {
             ));
         }
 
-        let local_path = self.source_path_for_ffmpeg(&source).await?;
+        let input = self.source_input_for_ffmpeg(&source).await?;
         let staging = RemuxStagingPolicy::new(&self.config().remux_staging_root)?;
         let output_path = staging.output_path(source.id, request.output_container)?;
-
-        self.inner
+        let result = self
+            .inner
             .remux
             .run(
                 &self.inner.store,
                 source,
                 decision,
-                local_path,
+                input.path.clone(),
                 output_path,
                 request.output_container,
             )
-            .await
+            .await;
+        match result {
+            Ok(output) => {
+                self.release_source_input(input).await?;
+                Ok(output)
+            }
+            Err(err) => {
+                if let Err(release_err) = self.release_source_input(input).await {
+                    warn!(
+                        error = %release_err,
+                        "failed to release remux staging lease after error"
+                    );
+                }
+                Err(err)
+            }
+        }
     }
 
     pub async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe = self.inner.store.get_media_probe(source.id).await?;
         let decision = decide_playback(&source, probe.as_ref(), &request.client);
-        let local_path = self.source_path_for_ffmpeg(&source).await?;
+        let input = self.source_input_for_ffmpeg(&source).await?;
         let staging = HlsStagingPolicy::new(self.config().remux_staging_root.join("hls"))?;
         let layout = staging.single_variant_layout(source.id)?;
-
-        self.inner
+        let result = self
+            .inner
             .hls
-            .run(&self.inner.store, source, decision, local_path, layout)
-            .await
+            .run(
+                &self.inner.store,
+                source,
+                decision,
+                input.path.clone(),
+                layout,
+            )
+            .await;
+        match result {
+            Ok(output) => {
+                self.release_source_input(input).await?;
+                Ok(output)
+            }
+            Err(err) => {
+                if let Err(release_err) = self.release_source_input(input).await {
+                    warn!(
+                        error = %release_err,
+                        "failed to release hls staging lease after error"
+                    );
+                }
+                Err(err)
+            }
+        }
     }
 
     pub async fn hls_playlist(&self, request: HlsSourceRequest) -> Result<HlsPlaylistOutput> {
@@ -468,18 +510,24 @@ impl TaruApp {
     }
 
     pub(super) async fn source_path_for_ffmpeg(&self, source: &MediaSource) -> Result<PathBuf> {
+        let input = self.source_input_for_ffmpeg(source).await?;
+        let path = input.path.clone();
+        self.release_source_input(input).await?;
+        Ok(path)
+    }
+
+    async fn source_input_for_ffmpeg(&self, source: &MediaSource) -> Result<FfmpegSourceInput> {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         let backend = ManifestRecordingStorageBackend::new(
-            backend,
+            backend.inner(),
             self.inner.store.clone(),
             StagingPurpose::FfmpegInput,
             self.config().staging.max_bytes,
             self.config().staging.retention_ms,
-            self.inner.remote_stage_permits.clone(),
-            self.inner.remote_stage_budget_lock.clone(),
+            backend.stage_permits(),
         );
         match local_source_path_and_len(source, &uri, &backend).await {
-            Ok((path, _len)) => Ok(path),
+            Ok((path, _len)) => Ok(FfmpegSourceInput { path, lease: None }),
             Err(TaruError::Unsupported(_)) => {
                 let staged = backend
                     .stage(StageRequest::new(
@@ -487,10 +535,31 @@ impl TaruApp {
                         self.config().remux_staging_root.join("inputs"),
                     ))
                     .await?;
-                Ok(staged.path)
+                let record = self
+                    .inner
+                    .store
+                    .find_staging_manifest_record_by_path(&staged.path.display().to_string())
+                    .await?
+                    .ok_or_else(|| TaruError::NotFound {
+                        entity: "staging_manifest_record",
+                        id: staged.path.display().to_string(),
+                    })?;
+                let lease = StagingLease::acquire(self.inner.store.clone(), record.id).await?;
+                Ok(FfmpegSourceInput {
+                    path: staged.path,
+                    lease: Some(lease),
+                })
             }
             Err(err) => Err(err),
         }
+    }
+
+    async fn release_source_input(&self, input: FfmpegSourceInput) -> Result<()> {
+        if let Some(lease) = input.lease {
+            lease.release().await?;
+        }
+
+        Ok(())
     }
 }
 

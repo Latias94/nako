@@ -1,59 +1,93 @@
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicI64, AtomicU64, Ordering},
+    },
+};
+
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 
 use crate::config::{
-    LocalLibraryConfig, TaruServerConfig, WebDavLibraryConfig, configured_library_config_for,
+    LocalLibraryConfig, PlaybackConfig, TaruServerConfig, WebDavLibraryConfig,
+    configured_library_config_for,
 };
-use taru_core::{Library, MediaSource, Result, TaruError};
+use taru_core::{Library, LibraryId, MediaSource, Result, TaruError};
 use taru_db::SqliteStore;
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 
-pub(super) struct StorageBackendFactory<'a> {
-    config: &'a TaruServerConfig,
+use super::current_time_ms;
+
+#[derive(Clone, Debug)]
+pub(super) struct StorageBackendRegistry {
+    config: TaruServerConfig,
     store: SqliteStore,
+    playback: PlaybackConfig,
+    backends: Arc<Mutex<HashMap<LibraryId, Arc<LibraryStorageBackend>>>>,
 }
 
-impl<'a> StorageBackendFactory<'a> {
-    pub(super) fn new(config: &'a TaruServerConfig, store: SqliteStore) -> Self {
-        Self { config, store }
+impl StorageBackendRegistry {
+    pub(super) fn new(config: &TaruServerConfig, store: SqliteStore) -> Self {
+        Self {
+            config: config.clone(),
+            store,
+            playback: config.playback,
+            backends: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
-    pub(super) fn backend_for_library_root(
+    pub(super) async fn backend_for_library_root(
         &self,
         library: &Library,
-    ) -> Result<Box<dyn StorageBackend>> {
-        let config = configured_library_config_for(self.config, library.id)?;
-        self.backend_for_library_config(&config)
+    ) -> Result<Arc<LibraryStorageBackend>> {
+        let config = configured_library_config_for(&self.config, library.id)?;
+        self.backend_for_library_config(config).await
     }
 
     pub(super) async fn backend_for_media_source(
         &self,
         source: &MediaSource,
-    ) -> Result<(StorageUri, Box<dyn StorageBackend>)> {
+    ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
         let uri = StorageUri::parse(&source.locator)?;
-        let library_config = self
-            .configured_library_config_for_source(source, &uri)
-            .await?;
-        let backend = self.backend_for_library_config(&library_config)?;
+        let library_config = self.configured_library_config_for_source(source, &uri)?;
+        let backend = self.backend_for_library_config(library_config).await?;
 
         Ok((uri, backend))
     }
 
-    fn backend_for_library_config(
+    async fn backend_for_library_config(
         &self,
-        config: &LocalLibraryConfig,
-    ) -> Result<Box<dyn StorageBackend>> {
+        config: LocalLibraryConfig,
+    ) -> Result<Arc<LibraryStorageBackend>> {
+        let mut backends = self.backends.lock().await;
+        if let Some(backend) = backends.get(&config.id) {
+            return Ok(backend.clone());
+        }
+
+        let backend = Arc::new(LibraryStorageBackend::new(
+            config.clone(),
+            self.build_backend(&config)?,
+            self.playback,
+        ));
+        backends.insert(config.id, backend.clone());
+
+        Ok(backend)
+    }
+
+    fn build_backend(&self, config: &LocalLibraryConfig) -> Result<Arc<dyn StorageBackend>> {
         match config.webdav.as_ref() {
             Some(webdav) => self.webdav_storage_backend(webdav),
-            None => Ok(Box::new(LocalFsBackend::new(&config.root)?)),
+            None => Ok(Arc::new(LocalFsBackend::new(&config.root)?)),
         }
     }
 
-    async fn configured_library_config_for_source(
+    fn configured_library_config_for_source(
         &self,
         source: &MediaSource,
         uri: &StorageUri,
     ) -> Result<LocalLibraryConfig> {
-        match configured_library_config_for(self.config, source.library_id) {
+        match configured_library_config_for(&self.config, source.library_id) {
             Ok(config) => Ok(config),
             Err(TaruError::NotFound { .. }) => {
                 let matches = self
@@ -81,12 +115,215 @@ impl<'a> StorageBackendFactory<'a> {
     fn webdav_storage_backend(
         &self,
         config: &WebDavLibraryConfig,
-    ) -> Result<Box<dyn StorageBackend>> {
+    ) -> Result<Arc<dyn StorageBackend>> {
         let backend = taru_vfs::WebDavBackend::new(webdav_backend_config(config))?;
-        Ok(Box::new(taru_vfs::CachedStorageBackend::new(
+        Ok(Arc::new(taru_vfs::CachedStorageBackend::new(
             backend,
             self.store.clone(),
         )))
+    }
+}
+
+pub(super) struct LibraryStorageBackend {
+    library_id: LibraryId,
+    inner: Arc<dyn StorageBackend>,
+    stream_permits: Arc<Semaphore>,
+    stage_permits: Arc<Semaphore>,
+    health: Arc<StorageBackendHealth>,
+}
+
+impl LibraryStorageBackend {
+    fn new(
+        config: LocalLibraryConfig,
+        inner: Arc<dyn StorageBackend>,
+        playback: PlaybackConfig,
+    ) -> Self {
+        Self {
+            library_id: config.id,
+            inner,
+            stream_permits: Arc::new(Semaphore::new(playback.remote_stream_concurrency.max(1))),
+            stage_permits: Arc::new(Semaphore::new(playback.remote_stage_concurrency.max(1))),
+            health: Arc::new(StorageBackendHealth::new()),
+        }
+    }
+
+    #[must_use]
+    pub(super) fn library_id(&self) -> LibraryId {
+        self.library_id
+    }
+
+    #[must_use]
+    pub(super) fn inner(&self) -> Arc<dyn StorageBackend> {
+        self.inner.clone()
+    }
+
+    #[must_use]
+    pub(super) fn stage_permits(&self) -> Arc<Semaphore> {
+        self.stage_permits.clone()
+    }
+
+    #[must_use]
+    pub(super) fn health(&self) -> Arc<StorageBackendHealth> {
+        self.health.clone()
+    }
+
+    pub(super) async fn acquire_stream_permit(&self) -> Result<OwnedSemaphorePermit> {
+        self.stream_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: format!("library:{}", self.library_id),
+                message: format!("remote stream resource budget was closed: {err}"),
+            })
+    }
+
+    #[cfg(test)]
+    pub(super) fn available_stream_permits(&self) -> usize {
+        self.stream_permits.available_permits()
+    }
+
+    fn record_success(&self) {
+        self.health.record_success();
+    }
+
+    fn record_error(&self) {
+        self.health.record_error();
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct StorageBackendHealth {
+    last_success_at_ms: AtomicI64,
+    last_error_at_ms: AtomicI64,
+    consecutive_errors: AtomicU64,
+}
+
+impl StorageBackendHealth {
+    fn new() -> Self {
+        Self {
+            last_success_at_ms: AtomicI64::new(0),
+            last_error_at_ms: AtomicI64::new(0),
+            consecutive_errors: AtomicU64::new(0),
+        }
+    }
+
+    fn record_success(&self) {
+        let now_ms = current_time_ms().unwrap_or_default();
+        self.last_success_at_ms.store(now_ms, Ordering::Relaxed);
+        self.consecutive_errors.store(0, Ordering::Relaxed);
+    }
+
+    fn record_error(&self) {
+        let now_ms = current_time_ms().unwrap_or_default();
+        self.last_error_at_ms.store(now_ms, Ordering::Relaxed);
+        self.consecutive_errors.fetch_add(1, Ordering::Relaxed);
+    }
+
+    #[cfg(test)]
+    pub(super) fn consecutive_errors(&self) -> u64 {
+        self.consecutive_errors.load(Ordering::Relaxed)
+    }
+}
+
+#[async_trait::async_trait]
+impl StorageBackend for LibraryStorageBackend {
+    fn scheme(&self) -> &'static str {
+        self.inner.scheme()
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<taru_vfs::ObjectMetadata> {
+        let result = self.inner.stat(uri).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<taru_vfs::ObjectMetadata>> {
+        let result = self.inner.list(uri).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn list_with_status(&self, uri: &StorageUri) -> Result<taru_vfs::ObjectListing> {
+        let result = self.inner.list_with_status(uri).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn open_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<taru_vfs::ByteRange>,
+    ) -> Result<taru_vfs::VirtualFile> {
+        let result = self.inner.open_range(uri, range).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn read_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<taru_vfs::ByteRange>,
+    ) -> Result<taru_vfs::ReadRange> {
+        let result = self.inner.read_range(uri, range).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn stream_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<taru_vfs::ByteRange>,
+    ) -> Result<taru_vfs::ReadStream> {
+        let result = self.inner.stream_range(uri, range).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        let result = self.inner.read_to_string(uri).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        let result = self.inner.write_string(uri, content).await;
+        self.record_result(&result);
+        result
+    }
+
+    async fn stage(&self, request: taru_vfs::StageRequest) -> Result<taru_vfs::StagedFile> {
+        let result = self.inner.stage(request).await;
+        self.record_result(&result);
+        result
+    }
+}
+
+impl LibraryStorageBackend {
+    fn record_result<T>(&self, result: &Result<T>) {
+        match result {
+            Ok(_) => self.record_success(),
+            Err(_) => self.record_error(),
+        }
+    }
+}
+
+impl std::fmt::Debug for LibraryStorageBackend {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LibraryStorageBackend")
+            .field("library_id", &self.library_id)
+            .field("scheme", &self.inner.scheme())
+            .field(
+                "available_stream_permits",
+                &self.stream_permits.available_permits(),
+            )
+            .field(
+                "available_stage_permits",
+                &self.stage_permits.available_permits(),
+            )
+            .field("health", &self.health)
+            .finish()
     }
 }
 
@@ -127,4 +364,158 @@ pub(super) fn remote_probe_staging_root(
         .iter()
         .any(|root| root.starts_with("webdav://"))
         .then(|| config.remux_staging_root.join("probe-inputs"))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use async_trait::async_trait;
+    use taru_core::{LibraryPreset, Result, TaruError};
+    use taru_vfs::{
+        ByteRange, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend,
+        StorageUri, VirtualFile,
+    };
+    use tempfile::tempdir;
+
+    use super::*;
+    use crate::config::{
+        LocalLibraryConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
+        library_from_library_config,
+    };
+
+    #[tokio::test]
+    async fn registry_reuses_library_backend_instances() {
+        let temp = tempdir().unwrap();
+        let library_config = LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: LibraryPreset::Movies,
+            webdav: None,
+        };
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 1,
+            remux_timeout_ms: 1,
+            remux_staging_root: temp.path().join("cache").join("remux"),
+            metadata: Default::default(),
+            transcode: Default::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: vec![library_config.clone()],
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let registry = StorageBackendRegistry::new(&config, store);
+        let library = library_from_library_config(&library_config);
+
+        let first = registry.backend_for_library_root(&library).await.unwrap();
+        let second = registry.backend_for_library_root(&library).await.unwrap();
+
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(first.library_id(), library.id);
+    }
+
+    #[tokio::test]
+    async fn library_backend_records_health_failures() {
+        let temp = tempdir().unwrap();
+        let config = LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: LibraryPreset::Movies,
+            webdav: None,
+        };
+        let backend =
+            LibraryStorageBackend::new(config, Arc::new(FailingBackend), PlaybackConfig::default());
+        let uri = StorageUri::parse("local:///demo.mkv").unwrap();
+
+        assert!(backend.stat(&uri).await.is_err());
+        assert!(backend.stat(&uri).await.is_err());
+        assert_eq!(backend.health().consecutive_errors(), 2);
+    }
+
+    struct FailingBackend;
+
+    #[async_trait]
+    impl StorageBackend for FailingBackend {
+        fn scheme(&self) -> &'static str {
+            "local"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            _range: Option<ByteRange>,
+        ) -> Result<VirtualFile> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn read_range(
+            &self,
+            uri: &StorageUri,
+            _range: Option<ByteRange>,
+        ) -> Result<ReadRange> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn stream_range(
+            &self,
+            uri: &StorageUri,
+            _range: Option<ByteRange>,
+        ) -> Result<ReadStream> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn write_string(&self, uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+
+        async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+            Err(TaruError::Storage {
+                uri: request.uri.to_string(),
+                message: "intentional failure".to_owned(),
+            })
+        }
+    }
 }

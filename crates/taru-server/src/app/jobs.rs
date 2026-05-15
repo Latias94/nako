@@ -214,7 +214,7 @@ impl TaruApp {
             "starting library scan pipeline"
         );
 
-        let index_backend = self.storage_backend_for_library_root(&library)?;
+        let index_backend = self.storage_backend_for_library_root(&library).await?;
         let scanner = taru_library::VfsLibraryScanner::new(index_backend);
         let index_service = LibraryIndexService::new(scanner, self.inner.store.clone());
         let index = index_service
@@ -225,15 +225,15 @@ impl TaruApp {
             })
             .await?;
 
-        let probe_backend = Box::new(ManifestRecordingStorageBackend::new(
-            self.storage_backend_for_library_root(&library)?,
+        let storage_backend = self.storage_backend_for_library_root(&library).await?;
+        let probe_backend = ManifestRecordingStorageBackend::new(
+            storage_backend.inner(),
             self.inner.store.clone(),
             StagingPurpose::ProbeInput,
             self.config().staging.max_bytes,
             self.config().staging.retention_ms,
-            self.inner.remote_stage_permits.clone(),
-            self.inner.remote_stage_budget_lock.clone(),
-        ));
+            storage_backend.stage_permits(),
+        );
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
             probe_backend,

@@ -1,6 +1,7 @@
 use std::{
     fmt,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -269,6 +270,52 @@ pub trait StorageBackend: Send + Sync {
 
 #[async_trait]
 impl<B> StorageBackend for Box<B>
+where
+    B: StorageBackend + ?Sized,
+{
+    fn scheme(&self) -> &'static str {
+        self.as_ref().scheme()
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        self.as_ref().stat(uri).await
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        self.as_ref().list(uri).await
+    }
+
+    async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+        self.as_ref().list_with_status(uri).await
+    }
+
+    async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
+        self.as_ref().open_range(uri, range).await
+    }
+
+    async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
+        self.as_ref().read_range(uri, range).await
+    }
+
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        self.as_ref().stream_range(uri, range).await
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        self.as_ref().read_to_string(uri).await
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        self.as_ref().write_string(uri, content).await
+    }
+
+    async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        self.as_ref().stage(request).await
+    }
+}
+
+#[async_trait]
+impl<B> StorageBackend for Arc<B>
 where
     B: StorageBackend + ?Sized,
 {

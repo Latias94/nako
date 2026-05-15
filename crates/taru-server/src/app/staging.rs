@@ -1,4 +1,9 @@
-use std::{io::ErrorKind, path::Path, sync::Arc};
+use std::{
+    fmt,
+    io::ErrorKind,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use taru_core::{
@@ -10,7 +15,8 @@ use taru_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageUri, VirtualFile, deterministic_stage_path,
 };
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::Semaphore;
+use tracing::warn;
 
 use super::current_time_ms;
 
@@ -37,7 +43,7 @@ pub(super) async fn record_staged_input(
         .unwrap_or(now_ms);
 
     store
-        .upsert_staging_manifest_record(NewStagingManifestRecord {
+        .complete_staging_manifest_record(NewStagingManifestRecord {
             id,
             source_uri: uri.to_string(),
             source_scheme: uri.scheme().to_owned(),
@@ -82,6 +88,16 @@ pub(super) async fn cleanup_expired_staging_inputs(
         }
 
         for record in candidates {
+            if let Err(err) = store
+                .expire_staging_manifest_record(record.id, now_ms)
+                .await
+            {
+                warn!(
+                    record_id = %record.id,
+                    error = %err,
+                    "failed to mark staging record expired before deletion"
+                );
+            }
             match tokio::fs::remove_file(Path::new(&record.local_path)).await {
                 Ok(()) => {
                     summary.deleted_files += 1;
@@ -94,7 +110,16 @@ pub(super) async fn cleanup_expired_staging_inputs(
                     });
                 }
             }
-            store.delete_staging_manifest_record(record.id).await?;
+            if let Err(err) = store
+                .mark_deleted_staging_manifest_record(record.id, now_ms)
+                .await
+            {
+                warn!(
+                    record_id = %record.id,
+                    error = %err,
+                    "failed to mark staging record deleted after deletion"
+                );
+            }
             summary.deleted_records += 1;
         }
     }
@@ -103,30 +128,27 @@ pub(super) async fn cleanup_expired_staging_inputs(
 }
 
 pub(super) struct ManifestRecordingStorageBackend {
-    inner: Box<dyn StorageBackend>,
+    inner: Arc<dyn StorageBackend>,
     store: SqliteStore,
     purpose: StagingPurpose,
     max_bytes: u64,
     retention_ms: u64,
     stage_permits: Arc<Semaphore>,
-    budget_lock: Arc<Mutex<()>>,
 }
 
 #[derive(Clone, Debug)]
 struct StagingReservation {
     record: StagingManifestRecord,
-    previous: Option<StagingManifestRecord>,
 }
 
 impl ManifestRecordingStorageBackend {
     pub(super) fn new(
-        inner: Box<dyn StorageBackend>,
+        inner: Arc<dyn StorageBackend>,
         store: SqliteStore,
         purpose: StagingPurpose,
         max_bytes: u64,
         retention_ms: u64,
         stage_permits: Arc<Semaphore>,
-        budget_lock: Arc<Mutex<()>>,
     ) -> Self {
         Self {
             inner,
@@ -135,7 +157,6 @@ impl ManifestRecordingStorageBackend {
             max_bytes,
             retention_ms,
             stage_permits,
-            budget_lock,
         }
     }
 
@@ -153,75 +174,35 @@ impl ManifestRecordingStorageBackend {
             &request.uri,
             metadata.fingerprint.as_deref().or(metadata.etag.as_deref()),
         )?;
-        let existing = self
-            .store
-            .find_staging_manifest_record_by_path(&candidate_path.display().to_string())
-            .await?;
         let now_ms = current_time_ms()?;
-        if existing.as_ref().is_some_and(|record| {
-            record.state == StagingState::Staging && !record_expired(record, now_ms)
-        }) {
-            return Err(TaruError::Storage {
-                uri: request.uri.to_string(),
-                message: format!(
-                    "staging input is already reserved: {}",
-                    candidate_path.display()
-                ),
-            });
-        }
-
-        let existing_bytes = existing
-            .as_ref()
-            .and_then(|record| record.size_bytes)
-            .unwrap_or(0);
-        let additional_bytes = incoming_bytes.saturating_sub(existing_bytes);
-        let used_bytes = self.store.sum_staging_manifest_bytes().await?;
-        let projected_bytes = used_bytes.saturating_add(additional_bytes);
-
-        if additional_bytes > 0 && projected_bytes > self.max_bytes {
-            return Err(TaruError::Storage {
-                uri: request.uri.to_string(),
-                message: format!(
-                    "staging disk budget exhausted: used={used_bytes}, additional={additional_bytes}, max={}",
-                    self.max_bytes
-                ),
-            });
-        }
 
         let expires_at_ms = staging_expires_at_ms(now_ms, self.retention_ms)?;
-        let id = existing
-            .as_ref()
-            .map(|record| record.id)
-            .unwrap_or_else(StagingManifestId::new);
-        let created_at_ms = existing
-            .as_ref()
-            .map(|record| record.created_at_ms)
-            .unwrap_or(now_ms);
         let record = self
             .store
-            .upsert_staging_manifest_record(NewStagingManifestRecord {
-                id,
-                source_uri: request.uri.to_string(),
-                source_scheme: request.uri.scheme().to_owned(),
-                purpose: self.purpose,
-                local_path: candidate_path.display().to_string(),
-                size_bytes: Some(incoming_bytes),
-                etag: metadata.etag.clone(),
-                fingerprint: metadata.fingerprint.clone(),
-                state: StagingState::Staging,
-                created_at_ms,
-                updated_at_ms: now_ms,
-                last_accessed_at_ms: now_ms,
-                expires_at_ms: Some(expires_at_ms),
-                active_leases: 0,
-                validation_error: None,
-            })
+            .reserve_staging_manifest_record(
+                NewStagingManifestRecord {
+                    id: StagingManifestId::new(),
+                    source_uri: request.uri.to_string(),
+                    source_scheme: request.uri.scheme().to_owned(),
+                    purpose: self.purpose,
+                    local_path: candidate_path.display().to_string(),
+                    size_bytes: Some(incoming_bytes),
+                    etag: metadata.etag.clone(),
+                    fingerprint: metadata.fingerprint.clone(),
+                    state: StagingState::Staging,
+                    created_at_ms: now_ms,
+                    updated_at_ms: now_ms,
+                    last_accessed_at_ms: now_ms,
+                    expires_at_ms: Some(expires_at_ms),
+                    active_leases: 0,
+                    validation_error: None,
+                },
+                self.max_bytes,
+                now_ms,
+            )
             .await?;
 
-        Ok(StagingReservation {
-            record,
-            previous: existing,
-        })
+        Ok(StagingReservation { record })
     }
 
     async fn complete_reservation(
@@ -250,22 +231,40 @@ impl ManifestRecordingStorageBackend {
         .await
     }
 
-    async fn rollback_reservation(&self, reservation: StagingReservation) -> Result<()> {
-        let _budget_guard = self.budget_lock.lock().await;
-        match reservation.previous {
-            Some(previous) => {
-                self.store
-                    .upsert_staging_manifest_record(new_staging_record_from_existing(previous))
-                    .await?;
-            }
-            None => {
-                self.store
-                    .delete_staging_manifest_record(reservation.record.id)
-                    .await?;
-            }
-        }
+    async fn fail_reservation(
+        &self,
+        reservation: &StagingReservation,
+        reason: String,
+    ) -> Result<()> {
+        self.store
+            .fail_staging_manifest_record(reservation.record.id, current_time_ms()?, reason)
+            .await?;
 
         Ok(())
+    }
+
+    async fn cleanup_failed_reservation(&self, reservation: &StagingReservation) {
+        if let Err(err) = tokio::fs::remove_file(Path::new(&reservation.record.local_path)).await {
+            if err.kind() != ErrorKind::NotFound {
+                warn!(
+                    record_id = %reservation.record.id,
+                    path = %reservation.record.local_path,
+                    error = %err,
+                    "failed to remove failed staged input"
+                );
+            }
+        }
+    }
+
+    async fn record_reservation_failure(&self, reservation: &StagingReservation, err: &TaruError) {
+        if let Err(rollback_err) = self.fail_reservation(reservation, err.to_string()).await {
+            warn!(
+                record_id = %reservation.record.id,
+                original_error = %err,
+                rollback_error = %rollback_err,
+                "failed to mark staging reservation failed"
+            );
+        }
     }
 }
 
@@ -319,21 +318,20 @@ impl StorageBackend for ManifestRecordingStorageBackend {
             })?;
 
         let metadata = self.inner.stat(&request.uri).await?;
-        let reservation = {
-            let _budget_guard = self.budget_lock.lock().await;
-            self.reserve_budget(&request, &metadata).await?
-        };
+        let reservation = self.reserve_budget(&request, &metadata).await?;
 
         let staged = match self.inner.stage(request).await {
             Ok(staged) => staged,
             Err(err) => {
-                self.rollback_reservation(reservation).await?;
+                self.record_reservation_failure(&reservation, &err).await;
+                self.cleanup_failed_reservation(&reservation).await;
                 return Err(err);
             }
         };
 
         if let Err(err) = self.complete_reservation(&reservation, &staged).await {
-            self.rollback_reservation(reservation).await?;
+            self.record_reservation_failure(&reservation, &err).await;
+            self.cleanup_failed_reservation(&reservation).await;
             return Err(err);
         }
 
@@ -341,30 +339,44 @@ impl StorageBackend for ManifestRecordingStorageBackend {
     }
 }
 
-fn new_staging_record_from_existing(record: StagingManifestRecord) -> NewStagingManifestRecord {
-    NewStagingManifestRecord {
-        id: record.id,
-        source_uri: record.source_uri,
-        source_scheme: record.source_scheme,
-        purpose: record.purpose,
-        local_path: record.local_path,
-        size_bytes: record.size_bytes,
-        etag: record.etag,
-        fingerprint: record.fingerprint,
-        state: record.state,
-        created_at_ms: record.created_at_ms,
-        updated_at_ms: record.updated_at_ms,
-        last_accessed_at_ms: record.last_accessed_at_ms,
-        expires_at_ms: record.expires_at_ms,
-        active_leases: record.active_leases,
-        validation_error: record.validation_error,
+pub(super) struct StagingLease {
+    store: SqliteStore,
+    record_id: StagingManifestId,
+    local_path: PathBuf,
+}
+
+impl StagingLease {
+    pub(super) async fn acquire(store: SqliteStore, record_id: StagingManifestId) -> Result<Self> {
+        let record = store
+            .acquire_staging_manifest_lease(record_id, current_time_ms()?)
+            .await?;
+        Ok(Self {
+            store,
+            record_id,
+            local_path: PathBuf::from(record.local_path),
+        })
+    }
+
+    pub(super) async fn release(self) -> Result<StagingManifestRecord> {
+        let Self {
+            store,
+            record_id,
+            local_path: _,
+        } = self;
+        store
+            .release_staging_manifest_lease(record_id, current_time_ms()?)
+            .await
     }
 }
 
-fn record_expired(record: &StagingManifestRecord, now_ms: i64) -> bool {
-    record
-        .expires_at_ms
-        .is_some_and(|expires_at_ms| expires_at_ms <= now_ms)
+impl fmt::Debug for StagingLease {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("StagingLease")
+            .field("record_id", &self.record_id)
+            .field("local_path", &self.local_path)
+            .finish()
+    }
 }
 
 fn staging_expires_at_ms(now_ms: i64, retention_ms: u64) -> Result<i64> {

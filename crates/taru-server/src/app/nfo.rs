@@ -337,7 +337,7 @@ impl TaruApp {
             "starting NFO import job"
         );
 
-        let backend = self.storage_backend_for_library_root(&library)?;
+        let backend = self.storage_backend_for_library_root(&library).await?;
         let service = NfoService::new(backend, self.inner.store.clone(), MovieNfoCodec);
 
         service
@@ -363,7 +363,7 @@ impl TaruApp {
             "starting NFO export job"
         );
 
-        let backend = self.storage_backend_for_library_root(&library)?;
+        let backend = self.storage_backend_for_library_root(&library).await?;
         ensure_nfo_export_writable(backend.as_ref(), &library).await?;
         let service = NfoService::new(backend, self.inner.store.clone(), MovieNfoCodec);
 
