@@ -13,7 +13,7 @@ mod config;
 mod http;
 
 use app::TaruApp;
-use config::{example_config, library_from_config, load_config};
+use config::{TaruServerConfig, example_config, load_config};
 use http::build_router;
 
 #[derive(Debug, Parser)]
@@ -33,10 +33,18 @@ enum Command {
     ConfigExample,
     /// Run the HTTP server.
     Serve,
-    /// Scan the configured local library and probe discovered media.
-    Scan,
+    /// Scan one configured library and probe discovered media.
+    Scan {
+        #[arg(long)]
+        library_id: Option<LibraryId>,
+    },
+    /// Scan every configured library and probe discovered media.
+    ScanAll,
     /// List indexed media sources and probe results as JSON.
-    List,
+    List {
+        #[arg(long)]
+        library_id: Option<LibraryId>,
+    },
     /// Refresh TMDB metadata for one indexed media item.
     RefreshMetadata { item_id: MediaItemId },
     /// Import NFO sidecar metadata for one configured library.
@@ -71,15 +79,21 @@ async fn run(cli: Cli) -> Result<()> {
             let app = TaruApp::new(config).await?;
             serve(listen_addr, build_router(app)).await
         }
-        Command::Scan => {
+        Command::Scan { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            print_json(&app.scan_configured_library().await?)
+            let library_id = resolve_cli_library_id(app.config(), library_id, "scan")?;
+            print_json(&app.scan_library(library_id).await?)
         }
-        Command::List => {
+        Command::ScanAll => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            let library_id = library_from_config(app.config()).id;
+            print_json(&app.scan_all_configured_libraries().await?)
+        }
+        Command::List { library_id } => {
+            let config = load_config(&cli.config)?;
+            let app = TaruApp::new(config).await?;
+            let library_id = resolve_cli_library_id(app.config(), library_id, "list")?;
             print_json(
                 &app.list_library_sources(library_id, taru_core::PageRequest::first_page())
                     .await?,
@@ -93,14 +107,43 @@ async fn run(cli: Cli) -> Result<()> {
         Command::ImportNfo { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            let library_id = library_id.unwrap_or_else(|| library_from_config(app.config()).id);
+            let library_id = resolve_cli_library_id(app.config(), library_id, "import-nfo")?;
             print_json(&app.import_library_nfo(library_id).await?)
         }
         Command::ExportNfo { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            let library_id = library_id.unwrap_or_else(|| library_from_config(app.config()).id);
+            let library_id = resolve_cli_library_id(app.config(), library_id, "export-nfo")?;
             print_json(&app.export_library_nfo(library_id).await?)
+        }
+    }
+}
+
+fn resolve_cli_library_id(
+    config: &TaruServerConfig,
+    library_id: Option<LibraryId>,
+    command: &str,
+) -> Result<LibraryId> {
+    if let Some(library_id) = library_id {
+        return Ok(library_id);
+    }
+
+    match config.libraries.as_slice() {
+        [] => Err(TaruError::InvalidInput {
+            message: "server config must include at least one library".to_owned(),
+        }),
+        [library] => Ok(library.id),
+        _ => {
+            let scan_hint = if command == "scan" {
+                "; use scan-all for a full scan"
+            } else {
+                ""
+            };
+            Err(TaruError::InvalidInput {
+                message: format!(
+                    "{command} requires --library-id when multiple libraries are configured{scan_hint}"
+                ),
+            })
         }
     }
 }

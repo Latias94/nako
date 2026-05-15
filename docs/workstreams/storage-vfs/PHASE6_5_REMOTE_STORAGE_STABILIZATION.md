@@ -20,8 +20,7 @@ developer testing.
 - Wired server storage backend construction:
   - local sources still use `LocalFsBackend`;
   - WebDAV sources use `WebDavBackend` wrapped in `CachedStorageBackend`;
-  - configured WebDAV library scan/probe uses the WebDAV root from
-    `library_from_config`;
+  - configured WebDAV library scan/probe uses the configured library root;
   - remote probe staging uses `remux_staging_root/probe-inputs`.
 - Updated HTTP and local setup docs for WebDAV scan, direct play, remux, HLS,
   staging paths, and preview limitations.

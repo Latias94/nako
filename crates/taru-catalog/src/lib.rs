@@ -664,4 +664,114 @@ mod tests {
         assert_eq!(images.len(), 1);
         assert_eq!(hits[0].item_id, item.id);
     }
+
+    #[tokio::test]
+    async fn hydration_keeps_same_locator_sources_isolated_by_item_and_library() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let first_library = Library {
+            id: LibraryId::new(),
+            name: "First Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let second_library = Library {
+            id: LibraryId::new(),
+            name: "Second Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let first_item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Shared Movie First".to_owned(),
+                genres: vec!["First Genre".to_owned()],
+                ..CanonicalMetadata::default()
+            },
+        };
+        let second_item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Shared Movie Second".to_owned(),
+                genres: vec!["Second Genre".to_owned()],
+                ..CanonicalMetadata::default()
+            },
+        };
+        let first_source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: first_library.id,
+            item_id: first_item.id,
+            locator: "local:///Movie.mkv".to_owned(),
+            file_name: "Movie.mkv".to_owned(),
+            size_bytes: Some(5),
+            fingerprint: None,
+        };
+        let second_source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: second_library.id,
+            item_id: second_item.id,
+            locator: "local:///Movie.mkv".to_owned(),
+            file_name: "Movie.mkv".to_owned(),
+            size_bytes: Some(6),
+            fingerprint: None,
+        };
+
+        store.upsert_library(&first_library).await.unwrap();
+        store.upsert_library(&second_library).await.unwrap();
+        store.upsert_media_item(&first_item).await.unwrap();
+        store.upsert_media_item(&second_item).await.unwrap();
+        store.upsert_media_source(&first_source).await.unwrap();
+        store.upsert_media_source(&second_source).await.unwrap();
+
+        hydrate_item_catalog(&store, first_item.id, MetadataSource::Local)
+            .await
+            .unwrap();
+        hydrate_item_catalog(&store, second_item.id, MetadataSource::Local)
+            .await
+            .unwrap();
+
+        let first_sources = store
+            .list_media_sources(first_library.id, PageRequest::first_page())
+            .await
+            .unwrap();
+        let second_sources = store
+            .list_media_sources(second_library.id, PageRequest::first_page())
+            .await
+            .unwrap();
+        let first_genres = store.list_item_genres(first_item.id).await.unwrap();
+        let second_genres = store.list_item_genres(second_item.id).await.unwrap();
+        let first_hits = store
+            .search(SearchQuery {
+                query: "shared".to_owned(),
+                facets: vec!["genre:First Genre".to_owned()],
+                limit: 10,
+                offset: 0,
+            })
+            .await
+            .unwrap();
+        let second_hits = store
+            .search(SearchQuery {
+                query: "shared".to_owned(),
+                facets: vec!["genre:Second Genre".to_owned()],
+                limit: 10,
+                offset: 0,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(first_sources[0].locator, "local:///Movie.mkv");
+        assert_eq!(second_sources[0].locator, "local:///Movie.mkv");
+        assert_eq!(first_sources[0].item_id, first_item.id);
+        assert_eq!(second_sources[0].item_id, second_item.id);
+        assert_ne!(first_sources[0].id, second_sources[0].id);
+        assert_ne!(first_genres[0].genre_id, second_genres[0].genre_id);
+        assert_eq!(first_hits.len(), 1);
+        assert_eq!(first_hits[0].item_id, first_item.id);
+        assert_eq!(second_hits.len(), 1);
+        assert_eq!(second_hits[0].item_id, second_item.id);
+    }
 }

@@ -392,8 +392,8 @@ Evidence:
   and retry attempt limits.
 - `taru-server::app` builds configured WebDAV storage through
   `WebDavBackend` wrapped in `CachedStorageBackend`.
-- Configured WebDAV library scan/probe uses the WebDAV root from
-  `library_from_config`; remote probe staging uses
+- Configured WebDAV library scan/probe uses the configured library root;
+  remote probe staging uses
   `remux_staging_root/probe-inputs`.
 - HTTP API and local setup docs describe WebDAV direct play, remux/HLS staging,
   secret references, and preview limitations.
@@ -525,3 +525,34 @@ Evidence for M7.6 stabilization:
 - [Phase 7.6](workstreams/playback-streaming/PHASE7_6_STABILIZATION_AUDIT.md)
   maps every M7 completion criterion to concrete code, tests, docs, and
   validation gates.
+
+### M8: Multi-Library Correctness and Operational Hardening
+
+Status: completed.
+
+Objective:
+
+- Make multi-library operation data-safe by scoping source locator identity to
+  the library, exposing explicit CLI multi-library commands, closing the remote
+  staging disk-budget race, and documenting the new invariants.
+
+Deliverables:
+
+- `media_sources` uniqueness is `(library_id, locator)` instead of global
+  `locator`.
+- Repository source lookup by locator requires `library_id`.
+- Local scan/index/probe/search tests cover two libraries with the same
+  relative media path and the same resulting `local:///` locator.
+- CLI supports `scan --library-id`, `scan-all`, and `list --library-id`.
+- Staging budget check, staging, and manifest recording are serialized under a
+  shared budget lock.
+- The panic-style default library helper is replaced with
+  `default_library_from_config`.
+- [Phase 8.0](workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md)
+  records source identity, CLI, and staging budget invariants.
+
+Recommended next implementation goal:
+
+- Start M9 metadata provider runtime: provider arrays, bounded caller,
+  secret resolution, retry/rate limit policy, and persisted provider attempts
+  before adding real Douban/Bangumi providers.

@@ -450,14 +450,19 @@ impl MediaRepository for SqliteStore {
         row.map(row_to_media_source).transpose()
     }
 
-    async fn get_media_source_by_locator(&self, locator: &str) -> Result<Option<MediaSource>> {
+    async fn get_media_source_by_locator(
+        &self,
+        library_id: LibraryId,
+        locator: &str,
+    ) -> Result<Option<MediaSource>> {
         let row = sqlx::query(
             r#"
             SELECT id, library_id, item_id, locator, file_name, size_bytes, fingerprint
             FROM media_sources
-            WHERE locator = ?1
+            WHERE library_id = ?1 AND locator = ?2
             "#,
         )
+        .bind(library_id.to_string())
         .bind(locator)
         .fetch_optional(&self.pool)
         .await

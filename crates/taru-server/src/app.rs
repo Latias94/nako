@@ -61,7 +61,7 @@ use tracing::{Instrument, error, info, info_span, warn};
 
 use crate::config::{
     LocalLibraryConfig, TaruServerConfig, WebDavLibraryConfig, configured_library_config_for,
-    libraries_from_config, library_from_config,
+    default_library_from_config, libraries_from_config,
 };
 
 pub(crate) mod playback;
@@ -90,6 +90,7 @@ struct TaruAppInner {
     webhook_permits: Arc<Semaphore>,
     remote_stream_permits: Arc<Semaphore>,
     remote_stage_permits: Arc<Semaphore>,
+    remote_stage_budget_lock: Arc<Mutex<()>>,
     remux: RemuxAppService,
     hls: HlsAppService,
 }
@@ -867,6 +868,7 @@ impl TaruApp {
                 remote_stage_permits: Arc::new(Semaphore::new(
                     config.playback.remote_stage_concurrency.max(1),
                 )),
+                remote_stage_budget_lock: Arc::new(Mutex::new(())),
                 remux: RemuxAppService::new(&config),
                 hls: HlsAppService::new(&config),
                 config,
@@ -1161,6 +1163,7 @@ impl TaruApp {
             self.config().staging.max_bytes,
             self.config().staging.retention_ms,
             self.inner.remote_stage_permits.clone(),
+            self.inner.remote_stage_budget_lock.clone(),
         );
         match local_source_path_and_len(source, &uri, &backend).await {
             Ok((path, _len)) => Ok(path),
@@ -1910,10 +1913,25 @@ impl TaruApp {
         Ok(job)
     }
 
-    pub async fn scan_configured_library(&self) -> Result<ScanCommandOutput> {
-        let library_id = library_from_config(self.config()).id;
+    pub async fn scan_library(&self, library_id: LibraryId) -> Result<ScanCommandOutput> {
         let job = self.create_library_scan_job(library_id).await?;
         self.execute_library_scan_job(job.id, library_id).await
+    }
+
+    pub async fn scan_all_configured_libraries(&self) -> Result<Vec<ScanCommandOutput>> {
+        let libraries = libraries_from_config(self.config());
+        if libraries.is_empty() {
+            return Err(TaruError::InvalidInput {
+                message: "server config must include at least one library".to_owned(),
+            });
+        }
+
+        let mut outputs = Vec::with_capacity(libraries.len());
+        for library in libraries {
+            outputs.push(self.scan_library(library.id).await?);
+        }
+
+        Ok(outputs)
     }
 
     pub async fn enqueue_metadata_refresh(&self, item_id: MediaItemId) -> Result<Job> {
@@ -2577,6 +2595,7 @@ impl TaruApp {
             self.config().staging.max_bytes,
             self.config().staging.retention_ms,
             self.inner.remote_stage_permits.clone(),
+            self.inner.remote_stage_budget_lock.clone(),
         ));
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
@@ -2710,7 +2729,7 @@ impl TaruApp {
             }
         }
 
-        Ok(library_from_config(self.config()))
+        default_library_from_config(self.config())
     }
 
     fn effective_metadata_profile(
@@ -3178,7 +3197,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn scan_configured_library_persists_job_success() {
+    async fn scan_library_persists_job_success() {
         let temp = tempfile::tempdir().unwrap();
         let library_id = LibraryId::new();
         let config = TaruServerConfig {
@@ -3210,7 +3229,7 @@ mod tests {
             .await
             .unwrap();
 
-        let output = app.scan_configured_library().await.unwrap();
+        let output = app.scan_library(library_id).await.unwrap();
         let job = app.get_job(output.job.id).await.unwrap();
         let events = store
             .list_outbox_events(PageRequest::first_page())
@@ -3270,7 +3289,7 @@ mod tests {
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store).await.unwrap();
-        let library = library_from_config(app.config());
+        let library = default_library_from_config(app.config()).unwrap();
         let backend = app.storage_backend_for_library_root(&library).unwrap();
         let scanner = taru_library::VfsLibraryScanner::new(backend);
         let summary = scanner
@@ -4346,6 +4365,7 @@ mod tests {
             StagingConfig::default().max_bytes,
             StagingConfig::default().retention_ms,
             Arc::new(Semaphore::new(1)),
+            Arc::new(Mutex::new(())),
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 
@@ -4393,6 +4413,7 @@ mod tests {
             5,
             StagingConfig::default().retention_ms,
             Arc::new(Semaphore::new(1)),
+            Arc::new(Mutex::new(())),
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
         let staging_root = temp.path().join("probe-inputs");
@@ -4418,6 +4439,72 @@ mod tests {
         assert!(records.is_empty());
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn manifest_recording_backend_serializes_budget_check_and_record() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let backend = Arc::new(ManifestRecordingStorageBackend::new(
+            Box::new(RemotePlaybackBackend {
+                bytes: vec![b'x'; 8],
+                local_path_hint: None,
+            }),
+            store.clone(),
+            StagingPurpose::ProbeInput,
+            10,
+            StagingConfig::default().retention_ms,
+            Arc::new(Semaphore::new(2)),
+            Arc::new(Mutex::new(())),
+        ));
+        let first_uri = StorageUri::parse("webdav:///Movies/First.mkv").unwrap();
+        let second_uri = StorageUri::parse("webdav:///Movies/Second.mkv").unwrap();
+        let staging_root = temp.path().join("probe-inputs");
+
+        let first = {
+            let backend = backend.clone();
+            let staging_root = staging_root.clone();
+            tokio::spawn(async move {
+                backend
+                    .stage(StageRequest::new(first_uri, staging_root))
+                    .await
+            })
+        };
+        let second = {
+            let backend = backend.clone();
+            let staging_root = staging_root.clone();
+            tokio::spawn(async move {
+                backend
+                    .stage(StageRequest::new(second_uri, staging_root))
+                    .await
+            })
+        };
+        let first = first.await.unwrap();
+        let second = second.await.unwrap();
+        let successes = usize::from(first.is_ok()) + usize::from(second.is_ok());
+        let failures = [first, second]
+            .into_iter()
+            .filter_map(Result::err)
+            .collect::<Vec<_>>();
+
+        assert_eq!(successes, 1);
+        assert_eq!(failures.len(), 1);
+        let TaruError::Storage { message, .. } = &failures[0] else {
+            panic!("expected storage budget error");
+        };
+        assert!(message.contains("staging disk budget exhausted"));
+        assert!(store.sum_staging_manifest_bytes().await.unwrap() <= 10);
+        let records = store
+            .list_staging_manifest_records(
+                Some(StagingPurpose::ProbeInput),
+                Some(StagingState::Ready),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].size_bytes, Some(8));
+    }
+
     #[tokio::test]
     async fn manifest_recording_backend_waits_for_stage_budget() {
         let temp = tempfile::tempdir().unwrap();
@@ -4435,6 +4522,7 @@ mod tests {
             StagingConfig::default().max_bytes,
             StagingConfig::default().retention_ms,
             stage_permits,
+            Arc::new(Mutex::new(())),
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 

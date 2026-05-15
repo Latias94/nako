@@ -44,7 +44,11 @@ pub trait MediaRepository: Send + Sync {
 
     async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>>;
 
-    async fn get_media_source_by_locator(&self, locator: &str) -> Result<Option<MediaSource>>;
+    async fn get_media_source_by_locator(
+        &self,
+        library_id: LibraryId,
+        locator: &str,
+    ) -> Result<Option<MediaSource>>;
 
     async fn list_item_sources(
         &self,

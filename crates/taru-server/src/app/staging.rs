@@ -10,7 +10,7 @@ use taru_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageUri, VirtualFile, deterministic_stage_path,
 };
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
 
 use super::current_time_ms;
 
@@ -109,6 +109,7 @@ pub(super) struct ManifestRecordingStorageBackend {
     max_bytes: u64,
     retention_ms: u64,
     stage_permits: Arc<Semaphore>,
+    budget_lock: Arc<Mutex<()>>,
 }
 
 impl ManifestRecordingStorageBackend {
@@ -119,6 +120,7 @@ impl ManifestRecordingStorageBackend {
         max_bytes: u64,
         retention_ms: u64,
         stage_permits: Arc<Semaphore>,
+        budget_lock: Arc<Mutex<()>>,
     ) -> Self {
         Self {
             inner,
@@ -127,6 +129,7 @@ impl ManifestRecordingStorageBackend {
             max_bytes,
             retention_ms,
             stage_permits,
+            budget_lock,
         }
     }
 
@@ -212,6 +215,7 @@ impl StorageBackend for ManifestRecordingStorageBackend {
                 uri: "playback.remote.stage".to_owned(),
                 message: format!("remote staging resource budget was closed: {err}"),
             })?;
+        let _budget_guard = self.budget_lock.lock().await;
         self.ensure_budget(&request).await?;
         let staged = self.inner.stage(request).await?;
         record_staged_input(

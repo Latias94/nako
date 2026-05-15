@@ -398,7 +398,7 @@ where
                 let locator = discovered.uri.as_str().to_owned();
                 let existing = self
                     .repository
-                    .get_media_source_by_locator(&locator)
+                    .get_media_source_by_locator(request.library.id, &locator)
                     .await?;
 
                 let item_id = existing
@@ -1087,6 +1087,169 @@ mod tests {
         assert_eq!(item.metadata.title, "The Matrix");
         assert_eq!(item.metadata.release_date, Some("1999".to_owned()));
         assert_eq!(hits[0].item_id, item.id);
+    }
+
+    #[tokio::test]
+    async fn index_and_probe_keep_identical_local_locators_isolated_by_library() {
+        let first_root = tempfile::tempdir().unwrap();
+        let second_root = tempfile::tempdir().unwrap();
+        fs::write(first_root.path().join("Movie.mkv"), b"first").unwrap();
+        fs::write(second_root.path().join("Movie.mkv"), b"second").unwrap();
+
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let first_library = Library {
+            id: LibraryId::new(),
+            name: "First Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let second_library = Library {
+            id: LibraryId::new(),
+            name: "Second Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        store.upsert_library(&first_library).await.unwrap();
+        store.upsert_library(&second_library).await.unwrap();
+
+        let first_summary = LibraryIndexService::new(
+            VfsLibraryScanner::new(LocalFsBackend::new(first_root.path()).unwrap()),
+            store.clone(),
+        )
+        .index_library(LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: first_library.clone(),
+            force: false,
+        })
+        .await
+        .unwrap();
+        let second_summary = LibraryIndexService::new(
+            VfsLibraryScanner::new(LocalFsBackend::new(second_root.path()).unwrap()),
+            store.clone(),
+        )
+        .index_library(LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: second_library.clone(),
+            force: false,
+        })
+        .await
+        .unwrap();
+
+        let first_sources = store
+            .list_media_sources(first_library.id, PageRequest::first_page())
+            .await
+            .unwrap();
+        let second_sources = store
+            .list_media_sources(second_library.id, PageRequest::first_page())
+            .await
+            .unwrap();
+        let first_state = store
+            .get_source_state(first_library.id, "local:///Movie.mkv")
+            .await
+            .unwrap()
+            .unwrap();
+        let second_state = store
+            .get_source_state(second_library.id, "local:///Movie.mkv")
+            .await
+            .unwrap()
+            .unwrap();
+        let first_item = store
+            .get_media_item(first_sources[0].item_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let second_item = store
+            .get_media_item(second_sources[0].item_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.inserted_sources, 1);
+        assert_eq!(first_sources.len(), 1);
+        assert_eq!(second_sources.len(), 1);
+        assert_eq!(first_sources[0].locator, "local:///Movie.mkv");
+        assert_eq!(second_sources[0].locator, "local:///Movie.mkv");
+        assert_eq!(first_sources[0].library_id, first_library.id);
+        assert_eq!(second_sources[0].library_id, second_library.id);
+        assert_ne!(first_sources[0].id, second_sources[0].id);
+        assert_ne!(first_sources[0].item_id, second_sources[0].item_id);
+        assert_eq!(first_state.source_id, Some(first_sources[0].id));
+        assert_eq!(second_state.source_id, Some(second_sources[0].id));
+        assert_eq!(first_item.metadata.title, "Movie");
+        assert_eq!(second_item.metadata.title, "Movie");
+
+        let first_probe = RecordingProbe::default();
+        let first_observed_paths = first_probe.observed_paths.clone();
+        LibraryProbeService::with_options(
+            LocalFsBackend::new(first_root.path()).unwrap(),
+            first_probe,
+            store.clone(),
+            LibraryProbeOptions {
+                max_concurrent_probes: 1,
+                staging_root: None,
+            },
+        )
+        .probe_library(LibraryProbeRequest {
+            job_id: JobId::new(),
+            library_id: first_library.id,
+            force: false,
+        })
+        .await
+        .unwrap();
+
+        let second_probe = RecordingProbe::default();
+        let second_observed_paths = second_probe.observed_paths.clone();
+        LibraryProbeService::with_options(
+            LocalFsBackend::new(second_root.path()).unwrap(),
+            second_probe,
+            store.clone(),
+            LibraryProbeOptions {
+                max_concurrent_probes: 1,
+                staging_root: None,
+            },
+        )
+        .probe_library(LibraryProbeRequest {
+            job_id: JobId::new(),
+            library_id: second_library.id,
+            force: false,
+        })
+        .await
+        .unwrap();
+
+        let first_observed_path = first_observed_paths.lock().unwrap()[0].clone().unwrap();
+        let second_observed_path = second_observed_paths.lock().unwrap()[0].clone().unwrap();
+        assert_eq!(fs::read(first_observed_path).unwrap(), b"first");
+        assert_eq!(fs::read(second_observed_path).unwrap(), b"second");
+        assert!(
+            store
+                .get_media_probe(first_sources[0].id)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            store
+                .get_media_probe(second_sources[0].id)
+                .await
+                .unwrap()
+                .is_some()
+        );
+
+        let hits = store
+            .search(SearchQuery {
+                query: "movie".to_owned(),
+                facets: Vec::new(),
+                limit: 10,
+                offset: 0,
+            })
+            .await
+            .unwrap();
+        let hit_item_ids = hits.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>();
+        assert!(hit_item_ids.contains(&first_sources[0].item_id));
+        assert!(hit_item_ids.contains(&second_sources[0].item_id));
     }
 
     #[tokio::test]

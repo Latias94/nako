@@ -230,11 +230,13 @@ pub fn example_config() -> Result<String> {
     })
 }
 
-pub fn library_from_config(config: &TaruServerConfig) -> Library {
+pub fn default_library_from_config(config: &TaruServerConfig) -> Result<Library> {
     libraries_from_config(config)
         .into_iter()
         .next()
-        .expect("TaruServerConfig must include at least one configured library")
+        .ok_or_else(|| TaruError::InvalidInput {
+            message: "server config must include at least one library".to_owned(),
+        })
 }
 
 pub fn libraries_from_config(config: &TaruServerConfig) -> Vec<Library> {
@@ -491,9 +493,13 @@ mod tests {
         assert_eq!(webdav.password_env.as_deref(), Some("TARU_WEBDAV_PASSWORD"));
         assert_eq!(webdav.timeout_ms, 10_000);
         assert_eq!(webdav.max_attempts, 3);
-        assert_eq!(library_from_config(&config).roots, vec!["webdav:///Movies"]);
         assert_eq!(
-            library_from_config(&config)
+            default_library_from_config(&config).unwrap().roots,
+            vec!["webdav:///Movies"]
+        );
+        assert_eq!(
+            default_library_from_config(&config)
+                .unwrap()
                 .options
                 .metadata_profile
                 .metadata_providers,
@@ -606,6 +612,9 @@ mod tests {
             "TMDB_READ_ACCESS_TOKEN"
         );
         assert!(library.webdav.is_none());
-        assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
+        assert_eq!(
+            default_library_from_config(&config).unwrap().roots,
+            vec!["local:///"]
+        );
     }
 }

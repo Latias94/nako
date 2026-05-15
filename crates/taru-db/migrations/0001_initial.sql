@@ -45,6 +45,6 @@ CREATE TABLE media_sources (
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE UNIQUE INDEX media_sources_locator_idx ON media_sources(locator);
+CREATE UNIQUE INDEX media_sources_library_locator_idx ON media_sources(library_id, locator);
 CREATE INDEX media_sources_library_id_idx ON media_sources(library_id);
 CREATE INDEX media_sources_item_id_idx ON media_sources(item_id);
