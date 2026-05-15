@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 
 use crate::{
-    ArtworkTask, ArtworkTaskId, Collection, CollectionId, CollectionItem, DirectorySnapshot, Genre,
-    GenreId, ImageAsset, ImageAssetId, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId,
-    Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
-    MetadataFieldLock, NewJob, NewTranscodeSession, Person, PersonId, ProviderRawResponse, Result,
-    ScanSnapshot, ScanSnapshotId, SourceState, Studio, StudioId, Tag, TagId,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionState,
+    ArtworkTask, ArtworkTaskId, Collection, CollectionId, CollectionItem, DirectorySnapshot,
+    DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId, ItemCredit, ItemGenre, ItemStudio,
+    ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
+    MediaSourceId, MetadataFieldLock, NewJob, NewOutboxEvent, NewTranscodeSession,
+    OutboxEventRecord, Person, PersonId, ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId,
+    SourceState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 
 #[async_trait]
@@ -276,6 +276,21 @@ pub trait JobRepository: Send + Sync {
     async fn fail_job(&self, id: JobId, error: String) -> Result<Job>;
 
     async fn get_job(&self, id: JobId) -> Result<Option<Job>>;
+}
+
+#[async_trait]
+pub trait EventOutboxRepository: Send + Sync {
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord>;
+
+    async fn get_outbox_event(&self, id: crate::EventId) -> Result<Option<OutboxEventRecord>>;
+
+    async fn find_outbox_event_by_idempotency_key(
+        &self,
+        kind: DomainEventKind,
+        idempotency_key: &str,
+    ) -> Result<Option<OutboxEventRecord>>;
+
+    async fn list_outbox_events(&self, page: PageRequest) -> Result<Vec<OutboxEventRecord>>;
 }
 
 #[async_trait]

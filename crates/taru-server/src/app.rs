@@ -13,11 +13,12 @@ use taru_api::{
     TagItemsResponse, TagsResponse,
 };
 use taru_core::{
-    CatalogRepository, ExternalProvider, GenreId, Job, JobId, JobKind, JobRepository, Library,
-    LibraryId, LibraryRepository, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
-    MediaSourceId, MetadataProfile, NewJob, NewTranscodeSession, PageRequest, PersonId, Result,
-    TagId, TaruError, TransactionManager, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
+    CatalogRepository, DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository,
+    ExternalProvider, GenreId, Job, JobId, JobKind, JobRepository, Library, LibraryId,
+    LibraryRepository, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
+    MediaSourceId, MetadataProfile, NewJob, NewOutboxEvent, NewTranscodeSession, PageRequest,
+    PersonId, Result, TagId, TaruError, TransactionManager, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
     TranscodeSessionState,
 };
 use taru_db::SqliteStore;
@@ -455,6 +456,7 @@ impl RemuxAppService {
                         None,
                     )
                     .await?;
+                record_playback_session_finished_event(sessions, &session).await;
 
                 Ok(RemuxSourceOutput {
                     source,
@@ -701,6 +703,7 @@ impl HlsAppService {
                         None,
                     )
                     .await?;
+                record_playback_session_finished_event(sessions, &session).await;
 
                 Ok(HlsSourceOutput {
                     source,
@@ -1644,6 +1647,8 @@ impl TaruApp {
                     .store
                     .succeed_job(job_id, Some(summary_json))
                     .await?;
+                self.record_library_scanned_event(job_id, library_id, &index, &probe)
+                    .await;
 
                 Ok(ScanCommandOutput { job, index, probe })
             }
@@ -1691,6 +1696,8 @@ impl TaruApp {
                     .store
                     .succeed_job(job_id, Some(summary_json))
                     .await?;
+                self.record_metadata_refreshed_event(job_id, item_id, &refresh)
+                    .await;
 
                 Ok(MetadataRefreshCommandOutput { job, refresh })
             }
@@ -1738,6 +1745,8 @@ impl TaruApp {
                     .store
                     .succeed_job(job_id, Some(summary_json))
                     .await?;
+                self.record_nfo_imported_event(job_id, library_id, &import)
+                    .await;
 
                 Ok(NfoImportCommandOutput { job, import })
             }
@@ -1785,6 +1794,8 @@ impl TaruApp {
                     .store
                     .succeed_job(job_id, Some(summary_json))
                     .await?;
+                self.record_nfo_exported_event(job_id, library_id, &export)
+                    .await;
 
                 Ok(NfoExportCommandOutput { job, export })
             }
@@ -1800,6 +1811,143 @@ impl TaruApp {
 
                 Err(err)
             }
+        }
+    }
+
+    async fn record_library_scanned_event(
+        &self,
+        job_id: JobId,
+        library_id: LibraryId,
+        index: &LibraryIndexSummary,
+        probe: &LibraryProbeSummary,
+    ) {
+        let payload = serde_json::json!({
+            "job_id": job_id,
+            "library_id": library_id,
+            "scan_id": index.scan_id,
+            "discovered_files": index.discovered_files,
+            "inserted_sources": index.inserted_sources,
+            "updated_sources": index.updated_sources,
+            "tombstoned_sources": index.tombstoned_sources,
+            "probed_sources": probe.probed_sources,
+            "failed_probe_sources": probe.failed_sources,
+        });
+        self.record_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library_id),
+            library_id: Some(library_id),
+            source_id: None,
+            idempotency_key: format!("library.scanned:{job_id}"),
+            payload_json: payload.to_string(),
+        })
+        .await;
+    }
+
+    async fn record_metadata_refreshed_event(
+        &self,
+        job_id: JobId,
+        item_id: MediaItemId,
+        refresh: &MetadataRefreshSummary,
+    ) {
+        let library_id = match self.library_for_item(item_id).await {
+            Ok(library) => Some(library.id),
+            Err(err) => {
+                warn!(
+                    job_id = %job_id,
+                    item_id = %item_id,
+                    error = %err,
+                    "failed to resolve library while recording metadata event"
+                );
+                None
+            }
+        };
+        let payload = serde_json::json!({
+            "job_id": job_id,
+            "item_id": item_id,
+            "provider": &refresh.provider,
+            "selected_provider": &refresh.selected_provider,
+            "provider_key": &refresh.provider_key,
+            "matched_by": refresh.matched_by,
+            "refresh_mode": refresh.refresh_mode,
+            "updated": refresh.updated,
+            "attempted_providers": refresh.attempted_providers.len(),
+        });
+        self.record_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::ItemMetadataRefreshed,
+            subject: DomainEventSubject::Item(item_id),
+            library_id,
+            source_id: None,
+            idempotency_key: format!("item.metadata_refreshed:{job_id}:{item_id}"),
+            payload_json: payload.to_string(),
+        })
+        .await;
+    }
+
+    async fn record_nfo_imported_event(
+        &self,
+        job_id: JobId,
+        library_id: LibraryId,
+        import: &NfoImportSummary,
+    ) {
+        let payload = serde_json::json!({
+            "job_id": job_id,
+            "library_id": library_id,
+            "scanned_sources": import.scanned_sources,
+            "discovered_nfo": import.discovered_nfo,
+            "imported_items": import.imported_items,
+            "skipped_items": import.skipped_items,
+            "failed_items": import.failed_items,
+        });
+        self.record_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::NfoImported,
+            subject: DomainEventSubject::Library(library_id),
+            library_id: Some(library_id),
+            source_id: None,
+            idempotency_key: format!("nfo.imported:{job_id}:{library_id}"),
+            payload_json: payload.to_string(),
+        })
+        .await;
+    }
+
+    async fn record_nfo_exported_event(
+        &self,
+        job_id: JobId,
+        library_id: LibraryId,
+        export: &NfoExportSummary,
+    ) {
+        let payload = serde_json::json!({
+            "job_id": job_id,
+            "library_id": library_id,
+            "scanned_sources": export.scanned_sources,
+            "exported_items": export.exported_items,
+            "skipped_items": export.skipped_items,
+            "failed_items": export.failed_items,
+        });
+        self.record_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::NfoExported,
+            subject: DomainEventSubject::Library(library_id),
+            library_id: Some(library_id),
+            source_id: None,
+            idempotency_key: format!("nfo.exported:{job_id}:{library_id}"),
+            payload_json: payload.to_string(),
+        })
+        .await;
+    }
+
+    async fn record_outbox_event(&self, event: NewOutboxEvent) {
+        let kind = event.kind.as_str();
+        let idempotency_key = event.idempotency_key.clone();
+        if let Err(err) = self.inner.store.enqueue_outbox_event(event).await {
+            warn!(
+                kind,
+                idempotency_key,
+                error = %err,
+                "failed to persist outbox event"
+            );
         }
     }
 
@@ -2204,6 +2352,39 @@ async fn persist_session_failure(
     }
 }
 
+async fn record_playback_session_finished_event(
+    store: &SqliteStore,
+    session: &TranscodeSessionRecord,
+) {
+    let payload = serde_json::json!({
+        "session_id": session.id,
+        "source_id": session.source_id,
+        "kind": session.kind,
+        "request_key": &session.request_key,
+        "state": session.state,
+    });
+    let idempotency_key = format!("playback.session_finished:{}", session.id);
+    if let Err(err) = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::PlaybackSessionFinished,
+            subject: DomainEventSubject::PlaybackSession(session.id),
+            library_id: None,
+            source_id: Some(session.source_id),
+            idempotency_key: idempotency_key.clone(),
+            payload_json: payload.to_string(),
+        })
+        .await
+    {
+        warn!(
+            session_id = %session.id,
+            idempotency_key,
+            error = %err,
+            "failed to persist playback session outbox event"
+        );
+    }
+}
+
 async fn ensure_remux_output_parent(output_path: &Path) -> Result<()> {
     let Some(parent) = output_path.parent() else {
         return Err(TaruError::Storage {
@@ -2246,10 +2427,12 @@ mod tests {
     };
 
     use taru_core::{
-        CanonicalMetadata, JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind,
-        MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-        MediaStreamInfo, MediaStreamKind, MetadataField, MetadataRepository, MetadataSource,
+        CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId,
+        JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+        MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+        MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
     };
+    use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus};
     use taru_transcode::RemuxContainer;
 
     use super::*;
@@ -2280,15 +2463,30 @@ mod tests {
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
-        let app = TaruApp::new_with_store(config, store).await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
 
         let output = app.scan_configured_library().await.unwrap();
         let job = app.get_job(output.job.id).await.unwrap();
+        let events = store
+            .list_outbox_events(PageRequest::first_page())
+            .await
+            .unwrap();
 
         assert_eq!(output.job.status, JobStatus::Succeeded);
         assert_eq!(job.status, JobStatus::Succeeded);
         assert_eq!(output.index.discovered_files, 0);
         assert_eq!(output.probe.total_sources, 0);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, DomainEventKind::LibraryScanned);
+        assert_eq!(events[0].subject, DomainEventSubject::Library(library_id));
+        assert!(events[0].payload_json.contains(&output.job.id.to_string()));
+        assert!(
+            !events[0]
+                .payload_json
+                .contains(&temp.path().display().to_string())
+        );
     }
 
     #[tokio::test]
@@ -2523,6 +2721,79 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "The Matrix".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        let job_id = JobId::new();
+        let refresh = MetadataRefreshSummary {
+            job_id,
+            item_id: item.id,
+            provider: ExternalProvider::Tmdb,
+            selected_provider: ExternalProvider::Tmdb,
+            provider_key: "603".to_owned(),
+            matched_by: MetadataMatchKind::ExternalId,
+            refresh_mode: MetadataRefreshMode::MissingOnly,
+            updated: true,
+            attempted_providers: vec![taru_metadata::MetadataProviderAttempt {
+                provider: ExternalProvider::Tmdb,
+                status: MetadataProviderAttemptStatus::Succeeded,
+                message: None,
+            }],
+        };
+
+        app.record_metadata_refreshed_event(job_id, item.id, &refresh)
+            .await;
+        let events = store
+            .list_outbox_events(PageRequest::first_page())
+            .await
+            .unwrap();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, DomainEventKind::ItemMetadataRefreshed);
+        assert_eq!(events[0].subject, DomainEventSubject::Item(item.id));
+        assert!(!events[0].payload_json.contains("TMDB_READ_ACCESS_TOKEN"));
+        assert!(
+            !events[0]
+                .payload_json
+                .contains(&temp.path().display().to_string())
+        );
+    }
+
+    #[tokio::test]
     async fn nfo_import_job_imports_sidecar_and_persists_summary() {
         let temp = tempfile::tempdir().unwrap();
         fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
@@ -2587,6 +2858,10 @@ mod tests {
         let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
         let locks = store.list_field_locks(item.id).await.unwrap();
         let job = app.get_job(output.job.id).await.unwrap();
+        let events = store
+            .list_outbox_events(PageRequest::first_page())
+            .await
+            .unwrap();
 
         assert_eq!(output.job.kind, JobKind::NfoImport);
         assert_eq!(output.job.status, JobStatus::Succeeded);
@@ -2598,6 +2873,14 @@ mod tests {
         }));
         assert_eq!(job.status, JobStatus::Succeeded);
         assert!(job.summary_json.unwrap().contains("\"imported_items\":1"));
+        assert!(events.iter().any(|event| {
+            event.kind == DomainEventKind::NfoImported
+                && event.subject == DomainEventSubject::Library(library_id)
+                && !event.payload_json.contains("demo.nfo")
+                && !event
+                    .payload_json
+                    .contains(&temp.path().display().to_string())
+        }));
     }
 
     #[tokio::test]
@@ -2643,6 +2926,18 @@ mod tests {
                 .id,
             session.id
         );
+        let events = store
+            .list_outbox_events(PageRequest::first_page())
+            .await
+            .unwrap();
+        assert!(events.iter().any(|event| {
+            event.kind == DomainEventKind::PlaybackSessionFinished
+                && event.subject == DomainEventSubject::PlaybackSession(session.id)
+                && event.source_id == Some(source.id)
+                && !event
+                    .payload_json
+                    .contains(&app.config().remux_staging_root.display().to_string())
+        }));
 
         let reused = app.remux_source(request.clone()).await.unwrap();
 
@@ -2830,6 +3125,18 @@ mod tests {
                 .await
                 .is_err()
         );
+        let events = store
+            .list_outbox_events(PageRequest::first_page())
+            .await
+            .unwrap();
+        assert!(events.iter().any(|event| {
+            event.kind == DomainEventKind::PlaybackSessionFinished
+                && event.subject == DomainEventSubject::PlaybackSession(session_id)
+                && event.source_id == Some(source.id)
+                && !event
+                    .payload_json
+                    .contains(&app.config().remux_staging_root.display().to_string())
+        }));
 
         fs::remove_file(ffmpeg_path).unwrap();
         let reused = app.hls_source(request.clone()).await.unwrap();

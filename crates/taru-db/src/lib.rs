@@ -7,16 +7,17 @@ use sqlx::{
 use taru_core::{
     ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, CanonicalMetadata,
     CatalogRepository, Collection, CollectionId, CollectionItem, CreditRole, DirectorySnapshot,
-    ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
-    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobRepository, JobStatus,
-    Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId,
-    MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalId,
+    ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobRepository, JobStatus, Library,
+    LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
     MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository,
-    MetadataSource, NewJob, NewTranscodeSession, PageRequest, Person, PersonId,
-    ProviderRawResponse, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
-    SourceState, Studio, StudioId, Tag, TagId, TaruError, TransactionManager,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState,
+    MetadataSource, NewJob, NewOutboxEvent, NewTranscodeSession, OutboxEventRecord,
+    OutboxEventStatus, PageRequest, Person, PersonId, ProviderRawResponse, Result, ScanRepository,
+    ScanSnapshot, ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag, TagId, TaruError,
+    TransactionManager, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
 };
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
@@ -49,6 +50,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0008_transcode_sessions",
         include_str!("../migrations/0008_transcode_sessions.sql"),
+    ),
+    (
+        "0009_event_outbox",
+        include_str!("../migrations/0009_event_outbox.sql"),
     ),
 ];
 
@@ -852,6 +857,150 @@ impl JobRepository for SqliteStore {
         .map_err(database_error)?;
 
         row.map(row_to_job).transpose()
+    }
+}
+
+#[async_trait::async_trait]
+impl EventOutboxRepository for SqliteStore {
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
+        let subject_kind = event.subject.kind();
+        let subject_id = event.subject.id();
+
+        sqlx::query(
+            r#"
+            INSERT INTO event_outbox (
+                id,
+                kind,
+                subject_kind,
+                subject_id,
+                library_id,
+                source_id,
+                idempotency_key,
+                payload_json,
+                status
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            ON CONFLICT(kind, idempotency_key) DO NOTHING
+            "#,
+        )
+        .bind(event.id.to_string())
+        .bind(event.kind.as_str())
+        .bind(subject_kind)
+        .bind(subject_id)
+        .bind(event.library_id.map(|id| id.to_string()))
+        .bind(event.source_id.map(|id| id.to_string()))
+        .bind(&event.idempotency_key)
+        .bind(&event.payload_json)
+        .bind(OutboxEventStatus::Pending.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.find_outbox_event_by_idempotency_key(event.kind, &event.idempotency_key)
+            .await?
+            .ok_or_else(|| TaruError::Database {
+                message: format!(
+                    "outbox event was not found after enqueue for key {}",
+                    event.idempotency_key
+                ),
+            })
+    }
+
+    async fn get_outbox_event(&self, id: EventId) -> Result<Option<OutboxEventRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                kind,
+                subject_kind,
+                subject_id,
+                library_id,
+                source_id,
+                idempotency_key,
+                payload_json,
+                status,
+                attempts,
+                last_error,
+                occurred_at,
+                updated_at,
+                next_attempt_at
+            FROM event_outbox
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_outbox_event).transpose()
+    }
+
+    async fn find_outbox_event_by_idempotency_key(
+        &self,
+        kind: DomainEventKind,
+        idempotency_key: &str,
+    ) -> Result<Option<OutboxEventRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                kind,
+                subject_kind,
+                subject_id,
+                library_id,
+                source_id,
+                idempotency_key,
+                payload_json,
+                status,
+                attempts,
+                last_error,
+                occurred_at,
+                updated_at,
+                next_attempt_at
+            FROM event_outbox
+            WHERE kind = ?1 AND idempotency_key = ?2
+            "#,
+        )
+        .bind(kind.as_str())
+        .bind(idempotency_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_outbox_event).transpose()
+    }
+
+    async fn list_outbox_events(&self, page: PageRequest) -> Result<Vec<OutboxEventRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                kind,
+                subject_kind,
+                subject_id,
+                library_id,
+                source_id,
+                idempotency_key,
+                payload_json,
+                status,
+                attempts,
+                last_error,
+                occurred_at,
+                updated_at,
+                next_attempt_at
+            FROM event_outbox
+            ORDER BY occurred_at DESC, id DESC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_outbox_event).collect()
     }
 }
 
@@ -2978,6 +3127,27 @@ fn row_to_job(row: SqliteRow) -> Result<Job> {
     })
 }
 
+fn row_to_outbox_event(row: SqliteRow) -> Result<OutboxEventRecord> {
+    Ok(OutboxEventRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        kind: DomainEventKind::parse(&row_get::<String>(&row, "kind")?)?,
+        subject: event_subject_from_parts(
+            row_get::<String>(&row, "subject_kind")?,
+            row_get::<String>(&row, "subject_id")?,
+        )?,
+        library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
+        source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
+        idempotency_key: row_get(&row, "idempotency_key")?,
+        payload_json: row_get(&row, "payload_json")?,
+        status: OutboxEventStatus::parse(&row_get::<String>(&row, "status")?)?,
+        attempts: i64_to_u32(row_get(&row, "attempts")?)?,
+        last_error: row_get(&row, "last_error")?,
+        occurred_at: row_get(&row, "occurred_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+        next_attempt_at: row_get(&row, "next_attempt_at")?,
+    })
+}
+
 fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessionRecord> {
     Ok(TranscodeSessionRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -2993,6 +3163,19 @@ fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessionRecord> {
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
     })
+}
+
+fn event_subject_from_parts(kind: String, id: String) -> Result<DomainEventSubject> {
+    match kind.as_str() {
+        "library" => Ok(DomainEventSubject::Library(parse_id(id)?)),
+        "item" => Ok(DomainEventSubject::Item(parse_id(id)?)),
+        "source" => Ok(DomainEventSubject::Source(parse_id(id)?)),
+        "job" => Ok(DomainEventSubject::Job(parse_id(id)?)),
+        "playback_session" => Ok(DomainEventSubject::PlaybackSession(parse_id(id)?)),
+        _ => Err(TaruError::Database {
+            message: format!("unknown event subject kind stored in database: {kind}"),
+        }),
+    }
 }
 
 fn row_to_metadata_field_lock(row: SqliteRow) -> Result<MetadataFieldLock> {
@@ -4064,6 +4247,55 @@ mod tests {
         assert_eq!(failed.status, JobStatus::Failed);
         assert_eq!(failed.error, Some("probe failed".to_owned()));
         assert!(failed.completed_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_outbox_events_idempotently() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        store.upsert_library(&library).await.unwrap();
+
+        let event = NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library.id),
+            library_id: Some(library.id),
+            source_id: None,
+            idempotency_key: format!("library_scan:{}", library.id),
+            payload_json: format!(r#"{{"library_id":"{}","indexed_items":1}}"#, library.id),
+        };
+
+        let first = store.enqueue_outbox_event(event.clone()).await.unwrap();
+        let duplicate = store
+            .enqueue_outbox_event(NewOutboxEvent {
+                id: EventId::new(),
+                ..event.clone()
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(first, duplicate);
+        assert_eq!(first.kind, DomainEventKind::LibraryScanned);
+        assert_eq!(first.subject, DomainEventSubject::Library(library.id));
+        assert_eq!(first.status, OutboxEventStatus::Pending);
+        assert_eq!(first.attempts, 0);
+        assert!(first.occurred_at.ends_with('Z'));
+        assert_eq!(store.get_outbox_event(first.id).await.unwrap(), Some(first));
+
+        let events = store
+            .list_outbox_events(PageRequest::first_page())
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert!(!events[0].payload_json.contains("TMDB_READ_ACCESS_TOKEN"));
+        assert!(!events[0].payload_json.contains("F:/"));
     }
 
     fn external_id_sort_key(external_id: &ExternalId) -> String {

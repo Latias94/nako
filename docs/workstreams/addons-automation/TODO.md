@@ -10,15 +10,15 @@
 
 ## Event Outbox
 
-- [ ] Define event ID, event type, subject, idempotency key, payload, and status
+- [x] Define event ID, event type, subject, idempotency key, payload, and status
       domain model.
-- [ ] Add SQLite event outbox migration.
-- [ ] Add repository trait and SQLite implementation.
-- [ ] Add transactional event write points for scan completion.
-- [ ] Add event write points for metadata refresh and NFO jobs.
-- [ ] Add event write points for playback session completion where useful.
-- [ ] Add tests for outbox persistence and idempotency.
-- [ ] Add tests that event payloads do not contain plaintext secrets or raw
+- [x] Add SQLite event outbox migration.
+- [x] Add repository trait and SQLite implementation.
+- [x] Add event write points for scan completion.
+- [x] Add event write points for metadata refresh and NFO jobs.
+- [x] Add event write points for playback session completion where useful.
+- [x] Add tests for outbox persistence and idempotency.
+- [x] Add tests that event payloads do not contain plaintext secrets or raw
       local paths.
 
 ## Webhooks

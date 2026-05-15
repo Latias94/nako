@@ -191,7 +191,7 @@ Evidence:
 
 ### M5: Extension and Automation Surface
 
-Status: active, completed through M5.0 design baseline.
+Status: active, completed through M5.1 event outbox foundation.
 
 Implement webhook outbox, automation jobs, addon manifest schema, and one
 reference addon. Keep AI-like experience improvements as explicit external
@@ -223,15 +223,27 @@ Evidence for M5.0:
   tracks M5 milestones, TODOs, phase notes, resource classes, and security
   boundaries.
 
+Evidence for M5.1:
+
+- `taru-core` defines domain event kinds, event subjects, outbox status, event
+  records, and `EventOutboxRepository`.
+- `taru-db` migration `0009_event_outbox.sql` persists durable outbox events
+  with idempotency by event kind and key.
+- `taru-server` writes outbox events for successful library scan, metadata
+  refresh, NFO import/export, and playback session completion paths.
+- Tests cover outbox persistence, idempotency, and payload safety constraints
+  against plaintext secrets and raw local paths.
+
 ## Recommended Next Implementation Goal
 
-### M5.1: Event Outbox Foundation
+### M5.2: Webhook Delivery Worker
 
 Status: proposed.
 
-Persist domain events and outbox state in SQLite, add repository boundaries,
-and write events from existing domain workflows without delivering webhooks
-yet.
+Implement webhook endpoint configuration, delivery attempts, bounded dispatch,
+retry/backoff state, signing policy, safe error mapping, and delivery
+inspection. Delivery should consume the event outbox; domain workflows must not
+call webhook HTTP endpoints inline.
 
 ## Later Goals
 

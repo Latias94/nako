@@ -69,7 +69,7 @@ Future playback work:
 
 ### Extension and Automation: M5
 
-Status: active, completed through M5.0 design baseline.
+Status: active, completed through M5.1 event outbox foundation.
 
 This phase turns the early architectural decisions into a usable external
 surface:
@@ -86,10 +86,13 @@ Completed:
 - M5.0 design baseline with ADRs for durable event outbox, webhook/automation
   trigger policy, capability-scoped HTTP addons, external provider boundaries,
   resource classes, and security constraints.
+- M5.1 event outbox foundation with domain event records, SQLite persistence,
+  repository boundary, idempotent enqueue behavior, and write points from scan,
+  metadata, NFO, and playback session completion.
 
 Recommended next goal:
 
-- M5.1 event outbox foundation.
+- M5.2 webhook delivery worker.
 
 ### Remote Storage and VFS Expansion: M6
 

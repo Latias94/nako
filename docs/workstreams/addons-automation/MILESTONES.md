@@ -26,15 +26,16 @@ Exit criteria:
 Outcome: Taru can persist domain events and query outbox state, but does not
 deliver webhooks yet.
 
+Status: completed.
+
 Deliverables:
 
-- Event domain model and event type registry.
-- SQLite event outbox migration.
+- Event domain model and event type registry in `taru-core`.
+- SQLite event outbox migration in `taru-db`.
 - Repository trait and SQLite implementation.
-- Event write points for scan, metadata refresh, NFO import/export, catalog
-  updates, and playback session completion where practical.
-- App/API or CLI inspection path for outbox records if needed.
-- Tests for idempotency, payload safety, and restart persistence.
+- Event write points for scan, metadata refresh, NFO import/export, and
+  playback session completion.
+- Tests for idempotency, payload safety, and persistence.
 
 Exit criteria:
 
