@@ -1843,6 +1843,7 @@ dependencies = [
  "async-trait",
  "axum",
  "clap",
+ "futures-util",
  "serde",
  "serde_json",
  "taru-addon-protocol",

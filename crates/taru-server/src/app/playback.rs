@@ -1,5 +1,6 @@
 use std::{fmt, path::PathBuf};
 
+use futures_util::StreamExt;
 use taru_api::PlaybackDecisionResponse;
 use taru_core::{MediaProbeRepository, MediaSource, MediaSourceId, Result, TaruError};
 use taru_streaming::{
@@ -49,6 +50,25 @@ impl DirectPlayStreamBody {
 
     pub(crate) fn unbudgeted(stream: ReadStream) -> Self {
         Self::new(stream, None)
+    }
+
+    pub fn into_read_stream(self) -> ReadStream {
+        let Self {
+            stream,
+            _permit: permit,
+        } = self;
+        let ReadStream { uri, range, body } = stream;
+        let body = match permit {
+            Some(permit) => body
+                .map(move |chunk| {
+                    let _permit = &permit;
+                    chunk
+                })
+                .boxed(),
+            None => body,
+        };
+
+        ReadStream::new(uri, range, body)
     }
 }
 

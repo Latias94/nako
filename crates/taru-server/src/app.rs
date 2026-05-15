@@ -2026,6 +2026,15 @@ impl TaruApp {
             });
         }
 
+        let mut seen = HashSet::new();
+        for library in &libraries {
+            if !seen.insert(library.id) {
+                return Err(TaruError::InvalidInput {
+                    message: format!("duplicate configured library id: {}", library.id),
+                });
+            }
+        }
+
         for library in libraries {
             self.inner.store.upsert_library(&library).await?;
         }
@@ -3249,6 +3258,54 @@ mod tests {
                 .payload_json
                 .contains(&temp.path().display().to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn app_startup_rejects_duplicate_configured_library_ids() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: vec![
+                LocalLibraryConfig {
+                    id: library_id,
+                    name: "Movies".to_owned(),
+                    root: temp.path().join("movies"),
+                    preset: taru_core::LibraryPreset::Movies,
+                    webdav: None,
+                },
+                LocalLibraryConfig {
+                    id: library_id,
+                    name: "Anime".to_owned(),
+                    root: temp.path().join("anime"),
+                    preset: taru_core::LibraryPreset::Anime,
+                    webdav: None,
+                },
+            ],
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+
+        let err = TaruApp::new_with_store(config, store).await.unwrap_err();
+
+        let TaruError::InvalidInput { message } = err else {
+            panic!("expected duplicate library id validation error");
+        };
+        assert!(message.contains("duplicate configured library id"));
+        assert!(message.contains(&library_id.to_string()));
     }
 
     #[tokio::test]

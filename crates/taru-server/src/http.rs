@@ -1956,6 +1956,116 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
+        let server = MockWebDavServer::start().await;
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig {
+                remote_stream_concurrency: 1,
+                remote_stage_concurrency: 1,
+            },
+            libraries: vec![LocalLibraryConfig {
+                id: library_id,
+                name: "Remote Movies".to_owned(),
+                root: temp.path().join("unused-local-root"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: Some(crate::config::WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: server.base_url(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 5_000,
+                    max_attempts: 1,
+                }),
+            }],
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store.clone())
+            .await
+            .unwrap();
+        let item = MediaItem {
+            id: taru_core::MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Remote Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: item.id,
+            locator: "webdav:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(4),
+            fingerprint: None,
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store.upsert_media_source(&source).await.unwrap();
+        let router = build_router(app);
+
+        let first_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/sources/{}/stream", source.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first_response.status(), StatusCode::OK);
+        let first_body = first_response.into_body();
+
+        let second = tokio::time::timeout(
+            Duration::from_millis(50),
+            router.clone().oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/sources/{}/stream", source.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            ),
+        )
+        .await;
+        assert!(second.is_err());
+
+        drop(first_body);
+        let second_response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/sources/{}/stream", source.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second_response.status(), StatusCode::OK);
+        let bytes = to_bytes(second_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(&bytes[..], b"demo");
+    }
+
+    #[tokio::test]
     async fn direct_stream_rejects_unsatisfiable_and_multi_ranges() {
         let (_temp, router, source) = router_with_media_source("demo.mp4", b"0123456789").await;
 
@@ -2779,5 +2889,44 @@ mod tests {
     {
         let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         serde_json::from_slice(&bytes).unwrap()
+    }
+
+    struct MockWebDavServer {
+        addr: std::net::SocketAddr,
+    }
+
+    impl MockWebDavServer {
+        async fn start() -> Self {
+            let router = Router::new().route("/{*path}", axum::routing::any(mock_webdav_handler));
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap();
+            });
+
+            Self { addr }
+        }
+
+        fn base_url(&self) -> String {
+            format!("http://{}/dav", self.addr)
+        }
+    }
+
+    async fn mock_webdav_handler(method: Method, uri: axum::http::Uri) -> Response {
+        let path = uri.path();
+        if method.as_str() == "PROPFIND" && path.ends_with("/Movies/Demo.mkv") {
+            return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/Movies/Demo.mkv</D:href><D:propstat><D:prop><D:getcontentlength>4</D:getcontentlength><D:getetag>"etag-demo"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"#,
+            )
+                .into_response();
+        }
+
+        if method == Method::GET && path.ends_with("/Movies/Demo.mkv") {
+            return (StatusCode::OK, [(header::CONTENT_LENGTH, "4")], "demo").into_response();
+        }
+
+        StatusCode::NOT_FOUND.into_response()
     }
 }
