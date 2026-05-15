@@ -17,7 +17,8 @@ taru-catalog = { path = "../taru-catalog" }
 taru-core = { path = "../taru-core" }
 taru-search = { path = "../taru-search" }
 time.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
+axum.workspace = true
 taru-db = { path = "../taru-db" }
-tokio.workspace = true

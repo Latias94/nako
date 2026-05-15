@@ -82,6 +82,7 @@ define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
 define_id!(TranscodeSessionId);
 define_id!(StagingManifestId);
+define_id!(MetadataProviderAttemptId);
 
 #[cfg(test)]
 mod tests {

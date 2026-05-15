@@ -15,7 +15,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::any,
 };
-use taru_core::ExternalProvider;
 use taru_core::{
     CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId, JobKind,
     JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
@@ -25,8 +24,9 @@ use taru_core::{
     StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
     TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
 };
+use taru_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use taru_library::{LibraryScanRequest, LibraryScanner};
-use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus, MetadataRefreshSummary};
+use taru_metadata::MetadataRefreshSummary;
 use taru_streaming::{ClientPlaybackCapabilities, DirectPlayRangeRequest};
 use taru_transcode::RemuxContainer;
 use taru_vfs::{
@@ -722,6 +722,9 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
             provider: ExternalProvider::Tmdb,
             status: MetadataProviderAttemptStatus::Succeeded,
             message: None,
+            provider_key: Some("603".to_owned()),
+            matched_by: Some(MetadataMatchKind::ExternalId),
+            error_class: None,
         }],
     };
 

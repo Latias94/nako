@@ -7,12 +7,18 @@ use taru_core::{
     TaruError,
 };
 use taru_metadata::{
-    MetadataProviderRegistry, MetadataRefreshJobInput, MetadataRefreshRequest,
-    MetadataRefreshSummary, MetadataStrategyExecutor, TmdbMetadataProvider, TmdbProviderConfig,
+    BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
+    MetadataHttpRuntimeConfig, MetadataProviderRegistry, MetadataRefreshJobInput,
+    MetadataRefreshRequest, MetadataRefreshSummary, MetadataStrategyExecutor, TmdbMetadataProvider,
+    TmdbProviderConfig,
 };
 use tracing::{Instrument, error, info, info_span, warn};
 
 use super::TaruApp;
+use crate::config::{
+    MetadataProviderConfig, MetadataProviderHeaderConfig, MetadataProviderRuntimeConfig,
+    TmdbMetadataConfig,
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MetadataRefreshCommandOutput {
@@ -263,51 +269,74 @@ impl TaruApp {
 
     fn metadata_provider_registry(&self) -> MetadataProviderRegistry {
         let mut registry = MetadataProviderRegistry::new();
-        match self.tmdb_provider() {
-            Ok(provider) => {
-                registry.register(provider);
-            }
-            Err(TmdbProviderBuildError::Disabled(message)) => {
-                registry.register_disabled(ExternalProvider::Tmdb, message);
-            }
-            Err(TmdbProviderBuildError::Unavailable(message)) => {
-                registry.register_unavailable(ExternalProvider::Tmdb, message);
+
+        if self.config().metadata.providers.is_empty() {
+            register_legacy_tmdb_provider(
+                &mut registry,
+                &self.config().metadata.tmdb,
+                &self.config().metadata.runtime,
+            );
+            return registry;
+        }
+
+        for provider in &self.config().metadata.providers {
+            match self.build_metadata_provider(provider) {
+                Ok(BuiltMetadataProvider::Tmdb(provider)) => {
+                    registry.register(provider);
+                }
+                Ok(BuiltMetadataProvider::Bangumi(provider)) => {
+                    registry.register(provider);
+                }
+                Ok(BuiltMetadataProvider::Douban(provider)) => {
+                    registry.register(provider);
+                }
+                Err(MetadataProviderBuildError::Disabled(provider, message)) => {
+                    registry.register_disabled(provider, message);
+                }
+                Err(MetadataProviderBuildError::Unavailable(provider, message)) => {
+                    registry.register_unavailable(provider, message);
+                }
             }
         }
 
         registry
     }
 
-    fn tmdb_provider(&self) -> std::result::Result<TmdbMetadataProvider, TmdbProviderBuildError> {
-        let settings = &self.config().metadata.tmdb;
-
+    fn build_metadata_provider(
+        &self,
+        settings: &MetadataProviderConfig,
+    ) -> std::result::Result<BuiltMetadataProvider, MetadataProviderBuildError> {
         if !settings.enabled {
-            return Err(TmdbProviderBuildError::Disabled(
-                "TMDB metadata provider is disabled in config".to_owned(),
+            return Err(MetadataProviderBuildError::Disabled(
+                settings.provider.clone(),
+                format!(
+                    "{} metadata provider is disabled in config",
+                    provider_resource_name(&settings.provider).to_uppercase()
+                ),
             ));
         }
 
-        let token = env::var(&settings.access_token_env).map_err(|err| {
-            TmdbProviderBuildError::Unavailable(format!(
-                "failed to read TMDB access token from environment variable {}: {err}",
-                settings.access_token_env
-            ))
-        })?;
-
-        if token.trim().is_empty() {
-            return Err(TmdbProviderBuildError::Unavailable(format!(
-                "TMDB access token environment variable {} is empty",
-                settings.access_token_env
-            )));
+        match settings.provider {
+            ExternalProvider::Tmdb => {
+                build_tmdb_provider(settings, &self.config().metadata.runtime)
+                    .map(BuiltMetadataProvider::Tmdb)
+            }
+            ExternalProvider::Bangumi => {
+                build_bangumi_provider(settings, &self.config().metadata.runtime)
+                    .map(BuiltMetadataProvider::Bangumi)
+            }
+            ExternalProvider::Douban => {
+                build_douban_provider(settings, &self.config().metadata.runtime)
+                    .map(BuiltMetadataProvider::Douban)
+            }
+            _ => Err(MetadataProviderBuildError::Unavailable(
+                settings.provider.clone(),
+                format!(
+                    "{} metadata provider is not implemented",
+                    provider_resource_name(&settings.provider)
+                ),
+            )),
         }
-
-        let mut config = TmdbProviderConfig::new(token);
-        config.api_base_url = settings.api_base_url.clone();
-        config.image_base_url = settings.image_base_url.clone();
-        config.language = settings.language.clone();
-        config.include_adult = settings.include_adult;
-
-        Ok(TmdbMetadataProvider::new(config))
     }
 }
 
@@ -323,7 +352,217 @@ fn provider_resource_name(provider: &ExternalProvider) -> &str {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum TmdbProviderBuildError {
-    Disabled(String),
-    Unavailable(String),
+enum MetadataProviderBuildError {
+    Disabled(ExternalProvider, String),
+    Unavailable(ExternalProvider, String),
+}
+
+enum BuiltMetadataProvider {
+    Tmdb(TmdbMetadataProvider),
+    Bangumi(BangumiMetadataProvider),
+    Douban(DoubanMetadataProvider),
+}
+
+fn register_legacy_tmdb_provider(
+    registry: &mut MetadataProviderRegistry,
+    settings: &TmdbMetadataConfig,
+    runtime: &MetadataProviderRuntimeConfig,
+) {
+    match build_legacy_tmdb_provider(settings, runtime) {
+        Ok(provider) => {
+            registry.register(provider);
+        }
+        Err(MetadataProviderBuildError::Disabled(provider, message)) => {
+            registry.register_disabled(provider, message);
+        }
+        Err(MetadataProviderBuildError::Unavailable(provider, message)) => {
+            registry.register_unavailable(provider, message);
+        }
+    }
+}
+
+fn build_legacy_tmdb_provider(
+    settings: &TmdbMetadataConfig,
+    runtime: &MetadataProviderRuntimeConfig,
+) -> std::result::Result<TmdbMetadataProvider, MetadataProviderBuildError> {
+    if !settings.enabled {
+        return Err(MetadataProviderBuildError::Disabled(
+            ExternalProvider::Tmdb,
+            "TMDB metadata provider is disabled in config".to_owned(),
+        ));
+    }
+
+    let token = resolve_required_secret(
+        ExternalProvider::Tmdb,
+        &settings.access_token_env,
+        "access token",
+    )?;
+    let mut config = TmdbProviderConfig::new(token);
+    config.api_base_url = settings.api_base_url.clone();
+    config.image_base_url = settings.image_base_url.clone();
+    config.language = settings.language.clone();
+    config.include_adult = settings.include_adult;
+    config.runtime = runtime_config(runtime);
+
+    TmdbMetadataProvider::new(config).map_err(|err| {
+        MetadataProviderBuildError::Unavailable(ExternalProvider::Tmdb, err.to_string())
+    })
+}
+
+fn build_tmdb_provider(
+    settings: &MetadataProviderConfig,
+    inherited_runtime: &MetadataProviderRuntimeConfig,
+) -> std::result::Result<TmdbMetadataProvider, MetadataProviderBuildError> {
+    let token_env = settings
+        .token_env
+        .as_deref()
+        .unwrap_or("TMDB_READ_ACCESS_TOKEN");
+    let token = resolve_required_secret(ExternalProvider::Tmdb, token_env, "access token")?;
+    let mut config = TmdbProviderConfig::new(token);
+    if let Some(api_base_url) = settings.api_base_url.as_ref() {
+        config.api_base_url = api_base_url.clone();
+    }
+    if let Some(image_base_url) = settings.image_base_url.as_ref() {
+        config.image_base_url = image_base_url.clone();
+    }
+    if let Some(language) = settings.language.as_ref() {
+        config.language = language.clone();
+    }
+    config.include_adult = settings.include_adult;
+    config.runtime = runtime_config(settings.runtime.as_ref().unwrap_or(inherited_runtime));
+
+    TmdbMetadataProvider::new(config).map_err(|err| {
+        MetadataProviderBuildError::Unavailable(ExternalProvider::Tmdb, err.to_string())
+    })
+}
+
+fn build_bangumi_provider(
+    settings: &MetadataProviderConfig,
+    inherited_runtime: &MetadataProviderRuntimeConfig,
+) -> std::result::Result<BangumiMetadataProvider, MetadataProviderBuildError> {
+    let access_token = settings
+        .token_env
+        .as_deref()
+        .map(|env_name| {
+            resolve_required_secret(ExternalProvider::Bangumi, env_name, "access token")
+        })
+        .transpose()?;
+    let mut config = BangumiProviderConfig {
+        access_token,
+        include_nsfw: settings.include_adult,
+        runtime: runtime_config(settings.runtime.as_ref().unwrap_or(inherited_runtime)),
+        ..BangumiProviderConfig::default()
+    };
+    if let Some(api_base_url) = settings.api_base_url.as_ref() {
+        config.api_base_url = api_base_url.clone();
+    }
+    if let Some(image_base_url) = settings.image_base_url.as_ref() {
+        config.image_base_url = image_base_url.clone();
+    }
+
+    BangumiMetadataProvider::new(config).map_err(|err| {
+        MetadataProviderBuildError::Unavailable(ExternalProvider::Bangumi, err.to_string())
+    })
+}
+
+fn build_douban_provider(
+    settings: &MetadataProviderConfig,
+    inherited_runtime: &MetadataProviderRuntimeConfig,
+) -> std::result::Result<DoubanMetadataProvider, MetadataProviderBuildError> {
+    let api_key = settings
+        .api_key_env
+        .as_deref()
+        .map(|env_name| resolve_required_secret(ExternalProvider::Douban, env_name, "API key"))
+        .transpose()?;
+    let mut config = DoubanProviderConfig {
+        api_key,
+        image_base_url: settings.image_base_url.clone(),
+        runtime: runtime_config(settings.runtime.as_ref().unwrap_or(inherited_runtime)),
+        headers: resolve_headers(ExternalProvider::Douban, &settings.headers)?,
+        ..DoubanProviderConfig::default()
+    };
+    if let Some(api_base_url) = settings.api_base_url.as_ref() {
+        config.api_base_url = api_base_url.clone();
+    }
+
+    DoubanMetadataProvider::new(config).map_err(|err| {
+        MetadataProviderBuildError::Unavailable(ExternalProvider::Douban, err.to_string())
+    })
+}
+
+fn runtime_config(config: &MetadataProviderRuntimeConfig) -> MetadataHttpRuntimeConfig {
+    MetadataHttpRuntimeConfig {
+        timeout_ms: config.timeout_ms,
+        max_attempts: config.max_attempts,
+        min_interval_ms: config.min_interval_ms,
+        concurrency: config.concurrency,
+        user_agent: config.user_agent.clone(),
+        proxy: config.proxy.clone(),
+        circuit_breaker_failures: config.circuit_breaker_failures,
+    }
+}
+
+fn resolve_required_secret(
+    provider: ExternalProvider,
+    env_name: &str,
+    label: &str,
+) -> std::result::Result<String, MetadataProviderBuildError> {
+    let value = env::var(env_name).map_err(|err| {
+        MetadataProviderBuildError::Unavailable(
+            provider.clone(),
+            format!(
+                "failed to read {} {label} from environment variable {env_name}: {err}",
+                provider_resource_name(&provider).to_uppercase()
+            ),
+        )
+    })?;
+
+    if value.trim().is_empty() {
+        return Err(MetadataProviderBuildError::Unavailable(
+            provider.clone(),
+            format!(
+                "{} {label} environment variable {env_name} is empty",
+                provider_resource_name(&provider).to_uppercase()
+            ),
+        ));
+    }
+
+    Ok(value)
+}
+
+fn resolve_headers(
+    provider: ExternalProvider,
+    headers: &[MetadataProviderHeaderConfig],
+) -> std::result::Result<Vec<(String, String)>, MetadataProviderBuildError> {
+    headers
+        .iter()
+        .map(|header| {
+            let value = match (&header.value, &header.value_env) {
+                (Some(value), None) => Ok(value.clone()),
+                (None, Some(env_name)) => resolve_required_secret(
+                    provider.clone(),
+                    env_name,
+                    &format!("header {}", header.name),
+                ),
+                (Some(_), Some(_)) => Err(MetadataProviderBuildError::Unavailable(
+                    provider.clone(),
+                    format!(
+                        "{} metadata provider header {} cannot set both value and value_env",
+                        provider_resource_name(&provider).to_uppercase(),
+                        header.name
+                    ),
+                )),
+                (None, None) => Err(MetadataProviderBuildError::Unavailable(
+                    provider.clone(),
+                    format!(
+                        "{} metadata provider header {} must set value or value_env",
+                        provider_resource_name(&provider).to_uppercase(),
+                        header.name
+                    ),
+                )),
+            }?;
+
+            Ok((header.name.clone(), value))
+        })
+        .collect()
 }

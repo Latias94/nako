@@ -5,7 +5,9 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use taru_core::{Library, LibraryId, LibraryOptions, LibraryPreset, Result, TaruError};
+use taru_core::{
+    ExternalProvider, Library, LibraryId, LibraryOptions, LibraryPreset, Result, TaruError,
+};
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
     TranscodeResourceBudget,
@@ -111,15 +113,85 @@ impl Default for PlaybackConfig {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataConfig {
     #[serde(default)]
+    pub runtime: MetadataProviderRuntimeConfig,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub providers: Vec<MetadataProviderConfig>,
+    #[serde(default)]
     pub tmdb: TmdbMetadataConfig,
 }
 
 impl Default for MetadataConfig {
     fn default() -> Self {
         Self {
+            runtime: MetadataProviderRuntimeConfig::default(),
+            providers: Vec::new(),
             tmdb: TmdbMetadataConfig::default(),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderRuntimeConfig {
+    #[serde(default = "default_metadata_provider_timeout_ms")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_metadata_provider_max_attempts")]
+    pub max_attempts: u32,
+    #[serde(default = "default_metadata_provider_min_interval_ms")]
+    pub min_interval_ms: u64,
+    #[serde(default = "default_metadata_provider_concurrency")]
+    pub concurrency: usize,
+    #[serde(default = "default_metadata_provider_user_agent")]
+    pub user_agent: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<String>,
+    #[serde(default = "default_metadata_provider_circuit_breaker_failures")]
+    pub circuit_breaker_failures: u32,
+}
+
+impl Default for MetadataProviderRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            timeout_ms: default_metadata_provider_timeout_ms(),
+            max_attempts: default_metadata_provider_max_attempts(),
+            min_interval_ms: default_metadata_provider_min_interval_ms(),
+            concurrency: default_metadata_provider_concurrency(),
+            user_agent: default_metadata_provider_user_agent(),
+            proxy: None,
+            circuit_breaker_failures: default_metadata_provider_circuit_breaker_failures(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderConfig {
+    pub provider: ExternalProvider,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_env: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key_env: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub include_adult: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub headers: Vec<MetadataProviderHeaderConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<MetadataProviderRuntimeConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderHeaderConfig {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_env: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -371,6 +443,30 @@ fn default_tmdb_language() -> String {
     "en-US".to_owned()
 }
 
+const fn default_metadata_provider_timeout_ms() -> u64 {
+    10_000
+}
+
+const fn default_metadata_provider_max_attempts() -> u32 {
+    2
+}
+
+const fn default_metadata_provider_min_interval_ms() -> u64 {
+    250
+}
+
+const fn default_metadata_provider_concurrency() -> usize {
+    1
+}
+
+fn default_metadata_provider_user_agent() -> String {
+    format!("taru/{}", env!("CARGO_PKG_VERSION"))
+}
+
+const fn default_metadata_provider_circuit_breaker_failures() -> u32 {
+    5
+}
+
 fn default_library_preset() -> LibraryPreset {
     LibraryPreset::Movies
 }
@@ -431,6 +527,32 @@ mod tests {
             access_token_env = "TMDB_READ_ACCESS_TOKEN"
             language = "zh-CN"
             include_adult = false
+
+            [metadata.runtime]
+            timeout_ms = 7000
+            max_attempts = 3
+            min_interval_ms = 500
+            concurrency = 2
+            user_agent = "taru-test/1"
+            proxy = "http://127.0.0.1:10809"
+            circuit_breaker_failures = 4
+
+            [[metadata.providers]]
+            provider = "bangumi"
+            enabled = true
+            token_env = "BANGUMI_TOKEN"
+            api_base_url = "https://api.bgm.tv"
+            image_base_url = "https://lain.bgm.tv"
+            include_adult = true
+
+            [[metadata.providers.headers]]
+            name = "X-Test"
+            value_env = "BANGUMI_HEADER"
+
+            [[metadata.providers]]
+            provider = "douban"
+            enabled = true
+            api_key_env = "DOUBAN_API_KEY"
             "#,
         )
         .unwrap();
@@ -481,6 +603,31 @@ mod tests {
             "TMDB_READ_ACCESS_TOKEN"
         );
         assert_eq!(config.metadata.tmdb.language, "zh-CN");
+        assert_eq!(config.metadata.runtime.timeout_ms, 7_000);
+        assert_eq!(config.metadata.runtime.max_attempts, 3);
+        assert_eq!(config.metadata.runtime.min_interval_ms, 500);
+        assert_eq!(config.metadata.runtime.concurrency, 2);
+        assert_eq!(config.metadata.runtime.user_agent, "taru-test/1");
+        assert_eq!(
+            config.metadata.runtime.proxy.as_deref(),
+            Some("http://127.0.0.1:10809")
+        );
+        assert_eq!(config.metadata.runtime.circuit_breaker_failures, 4);
+        assert_eq!(config.metadata.providers.len(), 2);
+        assert_eq!(
+            config.metadata.providers[0].provider,
+            taru_core::ExternalProvider::Bangumi
+        );
+        assert_eq!(
+            config.metadata.providers[0].token_env.as_deref(),
+            Some("BANGUMI_TOKEN")
+        );
+        assert!(config.metadata.providers[0].include_adult);
+        assert_eq!(config.metadata.providers[0].headers[0].name, "X-Test");
+        assert_eq!(
+            config.metadata.providers[1].api_key_env.as_deref(),
+            Some("DOUBAN_API_KEY")
+        );
         assert_eq!(config.libraries.len(), 1);
         let library = &config.libraries[0];
         assert_eq!(library.name, "Movies");
@@ -605,6 +752,11 @@ mod tests {
         assert_eq!(config.staging, StagingConfig::default());
         assert_eq!(config.playback, PlaybackConfig::default());
         assert!(!config.metadata.tmdb.enabled);
+        assert_eq!(
+            config.metadata.runtime,
+            MetadataProviderRuntimeConfig::default()
+        );
+        assert!(config.metadata.providers.is_empty());
         let library = &config.libraries[0];
         assert_eq!(library.preset, LibraryPreset::Movies);
         assert_eq!(

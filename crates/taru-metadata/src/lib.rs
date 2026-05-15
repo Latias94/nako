@@ -1,24 +1,42 @@
 use async_trait::async_trait;
+use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
+    convert::TryFrom,
     fmt,
     sync::Arc,
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    time::Duration,
 };
 use taru_catalog::hydrate_item_catalog;
 use taru_core::{
     CanonicalMetadata, CatalogRepository, CollectionRef, ContentRating, Credit, CreditRole,
     ExternalId, ExternalProvider, ImageKind, ImageRef, JobId, MediaItem, MediaItemId, MediaKind,
-    MediaRepository, MetadataField, MetadataFieldLock, MetadataProfile, MetadataRefreshMode,
-    MetadataRepository, MetadataSource, ProviderRawResponse, Result, StudioRef, TaruError,
+    MediaRepository, MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
+    MetadataRefreshMode, MetadataRepository, MetadataSource, NewMetadataProviderAttempt,
+    ProviderRawResponse, Result, StudioRef, TaruError,
 };
 use taru_search::SearchIndex;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use tokio::sync::{Mutex, Semaphore};
+use tokio::time::{sleep, timeout};
 
 const DEFAULT_TMDB_API_BASE_URL: &str = "https://api.themoviedb.org/3";
 const DEFAULT_TMDB_IMAGE_BASE_URL: &str = "https://image.tmdb.org/t/p/original";
 const DEFAULT_TMDB_LANGUAGE: &str = "en-US";
+const DEFAULT_BANGUMI_API_BASE_URL: &str = "https://api.bgm.tv";
+const DEFAULT_BANGUMI_IMAGE_BASE_URL: &str = "https://lain.bgm.tv";
+const DEFAULT_DOUBAN_API_BASE_URL: &str = "https://api.douban.com/v2";
+const DEFAULT_PROVIDER_TIMEOUT_MS: u64 = 10_000;
+const DEFAULT_PROVIDER_MAX_ATTEMPTS: u32 = 2;
+const DEFAULT_PROVIDER_MIN_INTERVAL_MS: u64 = 250;
+const DEFAULT_PROVIDER_CONCURRENCY: usize = 1;
+const DEFAULT_PROVIDER_CIRCUIT_BREAKER_FAILURES: u32 = 5;
 const TMDB_PROVIDER_NAME: &str = "tmdb";
+const BANGUMI_PROVIDER_NAME: &str = "bangumi";
+const DOUBAN_PROVIDER_NAME: &str = "douban";
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataLookup {
@@ -63,6 +81,295 @@ pub trait MetadataProvider: Send + Sync {
     async fn fetch(&self, request: MetadataFetchRequest) -> Result<MetadataFetchResult>;
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MetadataHttpRuntimeConfig {
+    pub timeout_ms: u64,
+    pub max_attempts: u32,
+    pub min_interval_ms: u64,
+    pub concurrency: usize,
+    pub user_agent: String,
+    pub proxy: Option<String>,
+    pub circuit_breaker_failures: u32,
+}
+
+impl Default for MetadataHttpRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            timeout_ms: DEFAULT_PROVIDER_TIMEOUT_MS,
+            max_attempts: DEFAULT_PROVIDER_MAX_ATTEMPTS,
+            min_interval_ms: DEFAULT_PROVIDER_MIN_INTERVAL_MS,
+            concurrency: DEFAULT_PROVIDER_CONCURRENCY,
+            user_agent: default_metadata_user_agent(),
+            proxy: None,
+            circuit_breaker_failures: DEFAULT_PROVIDER_CIRCUIT_BREAKER_FAILURES,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MetadataHttpRuntime {
+    client: reqwest::Client,
+    config: MetadataHttpRuntimeConfig,
+    permits: Arc<Semaphore>,
+    throttle: Arc<Mutex<OffsetDateTime>>,
+    consecutive_failures: Arc<AtomicU64>,
+    circuit_open: Arc<AtomicBool>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MetadataHttpJsonResponse {
+    pub status: u16,
+    pub body: serde_json::Value,
+}
+
+impl MetadataHttpRuntime {
+    pub fn new(config: MetadataHttpRuntimeConfig) -> Result<Self> {
+        let mut builder = reqwest::Client::builder()
+            .user_agent(config.user_agent.clone())
+            .timeout(Duration::from_millis(config.timeout_ms));
+
+        if let Some(proxy) = config
+            .proxy
+            .as_ref()
+            .filter(|proxy| !proxy.trim().is_empty())
+        {
+            builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(|err| {
+                TaruError::InvalidInput {
+                    message: format!("invalid metadata provider proxy {proxy}: {err}"),
+                }
+            })?);
+        }
+
+        let client = builder.build().map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to build metadata provider HTTP client: {err}"),
+        })?;
+        let concurrency = config.concurrency.max(1);
+
+        Ok(Self {
+            client,
+            config,
+            permits: Arc::new(Semaphore::new(concurrency)),
+            throttle: Arc::new(Mutex::new(OffsetDateTime::UNIX_EPOCH)),
+            consecutive_failures: Arc::new(AtomicU64::new(0)),
+            circuit_open: Arc::new(AtomicBool::new(false)),
+        })
+    }
+
+    #[must_use]
+    pub fn config(&self) -> &MetadataHttpRuntimeConfig {
+        &self.config
+    }
+
+    pub async fn get_json(
+        &self,
+        provider: &'static str,
+        operation: &str,
+        url: String,
+        query: &[(String, String)],
+        headers: HeaderMap,
+    ) -> Result<serde_json::Value> {
+        let client = self.client.clone();
+        self.execute_json(provider, operation, move || {
+            client
+                .get(url.clone())
+                .query(query)
+                .headers(headers.clone())
+        })
+        .await
+    }
+
+    pub async fn get_json_response(
+        &self,
+        provider: &'static str,
+        operation: &str,
+        url: String,
+        query: &[(String, String)],
+        headers: HeaderMap,
+    ) -> Result<MetadataHttpJsonResponse> {
+        let client = self.client.clone();
+        self.execute_json_with_status(provider, operation, move || {
+            client
+                .get(url.clone())
+                .query(query)
+                .headers(headers.clone())
+        })
+        .await
+        .map(|(status, body)| MetadataHttpJsonResponse {
+            status: status.as_u16(),
+            body,
+        })
+    }
+
+    pub async fn post_json<B>(
+        &self,
+        provider: &'static str,
+        operation: &str,
+        url: String,
+        query: &[(String, String)],
+        headers: HeaderMap,
+        body: &B,
+    ) -> Result<serde_json::Value>
+    where
+        B: Serialize + Send + Sync,
+    {
+        let client = self.client.clone();
+        self.execute_json(provider, operation, move || {
+            client
+                .post(url.clone())
+                .query(query)
+                .headers(headers.clone())
+                .json(body)
+        })
+        .await
+    }
+
+    async fn execute_json<F>(
+        &self,
+        provider: &'static str,
+        operation: &str,
+        request_factory: F,
+    ) -> Result<serde_json::Value>
+    where
+        F: Fn() -> reqwest::RequestBuilder,
+    {
+        self.execute_json_with_status(provider, operation, request_factory)
+            .await
+            .map(|(_, value)| value)
+    }
+
+    async fn execute_json_with_status<F>(
+        &self,
+        provider: &'static str,
+        operation: &str,
+        request_factory: F,
+    ) -> Result<(reqwest::StatusCode, serde_json::Value)>
+    where
+        F: Fn() -> reqwest::RequestBuilder,
+    {
+        if self.circuit_open.load(Ordering::SeqCst) {
+            return Err(TaruError::Provider {
+                provider: provider.to_owned(),
+                message: "metadata provider circuit breaker is open".to_owned(),
+            });
+        }
+
+        let _permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::Provider {
+                    provider: provider.to_owned(),
+                    message: format!("metadata provider concurrency limiter is unavailable: {err}"),
+                })?;
+        let attempts = self.config.max_attempts.max(1);
+        let mut last_error = None;
+
+        for attempt in 1..=attempts {
+            self.wait_for_rate_limit().await?;
+
+            let send_result = timeout(
+                Duration::from_millis(self.config.timeout_ms),
+                request_factory().send(),
+            )
+            .await;
+            let response = match send_result {
+                Ok(Ok(response)) => response,
+                Ok(Err(err)) => {
+                    last_error = Some(provider_request_error(provider, err));
+                    if attempt < attempts {
+                        sleep(retry_delay(attempt)).await;
+                        continue;
+                    }
+                    break;
+                }
+                Err(_) => {
+                    last_error = Some(TaruError::Provider {
+                        provider: provider.to_owned(),
+                        message: format!(
+                            "{operation} timed out after {}ms",
+                            self.config.timeout_ms
+                        ),
+                    });
+                    if attempt < attempts {
+                        sleep(retry_delay(attempt)).await;
+                        continue;
+                    }
+                    break;
+                }
+            };
+
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .map_err(|err| provider_request_error(provider, err))?;
+
+            if status.is_success() {
+                self.consecutive_failures.store(0, Ordering::SeqCst);
+                let value = serde_json::from_str(&text)
+                    .map_err(|err| provider_parse_error(provider, operation, err))?;
+                return Ok((status, value));
+            }
+
+            let error = TaruError::Provider {
+                provider: provider.to_owned(),
+                message: format!(
+                    "{operation} returned HTTP {status}: {}",
+                    truncate_message(&text, 240)
+                ),
+            };
+
+            if !status.is_server_error() && status.as_u16() != 429 {
+                self.record_failure();
+                return Err(error);
+            }
+
+            last_error = Some(error);
+            if attempt < attempts {
+                sleep(retry_delay(attempt)).await;
+            }
+        }
+
+        self.record_failure();
+        Err(last_error.unwrap_or_else(|| TaruError::Provider {
+            provider: provider.to_owned(),
+            message: format!("{operation} failed without a provider response"),
+        }))
+    }
+
+    async fn wait_for_rate_limit(&self) -> Result<()> {
+        let min_interval = Duration::from_millis(self.config.min_interval_ms);
+        if min_interval.is_zero() {
+            return Ok(());
+        }
+
+        let mut next_allowed = self.throttle.lock().await;
+        let now = OffsetDateTime::now_utc();
+        if *next_allowed > now {
+            let wait = (*next_allowed - now)
+                .try_into()
+                .unwrap_or_else(|_| Duration::from_millis(self.config.min_interval_ms));
+            sleep(wait).await;
+        }
+        *next_allowed = OffsetDateTime::now_utc() + min_interval;
+
+        Ok(())
+    }
+
+    fn record_failure(&self) {
+        let failures = self.consecutive_failures.fetch_add(1, Ordering::SeqCst) + 1;
+        let threshold = u64::from(self.config.circuit_breaker_failures);
+        if threshold > 0 && failures >= threshold {
+            self.circuit_open.store(true, Ordering::SeqCst);
+        }
+    }
+}
+
+fn default_metadata_user_agent() -> String {
+    format!("taru/{}", env!("CARGO_PKG_VERSION"))
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataRefreshJobInput {
     pub item_id: MediaItemId,
@@ -98,24 +405,9 @@ pub struct MetadataProviderAttempt {
     pub provider: ExternalProvider,
     pub status: MetadataProviderAttemptStatus,
     pub message: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MetadataProviderAttemptStatus {
-    Succeeded,
-    SkippedDisabled,
-    SkippedUnavailable,
-    NotImplemented,
-    NoMatch,
-    Failed,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MetadataMatchKind {
-    ExternalId,
-    Search,
+    pub provider_key: Option<String>,
+    pub matched_by: Option<MetadataMatchKind>,
+    pub error_class: Option<MetadataProviderErrorClass>,
 }
 
 #[derive(Clone, Default)]
@@ -277,14 +569,28 @@ where
         for provider_id in &request.profile.metadata_providers {
             match self.registry.get(provider_id) {
                 Some(RegisteredMetadataProvider::Available(provider)) => {
-                    match refresh_existing_with_provider(
+                    let started_at = now_utc_string()?;
+                    let result = refresh_existing_with_provider(
                         provider.as_ref(),
                         &self.repository,
                         &request,
                         &existing,
                     )
-                    .await
-                    {
+                    .await;
+                    let finished_at = now_utc_string()?;
+                    let attempt = attempt_from_result(provider_id.clone(), &result);
+                    persist_metadata_attempt(
+                        &self.repository,
+                        request.job_id,
+                        request.item_id,
+                        &attempt,
+                        started_at,
+                        finished_at,
+                    )
+                    .await?;
+                    attempts.push(attempt);
+
+                    match result {
                         Ok(success) => {
                             hydrate_item_catalog(
                                 &self.repository,
@@ -292,51 +598,67 @@ where
                                 MetadataSource::Provider(success.provider.clone()),
                             )
                             .await?;
-                            attempts.push(MetadataProviderAttempt {
-                                provider: provider_id.clone(),
-                                status: MetadataProviderAttemptStatus::Succeeded,
-                                message: None,
-                            });
 
                             return Ok(success.into_summary(request.job_id, attempts));
                         }
-                        Err(MetadataProviderRefreshError::NoMatch(message)) => {
-                            attempts.push(MetadataProviderAttempt {
-                                provider: provider_id.clone(),
-                                status: MetadataProviderAttemptStatus::NoMatch,
-                                message: Some(message),
-                            });
-                        }
-                        Err(MetadataProviderRefreshError::ProviderFailed(message)) => {
-                            attempts.push(MetadataProviderAttempt {
-                                provider: provider_id.clone(),
-                                status: MetadataProviderAttemptStatus::Failed,
-                                message: Some(message),
-                            });
-                        }
+                        Err(MetadataProviderRefreshError::NoMatch(_))
+                        | Err(MetadataProviderRefreshError::ProviderFailed(_)) => {}
                         Err(MetadataProviderRefreshError::Fatal(err)) => return Err(err),
                     }
                 }
                 Some(RegisteredMetadataProvider::Disabled { reason }) => {
-                    attempts.push(MetadataProviderAttempt {
-                        provider: provider_id.clone(),
-                        status: MetadataProviderAttemptStatus::SkippedDisabled,
-                        message: Some(reason.clone()),
-                    });
+                    let now = now_utc_string()?;
+                    let attempt = skipped_attempt(
+                        provider_id.clone(),
+                        MetadataProviderAttemptStatus::SkippedDisabled,
+                        reason.clone(),
+                    );
+                    persist_metadata_attempt(
+                        &self.repository,
+                        request.job_id,
+                        request.item_id,
+                        &attempt,
+                        now.clone(),
+                        now,
+                    )
+                    .await?;
+                    attempts.push(attempt);
                 }
                 Some(RegisteredMetadataProvider::Unavailable { reason }) => {
-                    attempts.push(MetadataProviderAttempt {
-                        provider: provider_id.clone(),
-                        status: MetadataProviderAttemptStatus::SkippedUnavailable,
-                        message: Some(reason.clone()),
-                    });
+                    let now = now_utc_string()?;
+                    let attempt = skipped_attempt(
+                        provider_id.clone(),
+                        MetadataProviderAttemptStatus::SkippedUnavailable,
+                        reason.clone(),
+                    );
+                    persist_metadata_attempt(
+                        &self.repository,
+                        request.job_id,
+                        request.item_id,
+                        &attempt,
+                        now.clone(),
+                        now,
+                    )
+                    .await?;
+                    attempts.push(attempt);
                 }
                 None => {
-                    attempts.push(MetadataProviderAttempt {
-                        provider: provider_id.clone(),
-                        status: MetadataProviderAttemptStatus::NotImplemented,
-                        message: Some("metadata provider is not registered".to_owned()),
-                    });
+                    let now = now_utc_string()?;
+                    let attempt = skipped_attempt(
+                        provider_id.clone(),
+                        MetadataProviderAttemptStatus::NotImplemented,
+                        "metadata provider is not registered".to_owned(),
+                    );
+                    persist_metadata_attempt(
+                        &self.repository,
+                        request.job_id,
+                        request.item_id,
+                        &attempt,
+                        now.clone(),
+                        now,
+                    )
+                    .await?;
+                    attempts.push(attempt);
                 }
             }
         }
@@ -407,21 +729,28 @@ where
                 id: request.item_id.to_string(),
             })?;
 
-        let success =
+        let started_at = now_utc_string()?;
+        let result =
             refresh_existing_with_provider(&self.provider, &self.repository, &request, &existing)
-                .await
-                .map_err(MetadataProviderRefreshError::into_error)?;
+                .await;
+        let finished_at = now_utc_string()?;
+        let attempt = attempt_from_result(self.provider.provider(), &result);
+        persist_metadata_attempt(
+            &self.repository,
+            request.job_id,
+            request.item_id,
+            &attempt,
+            started_at,
+            finished_at,
+        )
+        .await?;
+        let success = result.map_err(MetadataProviderRefreshError::into_error)?;
         hydrate_item_catalog(
             &self.repository,
             success.item_id,
             MetadataSource::Provider(success.provider.clone()),
         )
         .await?;
-        let attempt = MetadataProviderAttempt {
-            provider: self.provider.provider(),
-            status: MetadataProviderAttemptStatus::Succeeded,
-            message: None,
-        };
 
         Ok(success.into_summary(request.job_id, vec![attempt]))
     }
@@ -454,6 +783,109 @@ impl MetadataProviderRefreshSuccess {
             updated: self.updated,
             attempted_providers,
         }
+    }
+}
+
+async fn persist_metadata_attempt<R>(
+    repository: &R,
+    job_id: JobId,
+    item_id: MediaItemId,
+    attempt: &MetadataProviderAttempt,
+    started_at: String,
+    finished_at: String,
+) -> Result<()>
+where
+    R: MetadataRepository,
+{
+    repository
+        .insert_metadata_provider_attempt(NewMetadataProviderAttempt {
+            id: MetadataProviderAttemptId::new(),
+            job_id,
+            item_id,
+            provider: attempt.provider.clone(),
+            status: attempt.status,
+            provider_key: attempt.provider_key.clone(),
+            matched_by: attempt.matched_by,
+            started_at,
+            finished_at,
+            error_class: attempt.error_class,
+            message: attempt.message.clone(),
+        })
+        .await
+}
+
+fn attempt_from_result(
+    provider: ExternalProvider,
+    result: &std::result::Result<MetadataProviderRefreshSuccess, MetadataProviderRefreshError>,
+) -> MetadataProviderAttempt {
+    match result {
+        Ok(success) => MetadataProviderAttempt {
+            provider,
+            status: MetadataProviderAttemptStatus::Succeeded,
+            message: None,
+            provider_key: Some(success.provider_key.clone()),
+            matched_by: Some(success.matched_by),
+            error_class: None,
+        },
+        Err(MetadataProviderRefreshError::NoMatch(message)) => MetadataProviderAttempt {
+            provider,
+            status: MetadataProviderAttemptStatus::NoMatch,
+            message: Some(message.clone()),
+            provider_key: None,
+            matched_by: None,
+            error_class: Some(MetadataProviderErrorClass::NoMatch),
+        },
+        Err(MetadataProviderRefreshError::ProviderFailed(message)) => MetadataProviderAttempt {
+            provider,
+            status: MetadataProviderAttemptStatus::Failed,
+            message: Some(message.clone()),
+            provider_key: None,
+            matched_by: None,
+            error_class: Some(classify_provider_failure_message(message)),
+        },
+        Err(MetadataProviderRefreshError::Fatal(err)) => MetadataProviderAttempt {
+            provider,
+            status: MetadataProviderAttemptStatus::Failed,
+            message: Some(err.to_string()),
+            provider_key: None,
+            matched_by: None,
+            error_class: Some(classify_provider_error_class(err)),
+        },
+    }
+}
+
+fn classify_provider_failure_message(message: &str) -> MetadataProviderErrorClass {
+    classify_provider_error_class(&TaruError::Provider {
+        provider: "metadata_provider".to_owned(),
+        message: message.to_owned(),
+    })
+}
+
+fn skipped_attempt(
+    provider: ExternalProvider,
+    status: MetadataProviderAttemptStatus,
+    message: String,
+) -> MetadataProviderAttempt {
+    let error_class = match status {
+        MetadataProviderAttemptStatus::SkippedDisabled
+        | MetadataProviderAttemptStatus::SkippedUnavailable => {
+            Some(MetadataProviderErrorClass::Unavailable)
+        }
+        MetadataProviderAttemptStatus::NotImplemented => {
+            Some(MetadataProviderErrorClass::Unsupported)
+        }
+        MetadataProviderAttemptStatus::NoMatch => Some(MetadataProviderErrorClass::NoMatch),
+        MetadataProviderAttemptStatus::Failed => Some(MetadataProviderErrorClass::Unknown),
+        MetadataProviderAttemptStatus::Succeeded => None,
+    };
+
+    MetadataProviderAttempt {
+        provider,
+        status,
+        message: Some(message),
+        provider_key: None,
+        matched_by: None,
+        error_class,
     }
 }
 
@@ -627,6 +1059,35 @@ fn classify_provider_error(error: TaruError) -> MetadataProviderRefreshError {
     }
 }
 
+fn classify_provider_error_class(error: &TaruError) -> MetadataProviderErrorClass {
+    match error {
+        TaruError::NotFound { .. } => MetadataProviderErrorClass::NoMatch,
+        TaruError::Unsupported(_) => MetadataProviderErrorClass::Unsupported,
+        TaruError::InvalidInput { .. } | TaruError::Conflict { .. } => {
+            MetadataProviderErrorClass::Unknown
+        }
+        TaruError::Provider { message, .. } => {
+            let lower = message.to_ascii_lowercase();
+            if lower.contains("timeout") || lower.contains("timed out") {
+                MetadataProviderErrorClass::Timeout
+            } else if lower.contains("429") || lower.contains("rate") {
+                MetadataProviderErrorClass::RateLimited
+            } else if lower.contains("401") || lower.contains("403") || lower.contains("auth") {
+                MetadataProviderErrorClass::Auth
+            } else if lower.contains("http") {
+                MetadataProviderErrorClass::HttpStatus
+            } else if lower.contains("parse") || lower.contains("json") {
+                MetadataProviderErrorClass::Parse
+            } else {
+                MetadataProviderErrorClass::Network
+            }
+        }
+        TaruError::Storage { .. } | TaruError::Database { .. } => {
+            MetadataProviderErrorClass::Unknown
+        }
+    }
+}
+
 fn summarize_attempts(attempts: &[MetadataProviderAttempt]) -> String {
     if attempts.is_empty() {
         return "no providers were attempted".to_owned();
@@ -651,14 +1112,7 @@ fn summarize_attempts(attempts: &[MetadataProviderAttempt]) -> String {
 }
 
 fn attempt_status_label(status: MetadataProviderAttemptStatus) -> &'static str {
-    match status {
-        MetadataProviderAttemptStatus::Succeeded => "succeeded",
-        MetadataProviderAttemptStatus::SkippedDisabled => "skipped_disabled",
-        MetadataProviderAttemptStatus::SkippedUnavailable => "skipped_unavailable",
-        MetadataProviderAttemptStatus::NotImplemented => "not_implemented",
-        MetadataProviderAttemptStatus::NoMatch => "no_match",
-        MetadataProviderAttemptStatus::Failed => "failed",
-    }
+    status.as_str()
 }
 
 fn provider_label(provider: &ExternalProvider) -> String {
@@ -780,6 +1234,7 @@ pub struct TmdbProviderConfig {
     pub image_base_url: String,
     pub language: String,
     pub include_adult: bool,
+    pub runtime: MetadataHttpRuntimeConfig,
 }
 
 impl TmdbProviderConfig {
@@ -791,6 +1246,7 @@ impl TmdbProviderConfig {
             image_base_url: DEFAULT_TMDB_IMAGE_BASE_URL.to_owned(),
             language: DEFAULT_TMDB_LANGUAGE.to_owned(),
             include_adult: false,
+            runtime: MetadataHttpRuntimeConfig::default(),
         }
     }
 }
@@ -804,23 +1260,21 @@ impl fmt::Debug for TmdbProviderConfig {
             .field("image_base_url", &self.image_base_url)
             .field("language", &self.language)
             .field("include_adult", &self.include_adult)
+            .field("runtime", &self.runtime)
             .finish()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct TmdbMetadataProvider {
-    client: reqwest::Client,
+    runtime: MetadataHttpRuntime,
     config: TmdbProviderConfig,
 }
 
 impl TmdbMetadataProvider {
-    #[must_use]
-    pub fn new(config: TmdbProviderConfig) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            config,
-        }
+    pub fn new(config: TmdbProviderConfig) -> Result<Self> {
+        let runtime = MetadataHttpRuntime::new(config.runtime.clone())?;
+        Ok(Self { runtime, config })
     }
 
     fn endpoint(&self, path: &str) -> String {
@@ -876,16 +1330,16 @@ impl MetadataProvider for TmdbMetadataProvider {
             query.push(("primary_release_year".to_owned(), year.to_string()));
         }
 
-        let response = self
-            .client
-            .get(self.endpoint("search/movie"))
-            .bearer_auth(&self.config.read_access_token)
-            .query(&query)
-            .send()
-            .await
-            .map_err(tmdb_request_error)?;
-
-        let value = response_json(response, "search movie").await?;
+        let value = self
+            .runtime
+            .get_json(
+                TMDB_PROVIDER_NAME,
+                "search movie",
+                self.endpoint("search/movie"),
+                &query,
+                bearer_headers(&self.config.read_access_token)?,
+            )
+            .await?;
         let search: TmdbSearchResponse =
             serde_json::from_value(value).map_err(|err| tmdb_parse_error("search movie", err))?;
 
@@ -923,15 +1377,16 @@ impl MetadataProvider for TmdbMetadataProvider {
                 "credits,images,release_dates,external_ids".to_owned(),
             ),
         ];
-        let response = self
-            .client
-            .get(self.endpoint(&format!("movie/{}", request.provider_key)))
-            .bearer_auth(&self.config.read_access_token)
-            .query(&query)
-            .send()
-            .await
-            .map_err(tmdb_request_error)?;
-        let value = response_json(response, "movie details").await?;
+        let value = self
+            .runtime
+            .get_json(
+                TMDB_PROVIDER_NAME,
+                "movie details",
+                self.endpoint(&format!("movie/{}", request.provider_key)),
+                &query,
+                bearer_headers(&self.config.read_access_token)?,
+            )
+            .await?;
         let raw_json = serde_json::to_string(&value)
             .map_err(|err| tmdb_parse_error("serialize movie details", err))?;
         let details: TmdbMovieDetails =
@@ -941,6 +1396,313 @@ impl MetadataProvider for TmdbMetadataProvider {
             provider: ExternalProvider::Tmdb,
             provider_key: details.id.to_string(),
             metadata: tmdb_movie_details_to_metadata(details, &self.config.image_base_url),
+            raw_json,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BangumiProviderConfig {
+    pub access_token: Option<String>,
+    pub api_base_url: String,
+    pub image_base_url: String,
+    pub include_nsfw: bool,
+    pub runtime: MetadataHttpRuntimeConfig,
+}
+
+impl Default for BangumiProviderConfig {
+    fn default() -> Self {
+        Self {
+            access_token: None,
+            api_base_url: DEFAULT_BANGUMI_API_BASE_URL.to_owned(),
+            image_base_url: DEFAULT_BANGUMI_IMAGE_BASE_URL.to_owned(),
+            include_nsfw: false,
+            runtime: MetadataHttpRuntimeConfig::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BangumiMetadataProvider {
+    runtime: MetadataHttpRuntime,
+    config: BangumiProviderConfig,
+}
+
+impl BangumiMetadataProvider {
+    pub fn new(config: BangumiProviderConfig) -> Result<Self> {
+        let runtime = MetadataHttpRuntime::new(config.runtime.clone())?;
+        Ok(Self { runtime, config })
+    }
+
+    fn endpoint(&self, path: &str) -> String {
+        format!(
+            "{}/{}",
+            self.config.api_base_url.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        )
+    }
+
+    fn headers(&self) -> Result<HeaderMap> {
+        self.config
+            .access_token
+            .as_deref()
+            .filter(|token| !token.trim().is_empty())
+            .map(bearer_headers)
+            .unwrap_or_else(|| Ok(HeaderMap::new()))
+    }
+}
+
+#[async_trait]
+impl MetadataProvider for BangumiMetadataProvider {
+    fn provider(&self) -> ExternalProvider {
+        ExternalProvider::Bangumi
+    }
+
+    fn provider_name(&self) -> &'static str {
+        BANGUMI_PROVIDER_NAME
+    }
+
+    async fn search(&self, lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>> {
+        if !lookup.kind.is_none_or(|kind| {
+            matches!(
+                kind,
+                MediaKind::Movie
+                    | MediaKind::Series
+                    | MediaKind::Season
+                    | MediaKind::Episode
+                    | MediaKind::Unknown
+            )
+        }) {
+            return Err(TaruError::Unsupported(
+                "Bangumi provider supports video metadata lookups only",
+            ));
+        }
+
+        let query = vec![
+            ("limit".to_owned(), "10".to_owned()),
+            ("offset".to_owned(), "0".to_owned()),
+        ];
+        let body = BangumiSearchRequest {
+            keyword: lookup.title.clone(),
+            sort: "match".to_owned(),
+            filter: BangumiSearchFilter {
+                subject_type: Some(vec![2]),
+                nsfw: Some(self.config.include_nsfw),
+            },
+        };
+        let value = self
+            .runtime
+            .post_json(
+                BANGUMI_PROVIDER_NAME,
+                "search subjects",
+                self.endpoint("v0/search/subjects"),
+                &query,
+                self.headers()?,
+                &body,
+            )
+            .await?;
+        let search: BangumiSearchResponse = serde_json::from_value(value)
+            .map_err(|err| provider_parse_error(BANGUMI_PROVIDER_NAME, "search subjects", err))?;
+
+        Ok(search
+            .data
+            .into_iter()
+            .map(|subject| {
+                let score = bangumi_search_score(&lookup, &subject);
+                MetadataCandidate {
+                    provider: ExternalProvider::Bangumi,
+                    provider_key: subject.id.to_string(),
+                    score,
+                    metadata: bangumi_subject_to_metadata(subject, &self.config.image_base_url),
+                }
+            })
+            .collect())
+    }
+
+    async fn fetch(&self, request: MetadataFetchRequest) -> Result<MetadataFetchResult> {
+        if !matches!(
+            request.kind,
+            MediaKind::Movie
+                | MediaKind::Series
+                | MediaKind::Season
+                | MediaKind::Episode
+                | MediaKind::Unknown
+        ) {
+            return Err(TaruError::Unsupported(
+                "Bangumi provider supports video metadata only",
+            ));
+        }
+
+        let value = self
+            .runtime
+            .get_json(
+                BANGUMI_PROVIDER_NAME,
+                "subject details",
+                self.endpoint(&format!("v0/subjects/{}", request.provider_key)),
+                &[],
+                self.headers()?,
+            )
+            .await?;
+        let raw_json = serde_json::to_string(&value).map_err(|err| {
+            provider_parse_error(BANGUMI_PROVIDER_NAME, "serialize subject details", err)
+        })?;
+        let details: BangumiSubject = serde_json::from_value(value)
+            .map_err(|err| provider_parse_error(BANGUMI_PROVIDER_NAME, "subject details", err))?;
+
+        Ok(MetadataFetchResult {
+            provider: ExternalProvider::Bangumi,
+            provider_key: details.id.to_string(),
+            metadata: bangumi_subject_to_metadata(details, &self.config.image_base_url),
+            raw_json,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DoubanProviderConfig {
+    pub api_key: Option<String>,
+    pub api_base_url: String,
+    pub image_base_url: Option<String>,
+    pub runtime: MetadataHttpRuntimeConfig,
+    pub headers: Vec<(String, String)>,
+}
+
+impl Default for DoubanProviderConfig {
+    fn default() -> Self {
+        Self {
+            api_key: None,
+            api_base_url: DEFAULT_DOUBAN_API_BASE_URL.to_owned(),
+            image_base_url: None,
+            runtime: MetadataHttpRuntimeConfig::default(),
+            headers: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DoubanMetadataProvider {
+    runtime: MetadataHttpRuntime,
+    config: DoubanProviderConfig,
+}
+
+impl DoubanMetadataProvider {
+    pub fn new(config: DoubanProviderConfig) -> Result<Self> {
+        let runtime = MetadataHttpRuntime::new(config.runtime.clone())?;
+        Ok(Self { runtime, config })
+    }
+
+    fn endpoint(&self, path: &str) -> String {
+        format!(
+            "{}/{}",
+            self.config.api_base_url.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        )
+    }
+
+    fn query(&self) -> Vec<(String, String)> {
+        api_key_query("apikey", &self.config.api_key)
+    }
+
+    fn headers(&self) -> Result<HeaderMap> {
+        header_map_from_pairs(&self.config.headers)
+    }
+}
+
+#[async_trait]
+impl MetadataProvider for DoubanMetadataProvider {
+    fn provider(&self) -> ExternalProvider {
+        ExternalProvider::Douban
+    }
+
+    fn provider_name(&self) -> &'static str {
+        DOUBAN_PROVIDER_NAME
+    }
+
+    async fn search(&self, lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>> {
+        if !lookup.kind.is_none_or(|kind| {
+            matches!(
+                kind,
+                MediaKind::Movie
+                    | MediaKind::Series
+                    | MediaKind::Season
+                    | MediaKind::Episode
+                    | MediaKind::Unknown
+            )
+        }) {
+            return Err(TaruError::Unsupported(
+                "Douban provider supports video metadata lookups only",
+            ));
+        }
+
+        let mut query = self.query();
+        query.push(("q".to_owned(), lookup.title.clone()));
+        query.push(("start".to_owned(), "0".to_owned()));
+        query.push(("count".to_owned(), "10".to_owned()));
+        let value = self
+            .runtime
+            .get_json(
+                DOUBAN_PROVIDER_NAME,
+                "search movies",
+                self.endpoint("movie/search"),
+                &query,
+                self.headers()?,
+            )
+            .await?;
+        let search: DoubanSearchResponse = serde_json::from_value(value)
+            .map_err(|err| provider_parse_error(DOUBAN_PROVIDER_NAME, "search movies", err))?;
+
+        Ok(search
+            .subjects
+            .into_iter()
+            .map(|subject| {
+                let score = douban_search_score(&lookup, &subject);
+                MetadataCandidate {
+                    provider: ExternalProvider::Douban,
+                    provider_key: subject.id.clone(),
+                    score,
+                    metadata: douban_subject_to_metadata(
+                        subject,
+                        self.config.image_base_url.as_deref(),
+                    ),
+                }
+            })
+            .collect())
+    }
+
+    async fn fetch(&self, request: MetadataFetchRequest) -> Result<MetadataFetchResult> {
+        if !matches!(
+            request.kind,
+            MediaKind::Movie
+                | MediaKind::Series
+                | MediaKind::Season
+                | MediaKind::Episode
+                | MediaKind::Unknown
+        ) {
+            return Err(TaruError::Unsupported(
+                "Douban provider supports video metadata only",
+            ));
+        }
+
+        let value = self
+            .runtime
+            .get_json(
+                DOUBAN_PROVIDER_NAME,
+                "movie details",
+                self.endpoint(&format!("movie/subject/{}", request.provider_key)),
+                &self.query(),
+                self.headers()?,
+            )
+            .await?;
+        let raw_json = serde_json::to_string(&value).map_err(|err| {
+            provider_parse_error(DOUBAN_PROVIDER_NAME, "serialize movie details", err)
+        })?;
+        let details: DoubanSubject = serde_json::from_value(value)
+            .map_err(|err| provider_parse_error(DOUBAN_PROVIDER_NAME, "movie details", err))?;
+
+        Ok(MetadataFetchResult {
+            provider: ExternalProvider::Douban,
+            provider_key: details.id.clone(),
+            metadata: douban_subject_to_metadata(details, self.config.image_base_url.as_deref()),
             raw_json,
         })
     }
@@ -1103,38 +1865,195 @@ struct TmdbExternalIds {
     imdb_id: Option<String>,
 }
 
-async fn response_json(response: reqwest::Response, operation: &str) -> Result<serde_json::Value> {
-    let status = response.status();
-    let text = response.text().await.map_err(tmdb_request_error)?;
-
-    if !status.is_success() {
-        return Err(TaruError::Provider {
-            provider: TMDB_PROVIDER_NAME.to_owned(),
-            message: format!(
-                "{operation} returned HTTP {status}: {}",
-                truncate_message(&text, 240)
-            ),
-        });
-    }
-
-    serde_json::from_str(&text).map_err(|err| tmdb_parse_error(operation, err))
+#[derive(Debug, Serialize)]
+struct BangumiSearchRequest {
+    keyword: String,
+    sort: String,
+    filter: BangumiSearchFilter,
 }
 
-fn tmdb_request_error(error: reqwest::Error) -> TaruError {
+#[derive(Debug, Serialize)]
+struct BangumiSearchFilter {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    subject_type: Option<Vec<u8>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nsfw: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiSearchResponse {
+    #[serde(default)]
+    data: Vec<BangumiSubject>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiSubject {
+    id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    name_cn: String,
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde(default)]
+    date: Option<String>,
+    #[serde(default)]
+    images: Option<BangumiImages>,
+    #[serde(default)]
+    infobox: Vec<BangumiInfoBoxItem>,
+    #[serde(default)]
+    tags: Vec<BangumiTag>,
+    #[serde(default)]
+    rating: Option<BangumiRating>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiImages {
+    #[serde(default)]
+    large: Option<String>,
+    #[serde(default)]
+    common: Option<String>,
+    #[serde(default)]
+    medium: Option<String>,
+    #[serde(default)]
+    small: Option<String>,
+    #[serde(default)]
+    grid: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiInfoBoxItem {
+    key: String,
+    value: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiTag {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiRating {
+    #[serde(default)]
+    score: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DoubanSearchResponse {
+    #[serde(default)]
+    subjects: Vec<DoubanSubject>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DoubanSubject {
+    id: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    original_title: Option<String>,
+    #[serde(default)]
+    alt_title: Option<String>,
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde(default)]
+    year: Option<String>,
+    #[serde(default)]
+    images: Option<DoubanImages>,
+    #[serde(default)]
+    genres: Vec<String>,
+    #[serde(default)]
+    countries: Vec<String>,
+    #[serde(default)]
+    casts: Vec<DoubanPerson>,
+    #[serde(default)]
+    directors: Vec<DoubanPerson>,
+    #[serde(default)]
+    writers: Vec<DoubanPerson>,
+    #[serde(default)]
+    rating: Option<DoubanRating>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DoubanImages {
+    #[serde(default)]
+    small: Option<String>,
+    #[serde(default)]
+    medium: Option<String>,
+    #[serde(default)]
+    large: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DoubanPerson {
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DoubanRating {
+    #[serde(default)]
+    average: Option<f32>,
+}
+
+fn provider_request_error(provider: &str, error: reqwest::Error) -> TaruError {
     TaruError::Provider {
-        provider: TMDB_PROVIDER_NAME.to_owned(),
+        provider: provider.to_owned(),
         message: error.to_string(),
     }
 }
 
 fn tmdb_parse_error(operation: &str, error: impl ToString) -> TaruError {
+    provider_parse_error(TMDB_PROVIDER_NAME, operation, error)
+}
+
+fn provider_parse_error(provider: &str, operation: &str, error: impl ToString) -> TaruError {
     TaruError::Provider {
-        provider: TMDB_PROVIDER_NAME.to_owned(),
+        provider: provider.to_owned(),
         message: format!(
-            "failed to parse TMDB {operation} response: {}",
+            "failed to parse {provider} {operation} response: {}",
             error.to_string()
         ),
     }
+}
+
+fn bearer_headers(token: &str) -> Result<HeaderMap> {
+    let mut headers = HeaderMap::new();
+    let value = HeaderValue::from_str(&format!("Bearer {token}")).map_err(|err| {
+        TaruError::InvalidInput {
+            message: format!("invalid bearer token for metadata provider header: {err}"),
+        }
+    })?;
+    headers.insert(AUTHORIZATION, value);
+    Ok(headers)
+}
+
+fn api_key_query(name: &str, value: &Option<String>) -> Vec<(String, String)> {
+    value
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| vec![(name.to_owned(), value.clone())])
+        .unwrap_or_default()
+}
+
+fn header_map_from_pairs(pairs: &[(String, String)]) -> Result<HeaderMap> {
+    let mut headers = HeaderMap::new();
+    for (name, value) in pairs {
+        let name =
+            HeaderName::from_bytes(name.as_bytes()).map_err(|err| TaruError::InvalidInput {
+                message: format!("invalid metadata provider header name {name}: {err}"),
+            })?;
+        let value = HeaderValue::from_str(value).map_err(|err| TaruError::InvalidInput {
+            message: format!("invalid metadata provider header value for {name}: {err}"),
+        })?;
+        headers.insert(name, value);
+    }
+    Ok(headers)
+}
+
+fn retry_delay(attempt: u32) -> Duration {
+    Duration::from_millis(100 * u64::from(attempt))
 }
 
 fn truncate_message(value: &str, max_chars: usize) -> String {
@@ -1330,6 +2249,256 @@ fn tmdb_movie_details_to_metadata(
     }
 }
 
+fn bangumi_search_score(lookup: &MetadataLookup, subject: &BangumiSubject) -> f32 {
+    let mut score = 0.50;
+    if subject.name.eq_ignore_ascii_case(&lookup.title)
+        || subject.name_cn.eq_ignore_ascii_case(&lookup.title)
+    {
+        score += 0.30;
+    }
+    if lookup.year.is_some_and(|year| {
+        subject
+            .date
+            .as_deref()
+            .and_then(|value| release_year(Some(value)))
+            .is_some_and(|release_year| release_year == year)
+    }) {
+        score += 0.15;
+    }
+    score
+        + subject
+            .rating
+            .as_ref()
+            .and_then(|rating| rating.score)
+            .unwrap_or(0.0)
+            / 200.0
+}
+
+fn bangumi_subject_to_metadata(subject: BangumiSubject, image_base_url: &str) -> CanonicalMetadata {
+    let mut images = Vec::new();
+    if let Some(subject_images) = subject.images.as_ref() {
+        for uri in [
+            subject_images.large.as_deref(),
+            subject_images.common.as_deref(),
+            subject_images.medium.as_deref(),
+            subject_images.small.as_deref(),
+            subject_images.grid.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            push_provider_image_uri(
+                &mut images,
+                ImageKind::Poster,
+                Some(uri),
+                image_base_url,
+                ExternalProvider::Bangumi,
+                None,
+                None,
+                None,
+            );
+        }
+    }
+
+    let studios = bangumi_infobox_strings(&subject.infobox, &["动画制作", "制作", "製作"])
+        .into_iter()
+        .map(|name| StudioRef {
+            name,
+            external_ids: Vec::new(),
+        })
+        .collect();
+    let tags = subject
+        .tags
+        .into_iter()
+        .map(|tag| tag.name)
+        .filter(|name| !name.trim().is_empty())
+        .collect();
+
+    CanonicalMetadata {
+        title: first_non_empty(&[Some(subject.name_cn.as_str()), Some(subject.name.as_str())])
+            .unwrap_or_default(),
+        original_title: non_empty_string(subject.name),
+        overview: subject.summary.filter(|value| !value.trim().is_empty()),
+        release_date: subject.date.filter(|value| !value.trim().is_empty()),
+        runtime_minutes: None,
+        tags,
+        ratings: subject
+            .rating
+            .and_then(|rating| rating.score)
+            .map(|score| ContentRating {
+                source: "Bangumi:score".to_owned(),
+                value: score.to_string(),
+            })
+            .into_iter()
+            .collect(),
+        images,
+        studios,
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Bangumi,
+            value: subject.id.to_string(),
+        }],
+        ..CanonicalMetadata::default()
+    }
+}
+
+fn douban_search_score(lookup: &MetadataLookup, subject: &DoubanSubject) -> f32 {
+    let mut score = 0.50;
+    if subject.title.eq_ignore_ascii_case(&lookup.title)
+        || subject
+            .original_title
+            .as_ref()
+            .is_some_and(|title| title.eq_ignore_ascii_case(&lookup.title))
+    {
+        score += 0.30;
+    }
+    if lookup.year.is_some_and(|year| {
+        subject
+            .year
+            .as_deref()
+            .and_then(|value| release_year(Some(value)))
+            .is_some_and(|release_year| release_year == year)
+    }) {
+        score += 0.15;
+    }
+    score
+        + subject
+            .rating
+            .as_ref()
+            .and_then(|rating| rating.average)
+            .unwrap_or(0.0)
+            / 200.0
+}
+
+fn douban_subject_to_metadata(
+    subject: DoubanSubject,
+    image_base_url: Option<&str>,
+) -> CanonicalMetadata {
+    let mut images = Vec::new();
+    if let Some(subject_images) = subject.images.as_ref() {
+        for uri in [
+            subject_images.large.as_deref(),
+            subject_images.medium.as_deref(),
+            subject_images.small.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            push_provider_image_uri(
+                &mut images,
+                ImageKind::Poster,
+                Some(uri),
+                image_base_url.unwrap_or_default(),
+                ExternalProvider::Douban,
+                None,
+                None,
+                None,
+            );
+        }
+    }
+
+    let mut credits = Vec::new();
+    for person in subject.directors {
+        push_douban_credit(&mut credits, person, CreditRole::Director);
+    }
+    for person in subject.writers {
+        push_douban_credit(&mut credits, person, CreditRole::Writer);
+    }
+    for (order, person) in subject.casts.into_iter().enumerate() {
+        let mut credit = douban_person_credit(person, CreditRole::Actor);
+        credit.order = u32::try_from(order).ok();
+        credits.push(credit);
+    }
+
+    let release_date = subject
+        .year
+        .as_ref()
+        .filter(|year| year.len() == 4 && year.chars().all(|character| character.is_ascii_digit()))
+        .map(|year| format!("{year}-01-01"));
+
+    CanonicalMetadata {
+        title: subject.title,
+        original_title: subject.original_title.or(subject.alt_title),
+        overview: subject.summary.filter(|value| !value.trim().is_empty()),
+        release_date,
+        genres: subject
+            .genres
+            .into_iter()
+            .filter(|genre| !genre.trim().is_empty())
+            .collect(),
+        tags: subject
+            .countries
+            .into_iter()
+            .filter(|country| !country.trim().is_empty())
+            .collect(),
+        ratings: subject
+            .rating
+            .and_then(|rating| rating.average)
+            .map(|score| ContentRating {
+                source: "Douban:score".to_owned(),
+                value: score.to_string(),
+            })
+            .into_iter()
+            .collect(),
+        images,
+        credits,
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Douban,
+            value: subject.id,
+        }],
+        ..CanonicalMetadata::default()
+    }
+}
+
+fn bangumi_infobox_strings(items: &[BangumiInfoBoxItem], keys: &[&str]) -> Vec<String> {
+    items
+        .iter()
+        .filter(|item| keys.iter().any(|key| item.key == *key))
+        .flat_map(|item| metadata_strings_from_json(&item.value))
+        .collect()
+}
+
+fn metadata_strings_from_json(value: &serde_json::Value) -> Vec<String> {
+    match value {
+        serde_json::Value::String(value) => non_empty_string(value.clone()).into_iter().collect(),
+        serde_json::Value::Array(values) => values
+            .iter()
+            .flat_map(metadata_strings_from_json)
+            .collect::<Vec<_>>(),
+        serde_json::Value::Object(map) => map
+            .get("v")
+            .or_else(|| map.get("value"))
+            .into_iter()
+            .flat_map(metadata_strings_from_json)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn push_douban_credit(credits: &mut Vec<Credit>, person: DoubanPerson, role: CreditRole) {
+    if person.name.trim().is_empty() {
+        return;
+    }
+    credits.push(douban_person_credit(person, role));
+}
+
+fn douban_person_credit(person: DoubanPerson, role: CreditRole) -> Credit {
+    Credit {
+        name: person.name,
+        role,
+        character: None,
+        order: None,
+        external_ids: person
+            .id
+            .filter(|id| !id.trim().is_empty())
+            .map(|id| ExternalId {
+                provider: ExternalProvider::Douban,
+                value: id,
+            })
+            .into_iter()
+            .collect(),
+    }
+}
+
 fn ratings_from_release_dates(release_dates: Option<&TmdbReleaseDates>) -> Vec<ContentRating> {
     release_dates
         .into_iter()
@@ -1446,6 +2615,43 @@ fn push_image_path(
     });
 }
 
+fn push_provider_image_uri(
+    images: &mut Vec<ImageRef>,
+    kind: ImageKind,
+    uri: Option<&str>,
+    image_base_url: &str,
+    provider: ExternalProvider,
+    width: Option<u32>,
+    height: Option<u32>,
+    language: Option<String>,
+) {
+    let Some(uri) = uri.filter(|uri| !uri.trim().is_empty()) else {
+        return;
+    };
+    let uri =
+        if uri.starts_with("http://") || uri.starts_with("https://") || image_base_url.is_empty() {
+            uri.to_owned()
+        } else {
+            format!("{}{}", image_base_url.trim_end_matches('/'), uri)
+        };
+
+    if images
+        .iter()
+        .any(|image| image.kind == kind && image.uri == uri)
+    {
+        return;
+    }
+
+    images.push(ImageRef {
+        kind,
+        uri,
+        provider,
+        width,
+        height,
+        language,
+    });
+}
+
 fn release_year(value: Option<&str>) -> Option<u16> {
     let year = value?.get(0..4)?;
 
@@ -1453,6 +2659,22 @@ fn release_year(value: Option<&str>) -> Option<u16> {
         year.parse().ok()
     } else {
         None
+    }
+}
+
+fn first_non_empty(values: &[Option<&str>]) -> Option<String> {
+    values
+        .iter()
+        .flatten()
+        .find(|value| !value.trim().is_empty())
+        .map(|value| (*value).to_owned())
+}
+
+fn non_empty_string(value: String) -> Option<String> {
+    if value.trim().is_empty() {
+        None
+    } else {
+        Some(value)
     }
 }
 
@@ -1467,16 +2689,26 @@ fn now_utc_string() -> Result<String> {
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        Arc,
+        Arc, Mutex as StdMutex,
         atomic::{AtomicUsize, Ordering},
     };
 
+    use axum::{
+        Json, Router,
+        extract::State,
+        http::{HeaderMap as AxumHeaderMap, StatusCode, Uri},
+        response::{IntoResponse, Response},
+        routing::{get, post},
+    };
+    use serde_json::json;
     use taru_core::{
-        CatalogRepository, Library, LibraryId, LibraryOptions, LibraryPreset, LibraryRepository,
-        MediaRepository, MetadataRepository, MetadataSource, PageRequest, TransactionManager,
+        CatalogRepository, JobKind, JobRepository, Library, LibraryId, LibraryOptions,
+        LibraryPreset, LibraryRepository, MediaRepository, MetadataRepository, MetadataSource,
+        NewJob, PageRequest, TransactionManager,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
+    use tokio::{net::TcpListener, time::Instant};
 
     use super::*;
 
@@ -1607,10 +2839,11 @@ mod tests {
         let search_count = provider.search_count.clone();
         let fetch_count = provider.fetch_count.clone();
         let service = MetadataRefreshService::new(provider, store.clone());
+        let job_id = seed_metadata_job(&store, &item).await;
 
         let summary = service
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile: MetadataProfile::from_preset(LibraryPreset::Movies),
                 force: false,
@@ -1623,6 +2856,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        let persisted_attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
         let genres = store.list_genres(PageRequest::first_page()).await.unwrap();
         let hits = store
             .search(SearchQuery {
@@ -1645,9 +2879,22 @@ mod tests {
                 provider: ExternalProvider::Tmdb,
                 status: MetadataProviderAttemptStatus::Succeeded,
                 message: None,
+                provider_key: Some("603".to_owned()),
+                matched_by: Some(MetadataMatchKind::Search),
+                error_class: None,
             }]
         );
         assert!(summary.updated);
+        assert_eq!(persisted_attempts.len(), 1);
+        assert_eq!(
+            persisted_attempts[0].status,
+            MetadataProviderAttemptStatus::Succeeded
+        );
+        assert_eq!(
+            persisted_attempts[0].matched_by,
+            Some(MetadataMatchKind::Search)
+        );
+        assert_eq!(persisted_attempts[0].provider_key.as_deref(), Some("603"));
         assert_eq!(loaded.metadata.title, "Local Matrix");
         assert_eq!(
             loaded.metadata.overview,
@@ -1698,10 +2945,11 @@ mod tests {
         );
         let search_count = provider.search_count.clone();
         let service = MetadataRefreshService::new(provider, store.clone());
+        let job_id = seed_metadata_job(&store, &item).await;
 
         let summary = service
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile: MetadataProfile::from_preset(LibraryPreset::Movies),
                 force: false,
@@ -1728,6 +2976,7 @@ mod tests {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let item = seed_movie(&store, "Anime Movie", Some("2024".to_owned()), vec![]).await;
+        let job_id = seed_metadata_job(&store, &item).await;
         let tmdb = mock_provider(
             ExternalProvider::Tmdb,
             vec![mock_candidate(ExternalProvider::Tmdb, "100", "Anime Movie")],
@@ -1750,7 +2999,7 @@ mod tests {
 
         let summary = executor
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile: MetadataProfile::from_preset(LibraryPreset::Anime),
                 force: false,
@@ -1773,6 +3022,13 @@ mod tests {
                 )
             ]
         );
+        let attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(
+            attempts[0].status,
+            MetadataProviderAttemptStatus::NotImplemented
+        );
+        assert_eq!(attempts[1].status, MetadataProviderAttemptStatus::Succeeded);
         assert_eq!(
             store
                 .get_media_item(item.id)
@@ -1790,6 +3046,7 @@ mod tests {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let item = seed_movie(&store, "The Matrix", Some("1999".to_owned()), vec![]).await;
+        let job_id = seed_metadata_job(&store, &item).await;
         let tmdb = mock_provider(
             ExternalProvider::Tmdb,
             vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
@@ -1811,7 +3068,7 @@ mod tests {
 
         let summary = executor
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile,
                 force: false,
@@ -1833,6 +3090,14 @@ mod tests {
                 )
             ]
         );
+        assert_eq!(
+            store
+                .list_metadata_provider_attempts(job_id)
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
     }
 
     #[tokio::test]
@@ -1840,6 +3105,7 @@ mod tests {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let item = seed_movie(&store, "Unknown Movie", None, vec![]).await;
+        let job_id = seed_metadata_job(&store, &item).await;
         let mut tmdb = mock_provider(
             ExternalProvider::Tmdb,
             Vec::new(),
@@ -1859,7 +3125,7 @@ mod tests {
 
         let err = executor
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile,
                 force: false,
@@ -1873,6 +3139,13 @@ mod tests {
         assert_eq!(provider, "metadata_strategy");
         assert!(message.contains("bangumi=skipped_unavailable"));
         assert!(message.contains("tmdb=no_match"));
+        let attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(
+            attempts[0].status,
+            MetadataProviderAttemptStatus::SkippedUnavailable
+        );
+        assert_eq!(attempts[1].status, MetadataProviderAttemptStatus::NoMatch);
     }
 
     #[tokio::test]
@@ -1880,6 +3153,7 @@ mod tests {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let item = seed_movie(&store, "The Matrix", Some("1999".to_owned()), vec![]).await;
+        let job_id = seed_metadata_job(&store, &item).await;
         let tmdb = mock_provider(
             ExternalProvider::Tmdb,
             vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
@@ -1917,7 +3191,7 @@ mod tests {
 
         let summary = executor
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile: MetadataProfile::from_preset(LibraryPreset::Movies),
                 force: false,
@@ -1927,6 +3201,14 @@ mod tests {
 
         assert_eq!(summary.selected_provider, ExternalProvider::Tmdb);
         assert_eq!(summary.attempted_providers.len(), 1);
+        assert_eq!(
+            store
+                .list_metadata_provider_attempts(job_id)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
         assert_eq!(douban_search_count.load(Ordering::SeqCst), 0);
         assert_eq!(douban_fetch_count.load(Ordering::SeqCst), 0);
     }
@@ -1936,6 +3218,7 @@ mod tests {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let item = seed_movie(&store, "Local Matrix", Some("1999".to_owned()), vec![]).await;
+        let job_id = seed_metadata_job(&store, &item).await;
         store
             .upsert_field_lock(&MetadataFieldLock {
                 item_id: item.id,
@@ -1964,7 +3247,7 @@ mod tests {
 
         executor
             .refresh_item(MetadataRefreshRequest {
-                job_id: JobId::new(),
+                job_id,
                 item_id: item.id,
                 profile: MetadataProfile::from_preset(LibraryPreset::Movies),
                 force: false,
@@ -2049,6 +3332,222 @@ mod tests {
         }));
     }
 
+    #[test]
+    fn bangumi_subject_maps_core_metadata() {
+        let subject: BangumiSubject = serde_json::from_str(
+            r#"
+            {
+              "id": 8,
+              "name": "Cowboy Bebop",
+              "name_cn": "星际牛仔",
+              "summary": "Whatever happens, happens.",
+              "date": "1998-04-03",
+              "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+              "infobox": [
+                {"key": "动画制作", "value": "SUNRISE"}
+              ],
+              "tags": [{"name": "科幻"}, {"name": "原创"}],
+              "rating": {"score": 9.1}
+            }
+            "#,
+        )
+        .unwrap();
+
+        let metadata = bangumi_subject_to_metadata(subject, DEFAULT_BANGUMI_IMAGE_BASE_URL);
+
+        assert_eq!(metadata.title, "星际牛仔");
+        assert_eq!(metadata.original_title.as_deref(), Some("Cowboy Bebop"));
+        assert_eq!(metadata.release_date.as_deref(), Some("1998-04-03"));
+        assert_eq!(metadata.tags, vec!["科幻", "原创"]);
+        assert_eq!(metadata.studios[0].name, "SUNRISE");
+        assert!(metadata.images.iter().any(|image| {
+            image.provider == ExternalProvider::Bangumi
+                && image.uri == "https://lain.bgm.tv/pic/cover/l/8.jpg"
+        }));
+        assert!(metadata.external_ids.iter().any(|external_id| {
+            external_id.provider == ExternalProvider::Bangumi && external_id.value == "8"
+        }));
+    }
+
+    #[test]
+    fn douban_subject_maps_core_metadata() {
+        let subject: DoubanSubject = serde_json::from_str(
+            r#"
+            {
+              "id": "1292052",
+              "title": "肖申克的救赎",
+              "original_title": "The Shawshank Redemption",
+              "summary": "Hope is a good thing.",
+              "year": "1994",
+              "images": {"large": "https://img.doubanio.com/view/photo/l/public/p480747492.webp"},
+              "genres": ["剧情", "犯罪"],
+              "countries": ["美国"],
+              "directors": [{"id": "1047973", "name": "Frank Darabont"}],
+              "casts": [{"id": "1054521", "name": "Tim Robbins"}],
+              "rating": {"average": 9.7}
+            }
+            "#,
+        )
+        .unwrap();
+
+        let metadata = douban_subject_to_metadata(subject, None);
+
+        assert_eq!(metadata.title, "肖申克的救赎");
+        assert_eq!(
+            metadata.original_title.as_deref(),
+            Some("The Shawshank Redemption")
+        );
+        assert_eq!(metadata.release_date.as_deref(), Some("1994-01-01"));
+        assert_eq!(metadata.genres, vec!["剧情", "犯罪"]);
+        assert!(metadata.credits.iter().any(|credit| {
+            credit.name == "Frank Darabont" && credit.role == CreditRole::Director
+        }));
+        assert!(metadata.external_ids.iter().any(|external_id| {
+            external_id.provider == ExternalProvider::Douban && external_id.value == "1292052"
+        }));
+    }
+
+    #[tokio::test]
+    async fn metadata_http_runtime_retries_and_sends_user_agent() {
+        let server = MockMetadataServer::start().await;
+        let runtime = MetadataHttpRuntime::new(MetadataHttpRuntimeConfig {
+            max_attempts: 2,
+            min_interval_ms: 0,
+            user_agent: "taru-test-agent".to_owned(),
+            ..MetadataHttpRuntimeConfig::default()
+        })
+        .unwrap();
+
+        let body = runtime
+            .get_json("mock", "flaky", server.url("/flaky"), &[], HeaderMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(body["ok"], true);
+        assert_eq!(server.request_count(), 2);
+        assert_eq!(
+            server.user_agents(),
+            vec!["taru-test-agent", "taru-test-agent"]
+        );
+    }
+
+    #[tokio::test]
+    async fn metadata_http_runtime_rate_limits_requests() {
+        let server = MockMetadataServer::start().await;
+        let runtime = MetadataHttpRuntime::new(MetadataHttpRuntimeConfig {
+            min_interval_ms: 40,
+            max_attempts: 1,
+            ..MetadataHttpRuntimeConfig::default()
+        })
+        .unwrap();
+        let started = Instant::now();
+
+        runtime
+            .get_json("mock", "ok", server.url("/ok"), &[], HeaderMap::new())
+            .await
+            .unwrap();
+        runtime
+            .get_json("mock", "ok", server.url("/ok"), &[], HeaderMap::new())
+            .await
+            .unwrap();
+
+        assert!(started.elapsed().as_millis() >= 35);
+    }
+
+    #[tokio::test]
+    async fn bangumi_provider_uses_runtime_and_maps_http_response() {
+        let server = MockMetadataServer::start().await;
+        let provider = BangumiMetadataProvider::new(BangumiProviderConfig {
+            access_token: Some("bangumi-token".to_owned()),
+            api_base_url: server.base_url(),
+            runtime: MetadataHttpRuntimeConfig {
+                min_interval_ms: 0,
+                user_agent: "taru-bangumi-test".to_owned(),
+                ..MetadataHttpRuntimeConfig::default()
+            },
+            ..BangumiProviderConfig::default()
+        })
+        .unwrap();
+
+        let candidates = provider
+            .search(MetadataLookup {
+                kind: Some(MediaKind::Series),
+                title: "Cowboy Bebop".to_owned(),
+                year: Some(1998),
+                language: Some("zh-CN".to_owned()),
+                external_ids: Vec::new(),
+            })
+            .await
+            .unwrap();
+        let fetched = provider
+            .fetch(MetadataFetchRequest {
+                kind: MediaKind::Series,
+                provider_key: candidates[0].provider_key.clone(),
+                language: Some("zh-CN".to_owned()),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(candidates[0].provider, ExternalProvider::Bangumi);
+        assert_eq!(fetched.metadata.title, "星际牛仔");
+        assert!(
+            server
+                .authorizations()
+                .iter()
+                .any(|value| value == "Bearer bangumi-token")
+        );
+    }
+
+    #[tokio::test]
+    async fn douban_provider_uses_api_key_and_maps_http_response() {
+        let server = MockMetadataServer::start().await;
+        let provider = DoubanMetadataProvider::new(DoubanProviderConfig {
+            api_key: Some("douban-key".to_owned()),
+            api_base_url: server.base_url(),
+            runtime: MetadataHttpRuntimeConfig {
+                min_interval_ms: 0,
+                ..MetadataHttpRuntimeConfig::default()
+            },
+            headers: vec![("X-Douban-Test".to_owned(), "ok".to_owned())],
+            ..DoubanProviderConfig::default()
+        })
+        .unwrap();
+
+        let candidates = provider
+            .search(MetadataLookup {
+                kind: Some(MediaKind::Movie),
+                title: "肖申克的救赎".to_owned(),
+                year: Some(1994),
+                language: Some("zh-CN".to_owned()),
+                external_ids: Vec::new(),
+            })
+            .await
+            .unwrap();
+        let fetched = provider
+            .fetch(MetadataFetchRequest {
+                kind: MediaKind::Movie,
+                provider_key: candidates[0].provider_key.clone(),
+                language: Some("zh-CN".to_owned()),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(candidates[0].provider, ExternalProvider::Douban);
+        assert_eq!(fetched.metadata.title, "肖申克的救赎");
+        assert!(
+            server
+                .uris()
+                .iter()
+                .any(|uri| uri.contains("apikey=douban-key"))
+        );
+        assert!(
+            server
+                .headers("x-douban-test")
+                .iter()
+                .any(|value| value == "ok")
+        );
+    }
+
     async fn seed_movie(
         store: &SqliteStore,
         title: &str,
@@ -2076,6 +3575,30 @@ mod tests {
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
         item
+    }
+
+    async fn seed_metadata_job(store: &SqliteStore, item: &MediaItem) -> JobId {
+        store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataRefresh,
+                resource_class: "metadata.test".to_owned(),
+                library_id: None,
+                source_id: None,
+                input_json: Some(
+                    serde_json::to_string(&MetadataRefreshJobInput {
+                        item_id: item.id,
+                        provider: None,
+                        force: false,
+                        language: None,
+                        refresh_mode: MetadataRefreshMode::Default,
+                    })
+                    .unwrap(),
+                ),
+            })
+            .await
+            .unwrap()
+            .id
     }
 
     struct MockMetadataProvider {
@@ -2158,5 +3681,226 @@ mod tests {
             .iter()
             .map(|attempt| (attempt.provider.clone(), attempt.status))
             .collect()
+    }
+
+    #[derive(Clone)]
+    struct MockMetadataServer {
+        base_url: String,
+        state: MockMetadataState,
+    }
+
+    #[derive(Clone, Default)]
+    struct MockMetadataState {
+        requests: Arc<StdMutex<Vec<MockRequest>>>,
+    }
+
+    #[derive(Clone, Debug)]
+    struct MockRequest {
+        uri: String,
+        user_agent: Option<String>,
+        authorization: Option<String>,
+        headers: Vec<(String, String)>,
+    }
+
+    impl MockMetadataServer {
+        async fn start() -> Self {
+            let state = MockMetadataState::default();
+            let router = Router::new()
+                .route("/ok", get(mock_ok))
+                .route("/flaky", get(mock_flaky))
+                .route("/v0/search/subjects", post(mock_bangumi_search))
+                .route("/v0/subjects/{id}", get(mock_bangumi_subject))
+                .route("/movie/search", get(mock_douban_search))
+                .route("/movie/subject/{id}", get(mock_douban_subject))
+                .with_state(state.clone());
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap();
+            });
+
+            Self {
+                base_url: format!("http://{addr}"),
+                state,
+            }
+        }
+
+        fn base_url(&self) -> String {
+            self.base_url.clone()
+        }
+
+        fn url(&self, path: &str) -> String {
+            format!("{}{}", self.base_url, path)
+        }
+
+        fn requests(&self) -> Vec<MockRequest> {
+            self.state.requests.lock().unwrap().clone()
+        }
+
+        fn request_count(&self) -> usize {
+            self.requests().len()
+        }
+
+        fn user_agents(&self) -> Vec<String> {
+            self.requests()
+                .into_iter()
+                .filter_map(|request| request.user_agent)
+                .collect()
+        }
+
+        fn authorizations(&self) -> Vec<String> {
+            self.requests()
+                .into_iter()
+                .filter_map(|request| request.authorization)
+                .collect()
+        }
+
+        fn uris(&self) -> Vec<String> {
+            self.requests()
+                .into_iter()
+                .map(|request| request.uri)
+                .collect()
+        }
+
+        fn headers(&self, name: &str) -> Vec<String> {
+            self.requests()
+                .into_iter()
+                .flat_map(|request| request.headers.into_iter())
+                .filter(|(header_name, _)| header_name.eq_ignore_ascii_case(name))
+                .map(|(_, value)| value)
+                .collect()
+        }
+    }
+
+    fn record_request(state: &MockMetadataState, headers: &AxumHeaderMap, uri: &Uri) -> usize {
+        let request = MockRequest {
+            uri: uri.to_string(),
+            user_agent: headers
+                .get("user-agent")
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned),
+            authorization: headers
+                .get("authorization")
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned),
+            headers: headers
+                .iter()
+                .filter_map(|(name, value)| {
+                    value
+                        .to_str()
+                        .ok()
+                        .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                })
+                .collect(),
+        };
+        let mut requests = state.requests.lock().unwrap();
+        requests.push(request);
+        requests.len()
+    }
+
+    async fn mock_ok(
+        State(state): State<MockMetadataState>,
+        headers: AxumHeaderMap,
+        uri: Uri,
+    ) -> Json<serde_json::Value> {
+        record_request(&state, &headers, &uri);
+        Json(json!({"ok": true}))
+    }
+
+    async fn mock_flaky(
+        State(state): State<MockMetadataState>,
+        headers: AxumHeaderMap,
+        uri: Uri,
+    ) -> Response {
+        let count = record_request(&state, &headers, &uri);
+        if count == 1 {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "retry"})),
+            )
+                .into_response();
+        }
+
+        Json(json!({"ok": true})).into_response()
+    }
+
+    async fn mock_bangumi_search(
+        State(state): State<MockMetadataState>,
+        headers: AxumHeaderMap,
+        uri: Uri,
+    ) -> Json<serde_json::Value> {
+        record_request(&state, &headers, &uri);
+        Json(json!({
+            "data": [{
+                "id": 8,
+                "name": "Cowboy Bebop",
+                "name_cn": "星际牛仔",
+                "summary": "Whatever happens, happens.",
+                "date": "1998-04-03",
+                "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+                "tags": [{"name": "科幻"}],
+                "rating": {"score": 9.1}
+            }]
+        }))
+    }
+
+    async fn mock_bangumi_subject(
+        State(state): State<MockMetadataState>,
+        headers: AxumHeaderMap,
+        uri: Uri,
+    ) -> Json<serde_json::Value> {
+        record_request(&state, &headers, &uri);
+        Json(json!({
+            "id": 8,
+            "name": "Cowboy Bebop",
+            "name_cn": "星际牛仔",
+            "summary": "Whatever happens, happens.",
+            "date": "1998-04-03",
+            "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+            "infobox": [{"key": "动画制作", "value": "SUNRISE"}],
+            "tags": [{"name": "科幻"}],
+            "rating": {"score": 9.1}
+        }))
+    }
+
+    async fn mock_douban_search(
+        State(state): State<MockMetadataState>,
+        headers: AxumHeaderMap,
+        uri: Uri,
+    ) -> Json<serde_json::Value> {
+        record_request(&state, &headers, &uri);
+        Json(json!({
+            "subjects": [{
+                "id": "1292052",
+                "title": "肖申克的救赎",
+                "original_title": "The Shawshank Redemption",
+                "summary": "Hope is a good thing.",
+                "year": "1994",
+                "images": {"large": "https://img.doubanio.com/view/photo/l/public/p480747492.webp"},
+                "genres": ["剧情", "犯罪"],
+                "rating": {"average": 9.7}
+            }]
+        }))
+    }
+
+    async fn mock_douban_subject(
+        State(state): State<MockMetadataState>,
+        headers: AxumHeaderMap,
+        uri: Uri,
+    ) -> Json<serde_json::Value> {
+        record_request(&state, &headers, &uri);
+        Json(json!({
+            "id": "1292052",
+            "title": "肖申克的救赎",
+            "original_title": "The Shawshank Redemption",
+            "summary": "Hope is a good thing.",
+            "year": "1994",
+            "images": {"large": "https://img.doubanio.com/view/photo/l/public/p480747492.webp"},
+            "genres": ["剧情", "犯罪"],
+            "countries": ["美国"],
+            "directors": [{"id": "1047973", "name": "Frank Darabont"}],
+            "casts": [{"id": "1054521", "name": "Tim Robbins"}],
+            "rating": {"average": 9.7}
+        }))
     }
 }

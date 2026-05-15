@@ -7,13 +7,13 @@ use crate::{
     DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId, ItemCredit,
     ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId,
     MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
-    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, OutboxEventRecord, Person, PersonId, ProviderRawResponse, Result,
-    ScanSnapshot, ScanSnapshotId, SourceState, StagingManifestId, StagingManifestRecord,
-    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
-    VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewMetadataProviderAttempt,
+    NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person, PersonId,
+    ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId, SourceState, StagingManifestId,
+    StagingManifestRecord, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState, VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
     WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
     WebhookEndpointId, WebhookEndpointRecord,
 };
@@ -338,6 +338,16 @@ pub trait MetadataRepository: Send + Sync {
         provider: &crate::ExternalProvider,
         provider_key: &str,
     ) -> Result<Option<ProviderRawResponse>>;
+
+    async fn insert_metadata_provider_attempt(
+        &self,
+        attempt: NewMetadataProviderAttempt,
+    ) -> Result<()>;
+
+    async fn list_metadata_provider_attempts(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<crate::MetadataProviderAttemptRecord>>;
 }
 
 #[async_trait]

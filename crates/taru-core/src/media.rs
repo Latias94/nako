@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ArtworkTaskId, CollectionId, GenreId, ImageAssetId, JobStatus, LibraryId, MediaItemId,
-    MediaSourceId, PersonId, ScanSnapshotId, StudioId, TagId,
+    MediaSourceId, MetadataProviderAttemptId, PersonId, ScanSnapshotId, StudioId, TagId,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -845,6 +845,153 @@ pub struct ProviderRawResponse {
     pub provider_key: String,
     pub fetched_at: String,
     pub body_json: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewMetadataProviderAttempt {
+    pub id: MetadataProviderAttemptId,
+    pub job_id: crate::JobId,
+    pub item_id: MediaItemId,
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderAttemptStatus,
+    pub provider_key: Option<String>,
+    pub matched_by: Option<MetadataMatchKind>,
+    pub started_at: String,
+    pub finished_at: String,
+    pub error_class: Option<MetadataProviderErrorClass>,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderAttemptRecord {
+    pub id: MetadataProviderAttemptId,
+    pub job_id: crate::JobId,
+    pub item_id: MediaItemId,
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderAttemptStatus,
+    pub provider_key: Option<String>,
+    pub matched_by: Option<MetadataMatchKind>,
+    pub started_at: String,
+    pub finished_at: String,
+    pub error_class: Option<MetadataProviderErrorClass>,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProviderAttemptStatus {
+    Succeeded,
+    SkippedDisabled,
+    SkippedUnavailable,
+    NotImplemented,
+    NoMatch,
+    Failed,
+}
+
+impl MetadataProviderAttemptStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::SkippedDisabled => "skipped_disabled",
+            Self::SkippedUnavailable => "skipped_unavailable",
+            Self::NotImplemented => "not_implemented",
+            Self::NoMatch => "no_match",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "succeeded" => Ok(Self::Succeeded),
+            "skipped_disabled" => Ok(Self::SkippedDisabled),
+            "skipped_unavailable" => Ok(Self::SkippedUnavailable),
+            "not_implemented" => Ok(Self::NotImplemented),
+            "no_match" => Ok(Self::NoMatch),
+            "failed" => Ok(Self::Failed),
+            _ => Err(crate::TaruError::InvalidInput {
+                message: format!("unknown metadata provider attempt status: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataMatchKind {
+    ExternalId,
+    Search,
+}
+
+impl MetadataMatchKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ExternalId => "external_id",
+            Self::Search => "search",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "external_id" => Ok(Self::ExternalId),
+            "search" => Ok(Self::Search),
+            _ => Err(crate::TaruError::InvalidInput {
+                message: format!("unknown metadata match kind: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProviderErrorClass {
+    Timeout,
+    RateLimited,
+    Network,
+    HttpStatus,
+    Parse,
+    Auth,
+    Unsupported,
+    NoMatch,
+    Unavailable,
+    Unknown,
+}
+
+impl MetadataProviderErrorClass {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Timeout => "timeout",
+            Self::RateLimited => "rate_limited",
+            Self::Network => "network",
+            Self::HttpStatus => "http_status",
+            Self::Parse => "parse",
+            Self::Auth => "auth",
+            Self::Unsupported => "unsupported",
+            Self::NoMatch => "no_match",
+            Self::Unavailable => "unavailable",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "timeout" => Ok(Self::Timeout),
+            "rate_limited" => Ok(Self::RateLimited),
+            "network" => Ok(Self::Network),
+            "http_status" => Ok(Self::HttpStatus),
+            "parse" => Ok(Self::Parse),
+            "auth" => Ok(Self::Auth),
+            "unsupported" => Ok(Self::Unsupported),
+            "no_match" => Ok(Self::NoMatch),
+            "unavailable" => Ok(Self::Unavailable),
+            "unknown" => Ok(Self::Unknown),
+            _ => Err(crate::TaruError::InvalidInput {
+                message: format!("unknown metadata provider error class: {value}"),
+            }),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -16,14 +16,16 @@ use taru_core::{
     JobRepository, JobStatus, Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain,
     MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
     MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock,
-    MetadataRepository, MetadataSource, NewAddonRegistration, NewAutomationArtifact,
-    NewAutomationProviderConfig, NewJob, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
-    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
-    PageRequest, Person, PersonId, ProviderRawResponse, Result, ScanRepository, ScanSnapshot,
-    ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag, TagId, TaruError,
-    TransactionManager, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    MetadataMatchKind, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
+    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewAddonRegistration,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewMetadataProviderAttempt,
+    NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus, PageRequest, Person, PersonId,
+    ProviderRawResponse, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
+    SourceState, Studio, StudioId, Tag, TagId, TaruError, TransactionManager,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure, VfsCacheOperation,
+    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
     WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus, WebhookRepository,
 };
@@ -81,6 +83,14 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0014_staging_manifest",
         include_str!("../migrations/0014_staging_manifest.sql"),
+    ),
+    (
+        "0015_media_source_library_locator",
+        include_str!("../migrations/0015_media_source_library_locator.sql"),
+    ),
+    (
+        "0016_metadata_provider_attempts",
+        include_str!("../migrations/0016_metadata_provider_attempts.sql"),
     ),
 ];
 
@@ -762,6 +772,81 @@ impl MetadataRepository for SqliteStore {
         .map_err(database_error)?;
 
         row.map(row_to_provider_raw_response).transpose()
+    }
+
+    async fn insert_metadata_provider_attempt(
+        &self,
+        attempt: NewMetadataProviderAttempt,
+    ) -> Result<()> {
+        let (provider, _) = provider_to_parts(&attempt.provider);
+
+        sqlx::query(
+            r#"
+            INSERT INTO metadata_provider_attempts (
+                id,
+                job_id,
+                item_id,
+                provider,
+                provider_key,
+                status,
+                matched_by,
+                started_at,
+                finished_at,
+                error_class,
+                message
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            "#,
+        )
+        .bind(attempt.id.to_string())
+        .bind(attempt.job_id.to_string())
+        .bind(attempt.item_id.to_string())
+        .bind(provider)
+        .bind(attempt.provider_key)
+        .bind(attempt.status.as_str())
+        .bind(attempt.matched_by.map(MetadataMatchKind::as_str))
+        .bind(attempt.started_at)
+        .bind(attempt.finished_at)
+        .bind(attempt.error_class.map(MetadataProviderErrorClass::as_str))
+        .bind(attempt.message)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn list_metadata_provider_attempts(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                job_id,
+                item_id,
+                provider,
+                provider_key,
+                status,
+                matched_by,
+                started_at,
+                finished_at,
+                error_class,
+                message
+            FROM metadata_provider_attempts
+            WHERE job_id = ?1
+            ORDER BY started_at ASC, created_at ASC
+            "#,
+        )
+        .bind(job_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_metadata_provider_attempt)
+            .collect()
     }
 }
 
@@ -4289,6 +4374,26 @@ fn row_to_provider_raw_response(row: SqliteRow) -> Result<ProviderRawResponse> {
     })
 }
 
+fn row_to_metadata_provider_attempt(row: SqliteRow) -> Result<MetadataProviderAttemptRecord> {
+    Ok(MetadataProviderAttemptRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        job_id: parse_id(row_get::<String>(&row, "job_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        provider: provider_from_parts(row_get(&row, "provider")?, String::new()),
+        provider_key: row_get(&row, "provider_key")?,
+        status: MetadataProviderAttemptStatus::parse(&row_get::<String>(&row, "status")?)?,
+        matched_by: row_get::<Option<String>>(&row, "matched_by")?
+            .map(|value| MetadataMatchKind::parse(&value))
+            .transpose()?,
+        started_at: row_get(&row, "started_at")?,
+        finished_at: row_get(&row, "finished_at")?,
+        error_class: row_get::<Option<String>>(&row, "error_class")?
+            .map(|value| MetadataProviderErrorClass::parse(&value))
+            .transpose()?,
+        message: row_get(&row, "message")?,
+    })
+}
+
 fn row_to_person(row: SqliteRow, external_ids: Vec<ExternalId>) -> Result<Person> {
     Ok(Person {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -4913,6 +5018,76 @@ mod tests {
                 .await
                 .unwrap(),
             Some(raw)
+        );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_metadata_provider_attempts() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Attempt Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        let job = store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataRefresh,
+                resource_class: "metadata.tmdb".to_owned(),
+                library_id: Some(library.id),
+                source_id: None,
+                input_json: None,
+            })
+            .await
+            .unwrap();
+        let attempt = NewMetadataProviderAttempt {
+            id: taru_core::MetadataProviderAttemptId::new(),
+            job_id: job.id,
+            item_id: item.id,
+            provider: ExternalProvider::Tmdb,
+            status: MetadataProviderAttemptStatus::Succeeded,
+            provider_key: Some("603".to_owned()),
+            matched_by: Some(MetadataMatchKind::Search),
+            started_at: "2026-05-14T00:00:00Z".to_owned(),
+            finished_at: "2026-05-14T00:00:01Z".to_owned(),
+            error_class: None,
+            message: None,
+        };
+
+        store
+            .insert_metadata_provider_attempt(attempt.clone())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            store.list_metadata_provider_attempts(job.id).await.unwrap(),
+            vec![MetadataProviderAttemptRecord {
+                id: attempt.id,
+                job_id: attempt.job_id,
+                item_id: attempt.item_id,
+                provider: attempt.provider,
+                status: attempt.status,
+                provider_key: attempt.provider_key,
+                matched_by: attempt.matched_by,
+                started_at: attempt.started_at,
+                finished_at: attempt.finished_at,
+                error_class: attempt.error_class,
+                message: attempt.message,
+            }]
         );
     }
 
