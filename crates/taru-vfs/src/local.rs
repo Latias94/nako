@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use taru_core::{Result, TaruError};
 
 use crate::{
-    ByteRange, ObjectKind, ObjectMetadata, StorageBackend, StorageCapabilities, StorageUri,
-    VirtualFile,
+    ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
+    StorageCapabilities, StorageUri, VirtualFile,
 };
 
 #[derive(Clone, Debug)]
@@ -128,6 +128,7 @@ impl LocalFsBackend {
             etag: None,
             fingerprint,
             capabilities: local_capabilities(kind),
+            cache: None,
         })
     }
 
@@ -221,6 +222,55 @@ impl StorageBackend for LocalFsBackend {
         })
     }
 
+    async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
+        let path = self.path_for(uri)?;
+        let metadata = fs::metadata(&path).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to read local file metadata: {err}"),
+        })?;
+        if !metadata.is_file() {
+            return Err(TaruError::InvalidInput {
+                message: format!("cannot read non-file local uri: {uri}"),
+            });
+        }
+
+        let bytes = fs::read(&path).map_err(|err| TaruError::Storage {
+            uri: uri.to_string(),
+            message: format!("failed to read local file range: {err}"),
+        })?;
+        let bytes = match range {
+            Some(range) => {
+                validate_range(uri, range, metadata.len())?;
+                let start = usize::try_from(range.offset).map_err(|err| TaruError::Storage {
+                    uri: uri.to_string(),
+                    message: format!("range offset does not fit memory index: {err}"),
+                })?;
+                let end = match range.length {
+                    Some(length) => {
+                        let end = range.offset.checked_add(length).ok_or_else(|| {
+                            TaruError::InvalidInput {
+                                message: format!("range overflows file length: {uri}"),
+                            }
+                        })?;
+                        usize::try_from(end).map_err(|err| TaruError::Storage {
+                            uri: uri.to_string(),
+                            message: format!("range end does not fit memory index: {err}"),
+                        })?
+                    }
+                    None => bytes.len(),
+                };
+                bytes[start..end].to_vec()
+            }
+            None => bytes,
+        };
+
+        Ok(ReadRange {
+            uri: uri.clone(),
+            range,
+            bytes,
+        })
+    }
+
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
         let path = self.path_for(uri)?;
         fs::read_to_string(&path).map_err(|err| TaruError::Storage {
@@ -234,6 +284,26 @@ impl StorageBackend for LocalFsBackend {
         fs::write(&path, content).map_err(|err| TaruError::Storage {
             uri: uri.to_string(),
             message: format!("failed to write local text file: {err}"),
+        })
+    }
+
+    async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        let metadata = self.stat(&request.uri).await?;
+        let file = self.open_range(&request.uri, None).await?;
+        let Some(path) = file.local_path_hint else {
+            return Err(TaruError::Storage {
+                uri: request.uri.to_string(),
+                message: "local backend did not return a local path hint".to_owned(),
+            });
+        };
+
+        Ok(StagedFile {
+            uri: request.uri,
+            path,
+            len: metadata.len,
+            etag: metadata.etag,
+            fingerprint: metadata.fingerprint,
+            reused: true,
         })
     }
 }
@@ -287,6 +357,12 @@ fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
     }
 
     if let Some(length) = range.length {
+        if length == 0 {
+            return Err(TaruError::InvalidInput {
+                message: format!("range length must be greater than zero: {uri}"),
+            });
+        }
+
         let Some(end) = range.offset.checked_add(length) else {
             return Err(TaruError::InvalidInput {
                 message: format!("range overflows file length: {uri}"),

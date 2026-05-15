@@ -8,10 +8,11 @@ use crate::{
     ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId,
     MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration,
     NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
-    NewTranscodeSession, NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person,
-    PersonId, ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId, SourceState, Studio,
-    StudioId, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState, WebhookDeliveryAttemptId,
+    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
+    OutboxEventRecord, Person, PersonId, ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId,
+    SourceState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState, VfsCacheFailure,
+    VfsCacheOperation, VfsCachedListing, VfsCachedObject, WebhookDeliveryAttemptId,
     WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
 };
 
@@ -243,6 +244,28 @@ pub trait ScanRepository: Send + Sync {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<SourceState>>;
+}
+
+#[async_trait]
+pub trait VfsCacheRepository: Send + Sync {
+    async fn upsert_vfs_cache_object(&self, object: &VfsCachedObject) -> Result<()>;
+
+    async fn upsert_vfs_cache_listing(&self, listing: &VfsCachedListing) -> Result<()>;
+
+    async fn get_vfs_cache_object(&self, uri: &str) -> Result<Option<VfsCachedObject>>;
+
+    async fn get_vfs_cache_listing(&self, uri: &str) -> Result<Option<VfsCachedListing>>;
+
+    async fn record_vfs_cache_failure(
+        &self,
+        failure: NewVfsCacheFailure,
+    ) -> Result<VfsCacheFailure>;
+
+    async fn get_vfs_cache_failure(
+        &self,
+        uri: &str,
+        operation: VfsCacheOperation,
+    ) -> Result<Option<VfsCacheFailure>>;
 }
 
 #[async_trait]

@@ -21,30 +21,32 @@
 
 ## Directory and Stat Cache
 
-- [ ] Define cache record model.
-- [ ] Add SQLite migration and repository.
-- [ ] Add TTL and refresh policy.
-- [ ] Add transient failure state.
-- [ ] Ensure cache failures do not directly tombstone catalog sources.
+- [x] Define cache record model.
+- [x] Add SQLite migration and repository.
+- [x] Add TTL and refresh policy.
+- [x] Add transient failure state.
+- [x] Ensure cache failures do not directly tombstone catalog sources.
 
 ## Remote Probe Staging
 
-- [ ] Define staging service API.
-- [ ] Add deterministic staging paths.
-- [ ] Validate staged file reuse by size/etag/fingerprint.
+- [x] Define staging service API.
+- [x] Add deterministic staging paths.
+- [x] Validate staged file reuse by size/etag/fingerprint.
 - [ ] Add disk budget and cleanup policy.
-- [ ] Route remote probe inputs through staging.
+- [x] Route remote probe inputs through staging.
 
 ## Remote Playback
 
-- [ ] Stream remote range-readable sources without local path hints.
-- [ ] Define remux staging policy for remote inputs.
-- [ ] Define HLS staging policy for remote inputs.
-- [ ] Extend playback decisions with remote storage constraints.
+- [x] Stream remote range-readable sources without local path hints.
+- [x] Define remux staging policy for remote inputs.
+- [x] Define HLS staging policy for remote inputs.
+- [ ] Extend playback decisions with remote storage constraints beyond the
+      initial VFS range/local-path policy.
 - [ ] Add failure mapping for remote storage timeouts and stale cache.
 
 ## Stabilization
 
+- [ ] Add first-class WebDAV preview configuration to server setup.
 - [ ] Update local setup docs for WebDAV preview.
 - [ ] Update HTTP API docs and known limitations.
 - [ ] Run workspace validation gates.

@@ -322,12 +322,72 @@ Evidence:
 - [Phase 6.0](workstreams/storage-vfs/PHASE6_0_REMOTE_STORAGE_DESIGN_BASELINE.md)
   records the local-path dependency audit and M6 milestone split.
 
+### M6.1: WebDAV Read-Only VFS Backend
+
+Status: completed.
+
+Evidence:
+
+- `taru-vfs::WebDavBackend` implements read-only `stat`, `list`, and
+  `open_range`.
+- `VfsLibraryScanner` can scan a mocked WebDAV library without plaintext
+  credentials in source locators.
+- [Phase 6.1](workstreams/storage-vfs/PHASE6_1_WEBDAV_READ_ONLY_BACKEND.md)
+  records validation and limitations.
+
+### M6.2: Directory and Stat Cache
+
+Status: completed.
+
+Evidence:
+
+- `taru-core` defines VFS cache object, listing, failure, and repository
+  contracts.
+- `taru-db` migration `0013_vfs_cache.sql` persists cached stat/list metadata
+  and transient failure state.
+- `taru-vfs::CachedStorageBackend` reuses fresh cache and serves stale cache on
+  transient storage errors.
+- `LibraryIndexService` skips tombstoning when a scan used stale VFS cache.
+- [Phase 6.2](workstreams/storage-vfs/PHASE6_2_DIRECTORY_STAT_CACHE.md)
+  records validation and remaining cache gaps.
+
+### M6.3: Remote Probe Staging
+
+Status: completed.
+
+Evidence:
+
+- `taru-vfs` defines `StageRequest`, `StagedFile`, deterministic staging paths,
+  and `StorageBackend::stage`.
+- `taru-vfs::WebDavBackend` can stage a remote media object to a deterministic
+  local path and reuse it when size still matches.
+- `LibraryProbeService` uses staging when a backend returns no local path hint.
+- [Phase 6.3](workstreams/storage-vfs/PHASE6_3_REMOTE_PROBE_STAGING.md)
+  records validation and remaining staging gaps.
+
+### M6.4: Remote Playback Policy
+
+Status: completed.
+
+Evidence:
+
+- `StorageBackend::read_range` gives direct play a VFS byte path when a source
+  has no local path hint.
+- `taru-vfs::WebDavBackend` uses HTTP `Range` GET for byte windows.
+- Remux and HLS input planning stages remote sources under
+  `remux_staging_root/inputs` before invoking FFmpeg.
+- Tests cover remote direct-play bytes, remote FFmpeg staging, local path-hint
+  reuse, WebDAV range GET, and WebDAV staging.
+- [Phase 6.4](workstreams/storage-vfs/PHASE6_4_REMOTE_PLAYBACK_POLICY.md)
+  records validation and remaining production config/API gaps.
+
 ## Recommended Next Implementation Goal
 
-### M6.1: WebDAV Read-Only VFS Backend
+### M6.5: Remote Storage Stabilization
 
 Status: proposed.
 
-Implement a read-only WebDAV backend for `taru-vfs`, including configuration
-with secret references, `stat`, `list`, `open_range`, conservative timeout and
-retry behavior, and mocked WebDAV server tests.
+Wire the WebDAV preview into server configuration and setup docs, document HTTP
+API behavior and known limitations, run the full validation matrix, and decide
+whether the next large goal should split into `playback-streaming` or continue
+remote-storage hardening.

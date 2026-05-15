@@ -3,14 +3,14 @@ use std::{env, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use reqwest::{
     Client, Method, StatusCode, Url,
-    header::{CONTENT_TYPE, HeaderMap, HeaderValue},
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue, RANGE},
 };
 use roxmltree::Document;
 use taru_core::{Result, TaruError};
 
 use crate::{
-    ByteRange, ObjectKind, ObjectMetadata, StorageBackend, StorageCapabilities, StorageUri,
-    VirtualFile,
+    ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
+    StorageCapabilities, StorageUri, VirtualFile, deterministic_stage_path,
 };
 
 #[derive(Clone, Debug)]
@@ -220,6 +220,55 @@ impl WebDavBackend {
         }
     }
 
+    async fn get_response(&self, uri: &StorageUri) -> Result<reqwest::Response> {
+        let url = self.url_for(uri)?;
+        let response = self
+            .send_with_retry(|| {
+                let request = self.client.get(url.clone()).timeout(self.timeout);
+                self.apply_auth(request)
+            })
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: format!("WebDAV GET returned {}", response.status()),
+            });
+        }
+
+        Ok(response)
+    }
+
+    async fn get_range_response(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> Result<reqwest::Response> {
+        let url = self.url_for(uri)?;
+        let response = self
+            .send_with_retry(|| {
+                let mut request = self.client.get(url.clone()).timeout(self.timeout);
+                if let Some(range) = range {
+                    request = request.header(RANGE, http_range_value(range));
+                }
+                self.apply_auth(request)
+            })
+            .await?;
+
+        let accepted = match range {
+            Some(_) => response.status() == StatusCode::PARTIAL_CONTENT,
+            None => response.status().is_success(),
+        };
+        if !accepted {
+            return Err(TaruError::Storage {
+                uri: uri.to_string(),
+                message: format!("WebDAV range GET returned {}", response.status()),
+            });
+        }
+
+        Ok(response)
+    }
+
     async fn send_with_retry<F>(&self, mut build: F) -> Result<reqwest::Response>
     where
         F: FnMut() -> reqwest::RequestBuilder,
@@ -296,26 +345,44 @@ impl StorageBackend for WebDavBackend {
         })
     }
 
-    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
-        let url = self.url_for(uri)?;
-        let response = self
-            .send_with_retry(|| {
-                let request = self.client.get(url.clone()).timeout(self.timeout);
-                self.apply_auth(request)
-            })
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: format!("WebDAV GET returned {}", response.status()),
+    async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
+        let metadata = self.stat(uri).await?;
+        if metadata.kind != ObjectKind::File {
+            return Err(TaruError::InvalidInput {
+                message: format!("cannot read non-file WebDAV uri: {uri}"),
             });
         }
+        if let Some(range) = range {
+            if let Some(len) = metadata.len {
+                validate_range(uri, range, len)?;
+            }
+        }
 
-        response.text().await.map_err(|err| TaruError::Storage {
+        let mut response = self.get_range_response(uri, range).await?;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|err| TaruError::Storage {
             uri: uri.to_string(),
-            message: format!("failed to read WebDAV text response: {err}"),
+            message: format!("failed to read WebDAV range response: {err}"),
+        })? {
+            bytes.extend_from_slice(&chunk);
+        }
+
+        Ok(ReadRange {
+            uri: uri.clone(),
+            range,
+            bytes,
         })
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        self.get_response(uri)
+            .await?
+            .text()
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: uri.to_string(),
+                message: format!("failed to read WebDAV text response: {err}"),
+            })
     }
 
     async fn write_string(&self, uri: &StorageUri, _content: &str) -> Result<()> {
@@ -323,6 +390,96 @@ impl StorageBackend for WebDavBackend {
         Err(TaruError::Unsupported(
             "WebDAV backend is read-only in M6.1",
         ))
+    }
+
+    async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        let metadata = self.stat(&request.uri).await?;
+        if metadata.kind != ObjectKind::File {
+            return Err(TaruError::InvalidInput {
+                message: format!("cannot stage non-file WebDAV uri: {}", request.uri),
+            });
+        }
+
+        let stage_path = deterministic_stage_path(
+            &request.root,
+            &request.uri,
+            metadata.fingerprint.as_deref().or(metadata.etag.as_deref()),
+        )?;
+        if staged_file_matches(&stage_path, metadata.len).await? {
+            return Ok(StagedFile {
+                uri: request.uri,
+                path: stage_path,
+                len: metadata.len,
+                etag: metadata.etag,
+                fingerprint: metadata.fingerprint,
+                reused: true,
+            });
+        }
+
+        if let Some(parent) = stage_path.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: parent.display().to_string(),
+                    message: format!("failed to create WebDAV staging directory: {err}"),
+                })?;
+        }
+        let temp_path = stage_path.with_extension(format!(
+            "{}tmp",
+            stage_path
+                .extension()
+                .and_then(|value| value.to_str())
+                .map(|value| format!("{value}."))
+                .unwrap_or_default()
+        ));
+        let mut file =
+            tokio::fs::File::create(&temp_path)
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: temp_path.display().to_string(),
+                    message: format!("failed to create WebDAV staging file: {err}"),
+                })?;
+        let mut response = self.get_response(&request.uri).await?;
+
+        while let Some(chunk) = response.chunk().await.map_err(|err| TaruError::Storage {
+            uri: request.uri.to_string(),
+            message: format!("failed to read WebDAV staging response: {err}"),
+        })? {
+            tokio::io::AsyncWriteExt::write_all(&mut file, &chunk)
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: temp_path.display().to_string(),
+                    message: format!("failed to write WebDAV staging file: {err}"),
+                })?;
+        }
+        tokio::io::AsyncWriteExt::flush(&mut file)
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: temp_path.display().to_string(),
+                message: format!("failed to flush WebDAV staging file: {err}"),
+            })?;
+
+        if !staged_file_matches(&temp_path, metadata.len).await? {
+            return Err(TaruError::Storage {
+                uri: request.uri.to_string(),
+                message: "staged WebDAV file did not match expected size".to_owned(),
+            });
+        }
+        tokio::fs::rename(&temp_path, &stage_path)
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: stage_path.display().to_string(),
+                message: format!("failed to promote WebDAV staging file: {err}"),
+            })?;
+
+        Ok(StagedFile {
+            uri: request.uri,
+            path: stage_path,
+            len: metadata.len,
+            etag: metadata.etag,
+            fingerprint: metadata.fingerprint,
+            reused: false,
+        })
     }
 }
 
@@ -355,6 +512,7 @@ impl WebDavProp {
             etag: self.etag,
             fingerprint,
             capabilities: webdav_capabilities(self.kind),
+            cache: None,
         }
     }
 }
@@ -508,6 +666,12 @@ fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
     }
 
     if let Some(length) = range.length {
+        if length == 0 {
+            return Err(TaruError::InvalidInput {
+                message: format!("range length must be greater than zero: {uri}"),
+            });
+        }
+
         let Some(end) = range.offset.checked_add(length) else {
             return Err(TaruError::InvalidInput {
                 message: format!("range overflows file length: {uri}"),
@@ -522,6 +686,28 @@ fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn http_range_value(range: ByteRange) -> String {
+    match range.length {
+        Some(length) => format!("bytes={}-{}", range.offset, range.offset + length - 1),
+        None => format!("bytes={}-", range.offset),
+    }
+}
+
+async fn staged_file_matches(path: &std::path::Path, len: Option<u64>) -> Result<bool> {
+    let metadata = match tokio::fs::metadata(path).await {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(err) => {
+            return Err(TaruError::Storage {
+                uri: path.display().to_string(),
+                message: format!("failed to read staged file metadata: {err}"),
+            });
+        }
+    };
+
+    Ok(metadata.is_file() && len.is_none_or(|expected| metadata.len() == expected))
 }
 
 #[cfg(test)]
@@ -596,6 +782,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn webdav_backend_reads_byte_ranges_with_http_range_header() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig::new(server.base_url())).unwrap();
+        let movie = StorageUri::from_parts("webdav", "Movies/Demo.mkv").unwrap();
+
+        let read = backend
+            .read_range(
+                &movie,
+                Some(ByteRange {
+                    offset: 1,
+                    length: Some(2),
+                }),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(read.uri, movie);
+        assert_eq!(
+            read.range,
+            Some(ByteRange {
+                offset: 1,
+                length: Some(2)
+            })
+        );
+        assert_eq!(read.bytes, b"ar");
+        assert_eq!(server.last_range().as_deref(), Some("bytes=1-2"));
+    }
+
+    #[tokio::test]
     async fn webdav_backend_uses_secret_reference_without_leaking_credentials_to_locator() {
         let server = MockWebDavServer::start().await;
         let resolver = Arc::new(TestSecretResolver::new([(
@@ -657,6 +872,31 @@ mod tests {
         assert!(err.to_string().contains("read-only"));
     }
 
+    #[tokio::test]
+    async fn webdav_backend_stages_file_to_deterministic_local_path() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig::new(server.base_url())).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let uri = StorageUri::from_parts("webdav", "Movies/Demo.mkv").unwrap();
+
+        let first = backend
+            .stage(StageRequest::new(uri.clone(), temp.path()))
+            .await
+            .unwrap();
+        let second = backend
+            .stage(StageRequest::new(uri.clone(), temp.path()))
+            .await
+            .unwrap();
+
+        assert_eq!(first.uri, uri);
+        assert!(first.path.starts_with(temp.path()));
+        assert_eq!(first.len, Some(4));
+        assert!(!first.reused);
+        assert_eq!(tokio::fs::read(&first.path).await.unwrap(), b"taru");
+        assert_eq!(second.path, first.path);
+        assert!(second.reused);
+    }
+
     #[derive(Default)]
     struct TestSecretResolver {
         values: HashMap<String, String>,
@@ -684,6 +924,7 @@ mod tests {
     #[derive(Clone, Default)]
     struct MockWebDavState {
         last_authorization: Arc<Mutex<Option<String>>>,
+        last_range: Arc<Mutex<Option<String>>>,
     }
 
     struct MockWebDavServer {
@@ -713,6 +954,10 @@ mod tests {
         fn last_authorization(&self) -> Option<String> {
             self.state.last_authorization.lock().unwrap().clone()
         }
+
+        fn last_range(&self) -> Option<String> {
+            self.state.last_range.lock().unwrap().clone()
+        }
     }
 
     async fn webdav_handler(
@@ -724,6 +969,9 @@ mod tests {
     ) -> Response {
         if let Some(value) = headers.get(header::AUTHORIZATION) {
             *state.last_authorization.lock().unwrap() = Some(value.to_str().unwrap().to_owned());
+        }
+        if let Some(value) = headers.get(header::RANGE) {
+            *state.last_range.lock().unwrap() = Some(value.to_str().unwrap().to_owned());
         }
 
         let path = uri.path();
@@ -769,6 +1017,24 @@ mod tests {
 
         if method == axum::http::Method::GET && path.ends_with("/Movies/Demo.nfo") {
             return "nfo".into_response();
+        }
+
+        if method == axum::http::Method::GET && path.ends_with("/Movies/Demo.mkv") {
+            if headers
+                .get(header::RANGE)
+                .is_some_and(|value| value == "bytes=1-2")
+            {
+                return (
+                    AxumStatusCode::PARTIAL_CONTENT,
+                    [
+                        (header::CONTENT_RANGE, "bytes 1-2/4"),
+                        (header::CONTENT_LENGTH, "2"),
+                    ],
+                    "ar",
+                )
+                    .into_response();
+            }
+            return "taru".into_response();
         }
 
         let _ = to_bytes(body, usize::MAX).await.unwrap();

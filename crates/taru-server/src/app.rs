@@ -56,7 +56,7 @@ use taru_transcode::{
     FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
-use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
+use taru_vfs::{ByteRange, LocalFsBackend, StageRequest, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -107,8 +107,14 @@ pub struct NfoExportCommandOutput {
 #[derive(Clone, Debug)]
 pub struct DirectPlaySourcePlan {
     pub source: MediaSource,
-    pub local_path: PathBuf,
+    pub body: DirectPlaySourceBody,
     pub response: DirectPlayResponsePlan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DirectPlaySourceBody {
+    LocalPath(PathBuf),
+    Bytes(Vec<u8>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1006,13 +1012,14 @@ impl TaruApp {
         range_request: DirectPlayRangeRequest,
     ) -> Result<DirectPlaySourcePlan> {
         let source = self.get_source_or_not_found(source_id).await?;
-        let (local_path, total_len) = self.local_source_path_and_len(&source).await?;
-        let content_type = content_type_for_file_name(&source.file_name).to_owned();
-        let response = plan_direct_play_response(total_len, content_type, range_request);
+        let uri = StorageUri::parse(&source.locator)?;
+        let backend = self.storage_backend_for_source(&uri)?;
+        let (response, body) =
+            plan_direct_play_with_backend(&source, &uri, backend.as_ref(), range_request).await?;
 
         Ok(DirectPlaySourcePlan {
             source,
-            local_path,
+            body,
             response,
         })
     }
@@ -1028,7 +1035,7 @@ impl TaruApp {
             ));
         }
 
-        let (local_path, _total_len) = self.local_source_path_and_len(&source).await?;
+        let local_path = self.source_path_for_ffmpeg(&source).await?;
         let staging = RemuxStagingPolicy::new(&self.config().remux_staging_root)?;
         let output_path = staging.output_path(source.id, request.output_container)?;
 
@@ -1049,7 +1056,7 @@ impl TaruApp {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe = self.inner.store.get_media_probe(source.id).await?;
         let decision = decide_playback(&source, probe.as_ref(), &request.client);
-        let (local_path, _total_len) = self.local_source_path_and_len(&source).await?;
+        let local_path = self.source_path_for_ffmpeg(&source).await?;
         let staging = HlsStagingPolicy::new(self.config().remux_staging_root.join("hls"))?;
         let layout = staging.single_variant_layout(source.id)?;
 
@@ -1149,26 +1156,25 @@ impl TaruApp {
             })
     }
 
-    async fn local_source_path_and_len(&self, source: &MediaSource) -> Result<(PathBuf, u64)> {
+    async fn source_path_for_ffmpeg(&self, source: &MediaSource) -> Result<PathBuf> {
         let uri = StorageUri::parse(&source.locator)?;
-        let backend = LocalFsBackend::new(&self.config().library.root)?;
-        let metadata = backend.stat(&uri).await?;
-        let virtual_file = backend.open_range(&uri, None).await?;
-        let local_path = virtual_file.local_path_hint.ok_or_else(|| {
-            TaruError::Unsupported("local playback operations currently require a local path hint")
-        })?;
-        let total_len = match metadata.len {
-            Some(len) => len,
-            None => tokio::fs::metadata(&local_path)
-                .await
-                .map_err(|err| TaruError::Storage {
-                    uri: source.locator.clone(),
-                    message: format!("failed to read direct play source length: {err}"),
-                })?
-                .len(),
-        };
+        let backend = self.storage_backend_for_source(&uri)?;
+        source_path_for_ffmpeg_with_backend(
+            source,
+            &uri,
+            backend.as_ref(),
+            self.config().remux_staging_root.join("inputs"),
+        )
+        .await
+    }
 
-        Ok((local_path, total_len))
+    fn storage_backend_for_source(&self, uri: &StorageUri) -> Result<Box<dyn StorageBackend>> {
+        match uri.scheme() {
+            "local" => Ok(Box::new(LocalFsBackend::new(&self.config().library.root)?)),
+            _ => Err(TaruError::Unsupported(
+                "configured server storage backend is not available for this source",
+            )),
+        }
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
@@ -2492,6 +2498,7 @@ impl TaruApp {
             self.inner.store.clone(),
             LibraryProbeOptions {
                 max_concurrent_probes: self.config().probe_concurrency.max(1),
+                staging_root: None,
             },
         );
         let probe = probe_service
@@ -2786,6 +2793,83 @@ fn map_hls_runner_error(error: TaruError) -> TaruError {
     }
 }
 
+async fn plan_direct_play_with_backend(
+    source: &MediaSource,
+    uri: &StorageUri,
+    backend: &dyn StorageBackend,
+    range_request: DirectPlayRangeRequest,
+) -> Result<(DirectPlayResponsePlan, DirectPlaySourceBody)> {
+    let metadata = backend.stat(uri).await?;
+    let total_len = metadata.len.ok_or_else(|| TaruError::Storage {
+        uri: source.locator.clone(),
+        message: "direct play requires a known source length".to_owned(),
+    })?;
+    let content_type = content_type_for_file_name(&source.file_name).to_owned();
+    let response = plan_direct_play_response(total_len, content_type, range_request);
+
+    if response.is_range_not_satisfiable() {
+        return Ok((response, DirectPlaySourceBody::Bytes(Vec::new())));
+    }
+
+    match local_source_path_and_len(source, uri, backend).await {
+        Ok((local_path, _total_len)) => {
+            return Ok((response, DirectPlaySourceBody::LocalPath(local_path)));
+        }
+        Err(TaruError::Unsupported(_)) => {}
+        Err(err) => return Err(err),
+    }
+
+    let range = response.range.map(|range| ByteRange {
+        offset: range.start,
+        length: Some(range.len()),
+    });
+    let read = backend.read_range(uri, range).await?;
+
+    Ok((response, DirectPlaySourceBody::Bytes(read.bytes)))
+}
+
+async fn source_path_for_ffmpeg_with_backend(
+    source: &MediaSource,
+    uri: &StorageUri,
+    backend: &dyn StorageBackend,
+    staging_root: PathBuf,
+) -> Result<PathBuf> {
+    match local_source_path_and_len(source, uri, backend).await {
+        Ok((path, _len)) => Ok(path),
+        Err(TaruError::Unsupported(_)) => {
+            let staged = backend
+                .stage(StageRequest::new(uri.clone(), staging_root))
+                .await?;
+            Ok(staged.path)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+async fn local_source_path_and_len(
+    source: &MediaSource,
+    uri: &StorageUri,
+    backend: &dyn StorageBackend,
+) -> Result<(PathBuf, u64)> {
+    let metadata = backend.stat(uri).await?;
+    let virtual_file = backend.open_range(uri, None).await?;
+    let local_path = virtual_file.local_path_hint.ok_or_else(|| {
+        TaruError::Unsupported("local playback operations currently require a local path hint")
+    })?;
+    let total_len = match metadata.len {
+        Some(len) => len,
+        None => tokio::fs::metadata(&local_path)
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: source.locator.clone(),
+                message: format!("failed to read playback source length: {err}"),
+            })?
+            .len(),
+    };
+
+    Ok((local_path, total_len))
+}
+
 fn path_exists(path: &Path) -> Result<bool> {
     path.try_exists().map_err(|err| TaruError::Storage {
         uri: path.display().to_string(),
@@ -2935,6 +3019,7 @@ mod tests {
         path::{Path, PathBuf},
     };
 
+    use async_trait::async_trait;
     use taru_core::{
         CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId,
         JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
@@ -2943,6 +3028,9 @@ mod tests {
     };
     use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus};
     use taru_transcode::RemuxContainer;
+    use taru_vfs::{
+        ObjectKind, ObjectMetadata, ReadRange, StagedFile, StorageCapabilities, VirtualFile,
+    };
 
     use super::*;
     use crate::config::{LocalLibraryConfig, MetadataConfig, TranscodeConfig};
@@ -3756,6 +3844,79 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn direct_play_uses_vfs_bytes_when_backend_has_no_local_path() {
+        let backend = RemotePlaybackBackend {
+            bytes: b"remote-media".to_vec(),
+            local_path_hint: None,
+        };
+        let source = remote_media_source("webdav:///Movies/Demo.mkv");
+        let uri = StorageUri::parse(&source.locator).unwrap();
+        let range = taru_streaming::RequestedByteRange {
+            start: Some(2),
+            end: Some(5),
+        };
+
+        let (response, body) = plan_direct_play_with_backend(
+            &source,
+            &uri,
+            &backend,
+            DirectPlayRangeRequest::Range(range),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.body_len, 4);
+        assert_eq!(response.content_range.as_deref(), Some("bytes 2-5/12"));
+        assert_eq!(body, DirectPlaySourceBody::Bytes(b"mote".to_vec()));
+    }
+
+    #[tokio::test]
+    async fn ffmpeg_source_path_stages_remote_backend_without_local_path_hint() {
+        let temp = tempfile::tempdir().unwrap();
+        let backend = RemotePlaybackBackend {
+            bytes: b"remote-media".to_vec(),
+            local_path_hint: None,
+        };
+        let source = remote_media_source("webdav:///Movies/Demo.mkv");
+        let uri = StorageUri::parse(&source.locator).unwrap();
+        let staging_root = temp.path().join("remux").join("inputs");
+
+        let input_path =
+            source_path_for_ffmpeg_with_backend(&source, &uri, &backend, staging_root.clone())
+                .await
+                .unwrap();
+
+        assert!(input_path.starts_with(&staging_root));
+        assert_eq!(fs::read(&input_path).unwrap(), b"remote-media");
+        assert!(!input_path.display().to_string().contains("webdav://"));
+    }
+
+    #[tokio::test]
+    async fn ffmpeg_source_path_reuses_local_path_hint_without_staging() {
+        let temp = tempfile::tempdir().unwrap();
+        let local_path = temp.path().join("library").join("demo.mkv");
+        fs::create_dir_all(local_path.parent().unwrap()).unwrap();
+        fs::write(&local_path, b"local-media").unwrap();
+        let backend = RemotePlaybackBackend {
+            bytes: b"remote-media".to_vec(),
+            local_path_hint: Some(local_path.clone()),
+        };
+        let source = remote_media_source("local:///demo.mkv");
+        let uri = StorageUri::parse(&source.locator).unwrap();
+
+        let input_path = source_path_for_ffmpeg_with_backend(
+            &source,
+            &uri,
+            &backend,
+            temp.path().join("remux").join("inputs"),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(input_path, local_path);
+    }
+
     #[test]
     fn remux_staging_policy_rejects_escaping_roots() {
         assert!(RemuxStagingPolicy::new(PathBuf::new()).is_err());
@@ -3791,6 +3952,122 @@ mod tests {
                 .and_then(|value| value.to_str()),
             Some("playlist.m3u8")
         );
+    }
+
+    fn remote_media_source(locator: &str) -> MediaSource {
+        MediaSource {
+            id: MediaSourceId::new(),
+            item_id: MediaItemId::new(),
+            locator: locator.to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(12),
+            fingerprint: Some("remote-fingerprint".to_owned()),
+        }
+    }
+
+    struct RemotePlaybackBackend {
+        bytes: Vec<u8>,
+        local_path_hint: Option<PathBuf>,
+    }
+
+    #[async_trait]
+    impl StorageBackend for RemotePlaybackBackend {
+        fn scheme(&self) -> &'static str {
+            "webdav"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::File,
+                len: Some(self.bytes.len() as u64),
+                modified_at: None,
+                etag: Some("etag-remote".to_owned()),
+                fingerprint: Some("remote-fingerprint".to_owned()),
+                capabilities: StorageCapabilities::RANGE_READABLE
+                    | StorageCapabilities::REMOTE_LATENCY,
+                cache: None,
+            })
+        }
+
+        async fn list(&self, _uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(Vec::new())
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<VirtualFile> {
+            Ok(VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: self.local_path_hint.clone(),
+            })
+        }
+
+        async fn read_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<ReadRange> {
+            let bytes = match range {
+                Some(range) => {
+                    let start = range.offset as usize;
+                    let end = range
+                        .length
+                        .map(|length| start + length as usize)
+                        .unwrap_or(self.bytes.len());
+                    self.bytes[start..end].to_vec()
+                }
+                None => self.bytes.clone(),
+            };
+
+            Ok(ReadRange {
+                uri: uri.clone(),
+                range,
+                bytes,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Ok(String::new())
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(TaruError::Unsupported("test backend is read-only"))
+        }
+
+        async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+            let path = taru_vfs::deterministic_stage_path(
+                &request.root,
+                &request.uri,
+                Some("remote-fingerprint"),
+            )?;
+            if let Some(parent) = path.parent() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .map_err(|err| TaruError::Storage {
+                        uri: parent.display().to_string(),
+                        message: format!("failed to create test staging directory: {err}"),
+                    })?;
+            }
+            tokio::fs::write(&path, &self.bytes)
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: path.display().to_string(),
+                    message: format!("failed to write test staging file: {err}"),
+                })?;
+
+            Ok(StagedFile {
+                uri: request.uri,
+                path,
+                len: Some(self.bytes.len() as u64),
+                etag: Some("etag-remote".to_owned()),
+                fingerprint: Some("remote-fingerprint".to_owned()),
+                reused: false,
+            })
+        }
     }
 
     fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {

@@ -17,12 +17,13 @@ use taru_core::{
     MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
     MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock,
     MetadataRepository, MetadataSource, NewAddonRegistration, NewAutomationArtifact,
-    NewAutomationProviderConfig, NewJob, NewOutboxEvent, NewTranscodeSession,
+    NewAutomationProviderConfig, NewJob, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
     PageRequest, Person, PersonId, ProviderRawResponse, Result, ScanRepository, ScanSnapshot,
     ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag, TagId, TaruError,
     TransactionManager, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
+    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure,
+    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
     WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus, WebhookRepository,
 };
@@ -71,6 +72,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("../migrations/0011_automation.sql"),
     ),
     ("0012_addons", include_str!("../migrations/0012_addons.sql")),
+    (
+        "0013_vfs_cache",
+        include_str!("../migrations/0013_vfs_cache.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]
@@ -3098,6 +3103,210 @@ impl ScanRepository for SqliteStore {
 }
 
 #[async_trait::async_trait]
+impl VfsCacheRepository for SqliteStore {
+    async fn upsert_vfs_cache_object(&self, object: &VfsCachedObject) -> Result<()> {
+        sqlx::query(vfs_cache_object_upsert_sql())
+            .bind(&object.uri)
+            .bind(&object.scheme)
+            .bind(object.kind.as_str())
+            .bind(optional_u64_to_i64(object.len)?)
+            .bind(&object.modified_at)
+            .bind(&object.etag)
+            .bind(&object.fingerprint)
+            .bind(u32_to_i64(object.capabilities_bits))
+            .bind(object.fetched_at_ms)
+            .bind(object.fresh_until_ms)
+            .execute(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn upsert_vfs_cache_listing(&self, listing: &VfsCachedListing) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        upsert_vfs_cache_object_tx(&mut transaction, &listing.directory).await?;
+        for entry in &listing.entries {
+            upsert_vfs_cache_object_tx(&mut transaction, entry).await?;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO vfs_cache_listings (
+                uri, scheme, fetched_at_ms, fresh_until_ms
+            )
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(uri) DO UPDATE SET
+                scheme = excluded.scheme,
+                fetched_at_ms = excluded.fetched_at_ms,
+                fresh_until_ms = excluded.fresh_until_ms,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(&listing.directory.uri)
+        .bind(&listing.directory.scheme)
+        .bind(listing.fetched_at_ms)
+        .bind(listing.fresh_until_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM vfs_cache_listing_entries WHERE listing_uri = ?1")
+            .bind(&listing.directory.uri)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+        for (index, entry) in listing.entries.iter().enumerate() {
+            sqlx::query(
+                r#"
+                INSERT INTO vfs_cache_listing_entries (
+                    listing_uri, entry_uri, sort_order
+                )
+                VALUES (?1, ?2, ?3)
+                "#,
+            )
+            .bind(&listing.directory.uri)
+            .bind(&entry.uri)
+            .bind(u64_to_i64(index as u64)?)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+        Ok(())
+    }
+
+    async fn get_vfs_cache_object(&self, uri: &str) -> Result<Option<VfsCachedObject>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                uri, scheme, kind, len, modified_at, etag, fingerprint,
+                capabilities_bits, fetched_at_ms, fresh_until_ms
+            FROM vfs_cache_objects
+            WHERE uri = ?1
+            "#,
+        )
+        .bind(uri)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_vfs_cached_object).transpose()
+    }
+
+    async fn get_vfs_cache_listing(&self, uri: &str) -> Result<Option<VfsCachedListing>> {
+        let listing_row = sqlx::query(
+            r#"
+            SELECT uri, fetched_at_ms, fresh_until_ms
+            FROM vfs_cache_listings
+            WHERE uri = ?1
+            "#,
+        )
+        .bind(uri)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let Some(listing_row) = listing_row else {
+            return Ok(None);
+        };
+
+        let directory =
+            self.get_vfs_cache_object(uri)
+                .await?
+                .ok_or_else(|| TaruError::Database {
+                    message: format!("VFS cache listing missing directory object: {uri}"),
+                })?;
+
+        let entry_rows = sqlx::query(
+            r#"
+            SELECT
+                object.uri, object.scheme, object.kind, object.len,
+                object.modified_at, object.etag, object.fingerprint,
+                object.capabilities_bits, object.fetched_at_ms, object.fresh_until_ms
+            FROM vfs_cache_listing_entries entry
+            JOIN vfs_cache_objects object ON object.uri = entry.entry_uri
+            WHERE entry.listing_uri = ?1
+            ORDER BY entry.sort_order ASC, entry.entry_uri ASC
+            "#,
+        )
+        .bind(uri)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(Some(VfsCachedListing {
+            directory,
+            entries: entry_rows
+                .into_iter()
+                .map(row_to_vfs_cached_object)
+                .collect::<Result<Vec<_>>>()?,
+            fetched_at_ms: row_get(&listing_row, "fetched_at_ms")?,
+            fresh_until_ms: row_get(&listing_row, "fresh_until_ms")?,
+        }))
+    }
+
+    async fn record_vfs_cache_failure(
+        &self,
+        failure: NewVfsCacheFailure,
+    ) -> Result<VfsCacheFailure> {
+        sqlx::query(
+            r#"
+            INSERT INTO vfs_cache_failures (
+                uri, scheme, operation, failed_at_ms, failure_count, error
+            )
+            VALUES (?1, ?2, ?3, ?4, 1, ?5)
+            ON CONFLICT(uri, operation) DO UPDATE SET
+                scheme = excluded.scheme,
+                failed_at_ms = excluded.failed_at_ms,
+                failure_count = vfs_cache_failures.failure_count + 1,
+                error = excluded.error,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(&failure.uri)
+        .bind(&failure.scheme)
+        .bind(failure.operation.as_str())
+        .bind(failure.failed_at_ms)
+        .bind(&failure.error)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_vfs_cache_failure(&failure.uri, failure.operation)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "vfs_cache_failure",
+                id: format!("{}:{}", failure.uri, failure.operation.as_str()),
+            })
+    }
+
+    async fn get_vfs_cache_failure(
+        &self,
+        uri: &str,
+        operation: VfsCacheOperation,
+    ) -> Result<Option<VfsCacheFailure>> {
+        let row = sqlx::query(
+            r#"
+            SELECT uri, scheme, operation, failed_at_ms, failure_count, error
+            FROM vfs_cache_failures
+            WHERE uri = ?1 AND operation = ?2
+            "#,
+        )
+        .bind(uri)
+        .bind(operation.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_vfs_cache_failure).transpose()
+    }
+}
+
+#[async_trait::async_trait]
 impl ArtworkTaskRepository for SqliteStore {
     async fn enqueue_artwork_task(&self, task: &ArtworkTask) -> Result<()> {
         sqlx::query(
@@ -3477,6 +3686,49 @@ where
     }
 
     Ok(())
+}
+
+async fn upsert_vfs_cache_object_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    object: &VfsCachedObject,
+) -> Result<()> {
+    sqlx::query(vfs_cache_object_upsert_sql())
+        .bind(&object.uri)
+        .bind(&object.scheme)
+        .bind(object.kind.as_str())
+        .bind(optional_u64_to_i64(object.len)?)
+        .bind(&object.modified_at)
+        .bind(&object.etag)
+        .bind(&object.fingerprint)
+        .bind(u32_to_i64(object.capabilities_bits))
+        .bind(object.fetched_at_ms)
+        .bind(object.fresh_until_ms)
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    Ok(())
+}
+
+fn vfs_cache_object_upsert_sql() -> &'static str {
+    r#"
+    INSERT INTO vfs_cache_objects (
+        uri, scheme, kind, len, modified_at, etag, fingerprint,
+        capabilities_bits, fetched_at_ms, fresh_until_ms
+    )
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+    ON CONFLICT(uri) DO UPDATE SET
+        scheme = excluded.scheme,
+        kind = excluded.kind,
+        len = excluded.len,
+        modified_at = excluded.modified_at,
+        etag = excluded.etag,
+        fingerprint = excluded.fingerprint,
+        capabilities_bits = excluded.capabilities_bits,
+        fetched_at_ms = excluded.fetched_at_ms,
+        fresh_until_ms = excluded.fresh_until_ms,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    "#
 }
 
 fn media_kind_to_str(kind: MediaKind) -> &'static str {
@@ -4164,6 +4416,32 @@ fn row_to_source_state(row: SqliteRow) -> Result<SourceState> {
     })
 }
 
+fn row_to_vfs_cached_object(row: SqliteRow) -> Result<VfsCachedObject> {
+    Ok(VfsCachedObject {
+        uri: row_get(&row, "uri")?,
+        scheme: row_get(&row, "scheme")?,
+        kind: VfsCachedObjectKind::parse(&row_get::<String>(&row, "kind")?)?,
+        len: optional_i64_to_u64(row_get(&row, "len")?)?,
+        modified_at: row_get(&row, "modified_at")?,
+        etag: row_get(&row, "etag")?,
+        fingerprint: row_get(&row, "fingerprint")?,
+        capabilities_bits: i64_to_u32(row_get(&row, "capabilities_bits")?)?,
+        fetched_at_ms: row_get(&row, "fetched_at_ms")?,
+        fresh_until_ms: row_get(&row, "fresh_until_ms")?,
+    })
+}
+
+fn row_to_vfs_cache_failure(row: SqliteRow) -> Result<VfsCacheFailure> {
+    Ok(VfsCacheFailure {
+        uri: row_get(&row, "uri")?,
+        scheme: row_get(&row, "scheme")?,
+        operation: VfsCacheOperation::parse(&row_get::<String>(&row, "operation")?)?,
+        failed_at_ms: row_get(&row, "failed_at_ms")?,
+        failure_count: i64_to_u32(row_get(&row, "failure_count")?)?,
+        error: row_get(&row, "error")?,
+    })
+}
+
 fn row_to_artwork_task(row: SqliteRow) -> Result<ArtworkTask> {
     Ok(ArtworkTask {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -4229,7 +4507,8 @@ fn database_error(error: impl Display) -> TaruError {
 mod tests {
     use taru_core::{
         AutomationJobInput, ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef,
-        LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode,
+        LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure,
+        VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     };
 
     use super::*;
@@ -4707,6 +4986,82 @@ mod tests {
             store.get_media_probe(source.id).await.unwrap(),
             Some(result)
         );
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_vfs_cache_records_and_failures() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let directory = VfsCachedObject {
+            uri: "webdav:///Movies/".to_owned(),
+            scheme: "webdav".to_owned(),
+            kind: VfsCachedObjectKind::Directory,
+            len: None,
+            modified_at: Some("2026-05-15T00:00:00.000Z".to_owned()),
+            etag: Some("movies".to_owned()),
+            fingerprint: Some("webdav:etag=movies".to_owned()),
+            capabilities_bits: 0b111,
+            fetched_at_ms: 100,
+            fresh_until_ms: 200,
+        };
+        let movie = VfsCachedObject {
+            uri: "webdav:///Movies/Demo.mkv".to_owned(),
+            scheme: "webdav".to_owned(),
+            kind: VfsCachedObjectKind::File,
+            len: Some(4),
+            modified_at: Some("2026-05-15T00:00:01.000Z".to_owned()),
+            etag: Some("demo".to_owned()),
+            fingerprint: Some("webdav:etag=demo".to_owned()),
+            capabilities_bits: 0b101,
+            fetched_at_ms: 100,
+            fresh_until_ms: 200,
+        };
+        let listing = VfsCachedListing {
+            directory: directory.clone(),
+            entries: vec![movie.clone()],
+            fetched_at_ms: 100,
+            fresh_until_ms: 200,
+        };
+
+        store.upsert_vfs_cache_listing(&listing).await.unwrap();
+        let loaded_object = store
+            .get_vfs_cache_object("webdav:///Movies/Demo.mkv")
+            .await
+            .unwrap();
+        let loaded_listing = store
+            .get_vfs_cache_listing("webdav:///Movies/")
+            .await
+            .unwrap();
+
+        assert_eq!(loaded_object, Some(movie));
+        assert_eq!(loaded_listing, Some(listing));
+
+        let first_failure = store
+            .record_vfs_cache_failure(NewVfsCacheFailure {
+                uri: "webdav:///Movies/".to_owned(),
+                scheme: "webdav".to_owned(),
+                operation: VfsCacheOperation::List,
+                failed_at_ms: 300,
+                error: "timeout".to_owned(),
+            })
+            .await
+            .unwrap();
+        let second_failure = store
+            .record_vfs_cache_failure(NewVfsCacheFailure {
+                uri: "webdav:///Movies/".to_owned(),
+                scheme: "webdav".to_owned(),
+                operation: VfsCacheOperation::List,
+                failed_at_ms: 400,
+                error: "rate limited".to_owned(),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(first_failure.failure_count, 1);
+        assert_eq!(second_failure.failure_count, 2);
+        assert_eq!(second_failure.failed_at_ms, 400);
+        assert_eq!(second_failure.error, "rate limited");
     }
 
     #[tokio::test]

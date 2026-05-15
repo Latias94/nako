@@ -28,7 +28,9 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 use tracing::{error, instrument, warn};
 
-use crate::app::{HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest, TaruApp};
+use crate::app::{
+    DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest, TaruApp,
+};
 
 pub fn build_router(app: TaruApp) -> Router {
     Router::new()
@@ -330,8 +332,8 @@ async fn stream_source(
         return Ok(empty_direct_play_response(&direct_play.response));
     }
 
-    stream_local_file_response(
-        &direct_play.local_path,
+    stream_direct_play_response(
+        &direct_play.body,
         &direct_play.source.locator,
         &direct_play.response,
     )
@@ -699,6 +701,21 @@ async fn stream_local_file_response(
     apply_direct_play_headers(&mut response, plan);
 
     Ok(response)
+}
+
+async fn stream_direct_play_response(
+    body: &DirectPlaySourceBody,
+    uri: &str,
+    plan: &DirectPlayResponsePlan,
+) -> ApiResult<Response> {
+    match body {
+        DirectPlaySourceBody::LocalPath(path) => stream_local_file_response(path, uri, plan).await,
+        DirectPlaySourceBody::Bytes(bytes) => {
+            let mut response = Body::from(bytes.clone()).into_response();
+            apply_direct_play_headers(&mut response, plan);
+            Ok(response)
+        }
+    }
 }
 
 fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponsePlan) {

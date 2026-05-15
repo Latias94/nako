@@ -123,10 +123,14 @@ Completed:
 
 - M6.0 design baseline with ADR 0016, a dedicated `storage-vfs` workstream,
   local-path dependency audit, WebDAV-first decision, and M6 milestone split.
+- M6.1 WebDAV read-only VFS backend.
+- M6.2 directory/stat cache and stale-cache tombstone protection.
+- M6.3 remote probe staging.
+- M6.4 remote playback policy.
 
 Recommended next goal:
 
-- M6.1 WebDAV read-only VFS backend.
+- M6.5 remote storage stabilization.
 
 ### Client and Product Experience: M7+
 

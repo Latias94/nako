@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,9 @@ use taru_core::{
 use taru_media_probe::{MediaProbe, MediaProbeRequest};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
 use taru_search::{SearchDocument, SearchIndex};
-use taru_vfs::{ByteRange, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
+use taru_vfs::{
+    ByteRange, ObjectCacheState, ObjectKind, ObjectMetadata, StorageBackend, StorageUri,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryScanRequest {
@@ -25,6 +29,7 @@ pub struct LibraryScanSummary {
     pub discovered_files: u64,
     pub changed_files: u64,
     pub removed_files: u64,
+    pub used_stale_cache: bool,
     pub media_sources: Vec<DiscoveredMediaSource>,
     pub directories: Vec<ScannedDirectory>,
 }
@@ -105,12 +110,14 @@ pub struct LibraryProbeFailure {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LibraryProbeOptions {
     pub max_concurrent_probes: usize,
+    pub staging_root: Option<PathBuf>,
 }
 
 impl Default for LibraryProbeOptions {
     fn default() -> Self {
         Self {
             max_concurrent_probes: 2,
+            staging_root: None,
         }
     }
 }
@@ -247,11 +254,25 @@ where
             Ok(virtual_file) => virtual_file,
             Err(err) => return probe_failure(source.locator, err),
         };
+        let local_path_hint = match virtual_file.local_path_hint {
+            Some(path) => Some(path),
+            None => match &self.options.staging_root {
+                Some(root) => match self
+                    .backend
+                    .stage(taru_vfs::StageRequest::new(uri.clone(), root.clone()))
+                    .await
+                {
+                    Ok(staged) => Some(staged.path),
+                    Err(err) => return probe_failure(source.locator, err),
+                },
+                None => None,
+            },
+        };
         let probe_result = match self
             .probe
             .probe(MediaProbeRequest {
                 source: uri,
-                local_path_hint: virtual_file.local_path_hint,
+                local_path_hint,
             })
             .await
         {
@@ -316,9 +337,11 @@ where
         let result = self.index_roots(&request, scan_id, &mut summary).await;
 
         match result {
-            Ok(()) => {
-                self.mark_missing_sources_tombstoned(request.library.id, scan_id, &mut summary)
-                    .await?;
+            Ok(scan) => {
+                if scan.complete {
+                    self.mark_missing_sources_tombstoned(request.library.id, scan_id, &mut summary)
+                        .await?;
+                }
                 self.repository
                     .complete_scan_snapshot(scan_id, ScanStatus::Succeeded, None)
                     .await?;
@@ -338,7 +361,9 @@ where
         request: &LibraryIndexRequest,
         scan_id: ScanSnapshotId,
         summary: &mut LibraryIndexSummary,
-    ) -> Result<()> {
+    ) -> Result<IndexRootsOutcome> {
+        let mut complete = true;
+
         for root in &request.library.roots {
             let root = StorageUri::parse(root)?;
             let scan = self
@@ -353,6 +378,9 @@ where
 
             summary.scanned_roots += 1;
             summary.discovered_files += scan.discovered_files;
+            if scan.used_stale_cache {
+                complete = false;
+            }
 
             for directory in scan.directories {
                 self.repository
@@ -406,7 +434,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(IndexRootsOutcome { complete })
     }
 
     async fn rebuild_search_document(&self, item: MediaItem, source: MediaSource) -> Result<()> {
@@ -511,6 +539,11 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct IndexRootsOutcome {
+    complete: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DiscoveredMediaSource {
     pub uri: StorageUri,
@@ -520,6 +553,7 @@ pub struct DiscoveredMediaSource {
     pub etag: Option<String>,
     pub fingerprint: Option<String>,
     pub parsed_name: ParsedName,
+    pub stale: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -528,6 +562,7 @@ pub struct ScannedDirectory {
     pub etag: Option<String>,
     pub modified_at: Option<String>,
     pub child_count: u64,
+    pub stale: bool,
 }
 
 fn media_item_from_discovered(id: MediaItemId, discovered: &DiscoveredMediaSource) -> MediaItem {
@@ -645,15 +680,19 @@ where
             }
 
             let metadata = self.backend.stat(&uri).await?;
+            let metadata_stale = metadata_is_stale(&metadata);
 
             match metadata.kind {
                 ObjectKind::Directory => {
-                    let mut entries = self.backend.list(&uri).await?;
+                    let listing = self.backend.list_with_status(&uri).await?;
+                    let listing_stale = listing_is_stale(&listing);
+                    let mut entries = listing.entries;
                     directories.push(ScannedDirectory {
                         uri: metadata.uri,
                         etag: metadata.etag,
                         modified_at: metadata.modified_at,
                         child_count: entries.len() as u64,
+                        stale: metadata_stale || listing_stale,
                     });
                     entries.sort_by(|left, right| right.uri.as_str().cmp(left.uri.as_str()));
 
@@ -675,6 +714,7 @@ where
             discovered_files: media_sources.len() as u64,
             changed_files: 0,
             removed_files: 0,
+            used_stale_cache: used_stale_cache(&media_sources, &directories),
             media_sources,
             directories,
         })
@@ -691,6 +731,7 @@ impl<B> VfsLibraryScanner<B> {
         })
     }
     fn to_media_source(&self, metadata: ObjectMetadata) -> DiscoveredMediaSource {
+        let stale = metadata_is_stale(&metadata);
         let file_name = metadata
             .uri
             .path_part()
@@ -708,8 +749,31 @@ impl<B> VfsLibraryScanner<B> {
             etag: metadata.etag,
             fingerprint: metadata.fingerprint,
             parsed_name,
+            stale,
         }
     }
+}
+
+fn used_stale_cache(
+    media_sources: &[DiscoveredMediaSource],
+    directories: &[ScannedDirectory],
+) -> bool {
+    directories.iter().any(|directory| directory.stale)
+        || media_sources.iter().any(|source| source.stale)
+}
+
+fn metadata_is_stale(metadata: &ObjectMetadata) -> bool {
+    metadata
+        .cache
+        .as_ref()
+        .is_some_and(|cache| cache.state == ObjectCacheState::StaleFallback)
+}
+
+fn listing_is_stale(listing: &taru_vfs::ObjectListing) -> bool {
+    listing
+        .cache
+        .as_ref()
+        .is_some_and(|cache| cache.state == ObjectCacheState::StaleFallback)
 }
 
 fn extension(path: &str) -> Option<&str> {
@@ -734,7 +798,7 @@ mod tests {
         fs,
         sync::{
             Arc,
-            atomic::{AtomicUsize, Ordering},
+            atomic::{AtomicBool, AtomicUsize, Ordering},
         },
         time::Duration,
     };
@@ -746,12 +810,16 @@ mod tests {
         routing::any,
     };
     use taru_core::{
-        LibraryOptions, LibraryPreset, MediaProbeRepository, MediaProbeResult, MediaRepository,
-        MediaStreamInfo, MediaStreamKind, ScanRepository, TaruError, TransactionManager,
+        LibraryOptions, LibraryPreset, MediaKind, MediaProbeRepository, MediaProbeResult,
+        MediaRepository, MediaStreamInfo, MediaStreamKind, ScanRepository, TaruError,
+        TransactionManager,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
-    use taru_vfs::{LocalFsBackend, WebDavBackend, WebDavBackendConfig};
+    use taru_vfs::{
+        CachedStorageBackend, LocalFsBackend, StorageCapabilities, VfsCacheOptions, WebDavBackend,
+        WebDavBackendConfig,
+    };
     use tokio::time::sleep;
 
     use super::*;
@@ -862,6 +930,78 @@ mod tests {
         assert!(!summary.media_sources[0].uri.as_str().contains('@'));
         assert_eq!(summary.directories.len(), 1);
         assert_eq!(summary.directories[0].uri.as_str(), "webdav:///Movies/");
+    }
+
+    #[tokio::test]
+    async fn probe_service_stages_webdav_source_before_probe() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig {
+            base_url: server.base_url(),
+            username: None,
+            password_env: None,
+            timeout_ms: 5_000,
+            max_attempts: 2,
+        })
+        .unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let staging_root = tempfile::tempdir().unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["webdav:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Remote Movie".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "webdav:///Movies/Remote Movie.mkv".to_owned(),
+            file_name: "Remote Movie.mkv".to_owned(),
+            size_bytes: Some(12),
+            fingerprint: None,
+        };
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library.id, &source)
+            .await
+            .unwrap();
+
+        let probe = RecordingProbe::default();
+        let observed_paths = probe.observed_paths.clone();
+        let service = LibraryProbeService::with_options(
+            backend,
+            probe,
+            store.clone(),
+            LibraryProbeOptions {
+                max_concurrent_probes: 1,
+                staging_root: Some(staging_root.path().to_path_buf()),
+            },
+        );
+
+        let summary = service
+            .probe_library(LibraryProbeRequest {
+                job_id: JobId::new(),
+                library_id: library.id,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let observed_path = observed_paths.lock().unwrap()[0].clone().unwrap();
+
+        assert_eq!(summary.probed_sources, 1);
+        assert!(observed_path.starts_with(staging_root.path()));
+        assert_eq!(fs::read(&observed_path).unwrap(), b"remote movie");
+        assert!(store.get_media_probe(source.id).await.unwrap().is_some());
     }
 
     #[tokio::test]
@@ -986,6 +1126,90 @@ mod tests {
         assert!(state.tombstoned);
     }
 
+    #[tokio::test]
+    async fn index_service_does_not_tombstone_when_scan_uses_stale_vfs_cache() {
+        let backend = FlakyRemoteBackend::new();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let cached_backend = CachedStorageBackend::with_options(
+            backend.clone(),
+            store.clone(),
+            VfsCacheOptions {
+                stat_ttl_ms: 0,
+                list_ttl_ms: 0,
+                serve_stale_on_error: true,
+                cache_local: true,
+            },
+        );
+        let scanner = VfsLibraryScanner::new(cached_backend);
+
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["remote:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        let missing_source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: MediaItemId::new(),
+            locator: "remote:///Movies/Missing During Outage.mkv".to_owned(),
+            file_name: "Missing During Outage.mkv".to_owned(),
+            size_bytes: Some(9),
+            fingerprint: Some("remote:missing".to_owned()),
+        };
+        store
+            .upsert_media_item(&MediaItem {
+                id: missing_source.item_id,
+                kind: MediaKind::Movie,
+                parent_id: None,
+                metadata: CanonicalMetadata {
+                    title: "Missing During Outage".to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            })
+            .await
+            .unwrap();
+        store
+            .upsert_media_source(library.id, &missing_source)
+            .await
+            .unwrap();
+        store
+            .upsert_source_state(&SourceState {
+                library_id: library.id,
+                source_id: Some(missing_source.id),
+                uri: missing_source.locator.clone(),
+                size_bytes: missing_source.size_bytes,
+                modified_at: None,
+                etag: None,
+                fingerprint: missing_source.fingerprint.clone(),
+                last_seen_scan_id: first_summary.scan_id,
+                tombstoned: false,
+            })
+            .await
+            .unwrap();
+
+        backend.fail_list.store(true, Ordering::SeqCst);
+        let second_summary = service.index_library(request).await.unwrap();
+        let missing_state = store
+            .get_source_state(library.id, &missing_source.locator)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.discovered_files, 1);
+        assert_eq!(second_summary.tombstoned_sources, 0);
+        assert!(!missing_state.tombstoned);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn probe_service_uses_bounded_concurrency_and_persists_results() {
         let temp = tempfile::tempdir().unwrap();
@@ -1031,6 +1255,7 @@ mod tests {
             store.clone(),
             LibraryProbeOptions {
                 max_concurrent_probes: 2,
+                staging_root: None,
             },
         );
         let summary = probe_service
@@ -1094,6 +1319,7 @@ mod tests {
             store.clone(),
             LibraryProbeOptions {
                 max_concurrent_probes: 2,
+                staging_root: None,
             },
         );
 
@@ -1128,6 +1354,7 @@ mod tests {
     struct RecordingProbe {
         active: Arc<AtomicUsize>,
         max_seen: Arc<AtomicUsize>,
+        observed_paths: Arc<std::sync::Mutex<Vec<Option<PathBuf>>>>,
         fail_locator_fragment: Option<String>,
     }
 
@@ -1136,6 +1363,10 @@ mod tests {
         async fn probe(&self, request: MediaProbeRequest) -> Result<MediaProbeResult> {
             let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
             update_max(&self.max_seen, active);
+            self.observed_paths
+                .lock()
+                .unwrap()
+                .push(request.local_path_hint.clone());
 
             sleep(Duration::from_millis(25)).await;
 
@@ -1172,6 +1403,85 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct FlakyRemoteBackend {
+        fail_list: Arc<AtomicBool>,
+    }
+
+    impl FlakyRemoteBackend {
+        fn new() -> Self {
+            Self {
+                fail_list: Arc::new(AtomicBool::new(false)),
+            }
+        }
+
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri: uri.clone(),
+                kind,
+                len: (kind == ObjectKind::File).then_some(4),
+                modified_at: Some("100".to_owned()),
+                etag: Some(format!("etag:{}", uri.as_str())),
+                fingerprint: Some(format!("remote:{}", uri.as_str())),
+                capabilities: StorageCapabilities::SEEKABLE
+                    | StorageCapabilities::RANGE_READABLE
+                    | StorageCapabilities::REMOTE_LATENCY
+                    | StorageCapabilities::EXPENSIVE_LISTING,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl StorageBackend for FlakyRemoteBackend {
+        fn scheme(&self) -> &'static str {
+            "remote"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            if self.fail_list.load(Ordering::SeqCst) {
+                return Err(TaruError::Storage {
+                    uri: uri.to_string(),
+                    message: "remote listing timed out".to_owned(),
+                });
+            }
+
+            Ok(vec![Self::metadata(
+                StorageUri::from_parts("remote", "Movies/Remote Movie.mkv").unwrap(),
+            )])
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<taru_vfs::VirtualFile> {
+            Ok(taru_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(TaruError::Unsupported("flaky remote does not read text"))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(TaruError::Unsupported("flaky remote does not write text"))
+        }
+    }
+
     fn update_max(max_seen: &AtomicUsize, active: usize) {
         let mut current = max_seen.load(Ordering::SeqCst);
 
@@ -1205,11 +1515,15 @@ mod tests {
     }
 
     async fn webdav_handler(method: axum::http::Method, uri: axum::http::Uri) -> Response {
+        let path = uri.path();
+        if method.as_str() == "GET" && path.ends_with("/Movies/Remote%20Movie.mkv") {
+            return "remote movie".into_response();
+        }
+
         if method.as_str() != "PROPFIND" {
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        let path = uri.path();
         if path.ends_with("/Movies/") || path.ends_with("/Movies") {
             return (
                 StatusCode::MULTI_STATUS,

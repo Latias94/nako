@@ -7,6 +7,7 @@ pub mod job;
 pub mod media;
 pub mod repository;
 pub mod session;
+pub mod vfs_cache;
 pub mod webhook;
 
 pub use addon::*;
@@ -18,4 +19,5 @@ pub use job::*;
 pub use media::*;
 pub use repository::*;
 pub use session::*;
+pub use vfs_cache::*;
 pub use webhook::*;

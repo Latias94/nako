@@ -1896,6 +1896,8 @@ dependencies = [
  "reqwest",
  "roxmltree",
  "serde",
+ "serde_json",
+ "sha2",
  "taru-core",
  "tempfile",
  "tokio",

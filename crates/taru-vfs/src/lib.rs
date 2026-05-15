@@ -1,13 +1,19 @@
-use std::{fmt, path::PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use taru_core::{Result, TaruError};
 
+mod cache;
 mod local;
 mod webdav;
 
+pub use cache::{CachedStorageBackend, VfsCacheOptions};
 pub use local::LocalFsBackend;
 pub use webdav::{
     EnvWebDavSecretResolver, WebDavBackend, WebDavBackendConfig, WebDavSecretResolver,
@@ -112,6 +118,29 @@ pub struct ObjectMetadata {
     pub etag: Option<String>,
     pub fingerprint: Option<String>,
     pub capabilities: StorageCapabilities,
+    pub cache: Option<ObjectCacheStatus>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectCacheState {
+    Fresh,
+    StaleFallback,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ObjectCacheStatus {
+    pub state: ObjectCacheState,
+    pub fetched_at_ms: i64,
+    pub fresh_until_ms: i64,
+    pub last_failed_at_ms: Option<i64>,
+    pub last_error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ObjectListing {
+    pub entries: Vec<ObjectMetadata>,
+    pub cache: Option<ObjectCacheStatus>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -127,6 +156,38 @@ pub struct VirtualFile {
     pub local_path_hint: Option<PathBuf>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReadRange {
+    pub uri: StorageUri,
+    pub range: Option<ByteRange>,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StageRequest {
+    pub uri: StorageUri,
+    pub root: PathBuf,
+}
+
+impl StageRequest {
+    pub fn new(uri: StorageUri, root: impl Into<PathBuf>) -> Self {
+        Self {
+            uri,
+            root: root.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StagedFile {
+    pub uri: StorageUri,
+    pub path: PathBuf,
+    pub len: Option<u64>,
+    pub etag: Option<String>,
+    pub fingerprint: Option<String>,
+    pub reused: bool,
+}
+
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
     fn scheme(&self) -> &'static str;
@@ -135,11 +196,100 @@ pub trait StorageBackend: Send + Sync {
 
     async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>>;
 
+    async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+        Ok(ObjectListing {
+            entries: self.list(uri).await?,
+            cache: None,
+        })
+    }
+
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile>;
+
+    async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
+        let _ = (uri, range);
+        Err(TaruError::Unsupported(
+            "storage backend does not support in-process range reads",
+        ))
+    }
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String>;
 
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()>;
+
+    async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        let _ = request;
+        Err(TaruError::Unsupported(
+            "storage backend does not support local staging",
+        ))
+    }
+}
+
+pub fn deterministic_stage_path(
+    root: &Path,
+    uri: &StorageUri,
+    fingerprint: Option<&str>,
+) -> Result<PathBuf> {
+    if root.as_os_str().is_empty() {
+        return Err(TaruError::InvalidInput {
+            message: "staging root cannot be empty".to_owned(),
+        });
+    }
+    if root
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(TaruError::InvalidInput {
+            message: "staging root must not contain relative path components".to_owned(),
+        });
+    }
+
+    let mut hasher = Sha256::new();
+    hasher.update(uri.as_str().as_bytes());
+    hasher.update(b"\n");
+    if let Some(fingerprint) = fingerprint {
+        hasher.update(fingerprint.as_bytes());
+    }
+    let digest = hex_encode(&hasher.finalize());
+    let extension = uri
+        .path_part()
+        .rsplit('/')
+        .next()
+        .and_then(|name| name.rsplit_once('.'))
+        .map(|(_stem, extension)| sanitize_extension(extension))
+        .filter(|extension| !extension.is_empty());
+    let file_name = match extension {
+        Some(extension) => format!("{digest}.{extension}"),
+        None => digest.clone(),
+    };
+    let path = root.join(uri.scheme()).join(&digest[0..2]).join(file_name);
+
+    if !path.starts_with(root) {
+        return Err(TaruError::Storage {
+            uri: root.display().to_string(),
+            message: "staging path escaped staging root".to_owned(),
+        });
+    }
+
+    Ok(path)
+}
+
+fn sanitize_extension(extension: &str) -> String {
+    extension
+        .chars()
+        .filter(|value| value.is_ascii_alphanumeric())
+        .take(16)
+        .collect::<String>()
+        .to_ascii_lowercase()
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
 }
 
 #[cfg(test)]

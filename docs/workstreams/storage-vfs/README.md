@@ -17,6 +17,9 @@ Top-level tracking:
 - [ADR 0016: remote storage and VFS cache boundaries](../../adr/0016-remote-storage-and-vfs-cache-boundary.md)
 - [Phase 6.0 design baseline](PHASE6_0_REMOTE_STORAGE_DESIGN_BASELINE.md)
 - [Phase 6.1 WebDAV read-only backend](PHASE6_1_WEBDAV_READ_ONLY_BACKEND.md)
+- [Phase 6.2 directory and stat cache](PHASE6_2_DIRECTORY_STAT_CACHE.md)
+- [Phase 6.3 remote probe staging](PHASE6_3_REMOTE_PROBE_STAGING.md)
+- [Phase 6.4 remote playback policy](PHASE6_4_REMOTE_PLAYBACK_POLICY.md)
 
 ## Goals
 

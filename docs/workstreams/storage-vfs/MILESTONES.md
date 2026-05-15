@@ -50,7 +50,7 @@ Exit criteria:
 Outcome: Remote directory and object metadata can be cached and refreshed
 without making scan tombstones destructive on transient remote failures.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
@@ -69,7 +69,7 @@ Exit criteria:
 
 Outcome: ffprobe can run against remote sources through explicit local staging.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
@@ -87,20 +87,22 @@ Exit criteria:
 
 Outcome: Remote sources have explicit direct-play, remux, and HLS behavior.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
 - VFS-backed direct range streaming for remote sources where possible.
 - Remote remux/HLS staging policy for FFmpeg inputs.
-- Playback decision extensions for remote storage capabilities.
-- Tests for range streaming, remux staging, HLS staging, and failure mapping.
+- Initial playback decision boundary for remote storage capabilities.
+- Tests for range streaming, remux staging, and HLS staging.
 
 Exit criteria:
 
 - Direct play does not require a raw local path for remote range-readable
   sources.
 - Remux/HLS use staging instead of passing remote credentials to FFmpeg.
+- Remaining production WebDAV config and remote failure surfacing gaps are
+  documented for M6.5.
 
 ## M6.5: Remote Storage Stabilization
 
