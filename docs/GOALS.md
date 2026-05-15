@@ -400,13 +400,47 @@ Evidence:
 - [Phase 6.5](workstreams/storage-vfs/PHASE6_5_REMOTE_STORAGE_STABILIZATION.md)
   records validation and remaining known limitations.
 
-## Recommended Next Implementation Goal
+## Current Goal
 
 ### M7: Playback Streaming and Remote Hardening
 
-Status: proposed.
+Status: active, completed through M7.0 design baseline.
 
-Split `playback-streaming` into a dedicated workstream if remote playback is
-the next focus. The likely first slice is remote direct response-body
-streaming, staging disk budgets and cleanup, richer storage failure mapping,
-and multi-library remote configuration.
+Objective:
+
+- Make remote playback practical after the M6 WebDAV preview by removing
+  direct-play byte buffering, bounding staged remote inputs, improving playback
+  failure visibility, adding remote playback resource budgets, and replacing
+  the single-library preview shape with explicit multi-library configuration.
+
+Deliverables:
+
+- M7.0 Playback Streaming Design Baseline.
+- M7.1 Remote Direct Body Streaming.
+- M7.2 Staging Manifest, Disk Budget, and Cleanup.
+- M7.3 Playback Error Taxonomy and HTTP Mapping.
+- M7.4 Remote Playback Resource Budgets.
+- M7.5 Multi-Library and Multi-Remote Backend Config.
+- M7.6 Playback Streaming Stabilization.
+
+Non-goals:
+
+- no remote write/delete support;
+- no direct FFmpeg remote URL input before a separate accepted design;
+- no adaptive bitrate ladder in the first M7 slice;
+- no client UI work before server playback contracts stabilize.
+
+Evidence for M7.0:
+
+- [ADR 0017](adr/0017-playback-streaming-and-remote-hardening-boundaries.md)
+  documents playback streaming, staging, error mapping, resource budget, and
+  configuration boundaries.
+- [playback-streaming workstream](workstreams/playback-streaming/README.md)
+  tracks M7 milestones, TODOs, phase notes, resource classes, and boundary
+  rules.
+- [Phase 7.0](workstreams/playback-streaming/PHASE7_0_PLAYBACK_STREAMING_DESIGN_BASELINE.md)
+  records the M6 starting point and M7 implementation sequence.
+
+Recommended next implementation goal:
+
+- M7.1 Remote Direct Body Streaming.

@@ -58,13 +58,12 @@ Completed:
 - MVP stabilization for API docs, config docs, route error behavior, test
   coverage, known limitations, and bounded resource notes.
 
-Recommended next goal:
+Next phase:
 
-- M5 extension and automation surface.
+- M5 extension and automation surface. Completed.
 
 Future playback work:
 
-- remote-source staging/cache behavior for FFmpeg.
 - adaptive bitrate HLS ladder.
 
 ### Extension and Automation: M5
@@ -102,13 +101,13 @@ Completed:
   register/query/call test, addon/webhook/automation guides, and documented M5
   limitations.
 
-Recommended next goal:
+Next phase:
 
-- M6 remote storage and VFS expansion.
+- M6 remote storage and VFS expansion. Completed.
 
 ### Remote Storage and VFS Expansion: M6
 
-Status: active, completed through M6.0 design baseline.
+Status: completed.
 
 This phase proves that remote sources are first-class storage backends instead
 of pretending to be local paths:
@@ -131,9 +130,31 @@ Completed:
 
 Recommended next goal:
 
-- M7 playback streaming and remote hardening.
+- M7 playback streaming and remote hardening. Active.
 
-### Client and Product Experience: M7+
+### Playback Streaming and Remote Hardening: M7
+
+Status: active, completed through M7.0 design baseline.
+
+This phase hardens the remote playback path after the M6 WebDAV preview:
+
+- remote direct response-body streaming;
+- staging manifest, disk budget, and cleanup;
+- precise playback/storage error mapping;
+- remote playback stream and staging resource budgets;
+- multi-library and multi-remote backend configuration.
+
+Completed:
+
+- M7.0 design baseline with ADR 0017, a dedicated `playback-streaming`
+  workstream, M7 milestone split, and ownership for M6 deferred playback
+  hardening tasks.
+
+Recommended next goal:
+
+- M7.1 remote direct body streaming.
+
+### Client and Product Experience: M8+
 
 Status: intentionally deferred.
 
@@ -144,11 +165,11 @@ planning should start after the browse and playback surfaces are coherent.
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split
-`addons-automation` into its own completed workstream, and M6 split
-`storage-vfs` into the active remote-storage workstream. As implementation
-grows, split the remaining broad domains into narrower workstreams:
+`addons-automation` into its own completed workstream, M6 split `storage-vfs`,
+and M7 split `playback-streaming` into the active remote playback hardening
+workstream. As implementation grows, split the remaining broad domains into
+narrower workstreams:
 
-- `playback-streaming`: direct play, remux, HLS, transcode, hardware policy.
 - `metadata-catalog`: providers, NFO, catalog graph, artwork, search.
 - `clients`: future Flutter and web client contracts.
 

@@ -7,6 +7,7 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
+- Active workstream: [playback streaming](workstreams/playback-streaming/README.md)
 - Last completed workstream: [storage and VFS](workstreams/storage-vfs/README.md)
 - Previous completed workstream: [addons and automation](workstreams/addons-automation/README.md)
 - Foundation archive: [server foundation](workstreams/server-foundation/README.md)
