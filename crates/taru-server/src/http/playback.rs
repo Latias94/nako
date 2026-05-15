@@ -24,7 +24,7 @@ use crate::app::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest, TaruApp,
 };
 
-use super::ApiResult;
+use super::error::ApiResult;
 
 #[instrument(skip(app))]
 pub(super) async fn get_source_playback_decision(

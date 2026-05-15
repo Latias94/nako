@@ -6,7 +6,8 @@ use std::{
 
 use axum::{
     body::{Body, to_bytes},
-    http::{Method, Request, header},
+    http::{Method, Request, StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use serde::{Serialize, de::DeserializeOwned};
 use taru_addon_protocol::{
@@ -15,19 +16,20 @@ use taru_addon_protocol::{
 };
 use taru_api::{
     AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
-    AutomationProviderResponse, AutomationProvidersResponse, HealthResponse, JobResponse,
-    LibraryListResponse, TranscodeSessionResponse, WebhookDeliveryAttemptsResponse,
-    WebhookEndpointResponse, WebhookEndpointsResponse,
+    AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
+    ErrorResponse, HealthResponse, JobResponse, LibraryListResponse, RegisterAddonRequest,
+    TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
+    WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
-    AutomationCapability, AutomationProviderStatus, CanonicalMetadata, CatalogRepository,
-    CreditRole, DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Genre,
-    GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemTag,
-    JobId, JobKind, JobStatus, LibraryId, MediaItem, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataSource, NewOutboxEvent, NewTranscodeSession, Person, PersonId, Tag,
-    TagId, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
-    TranscodeSessionState, WebhookEndpointStatus,
+    AddonStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
+    CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
+    EventOutboxRepository, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobStatus, LibraryId, MediaItem, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataSource, NewOutboxEvent, NewTranscodeSession, Person,
+    PersonId, Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex};
@@ -38,6 +40,7 @@ use taru_vfs::{ByteRange, ReadStream, StorageUri};
 use tokio::{net::TcpListener, task::yield_now, time::sleep};
 use tower::ServiceExt;
 
+use super::error::ApiError;
 use super::*;
 use crate::config::{
     LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
