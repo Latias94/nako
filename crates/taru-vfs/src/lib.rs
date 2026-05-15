@@ -6,8 +6,12 @@ use serde::{Deserialize, Serialize};
 use taru_core::{Result, TaruError};
 
 mod local;
+mod webdav;
 
 pub use local::LocalFsBackend;
+pub use webdav::{
+    EnvWebDavSecretResolver, WebDavBackend, WebDavBackendConfig, WebDavSecretResolver,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(transparent)]

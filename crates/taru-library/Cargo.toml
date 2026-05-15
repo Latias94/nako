@@ -19,6 +19,7 @@ taru-search = { path = "../taru-search" }
 taru-vfs = { path = "../taru-vfs" }
 
 [dev-dependencies]
+axum.workspace = true
 pollster.workspace = true
 taru-db = { path = "../taru-db" }
 tempfile.workspace = true

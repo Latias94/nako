@@ -739,13 +739,19 @@ mod tests {
         time::Duration,
     };
 
+    use axum::{
+        Router,
+        http::{StatusCode, header},
+        response::{IntoResponse, Response},
+        routing::any,
+    };
     use taru_core::{
         LibraryOptions, LibraryPreset, MediaProbeRepository, MediaProbeResult, MediaRepository,
         MediaStreamInfo, MediaStreamKind, ScanRepository, TaruError, TransactionManager,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
-    use taru_vfs::LocalFsBackend;
+    use taru_vfs::{LocalFsBackend, WebDavBackend, WebDavBackendConfig};
     use tokio::time::sleep;
 
     use super::*;
@@ -822,6 +828,40 @@ mod tests {
             assert_eq!(summary.discovered_files, 1);
             assert_eq!(summary.media_sources[0].file_name, "playlist.strm");
         });
+    }
+
+    #[tokio::test]
+    async fn vfs_scanner_discovers_webdav_media_without_credentials_in_locator() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig {
+            base_url: server.base_url(),
+            username: None,
+            password_env: None,
+            timeout_ms: 5_000,
+            max_attempts: 2,
+        })
+        .unwrap();
+        let scanner = VfsLibraryScanner::new(backend);
+
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id: LibraryId::new(),
+                root: StorageUri::from_parts("webdav", "Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert_eq!(summary.media_sources[0].file_name, "Remote Movie.mkv");
+        assert_eq!(
+            summary.media_sources[0].uri.as_str(),
+            "webdav:///Movies/Remote Movie.mkv"
+        );
+        assert!(!summary.media_sources[0].uri.as_str().contains('@'));
+        assert_eq!(summary.directories.len(), 1);
+        assert_eq!(summary.directories[0].uri.as_str(), "webdav:///Movies/");
     }
 
     #[tokio::test]
@@ -1141,5 +1181,90 @@ mod tests {
                 Err(observed) => current = observed,
             }
         }
+    }
+
+    struct MockWebDavServer {
+        addr: std::net::SocketAddr,
+    }
+
+    impl MockWebDavServer {
+        async fn start() -> Self {
+            let router = Router::new().route("/{*path}", any(webdav_handler));
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap();
+            });
+
+            Self { addr }
+        }
+
+        fn base_url(&self) -> String {
+            format!("http://{}/dav", self.addr)
+        }
+    }
+
+    async fn webdav_handler(method: axum::http::Method, uri: axum::http::Uri) -> Response {
+        if method.as_str() != "PROPFIND" {
+            return StatusCode::METHOD_NOT_ALLOWED.into_response();
+        }
+
+        let path = uri.path();
+        if path.ends_with("/Movies/") || path.ends_with("/Movies") {
+            return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/Movies/</D:href>
+    <D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype><D:getetag>"movies"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/dav/Movies/Remote Movie.mkv</D:href>
+    <D:propstat><D:prop><D:resourcetype/><D:getcontentlength>12</D:getcontentlength><D:getetag>"remote-movie"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/dav/Movies/poster.jpg</D:href>
+    <D:propstat><D:prop><D:resourcetype/><D:getcontentlength>5</D:getcontentlength><D:getetag>"poster"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+</D:multistatus>"#,
+            )
+                .into_response();
+        }
+
+        if path.ends_with("/Movies/Remote%20Movie.mkv")
+            || path.ends_with("/Movies/Remote Movie.mkv")
+        {
+            return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/Movies/Remote Movie.mkv</D:href>
+    <D:propstat><D:prop><D:resourcetype/><D:getcontentlength>12</D:getcontentlength><D:getetag>"remote-movie"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+</D:multistatus>"#,
+            )
+                .into_response();
+        }
+
+        if path.ends_with("/Movies/poster.jpg") {
+            return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/Movies/poster.jpg</D:href>
+    <D:propstat><D:prop><D:resourcetype/><D:getcontentlength>5</D:getcontentlength><D:getetag>"poster"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+</D:multistatus>"#,
+            )
+                .into_response();
+        }
+
+        StatusCode::NOT_FOUND.into_response()
     }
 }

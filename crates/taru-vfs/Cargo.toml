@@ -11,9 +11,13 @@ workspace = true
 [dependencies]
 async-trait.workspace = true
 bitflags.workspace = true
+reqwest.workspace = true
+roxmltree.workspace = true
 serde.workspace = true
 taru-core = { path = "../taru-core" }
 
 [dev-dependencies]
+axum.workspace = true
 pollster.workspace = true
 tempfile.workspace = true
+tokio.workspace = true

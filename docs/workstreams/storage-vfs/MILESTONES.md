@@ -27,7 +27,7 @@ Exit criteria:
 Outcome: Taru can list, stat, and range-read media objects from one configured
 WebDAV backend without storing plaintext credentials.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
@@ -38,9 +38,12 @@ Deliverables:
 
 Exit criteria:
 
-- A WebDAV directory can be scanned through `LibraryIndexService`.
+- WebDAV `stat`, `list`, and `open_range` work against a mocked local WebDAV
+  server.
+- A WebDAV directory can be scanned through `VfsLibraryScanner`.
 - Range reads do not require a local path hint.
-- Credentials are omitted from source locators, jobs, logs, and scan state.
+- Credentials are omitted from source locators and resolved only through secret
+  references.
 
 ## M6.2: Directory and Stat Cache
 

@@ -10,14 +10,14 @@
 
 ## WebDAV Read-Only Backend
 
-- [ ] Define WebDAV backend configuration and secret references.
-- [ ] Add WebDAV URI scheme and locator rules.
-- [ ] Implement `stat` for files and directories.
-- [ ] Implement `list` with pagination/depth policy.
-- [ ] Implement `open_range` without local path hints.
-- [ ] Add mocked WebDAV server tests.
-- [ ] Add timeout, retry, and rate-limit tests.
-- [ ] Verify source locators never contain plaintext credentials.
+- [x] Define WebDAV backend configuration and secret references.
+- [x] Add WebDAV URI scheme and locator rules.
+- [x] Implement `stat` for files and directories.
+- [x] Implement `list` with pagination/depth policy.
+- [x] Implement `open_range` without local path hints.
+- [x] Add mocked WebDAV server tests.
+- [x] Add timeout, retry, and rate-limit tests.
+- [x] Verify source locators never contain plaintext credentials.
 
 ## Directory and Stat Cache
 

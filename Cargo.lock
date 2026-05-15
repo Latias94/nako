@@ -1281,6 +1281,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1743,6 +1749,7 @@ name = "taru-library"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "futures-util",
  "pollster",
  "serde",
@@ -1883,11 +1890,15 @@ name = "taru-vfs"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "bitflags",
  "pollster",
+ "reqwest",
+ "roxmltree",
  "serde",
  "taru-core",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

@@ -16,6 +16,7 @@ Top-level tracking:
 - [ADR 0012: durable scan state and source tombstones](../../adr/0012-durable-scan-state-and-source-tombstones.md)
 - [ADR 0016: remote storage and VFS cache boundaries](../../adr/0016-remote-storage-and-vfs-cache-boundary.md)
 - [Phase 6.0 design baseline](PHASE6_0_REMOTE_STORAGE_DESIGN_BASELINE.md)
+- [Phase 6.1 WebDAV read-only backend](PHASE6_1_WEBDAV_READ_ONLY_BACKEND.md)
 
 ## Goals
 
