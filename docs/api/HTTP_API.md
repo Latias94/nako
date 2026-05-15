@@ -134,6 +134,9 @@ GET  /genres?limit=50&offset=0
 GET  /genres/{genre_id}/items?limit=50&offset=0
 GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
 POST /items/{item_id}/metadata/refresh
+GET  /items/{item_id}/metadata/attempts?limit=50&offset=0
+GET  /items/{item_id}/metadata/raw?limit=50&offset=0
+GET  /metadata/providers
 GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
 GET  /sources/{source_id}/stream
@@ -164,7 +167,16 @@ The job runs in the background.
 
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
 metadata refresh job. The current implementation uses the library metadata
-profile provider order and records provider attempts in `GET /jobs/{job_id}`.
+profile provider order and records provider attempts for the item diagnostics
+API.
+
+Metadata diagnostics routes expose provider refresh visibility without exposing
+resolved secrets. `GET /items/{item_id}/metadata/attempts` returns persisted
+provider attempts with status, failure class, message, matched key, and a
+computed `retryable` flag. `GET /items/{item_id}/metadata/raw` returns cached raw
+provider responses for the item. `GET /metadata/providers` returns configured
+provider availability, sanitized runtime budgets, and whether a proxy is
+configured; it never returns token, API key, custom header, or proxy URL values.
 
 `POST /libraries/{library_id}/nfo/import` and
 `POST /libraries/{library_id}/nfo/export` return `202 Accepted` with queued NFO

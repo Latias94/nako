@@ -36,3 +36,4 @@ evidence has been reviewed.
 - [0015: Use Capability-Scoped HTTP Addons and Automation Providers](0015-capability-scoped-http-addons-and-automation-providers.md)
 - [0016: Define Remote Storage and VFS Cache Boundaries](0016-remote-storage-and-vfs-cache-boundary.md)
 - [0017: Define Playback Streaming and Remote Hardening Boundaries](0017-playback-streaming-and-remote-hardening-boundaries.md)
+- [0018: Use a Shared Metadata Provider Runtime and Diagnostics Boundary](0018-metadata-provider-runtime-and-diagnostics.md)
