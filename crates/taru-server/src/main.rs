@@ -13,7 +13,7 @@ mod config;
 mod http;
 
 use app::TaruApp;
-use config::{example_config, load_config};
+use config::{example_config, library_from_config, load_config};
 use http::build_router;
 
 #[derive(Debug, Parser)]
@@ -79,12 +79,10 @@ async fn run(cli: Cli) -> Result<()> {
         Command::List => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
+            let library_id = library_from_config(app.config()).id;
             print_json(
-                &app.list_library_sources(
-                    app.config().library.id,
-                    taru_core::PageRequest::first_page(),
-                )
-                .await?,
+                &app.list_library_sources(library_id, taru_core::PageRequest::first_page())
+                    .await?,
             )
         }
         Command::RefreshMetadata { item_id } => {
@@ -95,13 +93,13 @@ async fn run(cli: Cli) -> Result<()> {
         Command::ImportNfo { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            let library_id = library_id.unwrap_or(app.config().library.id);
+            let library_id = library_id.unwrap_or_else(|| library_from_config(app.config()).id);
             print_json(&app.import_library_nfo(library_id).await?)
         }
         Command::ExportNfo { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            let library_id = library_id.unwrap_or(app.config().library.id);
+            let library_id = library_id.unwrap_or_else(|| library_from_config(app.config()).id);
             print_json(&app.export_library_nfo(library_id).await?)
         }
     }

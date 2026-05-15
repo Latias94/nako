@@ -95,8 +95,7 @@ impl TaruApp {
         range_request: DirectPlayRangeRequest,
     ) -> Result<DirectPlaySourcePlan> {
         let source = self.get_source_or_not_found(source_id).await?;
-        let uri = StorageUri::parse(&source.locator)?;
-        let backend = self.storage_backend_for_source(&uri)?;
+        let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let stream_permit = if should_budget_remote_stream(&uri) {
             Some(self.acquire_remote_stream_permit().await?)
         } else {
@@ -124,8 +123,7 @@ impl TaruApp {
         range_request: DirectPlayRangeRequest,
     ) -> Result<DirectPlayResponsePlan> {
         let source = self.get_source_or_not_found(source_id).await?;
-        let uri = StorageUri::parse(&source.locator)?;
-        let backend = self.storage_backend_for_source(&uri)?;
+        let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
 
         plan_direct_play_response_with_backend(&source, &uri, backend.as_ref(), range_request).await
     }

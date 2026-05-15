@@ -257,15 +257,19 @@ to the session output directory. Missing segments return `404 not_found`.
 Segments requested for a non-HLS session return `400 invalid_input`. Segments
 requested before the HLS session reaches `finished` return `409 conflict`.
 
-### Remote Storage Preview Limitations
+### Remote Storage And Playback Limitations
 
-The M6 WebDAV preview is read-only and supports one configured library. WebDAV
-scan/list/stat/open-range, probe staging, direct range reads, remux staging,
-and HLS staging are covered. M7.1 adds remote direct-play response-body
-streaming, and M7.2 adds a staging manifest plus a disk budget. Remux and HLS
-still stage full remote objects before FFmpeg. Staging cleanup, remote-byte
-cache, S3-compatible storage, and remote NFO sidecar writes are not part of the
-M6 preview.
+WebDAV remote storage is read-only. `[[libraries]]` can configure multiple
+local and WebDAV libraries, and persisted playback sources resolve back to
+their configured library backend. WebDAV scan/list/stat/open-range, probe
+staging, direct range reads, direct-play response-body streaming, remux
+staging, HLS staging, startup cleanup, and manifest-backed staging disk budget
+are covered.
+
+Remux and HLS still stage full remote objects before FFmpeg. Remote NFO sidecar
+import works through VFS, but remote NFO export is rejected unless the backend
+advertises writable capabilities. Remote-byte cache, S3-compatible storage, and
+remote sidecar writes are not part of the current WebDAV backend.
 
 ## Webhook Routes
 

@@ -134,7 +134,7 @@ Recommended next goal:
 
 ### Playback Streaming and Remote Hardening: M7
 
-Status: active, completed through M7.2 manifest and disk budget wiring.
+Status: active, completed through the M7.5 multi-library backend foundation.
 
 This phase hardens the remote playback path after the M6 WebDAV preview:
 
@@ -165,10 +165,15 @@ Completed:
   concurrency limits.
 - NFO import/export now use the configured VFS backend boundary and gate export
   on writable storage capabilities.
+- M7.5 multi-library backend foundation with legacy `[library]`
+  compatibility, new `[[libraries]]` configuration, startup persistence for
+  all configured libraries, and library-aware backend resolution for persisted
+  playback sources.
 
 Recommended next goal:
 
-- proceed to multi-library and multi-remote backend configuration.
+- stabilize M7 with full validation, HTTP/local setup docs, and explicit known
+  limitations.
 
 ### Client and Product Experience: M8+
 

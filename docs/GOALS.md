@@ -404,7 +404,7 @@ Evidence:
 
 ### M7: Playback Streaming and Remote Hardening
 
-Status: active, completed through M7.0 design baseline.
+Status: active, completed through the M7.5 multi-library backend foundation.
 
 Objective:
 
@@ -508,3 +508,15 @@ Evidence for NFO/VFS storage boundary:
   through the configured VFS backend and WebDAV export is rejected as read-only.
 - [Phase 7.4.1](workstreams/playback-streaming/PHASE7_4_1_NFO_STORAGE_BOUNDARY.md)
   records validation.
+
+Evidence for M7.5 multi-library backend foundation:
+
+- `TaruServerConfig` keeps legacy `[library]` compatibility and adds
+  `[[libraries]]` for explicit multi-library configuration.
+- Server startup upserts every configured library.
+- Scan/probe/NFO resolve backends by requested library, and playback/FFmpeg
+  staging resolve persisted sources to their configured library backend.
+- Mixed local/WebDAV library parsing and runtime backend resolution are covered
+  by config and app-level tests.
+- [Phase 7.5](workstreams/playback-streaming/PHASE7_5_MULTI_LIBRARY_BACKENDS.md)
+  records migration shape and known limitations.

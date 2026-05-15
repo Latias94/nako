@@ -1017,13 +1017,14 @@ mod tests {
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
                 playback: PlaybackConfig::default(),
-                library: LocalLibraryConfig {
+                library: Some(LocalLibraryConfig {
                     id: library_id,
                     name: "Movies".to_owned(),
                     root: temp.path().to_path_buf(),
                     preset: taru_core::LibraryPreset::Movies,
                     webdav: None,
-                },
+                }),
+                libraries: Vec::new(),
             },
             store.clone(),
         )
@@ -1410,13 +1411,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -1514,13 +1516,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -1578,13 +1581,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -1750,13 +1754,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -2341,13 +2346,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -2415,13 +2421,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: library_root,
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -2490,13 +2497,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root: library_root,
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store.clone())
@@ -2680,13 +2688,14 @@ mod tests {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            library: LocalLibraryConfig {
+            library: Some(LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
                 root,
                 preset: taru_core::LibraryPreset::Movies,
                 webdav: None,
-            },
+            }),
+            libraries: Vec::new(),
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store).await.unwrap();

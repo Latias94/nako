@@ -61,13 +61,17 @@
 
 ## Multi-Library and Multi-Remote Config
 
-- [ ] Design explicit library configuration model.
-- [ ] Support multiple named library backends at startup.
-- [ ] Keep current single-library config working during migration.
-- [ ] Support mixed local and WebDAV libraries.
-- [ ] Ensure source URI roots resolve to the correct backend.
-- [ ] Keep credentials as secret references only.
-- [ ] Add config parsing and app-level tests.
+- [x] Design explicit library configuration model.
+- [x] Support multiple named library backends at startup.
+- [x] Keep current single-library config working during migration.
+- [x] Support mixed local and WebDAV libraries.
+- [x] Ensure persisted sources resolve to the correct configured backend.
+- [x] Keep credentials as secret references only.
+- [x] Add config parsing and app-level tests.
+- [ ] Add a repository query for source library identity to avoid paged source
+      lookup in app services.
+- [ ] Decide whether local `local:///` locators need an explicit library-root
+      prefix or source-level library identity in API responses.
 
 ## NFO Storage Boundary
 

@@ -55,13 +55,13 @@
 
 ## Moved To Playback Streaming M7
 
-- [ ] Add disk budget and cleanup policy for staged remote inputs. See
+- [x] Add disk budget and cleanup policy for staged remote inputs. See
       [playback-streaming TODO](../playback-streaming/TODO.md).
-- [ ] Add remote direct-play response-body streaming instead of buffering range
+- [x] Add remote direct-play response-body streaming instead of buffering range
       bytes in memory. See [playback-streaming TODO](../playback-streaming/TODO.md).
 - [ ] Extend playback decisions with richer remote storage constraints. See
       [playback-streaming TODO](../playback-streaming/TODO.md).
-- [ ] Add precise HTTP failure mapping for remote storage timeouts and stale
+- [x] Add precise HTTP failure mapping for remote storage timeouts and stale
       cache playback fallbacks. See [playback-streaming TODO](../playback-streaming/TODO.md).
-- [ ] Add multi-library and multi-remote backend configuration. See
+- [x] Add multi-library and multi-remote backend configuration. See
       [playback-streaming TODO](../playback-streaming/TODO.md).

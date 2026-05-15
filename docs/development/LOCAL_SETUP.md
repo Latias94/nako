@@ -93,7 +93,7 @@ cleanup_on_startup = true
 remote_stream_concurrency = 8
 remote_stage_concurrency = 2
 
-[library]
+[[libraries]]
 id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
 root = "F:/Media/Movies"
@@ -107,20 +107,28 @@ language = "en-US"
 include_adult = false
 ```
 
-## WebDAV Preview Config
+## Library And WebDAV Config
 
-M6 includes a read-only WebDAV preview for one configured library. Add
-`[library.webdav]` to switch the configured library root from `local:///` to a
-WebDAV storage URI. The WebDAV password is a secret environment reference; it
-must not be placed in `base_url`, source locators, jobs, logs, or scan state.
+`[[libraries]]` is the preferred configuration shape. Legacy single-library
+`[library]` configs still load during migration. A library can be local, or it
+can include a per-library WebDAV backend with `[libraries.webdav]`. The WebDAV
+password is a secret environment reference; it must not be placed in `base_url`,
+source locators, jobs, logs, or scan state.
 
 ```toml
-[library]
+[[libraries]]
 id = "018f0000-0000-7000-8000-000000000001"
-name = "Remote Movies"
+name = "Local Movies"
 root = "F:/Media/Movies"
+preset = "movies"
 
-[library.webdav]
+[[libraries]]
+id = "018f0000-0000-7000-8000-000000000002"
+name = "Remote Movies"
+root = "F:/unused"
+preset = "movies"
+
+[libraries.webdav]
 root = "webdav:///Movies"
 base_url = "https://nas.example.test/dav"
 username = "media"

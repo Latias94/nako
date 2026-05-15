@@ -73,7 +73,7 @@ Exit criteria:
 Outcome: Playback APIs expose stable failure categories for local, remote, and
 transcode playback paths.
 
-Status: proposed.
+Status: implemented foundation.
 
 Deliverables:
 
@@ -130,6 +130,16 @@ Exit criteria:
 - Server startup can build more than one library backend.
 - Scan/probe/playback can resolve sources to the correct configured backend.
 - Existing single-library local setup remains supported during migration.
+
+Foundation notes:
+
+- `TaruServerConfig` keeps legacy `[library]` as a compatibility field and adds
+  `[[libraries]]` for explicit multi-library configuration.
+- Startup upserts every configured library instead of only the first one.
+- Playback, FFmpeg staging, scan/probe, and NFO paths resolve the storage
+  backend from the source's configured library when the source is persisted.
+- URI-root fallback is used only for unpersisted sources and rejects ambiguous
+  matches.
 
 ## M7.6: Playback Streaming Stabilization
 
