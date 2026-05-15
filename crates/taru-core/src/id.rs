@@ -81,6 +81,7 @@ define_id!(ImageAssetId);
 define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
 define_id!(TranscodeSessionId);
+define_id!(StagingManifestId);
 
 #[cfg(test)]
 mod tests {

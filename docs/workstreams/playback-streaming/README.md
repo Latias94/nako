@@ -19,6 +19,7 @@ Top-level tracking:
 - [TODO](TODO.md)
 - [Phase 7.0 design baseline](PHASE7_0_PLAYBACK_STREAMING_DESIGN_BASELINE.md)
 - [Phase 7.1 remote direct body streaming](PHASE7_1_REMOTE_DIRECT_BODY_STREAMING.md)
+- [Phase 7.2 staging manifest foundation](PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)
 
 ## Goals
 

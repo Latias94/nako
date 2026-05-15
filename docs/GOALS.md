@@ -461,3 +461,14 @@ Evidence for M7.1 foundation:
   `crates/taru-server/src/http/playback.rs`.
 - [Phase 7.1](workstreams/playback-streaming/PHASE7_1_REMOTE_DIRECT_BODY_STREAMING.md)
   records validation and remaining gaps.
+
+Evidence for M7.2 foundation:
+
+- `taru-core` defines staging manifest purpose, state, record, and repository
+  contracts.
+- `taru-db` migration `0014_staging_manifest.sql` persists staging manifest
+  records.
+- `taru-db/src/staging.rs` implements the staging repository in a dedicated DB
+  module instead of growing the large `lib.rs`.
+- [Phase 7.2](workstreams/playback-streaming/PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)
+  records validation and remaining runtime gaps.

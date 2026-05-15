@@ -29,6 +29,8 @@ use taru_core::{
 };
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
+mod staging;
+
 const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0001_initial",
@@ -75,6 +77,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0013_vfs_cache",
         include_str!("../migrations/0013_vfs_cache.sql"),
+    ),
+    (
+        "0014_staging_manifest",
+        include_str!("../migrations/0014_staging_manifest.sql"),
     ),
 ];
 

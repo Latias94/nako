@@ -51,7 +51,7 @@ Exit criteria:
 Outcome: Remote staging has persistent records, configured disk limits, and a
 cleanup path that can be audited and tested.
 
-Status: proposed.
+Status: active; manifest persistence foundation implemented.
 
 Deliverables:
 
@@ -66,6 +66,7 @@ Exit criteria:
 - Staged remote inputs cannot grow unbounded.
 - Cleanup never removes active staged inputs.
 - Staging failures map to stable playback errors.
+- Runtime staging paths are connected to the manifest and budget policy.
 
 ## M7.3: Playback Error Taxonomy and HTTP Mapping
 

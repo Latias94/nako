@@ -8,12 +8,14 @@ use crate::{
     ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId,
     MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration,
     NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
-    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
-    OutboxEventRecord, Person, PersonId, ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId,
-    SourceState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState, VfsCacheFailure,
-    VfsCacheOperation, VfsCachedListing, VfsCachedObject, WebhookDeliveryAttemptId,
-    WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
+    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, OutboxEventRecord, Person, PersonId, ProviderRawResponse, Result,
+    ScanSnapshot, ScanSnapshotId, SourceState, StagingManifestId, StagingManifestRecord,
+    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+    WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
+    WebhookEndpointId, WebhookEndpointRecord,
 };
 
 #[async_trait]
@@ -266,6 +268,47 @@ pub trait VfsCacheRepository: Send + Sync {
         uri: &str,
         operation: VfsCacheOperation,
     ) -> Result<Option<VfsCacheFailure>>;
+}
+
+#[async_trait]
+pub trait StagingManifestRepository: Send + Sync {
+    async fn upsert_staging_manifest_record(
+        &self,
+        record: NewStagingManifestRecord,
+    ) -> Result<StagingManifestRecord>;
+
+    async fn get_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+    ) -> Result<Option<StagingManifestRecord>>;
+
+    async fn find_staging_manifest_record_by_path(
+        &self,
+        local_path: &str,
+    ) -> Result<Option<StagingManifestRecord>>;
+
+    async fn list_staging_manifest_records(
+        &self,
+        purpose: Option<StagingPurpose>,
+        state: Option<StagingState>,
+        page: PageRequest,
+    ) -> Result<Vec<StagingManifestRecord>>;
+
+    async fn list_staging_cleanup_candidates(
+        &self,
+        now_ms: i64,
+        page: PageRequest,
+    ) -> Result<Vec<StagingManifestRecord>>;
+
+    async fn touch_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        accessed_at_ms: i64,
+    ) -> Result<Option<StagingManifestRecord>>;
+
+    async fn delete_staging_manifest_record(&self, id: StagingManifestId) -> Result<()>;
+
+    async fn sum_staging_manifest_bytes(&self) -> Result<u64>;
 }
 
 #[async_trait]

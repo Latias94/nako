@@ -152,10 +152,13 @@ Completed:
 - M7.1 foundation for remote direct response-body streaming, including VFS
   `ReadStream`, WebDAV byte streams, direct-play stream bodies, HEAD preflight,
   and initial playback app/http module split.
+- M7.2 foundation for durable staging manifest persistence, including core
+  records, repository contract, SQLite migration, and a dedicated DB module.
 
 Recommended next goal:
 
-- finish M7.1 hardening, then M7.2 staging manifest, disk budget, and cleanup.
+- continue M7.2 by wiring runtime staging paths to the manifest, disk budget,
+  and cleanup policy.
 
 ### Client and Product Experience: M8+
 

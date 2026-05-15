@@ -24,8 +24,8 @@
 
 ## Staging Manifest and Cleanup
 
-- [ ] Define staging manifest record model.
-- [ ] Add SQLite migration and repository.
+- [x] Define staging manifest record model.
+- [x] Add SQLite migration and repository.
 - [ ] Track source URI, staging purpose, local path, size, etag/fingerprint,
       state, last access, and expiration.
 - [ ] Add disk budget configuration.
