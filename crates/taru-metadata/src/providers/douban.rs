@@ -119,7 +119,7 @@ impl MetadataProvider for DoubanMetadataProvider {
                     provider: ExternalProvider::Douban,
                     provider_key: subject.id.clone(),
                     score,
-                    metadata: douban_subject_to_metadata(
+                    metadata: crate::mapping::douban_subject_to_metadata(
                         subject,
                         self.config.image_base_url.as_deref(),
                     ),
@@ -161,7 +161,10 @@ impl MetadataProvider for DoubanMetadataProvider {
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Douban,
             provider_key: details.id.clone(),
-            metadata: douban_subject_to_metadata(details, self.config.image_base_url.as_deref()),
+            metadata: crate::mapping::douban_subject_to_metadata(
+                details,
+                self.config.image_base_url.as_deref(),
+            ),
             raw_json,
         })
     }

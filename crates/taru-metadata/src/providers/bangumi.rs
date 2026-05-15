@@ -128,7 +128,10 @@ impl MetadataProvider for BangumiMetadataProvider {
                     provider: ExternalProvider::Bangumi,
                     provider_key: subject.id.to_string(),
                     score,
-                    metadata: bangumi_subject_to_metadata(subject, &self.config.image_base_url),
+                    metadata: crate::mapping::bangumi_subject_to_metadata(
+                        subject,
+                        &self.config.image_base_url,
+                    ),
                 }
             })
             .collect())
@@ -167,7 +170,10 @@ impl MetadataProvider for BangumiMetadataProvider {
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Bangumi,
             provider_key: details.id.to_string(),
-            metadata: bangumi_subject_to_metadata(details, &self.config.image_base_url),
+            metadata: crate::mapping::bangumi_subject_to_metadata(
+                details,
+                &self.config.image_base_url,
+            ),
             raw_json,
         })
     }

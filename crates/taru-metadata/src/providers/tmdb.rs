@@ -141,7 +141,10 @@ impl MetadataProvider for TmdbMetadataProvider {
                     provider: ExternalProvider::Tmdb,
                     provider_key: result.id.to_string(),
                     score,
-                    metadata: tmdb_search_result_to_metadata(result, &self.config.image_base_url),
+                    metadata: crate::mapping::tmdb_search_result_to_metadata(
+                        result,
+                        &self.config.image_base_url,
+                    ),
                 }
             })
             .collect();
@@ -184,7 +187,10 @@ impl MetadataProvider for TmdbMetadataProvider {
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Tmdb,
             provider_key: details.id.to_string(),
-            metadata: tmdb_movie_details_to_metadata(details, &self.config.image_base_url),
+            metadata: crate::mapping::tmdb_movie_details_to_metadata(
+                details,
+                &self.config.image_base_url,
+            ),
             raw_json,
         })
     }
@@ -197,7 +203,7 @@ struct TmdbSearchResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct TmdbMovieSearchResult {
+pub(crate) struct TmdbMovieSearchResult {
     id: u64,
     #[serde(default)]
     title: String,
@@ -372,7 +378,7 @@ fn tmdb_search_score(lookup: &MetadataLookup, result: &TmdbMovieSearchResult) ->
     score + (result.popularity.clamp(0.0, 100.0) / 2_000.0)
 }
 
-fn tmdb_search_result_to_metadata(
+pub(crate) fn tmdb_search_result_to_metadata(
     result: TmdbMovieSearchResult,
     image_base_url: &str,
 ) -> CanonicalMetadata {

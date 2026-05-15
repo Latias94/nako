@@ -1,3 +1,4 @@
+mod mapping;
 mod merge;
 mod providers;
 mod registry;

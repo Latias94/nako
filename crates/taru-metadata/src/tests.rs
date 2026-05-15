@@ -31,6 +31,8 @@ use crate::providers::{
     TmdbMovieDetails, bangumi_subject_to_metadata, douban_subject_to_metadata,
     tmdb_movie_details_to_metadata,
 };
+
+mod fixtures;
 #[test]
 fn merge_preserves_locked_fields() {
     let item_id = MediaItemId::new();
@@ -842,14 +844,14 @@ async fn metadata_http_runtime_rate_limits_requests() {
 async fn tmdb_provider_uses_runtime_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = TmdbMetadataProvider::new(TmdbProviderConfig {
-        read_access_token: "tmdb-token".to_owned(),
+        read_access_token: fixtures::TMDB_TOKEN.to_owned(),
         api_base_url: server.url("/tmdb"),
         runtime: MetadataHttpRuntimeConfig {
             min_interval_ms: 0,
             user_agent: "taru-tmdb-test".to_owned(),
             ..MetadataHttpRuntimeConfig::default()
         },
-        ..TmdbProviderConfig::new("tmdb-token".to_owned())
+        ..TmdbProviderConfig::new(fixtures::TMDB_TOKEN.to_owned())
     })
     .unwrap();
 
@@ -880,7 +882,10 @@ async fn tmdb_provider_uses_runtime_and_maps_http_response() {
     );
     assert_eq!(
         server.authorizations(),
-        vec!["Bearer tmdb-token", "Bearer tmdb-token"]
+        vec![
+            format!("Bearer {}", fixtures::TMDB_TOKEN),
+            format!("Bearer {}", fixtures::TMDB_TOKEN)
+        ]
     );
 }
 
@@ -888,7 +893,7 @@ async fn tmdb_provider_uses_runtime_and_maps_http_response() {
 async fn bangumi_provider_uses_runtime_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = BangumiMetadataProvider::new(BangumiProviderConfig {
-        access_token: Some("bangumi-token".to_owned()),
+        access_token: Some(fixtures::BANGUMI_TOKEN.to_owned()),
         api_base_url: server.base_url(),
         runtime: MetadataHttpRuntimeConfig {
             min_interval_ms: 0,
@@ -924,7 +929,7 @@ async fn bangumi_provider_uses_runtime_and_maps_http_response() {
         server
             .authorizations()
             .iter()
-            .any(|value| value == "Bearer bangumi-token")
+            .any(|value| value == &format!("Bearer {}", fixtures::BANGUMI_TOKEN))
     );
 }
 
@@ -932,7 +937,7 @@ async fn bangumi_provider_uses_runtime_and_maps_http_response() {
 async fn douban_provider_uses_api_key_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = DoubanMetadataProvider::new(DoubanProviderConfig {
-        api_key: Some("douban-key".to_owned()),
+        api_key: Some(fixtures::DOUBAN_API_KEY.to_owned()),
         api_base_url: server.base_url(),
         runtime: MetadataHttpRuntimeConfig {
             min_interval_ms: 0,
@@ -968,7 +973,7 @@ async fn douban_provider_uses_api_key_and_maps_http_response() {
         server
             .uris()
             .iter()
-            .any(|uri| uri.contains("apikey=douban-key"))
+            .any(|uri| uri.contains(&format!("apikey={}", fixtures::DOUBAN_API_KEY)))
     );
     assert!(
         server
