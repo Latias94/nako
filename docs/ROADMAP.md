@@ -161,11 +161,13 @@ Completed:
 - M7.2 startup cleanup for expired staged inputs, with active-lease protection.
 - M7.3 first HTTP error-mapping slice for staging budget, staging validation,
   storage timeout/auth/rate-limit, and FFmpeg provider failures.
+- M7.4 resource-budget foundation with independent remote stream and stage
+  concurrency limits.
 
 Recommended next goal:
 
-- continue M7.3 by replacing message-pattern classification with typed
-  playback/storage errors, then add route-level failure tests.
+- continue M7.4 with route-level concurrency stress tests, then proceed to
+  multi-library and multi-remote backend configuration.
 
 ### Client and Product Experience: M8+
 

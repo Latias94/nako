@@ -16,7 +16,7 @@
 - [x] Preserve HTTP Range, HEAD, content length, and content range behavior.
 - [x] Use backend request timeout and HTTP body drop/cancellation behavior for
       remote body streams.
-- [ ] Acquire `playback.remote.stream` budget before opening remote bodies.
+- [x] Acquire `playback.remote.stream` budget before opening remote bodies.
 - [x] Add tests proving selected remote ranges are streamed rather than fully
       buffered.
 - [x] Split direct-play app planning and HTTP response helpers out of the
@@ -53,11 +53,11 @@
 
 ## Remote Playback Resource Budgets
 
-- [ ] Add `playback.remote.stream` config and defaults.
-- [ ] Add `playback.remote.stage` config and defaults.
+- [x] Add `playback.remote.stream` config and defaults.
+- [x] Add `playback.remote.stage` config and defaults.
 - [ ] Decide whether cleanup needs a separate resource class.
-- [ ] Add budget acquisition to direct streaming and staging paths.
-- [ ] Add concurrency-limit tests.
+- [x] Add budget acquisition to direct streaming and staging paths.
+- [x] Add concurrency-limit tests.
 
 ## Multi-Library and Multi-Remote Config
 

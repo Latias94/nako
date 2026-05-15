@@ -489,3 +489,13 @@ Evidence for M7.3 first error-mapping slice:
   unauthorized, storage rate limiting, and FFmpeg failures.
 - [Phase 7.3](workstreams/playback-streaming/PHASE7_3_PLAYBACK_ERROR_MAPPING.md)
   records validation and remaining typed-error gaps.
+
+Evidence for M7.4 resource-budget foundation:
+
+- `[playback].remote_stream_concurrency` and
+  `[playback].remote_stage_concurrency` define independent remote playback
+  budgets.
+- Remote direct-play holds a stream permit for the streamed response body, and
+  remote probe/FFmpeg staging acquires a stage permit around staging.
+- [Phase 7.4](workstreams/playback-streaming/PHASE7_4_REMOTE_PLAYBACK_RESOURCE_BUDGETS.md)
+  records validation and remaining route-level stress-test gaps.

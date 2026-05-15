@@ -21,6 +21,7 @@ Top-level tracking:
 - [Phase 7.1 remote direct body streaming](PHASE7_1_REMOTE_DIRECT_BODY_STREAMING.md)
 - [Phase 7.2 staging manifest foundation](PHASE7_2_STAGING_MANIFEST_FOUNDATION.md)
 - [Phase 7.3 playback error mapping](PHASE7_3_PLAYBACK_ERROR_MAPPING.md)
+- [Phase 7.4 remote playback resource budgets](PHASE7_4_REMOTE_PLAYBACK_RESOURCE_BUDGETS.md)
 
 ## Goals
 

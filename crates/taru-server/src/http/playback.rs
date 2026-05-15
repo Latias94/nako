@@ -89,7 +89,7 @@ pub(super) async fn stream_direct_play_response(
     match body {
         DirectPlaySourceBody::LocalPath(path) => stream_local_file_response(&path, uri, plan).await,
         DirectPlaySourceBody::Stream(stream) => {
-            let mut response = Body::from_stream(stream.body).into_response();
+            let mut response = Body::from_stream(stream.stream.body).into_response();
             apply_direct_play_headers(&mut response, plan);
             Ok(response)
         }

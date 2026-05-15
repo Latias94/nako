@@ -40,6 +40,8 @@ pub struct TaruServerConfig {
     pub transcode: TranscodeConfig,
     #[serde(default)]
     pub staging: StagingConfig,
+    #[serde(default)]
+    pub playback: PlaybackConfig,
     pub library: LocalLibraryConfig,
 }
 
@@ -84,6 +86,23 @@ impl Default for StagingConfig {
             max_bytes: default_staging_max_bytes(),
             retention_ms: default_staging_retention_ms(),
             cleanup_on_startup: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackConfig {
+    #[serde(default = "default_remote_stream_concurrency")]
+    pub remote_stream_concurrency: usize,
+    #[serde(default = "default_remote_stage_concurrency")]
+    pub remote_stage_concurrency: usize,
+}
+
+impl Default for PlaybackConfig {
+    fn default() -> Self {
+        Self {
+            remote_stream_concurrency: default_remote_stream_concurrency(),
+            remote_stage_concurrency: default_remote_stage_concurrency(),
         }
     }
 }
@@ -195,6 +214,7 @@ pub fn example_config() -> Result<String> {
         metadata: MetadataConfig::default(),
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
         library: LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -268,6 +288,14 @@ const fn default_staging_max_bytes() -> u64 {
 
 const fn default_staging_retention_ms() -> u64 {
     7 * 24 * 60 * 60 * 1_000
+}
+
+const fn default_remote_stream_concurrency() -> usize {
+    8
+}
+
+const fn default_remote_stage_concurrency() -> usize {
+    2
 }
 
 const fn default_true() -> bool {
@@ -347,6 +375,10 @@ mod tests {
             retention_ms = 86400000
             cleanup_on_startup = false
 
+            [playback]
+            remote_stream_concurrency = 7
+            remote_stage_concurrency = 2
+
             [library]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
@@ -408,6 +440,8 @@ mod tests {
         assert_eq!(config.staging.max_bytes, 123_456_789);
         assert_eq!(config.staging.retention_ms, 86_400_000);
         assert!(!config.staging.cleanup_on_startup);
+        assert_eq!(config.playback.remote_stream_concurrency, 7);
+        assert_eq!(config.playback.remote_stage_concurrency, 2);
         assert!(config.metadata.tmdb.enabled);
         assert_eq!(
             config.metadata.tmdb.access_token_env,
@@ -476,6 +510,7 @@ mod tests {
         assert_eq!(config.transcode.cpu_concurrency, 1);
         assert_eq!(config.transcode.gpu_concurrency, 1);
         assert_eq!(config.staging, StagingConfig::default());
+        assert_eq!(config.playback, PlaybackConfig::default());
         assert!(!config.metadata.tmdb.enabled);
         assert_eq!(config.library.preset, LibraryPreset::Movies);
         assert_eq!(

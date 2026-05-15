@@ -240,6 +240,9 @@ planning.
 Remote input staging is subject to the configured `[staging].max_bytes` disk
 budget. Expired staged inputs are cleaned during startup when
 `[staging].cleanup_on_startup` is enabled.
+Remote direct-play response bodies are bounded by
+`[playback].remote_stream_concurrency`; remote probe and FFmpeg input staging
+are bounded by `[playback].remote_stage_concurrency`.
 Segment lines are rewritten to session-scoped URLs:
 
 ```text

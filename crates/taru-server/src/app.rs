@@ -56,7 +56,7 @@ use taru_transcode::{
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
 use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageUri};
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
 use crate::config::{TaruServerConfig, WebDavLibraryConfig, library_from_config};
@@ -65,6 +65,8 @@ pub(crate) mod playback;
 mod staging;
 
 pub(crate) use playback::DirectPlaySourceBody;
+#[cfg(test)]
+pub(crate) use playback::DirectPlayStreamBody;
 use staging::{ManifestRecordingStorageBackend, cleanup_expired_staging_inputs};
 
 #[cfg(test)]
@@ -83,6 +85,8 @@ struct TaruAppInner {
     metadata_permits: Arc<Semaphore>,
     nfo_permits: Arc<Semaphore>,
     webhook_permits: Arc<Semaphore>,
+    remote_stream_permits: Arc<Semaphore>,
+    remote_stage_permits: Arc<Semaphore>,
     remux: RemuxAppService,
     hls: HlsAppService,
 }
@@ -854,6 +858,12 @@ impl TaruApp {
                 metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 webhook_permits: Arc::new(Semaphore::new(config.webhook_concurrency.max(1))),
+                remote_stream_permits: Arc::new(Semaphore::new(
+                    config.playback.remote_stream_concurrency.max(1),
+                )),
+                remote_stage_permits: Arc::new(Semaphore::new(
+                    config.playback.remote_stage_concurrency.max(1),
+                )),
                 remux: RemuxAppService::new(&config),
                 hls: HlsAppService::new(&config),
                 config,
@@ -868,6 +878,18 @@ impl TaruApp {
     #[must_use]
     pub fn config(&self) -> &TaruServerConfig {
         &self.inner.config
+    }
+
+    async fn acquire_remote_stream_permit(&self) -> Result<OwnedSemaphorePermit> {
+        self.inner
+            .remote_stream_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: "playback.remote.stream".to_owned(),
+                message: format!("remote stream resource budget was closed: {err}"),
+            })
     }
 
     pub async fn list_libraries(&self, page: PageRequest) -> Result<LibraryListResponse> {
@@ -1135,6 +1157,7 @@ impl TaruApp {
             StagingPurpose::FfmpegInput,
             self.config().staging.max_bytes,
             self.config().staging.retention_ms,
+            self.inner.remote_stage_permits.clone(),
         );
         match local_source_path_and_len(source, &uri, &backend).await {
             Ok((path, _len)) => Ok(path),
@@ -2506,6 +2529,7 @@ impl TaruApp {
             StagingPurpose::ProbeInput,
             self.config().staging.max_bytes,
             self.config().staging.retention_ms,
+            self.inner.remote_stage_permits.clone(),
         ));
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
@@ -3032,6 +3056,8 @@ mod tests {
     use std::{
         fs,
         path::{Path, PathBuf},
+        sync::Arc,
+        time::Duration,
     };
 
     use async_trait::async_trait;
@@ -3059,7 +3085,9 @@ mod tests {
     use tokio::net::TcpListener;
 
     use super::*;
-    use crate::config::{LocalLibraryConfig, MetadataConfig, StagingConfig, TranscodeConfig};
+    use crate::config::{
+        LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig, TranscodeConfig,
+    };
 
     #[tokio::test]
     async fn scan_configured_library_persists_job_success() {
@@ -3080,6 +3108,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3135,6 +3164,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),
@@ -3195,6 +3225,7 @@ mod tests {
             metadata,
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3265,6 +3296,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3323,6 +3355,7 @@ mod tests {
             metadata,
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
@@ -3380,6 +3413,7 @@ mod tests {
             metadata,
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Anime".to_owned(),
@@ -3435,6 +3469,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3521,6 +3556,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -3970,7 +4006,7 @@ mod tests {
             panic!("expected direct play to return a VFS stream");
         };
         assert_eq!(
-            stream.range,
+            stream.stream.range,
             Some(ByteRange {
                 offset: 2,
                 length: Some(4)
@@ -4013,6 +4049,7 @@ mod tests {
             StagingPurpose::ProbeInput,
             StagingConfig::default().max_bytes,
             StagingConfig::default().retention_ms,
+            Arc::new(Semaphore::new(1)),
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
 
@@ -4059,6 +4096,7 @@ mod tests {
             StagingPurpose::ProbeInput,
             5,
             StagingConfig::default().retention_ms,
+            Arc::new(Semaphore::new(1)),
         );
         let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
         let staging_root = temp.path().join("probe-inputs");
@@ -4082,6 +4120,125 @@ mod tests {
             .await
             .unwrap();
         assert!(records.is_empty());
+    }
+
+    #[tokio::test]
+    async fn manifest_recording_backend_waits_for_stage_budget() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let stage_permits = Arc::new(Semaphore::new(1));
+        let held_permit = stage_permits.clone().acquire_owned().await.unwrap();
+        let backend = ManifestRecordingStorageBackend::new(
+            Box::new(RemotePlaybackBackend {
+                bytes: b"probe-media".to_vec(),
+                local_path_hint: None,
+            }),
+            store,
+            StagingPurpose::ProbeInput,
+            StagingConfig::default().max_bytes,
+            StagingConfig::default().retention_ms,
+            stage_permits,
+        );
+        let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
+
+        let blocked = tokio::time::timeout(
+            Duration::from_millis(50),
+            backend.stage(StageRequest::new(
+                uri.clone(),
+                temp.path().join("probe-inputs"),
+            )),
+        )
+        .await;
+
+        assert!(blocked.is_err());
+        drop(held_permit);
+        let staged = backend
+            .stage(StageRequest::new(uri, temp.path().join("probe-inputs")))
+            .await
+            .unwrap();
+        assert_eq!(fs::read(&staged.path).unwrap(), b"probe-media");
+    }
+
+    #[tokio::test]
+    async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
+        let server = MockWebDavServer::start().await;
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(
+            TaruServerConfig {
+                listen_addr: "127.0.0.1:0".parse().unwrap(),
+                database_url: "sqlite::memory:".to_owned(),
+                ffprobe_path: PathBuf::from("ffprobe"),
+                ffmpeg_path: PathBuf::from("ffmpeg"),
+                scan_concurrency: 1,
+                probe_concurrency: 1,
+                metadata_concurrency: 1,
+                remux_concurrency: 1,
+                webhook_concurrency: 2,
+                remux_timeout_ms: 30 * 60 * 1_000,
+                remux_staging_root: temp.path().join("cache").join("remux"),
+                metadata: MetadataConfig::default(),
+                transcode: TranscodeConfig::default(),
+                staging: StagingConfig::default(),
+                playback: PlaybackConfig {
+                    remote_stream_concurrency: 1,
+                    remote_stage_concurrency: 1,
+                },
+                library: LocalLibraryConfig {
+                    id: library_id,
+                    name: "Remote Movies".to_owned(),
+                    root: temp.path().join("unused-local-root"),
+                    preset: taru_core::LibraryPreset::Movies,
+                    webdav: Some(WebDavLibraryConfig {
+                        root: "webdav:///Movies".to_owned(),
+                        base_url: server.base_url(),
+                        username: None,
+                        password_env: None,
+                        timeout_ms: 5_000,
+                        max_attempts: 1,
+                    }),
+                },
+            },
+            store.clone(),
+        )
+        .await
+        .unwrap();
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Demo".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            item_id: item.id,
+            locator: "webdav:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(4),
+            fingerprint: None,
+        };
+        store.upsert_media_item(&item).await.unwrap();
+        store
+            .upsert_media_source(library_id, &source)
+            .await
+            .unwrap();
+
+        let plan = app
+            .plan_direct_play(source.id, DirectPlayRangeRequest::None)
+            .await
+            .unwrap();
+
+        let DirectPlaySourceBody::Stream(_) = &plan.body else {
+            panic!("expected remote direct play to hold a VFS stream");
+        };
+        assert_eq!(app.inner.remote_stream_permits.available_permits(), 0);
+        drop(plan);
+        assert_eq!(app.inner.remote_stream_permits.available_permits(), 1);
     }
 
     #[tokio::test]
@@ -4126,6 +4283,7 @@ mod tests {
                 metadata: MetadataConfig::default(),
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
+                playback: PlaybackConfig::default(),
                 library: LocalLibraryConfig {
                     id: library_id,
                     name: "Movies".to_owned(),
@@ -4204,6 +4362,7 @@ mod tests {
                 metadata: MetadataConfig::default(),
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
+                playback: PlaybackConfig::default(),
                 library: LocalLibraryConfig {
                     id: library_id,
                     name: "Remote Movies".to_owned(),
@@ -4705,6 +4864,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

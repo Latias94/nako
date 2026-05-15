@@ -7,6 +7,7 @@ use taru_streaming::{
     content_type_for_file_name, decide_playback, plan_direct_play_response,
 };
 use taru_vfs::{ByteRange, ReadStream, StorageBackend, StorageUri};
+use tokio::sync::OwnedSemaphorePermit;
 
 use super::{TaruApp, local_source_path_and_len};
 
@@ -29,8 +30,26 @@ impl fmt::Debug for DirectPlaySourcePlan {
 
 pub enum DirectPlaySourceBody {
     LocalPath(PathBuf),
-    Stream(ReadStream),
+    Stream(DirectPlayStreamBody),
     Empty,
+}
+
+pub struct DirectPlayStreamBody {
+    pub stream: ReadStream,
+    _permit: Option<OwnedSemaphorePermit>,
+}
+
+impl DirectPlayStreamBody {
+    fn new(stream: ReadStream, permit: Option<OwnedSemaphorePermit>) -> Self {
+        Self {
+            stream,
+            _permit: permit,
+        }
+    }
+
+    pub(crate) fn unbudgeted(stream: ReadStream) -> Self {
+        Self::new(stream, None)
+    }
 }
 
 impl fmt::Debug for DirectPlaySourceBody {
@@ -40,6 +59,16 @@ impl fmt::Debug for DirectPlaySourceBody {
             Self::Stream(stream) => formatter.debug_tuple("Stream").field(stream).finish(),
             Self::Empty => formatter.write_str("Empty"),
         }
+    }
+}
+
+impl fmt::Debug for DirectPlayStreamBody {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DirectPlayStreamBody")
+            .field("stream", &self.stream)
+            .field("budgeted", &self._permit.is_some())
+            .finish()
     }
 }
 
@@ -68,8 +97,19 @@ impl TaruApp {
         let source = self.get_source_or_not_found(source_id).await?;
         let uri = StorageUri::parse(&source.locator)?;
         let backend = self.storage_backend_for_source(&uri)?;
+        let stream_permit = if should_budget_remote_stream(&uri) {
+            Some(self.acquire_remote_stream_permit().await?)
+        } else {
+            None
+        };
         let (response, body) =
             plan_direct_play_with_backend(&source, &uri, backend.as_ref(), range_request).await?;
+        let body = match body {
+            DirectPlaySourceBody::Stream(stream) => DirectPlaySourceBody::Stream(
+                DirectPlayStreamBody::new(stream.stream, stream_permit),
+            ),
+            other => other,
+        };
 
         Ok(DirectPlaySourcePlan {
             source,
@@ -118,7 +158,10 @@ pub(super) async fn plan_direct_play_with_backend(
     });
     let stream = backend.stream_range(uri, range).await?;
 
-    Ok((response, DirectPlaySourceBody::Stream(stream)))
+    Ok((
+        response,
+        DirectPlaySourceBody::Stream(DirectPlayStreamBody::unbudgeted(stream)),
+    ))
 }
 
 async fn plan_direct_play_response_with_backend(
@@ -139,4 +182,8 @@ async fn plan_direct_play_response_with_backend(
         content_type,
         range_request,
     ))
+}
+
+fn should_budget_remote_stream(uri: &StorageUri) -> bool {
+    uri.scheme() != "local"
 }

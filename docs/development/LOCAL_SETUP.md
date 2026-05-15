@@ -89,6 +89,10 @@ max_bytes = 107374182400
 retention_ms = 604800000
 cleanup_on_startup = true
 
+[playback]
+remote_stream_concurrency = 8
+remote_stage_concurrency = 2
+
 [library]
 id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
@@ -154,6 +158,9 @@ Runtime notes:
 - `[staging].retention_ms` defaults to 7 days, and
   `[staging].cleanup_on_startup` removes expired staged input files and manifest
   records during startup.
+- `[playback].remote_stream_concurrency` bounds open remote direct-play response
+  bodies. `[playback].remote_stage_concurrency` bounds remote probe and FFmpeg
+  input staging.
 - `[transcode].cpu_concurrency` and `[transcode].gpu_concurrency` bound HLS
   transcode sessions by selected acceleration class.
 

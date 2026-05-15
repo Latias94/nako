@@ -840,7 +840,8 @@ mod tests {
 
     use super::*;
     use crate::config::{
-        LocalLibraryConfig, MetadataConfig, StagingConfig, TaruServerConfig, TranscodeConfig,
+        LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
+        TranscodeConfig,
     };
 
     #[tokio::test]
@@ -1015,6 +1016,7 @@ mod tests {
                 metadata: MetadataConfig::default(),
                 transcode: TranscodeConfig::default(),
                 staging: StagingConfig::default(),
+                playback: PlaybackConfig::default(),
                 library: LocalLibraryConfig {
                     id: library_id,
                     name: "Movies".to_owned(),
@@ -1407,6 +1409,7 @@ mod tests {
             metadata,
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1510,6 +1513,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1573,6 +1577,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1744,6 +1749,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -1923,11 +1929,10 @@ mod tests {
             offset: 2,
             length: Some(4),
         });
-        let body = crate::app::DirectPlaySourceBody::Stream(ReadStream::from_bytes(
-            uri,
-            range,
-            b"2345".to_vec(),
-        ));
+        let body =
+            crate::app::DirectPlaySourceBody::Stream(crate::app::DirectPlayStreamBody::unbudgeted(
+                ReadStream::from_bytes(uri, range, b"2345".to_vec()),
+            ));
         let response_plan = plan_direct_play_response(
             10,
             "video/mp4",
@@ -2335,6 +2340,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2408,6 +2414,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2482,6 +2489,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),
@@ -2671,6 +2679,7 @@ mod tests {
             metadata: MetadataConfig::default(),
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
             library: LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

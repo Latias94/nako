@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, path::Path};
+use std::{io::ErrorKind, path::Path, sync::Arc};
 
 use async_trait::async_trait;
 use taru_core::{
@@ -10,6 +10,7 @@ use taru_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageUri, VirtualFile, deterministic_stage_path,
 };
+use tokio::sync::Semaphore;
 
 use super::current_time_ms;
 
@@ -107,6 +108,7 @@ pub(super) struct ManifestRecordingStorageBackend {
     purpose: StagingPurpose,
     max_bytes: u64,
     retention_ms: u64,
+    stage_permits: Arc<Semaphore>,
 }
 
 impl ManifestRecordingStorageBackend {
@@ -116,6 +118,7 @@ impl ManifestRecordingStorageBackend {
         purpose: StagingPurpose,
         max_bytes: u64,
         retention_ms: u64,
+        stage_permits: Arc<Semaphore>,
     ) -> Self {
         Self {
             inner,
@@ -123,6 +126,7 @@ impl ManifestRecordingStorageBackend {
             purpose,
             max_bytes,
             retention_ms,
+            stage_permits,
         }
     }
 
@@ -199,6 +203,15 @@ impl StorageBackend for ManifestRecordingStorageBackend {
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        let _permit = self
+            .stage_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| TaruError::Storage {
+                uri: "playback.remote.stage".to_owned(),
+                message: format!("remote staging resource budget was closed: {err}"),
+            })?;
         self.ensure_budget(&request).await?;
         let staged = self.inner.stage(request).await?;
         record_staged_input(
