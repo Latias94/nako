@@ -1657,7 +1657,11 @@ dependencies = [
 name = "taru-addon-protocol"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "reqwest",
  "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -1666,6 +1670,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "taru-addon-protocol",
  "taru-core",
  "taru-streaming",
 ]
@@ -1804,6 +1809,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "taru-reference-addon"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "serde_json",
+ "taru-addon-protocol",
+]
+
+[[package]]
 name = "taru-search"
 version = "0.1.0"
 dependencies = [
@@ -1821,6 +1835,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "taru-addon-protocol",
  "taru-api",
  "taru-automation",
  "taru-core",
@@ -1830,6 +1845,7 @@ dependencies = [
  "taru-media-probe",
  "taru-metadata",
  "taru-nfo",
+ "taru-reference-addon",
  "taru-search",
  "taru-streaming",
  "taru-transcode",

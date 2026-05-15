@@ -1,5 +1,5 @@
 [package]
-name = "taru-api"
+name = "taru-reference-addon"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-serde.workspace = true
+axum.workspace = true
 serde_json.workspace = true
 taru-addon-protocol = { path = "../taru-addon-protocol" }
-taru-core = { path = "../taru-core" }
-taru-streaming = { path = "../taru-streaming" }

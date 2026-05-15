@@ -5,21 +5,22 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
 };
 use taru_core::{
-    ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactId,
-    AutomationArtifactKind, AutomationArtifactRecord, AutomationArtifactStatus,
-    AutomationCapability, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, AutomationRepository, CanonicalMetadata, CatalogRepository,
-    Collection, CollectionId, CollectionItem, CreditRole, DirectorySnapshot, DomainEventKind,
-    DomainEventSubject, EventId, EventOutboxRepository, ExternalId, ExternalProvider, Genre,
-    GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio,
-    ItemTag, Job, JobId, JobKind, JobRepository, JobStatus, Library, LibraryId, LibraryOptions,
-    LibraryRepository, MediaDomain, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataField, MetadataFieldLock, MetadataRepository, MetadataSource,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
-    NewTranscodeSession, NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord,
-    OutboxEventStatus, PageRequest, Person, PersonId, ProviderRawResponse, Result, ScanRepository,
-    ScanSnapshot, ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag, TagId, TaruError,
+    AddonId, AddonRegistrationRecord, AddonRepository, AddonStatus, ArtworkTask, ArtworkTaskId,
+    ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactId, AutomationArtifactKind,
+    AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability,
+    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus,
+    AutomationRepository, CanonicalMetadata, CatalogRepository, Collection, CollectionId,
+    CollectionItem, CreditRole, DirectorySnapshot, DomainEventKind, DomainEventSubject, EventId,
+    EventOutboxRepository, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId,
+    ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
+    JobRepository, JobStatus, Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock,
+    MetadataRepository, MetadataSource, NewAddonRegistration, NewAutomationArtifact,
+    NewAutomationProviderConfig, NewJob, NewOutboxEvent, NewTranscodeSession,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
+    PageRequest, Person, PersonId, ProviderRawResponse, Result, ScanRepository, ScanSnapshot,
+    ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag, TagId, TaruError,
     TransactionManager, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
     TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
     WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
@@ -69,6 +70,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0011_automation",
         include_str!("../migrations/0011_automation.sql"),
     ),
+    ("0012_addons", include_str!("../migrations/0012_addons.sql")),
 ];
 
 #[derive(Clone, Debug)]
@@ -1478,6 +1480,174 @@ impl WebhookRepository for SqliteStore {
         rows.into_iter()
             .map(row_to_webhook_delivery_attempt)
             .collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl AddonRepository for SqliteStore {
+    async fn upsert_addon_registration(
+        &self,
+        addon: NewAddonRegistration,
+    ) -> Result<AddonRegistrationRecord> {
+        let granted_scopes_json =
+            serde_json::to_string(&addon.granted_scopes).map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO addon_registrations (
+                id,
+                manifest_id,
+                name,
+                version,
+                protocol_version,
+                base_url,
+                manifest_json,
+                granted_scopes_json,
+                status
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            ON CONFLICT(id) DO UPDATE SET
+                manifest_id = excluded.manifest_id,
+                name = excluded.name,
+                version = excluded.version,
+                protocol_version = excluded.protocol_version,
+                base_url = excluded.base_url,
+                manifest_json = excluded.manifest_json,
+                granted_scopes_json = excluded.granted_scopes_json,
+                status = excluded.status,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(addon.id.to_string())
+        .bind(&addon.manifest_id)
+        .bind(&addon.name)
+        .bind(&addon.version)
+        .bind(&addon.protocol_version)
+        .bind(&addon.base_url)
+        .bind(&addon.manifest_json)
+        .bind(granted_scopes_json)
+        .bind(addon.status.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_addon_registration(addon.id)
+            .await?
+            .ok_or_else(|| TaruError::Database {
+                message: format!("addon registration {} was not found after upsert", addon.id),
+            })
+    }
+
+    async fn get_addon_registration(&self, id: AddonId) -> Result<Option<AddonRegistrationRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                manifest_id,
+                name,
+                version,
+                protocol_version,
+                base_url,
+                manifest_json,
+                granted_scopes_json,
+                status,
+                created_at,
+                updated_at
+            FROM addon_registrations
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_addon_registration).transpose()
+    }
+
+    async fn find_addon_registration_by_manifest_id(
+        &self,
+        manifest_id: &str,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                manifest_id,
+                name,
+                version,
+                protocol_version,
+                base_url,
+                manifest_json,
+                granted_scopes_json,
+                status,
+                created_at,
+                updated_at
+            FROM addon_registrations
+            WHERE manifest_id = ?1
+            "#,
+        )
+        .bind(manifest_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_addon_registration).transpose()
+    }
+
+    async fn list_addon_registrations(
+        &self,
+        status: Option<AddonStatus>,
+    ) -> Result<Vec<AddonRegistrationRecord>> {
+        let rows = if let Some(status) = status {
+            sqlx::query(
+                r#"
+                SELECT
+                    id,
+                    manifest_id,
+                    name,
+                    version,
+                    protocol_version,
+                    base_url,
+                    manifest_json,
+                    granted_scopes_json,
+                    status,
+                    created_at,
+                    updated_at
+                FROM addon_registrations
+                WHERE status = ?1
+                ORDER BY created_at ASC, id ASC
+                "#,
+            )
+            .bind(status.as_str())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT
+                    id,
+                    manifest_id,
+                    name,
+                    version,
+                    protocol_version,
+                    base_url,
+                    manifest_json,
+                    granted_scopes_json,
+                    status,
+                    created_at,
+                    updated_at
+                FROM addon_registrations
+                ORDER BY created_at ASC, id ASC
+                "#,
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?
+        };
+
+        rows.into_iter().map(row_to_addon_registration).collect()
     }
 }
 
@@ -3787,6 +3957,25 @@ fn row_to_webhook_delivery_attempt(row: SqliteRow) -> Result<WebhookDeliveryAtte
     })
 }
 
+fn row_to_addon_registration(row: SqliteRow) -> Result<AddonRegistrationRecord> {
+    let granted_scopes = serde_json::from_str(&row_get::<String>(&row, "granted_scopes_json")?)
+        .map_err(database_error)?;
+
+    Ok(AddonRegistrationRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        manifest_id: row_get(&row, "manifest_id")?,
+        name: row_get(&row, "name")?,
+        version: row_get(&row, "version")?,
+        protocol_version: row_get(&row, "protocol_version")?,
+        base_url: row_get(&row, "base_url")?,
+        manifest_json: row_get(&row, "manifest_json")?,
+        granted_scopes,
+        status: AddonStatus::parse(&row_get::<String>(&row, "status")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
 fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessionRecord> {
     Ok(TranscodeSessionRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -5130,6 +5319,65 @@ mod tests {
             .unwrap();
         assert_eq!(accepted.status, AutomationArtifactStatus::Accepted);
         assert!(accepted.accepted_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_round_trips_addon_registration() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        let addon_id = AddonId::new();
+        let manifest_json = r#"{
+            "id":"example.metadata",
+            "name":"Example Metadata",
+            "version":"0.1.0",
+            "protocol_version":"2026-05-15",
+            "base_url":"https://example.test/addon"
+        }"#
+        .to_owned();
+        let registration = store
+            .upsert_addon_registration(NewAddonRegistration {
+                id: addon_id,
+                manifest_id: "example.metadata".to_owned(),
+                name: "Example Metadata".to_owned(),
+                version: "0.1.0".to_owned(),
+                protocol_version: "2026-05-15".to_owned(),
+                base_url: "https://example.test/addon".to_owned(),
+                manifest_json,
+                granted_scopes: vec!["item_metadata_read".to_owned()],
+                status: AddonStatus::Disabled,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(registration.id, addon_id);
+        assert_eq!(registration.status, AddonStatus::Disabled);
+        assert_eq!(registration.granted_scopes, vec!["item_metadata_read"]);
+        assert_eq!(
+            store.get_addon_registration(addon_id).await.unwrap(),
+            Some(registration.clone())
+        );
+        assert_eq!(
+            store
+                .find_addon_registration_by_manifest_id("example.metadata")
+                .await
+                .unwrap(),
+            Some(registration.clone())
+        );
+        assert_eq!(
+            store
+                .list_addon_registrations(Some(AddonStatus::Disabled))
+                .await
+                .unwrap(),
+            vec![registration]
+        );
+        assert!(
+            store
+                .list_addon_registrations(Some(AddonStatus::Enabled))
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 
     fn external_id_sort_key(external_id: &ExternalId) -> String {

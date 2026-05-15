@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 
 use crate::{
-    ArtworkTask, ArtworkTaskId, AutomationArtifactId, AutomationArtifactRecord,
-    AutomationArtifactStatus, AutomationProviderConfigRecord, AutomationProviderId, Collection,
-    CollectionId, CollectionItem, DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset,
-    ImageAssetId, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId,
-    MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock,
+    AddonId, AddonRegistrationRecord, AddonStatus, ArtworkTask, ArtworkTaskId,
+    AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
+    AutomationProviderConfigRecord, AutomationProviderId, Collection, CollectionId, CollectionItem,
+    DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId,
+    MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration,
     NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
     NewTranscodeSession, NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person,
     PersonId, ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId, SourceState, Studio,
@@ -368,6 +369,26 @@ pub trait WebhookRepository: Send + Sync {
         &self,
         event_id: crate::EventId,
     ) -> Result<Vec<WebhookDeliveryAttemptRecord>>;
+}
+
+#[async_trait]
+pub trait AddonRepository: Send + Sync {
+    async fn upsert_addon_registration(
+        &self,
+        addon: NewAddonRegistration,
+    ) -> Result<AddonRegistrationRecord>;
+
+    async fn get_addon_registration(&self, id: AddonId) -> Result<Option<AddonRegistrationRecord>>;
+
+    async fn find_addon_registration_by_manifest_id(
+        &self,
+        manifest_id: &str,
+    ) -> Result<Option<AddonRegistrationRecord>>;
+
+    async fn list_addon_registrations(
+        &self,
+        status: Option<AddonStatus>,
+    ) -> Result<Vec<AddonRegistrationRecord>>;
 }
 
 #[async_trait]

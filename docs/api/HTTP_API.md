@@ -141,6 +141,9 @@ GET  /webhooks/endpoints
 GET  /webhooks/endpoints/{endpoint_id}
 GET  /events/{event_id}/webhook-attempts
 POST /events/{event_id}/webhooks/deliver
+POST /addons
+GET  /addons
+GET  /addons/{addon_id}
 POST /automation/providers
 GET  /automation/providers
 GET  /automation/providers/{provider_id}
@@ -282,6 +285,67 @@ x-taru-signature: sha256=<hmac hex>  # present when secret_env is configured
 attempts for one event. Attempts include endpoint ID, attempt number, status,
 HTTP status when available, safe error text, requested/completed timestamps,
 and `next_retry_at` for retryable failures.
+
+## Addon Routes
+
+`POST /addons` registers or updates an HTTP addon manifest. Addons are disabled
+by default. A caller must explicitly request `"status": "enabled"` and grant
+every scope required by each declared resource before an enabled registration is
+accepted.
+
+```json
+{
+  "id": null,
+  "manifest": {
+    "id": "example.metadata",
+    "name": "Example Metadata",
+    "version": "0.1.0",
+    "protocol_version": "2026-05-15",
+    "base_url": "https://example.test/addon",
+    "description": "Metadata suggestion addon",
+    "resources": [
+      {
+        "kind": "metadata",
+        "path": "/metadata",
+        "input_schema": "taru.metadata.request.v1",
+        "output_schema": "taru.metadata.response.v1",
+        "required_scopes": ["item_metadata_read", "item_metadata_suggest"],
+        "timeout_ms": 5000,
+        "max_attempts": 2
+      }
+    ],
+    "auth": "bearer",
+    "default_timeout_ms": 10000,
+    "default_max_attempts": 2,
+    "scopes": ["item_metadata_read", "item_metadata_suggest"]
+  },
+  "granted_scopes": ["item_metadata_read", "item_metadata_suggest"],
+  "status": "disabled"
+}
+```
+
+The current addon protocol version is `2026-05-15`. Taru rejects manifests
+with unsupported protocol versions, non-HTTP base URLs, relative resource
+paths, duplicate resource declarations, invalid timeout/retry bounds, or
+resource scopes that are not declared by the manifest.
+
+Persisted registration responses include the manifest snapshot,
+`granted_scopes`, and enabled/disabled status. They do not include resolved
+runtime secrets.
+
+`GET /addons` lists registrations. `GET /addons?status=enabled` and
+`GET /addons?status=disabled` filter by status. `GET /addons/{addon_id}`
+returns one registration or `404 not_found`.
+
+Addon resource calls use a versioned request/response envelope in
+`taru-addon-protocol`. Calls are bounded by timeout and `max_attempts`; 408,
+429, 5xx, and transport errors are retryable, while other 4xx responses fail
+without retry. HTTP handlers only register and inspect addons in M5; they do
+not call addon resource endpoints inline.
+
+The workspace includes `taru-reference-addon`, a minimal metadata addon fixture
+used by the M5.5 end-to-end test. It proves that a local addon can be
+registered, queried, and called through the protocol transport.
 
 ## Automation Routes
 

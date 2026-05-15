@@ -7,7 +7,7 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
-- Active workstream: [addons and automation](workstreams/addons-automation/README.md)
+- Last completed workstream: [addons and automation](workstreams/addons-automation/README.md)
 - Foundation archive: [server foundation](workstreams/server-foundation/README.md)
 - Refactoring policy: [development/REFACTORING_POLICY.md](development/REFACTORING_POLICY.md)
 
@@ -15,6 +15,12 @@ policy, and workstream-level design notes for Taru.
 
 - [ADR index](adr/README.md): durable architecture decisions and their status.
 - [HTTP API](api/HTTP_API.md): current server API contract.
+- [Addon author guide](guides/ADDON_AUTHOR_GUIDE.md): Taru HTTP addon manifest
+  and resource contract.
+- [Webhook receiver guide](guides/WEBHOOK_RECEIVER_GUIDE.md): webhook
+  endpoint setup, signatures, and retry inspection.
+- [Automation provider guide](guides/AUTOMATION_PROVIDER_GUIDE.md): external
+  automation provider configuration and artifact policy.
 - [Local setup](development/LOCAL_SETUP.md): local development workflow.
 - [Test strategy](development/TEST_STRATEGY.md): validation gates and coverage
   expectations.

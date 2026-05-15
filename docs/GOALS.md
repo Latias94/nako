@@ -187,11 +187,11 @@ Evidence:
 - Focused HLS session readiness tests cover active-session conflict behavior at
   the app and HTTP layers.
 
-## Active Goal
+## Recently Completed Goal
 
 ### M5: Extension and Automation Surface
 
-Status: active, completed through M5.3 automation job model.
+Status: completed.
 
 Implement webhook outbox, automation jobs, addon manifest schema, and one
 reference addon. Keep AI-like experience improvements as explicit external
@@ -266,19 +266,39 @@ Evidence for M5.3:
   omission from job input, canonical-mutation rejection, and HTTP enqueue and
   inspection routes.
 
+Evidence for M5.4:
+
+- `taru-addon-protocol` defines the manifest, protocol version, resource
+  declarations, scopes, auth modes, request/response envelopes, mockable
+  transport, `ReqwestAddonTransport`, and bounded resource caller.
+- `taru-core` defines addon registration status and records plus
+  `AddonRepository`.
+- `taru-db` migration `0012_addons.sql` persists addon registrations, manifest
+  snapshots, granted scopes, and enabled/disabled status.
+- `taru-server` exposes addon registration, list, status-filtered list, and
+  detail APIs. Registrations are disabled by default and rejected when the
+  manifest or granted scopes do not satisfy the resource contract.
+- Tests cover manifest validation, invalid manifest rejection, scope denial,
+  auth token enforcement, bounded retry behavior, response envelope mapping,
+  persistence, and HTTP registration/inspection routes.
+
+Evidence for M5.5:
+
+- `taru-reference-addon` provides a minimal local metadata addon fixture with
+  a valid manifest and HTTP resource route.
+- `taru-server` end-to-end tests register the reference addon through
+  `POST /addons`, query it through `GET /addons/{addon_id}`, and call the
+  metadata resource through `ReqwestAddonTransport`.
+- Addon author, webhook receiver, and automation provider guides document the
+  current extension surface.
+- [Phase 5.5](workstreams/addons-automation/PHASE5_5_REFERENCE_ADDON_STABILIZATION.md)
+  documents M5 known limitations and stabilization evidence.
+
 ## Recommended Next Implementation Goal
 
-### M5.4: Addon Manifest and Resource Contract
+### M6: Remote Storage Preview
 
 Status: proposed.
-
-Define the Taru addon manifest schema, registration/validation model, first
-resource request/response envelopes, timeout/retry/authentication policy, and
-scope denial behavior before adding a reference addon.
-
-## Later Goals
-
-### M6: Remote Storage Preview
 
 Implement one limited remote storage backend and prove scan/probe/playback can
 work through `taru-vfs` without local-path assumptions.

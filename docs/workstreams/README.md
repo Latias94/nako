@@ -4,10 +4,10 @@ Workstreams group related milestones, TODOs, phase notes, and design context.
 They are not ownership silos; they are long-running areas of architectural
 attention.
 
-## Active Workstreams
+## Current Workstreams
 
-- [addons-automation](addons-automation/README.md): M5 webhook, automation,
-  addon manifest, provider, and trust-boundary work.
+- [addons-automation](addons-automation/README.md): completed M5 webhook,
+  automation, addon manifest, provider, and trust-boundary work.
 - [server-foundation](server-foundation/README.md): completed backend
   foundation, catalog, metadata, playback, transcode, VFS, and historical
   planning hub.

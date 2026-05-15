@@ -69,7 +69,7 @@ Future playback work:
 
 ### Extension and Automation: M5
 
-Status: active, completed through M5.3 automation job model.
+Status: completed.
 
 This phase turns the early architectural decisions into a usable external
 surface:
@@ -95,10 +95,16 @@ Completed:
 - M5.3 automation job model with external provider configuration, automation
   job inputs/summaries, generated artifact persistence, timeout/cancellation
   runner boundary, and provider/job/artifact inspection APIs.
+- M5.4 addon manifest and resource contract with protocol versioning, resource
+  envelopes, scope grants, disabled-by-default registration, bounded addon
+  HTTP caller, SQLite persistence, and registration/inspection APIs.
+- M5.5 reference addon and stabilization with a local addon fixture, end-to-end
+  register/query/call test, addon/webhook/automation guides, and documented M5
+  limitations.
 
 Recommended next goal:
 
-- M5.4 addon manifest and resource contract.
+- M6 remote storage and VFS expansion.
 
 ### Remote Storage and VFS Expansion: M6
 

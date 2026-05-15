@@ -97,6 +97,8 @@ Exit criteria:
 Outcome: Taru can register and validate an HTTP addon manifest and define the
 first addon resource envelopes.
 
+Status: completed.
+
 Deliverables:
 
 - Addon manifest schema and versioning rules.
@@ -114,6 +116,8 @@ Exit criteria:
 ## M5.5: Reference Addon and Stabilization
 
 Outcome: One minimal reference addon proves the protocol end to end.
+
+Status: completed.
 
 Deliverables:
 

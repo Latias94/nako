@@ -2,7 +2,7 @@
 
 ## Status
 
-Active for M5.
+Completed for M5.
 
 This workstream owns Taru's external extension surface: domain events, webhook
 delivery, external automation jobs, HTTP addon manifests, addon resource
@@ -18,6 +18,8 @@ Top-level tracking:
 - [Phase 5.1 event outbox foundation](PHASE5_1_EVENT_OUTBOX_FOUNDATION.md)
 - [Phase 5.2 webhook delivery worker](PHASE5_2_WEBHOOK_DELIVERY_WORKER.md)
 - [Phase 5.3 automation job model](PHASE5_3_AUTOMATION_JOB_MODEL.md)
+- [Phase 5.4 addon manifest and resource contract](PHASE5_4_ADDON_MANIFEST_RESOURCE_CONTRACT.md)
+- [Phase 5.5 reference addon and stabilization](PHASE5_5_REFERENCE_ADDON_STABILIZATION.md)
 
 ## Goals
 

@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
+use taru_addon_protocol::{AddonManifest, AddonScope};
 use taru_core::{
-    AutomationArtifactRecord, AutomationCapability, AutomationJobInput,
-    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, CollectionItem,
-    EventId, Genre, ImageAsset, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
-    JobStatus, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
-    MediaSourceId, OutboxEventRecord, PageRequest, Person, Tag, TranscodeSessionRecord,
-    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
+    AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
+    AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
+    AutomationProviderStatus, CollectionItem, EventId, Genre, ImageAsset, ItemCredit, ItemGenre,
+    ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem,
+    MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, OutboxEventRecord, PageRequest,
+    Person, Tag, TranscodeSessionRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId,
+    WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use taru_streaming::PlaybackDecision;
 
@@ -299,4 +301,24 @@ impl EnqueueAutomationJobRequest {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AutomationArtifactsResponse {
     pub artifacts: Vec<AutomationArtifactRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RegisterAddonRequest {
+    pub id: Option<AddonId>,
+    pub manifest: AddonManifest,
+    #[serde(default)]
+    pub granted_scopes: Vec<AddonScope>,
+    #[serde(default)]
+    pub status: Option<AddonStatus>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRegistrationResponse {
+    pub addon: AddonRegistrationRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRegistrationsResponse {
+    pub addons: Vec<AddonRegistrationRecord>,
 }

@@ -44,18 +44,18 @@
 
 ## Addon Protocol
 
-- [ ] Draft manifest JSON schema and protocol versioning rules.
-- [ ] Define addon resource request/response envelopes.
-- [ ] Define addon scopes and explicit enablement model.
-- [ ] Add addon registration and manifest validation.
-- [ ] Add bounded addon HTTP caller.
-- [ ] Add invalid manifest and scope denial tests.
-- [ ] Add reference addon fixture.
+- [x] Draft manifest JSON schema and protocol versioning rules.
+- [x] Define addon resource request/response envelopes.
+- [x] Define addon scopes and explicit enablement model.
+- [x] Add addon registration and manifest validation.
+- [x] Add bounded addon HTTP caller.
+- [x] Add invalid manifest and scope denial tests.
+- [x] Add reference addon fixture.
 
 ## Documentation
 
-- [ ] Add addon author guide.
-- [ ] Add webhook receiver guide.
-- [ ] Add automation provider configuration guide.
-- [ ] Update HTTP API docs when M5 routes are implemented.
-- [ ] Document M5 known limitations before stabilization.
+- [x] Add addon author guide.
+- [x] Add webhook receiver guide.
+- [x] Add automation provider configuration guide.
+- [x] Update HTTP API docs when M5 routes are implemented.
+- [x] Document M5 known limitations before stabilization.

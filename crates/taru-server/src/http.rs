@@ -11,12 +11,12 @@ use axum::{
 use serde::Deserialize;
 use taru_api::{
     API_VERSION, EnqueueAutomationJobRequest, ErrorResponse, HealthResponse, JobResponse,
-    SourceProbeResponse, TranscodeSessionResponse, UpsertAutomationProviderRequest,
-    UpsertWebhookEndpointRequest,
+    RegisterAddonRequest, SourceProbeResponse, TranscodeSessionResponse,
+    UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
 };
 use taru_core::{
-    AutomationProviderId, EventId, GenreId, JobId, LibraryId, MediaItemId, MediaSourceId,
-    PageRequest, PersonId, TagId, TaruError, TranscodeSessionId, WebhookEndpointId,
+    AddonId, AddonStatus, AutomationProviderId, EventId, GenreId, JobId, LibraryId, MediaItemId,
+    MediaSourceId, PageRequest, PersonId, TagId, TaruError, TranscodeSessionId, WebhookEndpointId,
 };
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -100,6 +100,8 @@ pub fn build_router(app: TaruApp) -> Router {
             "/automation/providers/{provider_id}",
             get(get_automation_provider),
         )
+        .route("/addons", get(list_addons).post(register_addon))
+        .route("/addons/{addon_id}", get(get_addon))
         .route("/automation/jobs", post(enqueue_automation_job))
         .route(
             "/automation/jobs/{job_id}/artifacts",
@@ -518,6 +520,30 @@ async fn get_automation_provider(
 }
 
 #[instrument(skip(app))]
+async fn register_addon(
+    State(app): State<TaruApp>,
+    Json(request): Json<RegisterAddonRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.register_addon(request).await?))
+}
+
+#[instrument(skip(app))]
+async fn list_addons(
+    State(app): State<TaruApp>,
+    Query(query): Query<AddonListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.list_addon_registrations(query.status).await?))
+}
+
+#[instrument(skip(app))]
+async fn get_addon(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_addon_registration(addon_id).await?))
+}
+
+#[instrument(skip(app))]
 async fn enqueue_automation_job(
     State(app): State<TaruApp>,
     Json(request): Json<EnqueueAutomationJobRequest>,
@@ -577,6 +603,11 @@ struct RemuxPlaybackQuery {
     #[serde(flatten)]
     capabilities: PlaybackCapabilitiesQuery,
     output_container: Option<RemuxContainer>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+struct AddonListQuery {
+    status: Option<AddonStatus>,
 }
 
 impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {
@@ -800,10 +831,15 @@ mod tests {
         http::{Method, Request, header},
     };
     use serde::{Serialize, de::DeserializeOwned};
+    use taru_addon_protocol::{
+        ADDON_PROTOCOL_VERSION, AddonAuth, AddonManifest, AddonResource, AddonResourceDeclaration,
+        AddonScope, ReqwestAddonTransport, call_addon_resource,
+    };
     use taru_api::{
-        AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
-        HealthResponse, JobResponse, LibraryListResponse, TranscodeSessionResponse,
-        WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
+        AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
+        AutomationProviderResponse, AutomationProvidersResponse, HealthResponse, JobResponse,
+        LibraryListResponse, TranscodeSessionResponse, WebhookDeliveryAttemptsResponse,
+        WebhookEndpointResponse, WebhookEndpointsResponse,
     };
     use taru_core::{
         AutomationCapability, AutomationProviderStatus, CanonicalMetadata, CatalogRepository,
@@ -818,7 +854,7 @@ mod tests {
     use taru_db::SqliteStore;
     use taru_search::{SearchDocument, SearchIndex};
     use taru_streaming::PlaybackMode;
-    use tokio::time::sleep;
+    use tokio::{net::TcpListener, task::yield_now, time::sleep};
     use tower::ServiceExt;
 
     use super::*;
@@ -1032,6 +1068,159 @@ mod tests {
             request_json::<AutomationArtifactsResponse>(&router, Method::GET, &artifacts_path)
                 .await;
         assert!(artifacts.artifacts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn addon_routes_register_disabled_by_default_and_validate_contract() {
+        let temp = tempfile::tempdir().unwrap();
+        let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+        let manifest = addon_manifest();
+
+        let response = request_body_json::<AddonRegistrationResponse, _>(
+            &router,
+            Method::POST,
+            "/addons",
+            &RegisterAddonRequest {
+                id: None,
+                manifest: manifest.clone(),
+                granted_scopes: vec![
+                    AddonScope::ItemMetadataSuggest,
+                    AddonScope::ItemMetadataRead,
+                ],
+                status: None,
+            },
+        )
+        .await;
+
+        assert_eq!(response.addon.manifest_id, manifest.id);
+        assert_eq!(response.addon.status, AddonStatus::Disabled);
+        assert_eq!(
+            response.addon.granted_scopes,
+            vec!["item_metadata_suggest", "item_metadata_read"]
+        );
+        assert!(!response.addon.manifest_json.contains("token"));
+
+        let disabled = request_json::<AddonRegistrationsResponse>(
+            &router,
+            Method::GET,
+            "/addons?status=disabled",
+        )
+        .await;
+        assert_eq!(disabled.addons, vec![response.addon.clone()]);
+
+        let enabled = request_json::<AddonRegistrationsResponse>(
+            &router,
+            Method::GET,
+            "/addons?status=enabled",
+        )
+        .await;
+        assert!(enabled.addons.is_empty());
+
+        let detail_path = format!("/addons/{}", response.addon.id);
+        let detail =
+            request_json::<AddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
+        assert_eq!(detail, response);
+
+        let mut invalid_manifest = addon_manifest();
+        invalid_manifest.resources[0].path = "metadata".to_owned();
+        let invalid = post_addon_registration(
+            &router,
+            RegisterAddonRequest {
+                id: None,
+                manifest: invalid_manifest,
+                granted_scopes: vec![
+                    AddonScope::ItemMetadataRead,
+                    AddonScope::ItemMetadataSuggest,
+                ],
+                status: Some(AddonStatus::Enabled),
+            },
+        )
+        .await;
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+        let invalid_error = body_json::<ErrorResponse>(invalid).await;
+        assert_eq!(invalid_error.code, "invalid_input");
+
+        let missing_scope = post_addon_registration(
+            &router,
+            RegisterAddonRequest {
+                id: None,
+                manifest: addon_manifest(),
+                granted_scopes: vec![AddonScope::ItemMetadataRead],
+                status: Some(AddonStatus::Enabled),
+            },
+        )
+        .await;
+        assert_eq!(missing_scope.status(), StatusCode::BAD_REQUEST);
+        let missing_scope_error = body_json::<ErrorResponse>(missing_scope).await;
+        assert_eq!(missing_scope_error.code, "invalid_input");
+    }
+
+    #[tokio::test]
+    async fn reference_addon_registers_queries_and_handles_resource_call() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addon_base_url = format!("http://{}", listener.local_addr().unwrap());
+        let addon_server = tokio::spawn(async move {
+            axum::serve(listener, taru_reference_addon::build_router())
+                .await
+                .unwrap();
+        });
+        yield_now().await;
+
+        let temp = tempfile::tempdir().unwrap();
+        let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+        let manifest = taru_reference_addon::reference_manifest(addon_base_url);
+
+        let registered = request_body_json::<AddonRegistrationResponse, _>(
+            &router,
+            Method::POST,
+            "/addons",
+            &RegisterAddonRequest {
+                id: None,
+                manifest,
+                granted_scopes: vec![
+                    AddonScope::ItemMetadataRead,
+                    AddonScope::ItemMetadataSuggest,
+                ],
+                status: Some(AddonStatus::Enabled),
+            },
+        )
+        .await;
+        assert_eq!(registered.addon.status, AddonStatus::Enabled);
+        assert_eq!(
+            registered.addon.manifest_id,
+            taru_reference_addon::REFERENCE_ADDON_ID
+        );
+
+        let detail_path = format!("/addons/{}", registered.addon.id);
+        let detail =
+            request_json::<AddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
+        let stored_manifest =
+            serde_json::from_str::<AddonManifest>(&detail.addon.manifest_json).unwrap();
+        let granted_scopes = [
+            AddonScope::ItemMetadataRead,
+            AddonScope::ItemMetadataSuggest,
+        ];
+
+        let response = call_addon_resource(
+            &ReqwestAddonTransport::default(),
+            &stored_manifest,
+            AddonResource::Metadata,
+            &granted_scopes,
+            "reference-addon-e2e-1",
+            serde_json::json!({"title":"The Matrix"}),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.payload["title"], "The Matrix");
+        assert_eq!(
+            response.payload["source"],
+            taru_reference_addon::REFERENCE_ADDON_ID
+        );
+        assert_eq!(response.artifacts[0].kind, "metadata_suggestion");
+
+        addon_server.abort();
     }
 
     #[tokio::test]
@@ -2384,6 +2573,54 @@ mod tests {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         let app = TaruApp::new_with_store(config, store).await.unwrap();
         build_router(app)
+    }
+
+    fn addon_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "example.metadata".to_owned(),
+            name: "Example Metadata".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: Some("Metadata suggestion addon".to_owned()),
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::Metadata,
+                path: "/metadata".to_owned(),
+                input_schema: Some("taru.metadata.request.v1".to_owned()),
+                output_schema: Some("taru.metadata.response.v1".to_owned()),
+                required_scopes: vec![
+                    AddonScope::ItemMetadataRead,
+                    AddonScope::ItemMetadataSuggest,
+                ],
+                timeout_ms: Some(5_000),
+                max_attempts: Some(2),
+            }],
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(2),
+            scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+        }
+    }
+
+    async fn post_addon_registration(
+        router: &Router,
+        request: RegisterAddonRequest,
+    ) -> axum::response::Response {
+        router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/addons")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
     }
 
     async fn request_json<T>(router: &Router, method: Method, uri: &str) -> T
