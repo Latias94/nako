@@ -144,7 +144,7 @@ impl StagingManifestRepository for SqliteStore {
             r#"
             SELECT *
             FROM staging_manifest_records
-            WHERE state = 'ready'
+            WHERE state IN ('staging', 'ready')
               AND active_leases = 0
               AND expires_at_ms IS NOT NULL
               AND expires_at_ms <= ?1
@@ -301,6 +301,25 @@ mod tests {
             .unwrap();
         assert_eq!(cleanup, vec![saved.clone()]);
 
+        let staging_id = StagingManifestId::new();
+        let staging_record = NewStagingManifestRecord {
+            id: staging_id,
+            state: StagingState::Staging,
+            local_path: "F:/Taru/cache/remux/inputs/pending.mkv".to_owned(),
+            last_accessed_at_ms: 1_300,
+            ..record.clone()
+        };
+        let saved_staging = store
+            .upsert_staging_manifest_record(staging_record)
+            .await
+            .unwrap();
+
+        let cleanup = store
+            .list_staging_cleanup_candidates(2_000, PageRequest::first_page())
+            .await
+            .unwrap();
+        assert_eq!(cleanup, vec![saved.clone(), saved_staging]);
+
         let touched = store
             .touch_staging_manifest_record(id, 2_500)
             .await
@@ -310,6 +329,10 @@ mod tests {
         assert_eq!(touched.updated_at_ms, 2_500);
 
         store.delete_staging_manifest_record(id).await.unwrap();
+        store
+            .delete_staging_manifest_record(staging_id)
+            .await
+            .unwrap();
         assert!(
             store
                 .get_staging_manifest_record(id)

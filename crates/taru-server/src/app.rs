@@ -55,22 +55,21 @@ use taru_transcode::{
     FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
-use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageCapabilities, StorageUri};
+use taru_vfs::{StageRequest, StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
-use crate::config::{
-    LocalLibraryConfig, TaruServerConfig, WebDavLibraryConfig, configured_library_config_for,
-    default_library_from_config, libraries_from_config,
-};
+use crate::config::{TaruServerConfig, default_library_from_config, libraries_from_config};
 
 pub(crate) mod playback;
 mod staging;
+mod storage;
 
 pub(crate) use playback::DirectPlaySourceBody;
 #[cfg(test)]
 pub(crate) use playback::DirectPlayStreamBody;
 use staging::{ManifestRecordingStorageBackend, cleanup_expired_staging_inputs};
+use storage::{StorageBackendFactory, remote_probe_staging_root};
 
 #[cfg(test)]
 use playback::plan_direct_play_with_backend;
@@ -1184,72 +1183,21 @@ impl TaruApp {
         &self,
         library: &taru_core::Library,
     ) -> Result<Box<dyn StorageBackend>> {
-        let config = configured_library_config_for(self.config(), library.id)?;
-        self.storage_backend_for_library_config(&config)
+        self.storage_backend_factory()
+            .backend_for_library_root(library)
     }
 
     async fn storage_backend_for_media_source(
         &self,
         source: &MediaSource,
     ) -> Result<(StorageUri, Box<dyn StorageBackend>)> {
-        let uri = StorageUri::parse(&source.locator)?;
-        let library_config = self
-            .configured_library_config_for_source(source, &uri)
-            .await?;
-        let backend = self.storage_backend_for_library_config(&library_config)?;
-
-        Ok((uri, backend))
+        self.storage_backend_factory()
+            .backend_for_media_source(source)
+            .await
     }
 
-    fn storage_backend_for_library_config(
-        &self,
-        config: &LocalLibraryConfig,
-    ) -> Result<Box<dyn StorageBackend>> {
-        match config.webdav.as_ref() {
-            Some(webdav) => self.webdav_storage_backend(webdav),
-            None => Ok(Box::new(LocalFsBackend::new(&config.root)?)),
-        }
-    }
-
-    async fn configured_library_config_for_source(
-        &self,
-        source: &MediaSource,
-        uri: &StorageUri,
-    ) -> Result<LocalLibraryConfig> {
-        match configured_library_config_for(self.config(), source.library_id) {
-            Ok(config) => Ok(config),
-            Err(TaruError::NotFound { .. }) => {
-                let matches = self
-                    .config()
-                    .libraries
-                    .clone()
-                    .into_iter()
-                    .filter(|config| library_config_matches_uri(config, uri))
-                    .collect::<Vec<_>>();
-
-                match matches.as_slice() {
-                    [config] => Ok(config.clone()),
-                    [] => Err(TaruError::Unsupported(
-                        "source library is not configured and source URI does not match any configured library backend",
-                    )),
-                    _ => Err(TaruError::Unsupported(
-                        "source library is not configured and source URI matches multiple configured library backends",
-                    )),
-                }
-            }
-            Err(err) => Err(err),
-        }
-    }
-
-    fn webdav_storage_backend(
-        &self,
-        config: &WebDavLibraryConfig,
-    ) -> Result<Box<dyn StorageBackend>> {
-        let backend = taru_vfs::WebDavBackend::new(webdav_backend_config(config))?;
-        Ok(Box::new(taru_vfs::CachedStorageBackend::new(
-            backend,
-            self.inner.store.clone(),
-        )))
+    fn storage_backend_factory(&self) -> StorageBackendFactory<'_> {
+        StorageBackendFactory::new(self.config(), self.inner.store.clone())
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
@@ -2950,34 +2898,6 @@ async fn local_source_path_and_len(
     Ok((local_path, total_len))
 }
 
-fn webdav_backend_config(config: &WebDavLibraryConfig) -> taru_vfs::WebDavBackendConfig {
-    taru_vfs::WebDavBackendConfig {
-        base_url: config.base_url.clone(),
-        username: config.username.clone(),
-        password_env: config.password_env.clone(),
-        timeout_ms: config.timeout_ms,
-        max_attempts: config.max_attempts,
-    }
-}
-
-fn library_config_matches_uri(config: &LocalLibraryConfig, uri: &StorageUri) -> bool {
-    match (uri.scheme(), config.webdav.as_ref()) {
-        ("local", None) => true,
-        ("webdav", Some(webdav)) => storage_uri_is_within_root(uri.as_str(), &webdav.root),
-        _ => false,
-    }
-}
-
-fn storage_uri_is_within_root(uri: &str, root: &str) -> bool {
-    if uri == root {
-        return true;
-    }
-
-    let root = root.trim_end_matches('/');
-    uri.strip_prefix(root)
-        .is_some_and(|rest| rest.starts_with('/'))
-}
-
 async fn ensure_nfo_export_writable(
     backend: &dyn StorageBackend,
     library: &taru_core::Library,
@@ -3000,17 +2920,6 @@ async fn ensure_nfo_export_writable(
             "NFO export requires a writable storage backend",
         ))
     }
-}
-
-fn remote_probe_staging_root(
-    library: &taru_core::Library,
-    config: &TaruServerConfig,
-) -> Option<PathBuf> {
-    library
-        .roots
-        .iter()
-        .any(|root| root.starts_with("webdav://"))
-        .then(|| config.remux_staging_root.join("probe-inputs"))
 }
 
 fn path_exists(path: &Path) -> Result<bool> {
@@ -3172,7 +3081,10 @@ mod tests {
     use std::{
         fs,
         path::{Path, PathBuf},
-        sync::Arc,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
         time::Duration,
     };
 
@@ -3198,11 +3110,12 @@ mod tests {
         ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StagedFile,
         StorageCapabilities, VirtualFile,
     };
-    use tokio::net::TcpListener;
+    use tokio::{net::TcpListener, sync::Notify};
 
     use super::*;
     use crate::config::{
         LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig, TranscodeConfig,
+        WebDavLibraryConfig,
     };
 
     #[tokio::test]
@@ -4562,6 +4475,163 @@ mod tests {
         assert_eq!(records[0].size_bytes, Some(8));
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn manifest_recording_backend_reserves_budget_without_serializing_downloads() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let control = ConcurrentStageControl::new();
+        let backend = Arc::new(ManifestRecordingStorageBackend::new(
+            Box::new(ConcurrentStageBackend {
+                bytes: vec![b'x'; 8],
+                control: control.clone(),
+            }),
+            store.clone(),
+            StagingPurpose::ProbeInput,
+            32,
+            StagingConfig::default().retention_ms,
+            Arc::new(Semaphore::new(2)),
+            Arc::new(Mutex::new(())),
+        ));
+        let first_uri = StorageUri::parse("webdav:///Movies/First.mkv").unwrap();
+        let second_uri = StorageUri::parse("webdav:///Movies/Second.mkv").unwrap();
+        let staging_root = temp.path().join("probe-inputs");
+
+        let first = {
+            let backend = backend.clone();
+            let staging_root = staging_root.clone();
+            tokio::spawn(async move {
+                backend
+                    .stage(StageRequest::new(first_uri, staging_root))
+                    .await
+            })
+        };
+        let second = {
+            let backend = backend.clone();
+            let staging_root = staging_root.clone();
+            tokio::spawn(async move {
+                backend
+                    .stage(StageRequest::new(second_uri, staging_root))
+                    .await
+            })
+        };
+
+        let both_downloads_started =
+            tokio::time::timeout(Duration::from_millis(200), control.both_entered.notified()).await;
+        control.release();
+
+        let first = first.await.unwrap();
+        let second = second.await.unwrap();
+        assert!(both_downloads_started.is_ok());
+        assert!(first.is_ok());
+        assert!(second.is_ok());
+        assert_eq!(control.max_in_flight.load(Ordering::SeqCst), 2);
+        assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 16);
+        let records = store
+            .list_staging_manifest_records(
+                Some(StagingPurpose::ProbeInput),
+                Some(StagingState::Ready),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let backend = ManifestRecordingStorageBackend::new(
+            Box::new(FailingStageBackend {
+                len: 8,
+                fingerprint: "failing-stage".to_owned(),
+            }),
+            store.clone(),
+            StagingPurpose::ProbeInput,
+            32,
+            StagingConfig::default().retention_ms,
+            Arc::new(Semaphore::new(1)),
+            Arc::new(Mutex::new(())),
+        );
+        let uri = StorageUri::parse("webdav:///Movies/Failing.mkv").unwrap();
+
+        let err = backend
+            .stage(StageRequest::new(uri, temp.path().join("probe-inputs")))
+            .await
+            .unwrap_err();
+
+        let TaruError::Storage { message, .. } = err else {
+            panic!("expected storage failure");
+        };
+        assert!(message.contains("intentional staging failure"));
+        assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 0);
+        let records = store
+            .list_staging_manifest_records(
+                Some(StagingPurpose::ProbeInput),
+                None,
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert!(records.is_empty());
+    }
+
+    #[tokio::test]
+    async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
+        let staging_root = temp.path().join("probe-inputs");
+        let reserved_path =
+            taru_vfs::deterministic_stage_path(&staging_root, &uri, Some("reserved")).unwrap();
+        store
+            .upsert_staging_manifest_record(NewStagingManifestRecord {
+                id: StagingManifestId::new(),
+                source_uri: uri.to_string(),
+                source_scheme: uri.scheme().to_owned(),
+                purpose: StagingPurpose::ProbeInput,
+                local_path: reserved_path.display().to_string(),
+                size_bytes: Some(8),
+                etag: Some("etag-reserved".to_owned()),
+                fingerprint: Some("reserved".to_owned()),
+                state: StagingState::Staging,
+                created_at_ms: 1,
+                updated_at_ms: 1,
+                last_accessed_at_ms: 1,
+                expires_at_ms: Some(i64::MAX),
+                active_leases: 0,
+                validation_error: None,
+            })
+            .await
+            .unwrap();
+        let backend = ManifestRecordingStorageBackend::new(
+            Box::new(FailingStageBackend {
+                len: 8,
+                fingerprint: "reserved".to_owned(),
+            }),
+            store,
+            StagingPurpose::ProbeInput,
+            32,
+            StagingConfig::default().retention_ms,
+            Arc::new(Semaphore::new(1)),
+            Arc::new(Mutex::new(())),
+        );
+
+        let err = backend
+            .stage(StageRequest::new(uri, staging_root))
+            .await
+            .unwrap_err();
+
+        let TaruError::Storage { message, .. } = err else {
+            panic!("expected active reservation error");
+        };
+        assert!(message.contains("staging input is already reserved"));
+        assert!(!message.contains("intentional staging failure"));
+    }
+
     #[tokio::test]
     async fn manifest_recording_backend_waits_for_stage_budget() {
         let temp = tempfile::tempdir().unwrap();
@@ -4779,6 +4849,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn staging_cleanup_removes_expired_pending_reservations() {
+        let temp = tempfile::tempdir().unwrap();
+        let staged_path = temp.path().join("pending.mkv");
+        fs::write(&staged_path, b"partial").unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let record_id = StagingManifestId::new();
+        let mut record = staging_manifest_record(record_id, &staged_path, Some(1), 0);
+        record.state = StagingState::Staging;
+        store.upsert_staging_manifest_record(record).await.unwrap();
+
+        let cleanup = cleanup_expired_staging_inputs(&store, 2_000).await.unwrap();
+
+        assert_eq!(cleanup.deleted_records, 1);
+        assert_eq!(cleanup.deleted_files, 1);
+        assert!(!staged_path.exists());
+        assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 0);
+        assert!(
+            store
+                .get_staging_manifest_record(record_id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
     async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
         let server = MockWebDavServer::start().await;
         let temp = tempfile::tempdir().unwrap();
@@ -4948,6 +5045,183 @@ mod tests {
     struct RemotePlaybackBackend {
         bytes: Vec<u8>,
         local_path_hint: Option<PathBuf>,
+    }
+
+    #[derive(Clone)]
+    struct ConcurrentStageControl {
+        in_flight: Arc<AtomicUsize>,
+        max_in_flight: Arc<AtomicUsize>,
+        released: Arc<AtomicBool>,
+        both_entered: Arc<Notify>,
+        release_notify: Arc<Notify>,
+    }
+
+    impl ConcurrentStageControl {
+        fn new() -> Self {
+            Self {
+                in_flight: Arc::new(AtomicUsize::new(0)),
+                max_in_flight: Arc::new(AtomicUsize::new(0)),
+                released: Arc::new(AtomicBool::new(false)),
+                both_entered: Arc::new(Notify::new()),
+                release_notify: Arc::new(Notify::new()),
+            }
+        }
+
+        fn release(&self) {
+            self.released.store(true, Ordering::SeqCst);
+            self.release_notify.notify_waiters();
+        }
+    }
+
+    struct ConcurrentStageBackend {
+        bytes: Vec<u8>,
+        control: ConcurrentStageControl,
+    }
+
+    struct FailingStageBackend {
+        len: u64,
+        fingerprint: String,
+    }
+
+    #[async_trait]
+    impl StorageBackend for FailingStageBackend {
+        fn scheme(&self) -> &'static str {
+            "webdav"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::File,
+                len: Some(self.len),
+                modified_at: None,
+                etag: Some("etag-failing".to_owned()),
+                fingerprint: Some(self.fingerprint.clone()),
+                capabilities: StorageCapabilities::RANGE_READABLE
+                    | StorageCapabilities::REMOTE_LATENCY,
+                cache: None,
+            })
+        }
+
+        async fn list(&self, _uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(Vec::new())
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<VirtualFile> {
+            Ok(VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Ok(String::new())
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(TaruError::Unsupported("test backend is read-only"))
+        }
+
+        async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+            Err(TaruError::Storage {
+                uri: request.uri.to_string(),
+                message: "intentional staging failure".to_owned(),
+            })
+        }
+    }
+
+    #[async_trait]
+    impl StorageBackend for ConcurrentStageBackend {
+        fn scheme(&self) -> &'static str {
+            "webdav"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::File,
+                len: Some(self.bytes.len() as u64),
+                modified_at: None,
+                etag: Some("etag-concurrent".to_owned()),
+                fingerprint: Some(format!("fingerprint-{}", uri.path_part())),
+                capabilities: StorageCapabilities::RANGE_READABLE
+                    | StorageCapabilities::REMOTE_LATENCY,
+                cache: None,
+            })
+        }
+
+        async fn list(&self, _uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(Vec::new())
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<VirtualFile> {
+            Ok(VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Ok(String::new())
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(TaruError::Unsupported("test backend is read-only"))
+        }
+
+        async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+            let current = self.control.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+            self.control
+                .max_in_flight
+                .fetch_max(current, Ordering::SeqCst);
+            if current == 2 {
+                self.control.both_entered.notify_waiters();
+            }
+
+            while !self.control.released.load(Ordering::SeqCst) {
+                self.control.release_notify.notified().await;
+            }
+
+            self.control.in_flight.fetch_sub(1, Ordering::SeqCst);
+            let path = taru_vfs::deterministic_stage_path(
+                &request.root,
+                &request.uri,
+                Some(&format!("fingerprint-{}", request.uri.path_part())),
+            )?;
+            if let Some(parent) = path.parent() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .map_err(|err| TaruError::Storage {
+                        uri: parent.display().to_string(),
+                        message: format!("failed to create test staging directory: {err}"),
+                    })?;
+            }
+            tokio::fs::write(&path, &self.bytes)
+                .await
+                .map_err(|err| TaruError::Storage {
+                    uri: path.display().to_string(),
+                    message: format!("failed to write test staging file: {err}"),
+                })?;
+
+            Ok(StagedFile {
+                uri: request.uri,
+                path,
+                len: Some(self.bytes.len() as u64),
+                etag: Some("etag-concurrent".to_owned()),
+                fingerprint: Some("fingerprint-concurrent".to_owned()),
+                reused: false,
+            })
+        }
     }
 
     #[async_trait]

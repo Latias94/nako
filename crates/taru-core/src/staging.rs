@@ -100,7 +100,7 @@ pub struct StagingManifestRecord {
 impl StagingManifestRecord {
     #[must_use]
     pub const fn is_cleanup_candidate_at(&self, now_ms: i64) -> bool {
-        matches!(self.state, StagingState::Ready)
+        matches!(self.state, StagingState::Staging | StagingState::Ready)
             && self.active_leases == 0
             && matches!(self.expires_at_ms, Some(expires_at_ms) if expires_at_ms <= now_ms)
     }
