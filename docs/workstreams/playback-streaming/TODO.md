@@ -26,8 +26,9 @@
 
 - [x] Define staging manifest record model.
 - [x] Add SQLite migration and repository.
-- [ ] Track source URI, staging purpose, local path, size, etag/fingerprint,
+- [x] Track source URI, staging purpose, local path, size, etag/fingerprint,
       state, last access, and expiration.
+- [x] Record remux/HLS remote FFmpeg input staging in the manifest.
 - [ ] Add disk budget configuration.
 - [ ] Enforce disk budget before staging remote inputs.
 - [ ] Add startup cleanup.

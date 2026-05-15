@@ -20,6 +20,8 @@ growing the already large `taru-db/src/lib.rs` implementation file.
 - Added SQLite migration `0014_staging_manifest.sql`.
 - Implemented the repository in `crates/taru-db/src/staging.rs` instead of
   expanding the main DB file further.
+- Remote FFmpeg input staging now records `ffmpeg_input` manifest entries after
+  a WebDAV input is staged for remux or HLS.
 
 ## Validation
 
@@ -27,10 +29,12 @@ Focused validation:
 
 - `cargo check -p taru-core -p taru-db`
 - `cargo nextest run -p taru-db sqlite_store_round_trips_staging_manifest_records`
+- `cargo check -p taru-server`
+- `cargo nextest run -p taru-server source_path_for_ffmpeg_records_manifest_for_remote_staging ffmpeg_source_path_stages_remote_backend_without_local_path_hint ffmpeg_source_path_reuses_local_path_hint_without_staging`
 
 ## Remaining Gaps
 
-- Runtime probe/remux/HLS staging still needs to write manifest records.
+- Runtime probe staging still needs to write manifest records.
 - Disk budget configuration and enforcement are not connected yet.
 - Cleanup worker and startup cleanup are not implemented yet.
 - Active lease management is represented in the manifest schema but not yet

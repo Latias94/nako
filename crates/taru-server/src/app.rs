@@ -3,6 +3,7 @@ use std::{
     env,
     path::{Path, PathBuf},
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use async_trait::async_trait;
@@ -25,11 +26,13 @@ use taru_core::{
     DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, GenreId, Job, JobId,
     JobKind, JobRepository, Library, LibraryId, LibraryRepository, MediaItemId,
     MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, MetadataProfile,
-    NewAddonRegistration, NewAutomationProviderConfig, NewJob, NewOutboxEvent, NewTranscodeSession,
-    NewWebhookEndpoint, OutboxEventRecord, PageRequest, PersonId, Result, TagId, TaruError,
-    TransactionManager, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
-    WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord, WebhookRepository,
+    NewAddonRegistration, NewAutomationProviderConfig, NewJob, NewOutboxEvent,
+    NewStagingManifestRecord, NewTranscodeSession, NewWebhookEndpoint, OutboxEventRecord,
+    PageRequest, PersonId, Result, StagingManifestId, StagingManifestRepository, StagingPurpose,
+    StagingState, TagId, TaruError, TransactionManager, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionState, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
+    WebhookRepository,
 };
 use taru_db::SqliteStore;
 use taru_events::{ReqwestWebhookTransport, WebhookDeliveryService, endpoint_subscribes_to};
@@ -53,7 +56,7 @@ use taru_transcode::{
     FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
     RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
 };
-use taru_vfs::{LocalFsBackend, StageRequest, StorageBackend, StorageUri};
+use taru_vfs::{LocalFsBackend, StageRequest, StagedFile, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -1116,13 +1119,64 @@ impl TaruApp {
     async fn source_path_for_ffmpeg(&self, source: &MediaSource) -> Result<PathBuf> {
         let uri = StorageUri::parse(&source.locator)?;
         let backend = self.storage_backend_for_source(&uri)?;
-        source_path_for_ffmpeg_with_backend(
-            source,
-            &uri,
-            backend.as_ref(),
-            self.config().remux_staging_root.join("inputs"),
-        )
-        .await
+        match local_source_path_and_len(source, &uri, backend.as_ref()).await {
+            Ok((path, _len)) => Ok(path),
+            Err(TaruError::Unsupported(_)) => {
+                let staged = backend
+                    .stage(StageRequest::new(
+                        uri.clone(),
+                        self.config().remux_staging_root.join("inputs"),
+                    ))
+                    .await?;
+                self.record_staged_ffmpeg_input(&uri, &staged).await?;
+                Ok(staged.path)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    async fn record_staged_ffmpeg_input(
+        &self,
+        uri: &StorageUri,
+        staged: &StagedFile,
+    ) -> Result<()> {
+        let now_ms = current_time_ms()?;
+        let existing = self
+            .inner
+            .store
+            .find_staging_manifest_record_by_path(&staged.path.display().to_string())
+            .await?;
+        let id = existing
+            .as_ref()
+            .map(|record| record.id)
+            .unwrap_or_else(StagingManifestId::new);
+        let created_at_ms = existing
+            .as_ref()
+            .map(|record| record.created_at_ms)
+            .unwrap_or(now_ms);
+
+        self.inner
+            .store
+            .upsert_staging_manifest_record(NewStagingManifestRecord {
+                id,
+                source_uri: uri.to_string(),
+                source_scheme: uri.scheme().to_owned(),
+                purpose: StagingPurpose::FfmpegInput,
+                local_path: staged.path.display().to_string(),
+                size_bytes: staged.len,
+                etag: staged.etag.clone(),
+                fingerprint: staged.fingerprint.clone(),
+                state: StagingState::Ready,
+                created_at_ms,
+                updated_at_ms: now_ms,
+                last_accessed_at_ms: now_ms,
+                expires_at_ms: None,
+                active_leases: 0,
+                validation_error: None,
+            })
+            .await?;
+
+        Ok(())
     }
 
     fn storage_backend_for_source(&self, uri: &StorageUri) -> Result<Box<dyn StorageBackend>> {
@@ -2777,6 +2831,7 @@ fn map_hls_runner_error(error: TaruError) -> TaruError {
     }
 }
 
+#[cfg(test)]
 async fn source_path_for_ffmpeg_with_backend(
     source: &MediaSource,
     uri: &StorageUri,
@@ -2844,6 +2899,18 @@ fn path_exists(path: &Path) -> Result<bool> {
     path.try_exists().map_err(|err| TaruError::Storage {
         uri: path.display().to_string(),
         message: format!("failed to check path: {err}"),
+    })
+}
+
+fn current_time_ms() -> Result<i64> {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|err| TaruError::InvalidInput {
+            message: format!("system time is before UNIX epoch: {err}"),
+        })?;
+
+    i64::try_from(duration.as_millis()).map_err(|err| TaruError::InvalidInput {
+        message: format!("current timestamp does not fit i64 milliseconds: {err}"),
     })
 }
 
@@ -3946,6 +4013,71 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
+        let server = MockWebDavServer::start().await;
+        let temp = tempfile::tempdir().unwrap();
+        let staging_root = temp.path().join("cache").join("remux");
+        let library_id = LibraryId::new();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(
+            TaruServerConfig {
+                listen_addr: "127.0.0.1:0".parse().unwrap(),
+                database_url: "sqlite::memory:".to_owned(),
+                ffprobe_path: PathBuf::from("ffprobe"),
+                ffmpeg_path: PathBuf::from("ffmpeg"),
+                scan_concurrency: 1,
+                probe_concurrency: 1,
+                metadata_concurrency: 1,
+                remux_concurrency: 1,
+                webhook_concurrency: 2,
+                remux_timeout_ms: 30 * 60 * 1_000,
+                remux_staging_root: staging_root.clone(),
+                metadata: MetadataConfig::default(),
+                transcode: TranscodeConfig::default(),
+                library: LocalLibraryConfig {
+                    id: library_id,
+                    name: "Remote Movies".to_owned(),
+                    root: temp.path().join("unused-local-root"),
+                    preset: taru_core::LibraryPreset::Movies,
+                    webdav: Some(WebDavLibraryConfig {
+                        root: "webdav:///Movies".to_owned(),
+                        base_url: server.base_url(),
+                        username: None,
+                        password_env: None,
+                        timeout_ms: 5_000,
+                        max_attempts: 1,
+                    }),
+                },
+            },
+            store.clone(),
+        )
+        .await
+        .unwrap();
+        let source = remote_media_source("webdav:///Movies/Demo.mkv");
+
+        let input_path = app.source_path_for_ffmpeg(&source).await.unwrap();
+
+        assert!(input_path.starts_with(staging_root.join("inputs")));
+        assert_eq!(fs::read(&input_path).unwrap(), b"demo");
+        let records = store
+            .list_staging_manifest_records(
+                Some(StagingPurpose::FfmpegInput),
+                Some(StagingState::Ready),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.source_uri, "webdav:///Movies/Demo.mkv");
+        assert_eq!(record.source_scheme, "webdav");
+        assert_eq!(record.local_path, input_path.display().to_string());
+        assert_eq!(record.size_bytes, Some(4));
+        assert_eq!(record.etag.as_deref(), Some("etag-demo"));
+        assert_eq!(record.fingerprint.as_deref(), Some("webdav:etag=etag-demo"));
+    }
+
+    #[tokio::test]
     async fn ffmpeg_source_path_reuses_local_path_hint_without_staging() {
         let temp = tempfile::tempdir().unwrap();
         let local_path = temp.path().join("library").join("demo.mkv");
@@ -4186,6 +4318,10 @@ mod tests {
                 )
                     .into_response();
             }
+        }
+
+        if method == Method::GET && path.ends_with("/Movies/Demo.mkv") {
+            return (AxumStatusCode::OK, [(header::CONTENT_LENGTH, "4")], "demo").into_response();
         }
 
         AxumStatusCode::NOT_FOUND.into_response()

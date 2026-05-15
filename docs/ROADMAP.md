@@ -153,7 +153,8 @@ Completed:
   `ReadStream`, WebDAV byte streams, direct-play stream bodies, HEAD preflight,
   and initial playback app/http module split.
 - M7.2 foundation for durable staging manifest persistence, including core
-  records, repository contract, SQLite migration, and a dedicated DB module.
+  records, repository contract, SQLite migration, a dedicated DB module, and
+  remux/HLS FFmpeg input manifest recording.
 
 Recommended next goal:
 
