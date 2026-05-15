@@ -2,7 +2,12 @@
 
 ## Status
 
-Active for M6.
+Completed for M6.
+
+M6 delivered the WebDAV read-only preview, VFS cache, remote probe staging,
+remote playback policy, and stabilization docs. Follow-up work should either
+continue remote-storage hardening or split into a dedicated
+`playback-streaming` workstream.
 
 This workstream owns Taru's storage abstraction beyond the local filesystem:
 remote VFS backends, directory/stat cache policy, remote byte-range reads,
@@ -20,6 +25,7 @@ Top-level tracking:
 - [Phase 6.2 directory and stat cache](PHASE6_2_DIRECTORY_STAT_CACHE.md)
 - [Phase 6.3 remote probe staging](PHASE6_3_REMOTE_PROBE_STAGING.md)
 - [Phase 6.4 remote playback policy](PHASE6_4_REMOTE_PLAYBACK_POLICY.md)
+- [Phase 6.5 remote storage stabilization](PHASE6_5_REMOTE_STORAGE_STABILIZATION.md)
 
 ## Goals
 

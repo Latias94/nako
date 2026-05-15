@@ -98,6 +98,38 @@ language = "en-US"
 include_adult = false
 ```
 
+## WebDAV Preview Config
+
+M6 includes a read-only WebDAV preview for one configured library. Add
+`[library.webdav]` to switch the configured library root from `local:///` to a
+WebDAV storage URI. The WebDAV password is a secret environment reference; it
+must not be placed in `base_url`, source locators, jobs, logs, or scan state.
+
+```toml
+[library]
+id = "018f0000-0000-7000-8000-000000000001"
+name = "Remote Movies"
+root = "F:/Media/Movies"
+
+[library.webdav]
+root = "webdav:///Movies"
+base_url = "https://nas.example.test/dav"
+username = "media"
+password_env = "TARU_WEBDAV_PASSWORD"
+timeout_ms = 30000
+max_attempts = 2
+```
+
+```powershell
+$env:TARU_WEBDAV_PASSWORD = "<webdav password>"
+cargo run -p taru-server -- --config taru.toml scan
+```
+
+Remote probe inputs are staged under `remux_staging_root/probe-inputs`. Remote
+remux and HLS inputs are staged under `remux_staging_root/inputs` before FFmpeg
+is invoked. Direct play reads WebDAV ranges through `taru-vfs`; the current
+preview buffers the selected range bytes in memory.
+
 Runtime notes:
 
 - `scan_concurrency` bounds directory scan work.
@@ -107,7 +139,8 @@ Runtime notes:
 - `webhook_concurrency` bounds explicit webhook dispatch attempts.
 - `remux_timeout_ms` bounds one remux or HLS FFmpeg process.
 - `remux_staging_root` stores staged remux outputs; HLS outputs are staged
-  below `remux_staging_root/hls`.
+  below `remux_staging_root/hls`. Remote probe and FFmpeg input staging also
+  uses children below this root.
 - `[transcode].cpu_concurrency` and `[transcode].gpu_concurrency` bound HLS
   transcode sessions by selected acceleration class.
 

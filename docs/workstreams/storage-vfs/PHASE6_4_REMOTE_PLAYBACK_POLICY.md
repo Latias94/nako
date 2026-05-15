@@ -41,8 +41,7 @@ backend-local file path.
 ## Boundary Notes
 
 - M6.4 proves playback policy at the VFS/app boundary. Production server
-  configuration still only constructs `LocalFsBackend`; first-class WebDAV
-  server config and setup docs remain M6.5 work.
+  configuration is wired in M6.5; M6.4's focus remains the playback policy.
 - Direct play currently materializes the selected remote range into memory.
   This is acceptable for the policy preview, but streaming remote response
   bodies should replace it before large remote direct-play usage.
@@ -52,7 +51,6 @@ backend-local file path.
 
 ## Remaining Gaps
 
-- No first-class WebDAV source configuration in `TaruServerConfig` yet.
 - No remote direct-play body streaming yet; range bytes are buffered in memory.
 - No disk budget, cleanup worker, or persistent staging manifest yet.
 - Remote storage timeout and stale-cache failure mapping are not fully surfaced

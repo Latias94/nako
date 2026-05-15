@@ -381,13 +381,32 @@ Evidence:
 - [Phase 6.4](workstreams/storage-vfs/PHASE6_4_REMOTE_PLAYBACK_POLICY.md)
   records validation and remaining production config/API gaps.
 
+### M6.5: Remote Storage Stabilization
+
+Status: completed.
+
+Evidence:
+
+- `TaruServerConfig` supports `[library.webdav]` preview configuration with
+  WebDAV root, base URL, username, password environment reference, timeout,
+  and retry attempt limits.
+- `taru-server::app` builds configured WebDAV storage through
+  `WebDavBackend` wrapped in `CachedStorageBackend`.
+- Configured WebDAV library scan/probe uses the WebDAV root from
+  `library_from_config`; remote probe staging uses
+  `remux_staging_root/probe-inputs`.
+- HTTP API and local setup docs describe WebDAV direct play, remux/HLS staging,
+  secret references, and preview limitations.
+- [Phase 6.5](workstreams/storage-vfs/PHASE6_5_REMOTE_STORAGE_STABILIZATION.md)
+  records validation and remaining known limitations.
+
 ## Recommended Next Implementation Goal
 
-### M6.5: Remote Storage Stabilization
+### M7: Playback Streaming and Remote Hardening
 
 Status: proposed.
 
-Wire the WebDAV preview into server configuration and setup docs, document HTTP
-API behavior and known limitations, run the full validation matrix, and decide
-whether the next large goal should split into `playback-streaming` or continue
-remote-storage hardening.
+Split `playback-streaming` into a dedicated workstream if remote playback is
+the next focus. The likely first slice is remote direct response-body
+streaming, staging disk budgets and cleanup, richer storage failure mapping,
+and multi-library remote configuration.

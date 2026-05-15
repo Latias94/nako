@@ -48,6 +48,22 @@ pub struct LocalLibraryConfig {
     pub root: PathBuf,
     #[serde(default = "default_library_preset")]
     pub preset: LibraryPreset,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub webdav: Option<WebDavLibraryConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WebDavLibraryConfig {
+    pub root: String,
+    pub base_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password_env: Option<String>,
+    #[serde(default = "default_webdav_timeout_ms")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_webdav_max_attempts")]
+    pub max_attempts: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -161,6 +177,7 @@ pub fn example_config() -> Result<String> {
             name: "Movies".to_owned(),
             root: PathBuf::from("F:/Media/Movies"),
             preset: default_library_preset(),
+            webdav: None,
         },
     };
 
@@ -173,9 +190,17 @@ pub fn library_from_config(config: &TaruServerConfig) -> Library {
     Library {
         id: config.library.id,
         name: config.library.name.clone(),
-        roots: vec!["local:///".to_owned()],
+        roots: vec![configured_library_root(&config.library)],
         options: LibraryOptions::from_preset(config.library.preset),
     }
+}
+
+fn configured_library_root(library: &LocalLibraryConfig) -> String {
+    library
+        .webdav
+        .as_ref()
+        .map(|config| config.root.clone())
+        .unwrap_or_else(|| "local:///".to_owned())
 }
 
 fn default_listen_addr() -> SocketAddr {
@@ -212,6 +237,14 @@ const fn default_webhook_concurrency() -> usize {
 
 const fn default_remux_timeout_ms() -> u64 {
     30 * 60 * 1_000
+}
+
+const fn default_webdav_timeout_ms() -> u64 {
+    30_000
+}
+
+const fn default_webdav_max_attempts() -> u32 {
+    2
 }
 
 const fn default_transcode_cpu_concurrency() -> usize {
@@ -280,6 +313,14 @@ mod tests {
             root = "F:/Media/Movies"
             preset = "anime"
 
+            [library.webdav]
+            root = "webdav:///Movies"
+            base_url = "https://webdav.example.test/dav"
+            username = "media"
+            password_env = "TARU_WEBDAV_PASSWORD"
+            timeout_ms = 10000
+            max_attempts = 3
+
             [metadata.tmdb]
             enabled = true
             access_token_env = "TMDB_READ_ACCESS_TOKEN"
@@ -333,7 +374,14 @@ mod tests {
         assert_eq!(config.library.name, "Movies");
         assert_eq!(config.library.root, PathBuf::from("F:/Media/Movies"));
         assert_eq!(config.library.preset, LibraryPreset::Anime);
-        assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
+        let webdav = config.library.webdav.as_ref().unwrap();
+        assert_eq!(webdav.root, "webdav:///Movies");
+        assert_eq!(webdav.base_url, "https://webdav.example.test/dav");
+        assert_eq!(webdav.username.as_deref(), Some("media"));
+        assert_eq!(webdav.password_env.as_deref(), Some("TARU_WEBDAV_PASSWORD"));
+        assert_eq!(webdav.timeout_ms, 10_000);
+        assert_eq!(webdav.max_attempts, 3);
+        assert_eq!(library_from_config(&config).roots, vec!["webdav:///Movies"]);
         assert_eq!(
             library_from_config(&config)
                 .options
@@ -390,5 +438,7 @@ mod tests {
             config.metadata.tmdb.access_token_env,
             "TMDB_READ_ACCESS_TOKEN"
         );
+        assert!(config.library.webdav.is_none());
+        assert_eq!(library_from_config(&config).roots, vec!["local:///"]);
     }
 }

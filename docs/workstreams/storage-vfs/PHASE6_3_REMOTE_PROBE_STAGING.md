@@ -48,8 +48,8 @@ staging when a storage backend cannot provide a local path hint.
 
 - No persistent staging manifest yet.
 - No disk budget or cleanup worker yet.
-- Server config still needs a first-class probe staging root for remote
-  configured libraries.
+- Server config uses `remux_staging_root/probe-inputs` for remote probe staging;
+  there is no independent probe staging root yet.
 - Remux and HLS staging remain M6.4 work.
 
 ## Next Step

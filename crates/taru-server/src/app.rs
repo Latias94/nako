@@ -60,7 +60,7 @@ use taru_vfs::{ByteRange, LocalFsBackend, StageRequest, StorageBackend, StorageU
 use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, error, info, info_span, warn};
 
-use crate::config::{TaruServerConfig, library_from_config};
+use crate::config::{TaruServerConfig, WebDavLibraryConfig, library_from_config};
 
 #[derive(Clone, Debug)]
 pub struct TaruApp {
@@ -1171,10 +1171,37 @@ impl TaruApp {
     fn storage_backend_for_source(&self, uri: &StorageUri) -> Result<Box<dyn StorageBackend>> {
         match uri.scheme() {
             "local" => Ok(Box::new(LocalFsBackend::new(&self.config().library.root)?)),
+            "webdav" => self.webdav_storage_backend(),
             _ => Err(TaruError::Unsupported(
                 "configured server storage backend is not available for this source",
             )),
         }
+    }
+
+    fn storage_backend_for_library_root(
+        &self,
+        library: &taru_core::Library,
+    ) -> Result<Box<dyn StorageBackend>> {
+        let root = library
+            .roots
+            .first()
+            .map(String::as_str)
+            .unwrap_or("local:///");
+        let uri = StorageUri::parse(root)?;
+        self.storage_backend_for_source(&uri)
+    }
+
+    fn webdav_storage_backend(&self) -> Result<Box<dyn StorageBackend>> {
+        let Some(config) = self.config().library.webdav.as_ref() else {
+            return Err(TaruError::Unsupported(
+                "WebDAV source requested but library.webdav is not configured",
+            ));
+        };
+        let backend = taru_vfs::WebDavBackend::new(webdav_backend_config(config))?;
+        Ok(Box::new(taru_vfs::CachedStorageBackend::new(
+            backend,
+            self.inner.store.clone(),
+        )))
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
@@ -2479,18 +2506,18 @@ impl TaruApp {
             "starting library scan pipeline"
         );
 
-        let index_backend = LocalFsBackend::new(&self.config().library.root)?;
+        let index_backend = self.storage_backend_for_library_root(&library)?;
         let scanner = taru_library::VfsLibraryScanner::new(index_backend);
         let index_service = LibraryIndexService::new(scanner, self.inner.store.clone());
         let index = index_service
             .index_library(LibraryIndexRequest {
                 job_id,
-                library,
+                library: library.clone(),
                 force: false,
             })
             .await?;
 
-        let probe_backend = LocalFsBackend::new(&self.config().library.root)?;
+        let probe_backend = self.storage_backend_for_library_root(&library)?;
         let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
             probe_backend,
@@ -2498,7 +2525,7 @@ impl TaruApp {
             self.inner.store.clone(),
             LibraryProbeOptions {
                 max_concurrent_probes: self.config().probe_concurrency.max(1),
-                staging_root: None,
+                staging_root: remote_probe_staging_root(&library, self.config()),
             },
         );
         let probe = probe_service
@@ -2870,6 +2897,27 @@ async fn local_source_path_and_len(
     Ok((local_path, total_len))
 }
 
+fn webdav_backend_config(config: &WebDavLibraryConfig) -> taru_vfs::WebDavBackendConfig {
+    taru_vfs::WebDavBackendConfig {
+        base_url: config.base_url.clone(),
+        username: config.username.clone(),
+        password_env: config.password_env.clone(),
+        timeout_ms: config.timeout_ms,
+        max_attempts: config.max_attempts,
+    }
+}
+
+fn remote_probe_staging_root(
+    library: &taru_core::Library,
+    config: &TaruServerConfig,
+) -> Option<PathBuf> {
+    library
+        .roots
+        .iter()
+        .any(|root| root.starts_with("webdav://"))
+        .then(|| config.remux_staging_root.join("probe-inputs"))
+}
+
 fn path_exists(path: &Path) -> Result<bool> {
     path.try_exists().map_err(|err| TaruError::Storage {
         uri: path.display().to_string(),
@@ -3020,17 +3068,25 @@ mod tests {
     };
 
     use async_trait::async_trait;
+    use axum::{
+        Router,
+        http::{Method, StatusCode as AxumStatusCode, header},
+        response::{IntoResponse, Response},
+        routing::any,
+    };
     use taru_core::{
         CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId,
         JobKind, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
         MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
         MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
     };
+    use taru_library::{LibraryScanRequest, LibraryScanner};
     use taru_metadata::{MetadataMatchKind, MetadataProviderAttemptStatus};
     use taru_transcode::RemuxContainer;
     use taru_vfs::{
         ObjectKind, ObjectMetadata, ReadRange, StagedFile, StorageCapabilities, VirtualFile,
     };
+    use tokio::net::TcpListener;
 
     use super::*;
     use crate::config::{LocalLibraryConfig, MetadataConfig, TranscodeConfig};
@@ -3058,6 +3114,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -3088,6 +3145,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn webdav_preview_config_builds_scanner_backend() {
+        let server = MockWebDavServer::start().await;
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            library: LocalLibraryConfig {
+                id: library_id,
+                name: "Remote Movies".to_owned(),
+                root: temp.path().join("unused-local-root"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: server.base_url(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 5_000,
+                    max_attempts: 1,
+                }),
+            },
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let app = TaruApp::new_with_store(config, store).await.unwrap();
+        let library = library_from_config(app.config());
+        let backend = app.storage_backend_for_library_root(&library).unwrap();
+        let scanner = taru_library::VfsLibraryScanner::new(backend);
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id,
+                root: StorageUri::parse("webdav:///Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(library.roots, vec!["webdav:///Movies"]);
+        assert_eq!(summary.discovered_files, 1);
+        assert_eq!(
+            summary.media_sources[0].uri.as_str(),
+            "webdav:///Movies/Demo.mkv"
+        );
+    }
+
+    #[tokio::test]
     async fn metadata_refresh_job_input_does_not_include_secrets() {
         let temp = tempfile::tempdir().unwrap();
         let library_id = LibraryId::new();
@@ -3113,6 +3227,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -3181,6 +3296,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -3237,6 +3353,7 @@ mod tests {
                 name: "Anime".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Anime,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -3292,6 +3409,7 @@ mod tests {
                 name: "Anime".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Anime,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -3345,6 +3463,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -3429,6 +3548,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -4070,6 +4190,106 @@ mod tests {
         }
     }
 
+    struct MockWebDavServer {
+        addr: std::net::SocketAddr,
+    }
+
+    impl MockWebDavServer {
+        async fn start() -> Self {
+            let router = Router::new().route("/{*path}", any(mock_webdav_handler));
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap();
+            });
+
+            Self { addr }
+        }
+
+        fn base_url(&self) -> String {
+            format!("http://{}/dav", self.addr)
+        }
+    }
+
+    async fn mock_webdav_handler(method: Method, uri: axum::http::Uri) -> Response {
+        let path = uri.path();
+        if method.as_str() == "PROPFIND" {
+            if path.ends_with("/Movies/") || path.ends_with("/Movies") {
+                return (
+                    AxumStatusCode::MULTI_STATUS,
+                    [(header::CONTENT_TYPE, "application/xml")],
+                    mock_multistatus(&[
+                        MockWebDavFixture {
+                            href: "/dav/Movies/",
+                            collection: true,
+                            len: None,
+                            etag: None,
+                        },
+                        MockWebDavFixture {
+                            href: "/dav/Movies/Demo.mkv",
+                            collection: false,
+                            len: Some(4),
+                            etag: Some("etag-demo"),
+                        },
+                    ]),
+                )
+                    .into_response();
+            }
+
+            if path.ends_with("/Movies/Demo.mkv") {
+                return (
+                    AxumStatusCode::MULTI_STATUS,
+                    [(header::CONTENT_TYPE, "application/xml")],
+                    mock_multistatus(&[MockWebDavFixture {
+                        href: "/dav/Movies/Demo.mkv",
+                        collection: false,
+                        len: Some(4),
+                        etag: Some("etag-demo"),
+                    }]),
+                )
+                    .into_response();
+            }
+        }
+
+        AxumStatusCode::NOT_FOUND.into_response()
+    }
+
+    struct MockWebDavFixture {
+        href: &'static str,
+        collection: bool,
+        len: Option<u64>,
+        etag: Option<&'static str>,
+    }
+
+    fn mock_multistatus(fixtures: &[MockWebDavFixture]) -> String {
+        let responses = fixtures
+            .iter()
+            .map(|fixture| {
+                let resourcetype = if fixture.collection {
+                    "<D:resourcetype><D:collection/></D:resourcetype>"
+                } else {
+                    "<D:resourcetype/>"
+                };
+                let len = fixture
+                    .len
+                    .map(|len| format!("<D:getcontentlength>{len}</D:getcontentlength>"))
+                    .unwrap_or_default();
+                let etag = fixture
+                    .etag
+                    .map(|etag| format!("<D:getetag>\"{etag}\"</D:getetag>"))
+                    .unwrap_or_default();
+                format!(
+                    r#"<D:response><D:href>{}</D:href><D:propstat><D:prop>{resourcetype}{len}{etag}</D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>"#,
+                    fixture.href
+                )
+            })
+            .collect::<String>();
+
+        format!(
+            r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:">{responses}</D:multistatus>"#
+        )
+    }
+
     fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         #[cfg(unix)]
         {
@@ -4220,6 +4440,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: library_root,
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();

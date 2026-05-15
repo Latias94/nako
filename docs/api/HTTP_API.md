@@ -188,10 +188,12 @@ video_codec=h264,hevc
 audio_codec=aac,opus
 ```
 
-`GET /sources/{source_id}/stream` serves direct play bytes for local sources.
-It supports HTTP `Range` requests and returns `206 Partial Content` with
-`Accept-Ranges`, `Content-Range`, and `Content-Length` when a satisfiable range
-is requested.
+`GET /sources/{source_id}/stream` serves direct play bytes for local sources
+and configured WebDAV preview sources. It supports HTTP `Range` requests and
+returns `206 Partial Content` with `Accept-Ranges`, `Content-Range`, and
+`Content-Length` when a satisfiable range is requested. For WebDAV sources,
+Taru reads the selected range through `taru-vfs`; the M6 preview buffers the
+selected range bytes in memory before returning the response.
 
 `HEAD /sources/{source_id}/stream` returns the same direct play headers without
 a body. Clients can use it to preflight source length, MIME type, range support,
@@ -213,7 +215,9 @@ output_container=mp4|mkv
 The default output container is `mp4`. Completed staged outputs are reused.
 Equivalent in-flight remux requests return `409 conflict`. Remux playback
 creates a persisted playback session record so state can be inspected after the
-request completes or after a server restart.
+request completes or after a server restart. WebDAV sources are staged under
+`remux_staging_root/inputs` before FFmpeg is invoked; source locators and
+WebDAV credentials are not passed to FFmpeg.
 
 `GET /playback/sessions/{session_id}` returns the persisted session state for
 remux and HLS transcode sessions. The response includes the source ID, session
@@ -225,6 +229,8 @@ single-variant HLS transcode session and returns a rewritten media playlist.
 HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
 `[transcode]` hardware/concurrency policy. HLS artifacts are staged below
 `remux_staging_root/hls`.
+WebDAV source inputs are staged under `remux_staging_root/inputs` before HLS
+planning.
 Segment lines are rewritten to session-scoped URLs:
 
 ```text
@@ -236,6 +242,16 @@ generated HLS segment for a finished HLS session. Segment names are constrained
 to the session output directory. Missing segments return `404 not_found`.
 Segments requested for a non-HLS session return `400 invalid_input`. Segments
 requested before the HLS session reaches `finished` return `409 conflict`.
+
+### Remote Storage Preview Limitations
+
+The M6 WebDAV preview is read-only and supports one configured library. WebDAV
+scan/list/stat/open-range, probe staging, direct range reads, remux staging,
+and HLS staging are covered. Remote direct play still buffers the selected
+range in memory instead of proxying a streaming response body. Remux and HLS
+stage full remote objects before FFmpeg. Staging cleanup, disk budgets,
+remote-byte cache, S3-compatible storage, and remote NFO sidecar writes are not
+part of the M6 preview.
 
 ## Webhook Routes
 

@@ -32,7 +32,7 @@
 - [x] Define staging service API.
 - [x] Add deterministic staging paths.
 - [x] Validate staged file reuse by size/etag/fingerprint.
-- [ ] Add disk budget and cleanup policy.
+- [x] Document disk budget and cleanup policy as post-M6 follow-up.
 - [x] Route remote probe inputs through staging.
 
 ## Remote Playback
@@ -40,14 +40,25 @@
 - [x] Stream remote range-readable sources without local path hints.
 - [x] Define remux staging policy for remote inputs.
 - [x] Define HLS staging policy for remote inputs.
-- [ ] Extend playback decisions with remote storage constraints beyond the
-      initial VFS range/local-path policy.
-- [ ] Add failure mapping for remote storage timeouts and stale cache.
+- [x] Document richer playback decisions for remote storage constraints as a
+      post-M6 follow-up.
+- [x] Document remote storage timeout and stale-cache failure mapping as a
+      post-M6 follow-up.
 
 ## Stabilization
 
-- [ ] Add first-class WebDAV preview configuration to server setup.
-- [ ] Update local setup docs for WebDAV preview.
-- [ ] Update HTTP API docs and known limitations.
-- [ ] Run workspace validation gates.
-- [ ] Document remaining M6 gaps and next goal.
+- [x] Add first-class WebDAV preview configuration to server setup.
+- [x] Update local setup docs for WebDAV preview.
+- [x] Update HTTP API docs and known limitations.
+- [x] Run workspace validation gates.
+- [x] Document remaining M6 gaps and next goal.
+
+## Deferred After M6
+
+- [ ] Add disk budget and cleanup policy for staged remote inputs.
+- [ ] Add remote direct-play response-body streaming instead of buffering range
+      bytes in memory.
+- [ ] Extend playback decisions with richer remote storage constraints.
+- [ ] Add precise HTTP failure mapping for remote storage timeouts and stale
+      cache playback fallbacks.
+- [ ] Add multi-library and multi-remote backend configuration.

@@ -127,10 +127,11 @@ Completed:
 - M6.2 directory/stat cache and stale-cache tombstone protection.
 - M6.3 remote probe staging.
 - M6.4 remote playback policy.
+- M6.5 remote storage stabilization.
 
 Recommended next goal:
 
-- M6.5 remote storage stabilization.
+- M7 playback streaming and remote hardening.
 
 ### Client and Product Experience: M7+
 

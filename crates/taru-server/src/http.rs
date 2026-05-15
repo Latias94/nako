@@ -983,6 +983,7 @@ mod tests {
                     name: "Movies".to_owned(),
                     root: temp.path().to_path_buf(),
                     preset: taru_core::LibraryPreset::Movies,
+                    webdav: None,
                 },
             },
             store.clone(),
@@ -1373,6 +1374,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -1474,6 +1476,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -1535,6 +1538,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -1704,6 +1708,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -2255,6 +2260,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: temp.path().to_path_buf(),
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -2326,6 +2332,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: library_root,
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -2398,6 +2405,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root: library_root,
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -2585,6 +2593,7 @@ mod tests {
                 name: "Movies".to_owned(),
                 root,
                 preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
             },
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();

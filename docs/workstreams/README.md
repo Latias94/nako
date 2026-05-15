@@ -6,8 +6,8 @@ attention.
 
 ## Current Workstreams
 
-- [storage-vfs](storage-vfs/README.md): active M6 remote storage, VFS cache,
-  remote staging, and WebDAV preview work.
+- [storage-vfs](storage-vfs/README.md): completed M6 remote storage, VFS cache,
+  remote staging, playback policy, and WebDAV preview work.
 - [addons-automation](addons-automation/README.md): completed M5 webhook,
   automation, addon manifest, provider, and trust-boundary work.
 - [server-foundation](server-foundation/README.md): completed backend

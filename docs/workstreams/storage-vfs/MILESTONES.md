@@ -109,10 +109,11 @@ Exit criteria:
 Outcome: The remote-storage preview is documented, bounded, and ready for user
 testing.
 
-Status: proposed.
+Status: completed.
 
 Deliverables:
 
+- WebDAV preview configuration for the single configured library.
 - Local setup docs for WebDAV preview.
 - HTTP API and known-limitation updates.
 - Validation matrix for scan, probe, direct play, remux, HLS, cache, and
