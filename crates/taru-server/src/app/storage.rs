@@ -55,7 +55,7 @@ impl StorageBackendRegistry {
         source: &MediaSource,
     ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
         let uri = StorageUri::parse(&source.locator)?;
-        let library_config = self.configured_library_config_for_source(source, &uri)?;
+        let library_config = configured_library_config_for(&self.config, source.library_id)?;
         let backend = self.backend_for_library_config(library_config).await?;
 
         Ok((uri, backend))
@@ -133,36 +133,6 @@ impl StorageBackendRegistry {
         match config.webdav.as_ref() {
             Some(webdav) => self.webdav_storage_backend(webdav),
             None => Ok(Arc::new(LocalFsBackend::new(&config.root)?)),
-        }
-    }
-
-    fn configured_library_config_for_source(
-        &self,
-        source: &MediaSource,
-        uri: &StorageUri,
-    ) -> Result<LocalLibraryConfig> {
-        match configured_library_config_for(&self.config, source.library_id) {
-            Ok(config) => Ok(config),
-            Err(TaruError::NotFound { .. }) => {
-                let matches = self
-                    .config
-                    .libraries
-                    .clone()
-                    .into_iter()
-                    .filter(|config| library_config_matches_uri(config, uri))
-                    .collect::<Vec<_>>();
-
-                match matches.as_slice() {
-                    [config] => Ok(config.clone()),
-                    [] => Err(TaruError::Unsupported(
-                        "source library is not configured and source URI does not match any configured library backend",
-                    )),
-                    _ => Err(TaruError::Unsupported(
-                        "source library is not configured and source URI matches multiple configured library backends",
-                    )),
-                }
-            }
-            Err(err) => Err(err),
         }
     }
 
@@ -439,14 +409,6 @@ pub(super) fn webdav_backend_config(config: &WebDavLibraryConfig) -> taru_vfs::W
     }
 }
 
-pub(super) fn library_config_matches_uri(config: &LocalLibraryConfig, uri: &StorageUri) -> bool {
-    match (uri.scheme(), config.webdav.as_ref()) {
-        ("local", None) => true,
-        ("webdav", Some(webdav)) => storage_uri_is_within_root(uri.as_str(), &webdav.root),
-        _ => false,
-    }
-}
-
 fn backend_kind(config: &LocalLibraryConfig) -> StorageBackendKind {
     if config.webdav.is_some() {
         StorageBackendKind::WebDav
@@ -516,16 +478,6 @@ fn timestamp_diagnostic(value: i64) -> Option<i64> {
     (value > 0).then_some(value)
 }
 
-pub(super) fn storage_uri_is_within_root(uri: &str, root: &str) -> bool {
-    if uri == root {
-        return true;
-    }
-
-    let root = root.trim_end_matches('/');
-    uri.strip_prefix(root)
-        .is_some_and(|rest| rest.starts_with('/'))
-}
-
 pub(super) fn remote_probe_staging_root(
     library: &Library,
     config: &TaruServerConfig,
@@ -542,7 +494,7 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use taru_core::{LibraryPreset, Result, TaruError};
+    use taru_core::{LibraryPreset, MediaItemId, MediaSourceId, Result, TaruError};
     use taru_vfs::{
         ByteRange, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend,
         StorageUri, VirtualFile,
@@ -592,6 +544,60 @@ mod tests {
 
         assert!(Arc::ptr_eq(&first, &second));
         assert_eq!(first.library_id(), library.id);
+    }
+
+    #[tokio::test]
+    async fn registry_resolves_media_sources_by_library_id_only() {
+        let temp = tempdir().unwrap();
+        let library_config = LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: LibraryPreset::Movies,
+            webdav: None,
+        };
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 1,
+            remux_timeout_ms: 1,
+            remux_staging_root: temp.path().join("cache").join("remux"),
+            metadata: Default::default(),
+            transcode: Default::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: vec![library_config],
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let registry = StorageBackendRegistry::new(&config, store);
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            locator: "local:///demo.mkv".to_owned(),
+            file_name: "demo.mkv".to_owned(),
+            size_bytes: None,
+            fingerprint: None,
+        };
+
+        let err = registry
+            .backend_for_media_source(&source)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            TaruError::NotFound {
+                entity: "library",
+                ..
+            }
+        ));
     }
 
     #[tokio::test]

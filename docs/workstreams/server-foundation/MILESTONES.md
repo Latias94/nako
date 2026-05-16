@@ -621,3 +621,28 @@ Exit criteria:
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace`
 - `git diff --check`
+
+## M21: Storage Backend Registry
+
+Outcome: storage backends are owned by a library-scoped runtime registry instead
+of being constructed ad hoc by scan, playback, NFO, or staging call sites.
+
+Deliverables:
+
+- `TaruApp` owns a `StorageBackendRegistry` keyed by configured `library_id`.
+- `LibraryStorageBackend` wraps concrete local/WebDAV VFS backends and owns
+  per-library runtime state.
+- Direct-play stream permits, remote staging permits, WebDAV cache state, and
+  backend health counters are shared through the registry-owned backend.
+- Scan/probe/playback/NFO/remux/HLS storage access resolves through the app
+  registry helpers.
+- Media sources resolve backends by `source.library_id`; URI fallback matching
+  is removed.
+- `/storage/backends` exposes safe process-local registry diagnostics.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check -p taru-server --tests`
+- `cargo nextest run -p taru-server`
+- `git diff --check`

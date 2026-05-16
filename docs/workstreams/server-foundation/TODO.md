@@ -26,6 +26,12 @@
 - [x] Define stable media locator format.
 - [x] Design directory metadata cache.
 - [x] Design byte-range media cache.
+- [x] Add library-scoped storage backend registry.
+- [x] Share WebDAV cached backends through the registry.
+- [x] Keep direct-play stream permits and remote staging permits per library.
+- [x] Expose storage backend diagnostics without leaking local paths or secrets.
+- [x] Resolve media source backends by `source.library_id` instead of URI
+      fallback.
 - [x] Add lightweight local file fingerprints for incremental scan state.
 - [ ] Document local filesystem backend behavior.
 - [ ] Document WebDAV/S3/rclone integration paths.
@@ -132,7 +138,7 @@
 - [x] Implement HLS transcode session manager.
 - [x] Define hardware acceleration detection model for VAAPI, NVENC, and QSV.
 - [x] Define CPU/GPU transcode concurrency and queue policy beyond remux.
-- [ ] Define remote source staging/cache behavior for FFmpeg.
+- [x] Define remote source staging/cache behavior for FFmpeg.
 
 ## Addons and Automation
 

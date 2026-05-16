@@ -529,7 +529,10 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
     )
     .await
     .unwrap();
-    let source = remote_media_source("webdav:///Movies/Demo.mkv");
+    let source = MediaSource {
+        library_id,
+        ..remote_media_source("webdav:///Movies/Demo.mkv")
+    };
 
     let input_path = app.source_path_for_ffmpeg(&source).await.unwrap();
 
