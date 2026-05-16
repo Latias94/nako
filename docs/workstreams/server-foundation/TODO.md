@@ -157,3 +157,13 @@ Detailed M5 execution tasks now live in
 - [x] Create local development setup guide.
 - [x] Create test strategy for crate-level and integration tests.
 - [x] Create licensing notes for reference-only GPL code.
+
+## Server Surface Decomposition
+
+- [x] Split app integration tests by bounded context.
+- [x] Split HTTP route tests by bounded context.
+- [x] Keep shared app test fixtures in `app/tests/mod.rs`.
+- [x] Keep shared HTTP test fixtures in `http/tests/mod.rs`.
+- [x] Avoid behavior changes while decomposing the server test surface.
+- [ ] Continue decomposing `app/playback.rs` and `app/metadata.rs` in later
+      phases when touching those service boundaries.

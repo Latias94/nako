@@ -1,0 +1,573 @@
+use std::{
+    fs,
+    path::{Path as FsPath, PathBuf},
+    time::Duration,
+};
+
+use axum::{
+    body::{Body, to_bytes},
+    http::{Method, Request, StatusCode, header},
+    response::{IntoResponse, Response},
+};
+use serde::{Serialize, de::DeserializeOwned};
+use taru_addon_protocol::{
+    ADDON_PROTOCOL_VERSION, AddonAuth, AddonManifest, AddonResource, AddonResourceDeclaration,
+    AddonScope, ReqwestAddonTransport, call_addon_resource,
+};
+use taru_api::{
+    AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
+    AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
+    EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse, JobResponse,
+    LibraryListResponse, MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
+    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
+    MetadataRawCleanupResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
+    StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+    StorageBackendStatus, TranscodeSessionResponse, UpsertAutomationProviderRequest,
+    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
+    WebhookEndpointsResponse,
+};
+use taru_core::{
+    AddonStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
+    CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
+    EventOutboxRepository, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository, JobStatus,
+    LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult,
+    MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
+    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
+    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewJob,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, Person, PersonId,
+    ProviderRawResponse, Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
+};
+use taru_db::SqliteStore;
+use taru_search::{SearchDocument, SearchIndex};
+use taru_streaming::{
+    DirectPlayRangeRequest, PlaybackMode, RequestedByteRange, plan_direct_play_response,
+};
+use taru_vfs::{ByteRange, ReadStream, StorageUri};
+use tokio::{net::TcpListener, task::yield_now, time::sleep};
+use tower::ServiceExt;
+
+use super::error::ApiError;
+use super::*;
+use crate::config::{
+    LocalLibraryConfig, MetadataConfig, MetadataProviderConfig, MetadataProviderHeaderConfig,
+    MetadataProviderRuntimeConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
+    TranscodeConfig,
+};
+use crate::http::playback::stream_direct_play_response;
+
+mod addons;
+mod automation;
+mod catalog;
+mod library;
+mod metadata;
+mod playback;
+mod system;
+mod webhooks;
+
+async fn router_with_media_source(
+    file_name: &str,
+    content: &[u8],
+) -> (tempfile::TempDir, Router, MediaSource) {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join(file_name), content).unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: taru_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: file_name.to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: format!("local:///{file_name}"),
+        file_name: file_name.to_owned(),
+        size_bytes: Some(content.len() as u64),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let router = build_router(app);
+
+    (temp, router, source)
+}
+
+async fn router_with_remux_source(
+    slow: bool,
+) -> (
+    tempfile::TempDir,
+    Router,
+    MediaSource,
+    PathBuf,
+    PathBuf,
+    PathBuf,
+    SqliteStore,
+) {
+    let temp = tempfile::tempdir().unwrap();
+    let marker = temp.path().join("remux.started");
+    let ffmpeg_path = fake_ffmpeg_script(temp.path(), "remux", slow, &marker);
+    let library_root = temp.path().join("library");
+    let staging_root = temp.path().join("cache").join("remux");
+    fs::create_dir_all(&library_root).unwrap();
+    fs::write(library_root.join("demo.mkv"), b"media").unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: staging_root.clone(),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: taru_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    (
+        temp,
+        router,
+        source,
+        staging_root,
+        ffmpeg_path,
+        marker,
+        store,
+    )
+}
+
+async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+    let temp = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(temp.path(), "hls");
+    let library_root = temp.path().join("library");
+    let staging_root = temp.path().join("cache").join("remux");
+    fs::create_dir_all(&library_root).unwrap();
+    fs::write(library_root.join("demo.mkv"), b"media").unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path,
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: staging_root,
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: taru_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    (temp, router, source, store)
+}
+
+fn compatible_probe() -> MediaProbeResult {
+    MediaProbeResult {
+        duration_ms: Some(1_000),
+        container: Some("matroska,webm".to_owned()),
+        bit_rate: None,
+        streams: vec![
+            MediaStreamInfo {
+                index: 0,
+                kind: MediaStreamKind::Video,
+                codec: Some("h264".to_owned()),
+                language: None,
+                duration_ms: None,
+                bit_rate: None,
+                width: Some(1920),
+                height: Some(1080),
+                channels: None,
+                sample_rate: None,
+            },
+            MediaStreamInfo {
+                index: 1,
+                kind: MediaStreamKind::Audio,
+                codec: Some("aac".to_owned()),
+                language: None,
+                duration_ms: None,
+                bit_rate: None,
+                width: None,
+                height: None,
+                channels: Some(2),
+                sample_rate: Some(48_000),
+            },
+        ],
+    }
+}
+
+fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let mut content = String::from("#!/bin/sh\n");
+        content.push_str("for arg do out=\"$arg\"; done\n");
+        if slow {
+            content.push_str(&format!("printf started > \"{}\"\n", marker.display()));
+        }
+        content.push_str("printf remuxed > \"$out\"\n");
+        if slow {
+            content.push_str("sleep 1\n");
+        }
+        content.push_str("exit 0\n");
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str("set out=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        if slow {
+            content.push_str(&format!(
+                "<nul set /p dummy=started>\"{}\"\r\n",
+                marker.display()
+            ));
+        }
+        content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
+        if slow {
+            content.push_str("ping -n 3 127.0.0.1 > nul\r\n");
+        }
+        content.push_str("exit /b 0\r\n");
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
+fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let mut content = String::from("#!/bin/sh\n");
+        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("dir=$(dirname \"$out\")\n");
+        content.push_str("mkdir -p \"$dir\"\n");
+        content.push_str(
+            "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
+        );
+        content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+        content.push_str("exit 0\n");
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str("set out=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
+        content.push_str("if not exist \"%dir%\" mkdir \"%dir%\"\r\n");
+        content.push_str(">\"%out%\" echo #EXTM3U\r\n");
+        content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
+        content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
+        content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
+        content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+        content.push_str("exit /b 0\r\n");
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
+async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: root.join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root,
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    build_router(app)
+}
+
+fn addon_manifest() -> AddonManifest {
+    AddonManifest {
+        id: "example.metadata".to_owned(),
+        name: "Example Metadata".to_owned(),
+        version: "0.1.0".to_owned(),
+        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+        base_url: "https://example.test/addon".to_owned(),
+        description: Some("Metadata suggestion addon".to_owned()),
+        resources: vec![AddonResourceDeclaration {
+            kind: AddonResource::Metadata,
+            path: "/metadata".to_owned(),
+            input_schema: Some("taru.metadata.request.v1".to_owned()),
+            output_schema: Some("taru.metadata.response.v1".to_owned()),
+            required_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            timeout_ms: Some(5_000),
+            max_attempts: Some(2),
+        }],
+        auth: AddonAuth::Bearer,
+        default_timeout_ms: Some(10_000),
+        default_max_attempts: Some(2),
+        scopes: vec![
+            AddonScope::ItemMetadataRead,
+            AddonScope::ItemMetadataSuggest,
+        ],
+    }
+}
+
+async fn post_addon_registration(
+    router: &Router,
+    request: RegisterAddonRequest,
+) -> axum::response::Response {
+    router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/addons")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn request_json<T>(router: &Router, method: Method, uri: &str) -> T
+where
+    T: DeserializeOwned,
+{
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    body_json(response).await
+}
+
+async fn request_body_json<T, B>(router: &Router, method: Method, uri: &str, body: &B) -> T
+where
+    T: DeserializeOwned,
+    B: Serialize,
+{
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    body_json(response).await
+}
+
+async fn body_json<T>(response: axum::response::Response) -> T
+where
+    T: DeserializeOwned,
+{
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+struct MockWebDavServer {
+    addr: std::net::SocketAddr,
+}
+
+impl MockWebDavServer {
+    async fn start() -> Self {
+        let router = Router::new().route("/{*path}", axum::routing::any(mock_webdav_handler));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        Self { addr }
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://{}/dav", self.addr)
+    }
+}
+
+async fn mock_webdav_handler(method: Method, uri: axum::http::Uri) -> Response {
+    let path = uri.path();
+    if method.as_str() == "PROPFIND" && path.ends_with("/Movies/Demo.mkv") {
+        return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/Movies/Demo.mkv</D:href><D:propstat><D:prop><D:getcontentlength>4</D:getcontentlength><D:getetag>"etag-demo"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"#,
+            )
+                .into_response();
+    }
+
+    if method == Method::GET && path.ends_with("/Movies/Demo.mkv") {
+        return (StatusCode::OK, [(header::CONTENT_LENGTH, "4")], "demo").into_response();
+    }
+
+    StatusCode::NOT_FOUND.into_response()
+}

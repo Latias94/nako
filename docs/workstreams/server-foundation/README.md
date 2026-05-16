@@ -11,14 +11,16 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus has moved to
-[addons and automation](../addons-automation/README.md). The local
-video-library playback MVP was stabilized in
-[Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
+Current implementation focus is server surface decomposition after runtime,
+metadata, storage, and database boundary hardening. The local video-library
+playback MVP was stabilized in [Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
 
 ## Goals
 
 - Build Taru as a Rust workspace with clear server-side module boundaries.
+- Keep `taru-server` focused on composition, application orchestration, and
+  HTTP routing instead of letting giant integration test or service files
+  become hidden architecture boundaries.
 - Keep the first product shape as a modular monolith, not distributed services.
 - Support local media libraries first while reserving a clean path for remote
   drives, WebDAV, S3-compatible stores, and future cloud drive connectors.

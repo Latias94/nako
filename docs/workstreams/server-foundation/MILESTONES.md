@@ -598,3 +598,26 @@ Exit criteria:
 - A remote fixture can be scanned without treating it as a local path.
 - Probe/transcode can read remote media through cache or staging.
 - Rate limits and retry behavior are configurable.
+
+## M20: Server Surface Decomposition
+
+Outcome: `taru-server` test and route surfaces are organized by bounded
+context, so future playback, metadata, storage, addon, automation, and catalog
+changes can be reviewed without editing giant shared test files.
+
+Deliverables:
+
+- Split `crates/taru-server/src/app/tests.rs` into `app/tests/{startup,
+  storage,nfo,metadata,playback,staging}.rs`.
+- Split `crates/taru-server/src/http/tests.rs` into `http/tests/{system,
+  webhooks,automation,addons,library,metadata,catalog,playback}.rs`.
+- Keep shared fixtures in each test directory's `mod.rs`.
+- Avoid route or application behavior changes.
+- Preserve explicit API DTO usage in HTTP tests.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`
