@@ -246,6 +246,13 @@ pub trait ScanRepository: Send + Sync {
 
     async fn upsert_source_state(&self, state: &SourceState) -> Result<()>;
 
+    async fn record_scanned_media_source(
+        &self,
+        item: &MediaItem,
+        source: &MediaSource,
+        state: &SourceState,
+    ) -> Result<()>;
+
     async fn get_source_state(
         &self,
         library_id: LibraryId,
@@ -387,6 +394,12 @@ pub trait MetadataRepository: Send + Sync {
     async fn list_field_locks(&self, item_id: MediaItemId) -> Result<Vec<MetadataFieldLock>>;
 
     async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()>;
+
+    async fn apply_metadata_refresh(
+        &self,
+        item: &MediaItem,
+        raw_response: &ProviderRawResponse,
+    ) -> Result<()>;
 
     async fn get_provider_raw_response(
         &self,

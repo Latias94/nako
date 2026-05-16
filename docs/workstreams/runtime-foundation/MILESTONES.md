@@ -118,3 +118,29 @@ Exit criteria:
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace`
 - `git diff --check`
+
+## M19: Database Boundary Hardening
+
+Outcome: `taru-db` is a focused SQLite repository implementation with explicit
+domain module ownership, clear transaction entry points for critical write
+paths, and no ORM model leakage into `taru-core`, `taru-api`, or application
+services.
+
+Deliverables:
+
+- Continue using `sqlx` plus repository traits; do not introduce SeaORM.
+- Move shared row mapping and SQL value encoding out of the root `lib.rs`.
+- Split mixed repository files by bounded context.
+- Add repository-level transaction methods for scan indexing and metadata
+  refresh.
+- Keep SQLite runtime and migration guarantees documented from M15: WAL, busy
+  timeout, bounded pool settings, foreign keys, and `sqlx::Migrator`.
+- Add tests proving critical transaction behavior and preserving existing
+  repository round trips.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`

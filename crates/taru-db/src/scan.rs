@@ -124,38 +124,26 @@ impl ScanRepository for SqliteStore {
     }
 
     async fn upsert_source_state(&self, state: &SourceState) -> Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO source_states (
-                library_id, source_id, uri, size_bytes, modified_at, etag,
-                fingerprint, last_seen_scan_id, tombstoned
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-            ON CONFLICT(library_id, uri) DO UPDATE SET
-                source_id = excluded.source_id,
-                size_bytes = excluded.size_bytes,
-                modified_at = excluded.modified_at,
-                etag = excluded.etag,
-                fingerprint = excluded.fingerprint,
-                last_seen_scan_id = excluded.last_seen_scan_id,
-                tombstoned = excluded.tombstoned,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(state.library_id.to_string())
-        .bind(state.source_id.map(|id| id.to_string()))
-        .bind(&state.uri)
-        .bind(optional_u64_to_i64(state.size_bytes)?)
-        .bind(&state.modified_at)
-        .bind(&state.etag)
-        .bind(&state.fingerprint)
-        .bind(state.last_seen_scan_id.to_string())
-        .bind(bool_to_i64(state.tombstoned))
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_source_state_in_transaction(&mut transaction, state).await?;
+
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn record_scanned_media_source(
+        &self,
+        item: &MediaItem,
+        source: &MediaSource,
+        state: &SourceState,
+    ) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
+        crate::media::upsert_media_source_in_transaction(&mut transaction, source).await?;
+        upsert_source_state_in_transaction(&mut transaction, state).await?;
+
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_source_state(
@@ -206,5 +194,171 @@ impl ScanRepository for SqliteStore {
         .map_err(database_error)?;
 
         rows.into_iter().map(row_to_source_state).collect()
+    }
+}
+
+async fn upsert_source_state_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    state: &SourceState,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+            INSERT INTO source_states (
+                library_id, source_id, uri, size_bytes, modified_at, etag,
+                fingerprint, last_seen_scan_id, tombstoned
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            ON CONFLICT(library_id, uri) DO UPDATE SET
+                source_id = excluded.source_id,
+                size_bytes = excluded.size_bytes,
+                modified_at = excluded.modified_at,
+                etag = excluded.etag,
+                fingerprint = excluded.fingerprint,
+                last_seen_scan_id = excluded.last_seen_scan_id,
+                tombstoned = excluded.tombstoned,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(state.library_id.to_string())
+    .bind(state.source_id.map(|id| id.to_string()))
+    .bind(&state.uri)
+    .bind(optional_u64_to_i64(state.size_bytes)?)
+    .bind(&state.modified_at)
+    .bind(&state.etag)
+    .bind(&state.fingerprint)
+    .bind(state.last_seen_scan_id.to_string())
+    .bind(bool_to_i64(state.tombstoned))
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use taru_core::{
+        CanonicalMetadata, Library, LibraryId, LibraryOptions, LibraryRepository, MediaItem,
+        MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId, ScanRepository,
+        ScanSnapshotId, SourceState, TransactionManager,
+    };
+
+    use crate::SqliteStore;
+
+    #[tokio::test]
+    async fn record_scanned_media_source_writes_item_source_and_state() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let scan_id = ScanSnapshotId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let locator = "local:///Movies/M19.mkv";
+        let item = media_item(item_id, "M19");
+        let source = media_source(library_id, item_id, source_id, locator);
+        let state = source_state(library_id, source_id, scan_id, locator);
+
+        store
+            .upsert_library(&Library {
+                id: library_id,
+                name: "Movies".to_owned(),
+                roots: vec!["local:///Movies".to_owned()],
+                options: LibraryOptions::default(),
+            })
+            .await
+            .unwrap();
+        store
+            .begin_scan_snapshot(scan_id, library_id, "local:///Movies")
+            .await
+            .unwrap();
+
+        store
+            .record_scanned_media_source(&item, &source, &state)
+            .await
+            .unwrap();
+
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(item));
+        assert_eq!(
+            store.get_media_source(source_id).await.unwrap(),
+            Some(source)
+        );
+        assert_eq!(
+            store.get_source_state(library_id, locator).await.unwrap(),
+            Some(state)
+        );
+    }
+
+    #[tokio::test]
+    async fn record_scanned_media_source_rolls_back_item_when_source_write_fails() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let scan_id = ScanSnapshotId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let locator = "local:///Movies/MissingLibrary.mkv";
+        let item = media_item(item_id, "Missing Library");
+        let source = media_source(library_id, item_id, source_id, locator);
+        let state = source_state(library_id, source_id, scan_id, locator);
+
+        let err = store
+            .record_scanned_media_source(&item, &source, &state)
+            .await
+            .unwrap_err();
+        assert!(!err.to_string().is_empty());
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), None);
+        assert_eq!(store.get_media_source(source_id).await.unwrap(), None);
+        assert_eq!(
+            store.get_source_state(library_id, locator).await.unwrap(),
+            None
+        );
+    }
+
+    fn media_item(id: MediaItemId, title: &str) -> MediaItem {
+        MediaItem {
+            id,
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: title.to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        }
+    }
+
+    fn media_source(
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        source_id: MediaSourceId,
+        locator: &str,
+    ) -> MediaSource {
+        MediaSource {
+            id: source_id,
+            library_id,
+            item_id,
+            locator: locator.to_owned(),
+            file_name: "M19.mkv".to_owned(),
+            size_bytes: Some(19),
+            fingerprint: Some("m19-fingerprint".to_owned()),
+        }
+    }
+
+    fn source_state(
+        library_id: LibraryId,
+        source_id: MediaSourceId,
+        scan_id: ScanSnapshotId,
+        locator: &str,
+    ) -> SourceState {
+        SourceState {
+            library_id,
+            source_id: Some(source_id),
+            uri: locator.to_owned(),
+            size_bytes: Some(19),
+            modified_at: Some("2026-05-16T00:00:00Z".to_owned()),
+            etag: Some("m19-etag".to_owned()),
+            fingerprint: Some("m19-fingerprint".to_owned()),
+            last_seen_scan_id: scan_id,
+            tombstoned: false,
+        }
     }
 }

@@ -424,9 +424,9 @@ where
                     discovered,
                 );
 
-                self.repository.upsert_media_item(&item).await?;
-                self.repository.upsert_media_source(&source).await?;
-                self.repository.upsert_source_state(&state).await?;
+                self.repository
+                    .record_scanned_media_source(&item, &source, &state)
+                    .await?;
                 self.rebuild_search_document(item, source).await?;
 
                 if existing.is_some() {

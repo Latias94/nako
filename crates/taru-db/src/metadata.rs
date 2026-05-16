@@ -46,39 +46,33 @@ impl MetadataRepository for SqliteStore {
     }
 
     async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()> {
-        let (provider, provider_key) = provider_to_parts(&response.provider);
-        let provider_key = if response.provider_key.is_empty() {
-            provider_key
-        } else {
-            response.provider_key.clone()
-        };
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO provider_raw_responses (
-                item_id,
-                provider,
-                provider_key,
-                body_json,
-                fetched_at
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5)
-            ON CONFLICT(item_id, provider, provider_key) DO UPDATE SET
-                body_json = excluded.body_json,
-                fetched_at = excluded.fetched_at,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(response.item_id.to_string())
-        .bind(provider)
-        .bind(provider_key)
-        .bind(&response.body_json)
-        .bind(&response.fetched_at)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        upsert_provider_raw_response_in_transaction(&mut transaction, response).await?;
 
-        Ok(())
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn apply_metadata_refresh(
+        &self,
+        item: &MediaItem,
+        raw_response: &ProviderRawResponse,
+    ) -> Result<()> {
+        if raw_response.item_id != item.id {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "metadata refresh raw response item_id {} does not match item {}",
+                    raw_response.item_id, item.id
+                ),
+            });
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
+        upsert_provider_raw_response_in_transaction(&mut transaction, raw_response).await?;
+
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_provider_raw_response(
@@ -291,5 +285,124 @@ impl MetadataRepository for SqliteStore {
         rows.into_iter()
             .map(row_to_metadata_provider_attempt)
             .collect()
+    }
+}
+
+async fn upsert_provider_raw_response_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    response: &ProviderRawResponse,
+) -> Result<()> {
+    let (provider, provider_key) = provider_to_parts(&response.provider);
+    let provider_key = if response.provider_key.is_empty() {
+        provider_key
+    } else {
+        response.provider_key.clone()
+    };
+
+    sqlx::query(
+        r#"
+            INSERT INTO provider_raw_responses (
+                item_id,
+                provider,
+                provider_key,
+                body_json,
+                fetched_at
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(item_id, provider, provider_key) DO UPDATE SET
+                body_json = excluded.body_json,
+                fetched_at = excluded.fetched_at,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(response.item_id.to_string())
+    .bind(provider)
+    .bind(provider_key)
+    .bind(&response.body_json)
+    .bind(&response.fetched_at)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use taru_core::{
+        CanonicalMetadata, ExternalProvider, MediaItem, MediaItemId, MediaKind, MediaRepository,
+        MetadataRepository, ProviderRawResponse, TransactionManager,
+    };
+
+    use crate::SqliteStore;
+
+    #[tokio::test]
+    async fn apply_metadata_refresh_updates_item_and_raw_response() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item_id = MediaItemId::new();
+        let original = media_item(item_id, "Original");
+        let updated = media_item(item_id, "Updated");
+        let raw = raw_response(item_id, "tmdb-1");
+
+        store.upsert_media_item(&original).await.unwrap();
+        store.apply_metadata_refresh(&updated, &raw).await.unwrap();
+
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(updated));
+        assert_eq!(
+            store
+                .get_provider_raw_response(item_id, &ExternalProvider::Tmdb, "tmdb-1")
+                .await
+                .unwrap(),
+            Some(raw)
+        );
+    }
+
+    #[tokio::test]
+    async fn apply_metadata_refresh_rejects_mismatched_raw_response_item() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item_id = MediaItemId::new();
+        let original = media_item(item_id, "Original");
+        let updated = media_item(item_id, "Updated");
+        let mismatched_raw = raw_response(MediaItemId::new(), "tmdb-1");
+
+        store.upsert_media_item(&original).await.unwrap();
+        let err = store
+            .apply_metadata_refresh(&updated, &mismatched_raw)
+            .await
+            .unwrap_err();
+
+        assert!(err.to_string().contains("does not match"));
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(original));
+        assert_eq!(
+            store
+                .get_provider_raw_response(item_id, &ExternalProvider::Tmdb, "tmdb-1")
+                .await
+                .unwrap(),
+            None
+        );
+    }
+
+    fn media_item(id: MediaItemId, title: &str) -> MediaItem {
+        MediaItem {
+            id,
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: title.to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        }
+    }
+
+    fn raw_response(item_id: MediaItemId, provider_key: &str) -> ProviderRawResponse {
+        ProviderRawResponse {
+            item_id,
+            provider: ExternalProvider::Tmdb,
+            provider_key: provider_key.to_owned(),
+            fetched_at: "2026-05-16T00:00:00Z".to_owned(),
+            body_json: r#"{"title":"Updated"}"#.to_owned(),
+        }
     }
 }

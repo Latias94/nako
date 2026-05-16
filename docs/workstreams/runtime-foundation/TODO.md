@@ -69,3 +69,18 @@
 - [x] Ensure cleanup protects active leases.
 - [x] Release staged-input leases explicitly after playback and through a
       drop-time fallback.
+
+## M19 Database Boundary Hardening
+
+- [x] Keep `sqlx` plus repository traits as the database boundary; do not add
+      SeaORM.
+- [x] Move shared SQL encoding and row mapping out of `taru-db::lib`.
+- [x] Move root repository tests out of `taru-db::lib`.
+- [x] Split job, outbox, automation, webhook, and addon repositories into
+      focused modules.
+- [x] Add a repository-level scan transaction for item, source, and source
+      state writes.
+- [x] Add a repository-level metadata refresh transaction for item metadata and
+      provider raw response writes.
+- [x] Preserve and document SQLite runtime and migration hardening from M15.
+- [x] Run full workspace close-out validation.

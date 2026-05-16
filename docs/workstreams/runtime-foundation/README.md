@@ -14,8 +14,8 @@ has become a shared system risk.
 
 ## Status
 
-Active for M16 storage backend registry and lease lifecycle hardening after
-M15 runtime foundation implementation.
+Active for M19 database boundary hardening after M18 metadata provider runtime
+productization.
 
 ## Goals
 
@@ -29,6 +29,8 @@ M15 runtime foundation implementation.
   capability detection, policy, fallback, and resource budgets.
 - Keep app composition thin by moving reusable runtime policies into focused
   modules or crates.
+- Keep `taru-db` as a focused SQLite repository implementation with explicit
+  transaction boundaries.
 - Prefer explicit API DTOs for new public surfaces instead of expanding direct
   `taru-core` exposure.
 
@@ -56,6 +58,7 @@ the next several milestones.
 - [Phase 15.0: Runtime Hardening Baseline](PHASE15_0_RUNTIME_HARDENING_BASELINE.md)
 - [Phase 15.1: Runtime Hardening Implementation](PHASE15_1_RUNTIME_HARDENING_IMPLEMENTATION.md)
 - [Phase 16: Storage Backend Registry And Lease Lifecycle](PHASE16_STORAGE_BACKEND_REGISTRY_AND_LEASE_LIFECYCLE.md)
+- [Phase 19.0: Database Boundary Hardening](PHASE19_0_DATABASE_BOUNDARY_HARDENING.md)
 
 ## Related Workstreams
 

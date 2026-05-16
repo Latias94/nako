@@ -505,17 +505,16 @@ where
     };
 
     repository
-        .upsert_media_item(&updated_item)
-        .await
-        .map_err(MetadataProviderRefreshError::Fatal)?;
-    repository
-        .upsert_provider_raw_response(&ProviderRawResponse {
-            item_id: updated_item.id,
-            provider: fetched.provider.clone(),
-            provider_key: fetched.provider_key.clone(),
-            fetched_at: now_utc_string().map_err(MetadataProviderRefreshError::Fatal)?,
-            body_json: fetched.raw_json,
-        })
+        .apply_metadata_refresh(
+            &updated_item,
+            &ProviderRawResponse {
+                item_id: updated_item.id,
+                provider: fetched.provider.clone(),
+                provider_key: fetched.provider_key.clone(),
+                fetched_at: now_utc_string().map_err(MetadataProviderRefreshError::Fatal)?,
+                body_json: fetched.raw_json,
+            },
+        )
         .await
         .map_err(MetadataProviderRefreshError::Fatal)?;
 

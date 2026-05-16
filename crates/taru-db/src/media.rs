@@ -5,67 +5,7 @@ impl MediaRepository for SqliteStore {
     async fn upsert_media_item(&self, item: &MediaItem) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO media_items (
-                id,
-                kind,
-                parent_id,
-                title,
-                original_title,
-                sort_title,
-                overview,
-                release_date,
-                metadata_json
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-            ON CONFLICT(id) DO UPDATE SET
-                kind = excluded.kind,
-                parent_id = excluded.parent_id,
-                title = excluded.title,
-                original_title = excluded.original_title,
-                sort_title = excluded.sort_title,
-                overview = excluded.overview,
-                release_date = excluded.release_date,
-                metadata_json = excluded.metadata_json,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(item.id.to_string())
-        .bind(media_kind_to_str(item.kind))
-        .bind(item.parent_id.map(|id| id.to_string()))
-        .bind(&item.metadata.title)
-        .bind(&item.metadata.original_title)
-        .bind(&item.metadata.sort_title)
-        .bind(&item.metadata.overview)
-        .bind(&item.metadata.release_date)
-        .bind(serialize_metadata_json(&item.metadata)?)
-        .execute(&mut *transaction)
-        .await
-        .map_err(database_error)?;
-
-        sqlx::query("DELETE FROM media_item_external_ids WHERE item_id = ?1")
-            .bind(item.id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-
-        for external_id in &item.metadata.external_ids {
-            let (provider, provider_key) = provider_to_parts(&external_id.provider);
-            sqlx::query(
-                r#"
-                INSERT INTO media_item_external_ids (item_id, provider, provider_key, value)
-                VALUES (?1, ?2, ?3, ?4)
-                "#,
-            )
-            .bind(item.id.to_string())
-            .bind(provider)
-            .bind(provider_key)
-            .bind(&external_id.value)
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        }
+        upsert_media_item_in_transaction(&mut transaction, item).await?;
 
         transaction.commit().await.map_err(database_error)
     }
@@ -181,40 +121,11 @@ impl MediaRepository for SqliteStore {
     }
 
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO media_sources (
-                id,
-                library_id,
-                item_id,
-                locator,
-                file_name,
-                size_bytes,
-                fingerprint
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-            ON CONFLICT(id) DO UPDATE SET
-                library_id = excluded.library_id,
-                item_id = excluded.item_id,
-                locator = excluded.locator,
-                file_name = excluded.file_name,
-                size_bytes = excluded.size_bytes,
-                fingerprint = excluded.fingerprint,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(source.id.to_string())
-        .bind(source.library_id.to_string())
-        .bind(source.item_id.to_string())
-        .bind(&source.locator)
-        .bind(&source.file_name)
-        .bind(optional_u64_to_i64(source.size_bytes)?)
-        .bind(&source.fingerprint)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_media_source_in_transaction(&mut transaction, source).await?;
+
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
@@ -303,6 +214,115 @@ impl MediaRepository for SqliteStore {
 
         rows.into_iter().map(row_to_media_source).collect()
     }
+}
+
+pub(crate) async fn upsert_media_item_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item: &MediaItem,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+            INSERT INTO media_items (
+                id,
+                kind,
+                parent_id,
+                title,
+                original_title,
+                sort_title,
+                overview,
+                release_date,
+                metadata_json
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            ON CONFLICT(id) DO UPDATE SET
+                kind = excluded.kind,
+                parent_id = excluded.parent_id,
+                title = excluded.title,
+                original_title = excluded.original_title,
+                sort_title = excluded.sort_title,
+                overview = excluded.overview,
+                release_date = excluded.release_date,
+                metadata_json = excluded.metadata_json,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(item.id.to_string())
+    .bind(media_kind_to_str(item.kind))
+    .bind(item.parent_id.map(|id| id.to_string()))
+    .bind(&item.metadata.title)
+    .bind(&item.metadata.original_title)
+    .bind(&item.metadata.sort_title)
+    .bind(&item.metadata.overview)
+    .bind(&item.metadata.release_date)
+    .bind(serialize_metadata_json(&item.metadata)?)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    sqlx::query("DELETE FROM media_item_external_ids WHERE item_id = ?1")
+        .bind(item.id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    for external_id in &item.metadata.external_ids {
+        let (provider, provider_key) = provider_to_parts(&external_id.provider);
+        sqlx::query(
+            r#"
+                INSERT INTO media_item_external_ids (item_id, provider, provider_key, value)
+                VALUES (?1, ?2, ?3, ?4)
+                "#,
+        )
+        .bind(item.id.to_string())
+        .bind(provider)
+        .bind(provider_key)
+        .bind(&external_id.value)
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    }
+
+    Ok(())
+}
+
+pub(crate) async fn upsert_media_source_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    source: &MediaSource,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+            INSERT INTO media_sources (
+                id,
+                library_id,
+                item_id,
+                locator,
+                file_name,
+                size_bytes,
+                fingerprint
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            ON CONFLICT(id) DO UPDATE SET
+                library_id = excluded.library_id,
+                item_id = excluded.item_id,
+                locator = excluded.locator,
+                file_name = excluded.file_name,
+                size_bytes = excluded.size_bytes,
+                fingerprint = excluded.fingerprint,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(source.id.to_string())
+    .bind(source.library_id.to_string())
+    .bind(source.item_id.to_string())
+    .bind(&source.locator)
+    .bind(&source.file_name)
+    .bind(optional_u64_to_i64(source.size_bytes)?)
+    .bind(&source.fingerprint)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }
 
 #[async_trait::async_trait]
