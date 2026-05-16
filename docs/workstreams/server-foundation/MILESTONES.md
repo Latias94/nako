@@ -673,3 +673,28 @@ Exit criteria:
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace`
 - `git diff --check`
+
+## M23: API, HTTP, and DB Boundary Cleanup
+
+Outcome: the public API and server composition layers keep explicit DTO and
+bounded-context boundaries so future metadata, NFO, automation, and client
+changes can be made without re-entangling domain records with transport shapes
+or root-level router tables.
+
+Deliverables:
+
+- Explicit DTOs for high-frequency library, catalog, playback, source probe,
+  transcode session, and ingestion failure responses.
+- HTTP route registration moved into bounded-context router functions.
+- Remaining `taru-db/src/lib.rs` helper methods moved into their owning
+  repository modules.
+- DTO serialization coverage and API error-body coverage for the cleaned-up
+  surfaces.
+- Updated workstream docs and future API constraint notes.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`

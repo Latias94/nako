@@ -400,7 +400,7 @@ Evidence:
 - [Phase 6.5](workstreams/storage-vfs/PHASE6_5_REMOTE_STORAGE_STABILIZATION.md)
   records validation and remaining known limitations.
 
-## Current Goal
+## Recently Completed Goals
 
 ### M7: Playback Streaming and Remote Hardening
 
@@ -443,7 +443,7 @@ Evidence for M7.0:
 
 Recommended next implementation goal:
 
-- Start M8 server modularization and provider runtime hardening.
+- Start M8 multi-library correctness and operational hardening.
 
 Evidence for M7.1 foundation:
 
@@ -553,6 +553,85 @@ Deliverables:
 
 Recommended next implementation goal:
 
-- Start M9 metadata provider runtime: provider arrays, bounded caller,
-  secret resolution, retry/rate limit policy, and persisted provider attempts
-  before adding real Douban/Bangumi providers.
+- Start M9 server architecture hardening before expanding metadata providers,
+  clients, or plugin/runtime surfaces.
+
+## Current Goal
+
+### M9: Server Architecture Hardening
+
+Status: completed.
+
+Objective:
+
+- Turn `taru-server` back into a thin composition root with focused
+  application services, explicit background-worker lifecycle ownership, clear
+  repository and transaction boundaries, and no obsolete MVP helper paths.
+
+Deliverables:
+
+- [ADR 0019](adr/0019-server-architecture-hardening-boundaries.md) for server
+  composition, service, supervisor, and repository boundaries.
+- [server-architecture-hardening workstream](workstreams/server-architecture-hardening/README.md)
+  with M9 milestones, TODOs, and a baseline phase note.
+- App-service decomposition that moves workflow orchestration out of
+  `TaruApp`.
+- Runtime supervisor or worker registry for background jobs and cleanup loops.
+- Repository/transaction cleanup for multi-record writes and broad concrete
+  store dependencies.
+- Removal of obsolete single-library, compatibility, or temporary helper code.
+
+Non-goals:
+
+- no new metadata provider feature work;
+- no client implementation;
+- no split into multiple deployable services;
+- no in-process plugin ABI design;
+- no adaptive bitrate playback ladder;
+- no compatibility shims for deprecated shapes unless they have a testable
+  migration purpose.
+
+Exit criteria:
+
+- `TaruApp` is a composition root rather than the main feature orchestration
+  object.
+- HTTP handlers call focused application services and keep response/error
+  translation local to HTTP modules.
+- Background workers are registered through one lifecycle owner with
+  cancellation and failure visibility.
+- Multi-record write sequences have explicit repository or unit-of-work
+  boundaries.
+- Obsolete MVP helpers are removed after their replacement invariants are
+  covered by tests.
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`
+
+Evidence for M9.0:
+
+- [ADR 0019](adr/0019-server-architecture-hardening-boundaries.md) documents
+  the target server architecture boundaries.
+- [server-architecture-hardening workstream](workstreams/server-architecture-hardening/README.md)
+  tracks M9 milestones, TODOs, phase notes, and refactor policy.
+- [Phase 9.0](workstreams/server-architecture-hardening/PHASE9_0_SERVER_ARCHITECTURE_BASELINE.md)
+  records the starting surfaces and implementation sequence.
+
+Evidence for M9.1-M9.4:
+
+- [Phase 9.1](workstreams/server-architecture-hardening/PHASE9_1_IMPLEMENTATION_SLICE.md)
+  records the service decomposition, runtime supervisor, catalog transaction
+  boundary, removed root-app forwards, and NFO structured parser migration.
+- `TaruApp` now composes focused service handles for jobs, library scan/probe,
+  library administration, catalog, storage diagnostics, metadata, NFO,
+  playback, addon, automation, and webhook workflows.
+- Metadata, library scan, NFO jobs, metadata lifecycle loops, and staging lease
+  cleanup use `RuntimeSupervisor`; webhook delivery is request-scoped
+  structured concurrency and automation enqueue is synchronous.
+
+Close-out validation:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace --no-fail-fast`: 229 tests passed.
+- `git diff --check`: passed with Git CRLF normalization warnings only.

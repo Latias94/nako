@@ -1,11 +1,12 @@
 use std::{io::SeekFrom, path::Path as FsPath};
 
 use axum::{
-    Json,
+    Json, Router,
     body::Body,
     extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
+    routing::get,
 };
 use serde::Deserialize;
 use taru_api::TranscodeSessionResponse;
@@ -26,6 +27,31 @@ use crate::app::{
 
 use super::error::ApiResult;
 
+pub(super) fn routes() -> Router<TaruApp> {
+    Router::new()
+        .route(
+            "/sources/{source_id}/playback/decision",
+            get(get_source_playback_decision),
+        )
+        .route(
+            "/sources/{source_id}/stream",
+            get(stream_source).head(head_stream_source),
+        )
+        .route(
+            "/sources/{source_id}/stream/remux",
+            get(remux_stream_source),
+        )
+        .route(
+            "/sources/{source_id}/stream/hls/playlist.m3u8",
+            get(hls_playlist_source),
+        )
+        .route("/playback/sessions/{session_id}", get(get_playback_session))
+        .route(
+            "/playback/sessions/{session_id}/hls/segments/{segment_name}",
+            get(hls_segment),
+        )
+}
+
 #[instrument(skip(app))]
 pub(super) async fn get_source_playback_decision(
     State(app): State<TaruApp>,
@@ -33,7 +59,8 @@ pub(super) async fn get_source_playback_decision(
     Query(query): Query<PlaybackCapabilitiesQuery>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(
-        app.get_source_playback_decision(source_id, query.into())
+        app.playback()
+            .get_source_playback_decision(source_id, query.into())
             .await?,
     ))
 }
@@ -45,6 +72,7 @@ pub(super) async fn stream_source(
     headers: HeaderMap,
 ) -> ApiResult<Response> {
     let direct_play = app
+        .playback()
         .plan_direct_play(source_id, direct_play_range_request(&headers))
         .await?;
 
@@ -63,6 +91,7 @@ pub(super) async fn head_stream_source(
     headers: HeaderMap,
 ) -> ApiResult<Response> {
     let response = app
+        .playback()
         .plan_direct_play_preflight(source_id, direct_play_range_request(&headers))
         .await?;
 
@@ -78,6 +107,7 @@ pub(super) async fn remux_stream_source(
 ) -> ApiResult<Response> {
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
     let remux = app
+        .playback()
         .remux_source(RemuxSourceRequest {
             source_id,
             client: query.capabilities.into(),
@@ -125,6 +155,7 @@ pub(super) async fn hls_playlist_source(
     Query(query): Query<PlaybackCapabilitiesQuery>,
 ) -> ApiResult<Response> {
     let playlist = app
+        .playback()
         .hls_playlist(HlsSourceRequest {
             source_id,
             client: query.into(),
@@ -139,7 +170,10 @@ pub(super) async fn hls_segment(
     State(app): State<TaruApp>,
     Path((session_id, segment_name)): Path<(TranscodeSessionId, String)>,
 ) -> ApiResult<Response> {
-    let segment = app.plan_hls_segment(session_id, &segment_name).await?;
+    let segment = app
+        .playback()
+        .plan_hls_segment(session_id, &segment_name)
+        .await?;
     let total_len = tokio::fs::metadata(&segment.path)
         .await
         .map_err(|err| TaruError::Storage {
@@ -167,7 +201,7 @@ pub(super) async fn get_playback_session(
     Path(session_id): Path<TranscodeSessionId>,
 ) -> ApiResult<Json<TranscodeSessionResponse>> {
     Ok(Json(TranscodeSessionResponse::from_session(
-        app.get_transcode_session(session_id).await?,
+        app.playback().get_transcode_session(session_id).await?,
     )))
 }
 

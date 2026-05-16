@@ -126,3 +126,12 @@ impl JobRepository for SqliteStore {
         row.map(row_to_job).transpose()
     }
 }
+
+impl SqliteStore {
+    pub(crate) async fn get_job_or_not_found(&self, id: JobId) -> Result<Job> {
+        self.get_job(id).await?.ok_or_else(|| TaruError::NotFound {
+            entity: "job",
+            id: id.to_string(),
+        })
+    }
+}

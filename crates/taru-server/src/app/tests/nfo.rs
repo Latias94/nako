@@ -61,7 +61,7 @@ async fn nfo_import_uses_configured_webdav_backend() {
     store.upsert_media_item(&item).await.unwrap();
     store.upsert_media_source(&source).await.unwrap();
 
-    let output = app.import_library_nfo(library_id).await.unwrap();
+    let output = app.nfo().import_library_nfo(library_id).await.unwrap();
     let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
 
     assert_eq!(output.import.imported_items, 1);
@@ -107,7 +107,7 @@ async fn nfo_export_rejects_read_only_webdav_backend() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
 
-    let err = app.export_library_nfo(library_id).await.unwrap_err();
+    let err = app.nfo().export_library_nfo(library_id).await.unwrap_err();
 
     assert_eq!(
         err,
@@ -178,10 +178,10 @@ async fn nfo_import_job_imports_sidecar_and_persists_summary() {
     store.upsert_media_item(&item).await.unwrap();
     store.upsert_media_source(&source).await.unwrap();
 
-    let output = app.import_library_nfo(library_id).await.unwrap();
+    let output = app.nfo().import_library_nfo(library_id).await.unwrap();
     let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
     let locks = store.list_field_locks(item.id).await.unwrap();
-    let job = app.get_job(output.job.id).await.unwrap();
+    let job = app.jobs().get_job(output.job.id).await.unwrap();
     let events = store
         .list_outbox_events(PageRequest::first_page())
         .await

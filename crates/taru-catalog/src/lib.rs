@@ -2,10 +2,11 @@ use std::collections::{BTreeSet, HashSet};
 
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    CatalogRepository, Collection, CollectionId, CollectionItem, CollectionRef, Credit, CreditRole,
-    ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
-    ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem, MediaItemId, MediaRepository,
-    MetadataSource, PageRequest, Person, PersonId, Result, Studio, StudioId, Tag, TagId, TaruError,
+    CatalogItemGraphReplacement, CatalogRepository, Collection, CollectionId, CollectionItem,
+    CollectionRef, Credit, CreditRole, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset,
+    ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem,
+    MediaItemId, MediaRepository, MetadataSource, PageRequest, Person, PersonId, Result, Studio,
+    StudioId, Tag, TagId, TaruError,
 };
 use taru_search::{SearchDocument, SearchIndex};
 
@@ -42,18 +43,17 @@ where
         ..CatalogHydrationSummary::default()
     };
 
-    repository.clear_item_credits(item.id).await?;
-    repository.clear_item_genres(item.id).await?;
-    repository.clear_item_tags(item.id).await?;
-    repository.clear_item_collections(item.id).await?;
-    repository.clear_item_studios(item.id).await?;
+    let mut replacement = CatalogItemGraphReplacement::default();
 
-    hydrate_credits(repository, &item, &mut summary).await?;
-    hydrate_genres(repository, &item, &source, &mut summary).await?;
-    hydrate_tags(repository, &item, &source, &mut summary).await?;
-    hydrate_collections(repository, &item, &source, &mut summary).await?;
-    hydrate_studios(repository, &item, &source, &mut summary).await?;
-    hydrate_images(repository, &item, &mut summary).await?;
+    hydrate_credits(repository, &item, &mut summary, &mut replacement).await?;
+    hydrate_genres(repository, &item, &source, &mut summary, &mut replacement).await?;
+    hydrate_tags(repository, &item, &source, &mut summary, &mut replacement).await?;
+    hydrate_collections(repository, &item, &source, &mut summary, &mut replacement).await?;
+    hydrate_studios(repository, &item, &source, &mut summary, &mut replacement).await?;
+    hydrate_images(repository, &item, &mut summary, &mut replacement).await?;
+    repository
+        .replace_item_catalog_graph(item.id, &replacement)
+        .await?;
     rebuild_search_projection(repository, item.id).await?;
     summary.search_indexed = true;
 
@@ -157,6 +157,7 @@ async fn hydrate_credits<R>(
     repository: &R,
     item: &MediaItem,
     summary: &mut CatalogHydrationSummary,
+    replacement: &mut CatalogItemGraphReplacement,
 ) -> Result<()>
 where
     R: CatalogRepository,
@@ -166,15 +167,14 @@ where
             continue;
         };
         let person = resolve_person(repository, credit, name).await?;
-        repository
-            .upsert_item_credit(&ItemCredit {
-                item_id: item.id,
-                person_id: person.id,
-                role: credit.role.clone(),
-                character: credit.character.as_deref().and_then(normalized_label),
-                sort_order: credit.order,
-            })
-            .await?;
+        replacement.people.push(person.clone());
+        replacement.credits.push(ItemCredit {
+            item_id: item.id,
+            person_id: person.id,
+            role: credit.role.clone(),
+            character: credit.character.as_deref().and_then(normalized_label),
+            sort_order: credit.order,
+        });
         summary.people += 1;
         summary.credits += 1;
     }
@@ -187,6 +187,7 @@ async fn hydrate_genres<R>(
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
+    replacement: &mut CatalogItemGraphReplacement,
 ) -> Result<()>
 where
     R: CatalogRepository,
@@ -206,13 +207,11 @@ where
                 source: source.clone(),
             },
         };
-        repository.upsert_genre(&genre).await?;
-        repository
-            .upsert_item_genre(&ItemGenre {
-                item_id: item.id,
-                genre_id: genre.id,
-            })
-            .await?;
+        replacement.genres.push(genre.clone());
+        replacement.item_genres.push(ItemGenre {
+            item_id: item.id,
+            genre_id: genre.id,
+        });
         summary.genres += 1;
     }
 
@@ -224,6 +223,7 @@ async fn hydrate_tags<R>(
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
+    replacement: &mut CatalogItemGraphReplacement,
 ) -> Result<()>
 where
     R: CatalogRepository,
@@ -243,13 +243,11 @@ where
                 source: source.clone(),
             },
         };
-        repository.upsert_tag(&tag).await?;
-        repository
-            .upsert_item_tag(&ItemTag {
-                item_id: item.id,
-                tag_id: tag.id,
-            })
-            .await?;
+        replacement.tags.push(tag.clone());
+        replacement.item_tags.push(ItemTag {
+            item_id: item.id,
+            tag_id: tag.id,
+        });
         summary.tags += 1;
     }
 
@@ -261,6 +259,7 @@ async fn hydrate_collections<R>(
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
+    replacement: &mut CatalogItemGraphReplacement,
 ) -> Result<()>
 where
     R: CatalogRepository,
@@ -270,13 +269,12 @@ where
             continue;
         };
         let collection = resolve_collection(repository, collection_ref, name, source).await?;
-        repository
-            .upsert_collection_item(&CollectionItem {
-                collection_id: collection.id,
-                item_id: item.id,
-                sort_order: collection_ref.sort_order,
-            })
-            .await?;
+        replacement.collections.push(collection.clone());
+        replacement.collection_items.push(CollectionItem {
+            collection_id: collection.id,
+            item_id: item.id,
+            sort_order: collection_ref.sort_order,
+        });
         summary.collections += 1;
     }
 
@@ -288,6 +286,7 @@ async fn hydrate_studios<R>(
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
+    replacement: &mut CatalogItemGraphReplacement,
 ) -> Result<()>
 where
     R: CatalogRepository,
@@ -301,12 +300,11 @@ where
             continue;
         };
         let studio = resolve_studio(repository, studio_ref, name, source).await?;
-        repository
-            .upsert_item_studio(&ItemStudio {
-                item_id: item.id,
-                studio_id: studio.id,
-            })
-            .await?;
+        replacement.studios.push(studio.clone());
+        replacement.item_studios.push(ItemStudio {
+            item_id: item.id,
+            studio_id: studio.id,
+        });
         summary.studios += 1;
     }
 
@@ -317,6 +315,7 @@ async fn hydrate_images<R>(
     repository: &R,
     item: &MediaItem,
     summary: &mut CatalogHydrationSummary,
+    replacement: &mut CatalogItemGraphReplacement,
 ) -> Result<()>
 where
     R: CatalogRepository,
@@ -352,7 +351,7 @@ where
             etag: existing.as_ref().and_then(|image| image.etag.clone()),
         };
 
-        repository.upsert_image_asset(&image).await?;
+        replacement.images.push(image);
         summary.images += 1;
     }
 

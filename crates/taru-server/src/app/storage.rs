@@ -25,6 +25,31 @@ use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 use super::current_time_ms;
 
 #[derive(Clone, Debug)]
+pub(crate) struct StorageDiagnosticsAppService {
+    registry: StorageBackendRegistry,
+}
+
+impl StorageDiagnosticsAppService {
+    pub(super) fn new(registry: StorageBackendRegistry) -> Self {
+        Self { registry }
+    }
+
+    pub(crate) async fn list_storage_backend_diagnostics(
+        &self,
+    ) -> StorageBackendDiagnosticsResponse {
+        self.registry.diagnostics().await
+    }
+
+    #[cfg(test)]
+    pub(super) async fn backend_for_library_root(
+        &self,
+        library: &Library,
+    ) -> Result<Arc<LibraryStorageBackend>> {
+        self.registry.backend_for_library_root(library).await
+    }
+}
+
+#[derive(Clone, Debug)]
 pub(super) struct StorageBackendRegistry {
     config: TaruServerConfig,
     store: SqliteStore,

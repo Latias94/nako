@@ -689,4 +689,11 @@ async fn paginated_routes_echo_page_info_and_reject_large_limits() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(error.code, "invalid_input");
+    assert!(
+        error
+            .message
+            .contains("limit must be less than or equal to")
+    );
 }

@@ -6,10 +6,18 @@ use taru_core::{
     AddonId, AddonRegistrationRecord, AddonRepository, AddonStatus, NewAddonRegistration, Result,
     TaruError,
 };
+use taru_db::SqliteStore;
 
-use super::TaruApp;
+#[derive(Clone, Debug)]
+pub(crate) struct AddonAppService {
+    store: SqliteStore,
+}
 
-impl TaruApp {
+impl AddonAppService {
+    pub(crate) fn new(store: SqliteStore) -> Self {
+        Self { store }
+    }
+
     fn normalize_addon_registration(
         &self,
         request: RegisterAddonRequest,
@@ -60,7 +68,7 @@ impl TaruApp {
         request: RegisterAddonRequest,
     ) -> Result<AddonRegistrationResponse> {
         let addon = self.normalize_addon_registration(request)?;
-        let addon = self.inner.store.upsert_addon_registration(addon).await?;
+        let addon = self.store.upsert_addon_registration(addon).await?;
 
         Ok(AddonRegistrationResponse { addon })
     }
@@ -78,7 +86,7 @@ impl TaruApp {
         &self,
         status: Option<AddonStatus>,
     ) -> Result<AddonRegistrationsResponse> {
-        let addons = self.inner.store.list_addon_registrations(status).await?;
+        let addons = self.store.list_addon_registrations(status).await?;
 
         Ok(AddonRegistrationsResponse { addons })
     }
@@ -87,8 +95,7 @@ impl TaruApp {
         &self,
         addon_id: AddonId,
     ) -> Result<AddonRegistrationRecord> {
-        self.inner
-            .store
+        self.store
             .get_addon_registration(addon_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {

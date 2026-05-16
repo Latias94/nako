@@ -1,16 +1,22 @@
+use std::sync::Arc;
+
 use serde::Serialize;
 use taru_core::{
-    DomainEventKind, DomainEventSubject, EventId, Job, JobId, JobKind, JobRepository, LibraryId,
-    NewJob, NewOutboxEvent, Result, TaruError,
+    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
+    JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, Result, TaruError,
 };
+use taru_db::SqliteStore;
 use taru_nfo::{
     MovieNfoCodec, NfoExportRequest, NfoExportSummary, NfoImportRequest, NfoImportSummary,
     NfoJobInput, NfoService,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
+use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
 
-use super::TaruApp;
+use crate::config::{TaruServerConfig, libraries_from_config};
+
+use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NfoImportCommandOutput {
@@ -24,15 +30,42 @@ pub struct NfoExportCommandOutput {
     pub export: NfoExportSummary,
 }
 
-impl TaruApp {
-    pub async fn enqueue_nfo_import(&self, library_id: LibraryId) -> Result<Job> {
+#[derive(Clone, Debug)]
+pub(crate) struct NfoAppService {
+    config: TaruServerConfig,
+    store: SqliteStore,
+    permits: Arc<Semaphore>,
+    storage_backends: StorageBackendRegistry,
+    runtime: RuntimeSupervisor,
+}
+
+impl NfoAppService {
+    pub(super) fn new(
+        config: TaruServerConfig,
+        store: SqliteStore,
+        permits: Arc<Semaphore>,
+        storage_backends: StorageBackendRegistry,
+        runtime: RuntimeSupervisor,
+    ) -> Self {
+        Self {
+            config,
+            store,
+            permits,
+            storage_backends,
+            runtime,
+        }
+    }
+
+    pub(crate) async fn enqueue_nfo_import(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_nfo_import_job(library_id).await?;
         let job_id = job.id;
-        let app = self.clone();
+        let service = self.clone();
 
-        tokio::spawn(
+        self.runtime.spawn(
+            "nfo_import_background_job",
+            "metadata.nfo.import",
             async move {
-                app.finish_nfo_import_job(job_id, library_id).await;
+                service.finish_nfo_import_job(job_id, library_id).await;
             }
             .instrument(info_span!(
                 "nfo_import_background_job",
@@ -45,14 +78,16 @@ impl TaruApp {
         Ok(job)
     }
 
-    pub async fn enqueue_nfo_export(&self, library_id: LibraryId) -> Result<Job> {
+    pub(crate) async fn enqueue_nfo_export(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_nfo_export_job(library_id).await?;
         let job_id = job.id;
-        let app = self.clone();
+        let service = self.clone();
 
-        tokio::spawn(
+        self.runtime.spawn(
+            "nfo_export_background_job",
+            "metadata.nfo.export",
             async move {
-                app.finish_nfo_export_job(job_id, library_id).await;
+                service.finish_nfo_export_job(job_id, library_id).await;
             }
             .instrument(info_span!(
                 "nfo_export_background_job",
@@ -65,7 +100,7 @@ impl TaruApp {
         Ok(job)
     }
 
-    pub async fn import_library_nfo(
+    pub(crate) async fn import_library_nfo(
         &self,
         library_id: LibraryId,
     ) -> Result<NfoImportCommandOutput> {
@@ -73,7 +108,7 @@ impl TaruApp {
         self.execute_nfo_import_job(job.id, library_id).await
     }
 
-    pub async fn export_library_nfo(
+    pub(crate) async fn export_library_nfo(
         &self,
         library_id: LibraryId,
     ) -> Result<NfoExportCommandOutput> {
@@ -81,7 +116,7 @@ impl TaruApp {
         self.execute_nfo_export_job(job.id, library_id).await
     }
 
-    pub(super) async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
+    async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
         let library = self.configured_library_for(library_id)?;
         let input = NfoJobInput {
             library_id,
@@ -92,8 +127,7 @@ impl TaruApp {
             message: format!("failed to serialize NFO import job input: {err}"),
         })?;
 
-        self.inner
-            .store
+        self.store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::NfoImport,
@@ -105,7 +139,7 @@ impl TaruApp {
             .await
     }
 
-    pub(super) async fn create_nfo_export_job(&self, library_id: LibraryId) -> Result<Job> {
+    async fn create_nfo_export_job(&self, library_id: LibraryId) -> Result<Job> {
         let library = self.configured_library_for(library_id)?;
         let input = NfoJobInput {
             library_id,
@@ -116,8 +150,7 @@ impl TaruApp {
             message: format!("failed to serialize NFO export job input: {err}"),
         })?;
 
-        self.inner
-            .store
+        self.store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::NfoExport,
@@ -178,18 +211,17 @@ impl TaruApp {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<NfoImportCommandOutput> {
-        let permit = self
-            .inner
-            .nfo_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| TaruError::InvalidInput {
-                message: format!("NFO concurrency limiter is unavailable: {err}"),
-            })?;
+        let permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("NFO concurrency limiter is unavailable: {err}"),
+                })?;
         let _permit = permit;
 
-        self.inner.store.start_job(job_id).await?;
+        self.store.start_job(job_id).await?;
 
         match self.run_nfo_import(job_id, library_id).await {
             Ok(import) => {
@@ -197,18 +229,14 @@ impl TaruApp {
                     serde_json::to_string(&import).map_err(|err| TaruError::InvalidInput {
                         message: format!("failed to serialize NFO import job summary: {err}"),
                     })?;
-                let job = self
-                    .inner
-                    .store
-                    .succeed_job(job_id, Some(summary_json))
-                    .await?;
+                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
                 self.record_nfo_imported_event(job_id, library_id, &import)
                     .await;
 
                 Ok(NfoImportCommandOutput { job, import })
             }
             Err(err) => {
-                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
                     warn!(
                         job_id = %job_id,
                         library_id = %library_id,
@@ -227,18 +255,17 @@ impl TaruApp {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<NfoExportCommandOutput> {
-        let permit = self
-            .inner
-            .nfo_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| TaruError::InvalidInput {
-                message: format!("NFO concurrency limiter is unavailable: {err}"),
-            })?;
+        let permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("NFO concurrency limiter is unavailable: {err}"),
+                })?;
         let _permit = permit;
 
-        self.inner.store.start_job(job_id).await?;
+        self.store.start_job(job_id).await?;
 
         match self.run_nfo_export(job_id, library_id).await {
             Ok(export) => {
@@ -246,18 +273,14 @@ impl TaruApp {
                     serde_json::to_string(&export).map_err(|err| TaruError::InvalidInput {
                         message: format!("failed to serialize NFO export job summary: {err}"),
                     })?;
-                let job = self
-                    .inner
-                    .store
-                    .succeed_job(job_id, Some(summary_json))
-                    .await?;
+                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
                 self.record_nfo_exported_event(job_id, library_id, &export)
                     .await;
 
                 Ok(NfoExportCommandOutput { job, export })
             }
             Err(err) => {
-                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
                     warn!(
                         job_id = %job_id,
                         library_id = %library_id,
@@ -337,8 +360,11 @@ impl TaruApp {
             "starting NFO import job"
         );
 
-        let backend = self.storage_backend_for_library_root(&library).await?;
-        let service = NfoService::new(backend, self.inner.store.clone(), MovieNfoCodec);
+        let backend = self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await?;
+        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
 
         service
             .import_library(NfoImportRequest {
@@ -363,9 +389,12 @@ impl TaruApp {
             "starting NFO export job"
         );
 
-        let backend = self.storage_backend_for_library_root(&library).await?;
+        let backend = self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await?;
         ensure_nfo_export_writable(backend.as_ref(), &library).await?;
-        let service = NfoService::new(backend, self.inner.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
 
         service
             .export_library(NfoExportRequest {
@@ -375,6 +404,29 @@ impl TaruApp {
                 force: false,
             })
             .await
+    }
+
+    async fn record_outbox_event(&self, event: NewOutboxEvent) {
+        let kind = event.kind.as_str();
+        let idempotency_key = event.idempotency_key.clone();
+        if let Err(err) = self.store.enqueue_outbox_event(event).await {
+            warn!(
+                kind,
+                idempotency_key,
+                error = %err,
+                "failed to persist outbox event"
+            );
+        }
+    }
+
+    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
+        libraries_from_config(&self.config)
+            .into_iter()
+            .find(|library| library.id == library_id)
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "library",
+                id: library_id.to_string(),
+            })
     }
 }
 

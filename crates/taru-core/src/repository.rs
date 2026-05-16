@@ -3,21 +3,21 @@ use async_trait::async_trait;
 use crate::{
     AddonId, AddonRegistrationRecord, AddonStatus, ArtworkTask, ArtworkTaskId,
     AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
-    AutomationProviderConfigRecord, AutomationProviderId, Collection, CollectionId, CollectionItem,
-    DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId,
-    IngestionFailureFilter, IngestionFailureRecord, IngestionFailureStatus, ItemCredit, ItemGenre,
-    ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult,
-    MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration, NewAutomationArtifact,
-    NewAutomationProviderConfig, NewIngestionFailure, NewJob, NewMetadataProviderAttempt,
-    NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
-    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person, PersonId,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
-    ScanSnapshot, ScanSnapshotId, SourceState, StagingManifestId, StagingManifestRecord,
-    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
-    VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
-    WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
-    WebhookEndpointId, WebhookEndpointRecord,
+    AutomationProviderConfigRecord, AutomationProviderId, CatalogItemGraphReplacement, Collection,
+    CollectionId, CollectionItem, DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset,
+    ImageAssetId, IngestionFailureFilter, IngestionFailureRecord, IngestionFailureStatus,
+    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem,
+    MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock,
+    NewAddonRegistration, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
+    NewJob, NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord,
+    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
+    OutboxEventRecord, Person, PersonId, ProviderRawResponse, ProviderRawResponseCleanup,
+    ProviderRawResponseFilter, Result, ScanSnapshot, ScanSnapshotId, SourceState,
+    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState, Studio, StudioId, Tag,
+    TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionState, VfsCacheFailure, VfsCacheOperation,
+    VfsCachedListing, VfsCachedObject, WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord,
+    WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
 };
 
 #[async_trait]
@@ -84,6 +84,12 @@ pub trait MediaProbeRepository: Send + Sync {
 
 #[async_trait]
 pub trait CatalogRepository: Send + Sync {
+    async fn replace_item_catalog_graph(
+        &self,
+        item_id: MediaItemId,
+        replacement: &CatalogItemGraphReplacement,
+    ) -> Result<()>;
+
     async fn upsert_person(&self, person: &Person) -> Result<()>;
 
     async fn get_person(&self, id: PersonId) -> Result<Option<Person>>;

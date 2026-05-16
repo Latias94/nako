@@ -2158,6 +2158,7 @@ name = "taru-nfo"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "roxmltree",
  "serde",
  "taru-catalog",
  "taru-core",

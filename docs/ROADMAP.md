@@ -130,7 +130,7 @@ Completed:
 
 Recommended next goal:
 
-- M7 playback streaming and remote hardening. Active.
+- M7 playback streaming and remote hardening. Completed.
 
 ### Playback Streaming and Remote Hardening: M7
 
@@ -173,10 +173,68 @@ Completed:
 
 Recommended next goal:
 
-- after final M7 commit, start M8 server modularization and provider runtime
-  hardening.
+- M8 multi-library correctness and operational hardening. Completed.
 
-### Client and Product Experience: M8+
+### Multi-Library Correctness and Operational Hardening: M8
+
+Status: completed.
+
+This phase made multi-library operation data-safe before the next server
+architecture pass:
+
+- source locator identity is scoped by library;
+- source lookup by locator requires library identity;
+- CLI scan/list commands expose explicit library selection;
+- staging budget reservation is serialized across check, stage, and manifest
+  recording;
+- panic-style default library helpers were replaced with explicit config
+  selection.
+
+Completed:
+
+- [Phase 8.0](workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md)
+  records source identity, CLI, and staging budget invariants.
+
+Recommended next goal:
+
+- M9 server architecture hardening before expanding metadata providers,
+  clients, or plugin/runtime surfaces.
+
+### Server Architecture Hardening: M9
+
+Status: completed.
+
+This phase turns the server into a cleaner modular-monolith composition
+boundary:
+
+- `taru-server::app::TaruApp` becomes a thin composition root;
+- workflow orchestration moves into focused application services;
+- background jobs and cleanup loops register through an explicit runtime
+  supervisor or worker registry;
+- high-level services use narrow ports or service handles instead of broad
+  concrete store access;
+- multi-record writes get explicit repository or unit-of-work boundaries;
+- obsolete MVP helpers and compatibility paths are deleted once replacements
+  are covered.
+
+Completed:
+
+- M9.0 design baseline with ADR 0019, a dedicated
+  `server-architecture-hardening` workstream, M9 milestone split, and audit
+  notes for server composition, runtime ownership, repository boundaries, NFO,
+  catalog hydration, and obsolete helpers.
+- M9.1-M9.4 implementation has decomposed `TaruApp` into focused service
+  handles, added runtime supervisor ownership for detached workers, moved
+  catalog graph hydration behind an atomic repository operation, removed
+  temporary root-app forwards, and replaced hand-written NFO XML parsing with a
+  `roxmltree` parser boundary.
+
+Recommended next goal:
+
+- after M9 stabilization, continue provider/runtime productization and client
+  contract planning on top of the cleaned server boundary.
+
+### Client and Product Experience: M10+
 
 Status: intentionally deferred.
 
@@ -188,9 +246,11 @@ planning should start after the browse and playback surfaces are coherent.
 
 `server-foundation` was the initial planning hub. M5 split
 `addons-automation` into its own completed workstream, M6 split `storage-vfs`,
-and M7 split `playback-streaming` into the active remote playback hardening
-workstream. As implementation grows, split the remaining broad domains into
-narrower workstreams:
+M7 split `playback-streaming`, and M9 split
+`server-architecture-hardening` for the active server composition and fearless
+refactor pass. Existing runtime and metadata operations workstreams continue to
+track later specialized hardening. As implementation grows, split the
+remaining broad domains into narrower workstreams:
 
 - `metadata-catalog`: providers, NFO, catalog graph, artwork, search.
 - `clients`: future Flutter and web client contracts.

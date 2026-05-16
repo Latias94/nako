@@ -2,7 +2,7 @@
 
 ## Status
 
-Active for M7.
+Completed for M7.
 
 M7 owns the hardening work that makes remote playback practical after the M6
 WebDAV preview: direct response-body streaming, staging disk budget and

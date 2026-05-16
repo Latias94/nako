@@ -38,9 +38,13 @@ async fn webdav_preview_config_builds_scanner_backend() {
     };
     let store = SqliteStore::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
-    let library = default_library_from_config(app.config()).unwrap();
+    let library = crate::config::libraries_from_config(app.config())
+        .into_iter()
+        .find(|library| library.id == library_id)
+        .unwrap();
     let backend = app
-        .storage_backend_for_library_root(&library)
+        .storage()
+        .backend_for_library_root(&library)
         .await
         .unwrap();
     let scanner = taru_library::VfsLibraryScanner::new(backend);
@@ -114,7 +118,11 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
     )
     .await
     .unwrap();
-    let libraries = app.list_libraries(PageRequest::first_page()).await.unwrap();
+    let libraries = app
+        .library()
+        .list_libraries(PageRequest::first_page())
+        .await
+        .unwrap();
 
     assert_eq!(libraries.libraries.len(), 2);
     assert!(
@@ -149,6 +157,7 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
     store.upsert_media_source(&source).await.unwrap();
 
     let plan = app
+        .playback()
         .plan_direct_play(source.id, DirectPlayRangeRequest::None)
         .await
         .unwrap();

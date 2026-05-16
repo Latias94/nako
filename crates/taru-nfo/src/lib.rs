@@ -9,6 +9,8 @@ use taru_core::{
 use taru_search::SearchIndex;
 use taru_vfs::{StorageBackend, StorageUri};
 
+type XmlNode<'a, 'input> = roxmltree::Node<'a, 'input>;
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoDocument {
     pub metadata: CanonicalMetadata,
@@ -372,18 +374,24 @@ pub struct MovieNfoCodec;
 
 impl NfoCodec for MovieNfoCodec {
     fn parse(&self, xml: &str) -> Result<NfoDocument> {
+        let document = roxmltree::Document::parse(xml).map_err(|err| TaruError::InvalidInput {
+            message: format!("invalid NFO XML: {err}"),
+        })?;
+        let root = document.root_element();
         let metadata = CanonicalMetadata {
-            title: required_tag(xml, "title")?,
-            original_title: optional_tag(xml, "originaltitle"),
-            sort_title: optional_tag(xml, "sorttitle"),
-            overview: optional_tag(xml, "plot"),
-            release_date: optional_tag(xml, "releasedate").or_else(|| optional_tag(xml, "year")),
-            runtime_minutes: optional_tag(xml, "runtime").and_then(|value| value.parse().ok()),
-            tagline: optional_tag(xml, "tagline"),
-            genres: tags(xml, "genre"),
-            tags: tags(xml, "tag"),
-            images: images_from_nfo(xml),
-            credits: credits_from_nfo(xml),
+            title: required_child_text(root, "title")?,
+            original_title: optional_child_text(root, "originaltitle"),
+            sort_title: optional_child_text(root, "sorttitle"),
+            overview: optional_child_text(root, "plot"),
+            release_date: optional_child_text(root, "releasedate")
+                .or_else(|| optional_child_text(root, "year")),
+            runtime_minutes: optional_child_text(root, "runtime")
+                .and_then(|value| value.parse().ok()),
+            tagline: optional_child_text(root, "tagline"),
+            genres: child_texts(root, "genre"),
+            tags: child_texts(root, "tag"),
+            images: images_from_nfo(root),
+            credits: credits_from_nfo(root),
             ..CanonicalMetadata::default()
         };
 
@@ -721,69 +729,48 @@ fn populated_fields(metadata: &CanonicalMetadata) -> Vec<MetadataField> {
     fields
 }
 
-fn required_tag(xml: &str, name: &str) -> Result<String> {
-    optional_tag(xml, name).ok_or_else(|| TaruError::InvalidInput {
+fn required_child_text(node: XmlNode<'_, '_>, name: &str) -> Result<String> {
+    optional_child_text(node, name).ok_or_else(|| TaruError::InvalidInput {
         message: format!("NFO is missing required <{name}> tag"),
     })
 }
 
-fn optional_tag(xml: &str, name: &str) -> Option<String> {
-    tags(xml, name).into_iter().next()
+fn optional_child_text(node: XmlNode<'_, '_>, name: &str) -> Option<String> {
+    child_texts(node, name).into_iter().next()
 }
 
-fn tags(xml: &str, name: &str) -> Vec<String> {
-    element_blocks(xml, name)
-        .into_iter()
-        .map(|value| unescape_xml(value.trim()))
+fn child_texts(node: XmlNode<'_, '_>, name: &str) -> Vec<String> {
+    node.children()
+        .filter(|child| child.is_element() && child.tag_name().name() == name)
+        .filter_map(node_text)
         .collect()
 }
 
-fn element_blocks<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
-    let open_prefix = format!("<{name}");
-    let close = format!("</{name}>");
-    let mut values = Vec::new();
-    let mut remaining = xml;
-
-    while let Some(open_start) = remaining.find(&open_prefix) {
-        let after_prefix = &remaining[open_start + open_prefix.len()..];
-        let Some(next) = after_prefix.chars().next() else {
-            break;
-        };
-        if next != '>' && !next.is_whitespace() {
-            remaining = after_prefix;
-            continue;
-        }
-        let Some(open_end) = after_prefix.find('>') else {
-            break;
-        };
-        let after_open = &after_prefix[open_end + 1..];
-        let Some((value, after_close)) = after_open.split_once(&close) else {
-            break;
-        };
-        values.push(value);
-        remaining = after_close;
-    }
-
-    values
+fn node_text(node: XmlNode<'_, '_>) -> Option<String> {
+    let value = node.text()?.trim();
+    (!value.is_empty()).then(|| value.to_owned())
 }
 
-fn credits_from_nfo(xml: &str) -> Vec<Credit> {
+fn credits_from_nfo(root: XmlNode<'_, '_>) -> Vec<Credit> {
     let mut credits = Vec::new();
 
-    for block in element_blocks(xml, "actor") {
-        let Some(name) = optional_tag(block, "name") else {
+    for actor in root
+        .children()
+        .filter(|child| child.is_element() && child.tag_name().name() == "actor")
+    {
+        let Some(name) = optional_child_text(actor, "name") else {
             continue;
         };
         credits.push(Credit {
             name,
             role: CreditRole::Actor,
-            character: optional_tag(block, "role"),
-            order: optional_tag(block, "order").and_then(|value| value.parse().ok()),
+            character: optional_child_text(actor, "role"),
+            order: optional_child_text(actor, "order").and_then(|value| value.parse().ok()),
             external_ids: Vec::new(),
         });
     }
 
-    for director in tags(xml, "director") {
+    for director in child_texts(root, "director") {
         credits.push(Credit {
             name: director,
             role: CreditRole::Director,
@@ -793,7 +780,7 @@ fn credits_from_nfo(xml: &str) -> Vec<Credit> {
         });
     }
 
-    for writer in tags(xml, "writer") {
+    for writer in child_texts(root, "writer") {
         credits.push(Credit {
             name: writer,
             role: CreditRole::Writer,
@@ -806,19 +793,24 @@ fn credits_from_nfo(xml: &str) -> Vec<Credit> {
     credits
 }
 
-fn images_from_nfo(xml: &str) -> Vec<ImageRef> {
+fn images_from_nfo(root: XmlNode<'_, '_>) -> Vec<ImageRef> {
     let mut images = Vec::new();
 
-    for uri in tags(xml, "poster") {
+    for uri in child_texts(root, "poster") {
         push_nfo_image(&mut images, ImageKind::Poster, uri);
     }
-    for uri in tags(xml, "thumb") {
+    for uri in child_texts(root, "thumb") {
         push_nfo_image(&mut images, ImageKind::Thumbnail, uri);
     }
-    for block in element_blocks(xml, "fanart") {
-        let thumbs = tags(block, "thumb");
+    for fanart in root
+        .children()
+        .filter(|child| child.is_element() && child.tag_name().name() == "fanart")
+    {
+        let thumbs = child_texts(fanart, "thumb");
         if thumbs.is_empty() {
-            push_nfo_image(&mut images, ImageKind::Backdrop, unescape_xml(block.trim()));
+            if let Some(uri) = node_text(fanart) {
+                push_nfo_image(&mut images, ImageKind::Backdrop, uri);
+            }
         } else {
             for uri in thumbs {
                 push_nfo_image(&mut images, ImageKind::Backdrop, uri);
@@ -871,15 +863,6 @@ fn escape_xml(value: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
-}
-
-fn unescape_xml(value: &str) -> String {
-    value
-        .replace("&apos;", "'")
-        .replace("&quot;", "\"")
-        .replace("&gt;", ">")
-        .replace("&lt;", "<")
-        .replace("&amp;", "&")
 }
 
 #[cfg(test)]
@@ -935,6 +918,40 @@ mod tests {
         );
         assert_eq!(parsed.metadata.tags, vec!["cyberpunk".to_owned()]);
         assert_eq!(parsed.metadata.credits[0].name, "Keanu Reeves");
+    }
+
+    #[test]
+    fn movie_nfo_parser_handles_attributes_entities_and_nested_fanart() {
+        let codec = MovieNfoCodec;
+        let parsed = codec
+            .parse(
+                r#"<movie>
+  <title sort="ignored">Tom &amp; Jerry</title>
+  <plot>Uses &lt;escaped&gt; text</plot>
+  <fanart>
+    <thumb>local:///fanart-a.jpg</thumb>
+    <thumb>local:///fanart-b.jpg</thumb>
+  </fanart>
+  <actor>
+    <name>Lead Actor</name>
+    <role>Hero &amp; Guide</role>
+  </actor>
+</movie>"#,
+            )
+            .unwrap();
+
+        assert_eq!(parsed.metadata.title, "Tom & Jerry");
+        assert_eq!(
+            parsed.metadata.overview,
+            Some("Uses <escaped> text".to_owned())
+        );
+        assert_eq!(parsed.metadata.images.len(), 2);
+        assert_eq!(parsed.metadata.images[0].kind, ImageKind::Backdrop);
+        assert_eq!(parsed.metadata.images[0].uri, "local:///fanart-a.jpg");
+        assert_eq!(
+            parsed.metadata.credits[0].character.as_deref(),
+            Some("Hero & Guide")
+        );
     }
 
     #[tokio::test]

@@ -19,6 +19,20 @@
 - [x] Add pagination foundation for list endpoints.
 - [x] Add structured logging initialization for the server binary.
 
+## API, HTTP, and DB Boundaries
+
+- [x] Add explicit API DTOs for high-frequency library, catalog, playback,
+      source probe, transcode session, and ingestion failure responses.
+- [x] Keep new ingestion failure diagnostics behind DTOs instead of exposing
+      `IngestionFailureRecord` directly.
+- [x] Move HTTP route registration into bounded-context `routes()` functions.
+- [x] Keep `taru-server/src/http.rs` as router composition only.
+- [x] Move remaining `taru-db/src/lib.rs` lookup helpers into the repository
+      modules that own the behavior.
+- [x] Add DTO serialization coverage and stable API error body coverage.
+- [ ] Continue migrating lower-frequency addon, webhook, automation, and raw
+      metadata diagnostic records to DTOs when those surfaces are next touched.
+
 ## VFS and Storage
 
 - [x] Draft `StorageBackend` and `VirtualFile` traits.

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use serde::Serialize;
 use taru_api::{
@@ -8,22 +8,24 @@ use taru_api::{
     MetadataRawCleanupResponse, MetadataRawResponsesResponse, PageInfo,
 };
 use taru_core::{
-    DomainEventKind, DomainEventSubject, EventId, ExternalProvider, Job, JobId, JobKind,
-    JobRepository, LibraryId, MediaItem, MediaItemId, MediaRepository, MetadataAttemptFilter,
-    MetadataProfile, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
-    MetadataRefreshMode, MetadataRepository, NewJob, NewOutboxEvent, PageRequest,
-    ProviderRawResponseFilter, Result, TaruError,
+    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Job,
+    JobId, JobKind, JobRepository, Library, LibraryId, MediaItem, MediaItemId, MediaRepository,
+    MetadataAttemptFilter, MetadataProfile, MetadataProviderAttemptRecord,
+    MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NewJob, NewOutboxEvent,
+    PageRequest, ProviderRawResponseFilter, Result, TaruError,
 };
+use taru_db::SqliteStore;
 use taru_metadata::{
     MetadataProviderRegistry, MetadataRefreshJobInput, MetadataRefreshRequest,
     MetadataRefreshSummary, MetadataStrategyExecutor,
 };
 use time::OffsetDateTime;
+use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
 
-use super::TaruApp;
 use super::metadata_runtime::provider_resource_name;
-use crate::config::MetadataMaintenancePolicyConfig;
+use super::runtime::RuntimeSupervisor;
+use crate::config::{MetadataMaintenancePolicyConfig, TaruServerConfig, libraries_from_config};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MetadataRefreshCommandOutput {
@@ -65,16 +67,43 @@ pub struct MetadataMaintenanceItemError {
     pub message: String,
 }
 
-impl TaruApp {
-    pub async fn enqueue_metadata_refresh(&self, item_id: MediaItemId) -> Result<Job> {
+#[derive(Clone, Debug)]
+pub(crate) struct MetadataAppService {
+    config: TaruServerConfig,
+    store: SqliteStore,
+    permits: Arc<Semaphore>,
+    providers: MetadataProviderRegistry,
+    runtime: RuntimeSupervisor,
+}
+
+impl MetadataAppService {
+    pub(super) fn new(
+        config: TaruServerConfig,
+        store: SqliteStore,
+        permits: Arc<Semaphore>,
+        providers: MetadataProviderRegistry,
+        runtime: RuntimeSupervisor,
+    ) -> Self {
+        Self {
+            config,
+            store,
+            permits,
+            providers,
+            runtime,
+        }
+    }
+
+    pub(crate) async fn enqueue_metadata_refresh(&self, item_id: MediaItemId) -> Result<Job> {
         let job = self.create_metadata_refresh_job(item_id).await?;
         let job_id = job.id;
         let resource_class = job.resource_class.clone();
-        let app = self.clone();
+        let service = self.clone();
 
-        tokio::spawn(
+        self.runtime.spawn(
+            "metadata_refresh_background_job",
+            "metadata.refresh",
             async move {
-                app.finish_metadata_refresh_job(job_id, item_id).await;
+                service.finish_metadata_refresh_job(job_id, item_id).await;
             }
             .instrument(info_span!(
                 "metadata_refresh_background_job",
@@ -101,11 +130,15 @@ impl TaruApp {
     ) -> Result<Job> {
         let job = self.create_metadata_maintenance_job(&request).await?;
         let job_id = job.id;
-        let app = self.clone();
+        let service = self.clone();
 
-        tokio::spawn(
+        self.runtime.spawn(
+            "metadata_maintenance_background_job",
+            "metadata.maintenance",
             async move {
-                app.finish_metadata_maintenance_job(job_id, request).await;
+                service
+                    .finish_metadata_maintenance_job(job_id, request)
+                    .await;
             }
             .instrument(info_span!(
                 "metadata_maintenance_background_job",
@@ -177,15 +210,14 @@ impl TaruApp {
     }
 
     pub(super) async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
-        let item = self
-            .inner
-            .store
-            .get_media_item(item_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "media_item",
-                id: item_id.to_string(),
-            })?;
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
         let provider = self.first_metadata_provider(&profile)?;
@@ -200,8 +232,7 @@ impl TaruApp {
             message: format!("failed to serialize metadata refresh job input: {err}"),
         })?;
 
-        self.inner
-            .store
+        self.store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::MetadataRefresh,
@@ -222,8 +253,7 @@ impl TaruApp {
             message: format!("failed to serialize metadata maintenance job input: {err}"),
         })?;
 
-        self.inner
-            .store
+        self.store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::MetadataMaintenance,
@@ -288,18 +318,17 @@ impl TaruApp {
         job_id: JobId,
         item_id: MediaItemId,
     ) -> Result<MetadataRefreshCommandOutput> {
-        let permit = self
-            .inner
-            .metadata_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| TaruError::InvalidInput {
-                message: format!("metadata concurrency limiter is unavailable: {err}"),
-            })?;
+        let permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("metadata concurrency limiter is unavailable: {err}"),
+                })?;
         let _permit = permit;
 
-        self.inner.store.start_job(job_id).await?;
+        self.store.start_job(job_id).await?;
 
         match self.run_metadata_refresh(job_id, item_id).await {
             Ok(refresh) => {
@@ -307,18 +336,14 @@ impl TaruApp {
                     serde_json::to_string(&refresh).map_err(|err| TaruError::InvalidInput {
                         message: format!("failed to serialize metadata refresh job summary: {err}"),
                     })?;
-                let job = self
-                    .inner
-                    .store
-                    .succeed_job(job_id, Some(summary_json))
-                    .await?;
+                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
                 self.record_metadata_refreshed_event(job_id, item_id, &refresh)
                     .await;
 
                 Ok(MetadataRefreshCommandOutput { job, refresh })
             }
             Err(err) => {
-                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
                     warn!(
                         job_id = %job_id,
                         item_id = %item_id,
@@ -337,18 +362,17 @@ impl TaruApp {
         job_id: JobId,
         request: EnqueueMetadataMaintenanceRequest,
     ) -> Result<MetadataMaintenanceCommandOutput> {
-        let permit = self
-            .inner
-            .metadata_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| TaruError::InvalidInput {
-                message: format!("metadata concurrency limiter is unavailable: {err}"),
-            })?;
+        let permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("metadata concurrency limiter is unavailable: {err}"),
+                })?;
         let _permit = permit;
 
-        self.inner.store.start_job(job_id).await?;
+        self.store.start_job(job_id).await?;
 
         match self.run_metadata_maintenance_job(job_id, request).await {
             Ok(summary) => {
@@ -358,18 +382,14 @@ impl TaruApp {
                             "failed to serialize metadata maintenance job summary: {err}"
                         ),
                     })?;
-                let job = self
-                    .inner
-                    .store
-                    .succeed_job(job_id, Some(summary_json))
-                    .await?;
+                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
                 self.record_metadata_maintenance_completed_event(&summary)
                     .await;
 
                 Ok(MetadataMaintenanceCommandOutput { job, summary })
             }
             Err(err) => {
-                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
                     warn!(
                         job_id = %job_id,
                         error = %update_err,
@@ -455,15 +475,14 @@ impl TaruApp {
         job_id: JobId,
         item_id: MediaItemId,
     ) -> Result<MetadataRefreshSummary> {
-        let item = self
-            .inner
-            .store
-            .get_media_item(item_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "media_item",
-                id: item_id.to_string(),
-            })?;
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
         self.run_metadata_refresh_with_profile(job_id, item_id, profile, false)
@@ -478,7 +497,7 @@ impl TaruApp {
         force: bool,
     ) -> Result<MetadataRefreshSummary> {
         let registry = self.metadata_provider_registry();
-        let executor = MetadataStrategyExecutor::new(registry, self.inner.store.clone());
+        let executor = MetadataStrategyExecutor::new(registry, self.store.clone());
 
         executor
             .refresh_item(MetadataRefreshRequest {
@@ -544,11 +563,7 @@ impl TaruApp {
             }
         }
 
-        let attempts = self
-            .inner
-            .store
-            .list_metadata_provider_attempts(job_id)
-            .await?;
+        let attempts = self.store.list_metadata_provider_attempts(job_id).await?;
         summary.provider_attempts = summarize_metadata_attempt_counts(&attempts);
 
         Ok(summary)
@@ -562,7 +577,6 @@ impl TaruApp {
     ) -> Result<MetadataProviderAttemptsResponse> {
         self.ensure_metadata_item_exists(item_id).await?;
         let attempts = self
-            .inner
             .store
             .list_metadata_provider_attempts_for_item(item_id, filter, page)
             .await?;
@@ -586,7 +600,6 @@ impl TaruApp {
     ) -> Result<MetadataRawResponsesResponse> {
         self.ensure_metadata_item_exists(item_id).await?;
         let responses = self
-            .inner
             .store
             .list_provider_raw_responses(item_id, filter, page)
             .await?;
@@ -612,11 +625,10 @@ impl TaruApp {
                 });
             }
             None => metadata_raw_retention_cutoff(
-                retention_ms.unwrap_or(self.config().metadata.raw_cache_retention_ms),
+                retention_ms.unwrap_or(self.config.metadata.raw_cache_retention_ms),
             )?,
         };
         let cleanup = self
-            .inner
             .store
             .cleanup_provider_raw_responses(filter, &fetched_before)
             .await?;
@@ -627,15 +639,15 @@ impl TaruApp {
     pub fn list_metadata_provider_diagnostics(&self) -> MetadataProviderDiagnosticsResponse {
         MetadataProviderDiagnosticsResponse {
             providers: super::metadata_runtime::metadata_provider_diagnostics(
-                self.config(),
-                &self.inner.metadata_providers,
+                &self.config,
+                &self.providers,
             ),
         }
     }
 
     pub(super) async fn cleanup_metadata_raw_cache_on_startup(&self) -> Result<()> {
         if !self
-            .config()
+            .config
             .metadata
             .maintenance
             .raw_cache_cleanup_on_startup
@@ -664,7 +676,7 @@ impl TaruApp {
 
     fn start_metadata_raw_cache_cleanup_task(&self) {
         let interval_ms = self
-            .config()
+            .config
             .metadata
             .maintenance
             .raw_cache_cleanup_interval_ms;
@@ -673,37 +685,45 @@ impl TaruApp {
         }
 
         let app = self.clone();
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(Duration::from_millis(interval_ms)).await;
-                match app
-                    .cleanup_provider_raw_responses(
-                        ProviderRawResponseFilter::default(),
-                        None,
-                        None,
-                    )
-                    .await
-                {
-                    Ok(cleanup) => {
-                        if cleanup.cleanup.deleted > 0 {
-                            info!(
-                                deleted = cleanup.cleanup.deleted,
-                                fetched_before = cleanup.cleanup.fetched_before,
-                                "cleaned metadata raw cache in background"
-                            );
+        let token = self.runtime.shutdown_token();
+        self.runtime.spawn(
+            "metadata_raw_cache_cleanup",
+            "metadata.raw_cache.cleanup",
+            async move {
+                loop {
+                    tokio::select! {
+                        () = token.cancelled() => break,
+                        () = tokio::time::sleep(Duration::from_millis(interval_ms)) => {}
+                    }
+                    match app
+                        .cleanup_provider_raw_responses(
+                            ProviderRawResponseFilter::default(),
+                            None,
+                            None,
+                        )
+                        .await
+                    {
+                        Ok(cleanup) => {
+                            if cleanup.cleanup.deleted > 0 {
+                                info!(
+                                    deleted = cleanup.cleanup.deleted,
+                                    fetched_before = cleanup.cleanup.fetched_before,
+                                    "cleaned metadata raw cache in background"
+                                );
+                            }
+                        }
+                        Err(err) => {
+                            warn!(error = %err, "metadata raw cache background cleanup failed");
                         }
                     }
-                    Err(err) => {
-                        warn!(error = %err, "metadata raw cache background cleanup failed");
-                    }
                 }
-            }
-        });
+            },
+        );
     }
 
     fn start_metadata_maintenance_policy_tasks(&self) {
         for policy in self
-            .config()
+            .config
             .metadata
             .maintenance
             .policies
@@ -712,33 +732,44 @@ impl TaruApp {
             .cloned()
         {
             let app = self.clone();
-            tokio::spawn(async move {
-                if policy.initial_delay_ms > 0 {
-                    tokio::time::sleep(Duration::from_millis(policy.initial_delay_ms)).await;
-                }
-
-                loop {
-                    let request = app.metadata_maintenance_request_from_policy(&policy);
-                    match app.enqueue_metadata_maintenance(request).await {
-                        Ok(job) => {
-                            info!(
-                                policy_id = %policy.id,
-                                job_id = %job.id,
-                                "queued scheduled metadata maintenance job"
-                            );
-                        }
-                        Err(err) => {
-                            warn!(
-                                policy_id = %policy.id,
-                                error = %err,
-                                "scheduled metadata maintenance enqueue failed"
-                            );
+            let token = self.runtime.shutdown_token();
+            self.runtime.spawn(
+                "metadata_maintenance_policy",
+                "metadata.maintenance.schedule",
+                async move {
+                    if policy.initial_delay_ms > 0 {
+                        tokio::select! {
+                            () = token.cancelled() => return,
+                            () = tokio::time::sleep(Duration::from_millis(policy.initial_delay_ms)) => {}
                         }
                     }
 
-                    tokio::time::sleep(Duration::from_millis(policy.interval_ms.max(1))).await;
-                }
-            });
+                    loop {
+                        let request = app.metadata_maintenance_request_from_policy(&policy);
+                        match app.enqueue_metadata_maintenance(request).await {
+                            Ok(job) => {
+                                info!(
+                                    policy_id = %policy.id,
+                                    job_id = %job.id,
+                                    "queued scheduled metadata maintenance job"
+                                );
+                            }
+                            Err(err) => {
+                                warn!(
+                                    policy_id = %policy.id,
+                                    error = %err,
+                                    "scheduled metadata maintenance enqueue failed"
+                                );
+                            }
+                        }
+
+                        tokio::select! {
+                            () = token.cancelled() => break,
+                            () = tokio::time::sleep(Duration::from_millis(policy.interval_ms.max(1))) => {}
+                        }
+                    }
+                },
+            );
         }
     }
 
@@ -818,7 +849,6 @@ impl TaruApp {
                 offset,
             };
             let mut page_items = self
-                .inner
                 .store
                 .list_media_items_for_library(library_id, page)
                 .await?;
@@ -847,15 +877,14 @@ impl TaruApp {
                 continue;
             }
 
-            let item = self
-                .inner
-                .store
-                .get_media_item(*item_id)
-                .await?
-                .ok_or_else(|| TaruError::NotFound {
-                    entity: "media_item",
-                    id: item_id.to_string(),
-                })?;
+            let item =
+                self.store
+                    .get_media_item(*item_id)
+                    .await?
+                    .ok_or_else(|| TaruError::NotFound {
+                        entity: "media_item",
+                        id: item_id.to_string(),
+                    })?;
             items.push(item);
         }
 
@@ -905,7 +934,6 @@ impl TaruApp {
         item_id: MediaItemId,
     ) -> Result<Vec<MetadataProviderAttemptRecord>> {
         Ok(self
-            .inner
             .store
             .list_metadata_provider_attempts(job_id)
             .await?
@@ -915,8 +943,7 @@ impl TaruApp {
     }
 
     async fn ensure_metadata_item_exists(&self, item_id: MediaItemId) -> Result<()> {
-        self.inner
-            .store
+        self.store
             .get_media_item(item_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
@@ -951,7 +978,44 @@ impl TaruApp {
     }
 
     fn metadata_provider_registry(&self) -> MetadataProviderRegistry {
-        self.inner.metadata_providers.clone()
+        self.providers.clone()
+    }
+
+    async fn record_outbox_event(&self, event: NewOutboxEvent) {
+        let kind = event.kind.as_str();
+        let idempotency_key = event.idempotency_key.clone();
+        if let Err(err) = self.store.enqueue_outbox_event(event).await {
+            warn!(
+                kind,
+                idempotency_key,
+                error = %err,
+                "failed to persist outbox event"
+            );
+        }
+    }
+
+    async fn library_for_item(&self, item_id: MediaItemId) -> Result<Library> {
+        let source = self
+            .store
+            .list_item_sources(item_id, PageRequest::new(1, 0))
+            .await?
+            .into_iter()
+            .next()
+            .ok_or_else(|| TaruError::InvalidInput {
+                message: format!("media item {item_id} has no persisted media source"),
+            })?;
+
+        self.configured_library_for(source.library_id)
+    }
+
+    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
+        libraries_from_config(&self.config)
+            .into_iter()
+            .find(|library| library.id == library_id)
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "library",
+                id: library_id.to_string(),
+            })
     }
 }
 

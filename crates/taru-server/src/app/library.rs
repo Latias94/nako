@@ -7,17 +7,25 @@ use taru_core::{
     IngestionFailureStatus, LibraryId, LibraryRepository, MediaProbeRepository, MediaRepository,
     PageRequest, Result, TaruError,
 };
+use taru_db::SqliteStore;
 
-use super::TaruApp;
+#[derive(Clone, Debug)]
+pub(crate) struct LibraryAppService {
+    store: SqliteStore,
+}
 
-impl TaruApp {
+impl LibraryAppService {
+    pub(crate) fn new(store: SqliteStore) -> Self {
+        Self { store }
+    }
+
     pub async fn list_libraries(&self, page: PageRequest) -> Result<LibraryListResponse> {
         let page = page.clamped();
-        let libraries = self.inner.store.list_libraries(page).await?;
+        let libraries = self.store.list_libraries(page).await?;
 
         Ok(LibraryListResponse {
             page: PageInfo::new(page, libraries.len()),
-            libraries,
+            libraries: libraries.into_iter().map(Into::into).collect(),
         })
     }
 
@@ -28,25 +36,21 @@ impl TaruApp {
     ) -> Result<LibrarySourcesResponse> {
         let page = page.clamped();
         let library = self.get_library_or_not_found(library_id).await?;
-        let sources = self
-            .inner
-            .store
-            .list_media_sources(library.id, page)
-            .await?;
+        let sources = self.store.list_media_sources(library.id, page).await?;
         let mut output_sources = Vec::with_capacity(sources.len());
 
         for source in sources {
-            let item = self.inner.store.get_media_item(source.item_id).await?;
-            let probe = self.inner.store.get_media_probe(source.id).await?;
+            let item = self.store.get_media_item(source.item_id).await?;
+            let probe = self.store.get_media_probe(source.id).await?;
             output_sources.push(LibrarySourceResponse {
-                source,
-                item,
-                probe,
+                source: source.into(),
+                item: item.map(Into::into),
+                probe: probe.map(Into::into),
             });
         }
 
         Ok(LibrarySourcesResponse {
-            library,
+            library: library.into(),
             page: PageInfo::new(page, output_sources.len()),
             sources: output_sources,
         })
@@ -62,7 +66,6 @@ impl TaruApp {
         let page = page.clamped();
         self.get_library_or_not_found(library_id).await?;
         let failures = self
-            .inner
             .store
             .list_ingestion_failures(
                 IngestionFailureFilter {
@@ -93,7 +96,6 @@ impl TaruApp {
     ) -> Result<IngestionFailureDiagnostic> {
         self.get_library_or_not_found(library_id).await?;
         let record = self
-            .inner
             .store
             .ignore_ingestion_failure(library_id, phase, target_uri, super::current_time_ms()?)
             .await?
@@ -103,5 +105,15 @@ impl TaruApp {
             })?;
 
         Ok(IngestionFailureDiagnostic::from_record(record))
+    }
+
+    async fn get_library_or_not_found(&self, library_id: LibraryId) -> Result<taru_core::Library> {
+        self.store
+            .get_library(library_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "library",
+                id: library_id.to_string(),
+            })
     }
 }

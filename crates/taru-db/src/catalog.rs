@@ -1,43 +1,83 @@
+use std::fmt::Display;
+
 use super::*;
 
 #[async_trait::async_trait]
 impl CatalogRepository for SqliteStore {
-    async fn upsert_person(&self, person: &Person) -> Result<()> {
+    async fn replace_item_catalog_graph(
+        &self,
+        item_id: MediaItemId,
+        replacement: &CatalogItemGraphReplacement,
+    ) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO people (id, name, sort_name, overview)
-            VALUES (?1, ?2, ?3, ?4)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                sort_name = excluded.sort_name,
-                overview = excluded.overview,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(person.id.to_string())
-        .bind(&person.name)
-        .bind(&person.sort_name)
-        .bind(&person.overview)
-        .execute(&mut *transaction)
-        .await
-        .map_err(database_error)?;
-
-        sqlx::query("DELETE FROM person_external_ids WHERE person_id = ?1")
-            .bind(person.id.to_string())
+        sqlx::query("DELETE FROM item_credits WHERE item_id = ?1")
+            .bind(item_id.to_string())
             .execute(&mut *transaction)
             .await
             .map_err(database_error)?;
-        insert_external_ids(
-            &mut transaction,
-            "person_external_ids",
-            "person_id",
-            person.id,
-            &person.external_ids,
-        )
-        .await?;
+        sqlx::query("DELETE FROM item_genres WHERE item_id = ?1")
+            .bind(item_id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        sqlx::query("DELETE FROM item_tags WHERE item_id = ?1")
+            .bind(item_id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        sqlx::query("DELETE FROM collection_items WHERE item_id = ?1")
+            .bind(item_id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        sqlx::query("DELETE FROM item_studios WHERE item_id = ?1")
+            .bind(item_id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
 
+        for person in &replacement.people {
+            upsert_person_tx(&mut transaction, person).await?;
+        }
+        for credit in &replacement.credits {
+            upsert_item_credit_tx(&mut transaction, credit).await?;
+        }
+        for genre in &replacement.genres {
+            upsert_genre_tx(&mut transaction, genre).await?;
+        }
+        for item_genre in &replacement.item_genres {
+            upsert_item_genre_tx(&mut transaction, item_genre).await?;
+        }
+        for tag in &replacement.tags {
+            upsert_tag_tx(&mut transaction, tag).await?;
+        }
+        for item_tag in &replacement.item_tags {
+            upsert_item_tag_tx(&mut transaction, item_tag).await?;
+        }
+        for collection in &replacement.collections {
+            upsert_collection_tx(&mut transaction, collection).await?;
+        }
+        for collection_item in &replacement.collection_items {
+            upsert_collection_item_tx(&mut transaction, collection_item).await?;
+        }
+        for studio in &replacement.studios {
+            upsert_studio_tx(&mut transaction, studio).await?;
+        }
+        for item_studio in &replacement.item_studios {
+            upsert_item_studio_tx(&mut transaction, item_studio).await?;
+        }
+        for image in &replacement.images {
+            upsert_image_asset_tx(&mut transaction, image).await?;
+        }
+
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn upsert_person(&self, person: &Person) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        upsert_person_tx(&mut transaction, person).await?;
         transaction.commit().await.map_err(database_error)
     }
 
@@ -144,29 +184,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()> {
-        let (role, role_key) = credit_role_to_parts(&credit.role);
-        sqlx::query(
-            r#"
-            INSERT INTO item_credits (
-                item_id, person_id, role, role_key, character, sort_order
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-            ON CONFLICT(item_id, person_id, role, role_key, character) DO UPDATE SET
-                sort_order = excluded.sort_order,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(credit.item_id.to_string())
-        .bind(credit.person_id.to_string())
-        .bind(role)
-        .bind(role_key)
-        .bind(credit.character.clone().unwrap_or_default())
-        .bind(optional_u32_to_i64(credit.sort_order))
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_item_credit_tx(&mut transaction, credit).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn clear_item_credits(&self, item_id: MediaItemId) -> Result<()> {
@@ -249,27 +270,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
-        let (source, source_key) = metadata_source_to_parts(&genre.source);
-        sqlx::query(
-            r#"
-            INSERT INTO genres (id, name, source, source_key)
-            VALUES (?1, ?2, ?3, ?4)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                source = excluded.source,
-                source_key = excluded.source_key,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(genre.id.to_string())
-        .bind(&genre.name)
-        .bind(source)
-        .bind(source_key)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_genre_tx(&mut transaction, genre).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_genre(&self, id: GenreId) -> Result<Option<Genre>> {
@@ -327,14 +331,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()> {
-        sqlx::query("INSERT OR IGNORE INTO item_genres (item_id, genre_id) VALUES (?1, ?2)")
-            .bind(item_genre.item_id.to_string())
-            .bind(item_genre.genre_id.to_string())
-            .execute(&self.pool)
-            .await
-            .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_item_genre_tx(&mut transaction, item_genre).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn clear_item_genres(&self, item_id: MediaItemId) -> Result<()> {
@@ -395,27 +395,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
-        let (source, source_key) = metadata_source_to_parts(&tag.source);
-        sqlx::query(
-            r#"
-            INSERT INTO tags (id, name, source, source_key)
-            VALUES (?1, ?2, ?3, ?4)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                source = excluded.source,
-                source_key = excluded.source_key,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(tag.id.to_string())
-        .bind(&tag.name)
-        .bind(source)
-        .bind(source_key)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_tag_tx(&mut transaction, tag).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_tag(&self, id: TagId) -> Result<Option<Tag>> {
@@ -473,14 +456,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()> {
-        sqlx::query("INSERT OR IGNORE INTO item_tags (item_id, tag_id) VALUES (?1, ?2)")
-            .bind(item_tag.item_id.to_string())
-            .bind(item_tag.tag_id.to_string())
-            .execute(&self.pool)
-            .await
-            .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_item_tag_tx(&mut transaction, item_tag).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn clear_item_tags(&self, item_id: MediaItemId) -> Result<()> {
@@ -538,43 +517,8 @@ impl CatalogRepository for SqliteStore {
 
     async fn upsert_collection(&self, collection: &Collection) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
-        let (source, source_key) = metadata_source_to_parts(&collection.source);
 
-        sqlx::query(
-            r#"
-            INSERT INTO collections (id, name, overview, source, source_key)
-            VALUES (?1, ?2, ?3, ?4, ?5)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                overview = excluded.overview,
-                source = excluded.source,
-                source_key = excluded.source_key,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(collection.id.to_string())
-        .bind(&collection.name)
-        .bind(&collection.overview)
-        .bind(source)
-        .bind(source_key)
-        .execute(&mut *transaction)
-        .await
-        .map_err(database_error)?;
-
-        sqlx::query("DELETE FROM collection_external_ids WHERE collection_id = ?1")
-            .bind(collection.id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        insert_external_ids(
-            &mut transaction,
-            "collection_external_ids",
-            "collection_id",
-            collection.id,
-            &collection.external_ids,
-        )
-        .await?;
-
+        upsert_collection_tx(&mut transaction, collection).await?;
         transaction.commit().await.map_err(database_error)
     }
 
@@ -692,22 +636,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_collection_item(&self, item: &CollectionItem) -> Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO collection_items (collection_id, item_id, sort_order)
-            VALUES (?1, ?2, ?3)
-            ON CONFLICT(collection_id, item_id) DO UPDATE SET
-                sort_order = excluded.sort_order
-            "#,
-        )
-        .bind(item.collection_id.to_string())
-        .bind(item.item_id.to_string())
-        .bind(optional_u32_to_i64(item.sort_order))
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_collection_item_tx(&mut transaction, item).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn clear_item_collections(&self, item_id: MediaItemId) -> Result<()> {
@@ -759,41 +691,8 @@ impl CatalogRepository for SqliteStore {
 
     async fn upsert_studio(&self, studio: &Studio) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
-        let (source, source_key) = metadata_source_to_parts(&studio.source);
 
-        sqlx::query(
-            r#"
-            INSERT INTO studios (id, name, source, source_key)
-            VALUES (?1, ?2, ?3, ?4)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                source = excluded.source,
-                source_key = excluded.source_key,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(studio.id.to_string())
-        .bind(&studio.name)
-        .bind(source)
-        .bind(source_key)
-        .execute(&mut *transaction)
-        .await
-        .map_err(database_error)?;
-
-        sqlx::query("DELETE FROM studio_external_ids WHERE studio_id = ?1")
-            .bind(studio.id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        insert_external_ids(
-            &mut transaction,
-            "studio_external_ids",
-            "studio_id",
-            studio.id,
-            &studio.external_ids,
-        )
-        .await?;
-
+        upsert_studio_tx(&mut transaction, studio).await?;
         transaction.commit().await.map_err(database_error)
     }
 
@@ -906,14 +805,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_item_studio(&self, item_studio: &ItemStudio) -> Result<()> {
-        sqlx::query("INSERT OR IGNORE INTO item_studios (item_id, studio_id) VALUES (?1, ?2)")
-            .bind(item_studio.item_id.to_string())
-            .bind(item_studio.studio_id.to_string())
-            .execute(&self.pool)
-            .await
-            .map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        Ok(())
+        upsert_item_studio_tx(&mut transaction, item_studio).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn clear_item_studios(&self, item_id: MediaItemId) -> Result<()> {
@@ -939,56 +834,10 @@ impl CatalogRepository for SqliteStore {
     }
 
     async fn upsert_image_asset(&self, image: &ImageAsset) -> Result<()> {
-        let (owner_kind, owner_id) = image_owner_to_parts(&image.owner);
-        let (kind, kind_key) = image_kind_to_parts(&image.kind);
-        let (provider, provider_key) = provider_to_parts(&image.provider);
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO image_assets (
-                id, owner_kind, owner_id, kind, kind_key, source_uri, provider,
-                provider_key, cache_uri, width, height, language, selected,
-                content_hash, etag
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
-            ON CONFLICT(id) DO UPDATE SET
-                owner_kind = excluded.owner_kind,
-                owner_id = excluded.owner_id,
-                kind = excluded.kind,
-                kind_key = excluded.kind_key,
-                source_uri = excluded.source_uri,
-                provider = excluded.provider,
-                provider_key = excluded.provider_key,
-                cache_uri = excluded.cache_uri,
-                width = excluded.width,
-                height = excluded.height,
-                language = excluded.language,
-                selected = excluded.selected,
-                content_hash = excluded.content_hash,
-                etag = excluded.etag,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(image.id.to_string())
-        .bind(owner_kind)
-        .bind(owner_id)
-        .bind(kind)
-        .bind(kind_key)
-        .bind(&image.source_uri)
-        .bind(provider)
-        .bind(provider_key)
-        .bind(&image.cache_uri)
-        .bind(optional_u32_to_i64(image.width))
-        .bind(optional_u32_to_i64(image.height))
-        .bind(&image.language)
-        .bind(bool_to_i64(image.selected))
-        .bind(&image.content_hash)
-        .bind(&image.etag)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        upsert_image_asset_tx(&mut transaction, image).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_image_asset(&self, id: ImageAssetId) -> Result<Option<ImageAsset>> {
@@ -1061,4 +910,357 @@ impl CatalogRepository for SqliteStore {
 
         rows.into_iter().map(row_to_image_asset).collect()
     }
+}
+
+impl SqliteStore {
+    pub(crate) async fn list_entity_external_ids<T>(
+        &self,
+        table: &str,
+        owner_column: &str,
+        owner_id: T,
+    ) -> Result<Vec<ExternalId>>
+    where
+        T: Display,
+    {
+        let query = format!(
+            "SELECT provider, provider_key, value FROM {table} WHERE {owner_column} = ?1 ORDER BY provider ASC, provider_key ASC, value ASC"
+        );
+        let rows = sqlx::query(&query)
+            .bind(owner_id.to_string())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(ExternalId {
+                    provider: provider_from_parts(
+                        row_get(&row, "provider")?,
+                        row_get(&row, "provider_key")?,
+                    ),
+                    value: row_get(&row, "value")?,
+                })
+            })
+            .collect()
+    }
+}
+
+async fn upsert_person_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    person: &Person,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO people (id, name, sort_name, overview)
+        VALUES (?1, ?2, ?3, ?4)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            sort_name = excluded.sort_name,
+            overview = excluded.overview,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(person.id.to_string())
+    .bind(&person.name)
+    .bind(&person.sort_name)
+    .bind(&person.overview)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    sqlx::query("DELETE FROM person_external_ids WHERE person_id = ?1")
+        .bind(person.id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    insert_external_ids(
+        transaction,
+        "person_external_ids",
+        "person_id",
+        person.id,
+        &person.external_ids,
+    )
+    .await
+}
+
+async fn upsert_item_credit_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    credit: &ItemCredit,
+) -> Result<()> {
+    let (role, role_key) = credit_role_to_parts(&credit.role);
+    sqlx::query(
+        r#"
+        INSERT INTO item_credits (
+            item_id, person_id, role, role_key, character, sort_order
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        ON CONFLICT(item_id, person_id, role, role_key, character) DO UPDATE SET
+            sort_order = excluded.sort_order,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(credit.item_id.to_string())
+    .bind(credit.person_id.to_string())
+    .bind(role)
+    .bind(role_key)
+    .bind(credit.character.clone().unwrap_or_default())
+    .bind(optional_u32_to_i64(credit.sort_order))
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_genre_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    genre: &Genre,
+) -> Result<()> {
+    let (source, source_key) = metadata_source_to_parts(&genre.source);
+    sqlx::query(
+        r#"
+        INSERT INTO genres (id, name, source, source_key)
+        VALUES (?1, ?2, ?3, ?4)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            source = excluded.source,
+            source_key = excluded.source_key,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(genre.id.to_string())
+    .bind(&genre.name)
+    .bind(source)
+    .bind(source_key)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_item_genre_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item_genre: &ItemGenre,
+) -> Result<()> {
+    sqlx::query("INSERT OR IGNORE INTO item_genres (item_id, genre_id) VALUES (?1, ?2)")
+        .bind(item_genre.item_id.to_string())
+        .bind(item_genre.genre_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_tag_tx(transaction: &mut sqlx::Transaction<'_, Sqlite>, tag: &Tag) -> Result<()> {
+    let (source, source_key) = metadata_source_to_parts(&tag.source);
+    sqlx::query(
+        r#"
+        INSERT INTO tags (id, name, source, source_key)
+        VALUES (?1, ?2, ?3, ?4)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            source = excluded.source,
+            source_key = excluded.source_key,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(tag.id.to_string())
+    .bind(&tag.name)
+    .bind(source)
+    .bind(source_key)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_item_tag_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item_tag: &ItemTag,
+) -> Result<()> {
+    sqlx::query("INSERT OR IGNORE INTO item_tags (item_id, tag_id) VALUES (?1, ?2)")
+        .bind(item_tag.item_id.to_string())
+        .bind(item_tag.tag_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_collection_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    collection: &Collection,
+) -> Result<()> {
+    let (source, source_key) = metadata_source_to_parts(&collection.source);
+
+    sqlx::query(
+        r#"
+        INSERT INTO collections (id, name, overview, source, source_key)
+        VALUES (?1, ?2, ?3, ?4, ?5)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            overview = excluded.overview,
+            source = excluded.source,
+            source_key = excluded.source_key,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(collection.id.to_string())
+    .bind(&collection.name)
+    .bind(&collection.overview)
+    .bind(source)
+    .bind(source_key)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    sqlx::query("DELETE FROM collection_external_ids WHERE collection_id = ?1")
+        .bind(collection.id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    insert_external_ids(
+        transaction,
+        "collection_external_ids",
+        "collection_id",
+        collection.id,
+        &collection.external_ids,
+    )
+    .await
+}
+
+async fn upsert_collection_item_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item: &CollectionItem,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO collection_items (collection_id, item_id, sort_order)
+        VALUES (?1, ?2, ?3)
+        ON CONFLICT(collection_id, item_id) DO UPDATE SET
+            sort_order = excluded.sort_order
+        "#,
+    )
+    .bind(item.collection_id.to_string())
+    .bind(item.item_id.to_string())
+    .bind(optional_u32_to_i64(item.sort_order))
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_studio_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    studio: &Studio,
+) -> Result<()> {
+    let (source, source_key) = metadata_source_to_parts(&studio.source);
+
+    sqlx::query(
+        r#"
+        INSERT INTO studios (id, name, source, source_key)
+        VALUES (?1, ?2, ?3, ?4)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            source = excluded.source,
+            source_key = excluded.source_key,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(studio.id.to_string())
+    .bind(&studio.name)
+    .bind(source)
+    .bind(source_key)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    sqlx::query("DELETE FROM studio_external_ids WHERE studio_id = ?1")
+        .bind(studio.id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    insert_external_ids(
+        transaction,
+        "studio_external_ids",
+        "studio_id",
+        studio.id,
+        &studio.external_ids,
+    )
+    .await
+}
+
+async fn upsert_item_studio_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item_studio: &ItemStudio,
+) -> Result<()> {
+    sqlx::query("INSERT OR IGNORE INTO item_studios (item_id, studio_id) VALUES (?1, ?2)")
+        .bind(item_studio.item_id.to_string())
+        .bind(item_studio.studio_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    Ok(())
+}
+
+async fn upsert_image_asset_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    image: &ImageAsset,
+) -> Result<()> {
+    let (owner_kind, owner_id) = image_owner_to_parts(&image.owner);
+    let (kind, kind_key) = image_kind_to_parts(&image.kind);
+    let (provider, provider_key) = provider_to_parts(&image.provider);
+
+    sqlx::query(
+        r#"
+        INSERT INTO image_assets (
+            id, owner_kind, owner_id, kind, kind_key, source_uri, provider,
+            provider_key, cache_uri, width, height, language, selected,
+            content_hash, etag
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+        ON CONFLICT(id) DO UPDATE SET
+            owner_kind = excluded.owner_kind,
+            owner_id = excluded.owner_id,
+            kind = excluded.kind,
+            kind_key = excluded.kind_key,
+            source_uri = excluded.source_uri,
+            provider = excluded.provider,
+            provider_key = excluded.provider_key,
+            cache_uri = excluded.cache_uri,
+            width = excluded.width,
+            height = excluded.height,
+            language = excluded.language,
+            selected = excluded.selected,
+            content_hash = excluded.content_hash,
+            etag = excluded.etag,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(image.id.to_string())
+    .bind(owner_kind)
+    .bind(owner_id)
+    .bind(kind)
+    .bind(kind_key)
+    .bind(&image.source_uri)
+    .bind(provider)
+    .bind(provider_key)
+    .bind(&image.cache_uri)
+    .bind(optional_u32_to_i64(image.width))
+    .bind(optional_u32_to_i64(image.height))
+    .bind(&image.language)
+    .bind(bool_to_i64(image.selected))
+    .bind(&image.content_hash)
+    .bind(&image.etag)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }

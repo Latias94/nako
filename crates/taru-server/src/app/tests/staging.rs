@@ -430,6 +430,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
     store.upsert_media_source(&source).await.unwrap();
 
     let plan = app
+        .playback()
         .plan_direct_play(source.id, DirectPlayRangeRequest::None)
         .await
         .unwrap();
@@ -438,6 +439,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
         panic!("expected remote direct play to hold a VFS stream");
     };
     let backend = app
+        .playback()
         .storage_backend_for_media_source(&source)
         .await
         .unwrap()
@@ -613,9 +615,11 @@ async fn staging_lease_transitions_between_ready_and_leased() {
         .await
         .unwrap();
 
-    let lease = crate::app::staging::StagingLease::acquire(store.clone(), record_id)
-        .await
-        .unwrap();
+    let runtime = crate::app::runtime::RuntimeSupervisor::new();
+    let lease =
+        crate::app::staging::StagingLease::acquire(store.clone(), record_id, runtime.clone())
+            .await
+            .unwrap();
     let leased = store
         .get_staging_manifest_record(record_id)
         .await
@@ -647,12 +651,18 @@ async fn dropped_staging_lease_releases_manifest_record() {
         .await
         .unwrap();
 
-    let lease = crate::app::staging::StagingLease::acquire(store.clone(), record_id)
-        .await
-        .unwrap();
+    let runtime = crate::app::runtime::RuntimeSupervisor::new();
+    let lease =
+        crate::app::staging::StagingLease::acquire(store.clone(), record_id, runtime.clone())
+            .await
+            .unwrap();
     drop(lease);
 
     for _ in 0..50 {
+        let diagnostics = runtime.diagnostics();
+        if diagnostics.completed_tasks > 0 {
+            assert_eq!(diagnostics.failed_tasks, 0);
+        }
         let record = store
             .get_staging_manifest_record(record_id)
             .await

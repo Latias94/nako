@@ -21,9 +21,10 @@ use taru_core::{
     JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
-    NewStagingManifestRecord, NewTranscodeSession, ProviderRawResponse, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
+    NewStagingManifestRecord, NewTranscodeSession, PageRequest, ProviderRawResponse,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
+    TranscodeSessionState,
 };
 use taru_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use taru_library::{LibraryScanRequest, LibraryScanner};
@@ -32,7 +33,7 @@ use taru_streaming::{ClientPlaybackCapabilities, DirectPlayRangeRequest};
 use taru_transcode::{HardwareAcceleration, HardwareAccelerationFallback, RemuxContainer};
 use taru_vfs::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
-    StorageBackend, StorageCapabilities, VirtualFile,
+    StorageBackend, StorageCapabilities, StorageUri, VirtualFile,
 };
 use tokio::{net::TcpListener, sync::Notify};
 
@@ -40,6 +41,7 @@ use super::playback::{
     HlsSourceDisposition, HlsStagingPolicy, RemuxRequestKey, RemuxSourceDisposition,
     RemuxStagingPolicy, source_path_for_ffmpeg_with_backend,
 };
+use super::staging::ManifestRecordingStorageBackend;
 use super::*;
 use crate::config::{
     LocalLibraryConfig, MetadataConfig, MetadataMaintenanceConfig, MetadataMaintenancePolicyConfig,

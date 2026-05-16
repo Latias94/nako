@@ -3,13 +3,19 @@ use taru_addon_protocol::{AddonManifest, AddonScope};
 use taru_core::{
     AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
     AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, CollectionItem, EventId, ExternalProvider, Genre, ImageAsset,
-    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, ItemCredit, ItemGenre,
-    ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem,
-    MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId, MetadataProfile,
-    MetadataProviderAttemptRecord, MetadataRefreshMode, OutboxEventRecord, PageRequest, Person,
-    ProviderRawResponse, ProviderRawResponseCleanup, Tag, TranscodeSessionRecord,
-    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
+    AutomationProviderStatus, CanonicalMetadata, CollectionItem, CollectionRef, ContentRating,
+    Credit, CreditRole, EventId, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset,
+    ImageAssetId, ImageKind, ImageOwner, ImageRef, IngestionFailureClass, IngestionFailurePhase,
+    IngestionFailureRecord, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
+    Job, JobId, JobKind, JobStatus, Library, LibraryId, LibraryOptions, LibraryPreset,
+    LibraryScanOptions, LocalMetadataPolicy, LocalMetadataReader, MediaDomain, MediaItem,
+    MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, MetadataProfile, MetadataProviderAttemptRecord, MetadataRefreshMode,
+    MetadataSource, NamingStrategy, OutboxEventRecord, PageRequest, Person, PersonId,
+    ProviderRawResponse, ProviderRawResponseCleanup, ScanSnapshotId, StudioId, StudioRef, Tag,
+    TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionState, WebhookDeliveryAttemptRecord, WebhookEndpointId,
+    WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use taru_streaming::PlaybackDecision;
 
@@ -89,27 +95,146 @@ impl JobResponse {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeSessionResponse {
-    pub session: TranscodeSessionRecord,
+    pub session: TranscodeSessionDto,
 }
 
 impl TranscodeSessionResponse {
     #[must_use]
     pub fn from_session(session: TranscodeSessionRecord) -> Self {
-        Self { session }
+        Self {
+            session: session.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeSessionDto {
+    pub id: TranscodeSessionId,
+    pub source_id: MediaSourceId,
+    pub kind: TranscodeSessionKind,
+    pub request_key: String,
+    pub output_path: String,
+    pub state: TranscodeSessionState,
+    pub failure_category: Option<TranscodeFailureCategory>,
+    pub failure_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl From<TranscodeSessionRecord> for TranscodeSessionDto {
+    fn from(session: TranscodeSessionRecord) -> Self {
+        Self {
+            id: session.id,
+            source_id: session.source_id,
+            kind: session.kind,
+            request_key: session.request_key,
+            output_path: session.output_path.display().to_string(),
+            state: session.state,
+            failure_category: session.failure_category,
+            failure_message: session.failure_message,
+            created_at: session.created_at,
+            updated_at: session.updated_at,
+            started_at: session.started_at,
+            completed_at: session.completed_at,
+        }
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryListResponse {
-    pub libraries: Vec<Library>,
+    pub libraries: Vec<LibraryDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibrarySourcesResponse {
-    pub library: Library,
+    pub library: LibraryDto,
     pub sources: Vec<LibrarySourceResponse>,
     pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryDto {
+    pub id: LibraryId,
+    pub name: String,
+    pub roots: Vec<String>,
+    pub options: LibraryOptionsDto,
+}
+
+impl From<Library> for LibraryDto {
+    fn from(library: Library) -> Self {
+        Self {
+            id: library.id,
+            name: library.name,
+            roots: library.roots,
+            options: library.options.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryOptionsDto {
+    pub domain: MediaDomain,
+    pub preset: LibraryPreset,
+    pub scan: LibraryScanOptionsDto,
+    pub naming_strategy: NamingStrategy,
+    pub metadata_profile: MetadataProfileDto,
+}
+
+impl From<LibraryOptions> for LibraryOptionsDto {
+    fn from(options: LibraryOptions) -> Self {
+        Self {
+            domain: options.domain,
+            preset: options.preset,
+            scan: options.scan.into(),
+            naming_strategy: options.naming_strategy,
+            metadata_profile: options.metadata_profile.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryScanOptionsDto {
+    pub realtime_monitor: bool,
+    pub max_depth: Option<usize>,
+}
+
+impl From<LibraryScanOptions> for LibraryScanOptionsDto {
+    fn from(options: LibraryScanOptions) -> Self {
+        Self {
+            realtime_monitor: options.realtime_monitor,
+            max_depth: options.max_depth,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProfileDto {
+    pub item_kinds: Vec<MediaKind>,
+    pub local_readers: Vec<LocalMetadataReader>,
+    pub metadata_providers: Vec<ExternalProvider>,
+    pub image_providers: Vec<ExternalProvider>,
+    pub language: Option<String>,
+    pub country: Option<String>,
+    pub refresh_mode: MetadataRefreshMode,
+    pub local_metadata_policy: LocalMetadataPolicy,
+}
+
+impl From<MetadataProfile> for MetadataProfileDto {
+    fn from(profile: MetadataProfile) -> Self {
+        Self {
+            item_kinds: profile.item_kinds,
+            local_readers: profile.local_readers,
+            metadata_providers: profile.metadata_providers,
+            image_providers: profile.image_providers,
+            language: profile.language,
+            country: profile.country,
+            refresh_mode: profile.refresh_mode,
+            local_metadata_policy: profile.local_metadata_policy,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -122,7 +247,7 @@ pub struct IngestionFailuresResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct IngestionFailureDiagnostic {
     #[serde(flatten)]
-    pub failure: IngestionFailureRecord,
+    pub failure: IngestionFailureDto,
     pub retryable_now: bool,
 }
 
@@ -131,8 +256,51 @@ impl IngestionFailureDiagnostic {
     pub fn from_record(failure: IngestionFailureRecord) -> Self {
         let retryable_now = failure.status == IngestionFailureStatus::Open && failure.retryable;
         Self {
-            failure,
+            failure: failure.into(),
             retryable_now,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct IngestionFailureDto {
+    pub library_id: LibraryId,
+    pub job_id: Option<JobId>,
+    pub scan_id: Option<ScanSnapshotId>,
+    pub source_id: Option<MediaSourceId>,
+    pub phase: IngestionFailurePhase,
+    pub target_uri: String,
+    pub target_kind: String,
+    pub failure_class: IngestionFailureClass,
+    pub status: IngestionFailureStatus,
+    pub message: String,
+    pub retryable: bool,
+    pub attempts: u32,
+    pub first_failed_at_ms: i64,
+    pub last_failed_at_ms: i64,
+    pub resolved_at_ms: Option<i64>,
+    pub ignored_at_ms: Option<i64>,
+}
+
+impl From<IngestionFailureRecord> for IngestionFailureDto {
+    fn from(failure: IngestionFailureRecord) -> Self {
+        Self {
+            library_id: failure.library_id,
+            job_id: failure.job_id,
+            scan_id: failure.scan_id,
+            source_id: failure.source_id,
+            phase: failure.phase,
+            target_uri: failure.target_uri,
+            target_kind: failure.target_kind,
+            failure_class: failure.failure_class,
+            status: failure.status,
+            message: failure.message,
+            retryable: failure.retryable,
+            attempts: failure.attempts,
+            first_failed_at_ms: failure.first_failed_at_ms,
+            last_failed_at_ms: failure.last_failed_at_ms,
+            resolved_at_ms: failure.resolved_at_ms,
+            ignored_at_ms: failure.ignored_at_ms,
         }
     }
 }
@@ -145,85 +313,90 @@ pub struct IgnoreIngestionFailureRequest {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibrarySourceResponse {
-    pub source: MediaSource,
-    pub item: Option<MediaItem>,
-    pub probe: Option<MediaProbeResult>,
+    pub source: MediaSourceDto,
+    pub item: Option<MediaItemDto>,
+    pub probe: Option<MediaProbeDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemsResponse {
-    pub items: Vec<MediaItem>,
+    pub items: Vec<MediaItemDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemDetailResponse {
-    pub item: MediaItem,
-    pub sources: Vec<MediaSource>,
-    pub credits: Vec<ItemCredit>,
-    pub genres: Vec<ItemGenre>,
-    pub tags: Vec<ItemTag>,
-    pub collections: Vec<CollectionItem>,
-    pub studios: Vec<ItemStudio>,
-    pub images: Vec<ImageAsset>,
+    pub item: MediaItemDto,
+    pub sources: Vec<MediaSourceDto>,
+    pub credits: Vec<ItemCreditDto>,
+    pub genres: Vec<ItemGenreDto>,
+    pub tags: Vec<ItemTagDto>,
+    pub collections: Vec<CollectionItemDto>,
+    pub studios: Vec<ItemStudioDto>,
+    pub images: Vec<ImageAssetDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemCreditsResponse {
     pub item_id: taru_core::MediaItemId,
-    pub credits: Vec<ItemCredit>,
-    pub people: Vec<Person>,
+    pub credits: Vec<ItemCreditDto>,
+    pub people: Vec<PersonDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ImagesResponse {
     pub item_id: taru_core::MediaItemId,
-    pub images: Vec<ImageAsset>,
+    pub images: Vec<ImageAssetDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackDecisionResponse {
-    pub source: MediaSource,
-    pub probe: Option<MediaProbeResult>,
+    pub source: MediaSourceDto,
+    pub probe: Option<MediaProbeDto>,
     pub decision: PlaybackDecision,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PeopleResponse {
-    pub people: Vec<Person>,
+    pub people: Vec<PersonDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PersonResponse {
+    pub person: PersonDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PersonItemsResponse {
-    pub person: Person,
-    pub items: Vec<MediaItem>,
+    pub person: PersonDto,
+    pub items: Vec<MediaItemDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TagsResponse {
-    pub tags: Vec<Tag>,
+    pub tags: Vec<TagDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TagItemsResponse {
-    pub tag: Tag,
-    pub items: Vec<MediaItem>,
+    pub tag: TagDto,
+    pub items: Vec<MediaItemDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GenreListResponse {
-    pub genres: Vec<Genre>,
+    pub genres: Vec<GenreDto>,
     pub page: PageInfo,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GenreItemsResponse {
-    pub genre: Genre,
-    pub items: Vec<MediaItem>,
+    pub genre: GenreDto,
+    pub items: Vec<MediaItemDto>,
     pub page: PageInfo,
 }
 
@@ -235,14 +408,322 @@ pub struct SearchResponse {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SearchItemHit {
-    pub item: MediaItem,
+    pub item: MediaItemDto,
     pub score: f32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SourceProbeResponse {
     pub source_id: MediaSourceId,
-    pub probe: MediaProbeResult,
+    pub probe: MediaProbeDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MediaItemDto {
+    pub id: MediaItemId,
+    pub kind: MediaKind,
+    pub parent_id: Option<MediaItemId>,
+    pub metadata: CanonicalMetadataDto,
+}
+
+impl From<MediaItem> for MediaItemDto {
+    fn from(item: MediaItem) -> Self {
+        Self {
+            id: item.id,
+            kind: item.kind,
+            parent_id: item.parent_id,
+            metadata: item.metadata.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CanonicalMetadataDto {
+    pub title: String,
+    pub original_title: Option<String>,
+    pub sort_title: Option<String>,
+    pub overview: Option<String>,
+    pub release_date: Option<String>,
+    pub runtime_minutes: Option<u32>,
+    pub tagline: Option<String>,
+    pub genres: Vec<String>,
+    pub tags: Vec<String>,
+    pub ratings: Vec<ContentRating>,
+    pub images: Vec<ImageRef>,
+    pub credits: Vec<Credit>,
+    pub collections: Vec<CollectionRef>,
+    pub studios: Vec<StudioRef>,
+    pub external_ids: Vec<ExternalId>,
+}
+
+impl From<CanonicalMetadata> for CanonicalMetadataDto {
+    fn from(metadata: CanonicalMetadata) -> Self {
+        Self {
+            title: metadata.title,
+            original_title: metadata.original_title,
+            sort_title: metadata.sort_title,
+            overview: metadata.overview,
+            release_date: metadata.release_date,
+            runtime_minutes: metadata.runtime_minutes,
+            tagline: metadata.tagline,
+            genres: metadata.genres,
+            tags: metadata.tags,
+            ratings: metadata.ratings,
+            images: metadata.images,
+            credits: metadata.credits,
+            collections: metadata.collections,
+            studios: metadata.studios,
+            external_ids: metadata.external_ids,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MediaSourceDto {
+    pub id: MediaSourceId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub locator: String,
+    pub file_name: String,
+    pub size_bytes: Option<u64>,
+    pub fingerprint: Option<String>,
+}
+
+impl From<MediaSource> for MediaSourceDto {
+    fn from(source: MediaSource) -> Self {
+        Self {
+            id: source.id,
+            library_id: source.library_id,
+            item_id: source.item_id,
+            locator: source.locator,
+            file_name: source.file_name,
+            size_bytes: source.size_bytes,
+            fingerprint: source.fingerprint,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MediaProbeDto {
+    pub duration_ms: Option<u64>,
+    pub container: Option<String>,
+    pub bit_rate: Option<u64>,
+    pub streams: Vec<MediaStreamDto>,
+}
+
+impl From<MediaProbeResult> for MediaProbeDto {
+    fn from(probe: MediaProbeResult) -> Self {
+        Self {
+            duration_ms: probe.duration_ms,
+            container: probe.container,
+            bit_rate: probe.bit_rate,
+            streams: probe.streams.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MediaStreamDto {
+    pub index: u32,
+    pub kind: MediaStreamKind,
+    pub codec: Option<String>,
+    pub language: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub bit_rate: Option<u64>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub channels: Option<u32>,
+    pub sample_rate: Option<u32>,
+}
+
+impl From<MediaStreamInfo> for MediaStreamDto {
+    fn from(stream: MediaStreamInfo) -> Self {
+        Self {
+            index: stream.index,
+            kind: stream.kind,
+            codec: stream.codec,
+            language: stream.language,
+            duration_ms: stream.duration_ms,
+            bit_rate: stream.bit_rate,
+            width: stream.width,
+            height: stream.height,
+            channels: stream.channels,
+            sample_rate: stream.sample_rate,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PersonDto {
+    pub id: PersonId,
+    pub name: String,
+    pub sort_name: Option<String>,
+    pub overview: Option<String>,
+    pub external_ids: Vec<ExternalId>,
+}
+
+impl From<Person> for PersonDto {
+    fn from(person: Person) -> Self {
+        Self {
+            id: person.id,
+            name: person.name,
+            sort_name: person.sort_name,
+            overview: person.overview,
+            external_ids: person.external_ids,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemCreditDto {
+    pub item_id: MediaItemId,
+    pub person_id: PersonId,
+    pub role: CreditRole,
+    pub character: Option<String>,
+    pub sort_order: Option<u32>,
+}
+
+impl From<ItemCredit> for ItemCreditDto {
+    fn from(credit: ItemCredit) -> Self {
+        Self {
+            item_id: credit.item_id,
+            person_id: credit.person_id,
+            role: credit.role,
+            character: credit.character,
+            sort_order: credit.sort_order,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GenreDto {
+    pub id: GenreId,
+    pub name: String,
+    pub source: MetadataSource,
+}
+
+impl From<Genre> for GenreDto {
+    fn from(genre: Genre) -> Self {
+        Self {
+            id: genre.id,
+            name: genre.name,
+            source: genre.source,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemGenreDto {
+    pub item_id: MediaItemId,
+    pub genre_id: GenreId,
+}
+
+impl From<ItemGenre> for ItemGenreDto {
+    fn from(genre: ItemGenre) -> Self {
+        Self {
+            item_id: genre.item_id,
+            genre_id: genre.genre_id,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TagDto {
+    pub id: TagId,
+    pub name: String,
+    pub source: MetadataSource,
+}
+
+impl From<Tag> for TagDto {
+    fn from(tag: Tag) -> Self {
+        Self {
+            id: tag.id,
+            name: tag.name,
+            source: tag.source,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemTagDto {
+    pub item_id: MediaItemId,
+    pub tag_id: TagId,
+}
+
+impl From<ItemTag> for ItemTagDto {
+    fn from(tag: ItemTag) -> Self {
+        Self {
+            item_id: tag.item_id,
+            tag_id: tag.tag_id,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CollectionItemDto {
+    pub collection_id: taru_core::CollectionId,
+    pub item_id: MediaItemId,
+    pub sort_order: Option<u32>,
+}
+
+impl From<CollectionItem> for CollectionItemDto {
+    fn from(collection: CollectionItem) -> Self {
+        Self {
+            collection_id: collection.collection_id,
+            item_id: collection.item_id,
+            sort_order: collection.sort_order,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemStudioDto {
+    pub item_id: MediaItemId,
+    pub studio_id: StudioId,
+}
+
+impl From<ItemStudio> for ItemStudioDto {
+    fn from(studio: ItemStudio) -> Self {
+        Self {
+            item_id: studio.item_id,
+            studio_id: studio.studio_id,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ImageAssetDto {
+    pub id: ImageAssetId,
+    pub owner: ImageOwner,
+    pub kind: ImageKind,
+    pub source_uri: String,
+    pub provider: ExternalProvider,
+    pub cache_uri: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+    pub selected: bool,
+    pub content_hash: Option<String>,
+    pub etag: Option<String>,
+}
+
+impl From<ImageAsset> for ImageAssetDto {
+    fn from(image: ImageAsset) -> Self {
+        Self {
+            id: image.id,
+            owner: image.owner,
+            kind: image.kind,
+            source_uri: image.source_uri,
+            provider: image.provider,
+            cache_uri: image.cache_uri,
+            width: image.width,
+            height: image.height,
+            language: image.language,
+            selected: image.selected,
+            content_hash: image.content_hash,
+            etag: image.etag,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -537,4 +1018,97 @@ pub struct AddonRegistrationResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonRegistrationsResponse {
     pub addons: Vec<AddonRegistrationRecord>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use taru_core::{
+        CanonicalMetadata, IngestionFailureClass, MediaItem, TranscodeSessionKind,
+        TranscodeSessionState,
+    };
+
+    #[test]
+    fn media_item_dto_serializes_field_level_payload() {
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "DTO Demo".to_owned(),
+                tags: vec!["favorite".to_owned()],
+                ..CanonicalMetadata::default()
+            },
+        };
+
+        let value = serde_json::to_value(MediaItemDto::from(item)).unwrap();
+
+        assert_eq!(value["kind"], "movie");
+        assert_eq!(value["metadata"]["title"], "DTO Demo");
+        assert_eq!(value["metadata"]["tags"][0], "favorite");
+        assert!(value.get("input_json").is_none());
+    }
+
+    #[test]
+    fn ingestion_failure_diagnostic_serializes_explicit_dto_fields() {
+        let record = IngestionFailureRecord {
+            library_id: LibraryId::new(),
+            job_id: Some(JobId::new()),
+            scan_id: Some(ScanSnapshotId::new()),
+            source_id: None,
+            phase: IngestionFailurePhase::Scan,
+            target_uri: "webdav:///Movies/Broken/".to_owned(),
+            target_kind: "directory".to_owned(),
+            failure_class: IngestionFailureClass::Storage,
+            status: IngestionFailureStatus::Open,
+            message: "failed to list directory".to_owned(),
+            retryable: true,
+            attempts: 2,
+            first_failed_at_ms: 10,
+            last_failed_at_ms: 20,
+            resolved_at_ms: None,
+            ignored_at_ms: None,
+        };
+
+        let diagnostic = IngestionFailureDiagnostic::from_record(record);
+        let value = serde_json::to_value(&diagnostic).unwrap();
+
+        assert_eq!(diagnostic.failure.attempts, 2);
+        assert!(diagnostic.retryable_now);
+        assert_eq!(value["phase"], "scan");
+        assert_eq!(value["failure_class"], "storage");
+        assert_eq!(value["status"], "open");
+        assert!(value.get("failure").is_none());
+    }
+
+    #[test]
+    fn transcode_session_response_serializes_path_as_string() {
+        let session = TranscodeSessionRecord {
+            id: TranscodeSessionId::new(),
+            source_id: MediaSourceId::new(),
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mp4".to_owned(),
+            output_path: PathBuf::from("cache/remux/output.mp4"),
+            state: TranscodeSessionState::Finished,
+            failure_category: None,
+            failure_message: None,
+            created_at: "2026-05-16T00:00:00Z".to_owned(),
+            updated_at: "2026-05-16T00:01:00Z".to_owned(),
+            started_at: Some("2026-05-16T00:00:01Z".to_owned()),
+            completed_at: Some("2026-05-16T00:01:00Z".to_owned()),
+        };
+
+        let response = TranscodeSessionResponse::from_session(session);
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["session"]["kind"], "remux");
+        assert!(
+            value["session"]["output_path"]
+                .as_str()
+                .unwrap()
+                .contains("output.mp4")
+        );
+    }
 }

@@ -455,3 +455,49 @@ impl MediaProbeRepository for SqliteStore {
         }))
     }
 }
+
+impl SqliteStore {
+    pub(crate) async fn rows_to_media_items(
+        &self,
+        rows: Vec<sqlx::sqlite::SqliteRow>,
+    ) -> Result<Vec<MediaItem>> {
+        let mut items = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self.list_external_ids(id).await?;
+            items.push(row_to_media_item(row, external_ids)?);
+        }
+
+        Ok(items)
+    }
+
+    pub(crate) async fn list_external_ids(&self, item_id: MediaItemId) -> Result<Vec<ExternalId>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT provider, provider_key, value
+            FROM media_item_external_ids
+            WHERE item_id = ?1
+            ORDER BY provider ASC, provider_key ASC, value ASC
+            "#,
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(|row| {
+                let provider = provider_from_parts(
+                    row_get::<String>(&row, "provider")?,
+                    row_get::<String>(&row, "provider_key")?,
+                );
+
+                Ok(ExternalId {
+                    provider,
+                    value: row_get(&row, "value")?,
+                })
+            })
+            .collect()
+    }
+}

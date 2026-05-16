@@ -11,9 +11,10 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus is ingestion failure isolation and diagnostics
-after storage runtime boundary hardening. The local video-library playback MVP
-was stabilized in [Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
+Current implementation focus is API, HTTP router, and SQLite repository
+boundary cleanup ([Phase 23.0](PHASE23_0_API_HTTP_DB_BOUNDARY_CLEANUP.md))
+after ingestion failure diagnostics. The local video-library playback MVP was
+stabilized in [Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
 
 ## Goals
 

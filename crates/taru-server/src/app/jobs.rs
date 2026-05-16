@@ -1,17 +1,25 @@
+use std::sync::Arc;
+
 use serde::Serialize;
 use taru_core::{
-    DomainEventKind, DomainEventSubject, EventId, Job, JobId, JobKind, JobRepository, LibraryId,
-    NewJob, NewOutboxEvent, Result, StagingPurpose, TaruError,
+    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
+    JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, Result, StagingPurpose, TaruError,
 };
+use taru_db::SqliteStore;
 use taru_library::{
     LibraryIndexRequest, LibraryIndexService, LibraryIndexSummary, LibraryProbeOptions,
     LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary,
 };
 use taru_media_probe::FfprobeMediaProbe;
+use tokio::sync::Semaphore;
 use tracing::{Instrument, error, info, info_span, warn};
 
+use crate::config::{TaruServerConfig, libraries_from_config};
+
 use super::{
-    ManifestRecordingStorageBackend, TaruApp, libraries_from_config, remote_probe_staging_root,
+    runtime::RuntimeSupervisor,
+    staging::ManifestRecordingStorageBackend,
+    storage::{StorageBackendRegistry, remote_probe_staging_root},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -21,10 +29,18 @@ pub struct ScanCommandOutput {
     pub probe: LibraryProbeSummary,
 }
 
-impl TaruApp {
-    pub async fn get_job(&self, job_id: JobId) -> Result<Job> {
-        self.inner
-            .store
+#[derive(Clone, Debug)]
+pub(crate) struct JobAppService {
+    store: SqliteStore,
+}
+
+impl JobAppService {
+    pub(crate) fn new(store: SqliteStore) -> Self {
+        Self { store }
+    }
+
+    pub(crate) async fn get_job(&self, job_id: JobId) -> Result<Job> {
+        self.store
             .get_job(job_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
@@ -32,15 +48,44 @@ impl TaruApp {
                 id: job_id.to_string(),
             })
     }
+}
 
-    pub async fn enqueue_library_scan(&self, library_id: LibraryId) -> Result<Job> {
+#[derive(Clone, Debug)]
+pub(crate) struct LibraryScanAppService {
+    config: TaruServerConfig,
+    store: SqliteStore,
+    permits: Arc<Semaphore>,
+    storage_backends: StorageBackendRegistry,
+    runtime: RuntimeSupervisor,
+}
+
+impl LibraryScanAppService {
+    pub(super) fn new(
+        config: TaruServerConfig,
+        store: SqliteStore,
+        permits: Arc<Semaphore>,
+        storage_backends: StorageBackendRegistry,
+        runtime: RuntimeSupervisor,
+    ) -> Self {
+        Self {
+            config,
+            store,
+            permits,
+            storage_backends,
+            runtime,
+        }
+    }
+
+    pub(crate) async fn enqueue_library_scan(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_library_scan_job(library_id).await?;
         let job_id = job.id;
-        let app = self.clone();
+        let service = self.clone();
 
-        tokio::spawn(
+        self.runtime.spawn(
+            "library_scan_background_job",
+            "disk.scan",
             async move {
-                app.finish_library_scan_job(job_id, library_id).await;
+                service.finish_library_scan_job(job_id, library_id).await;
             }
             .instrument(info_span!(
                 "library_scan_background_job",
@@ -53,13 +98,13 @@ impl TaruApp {
         Ok(job)
     }
 
-    pub async fn scan_library(&self, library_id: LibraryId) -> Result<ScanCommandOutput> {
+    pub(crate) async fn scan_library(&self, library_id: LibraryId) -> Result<ScanCommandOutput> {
         let job = self.create_library_scan_job(library_id).await?;
         self.execute_library_scan_job(job.id, library_id).await
     }
 
-    pub async fn scan_all_configured_libraries(&self) -> Result<Vec<ScanCommandOutput>> {
-        let libraries = libraries_from_config(self.config());
+    pub(crate) async fn scan_all_configured_libraries(&self) -> Result<Vec<ScanCommandOutput>> {
+        let libraries = libraries_from_config(&self.config);
         if libraries.is_empty() {
             return Err(TaruError::InvalidInput {
                 message: "server config must include at least one library".to_owned(),
@@ -84,8 +129,7 @@ impl TaruApp {
             message: format!("failed to serialize job input: {err}"),
         })?;
 
-        self.inner
-            .store
+        self.store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::LibraryScan,
@@ -123,18 +167,17 @@ impl TaruApp {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<ScanCommandOutput> {
-        let permit = self
-            .inner
-            .scan_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| TaruError::InvalidInput {
-                message: format!("scan concurrency limiter is unavailable: {err}"),
-            })?;
+        let permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("scan concurrency limiter is unavailable: {err}"),
+                })?;
         let _permit = permit;
 
-        self.inner.store.start_job(job_id).await?;
+        self.store.start_job(job_id).await?;
 
         match self.run_library_scan(job_id, library_id).await {
             Ok((index, probe)) => {
@@ -146,18 +189,14 @@ impl TaruApp {
                     serde_json::to_string(&output).map_err(|err| TaruError::InvalidInput {
                         message: format!("failed to serialize job summary: {err}"),
                     })?;
-                let job = self
-                    .inner
-                    .store
-                    .succeed_job(job_id, Some(summary_json))
-                    .await?;
+                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
                 self.record_library_scanned_event(job_id, library_id, &index, &probe)
                     .await;
 
                 Ok(ScanCommandOutput { job, index, probe })
             }
             Err(err) => {
-                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
                     warn!(
                         job_id = %job_id,
                         library_id = %library_id,
@@ -211,13 +250,16 @@ impl TaruApp {
         info!(
             job_id = %job_id,
             library_id = %library_id,
-            probe_concurrency = self.config().probe_concurrency.max(1),
+            probe_concurrency = self.config.probe_concurrency.max(1),
             "starting library scan pipeline"
         );
 
-        let index_backend = self.storage_backend_for_library_root(&library).await?;
+        let index_backend = self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await?;
         let scanner = taru_library::VfsLibraryScanner::new(index_backend);
-        let index_service = LibraryIndexService::new(scanner, self.inner.store.clone());
+        let index_service = LibraryIndexService::new(scanner, self.store.clone());
         let index = index_service
             .index_library(LibraryIndexRequest {
                 job_id,
@@ -226,23 +268,26 @@ impl TaruApp {
             })
             .await?;
 
-        let storage_backend = self.storage_backend_for_library_root(&library).await?;
+        let storage_backend = self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await?;
         let probe_backend = ManifestRecordingStorageBackend::new(
             storage_backend.clone(),
-            self.inner.store.clone(),
+            self.store.clone(),
             StagingPurpose::ProbeInput,
-            self.config().staging.max_bytes,
-            self.config().staging.retention_ms,
+            self.config.staging.max_bytes,
+            self.config.staging.retention_ms,
             storage_backend.stage_permits(),
         );
-        let probe = FfprobeMediaProbe::new(&self.config().ffprobe_path);
+        let probe = FfprobeMediaProbe::new(&self.config.ffprobe_path);
         let probe_service = LibraryProbeService::with_options(
             probe_backend,
             probe,
-            self.inner.store.clone(),
+            self.store.clone(),
             LibraryProbeOptions {
-                max_concurrent_probes: self.config().probe_concurrency.max(1),
-                staging_root: remote_probe_staging_root(&library, self.config()),
+                max_concurrent_probes: self.config.probe_concurrency.max(1),
+                staging_root: remote_probe_staging_root(&library, &self.config),
             },
         );
         let probe = probe_service
@@ -254,6 +299,29 @@ impl TaruApp {
             .await?;
 
         Ok((index, probe))
+    }
+
+    async fn record_outbox_event(&self, event: NewOutboxEvent) {
+        let kind = event.kind.as_str();
+        let idempotency_key = event.idempotency_key.clone();
+        if let Err(err) = self.store.enqueue_outbox_event(event).await {
+            warn!(
+                kind,
+                idempotency_key,
+                error = %err,
+                "failed to persist outbox event"
+            );
+        }
+    }
+
+    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
+        libraries_from_config(&self.config)
+            .into_iter()
+            .find(|library| library.id == library_id)
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "library",
+                id: library_id.to_string(),
+            })
     }
 }
 

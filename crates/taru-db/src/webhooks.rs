@@ -204,3 +204,39 @@ impl WebhookRepository for SqliteStore {
             .collect()
     }
 }
+
+impl SqliteStore {
+    pub(crate) async fn get_webhook_delivery_attempt_or_not_found(
+        &self,
+        id: WebhookDeliveryAttemptId,
+    ) -> Result<WebhookDeliveryAttemptRecord> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                endpoint_id,
+                event_id,
+                attempt_number,
+                status,
+                http_status,
+                error,
+                requested_at,
+                completed_at,
+                next_retry_at
+            FROM webhook_delivery_attempts
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_webhook_delivery_attempt)
+            .transpose()?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "webhook_delivery_attempt",
+                id: id.to_string(),
+            })
+    }
+}

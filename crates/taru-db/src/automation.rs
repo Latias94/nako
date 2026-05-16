@@ -257,3 +257,42 @@ impl AutomationRepository for SqliteStore {
         rows.into_iter().map(row_to_automation_artifact).collect()
     }
 }
+
+impl SqliteStore {
+    pub(crate) async fn get_automation_artifact_or_not_found(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<AutomationArtifactRecord> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                job_id,
+                provider_id,
+                capability,
+                kind,
+                library_id,
+                item_id,
+                source_id,
+                artifact_json,
+                status,
+                created_at,
+                updated_at,
+                accepted_at
+            FROM automation_artifacts
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_automation_artifact)
+            .transpose()?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "automation_artifact",
+                id: id.to_string(),
+            })
+    }
+}

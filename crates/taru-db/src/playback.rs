@@ -173,3 +173,17 @@ impl TranscodeSessionRepository for SqliteStore {
         Ok(result.rows_affected())
     }
 }
+
+impl SqliteStore {
+    pub(crate) async fn get_transcode_session_or_not_found(
+        &self,
+        id: TranscodeSessionId,
+    ) -> Result<TranscodeSessionRecord> {
+        self.get_transcode_session(id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "transcode_session",
+                id: id.to_string(),
+            })
+    }
+}

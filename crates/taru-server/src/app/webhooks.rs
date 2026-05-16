@@ -8,10 +8,10 @@ use taru_core::{
     DomainEventKind, EventId, EventOutboxRepository, NewWebhookEndpoint, OutboxEventRecord, Result,
     TaruError, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord, WebhookRepository,
 };
+use taru_db::SqliteStore;
 use taru_events::{ReqwestWebhookTransport, WebhookDeliveryService, endpoint_subscribes_to};
+use tokio::sync::Semaphore;
 use tracing::warn;
-
-use super::TaruApp;
 
 fn resolve_webhook_secret(endpoint: &WebhookEndpointRecord) -> Result<Option<String>> {
     let Some(name) = endpoint.secret_env.as_deref() else {
@@ -26,10 +26,19 @@ fn resolve_webhook_secret(endpoint: &WebhookEndpointRecord) -> Result<Option<Str
     })
 }
 
-impl TaruApp {
+#[derive(Clone, Debug)]
+pub(crate) struct WebhookAppService {
+    store: SqliteStore,
+    permits: std::sync::Arc<Semaphore>,
+}
+
+impl WebhookAppService {
+    pub(crate) fn new(store: SqliteStore, permits: std::sync::Arc<Semaphore>) -> Self {
+        Self { store, permits }
+    }
+
     async fn get_outbox_event_or_not_found(&self, event_id: EventId) -> Result<OutboxEventRecord> {
-        self.inner
-            .store
+        self.store
             .get_outbox_event(event_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
@@ -112,7 +121,7 @@ impl TaruApp {
         request: UpsertWebhookEndpointRequest,
     ) -> Result<WebhookEndpointResponse> {
         let endpoint = self.normalize_webhook_endpoint(request)?;
-        let endpoint = self.inner.store.upsert_webhook_endpoint(endpoint).await?;
+        let endpoint = self.store.upsert_webhook_endpoint(endpoint).await?;
 
         Ok(WebhookEndpointResponse { endpoint })
     }
@@ -122,7 +131,6 @@ impl TaruApp {
         endpoint_id: WebhookEndpointId,
     ) -> Result<WebhookEndpointResponse> {
         let endpoint = self
-            .inner
             .store
             .get_webhook_endpoint(endpoint_id)
             .await?
@@ -135,7 +143,7 @@ impl TaruApp {
     }
 
     pub async fn list_enabled_webhook_endpoints(&self) -> Result<WebhookEndpointsResponse> {
-        let endpoints = self.inner.store.list_enabled_webhook_endpoints().await?;
+        let endpoints = self.store.list_enabled_webhook_endpoints().await?;
 
         Ok(WebhookEndpointsResponse { endpoints })
     }
@@ -145,11 +153,7 @@ impl TaruApp {
         event_id: EventId,
     ) -> Result<WebhookDeliveryAttemptsResponse> {
         self.get_outbox_event_or_not_found(event_id).await?;
-        let attempts = self
-            .inner
-            .store
-            .list_webhook_delivery_attempts(event_id)
-            .await?;
+        let attempts = self.store.list_webhook_delivery_attempts(event_id).await?;
 
         Ok(WebhookDeliveryAttemptsResponse { event_id, attempts })
     }
@@ -159,7 +163,7 @@ impl TaruApp {
         event_id: EventId,
     ) -> Result<WebhookDispatchResponse> {
         let event = self.get_outbox_event_or_not_found(event_id).await?;
-        let endpoints = self.inner.store.list_enabled_webhook_endpoints().await?;
+        let endpoints = self.store.list_enabled_webhook_endpoints().await?;
         let service = WebhookDeliveryService::new(ReqwestWebhookTransport::default());
         let mut workers = tokio::task::JoinSet::new();
         let mut attempted_endpoints = 0_u32;
@@ -175,21 +179,20 @@ impl TaruApp {
                 continue;
             }
 
-            let permit = self
-                .inner
-                .webhook_permits
-                .clone()
-                .acquire_owned()
-                .await
-                .map_err(|err| TaruError::Provider {
-                    provider: "webhook".to_owned(),
-                    message: format!("webhook resource budget was closed: {err}"),
-                })?;
+            let permit =
+                self.permits
+                    .clone()
+                    .acquire_owned()
+                    .await
+                    .map_err(|err| TaruError::Provider {
+                        provider: "webhook".to_owned(),
+                        message: format!("webhook resource budget was closed: {err}"),
+                    })?;
             attempted_endpoints += 1;
             let endpoint_id = endpoint.id;
             let event = event.clone();
             let service = service.clone();
-            let store = self.inner.store.clone();
+            let store = self.store.clone();
 
             workers.spawn(async move {
                 let _permit = permit;

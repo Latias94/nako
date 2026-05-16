@@ -1,5 +1,28 @@
 use super::*;
 
+async fn upsert_item_with_source(
+    store: &SqliteStore,
+    library_id: LibraryId,
+    item: &MediaItem,
+) -> MediaSource {
+    let source = media_source_for_item(library_id, item);
+    store.upsert_media_item(item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    source
+}
+
+fn media_source_for_item(library_id: LibraryId, item: &MediaItem) -> MediaSource {
+    MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: format!("local:///{}.mkv", item.metadata.title),
+        file_name: format!("{}.mkv", item.metadata.title),
+        size_bytes: Some(1024),
+        fingerprint: None,
+    }
+}
+
 #[tokio::test]
 async fn metadata_refresh_job_input_does_not_include_secrets() {
     let temp = tempfile::tempdir().unwrap();
@@ -54,9 +77,13 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
             ..CanonicalMetadata::default()
         },
     };
-    store.upsert_media_item(&item).await.unwrap();
+    upsert_item_with_source(&store, library_id, &item).await;
 
-    let job = app.create_metadata_refresh_job(item.id).await.unwrap();
+    let job = app
+        .metadata()
+        .create_metadata_refresh_job(item.id)
+        .await
+        .unwrap();
     let input = job
         .input_json
         .as_ref()
@@ -138,10 +165,18 @@ async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
             ..CanonicalMetadata::default()
         },
     };
-    store.upsert_media_item(&item).await.unwrap();
+    upsert_item_with_source(&store, library_id, &item).await;
 
-    let job = app.create_metadata_refresh_job(item.id).await.unwrap();
-    let err = app.run_metadata_refresh(job.id, item.id).await.unwrap_err();
+    let job = app
+        .metadata()
+        .create_metadata_refresh_job(item.id)
+        .await
+        .unwrap();
+    let err = app
+        .metadata()
+        .run_metadata_refresh(job.id, item.id)
+        .await
+        .unwrap_err();
 
     assert_eq!(job.kind, JobKind::MetadataRefresh);
     assert_eq!(job.resource_class, "metadata.tmdb");
@@ -207,9 +242,17 @@ async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavaila
             ..CanonicalMetadata::default()
         },
     };
-    store.upsert_media_item(&item).await.unwrap();
-    let job = app.create_metadata_refresh_job(item.id).await.unwrap();
-    let err = app.run_metadata_refresh(job.id, item.id).await.unwrap_err();
+    upsert_item_with_source(&store, library_id, &item).await;
+    let job = app
+        .metadata()
+        .create_metadata_refresh_job(item.id)
+        .await
+        .unwrap();
+    let err = app
+        .metadata()
+        .run_metadata_refresh(job.id, item.id)
+        .await
+        .unwrap_err();
 
     assert_eq!(job.resource_class, "metadata.bangumi");
     let TaruError::Provider { provider, message } = err else {
@@ -218,7 +261,10 @@ async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavaila
     assert_eq!(provider, "metadata_strategy");
     assert!(message.contains("bangumi=not_implemented"));
     assert!(message.contains("tmdb=skipped_unavailable"));
-    assert_eq!(app.get_job(job.id).await.unwrap().status, JobStatus::Queued);
+    assert_eq!(
+        app.jobs().get_job(job.id).await.unwrap().status,
+        JobStatus::Queued
+    );
 }
 
 #[tokio::test]
@@ -262,8 +308,12 @@ async fn metadata_refresh_resolves_provider_order_from_library_profile() {
             ..CanonicalMetadata::default()
         },
     };
-    store.upsert_media_item(&item).await.unwrap();
-    let job = app.create_metadata_refresh_job(item.id).await.unwrap();
+    upsert_item_with_source(&store, library_id, &item).await;
+    let job = app
+        .metadata()
+        .create_metadata_refresh_job(item.id)
+        .await
+        .unwrap();
     let input = job
         .input_json
         .as_ref()
@@ -318,19 +368,10 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
             ..CanonicalMetadata::default()
         },
     };
-    let source = MediaSource {
-        id: MediaSourceId::new(),
-        library_id,
-        item_id: item.id,
-        locator: "local:///The Matrix.mkv".to_owned(),
-        file_name: "The Matrix.mkv".to_owned(),
-        size_bytes: Some(1024),
-        fingerprint: None,
-    };
-    store.upsert_media_item(&item).await.unwrap();
-    store.upsert_media_source(&source).await.unwrap();
+    upsert_item_with_source(&store, library_id, &item).await;
 
     let output = app
+        .metadata()
         .run_metadata_maintenance(EnqueueMetadataMaintenanceRequest {
             library_id: Some(library_id),
             item_ids: Vec::new(),
@@ -459,13 +500,76 @@ async fn metadata_lifecycle_config_maps_policy_and_cleans_raw_cache_on_startup()
         .await
         .unwrap();
     let request = app
+        .metadata()
         .metadata_maintenance_request_from_policy(&app.config().metadata.maintenance.policies[0]);
+    let runtime = app.runtime_diagnostics();
 
     assert!(raw.is_empty());
+    assert_eq!(runtime.active_tasks, 1);
+    assert_eq!(runtime.tasks[0].name, "metadata_maintenance_policy");
+    assert_eq!(
+        runtime.tasks[0].resource_class,
+        "metadata.maintenance.schedule"
+    );
     assert_eq!(request.library_id, Some(library_id));
     assert_eq!(request.providers, Some(vec![ExternalProvider::Tmdb]));
     assert_eq!(request.item_kinds, vec![MediaKind::Movie]);
     assert_eq!(request.refresh_mode, Some(MetadataRefreshMode::MissingOnly));
+
+    app.shutdown_runtime();
+    assert!(app.runtime_diagnostics().shutdown_requested);
+    assert_eq!(app.runtime_diagnostics().active_tasks, 0);
+}
+
+#[tokio::test]
+async fn metadata_raw_cache_cleanup_worker_is_supervised_and_stops_on_shutdown() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig {
+            maintenance: MetadataMaintenanceConfig {
+                raw_cache_cleanup_on_startup: false,
+                raw_cache_cleanup_interval_ms: 60_000,
+                policies: Vec::new(),
+            },
+            ..MetadataConfig::default()
+        },
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    let runtime = app.runtime_diagnostics();
+
+    assert_eq!(runtime.active_tasks, 1);
+    assert_eq!(runtime.tasks[0].name, "metadata_raw_cache_cleanup");
+    assert_eq!(
+        runtime.tasks[0].resource_class,
+        "metadata.raw_cache.cleanup"
+    );
+
+    app.shutdown_runtime();
+    assert!(app.runtime_diagnostics().shutdown_requested);
+    assert_eq!(app.runtime_diagnostics().active_tasks, 0);
 }
 
 #[tokio::test]
@@ -509,7 +613,7 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
             ..CanonicalMetadata::default()
         },
     };
-    store.upsert_media_item(&item).await.unwrap();
+    upsert_item_with_source(&store, library_id, &item).await;
     let job_id = JobId::new();
     let refresh = MetadataRefreshSummary {
         job_id,
@@ -530,7 +634,8 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
         }],
     };
 
-    app.record_metadata_refreshed_event(job_id, item.id, &refresh)
+    app.metadata()
+        .record_metadata_refreshed_event(job_id, item.id, &refresh)
         .await;
     let events = store
         .list_outbox_events(PageRequest::first_page())
@@ -540,10 +645,67 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].kind, DomainEventKind::ItemMetadataRefreshed);
     assert_eq!(events[0].subject, DomainEventSubject::Item(item.id));
+    assert_eq!(events[0].library_id, Some(library_id));
     assert!(!events[0].payload_json.contains("TMDB_READ_ACCESS_TOKEN"));
     assert!(
         !events[0]
             .payload_json
             .contains(&temp.path().display().to_string())
     );
+}
+
+#[tokio::test]
+async fn metadata_refresh_requires_persisted_media_source_for_library_resolution() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "No Source".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+
+    let err = app
+        .metadata()
+        .create_metadata_refresh_job(item.id)
+        .await
+        .unwrap_err();
+
+    let TaruError::InvalidInput { message } = err else {
+        panic!("expected missing media source validation error");
+    };
+    assert!(message.contains("has no persisted media source"));
+    assert!(message.contains(&item.id.to_string()));
 }

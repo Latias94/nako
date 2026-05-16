@@ -553,6 +553,21 @@ pub struct ImageAsset {
     pub etag: Option<String>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CatalogItemGraphReplacement {
+    pub people: Vec<Person>,
+    pub credits: Vec<ItemCredit>,
+    pub genres: Vec<Genre>,
+    pub item_genres: Vec<ItemGenre>,
+    pub tags: Vec<Tag>,
+    pub item_tags: Vec<ItemTag>,
+    pub collections: Vec<Collection>,
+    pub collection_items: Vec<CollectionItem>,
+    pub studios: Vec<Studio>,
+    pub item_studios: Vec<ItemStudio>,
+    pub images: Vec<ImageAsset>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImageOwner {

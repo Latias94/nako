@@ -11,7 +11,7 @@ async fn remux_source_runs_runner_and_reuses_completed_output() {
         output_container: RemuxContainer::Mp4,
     };
 
-    let output = app.remux_source(request.clone()).await.unwrap();
+    let output = app.playback().remux_source(request.clone()).await.unwrap();
     let session = output.session.as_ref().unwrap();
 
     assert_eq!(output.disposition, RemuxSourceDisposition::Finished);
@@ -23,7 +23,11 @@ async fn remux_source_runs_runner_and_reuses_completed_output() {
     );
     assert_eq!(fs::read_to_string(&output.output_path).unwrap(), "remuxed");
     assert_eq!(
-        app.get_transcode_session(session.id).await.unwrap().state,
+        app.playback()
+            .get_transcode_session(session.id)
+            .await
+            .unwrap()
+            .state,
         TranscodeSessionState::Finished
     );
     assert_eq!(
@@ -56,7 +60,7 @@ async fn remux_source_runs_runner_and_reuses_completed_output() {
                 .contains(&app.config().remux_staging_root.display().to_string())
     }));
 
-    let reused = app.remux_source(request.clone()).await.unwrap();
+    let reused = app.playback().remux_source(request.clone()).await.unwrap();
 
     assert_eq!(reused.disposition, RemuxSourceDisposition::ReusedExisting);
     assert_eq!(reused.session.as_ref().unwrap().id, session.id);
@@ -69,7 +73,7 @@ async fn remux_source_runs_runner_and_reuses_completed_output() {
     let restarted = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
-    let restarted_reused = restarted.remux_source(request).await.unwrap();
+    let restarted_reused = restarted.playback().remux_source(request).await.unwrap();
 
     assert_eq!(
         restarted_reused.disposition,
@@ -101,6 +105,7 @@ async fn remux_source_rejects_persisted_active_duplicate() {
         .unwrap();
 
     let err = app
+        .playback()
         .remux_source(RemuxSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
@@ -128,6 +133,7 @@ async fn remux_source_persists_runner_failure() {
     .persisted_request_key();
 
     let err = app
+        .playback()
         .remux_source(RemuxSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
@@ -210,7 +216,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
         client: ClientPlaybackCapabilities::default(),
     };
 
-    let output = app.hls_source(request.clone()).await.unwrap();
+    let output = app.playback().hls_source(request.clone()).await.unwrap();
     let session_id = output.session.id;
 
     assert_eq!(output.disposition, HlsSourceDisposition::Finished);
@@ -226,19 +232,21 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
         "segment"
     );
 
-    let playlist = app.hls_playlist(request.clone()).await.unwrap();
+    let playlist = app.playback().hls_playlist(request.clone()).await.unwrap();
     assert!(playlist.body.contains(&format!(
         "/playback/sessions/{session_id}/hls/segments/segment_00000.ts"
     )));
 
     let segment = app
+        .playback()
         .plan_hls_segment(session_id, "segment_00000.ts")
         .await
         .unwrap();
     assert_eq!(segment.content_type, "video/mp2t");
     assert!(segment.path.ends_with("segment_00000.ts"));
     assert!(
-        app.plan_hls_segment(session_id, "../segment_00000.ts")
+        app.playback()
+            .plan_hls_segment(session_id, "../segment_00000.ts")
             .await
             .is_err()
     );
@@ -256,7 +264,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
     }));
 
     fs::remove_file(ffmpeg_path).unwrap();
-    let reused = app.hls_source(request.clone()).await.unwrap();
+    let reused = app.playback().hls_source(request.clone()).await.unwrap();
     assert_eq!(reused.disposition, HlsSourceDisposition::ReusedExisting);
     assert_eq!(reused.session.id, session_id);
 
@@ -265,7 +273,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
     let restarted = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
-    let restarted_reused = restarted.hls_source(request).await.unwrap();
+    let restarted_reused = restarted.playback().hls_source(request).await.unwrap();
 
     assert_eq!(
         restarted_reused.disposition,
@@ -290,6 +298,7 @@ async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
     .await;
 
     let output = app
+        .playback()
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
@@ -370,6 +379,7 @@ async fn hls_source_rejects_persisted_active_duplicate() {
         .unwrap();
 
     let err = app
+        .playback()
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
@@ -384,6 +394,7 @@ async fn hls_source_rejects_persisted_active_duplicate() {
     assert!(message.contains(&active.id.to_string()));
 
     let segment_err = app
+        .playback()
         .plan_hls_segment(active.id, "segment_00000.ts")
         .await
         .unwrap_err();
@@ -400,6 +411,7 @@ async fn hls_source_persists_runner_failure() {
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
 
     let err = app
+        .playback()
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
@@ -534,7 +546,11 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
         ..remote_media_source("webdav:///Movies/Demo.mkv")
     };
 
-    let input_path = app.source_path_for_ffmpeg(&source).await.unwrap();
+    let input_path = app
+        .playback()
+        .source_path_for_ffmpeg(&source)
+        .await
+        .unwrap();
 
     assert!(input_path.starts_with(staging_root.join("inputs")));
     assert_eq!(fs::read(&input_path).unwrap(), b"demo");

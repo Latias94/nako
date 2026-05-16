@@ -5,17 +5,14 @@ use std::{
 };
 
 use taru_core::{
-    EventOutboxRepository, Library, LibraryId, LibraryRepository, MediaItemId, MediaRepository,
-    MediaSource, MediaSourceId, NewOutboxEvent, PageRequest, Result, TaruError, TransactionManager,
-    TranscodeFailureCategory, TranscodeSessionRepository,
+    LibraryRepository, Result, TaruError, TransactionManager, TranscodeFailureCategory,
+    TranscodeSessionRepository,
 };
 use taru_db::SqliteStore;
-use taru_metadata::MetadataProviderRegistry;
-use taru_vfs::StorageUri;
 use tokio::sync::Semaphore;
 use tracing::warn;
 
-use crate::config::{TaruServerConfig, default_library_from_config, libraries_from_config};
+use crate::config::{TaruServerConfig, libraries_from_config};
 
 mod addons;
 mod automation;
@@ -26,18 +23,28 @@ mod metadata;
 mod metadata_runtime;
 mod nfo;
 pub(crate) mod playback;
+mod runtime;
 mod staging;
 mod storage;
 mod webhooks;
 
+use addons::AddonAppService;
+use automation::AutomationAppService;
+use catalog::CatalogAppService;
+use jobs::{JobAppService, LibraryScanAppService};
+use library::LibraryAppService;
+use metadata::MetadataAppService;
+use nfo::NfoAppService;
 #[cfg(test)]
 pub(crate) use playback::DirectPlayStreamBody;
+use playback::PlaybackAppService;
 pub(crate) use playback::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest,
 };
-use playback::{HlsAppService, RemuxAppService};
-use staging::{ManifestRecordingStorageBackend, cleanup_expired_staging_inputs};
-use storage::{LibraryStorageBackend, StorageBackendRegistry, remote_probe_staging_root};
+use runtime::{RuntimeSupervisor, RuntimeSupervisorDiagnostics};
+use staging::cleanup_expired_staging_inputs;
+use storage::{StorageBackendRegistry, StorageDiagnosticsAppService};
+use webhooks::WebhookAppService;
 
 #[cfg(test)]
 use playback::plan_direct_play_with_backend;
@@ -51,14 +58,24 @@ pub struct TaruApp {
 struct TaruAppInner {
     config: TaruServerConfig,
     store: SqliteStore,
-    scan_permits: Arc<Semaphore>,
-    metadata_permits: Arc<Semaphore>,
-    nfo_permits: Arc<Semaphore>,
-    webhook_permits: Arc<Semaphore>,
-    storage_backends: StorageBackendRegistry,
-    metadata_providers: MetadataProviderRegistry,
-    remux: RemuxAppService,
-    hls: HlsAppService,
+    runtime: RuntimeSupervisor,
+    jobs: JobAppService,
+    library_scan: LibraryScanAppService,
+    addons: AddonAppService,
+    automation: AutomationAppService,
+    webhooks: WebhookAppService,
+    catalog: CatalogAppService,
+    library: LibraryAppService,
+    storage: StorageDiagnosticsAppService,
+    metadata: MetadataAppService,
+    nfo: NfoAppService,
+    playback: PlaybackAppService,
+}
+
+impl Drop for TaruAppInner {
+    fn drop(&mut self) {
+        self.runtime.shutdown();
+    }
 }
 
 impl TaruApp {
@@ -92,24 +109,59 @@ impl TaruApp {
             }
         }
 
+        let webhook_permits = Arc::new(Semaphore::new(config.webhook_concurrency.max(1)));
+        let storage_backends = StorageBackendRegistry::new(&config, store.clone());
+        let runtime = RuntimeSupervisor::new();
+        let scan_permits = Arc::new(Semaphore::new(config.scan_concurrency.max(1)));
+        let metadata_permits = Arc::new(Semaphore::new(config.metadata_concurrency.max(1)));
+        let metadata_providers = metadata_runtime::build_metadata_provider_registry(&config)?;
         let app = Self {
             inner: Arc::new(TaruAppInner {
-                scan_permits: Arc::new(Semaphore::new(config.scan_concurrency.max(1))),
-                metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
-                nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
-                webhook_permits: Arc::new(Semaphore::new(config.webhook_concurrency.max(1))),
-                storage_backends: StorageBackendRegistry::new(&config, store.clone()),
-                metadata_providers: metadata_runtime::build_metadata_provider_registry(&config)?,
-                remux: RemuxAppService::new(&config),
-                hls: HlsAppService::new(&config)?,
+                runtime: runtime.clone(),
+                jobs: JobAppService::new(store.clone()),
+                library_scan: LibraryScanAppService::new(
+                    config.clone(),
+                    store.clone(),
+                    scan_permits,
+                    storage_backends.clone(),
+                    runtime.clone(),
+                ),
+                addons: AddonAppService::new(store.clone()),
+                automation: AutomationAppService::new(store.clone()),
+                webhooks: WebhookAppService::new(store.clone(), webhook_permits),
+                catalog: CatalogAppService::new(store.clone()),
+                library: LibraryAppService::new(store.clone()),
+                storage: StorageDiagnosticsAppService::new(storage_backends.clone()),
+                metadata: MetadataAppService::new(
+                    config.clone(),
+                    store.clone(),
+                    metadata_permits.clone(),
+                    metadata_providers,
+                    runtime.clone(),
+                ),
+                nfo: NfoAppService::new(
+                    config.clone(),
+                    store.clone(),
+                    metadata_permits,
+                    storage_backends.clone(),
+                    runtime.clone(),
+                ),
+                playback: PlaybackAppService::new(
+                    config.clone(),
+                    store.clone(),
+                    storage_backends,
+                    runtime,
+                )?,
                 config,
                 store,
             }),
         };
 
         app.ensure_configured_libraries().await?;
-        app.cleanup_metadata_raw_cache_on_startup().await?;
-        app.start_metadata_lifecycle_tasks();
+        app.metadata()
+            .cleanup_metadata_raw_cache_on_startup()
+            .await?;
+        app.metadata().start_metadata_lifecycle_tasks();
         Ok(app)
     }
 
@@ -118,41 +170,67 @@ impl TaruApp {
         &self.inner.config
     }
 
-    pub async fn list_storage_backend_diagnostics(
-        &self,
-    ) -> taru_api::StorageBackendDiagnosticsResponse {
-        self.inner.storage_backends.diagnostics().await
+    #[must_use]
+    pub(crate) fn addons(&self) -> AddonAppService {
+        self.inner.addons.clone()
     }
 
-    async fn storage_backend_for_library_root(
-        &self,
-        library: &taru_core::Library,
-    ) -> Result<Arc<LibraryStorageBackend>> {
-        self.inner
-            .storage_backends
-            .backend_for_library_root(library)
-            .await
+    #[must_use]
+    pub(crate) fn automation(&self) -> AutomationAppService {
+        self.inner.automation.clone()
     }
 
-    async fn storage_backend_for_media_source(
-        &self,
-        source: &MediaSource,
-    ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
-        self.inner
-            .storage_backends
-            .backend_for_media_source(source)
-            .await
+    #[must_use]
+    pub(crate) fn webhooks(&self) -> WebhookAppService {
+        self.inner.webhooks.clone()
     }
 
-    async fn get_source_or_not_found(&self, source_id: MediaSourceId) -> Result<MediaSource> {
-        self.inner
-            .store
-            .get_media_source(source_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "media_source",
-                id: source_id.to_string(),
-            })
+    #[must_use]
+    pub(crate) fn catalog(&self) -> CatalogAppService {
+        self.inner.catalog.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn library(&self) -> LibraryAppService {
+        self.inner.library.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn storage(&self) -> StorageDiagnosticsAppService {
+        self.inner.storage.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn jobs(&self) -> JobAppService {
+        self.inner.jobs.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn library_scan(&self) -> LibraryScanAppService {
+        self.inner.library_scan.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn nfo(&self) -> NfoAppService {
+        self.inner.nfo.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn metadata(&self) -> MetadataAppService {
+        self.inner.metadata.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn playback(&self) -> PlaybackAppService {
+        self.inner.playback.clone()
+    }
+
+    pub(crate) fn runtime_diagnostics(&self) -> RuntimeSupervisorDiagnostics {
+        self.inner.runtime.diagnostics()
+    }
+
+    pub(crate) fn shutdown_runtime(&self) {
+        self.inner.runtime.shutdown();
     }
 
     async fn ensure_configured_libraries(&self) -> Result<()> {
@@ -176,72 +254,6 @@ impl TaruApp {
             self.inner.store.upsert_library(&library).await?;
         }
         Ok(())
-    }
-
-    async fn record_outbox_event(&self, event: NewOutboxEvent) {
-        let kind = event.kind.as_str();
-        let idempotency_key = event.idempotency_key.clone();
-        if let Err(err) = self.inner.store.enqueue_outbox_event(event).await {
-            warn!(
-                kind,
-                idempotency_key,
-                error = %err,
-                "failed to persist outbox event"
-            );
-        }
-    }
-
-    async fn library_for_item(&self, item_id: MediaItemId) -> Result<Library> {
-        for configured in libraries_from_config(self.config()) {
-            let mut offset = 0;
-
-            loop {
-                let sources = self
-                    .inner
-                    .store
-                    .list_media_sources(
-                        configured.id,
-                        PageRequest {
-                            limit: PageRequest::MAX_LIMIT,
-                            offset,
-                        },
-                    )
-                    .await?;
-
-                if sources.iter().any(|source| source.item_id == item_id) {
-                    return Ok(configured);
-                }
-
-                if sources.len() < PageRequest::MAX_LIMIT as usize {
-                    break;
-                }
-
-                offset += u64::from(PageRequest::MAX_LIMIT);
-            }
-        }
-
-        default_library_from_config(self.config())
-    }
-
-    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
-        libraries_from_config(self.config())
-            .into_iter()
-            .find(|library| library.id == library_id)
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "library",
-                id: library_id.to_string(),
-            })
-    }
-
-    async fn get_library_or_not_found(&self, library_id: LibraryId) -> Result<Library> {
-        self.inner
-            .store
-            .get_library(library_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "library",
-                id: library_id.to_string(),
-            })
     }
 }
 

@@ -10,7 +10,7 @@ use serde::Serialize;
 use taru_api::PlaybackDecisionResponse;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
-    MediaSource, MediaSourceId, NewOutboxEvent, NewTranscodeSession, Result,
+    MediaRepository, MediaSource, MediaSourceId, NewOutboxEvent, NewTranscodeSession, Result,
     StagingManifestRepository, StagingPurpose, TaruError, TranscodeFailureCategory,
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
     TranscodeSessionState,
@@ -33,7 +33,11 @@ use tracing::{error, warn};
 
 use crate::config::TaruServerConfig;
 
-use super::{ManifestRecordingStorageBackend, TaruApp, staging::StagingLease};
+use super::{
+    runtime::RuntimeSupervisor,
+    staging::{ManifestRecordingStorageBackend, StagingLease},
+    storage::StorageBackendRegistry,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemuxSourceRequest {
@@ -287,24 +291,50 @@ impl fmt::Debug for DirectPlayStreamBody {
     }
 }
 
-impl TaruApp {
-    pub async fn get_source_playback_decision(
+#[derive(Clone, Debug)]
+pub(crate) struct PlaybackAppService {
+    config: TaruServerConfig,
+    store: SqliteStore,
+    storage_backends: StorageBackendRegistry,
+    runtime: RuntimeSupervisor,
+    remux: RemuxAppService,
+    hls: HlsAppService,
+}
+
+impl PlaybackAppService {
+    pub(super) fn new(
+        config: TaruServerConfig,
+        store: SqliteStore,
+        storage_backends: StorageBackendRegistry,
+        runtime: RuntimeSupervisor,
+    ) -> Result<Self> {
+        Ok(Self {
+            remux: RemuxAppService::new(&config),
+            hls: HlsAppService::new(&config)?,
+            config,
+            store,
+            storage_backends,
+            runtime,
+        })
+    }
+
+    pub(crate) async fn get_source_playback_decision(
         &self,
         source_id: MediaSourceId,
         client: ClientPlaybackCapabilities,
     ) -> Result<PlaybackDecisionResponse> {
         let source = self.get_source_or_not_found(source_id).await?;
-        let probe = self.inner.store.get_media_probe(source.id).await?;
+        let probe = self.store.get_media_probe(source.id).await?;
         let decision = decide_playback(&source, probe.as_ref(), &client);
 
         Ok(PlaybackDecisionResponse {
-            source,
-            probe,
+            source: source.into(),
+            probe: probe.map(Into::into),
             decision,
         })
     }
 
-    pub async fn plan_direct_play(
+    pub(crate) async fn plan_direct_play(
         &self,
         source_id: MediaSourceId,
         range_request: DirectPlayRangeRequest,
@@ -332,7 +362,7 @@ impl TaruApp {
         })
     }
 
-    pub async fn plan_direct_play_preflight(
+    pub(crate) async fn plan_direct_play_preflight(
         &self,
         source_id: MediaSourceId,
         range_request: DirectPlayRangeRequest,
@@ -343,9 +373,12 @@ impl TaruApp {
         plan_direct_play_response_with_backend(&source, &uri, backend.as_ref(), range_request).await
     }
 
-    pub async fn remux_source(&self, request: RemuxSourceRequest) -> Result<RemuxSourceOutput> {
+    pub(crate) async fn remux_source(
+        &self,
+        request: RemuxSourceRequest,
+    ) -> Result<RemuxSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
-        let probe = self.inner.store.get_media_probe(source.id).await?;
+        let probe = self.store.get_media_probe(source.id).await?;
         let decision = decide_playback(&source, probe.as_ref(), &request.client);
 
         if decision.mode != PlaybackMode::Remux {
@@ -355,13 +388,12 @@ impl TaruApp {
         }
 
         let input = self.source_input_for_ffmpeg(&source).await?;
-        let staging = RemuxStagingPolicy::new(&self.config().remux_staging_root)?;
+        let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
         let output_path = staging.output_path(source.id, request.output_container)?;
         let result = self
-            .inner
             .remux
             .run(
-                &self.inner.store,
+                &self.store,
                 source,
                 decision,
                 input.path.clone(),
@@ -386,23 +418,16 @@ impl TaruApp {
         }
     }
 
-    pub async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
+    pub(crate) async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
-        let probe = self.inner.store.get_media_probe(source.id).await?;
+        let probe = self.store.get_media_probe(source.id).await?;
         let decision = decide_playback(&source, probe.as_ref(), &request.client);
         let input = self.source_input_for_ffmpeg(&source).await?;
-        let staging = HlsStagingPolicy::new(self.config().remux_staging_root.join("hls"))?;
+        let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
         let layout = staging.single_variant_layout(source.id)?;
         let result = self
-            .inner
             .hls
-            .run(
-                &self.inner.store,
-                source,
-                decision,
-                input.path.clone(),
-                layout,
-            )
+            .run(&self.store, source, decision, input.path.clone(), layout)
             .await;
         match result {
             Ok(output) => {
@@ -421,7 +446,10 @@ impl TaruApp {
         }
     }
 
-    pub async fn hls_playlist(&self, request: HlsSourceRequest) -> Result<HlsPlaylistOutput> {
+    pub(crate) async fn hls_playlist(
+        &self,
+        request: HlsSourceRequest,
+    ) -> Result<HlsPlaylistOutput> {
         let output = self.hls_source(request).await?;
 
         if output.disposition == HlsSourceDisposition::Cancelled {
@@ -446,7 +474,7 @@ impl TaruApp {
         })
     }
 
-    pub async fn plan_hls_segment(
+    pub(crate) async fn plan_hls_segment(
         &self,
         session_id: TranscodeSessionId,
         segment_name: &str,
@@ -497,12 +525,11 @@ impl TaruApp {
         })
     }
 
-    pub async fn get_transcode_session(
+    pub(crate) async fn get_transcode_session(
         &self,
         session_id: TranscodeSessionId,
     ) -> Result<TranscodeSessionRecord> {
-        self.inner
-            .store
+        self.store
             .get_transcode_session(session_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
@@ -518,14 +545,32 @@ impl TaruApp {
         Ok(path)
     }
 
+    async fn get_source_or_not_found(&self, source_id: MediaSourceId) -> Result<MediaSource> {
+        self.store
+            .get_media_source(source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: source_id.to_string(),
+            })
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(super) async fn storage_backend_for_media_source(
+        &self,
+        source: &MediaSource,
+    ) -> Result<(StorageUri, Arc<super::storage::LibraryStorageBackend>)> {
+        self.storage_backends.backend_for_media_source(source).await
+    }
+
     async fn source_input_for_ffmpeg(&self, source: &MediaSource) -> Result<FfmpegSourceInput> {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         let backend = ManifestRecordingStorageBackend::new(
             backend.clone(),
-            self.inner.store.clone(),
+            self.store.clone(),
             StagingPurpose::FfmpegInput,
-            self.config().staging.max_bytes,
-            self.config().staging.retention_ms,
+            self.config.staging.max_bytes,
+            self.config.staging.retention_ms,
             backend.stage_permits(),
         );
         match local_source_path_and_len(source, &uri, &backend).await {
@@ -534,11 +579,10 @@ impl TaruApp {
                 let staged = backend
                     .stage(StageRequest::new(
                         uri.clone(),
-                        self.config().remux_staging_root.join("inputs"),
+                        self.config.remux_staging_root.join("inputs"),
                     ))
                     .await?;
                 let record = self
-                    .inner
                     .store
                     .find_staging_manifest_record_by_path(&staged.path.display().to_string())
                     .await?
@@ -546,7 +590,9 @@ impl TaruApp {
                         entity: "staging_manifest_record",
                         id: staged.path.display().to_string(),
                     })?;
-                let lease = StagingLease::acquire(self.inner.store.clone(), record.id).await?;
+                let lease =
+                    StagingLease::acquire(self.store.clone(), record.id, self.runtime.clone())
+                        .await?;
                 Ok(FfmpegSourceInput {
                     path: staged.path,
                     lease: Some(lease),

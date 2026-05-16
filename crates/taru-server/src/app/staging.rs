@@ -18,7 +18,7 @@ use taru_vfs::{
 use tokio::sync::Semaphore;
 use tracing::warn;
 
-use super::current_time_ms;
+use super::{current_time_ms, runtime::RuntimeSupervisor};
 
 pub(super) async fn record_staged_input(
     store: &SqliteStore,
@@ -373,11 +373,16 @@ pub(super) struct StagingLease {
     store: SqliteStore,
     record_id: StagingManifestId,
     local_path: PathBuf,
+    runtime: RuntimeSupervisor,
     released: bool,
 }
 
 impl StagingLease {
-    pub(super) async fn acquire(store: SqliteStore, record_id: StagingManifestId) -> Result<Self> {
+    pub(super) async fn acquire(
+        store: SqliteStore,
+        record_id: StagingManifestId,
+        runtime: RuntimeSupervisor,
+    ) -> Result<Self> {
         let record = store
             .acquire_staging_manifest_lease(record_id, current_time_ms()?)
             .await?;
@@ -385,6 +390,7 @@ impl StagingLease {
             store,
             record_id,
             local_path: PathBuf::from(record.local_path),
+            runtime,
             released: false,
         })
     }
@@ -410,41 +416,38 @@ impl Drop for StagingLease {
         let store = self.store.clone();
         let record_id = self.record_id;
         let local_path = self.local_path.clone();
-        let Ok(handle) = tokio::runtime::Handle::try_current() else {
-            warn!(
-                record_id = %record_id,
-                path = %local_path.display(),
-                "dropped staging lease outside a Tokio runtime"
-            );
-            return;
-        };
+        let runtime = self.runtime.clone();
 
-        handle.spawn(async move {
-            let released_at_ms = match current_time_ms() {
-                Ok(value) => value,
-                Err(err) => {
+        runtime.spawn(
+            "staging_lease_drop_release",
+            "storage.staging.lease",
+            async move {
+                let released_at_ms = match current_time_ms() {
+                    Ok(value) => value,
+                    Err(err) => {
+                        warn!(
+                            record_id = %record_id,
+                            path = %local_path.display(),
+                            error = %err,
+                            "failed to compute staging lease drop release timestamp"
+                        );
+                        return;
+                    }
+                };
+
+                if let Err(err) = store
+                    .release_staging_manifest_lease(record_id, released_at_ms)
+                    .await
+                {
                     warn!(
                         record_id = %record_id,
                         path = %local_path.display(),
                         error = %err,
-                        "failed to compute staging lease drop release timestamp"
+                        "failed to release dropped staging lease"
                     );
-                    return;
                 }
-            };
-
-            if let Err(err) = store
-                .release_staging_manifest_lease(record_id, released_at_ms)
-                .await
-            {
-                warn!(
-                    record_id = %record_id,
-                    path = %local_path.display(),
-                    error = %err,
-                    "failed to release dropped staging lease"
-                );
-            }
-        });
+            },
+        );
     }
 }
 

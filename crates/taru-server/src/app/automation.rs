@@ -5,11 +5,10 @@ use taru_api::{
 };
 use taru_automation::AutomationJobService;
 use taru_core::{
-    AutomationCapability, AutomationProviderId, AutomationRepository, Job, JobId, MediaItemId,
-    MediaRepository, NewAutomationProviderConfig, PageRequest, Result, TaruError,
+    AutomationCapability, AutomationProviderId, AutomationRepository, Job, JobId, JobRepository,
+    MediaItemId, MediaRepository, NewAutomationProviderConfig, PageRequest, Result, TaruError,
 };
-
-use super::TaruApp;
+use taru_db::SqliteStore;
 
 #[derive(Clone, Debug)]
 struct UnavailableAutomationProvider;
@@ -40,7 +39,16 @@ impl taru_automation::AutomationProvider for UnavailableAutomationProvider {
     }
 }
 
-impl TaruApp {
+#[derive(Clone, Debug)]
+pub(crate) struct AutomationAppService {
+    store: SqliteStore,
+}
+
+impl AutomationAppService {
+    pub(crate) fn new(store: SqliteStore) -> Self {
+        Self { store }
+    }
+
     fn normalize_automation_provider(
         &self,
         request: UpsertAutomationProviderRequest,
@@ -107,11 +115,7 @@ impl TaruApp {
         request: UpsertAutomationProviderRequest,
     ) -> Result<AutomationProviderResponse> {
         let provider = self.normalize_automation_provider(request)?;
-        let provider = self
-            .inner
-            .store
-            .upsert_automation_provider(provider)
-            .await?;
+        let provider = self.store.upsert_automation_provider(provider).await?;
 
         Ok(AutomationProviderResponse { provider })
     }
@@ -121,7 +125,6 @@ impl TaruApp {
         provider_id: AutomationProviderId,
     ) -> Result<AutomationProviderResponse> {
         let provider = self
-            .inner
             .store
             .get_automation_provider(provider_id)
             .await?
@@ -134,7 +137,7 @@ impl TaruApp {
     }
 
     pub async fn list_enabled_automation_providers(&self) -> Result<AutomationProvidersResponse> {
-        let providers = self.inner.store.list_enabled_automation_providers().await?;
+        let providers = self.store.list_enabled_automation_providers().await?;
 
         Ok(AutomationProvidersResponse { providers })
     }
@@ -150,19 +153,21 @@ impl TaruApp {
             })?;
         let service = AutomationJobService::new(UnavailableAutomationProvider);
 
-        service.enqueue_job(&self.inner.store, input).await
+        service.enqueue_job(&self.store, input).await
     }
 
     pub async fn list_automation_artifacts_for_job(
         &self,
         job_id: JobId,
     ) -> Result<AutomationArtifactsResponse> {
-        self.get_job(job_id).await?;
-        let artifacts = self
-            .inner
-            .store
-            .list_automation_artifacts_for_job(job_id)
-            .await?;
+        self.store
+            .get_job(job_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "job",
+                id: job_id.to_string(),
+            })?;
+        let artifacts = self.store.list_automation_artifacts_for_job(job_id).await?;
 
         Ok(AutomationArtifactsResponse { artifacts })
     }
@@ -172,8 +177,7 @@ impl TaruApp {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<AutomationArtifactsResponse> {
-        self.inner
-            .store
+        self.store
             .get_media_item(item_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
@@ -181,7 +185,6 @@ impl TaruApp {
                 id: item_id.to_string(),
             })?;
         let artifacts = self
-            .inner
             .store
             .list_automation_artifacts_for_item(item_id, page)
             .await?;

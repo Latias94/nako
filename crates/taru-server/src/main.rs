@@ -1,13 +1,12 @@
 use std::{path::PathBuf, process::ExitCode};
 
-use axum::Router;
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 use taru_core::{
     IngestionFailurePhase, IngestionFailureStatus, LibraryId, MediaItemId, Result, TaruError,
 };
 use tokio::net::TcpListener;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, fmt};
 
 mod app;
@@ -90,25 +89,26 @@ async fn run(cli: Cli) -> Result<()> {
             let config = load_config(&cli.config)?;
             let listen_addr = config.listen_addr;
             let app = TaruApp::new(config).await?;
-            serve(listen_addr, build_router(app)).await
+            serve(listen_addr, app).await
         }
         Command::Scan { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
             let library_id = resolve_cli_library_id(app.config(), library_id, "scan")?;
-            print_json(&app.scan_library(library_id).await?)
+            print_json(&app.library_scan().scan_library(library_id).await?)
         }
         Command::ScanAll => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            print_json(&app.scan_all_configured_libraries().await?)
+            print_json(&app.library_scan().scan_all_configured_libraries().await?)
         }
         Command::List { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
             let library_id = resolve_cli_library_id(app.config(), library_id, "list")?;
             print_json(
-                &app.list_library_sources(library_id, taru_core::PageRequest::first_page())
+                &app.library()
+                    .list_library_sources(library_id, taru_core::PageRequest::first_page())
                     .await?,
             )
         }
@@ -128,31 +128,32 @@ async fn run(cli: Cli) -> Result<()> {
                 status.or(Some(IngestionFailureStatus::Open))
             };
             print_json(
-                &app.list_ingestion_failures(
-                    library_id,
-                    phase,
-                    status,
-                    taru_core::PageRequest::first_page(),
-                )
-                .await?,
+                &app.library()
+                    .list_ingestion_failures(
+                        library_id,
+                        phase,
+                        status,
+                        taru_core::PageRequest::first_page(),
+                    )
+                    .await?,
             )
         }
         Command::RefreshMetadata { item_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
-            print_json(&app.refresh_item_metadata(item_id).await?)
+            print_json(&app.metadata().refresh_item_metadata(item_id).await?)
         }
         Command::ImportNfo { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
             let library_id = resolve_cli_library_id(app.config(), library_id, "import-nfo")?;
-            print_json(&app.import_library_nfo(library_id).await?)
+            print_json(&app.nfo().import_library_nfo(library_id).await?)
         }
         Command::ExportNfo { library_id } => {
             let config = load_config(&cli.config)?;
             let app = TaruApp::new(config).await?;
             let library_id = resolve_cli_library_id(app.config(), library_id, "export-nfo")?;
-            print_json(&app.export_library_nfo(library_id).await?)
+            print_json(&app.nfo().export_library_nfo(library_id).await?)
         }
     }
 }
@@ -186,7 +187,7 @@ fn resolve_cli_library_id(
     }
 }
 
-async fn serve(listen_addr: std::net::SocketAddr, router: Router) -> Result<()> {
+async fn serve(listen_addr: std::net::SocketAddr, app: TaruApp) -> Result<()> {
     let listener = TcpListener::bind(listen_addr)
         .await
         .map_err(|err| TaruError::InvalidInput {
@@ -200,12 +201,26 @@ async fn serve(listen_addr: std::net::SocketAddr, router: Router) -> Result<()> 
 
     info!(listen_addr = %local_addr, "taru HTTP server listening");
 
-    axum::serve(listener, router)
+    let result = axum::serve(listener, build_router(app.clone()))
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(|err| TaruError::Provider {
             provider: "http_server".to_owned(),
             message: format!("HTTP server failed: {err}"),
-        })
+        });
+    app.shutdown_runtime();
+    result
+}
+
+async fn shutdown_signal() {
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => {
+            info!("shutdown signal received");
+        }
+        Err(err) => {
+            warn!(error = %err, "failed to listen for shutdown signal");
+        }
+    }
 }
 
 fn print_json(value: &impl Serialize) -> Result<()> {

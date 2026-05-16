@@ -42,6 +42,18 @@ async fn metadata_refresh_route_queues_background_job() {
         },
     };
     store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: item.id,
+            locator: "local:///The Matrix.mkv".to_owned(),
+            file_name: "The Matrix.mkv".to_owned(),
+            size_bytes: Some(1024),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
     let router = build_router(app);
     let path = format!("/items/{}/metadata/refresh", item.id);
 

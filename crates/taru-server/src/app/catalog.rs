@@ -1,114 +1,126 @@
 use taru_api::{
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, PageInfo, PeopleResponse, PersonItemsResponse, SearchItemHit, SearchResponse,
-    TagItemsResponse, TagsResponse,
+    ItemsResponse, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
+    SearchResponse, TagItemsResponse, TagsResponse,
 };
 use taru_core::{
     CatalogRepository, GenreId, MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId,
     PageRequest, PersonId, Result, TagId, TaruError,
 };
+use taru_db::SqliteStore;
 use taru_search::{SearchIndex, SearchQuery};
 
-use super::TaruApp;
+#[derive(Clone, Debug)]
+pub(crate) struct CatalogAppService {
+    store: SqliteStore,
+}
 
-impl TaruApp {
+impl CatalogAppService {
+    pub(crate) fn new(store: SqliteStore) -> Self {
+        Self { store }
+    }
+
     pub async fn list_items(&self, page: PageRequest) -> Result<ItemsResponse> {
         let page = page.clamped();
-        let items = self.inner.store.list_media_items(page).await?;
+        let items = self.store.list_media_items(page).await?;
 
         Ok(ItemsResponse {
             page: PageInfo::new(page, items.len()),
-            items,
+            items: items.into_iter().map(Into::into).collect(),
         })
     }
 
     pub async fn get_item(&self, item_id: MediaItemId) -> Result<ItemDetailResponse> {
-        let item = self
-            .inner
-            .store
-            .get_media_item(item_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "media_item",
-                id: item_id.to_string(),
-            })?;
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
         let sources = self
-            .inner
             .store
             .list_item_sources(item.id, PageRequest::first_page())
             .await?;
-        let credits = self.inner.store.list_item_credits(item.id).await?;
-        let genres = self.inner.store.list_item_genres(item.id).await?;
-        let tags = self.inner.store.list_item_tags(item.id).await?;
-        let collections = self.inner.store.list_item_collections(item.id).await?;
-        let studios = self.inner.store.list_item_studios(item.id).await?;
-        let images = self.inner.store.list_item_images(item.id).await?;
+        let credits = self.store.list_item_credits(item.id).await?;
+        let genres = self.store.list_item_genres(item.id).await?;
+        let tags = self.store.list_item_tags(item.id).await?;
+        let collections = self.store.list_item_collections(item.id).await?;
+        let studios = self.store.list_item_studios(item.id).await?;
+        let images = self.store.list_item_images(item.id).await?;
 
         Ok(ItemDetailResponse {
-            item,
-            sources,
-            credits,
-            genres,
-            tags,
-            collections,
-            studios,
-            images,
+            item: item.into(),
+            sources: sources.into_iter().map(Into::into).collect(),
+            credits: credits.into_iter().map(Into::into).collect(),
+            genres: genres.into_iter().map(Into::into).collect(),
+            tags: tags.into_iter().map(Into::into).collect(),
+            collections: collections.into_iter().map(Into::into).collect(),
+            studios: studios.into_iter().map(Into::into).collect(),
+            images: images.into_iter().map(Into::into).collect(),
         })
     }
 
     pub async fn list_item_credits(&self, item_id: MediaItemId) -> Result<ItemCreditsResponse> {
-        let item = self
-            .inner
-            .store
-            .get_media_item(item_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "media_item",
-                id: item_id.to_string(),
-            })?;
-        let credits = self.inner.store.list_item_credits(item.id).await?;
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+        let credits = self.store.list_item_credits(item.id).await?;
         let mut people = Vec::with_capacity(credits.len());
 
         for credit in &credits {
-            if let Some(person) = self.inner.store.get_person(credit.person_id).await? {
+            if let Some(person) = self.store.get_person(credit.person_id).await? {
                 people.push(person);
             }
         }
 
         Ok(ItemCreditsResponse {
             item_id: item.id,
-            credits,
-            people,
+            credits: credits.into_iter().map(Into::into).collect(),
+            people: people.into_iter().map(Into::into).collect(),
         })
     }
 
     pub async fn list_item_images(&self, item_id: MediaItemId) -> Result<ImagesResponse> {
-        self.inner
-            .store
+        self.store
             .get_media_item(item_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "media_item",
                 id: item_id.to_string(),
             })?;
-        let images = self.inner.store.list_item_images(item_id).await?;
+        let images = self.store.list_item_images(item_id).await?;
 
-        Ok(ImagesResponse { item_id, images })
+        Ok(ImagesResponse {
+            item_id,
+            images: images.into_iter().map(Into::into).collect(),
+        })
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
         let page = page.clamped();
-        let people = self.inner.store.list_people(page).await?;
+        let people = self.store.list_people(page).await?;
 
         Ok(PeopleResponse {
             page: PageInfo::new(page, people.len()),
-            people,
+            people: people.into_iter().map(Into::into).collect(),
         })
     }
 
-    pub async fn get_person(&self, person_id: PersonId) -> Result<taru_core::Person> {
-        self.inner
-            .store
+    pub async fn get_person(&self, person_id: PersonId) -> Result<PersonResponse> {
+        Ok(PersonResponse {
+            person: self.get_person_record(person_id).await?.into(),
+        })
+    }
+
+    async fn get_person_record(&self, person_id: PersonId) -> Result<taru_core::Person> {
+        self.store
             .get_person(person_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
@@ -123,23 +135,23 @@ impl TaruApp {
         page: PageRequest,
     ) -> Result<PersonItemsResponse> {
         let page = page.clamped();
-        let person = self.get_person(person_id).await?;
-        let items = self.inner.store.list_person_items(person.id, page).await?;
+        let person = self.get_person_record(person_id).await?;
+        let items = self.store.list_person_items(person.id, page).await?;
 
         Ok(PersonItemsResponse {
-            person,
+            person: person.into(),
             page: PageInfo::new(page, items.len()),
-            items,
+            items: items.into_iter().map(Into::into).collect(),
         })
     }
 
     pub async fn list_tags(&self, page: PageRequest) -> Result<TagsResponse> {
         let page = page.clamped();
-        let tags = self.inner.store.list_tags(page).await?;
+        let tags = self.store.list_tags(page).await?;
 
         Ok(TagsResponse {
             page: PageInfo::new(page, tags.len()),
-            tags,
+            tags: tags.into_iter().map(Into::into).collect(),
         })
     }
 
@@ -150,7 +162,6 @@ impl TaruApp {
     ) -> Result<TagItemsResponse> {
         let page = page.clamped();
         let tag = self
-            .inner
             .store
             .get_tag(tag_id)
             .await?
@@ -158,22 +169,22 @@ impl TaruApp {
                 entity: "tag",
                 id: tag_id.to_string(),
             })?;
-        let items = self.inner.store.list_tag_items(tag.id, page).await?;
+        let items = self.store.list_tag_items(tag.id, page).await?;
 
         Ok(TagItemsResponse {
-            tag,
+            tag: tag.into(),
             page: PageInfo::new(page, items.len()),
-            items,
+            items: items.into_iter().map(Into::into).collect(),
         })
     }
 
     pub async fn list_genres(&self, page: PageRequest) -> Result<GenreListResponse> {
         let page = page.clamped();
-        let genres = self.inner.store.list_genres(page).await?;
+        let genres = self.store.list_genres(page).await?;
 
         Ok(GenreListResponse {
             page: PageInfo::new(page, genres.len()),
-            genres,
+            genres: genres.into_iter().map(Into::into).collect(),
         })
     }
 
@@ -183,21 +194,20 @@ impl TaruApp {
         page: PageRequest,
     ) -> Result<GenreItemsResponse> {
         let page = page.clamped();
-        let genre =
-            self.inner
-                .store
-                .get_genre(genre_id)
-                .await?
-                .ok_or_else(|| TaruError::NotFound {
-                    entity: "genre",
-                    id: genre_id.to_string(),
-                })?;
-        let items = self.inner.store.list_genre_items(genre.id, page).await?;
+        let genre = self
+            .store
+            .get_genre(genre_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "genre",
+                id: genre_id.to_string(),
+            })?;
+        let items = self.store.list_genre_items(genre.id, page).await?;
 
         Ok(GenreItemsResponse {
-            genre,
+            genre: genre.into(),
             page: PageInfo::new(page, items.len()),
-            items,
+            items: items.into_iter().map(Into::into).collect(),
         })
     }
 
@@ -209,7 +219,6 @@ impl TaruApp {
     ) -> Result<SearchResponse> {
         let page = page.clamped();
         let hits = self
-            .inner
             .store
             .search(SearchQuery {
                 query,
@@ -224,7 +233,6 @@ impl TaruApp {
 
         for hit in hits {
             let item = self
-                .inner
                 .store
                 .get_media_item(hit.item_id)
                 .await?
@@ -233,7 +241,7 @@ impl TaruApp {
                     id: hit.item_id.to_string(),
                 })?;
             output_hits.push(SearchItemHit {
-                item,
+                item: item.into(),
                 score: hit.score,
             });
         }
@@ -249,7 +257,6 @@ impl TaruApp {
         source_id: MediaSourceId,
     ) -> Result<taru_api::SourceProbeResponse> {
         let probe = self
-            .inner
             .store
             .get_media_probe(source_id)
             .await?
@@ -258,6 +265,9 @@ impl TaruApp {
                 id: source_id.to_string(),
             })?;
 
-        Ok(taru_api::SourceProbeResponse { source_id, probe })
+        Ok(taru_api::SourceProbeResponse {
+            source_id,
+            probe: probe.into(),
+        })
     }
 }
