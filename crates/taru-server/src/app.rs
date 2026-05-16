@@ -107,6 +107,8 @@ impl TaruApp {
         };
 
         app.ensure_configured_libraries().await?;
+        app.cleanup_metadata_raw_cache_on_startup().await?;
+        app.start_metadata_lifecycle_tasks();
         Ok(app)
     }
 

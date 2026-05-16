@@ -861,8 +861,8 @@ async fn metadata_http_runtime_records_failure_status() {
     let err = runtime
         .get_json(
             "mock",
-            "missing",
-            server.url("/missing"),
+            "bad request",
+            server.url("/bad-request"),
             &[],
             HeaderMap::new(),
         )
@@ -870,15 +870,28 @@ async fn metadata_http_runtime_records_failure_status() {
         .unwrap_err();
     let status = runtime.status();
 
-    assert!(err.to_string().contains("HTTP 404"));
+    assert!(err.to_string().contains("HTTP 400"));
     assert!(status.circuit_open);
+    assert!(status.circuit_open_until_ms.is_some());
     assert_eq!(status.consecutive_failures, 1);
     assert!(
         status
             .last_error
             .as_deref()
-            .is_some_and(|message| message.contains("HTTP 404"))
+            .is_some_and(|message| message.contains("HTTP 400"))
     );
+    let second = runtime
+        .get_json(
+            "mock",
+            "bad request",
+            server.url("/bad-request"),
+            &[],
+            HeaderMap::new(),
+        )
+        .await
+        .unwrap_err();
+    assert!(second.to_string().contains("circuit breaker is open"));
+    assert_eq!(server.request_count(), 1);
 }
 
 #[tokio::test]
@@ -1183,6 +1196,7 @@ impl MockMetadataServer {
         let state = MockMetadataState::default();
         let router = Router::new()
             .route("/ok", get(mock_ok))
+            .route("/bad-request", get(mock_bad_request))
             .route("/flaky", get(mock_flaky))
             .route("/tmdb/search/movie", get(mock_tmdb_search_movie))
             .route("/tmdb/movie/{id}", get(mock_tmdb_movie_details))
@@ -1300,6 +1314,19 @@ async fn mock_flaky(
     }
 
     Json(json!({"ok": true})).into_response()
+}
+
+async fn mock_bad_request(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Response {
+    record_request(&state, &headers, &uri);
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({"error": "bad request"})),
+    )
+        .into_response()
 }
 
 async fn mock_bangumi_search(

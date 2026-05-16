@@ -6,7 +6,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    ExternalProvider, Library, LibraryId, LibraryOptions, LibraryPreset, Result, TaruError,
+    ExternalProvider, Library, LibraryId, LibraryOptions, LibraryPreset, MediaItemId, MediaKind,
+    MetadataProfile, MetadataRefreshMode, Result, TaruError,
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
@@ -116,6 +117,8 @@ pub struct MetadataConfig {
     pub runtime: MetadataProviderRuntimeConfig,
     #[serde(default = "default_metadata_raw_cache_retention_ms")]
     pub raw_cache_retention_ms: u64,
+    #[serde(default)]
+    pub maintenance: MetadataMaintenanceConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub providers: Vec<MetadataProviderConfig>,
     #[serde(default)]
@@ -127,10 +130,58 @@ impl Default for MetadataConfig {
         Self {
             runtime: MetadataProviderRuntimeConfig::default(),
             raw_cache_retention_ms: default_metadata_raw_cache_retention_ms(),
+            maintenance: MetadataMaintenanceConfig::default(),
             providers: Vec::new(),
             tmdb: TmdbMetadataConfig::default(),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataMaintenanceConfig {
+    #[serde(default = "default_metadata_raw_cache_cleanup_on_startup")]
+    pub raw_cache_cleanup_on_startup: bool,
+    #[serde(default)]
+    pub raw_cache_cleanup_interval_ms: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub policies: Vec<MetadataMaintenancePolicyConfig>,
+}
+
+impl Default for MetadataMaintenanceConfig {
+    fn default() -> Self {
+        Self {
+            raw_cache_cleanup_on_startup: default_metadata_raw_cache_cleanup_on_startup(),
+            raw_cache_cleanup_interval_ms: 0,
+            policies: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataMaintenancePolicyConfig {
+    pub id: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_id: Option<LibraryId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_ids: Vec<MediaItemId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub providers: Option<Vec<ExternalProvider>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_kinds: Vec<MediaKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<MetadataProfile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh_mode: Option<MetadataRefreshMode>,
+    #[serde(default)]
+    pub force: bool,
+    #[serde(default = "default_metadata_maintenance_interval_ms")]
+    pub interval_ms: u64,
+    #[serde(default)]
+    pub initial_delay_ms: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -149,6 +200,8 @@ pub struct MetadataProviderRuntimeConfig {
     pub proxy: Option<String>,
     #[serde(default = "default_metadata_provider_circuit_breaker_failures")]
     pub circuit_breaker_failures: u32,
+    #[serde(default = "default_metadata_provider_circuit_breaker_backoff_ms")]
+    pub circuit_breaker_backoff_ms: u64,
 }
 
 impl Default for MetadataProviderRuntimeConfig {
@@ -161,6 +214,7 @@ impl Default for MetadataProviderRuntimeConfig {
             user_agent: default_metadata_provider_user_agent(),
             proxy: None,
             circuit_breaker_failures: default_metadata_provider_circuit_breaker_failures(),
+            circuit_breaker_backoff_ms: default_metadata_provider_circuit_breaker_backoff_ms(),
         }
     }
 }
@@ -470,8 +524,20 @@ const fn default_metadata_provider_circuit_breaker_failures() -> u32 {
     5
 }
 
+const fn default_metadata_provider_circuit_breaker_backoff_ms() -> u64 {
+    60_000
+}
+
 const fn default_metadata_raw_cache_retention_ms() -> u64 {
     90 * 24 * 60 * 60 * 1_000
+}
+
+const fn default_metadata_raw_cache_cleanup_on_startup() -> bool {
+    false
+}
+
+const fn default_metadata_maintenance_interval_ms() -> u64 {
+    24 * 60 * 60 * 1_000
 }
 
 fn default_library_preset() -> LibraryPreset {
@@ -543,6 +609,7 @@ mod tests {
             user_agent = "taru-test/1"
             proxy = "http://127.0.0.1:10809"
             circuit_breaker_failures = 4
+            circuit_breaker_backoff_ms = 12345
 
             [[metadata.providers]]
             provider = "bangumi"
@@ -620,6 +687,7 @@ mod tests {
             Some("http://127.0.0.1:10809")
         );
         assert_eq!(config.metadata.runtime.circuit_breaker_failures, 4);
+        assert_eq!(config.metadata.runtime.circuit_breaker_backoff_ms, 12_345);
         assert_eq!(config.metadata.providers.len(), 2);
         assert_eq!(
             config.metadata.providers[0].provider,

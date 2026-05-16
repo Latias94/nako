@@ -21,6 +21,7 @@ const DEFAULT_PROVIDER_MAX_ATTEMPTS: u32 = 2;
 const DEFAULT_PROVIDER_MIN_INTERVAL_MS: u64 = 250;
 const DEFAULT_PROVIDER_CONCURRENCY: usize = 1;
 const DEFAULT_PROVIDER_CIRCUIT_BREAKER_FAILURES: u32 = 5;
+const DEFAULT_PROVIDER_CIRCUIT_BREAKER_BACKOFF_MS: u64 = 60_000;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MetadataHttpRuntimeConfig {
     pub timeout_ms: u64,
@@ -30,6 +31,7 @@ pub struct MetadataHttpRuntimeConfig {
     pub user_agent: String,
     pub proxy: Option<String>,
     pub circuit_breaker_failures: u32,
+    pub circuit_breaker_backoff_ms: u64,
 }
 
 impl Default for MetadataHttpRuntimeConfig {
@@ -42,6 +44,7 @@ impl Default for MetadataHttpRuntimeConfig {
             user_agent: default_metadata_user_agent(),
             proxy: None,
             circuit_breaker_failures: DEFAULT_PROVIDER_CIRCUIT_BREAKER_FAILURES,
+            circuit_breaker_backoff_ms: DEFAULT_PROVIDER_CIRCUIT_BREAKER_BACKOFF_MS,
         }
     }
 }
@@ -54,6 +57,7 @@ pub struct MetadataHttpRuntime {
     throttle: Arc<Mutex<OffsetDateTime>>,
     consecutive_failures: Arc<AtomicU64>,
     circuit_open: Arc<AtomicBool>,
+    circuit_open_until_ms: Arc<AtomicU64>,
     last_error: Arc<StdMutex<Option<String>>>,
     last_rate_limit_wait_ms: Arc<AtomicU64>,
 }
@@ -61,6 +65,7 @@ pub struct MetadataHttpRuntime {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct MetadataHttpRuntimeStatus {
     pub circuit_open: bool,
+    pub circuit_open_until_ms: Option<u64>,
     pub consecutive_failures: u64,
     pub last_error: Option<String>,
     pub last_rate_limit_wait_ms: u64,
@@ -102,6 +107,7 @@ impl MetadataHttpRuntime {
             throttle: Arc::new(Mutex::new(OffsetDateTime::UNIX_EPOCH)),
             consecutive_failures: Arc::new(AtomicU64::new(0)),
             circuit_open: Arc::new(AtomicBool::new(false)),
+            circuit_open_until_ms: Arc::new(AtomicU64::new(0)),
             last_error: Arc::new(StdMutex::new(None)),
             last_rate_limit_wait_ms: Arc::new(AtomicU64::new(0)),
         })
@@ -114,8 +120,10 @@ impl MetadataHttpRuntime {
 
     #[must_use]
     pub fn status(&self) -> MetadataHttpRuntimeStatus {
+        let circuit_open_until_ms = self.circuit_open_until_ms();
         MetadataHttpRuntimeStatus {
-            circuit_open: self.circuit_open.load(Ordering::SeqCst),
+            circuit_open: circuit_open_until_ms.is_some(),
+            circuit_open_until_ms,
             consecutive_failures: self.consecutive_failures.load(Ordering::SeqCst),
             last_error: self.last_error.lock().ok().and_then(|error| error.clone()),
             last_rate_limit_wait_ms: self.last_rate_limit_wait_ms.load(Ordering::SeqCst),
@@ -208,10 +216,10 @@ impl MetadataHttpRuntime {
     where
         F: Fn() -> reqwest::RequestBuilder,
     {
-        if self.circuit_open.load(Ordering::SeqCst) {
+        if let Some(open_until_ms) = self.circuit_open_until_ms() {
             return Err(TaruError::Provider {
                 provider: provider.to_owned(),
-                message: "metadata provider circuit breaker is open".to_owned(),
+                message: format!("metadata provider circuit breaker is open until {open_until_ms}"),
             });
         }
 
@@ -270,6 +278,7 @@ impl MetadataHttpRuntime {
             if status.is_success() {
                 self.consecutive_failures.store(0, Ordering::SeqCst);
                 self.circuit_open.store(false, Ordering::SeqCst);
+                self.circuit_open_until_ms.store(0, Ordering::SeqCst);
                 self.set_last_error(None);
                 let value = match serde_json::from_str(&text) {
                     Ok(value) => value,
@@ -338,7 +347,26 @@ impl MetadataHttpRuntime {
         let threshold = u64::from(self.config.circuit_breaker_failures);
         if threshold > 0 && failures >= threshold {
             self.circuit_open.store(true, Ordering::SeqCst);
+            self.circuit_open_until_ms.store(
+                current_unix_ms().saturating_add(self.config.circuit_breaker_backoff_ms),
+                Ordering::SeqCst,
+            );
         }
+    }
+
+    fn circuit_open_until_ms(&self) -> Option<u64> {
+        if !self.circuit_open.load(Ordering::SeqCst) {
+            return None;
+        }
+
+        let open_until_ms = self.circuit_open_until_ms.load(Ordering::SeqCst);
+        if open_until_ms > current_unix_ms() {
+            return Some(open_until_ms);
+        }
+
+        self.circuit_open.store(false, Ordering::SeqCst);
+        self.circuit_open_until_ms.store(0, Ordering::SeqCst);
+        None
     }
 
     fn set_last_error(&self, error: Option<String>) {
@@ -354,4 +382,12 @@ fn default_metadata_user_agent() -> String {
 
 fn duration_millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn current_unix_ms() -> u64 {
+    let now = OffsetDateTime::now_utc();
+    u64::try_from(now.unix_timestamp())
+        .unwrap_or_default()
+        .saturating_mul(1_000)
+        .saturating_add(u64::from(now.millisecond()))
 }

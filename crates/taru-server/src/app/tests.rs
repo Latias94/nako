@@ -21,9 +21,9 @@ use taru_core::{
     JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
-    NewStagingManifestRecord, NewTranscodeSession, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
+    NewStagingManifestRecord, NewTranscodeSession, ProviderRawResponse, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
 };
 use taru_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use taru_library::{LibraryScanRequest, LibraryScanner};
@@ -42,8 +42,8 @@ use super::playback::{
 };
 use super::*;
 use crate::config::{
-    LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig, TranscodeConfig,
-    WebDavLibraryConfig,
+    LocalLibraryConfig, MetadataConfig, MetadataMaintenanceConfig, MetadataMaintenancePolicyConfig,
+    PlaybackConfig, StagingConfig, TranscodeConfig, WebDavLibraryConfig,
 };
 
 #[tokio::test]
@@ -765,6 +765,100 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
         event.kind == DomainEventKind::MetadataMaintenanceCompleted
             && event.subject == DomainEventSubject::Job(output.job.id)
     }));
+}
+
+#[tokio::test]
+async fn metadata_lifecycle_config_maps_policy_and_cleans_raw_cache_on_startup() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let item_id = MediaItemId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig {
+            raw_cache_retention_ms: 1,
+            maintenance: MetadataMaintenanceConfig {
+                raw_cache_cleanup_on_startup: true,
+                raw_cache_cleanup_interval_ms: 0,
+                policies: vec![MetadataMaintenancePolicyConfig {
+                    id: "movies-nightly".to_owned(),
+                    enabled: true,
+                    library_id: Some(library_id),
+                    item_ids: Vec::new(),
+                    providers: Some(vec![ExternalProvider::Tmdb]),
+                    item_kinds: vec![MediaKind::Movie],
+                    profile: None,
+                    language: Some("en-US".to_owned()),
+                    refresh_mode: Some(MetadataRefreshMode::MissingOnly),
+                    force: false,
+                    interval_ms: 86_400_000,
+                    initial_delay_ms: 86_400_000,
+                }],
+            },
+            ..MetadataConfig::default()
+        },
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let item = MediaItem {
+        id: item_id,
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Lifecycle Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_provider_raw_response(&ProviderRawResponse {
+            item_id,
+            provider: ExternalProvider::Tmdb,
+            provider_key: "1".to_owned(),
+            fetched_at: "2020-01-01T00:00:00.000Z".to_owned(),
+            body_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let raw = store
+        .list_provider_raw_responses(
+            item_id,
+            taru_core::ProviderRawResponseFilter::default(),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    let request = app
+        .metadata_maintenance_request_from_policy(&app.config().metadata.maintenance.policies[0]);
+
+    assert!(raw.is_empty());
+    assert_eq!(request.library_id, Some(library_id));
+    assert_eq!(request.providers, Some(vec![ExternalProvider::Tmdb]));
+    assert_eq!(request.item_kinds, vec![MediaKind::Movie]);
+    assert_eq!(request.refresh_mode, Some(MetadataRefreshMode::MissingOnly));
 }
 
 #[tokio::test]

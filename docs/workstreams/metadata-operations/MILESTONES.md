@@ -28,12 +28,17 @@ Exit criteria:
 Outcome: operators can schedule recurring metadata maintenance policies without
 hand-triggering every batch.
 
-Candidate deliverables:
+Implemented in M14:
 
 - Configurable recurring maintenance policies.
 - Dry-run planning endpoint.
+- Provider circuit breaker backoff with visible open-until state.
+- Startup/background raw cache cleanup configuration.
+
+Candidate follow-up:
+
 - Per-library maintenance defaults.
-- Backoff for repeatedly failing providers.
+- Persisted schedule run history.
 
 ## M13.2: Raw Cache Lifecycle
 

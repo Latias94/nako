@@ -16,10 +16,11 @@
 
 ## Follow-Up
 
-- [ ] Add a dry-run mode that lists the items and effective profile without
+- [x] Add a dry-run mode that lists the items and effective profile without
   touching providers.
-- [ ] Add scheduled maintenance policies.
-- [ ] Add startup/background raw cache cleanup.
+- [x] Add scheduled maintenance policies.
+- [x] Add startup/background raw cache cleanup.
+- [x] Add provider circuit breaker backoff.
 - [ ] Add multi-process provider health and raw cleanup coordination if Taru
   supports shared-database multi-instance deployment.
 - [ ] Add total counts when diagnostics pagination needs them.

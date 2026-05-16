@@ -95,6 +95,14 @@ pub(super) async fn enqueue_metadata_maintenance(
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
 
+#[instrument(skip(app, request))]
+pub(super) async fn plan_metadata_maintenance(
+    State(app): State<TaruApp>,
+    Json(request): Json<EnqueueMetadataMaintenanceRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.plan_metadata_maintenance(request).await?))
+}
+
 #[instrument(skip(app))]
 pub(super) async fn cleanup_metadata_raw_responses(
     State(app): State<TaruApp>,

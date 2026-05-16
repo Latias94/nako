@@ -111,10 +111,14 @@ language. It must not include the resolved provider token.
 
 Metadata maintenance jobs use kind `metadata_maintenance`. Their input targets
 either one `library_id` or an explicit `item_ids` set, and may include provider,
-profile, item kind, language, refresh mode, and force overrides. Their summary records
-attempted, succeeded, failed, no-match, rate-limited, and skipped item counts
-plus provider attempt counts. Inputs and summaries must not include resolved
-provider secrets.
+profile, item kind, language, refresh mode, and force overrides. Their summary
+records attempted, succeeded, failed, no-match, rate-limited, and skipped item
+counts plus provider attempt counts. Inputs and summaries must not include
+resolved provider secrets.
+
+Metadata maintenance planning uses the same request shape but does not create a
+job, contact providers, or mutate metadata. It returns the matched items and
+each item's effective providers, language, and refresh mode.
 
 NFO jobs use kinds `nfo_import` and `nfo_export`. Their input includes the
 library ID, local metadata policy, and force flag.
@@ -145,6 +149,7 @@ GET  /items/{item_id}/metadata/attempts?provider=tmdb&status=failed&limit=50&off
 GET  /items/{item_id}/metadata/raw?provider=tmdb&limit=50&offset=0
 GET  /metadata/providers
 POST /metadata/maintenance/jobs
+POST /metadata/maintenance/plan
 POST /metadata/raw/cleanup?provider=tmdb&fetched_before=2026-05-01T00:00:00.000Z
 GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
@@ -213,6 +218,17 @@ items:
 
 Exactly one of `library_id` or a non-empty `item_ids` array must be provided.
 `force` maps to `full_refresh` when `refresh_mode` is omitted.
+
+`POST /metadata/maintenance/plan` accepts the same body and returns a dry-run
+plan. The plan is safe to call before scheduling or enqueueing a job because it
+does not persist a job and does not call metadata providers.
+
+Metadata maintenance can also be scheduled through server configuration under
+`metadata.maintenance.policies`. Each enabled policy maps to the same
+maintenance request shape and enqueues jobs on its configured interval after an
+optional initial delay. Raw cache cleanup can run at startup and on a background
+interval through `metadata.maintenance.raw_cache_cleanup_on_startup` and
+`metadata.maintenance.raw_cache_cleanup_interval_ms`.
 
 `POST /libraries/{library_id}/nfo/import` and
 `POST /libraries/{library_id}/nfo/export` return `202 Accepted` with queued NFO

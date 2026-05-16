@@ -1,8 +1,9 @@
-use std::{collections::HashSet, env};
+use std::{collections::HashSet, env, time::Duration};
 
 use serde::Serialize;
 use taru_api::{
-    EnqueueMetadataMaintenanceRequest, MetadataProviderAttemptDiagnostic,
+    EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanError, MetadataMaintenancePlanItem,
+    MetadataMaintenancePlanResponse, MetadataProviderAttemptDiagnostic,
     MetadataProviderAttemptsResponse, MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
     MetadataProviderDiagnosticsResponse, MetadataProviderRuntimeDiagnostic,
     MetadataProviderRuntimeStateScope, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
@@ -26,8 +27,8 @@ use tracing::{Instrument, error, info, info_span, warn};
 
 use super::TaruApp;
 use crate::config::{
-    MetadataProviderConfig, MetadataProviderHeaderConfig, MetadataProviderRuntimeConfig,
-    TmdbMetadataConfig,
+    MetadataMaintenancePolicyConfig, MetadataProviderConfig, MetadataProviderHeaderConfig,
+    MetadataProviderRuntimeConfig, TmdbMetadataConfig,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -127,6 +128,57 @@ impl TaruApp {
     ) -> Result<MetadataMaintenanceCommandOutput> {
         let job = self.create_metadata_maintenance_job(&request).await?;
         self.execute_metadata_maintenance_job(job.id, request).await
+    }
+
+    pub async fn plan_metadata_maintenance(
+        &self,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) -> Result<MetadataMaintenancePlanResponse> {
+        self.validate_metadata_maintenance_request(&request).await?;
+        let items = self.metadata_maintenance_items(&request).await?;
+        let mut planned = Vec::new();
+        let mut errors = Vec::new();
+
+        for item in items {
+            match self
+                .metadata_maintenance_profile_for_item(&item, &request)
+                .await
+            {
+                Ok(profile) => {
+                    let library_id = if let Some(library_id) = request.library_id {
+                        Some(library_id)
+                    } else {
+                        self.library_for_item(item.id)
+                            .await
+                            .ok()
+                            .map(|library| library.id)
+                    };
+                    planned.push(MetadataMaintenancePlanItem {
+                        item_id: item.id,
+                        library_id,
+                        kind: item.kind,
+                        title: item.metadata.title.clone(),
+                        providers: profile.metadata_providers,
+                        language: profile.language,
+                        refresh_mode: profile.refresh_mode,
+                    });
+                }
+                Err(err) => {
+                    errors.push(MetadataMaintenancePlanError {
+                        item_id: item.id,
+                        message: err.to_string(),
+                    });
+                }
+            }
+        }
+
+        Ok(MetadataMaintenancePlanResponse {
+            request,
+            planned_items: usize_to_u32(planned.len()),
+            skipped_items: usize_to_u32(errors.len()),
+            items: planned,
+            errors,
+        })
     }
 
     pub(super) async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
@@ -583,6 +635,131 @@ impl TaruApp {
         }
     }
 
+    pub(super) async fn cleanup_metadata_raw_cache_on_startup(&self) -> Result<()> {
+        if !self
+            .config()
+            .metadata
+            .maintenance
+            .raw_cache_cleanup_on_startup
+        {
+            return Ok(());
+        }
+
+        let cleanup = self
+            .cleanup_provider_raw_responses(ProviderRawResponseFilter::default(), None, None)
+            .await?;
+        if cleanup.cleanup.deleted > 0 {
+            info!(
+                deleted = cleanup.cleanup.deleted,
+                fetched_before = cleanup.cleanup.fetched_before,
+                "cleaned metadata raw cache during startup"
+            );
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn start_metadata_lifecycle_tasks(&self) {
+        self.start_metadata_raw_cache_cleanup_task();
+        self.start_metadata_maintenance_policy_tasks();
+    }
+
+    fn start_metadata_raw_cache_cleanup_task(&self) {
+        let interval_ms = self
+            .config()
+            .metadata
+            .maintenance
+            .raw_cache_cleanup_interval_ms;
+        if interval_ms == 0 {
+            return;
+        }
+
+        let app = self.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(interval_ms)).await;
+                match app
+                    .cleanup_provider_raw_responses(
+                        ProviderRawResponseFilter::default(),
+                        None,
+                        None,
+                    )
+                    .await
+                {
+                    Ok(cleanup) => {
+                        if cleanup.cleanup.deleted > 0 {
+                            info!(
+                                deleted = cleanup.cleanup.deleted,
+                                fetched_before = cleanup.cleanup.fetched_before,
+                                "cleaned metadata raw cache in background"
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        warn!(error = %err, "metadata raw cache background cleanup failed");
+                    }
+                }
+            }
+        });
+    }
+
+    fn start_metadata_maintenance_policy_tasks(&self) {
+        for policy in self
+            .config()
+            .metadata
+            .maintenance
+            .policies
+            .iter()
+            .filter(|policy| policy.enabled)
+            .cloned()
+        {
+            let app = self.clone();
+            tokio::spawn(async move {
+                if policy.initial_delay_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(policy.initial_delay_ms)).await;
+                }
+
+                loop {
+                    let request = app.metadata_maintenance_request_from_policy(&policy);
+                    match app.enqueue_metadata_maintenance(request).await {
+                        Ok(job) => {
+                            info!(
+                                policy_id = %policy.id,
+                                job_id = %job.id,
+                                "queued scheduled metadata maintenance job"
+                            );
+                        }
+                        Err(err) => {
+                            warn!(
+                                policy_id = %policy.id,
+                                error = %err,
+                                "scheduled metadata maintenance enqueue failed"
+                            );
+                        }
+                    }
+
+                    tokio::time::sleep(Duration::from_millis(policy.interval_ms.max(1))).await;
+                }
+            });
+        }
+    }
+
+    pub(super) fn metadata_maintenance_request_from_policy(
+        &self,
+        policy: &MetadataMaintenancePolicyConfig,
+    ) -> EnqueueMetadataMaintenanceRequest {
+        EnqueueMetadataMaintenanceRequest {
+            library_id: policy.library_id,
+            item_ids: policy.item_ids.clone(),
+            providers: policy.providers.clone(),
+            item_kinds: policy.item_kinds.clone(),
+            profile: policy.profile.clone(),
+            language: policy.language.clone(),
+            refresh_mode: policy.refresh_mode,
+            force: policy.force,
+        }
+    }
+
     async fn validate_metadata_maintenance_request(
         &self,
         request: &EnqueueMetadataMaintenanceRequest,
@@ -972,7 +1149,11 @@ fn provider_runtime_diagnostic(
             .as_ref()
             .is_some_and(|proxy| !proxy.trim().is_empty()),
         circuit_breaker_failures: config.circuit_breaker_failures,
+        circuit_breaker_backoff_ms: config.circuit_breaker_backoff_ms,
         circuit_open: status.as_ref().is_some_and(|status| status.circuit_open),
+        circuit_open_until_ms: status
+            .as_ref()
+            .and_then(|status| status.circuit_open_until_ms),
         consecutive_failures: status
             .as_ref()
             .map_or(0, |status| status.consecutive_failures),
@@ -1220,6 +1401,7 @@ fn runtime_config(config: &MetadataProviderRuntimeConfig) -> MetadataHttpRuntime
         user_agent: config.user_agent.clone(),
         proxy: config.proxy.clone(),
         circuit_breaker_failures: config.circuit_breaker_failures,
+        circuit_breaker_backoff_ms: config.circuit_breaker_backoff_ms,
     }
 }
 

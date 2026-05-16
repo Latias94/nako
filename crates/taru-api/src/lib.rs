@@ -276,7 +276,9 @@ pub struct MetadataProviderRuntimeDiagnostic {
     pub user_agent: String,
     pub proxy_configured: bool,
     pub circuit_breaker_failures: u32,
+    pub circuit_breaker_backoff_ms: u64,
     pub circuit_open: bool,
+    pub circuit_open_until_ms: Option<u64>,
     pub consecutive_failures: u64,
     pub last_error: Option<String>,
     pub last_rate_limit_wait_ms: u64,
@@ -306,6 +308,32 @@ pub struct EnqueueMetadataMaintenanceRequest {
     pub refresh_mode: Option<MetadataRefreshMode>,
     #[serde(default)]
     pub force: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataMaintenancePlanResponse {
+    pub request: EnqueueMetadataMaintenanceRequest,
+    pub planned_items: u32,
+    pub skipped_items: u32,
+    pub items: Vec<MetadataMaintenancePlanItem>,
+    pub errors: Vec<MetadataMaintenancePlanError>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataMaintenancePlanItem {
+    pub item_id: MediaItemId,
+    pub library_id: Option<LibraryId>,
+    pub kind: MediaKind,
+    pub title: String,
+    pub providers: Vec<ExternalProvider>,
+    pub language: Option<String>,
+    pub refresh_mode: MetadataRefreshMode,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataMaintenancePlanError {
+    pub item_id: MediaItemId,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

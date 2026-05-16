@@ -18,11 +18,11 @@ use taru_api::{
     AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
     AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
     EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse, JobResponse,
-    LibraryListResponse, MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
-    MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
-    RegisterAddonRequest, TranscodeSessionResponse, UpsertAutomationProviderRequest,
-    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
-    WebhookEndpointsResponse,
+    LibraryListResponse, MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
+    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
+    MetadataRawCleanupResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
+    TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
+    WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
@@ -684,6 +684,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         user_agent: "taru-test/metadata-diagnostics".to_owned(),
         proxy: Some("http://user:proxy-secret@127.0.0.1:10809".to_owned()),
         circuit_breaker_failures: 4,
+        circuit_breaker_backoff_ms: 12_345,
     };
     metadata.providers = vec![MetadataProviderConfig {
         provider: ExternalProvider::Douban,
@@ -843,6 +844,10 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
     assert!(providers.providers[0].runtime.proxy_configured);
     assert_eq!(providers.providers[0].runtime.timeout_ms, 4_000);
     assert_eq!(providers.providers[0].runtime.max_attempts, 3);
+    assert_eq!(
+        providers.providers[0].runtime.circuit_breaker_backoff_ms,
+        12_345
+    );
     assert!(!providers.providers[0].runtime.circuit_open);
     assert_eq!(providers.providers[0].runtime.consecutive_failures, 0);
     assert_eq!(
@@ -908,6 +913,27 @@ async fn metadata_maintenance_route_enqueues_batch_job() {
         .await
         .unwrap();
     let router = build_router(app);
+    let request = EnqueueMetadataMaintenanceRequest {
+        library_id: Some(library_id),
+        item_ids: Vec::new(),
+        providers: Some(vec![ExternalProvider::Tmdb]),
+        item_kinds: vec![MediaKind::Movie],
+        profile: None,
+        language: None,
+        refresh_mode: None,
+        force: false,
+    };
+    let plan = request_body_json::<MetadataMaintenancePlanResponse, _>(
+        &router,
+        Method::POST,
+        "/metadata/maintenance/plan",
+        &request,
+    )
+    .await;
+
+    assert_eq!(plan.planned_items, 1);
+    assert_eq!(plan.skipped_items, 0);
+    assert_eq!(plan.items[0].item_id, item.id);
 
     let response = router
         .clone()
@@ -916,19 +942,7 @@ async fn metadata_maintenance_route_enqueues_batch_job() {
                 .method(Method::POST)
                 .uri("/metadata/maintenance/jobs")
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_vec(&EnqueueMetadataMaintenanceRequest {
-                        library_id: Some(library_id),
-                        item_ids: Vec::new(),
-                        providers: Some(vec![ExternalProvider::Tmdb]),
-                        item_kinds: vec![MediaKind::Movie],
-                        profile: None,
-                        language: None,
-                        refresh_mode: None,
-                        force: false,
-                    })
-                    .unwrap(),
-                ))
+                .body(Body::from(serde_json::to_vec(&request).unwrap()))
                 .unwrap(),
         )
         .await

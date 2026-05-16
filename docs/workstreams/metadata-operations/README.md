@@ -31,6 +31,7 @@ Active in M13.
 ## Active Phases
 
 - [Phase 13.0: Maintenance Job Boundary](PHASE13_0_MAINTENANCE_JOB_BOUNDARY.md)
+- [Phase 14.0: Scheduling And Lifecycle](PHASE14_0_SCHEDULING_AND_LIFECYCLE.md)
 
 ## Related ADRs
 
