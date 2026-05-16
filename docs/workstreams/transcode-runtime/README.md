@@ -10,12 +10,12 @@ client-facing playback contracts.
 
 ## Status
 
-M25 is completed. M26 is active and hardens the playback/session HTTP contract
-for client readiness.
+Completed through M26.
 
-M25 builds on the completed M24 server architecture cleanup. The goal is not to
-add a flashy streaming feature first; the goal is to make the runtime shape
-clean enough that adaptive HLS, future subtitles, client playback controls, and
+M25 built on the completed M24 server architecture cleanup. M26 then stabilized
+the playback/session HTTP contract for future clients. The goal is not to add a
+flashy streaming feature first; the goal is to make the runtime shape clean
+enough that adaptive HLS, future subtitles, client playback controls, and
 hardware-specific behavior do not re-entangle `taru-server`, `taru-transcode`,
 `taru-streaming`, and storage code.
 

@@ -6,6 +6,9 @@ attention.
 
 ## Current Workstreams
 
+- [metadata-catalog](metadata-catalog/README.md): proposed M27 media-library
+  domain expansion, covering source relationships, metadata authority, NFO,
+  artwork, and search breadth.
 - [transcode-runtime](transcode-runtime/README.md): completed M25 playback and
   transcode runtime productization, covering playback service decomposition,
   FFmpeg-backed hardware capability probing, acceleration selection, resource
@@ -43,7 +46,6 @@ Split a workstream when one of these becomes true:
 
 Expected future splits:
 
-- `metadata-catalog`
 - `clients`
 
 Keep unsplit domains in `server-foundation` until a split reduces real

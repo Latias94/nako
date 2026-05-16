@@ -290,7 +290,7 @@ Completed:
 
 ### Playback Client Contract: M26
 
-Status: active.
+Status: completed.
 
 This phase hardens the server contract that future web or Flutter clients will
 depend on before client UI work dominates:
@@ -306,17 +306,36 @@ depend on before client UI work dominates:
 Future client and product experience work remains intentionally deferred until
 the server browse and playback contracts are coherent.
 
+### Metadata-Catalog Expansion: M27
+
+Status: proposed next.
+
+The next server goal should turn the movie-first metadata/catalog foundation
+into a broader media-library model using the project language in `CONTEXT.md`:
+
+- treat **Media Library**, **Media Source**, **Media Item**, **Canonical
+  Metadata**, **Metadata Source Priority**, **NFO Round Trip**, **Managed
+  Artwork**, and **Source Duplicate Relationship** as first-class planning
+  terms;
+- split the remaining metadata, NFO, artwork, and search follow-ups out of the
+  historical `server-foundation` backlog into a dedicated
+  `metadata-catalog` workstream;
+- design the series, season, episode, anime, and collection model before
+  adding TMDB series, Douban, or Bangumi breadth;
+- preserve local/NFO authority and library-scoped policy while opening a clean
+  path for provider and addon metadata contributions.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split
 `addons-automation` into its own completed workstream, M6 split `storage-vfs`,
 M7 split `playback-streaming`, M13-M19 used metadata and runtime operations for
 specialized hardening, M24 split `server-architecture-hardening` for the server
-composition pass, and M25 split `transcode-runtime` for playback runtime
-productization. As implementation grows, split the
-remaining broad domains into narrower workstreams:
+composition pass, M25 split `transcode-runtime` for playback runtime
+productization, and M27 should split `metadata-catalog` for media-library
+domain expansion. As implementation grows, split the remaining broad domains
+into narrower workstreams:
 
-- `metadata-catalog`: providers, NFO, catalog graph, artwork, search.
 - `clients`: future Flutter and web client contracts.
 
 Do future splits when a domain needs independent milestones or ADRs. Do not

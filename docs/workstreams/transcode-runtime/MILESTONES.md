@@ -91,7 +91,7 @@ Exit criteria:
 
 ## M26.0: Playback API Contract and Client Readiness
 
-Status: active.
+Status: completed in [Phase 26.0](PHASE26_0_PLAYBACK_CLIENT_CONTRACT.md).
 
 Outcome: playback/session HTTP routes expose a stable control and inspection
 contract that future web or Flutter clients can depend on.

@@ -793,3 +793,34 @@ Close-out validation:
   playback route tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 234 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
+
+## Next Proposed Goal
+
+### M27: Metadata-Catalog Domain Baseline
+
+Objective:
+
+- Turn the movie-first metadata and catalog foundation into a broader
+  media-library model using the project language defined in `CONTEXT.md`.
+
+Why this should come next:
+
+- the playback/runtime contract is now stable enough for client planning;
+- the remaining product risk is the metadata domain shape, not FFmpeg or HTTP;
+- the current `server-foundation` backlog mixes metadata, NFO, artwork, and
+  search follow-ups that should be owned by a dedicated workstream.
+
+Proposed deliverables:
+
+- create a `metadata-catalog` workstream;
+- decide the first stable **Media Item** hierarchy for movie, series, season,
+  episode, collection, and extra-like items;
+- decide the source-to-item and duplicate-source model;
+- define **Metadata Source Priority** and **NFO Round Trip** rules;
+- define client-facing artwork concepts and search expansion boundaries;
+- move the relevant TODO items out of `server-foundation`.
+
+Suggested first validation gates:
+
+- `git diff --check`
+- `cargo fmt --all -- --check` after any code follow-up

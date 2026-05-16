@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Objective
 
@@ -48,9 +48,12 @@ poll `GET /playback/sessions/{session_id}` until the session becomes
 
 ## Validation
 
-Planned close-out gates:
+Close-out gates:
 
 - `cargo fmt --all -- --check`
 - `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`
-- `git diff --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`: 16
+  playback route tests passed.
+- `cargo nextest run --workspace --no-fail-fast`: 234 tests passed.
+- `git diff --check`: passed with Git CRLF normalization warnings only.
