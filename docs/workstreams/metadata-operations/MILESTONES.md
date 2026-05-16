@@ -50,3 +50,26 @@ Candidate deliverables:
 - Background cleanup job.
 - Retention metrics and deletion summaries.
 - Raw cache rebuild flow for selected providers.
+
+## M18: Provider Runtime Productization
+
+Outcome: network metadata providers are configured, constructed, diagnosed, and
+failed over through one runtime boundary.
+
+Implemented in M18:
+
+- Removed the legacy `metadata.tmdb` configuration path.
+- Made `[[metadata.providers]]` the only network provider configuration entry.
+- Split provider registry construction and secret resolution into
+  `taru-server::app::metadata_runtime`.
+- Kept TMDB, Bangumi, and Douban on the shared `MetadataHttpRuntime`.
+- Preserved strategy fallback through disabled, unavailable, not implemented,
+  no-match, failed, and rate-limited attempts.
+- Rejected duplicate provider config entries at startup.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`

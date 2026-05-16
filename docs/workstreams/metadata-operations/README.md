@@ -9,7 +9,7 @@ multi-library profile correctness.
 
 ## Status
 
-Active in M13.
+Active in M18.
 
 ## Goals
 
@@ -20,6 +20,8 @@ Active in M13.
 - Surface provider runtime health as process-local state.
 - Keep library metadata profile selection consistent across scan, refresh,
   diagnostics, catalog hydration, and search hydration.
+- Keep TMDB, Bangumi, and Douban provider construction behind one runtime
+  boundary.
 
 ## Non-Goals
 
@@ -32,6 +34,7 @@ Active in M13.
 
 - [Phase 13.0: Maintenance Job Boundary](PHASE13_0_MAINTENANCE_JOB_BOUNDARY.md)
 - [Phase 14.0: Scheduling And Lifecycle](PHASE14_0_SCHEDULING_AND_LIFECYCLE.md)
+- [Phase 18.0: Provider Runtime Productization](PHASE18_0_PROVIDER_RUNTIME_PRODUCTIZATION.md)
 
 ## Related ADRs
 

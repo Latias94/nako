@@ -43,7 +43,7 @@ use super::playback::{
 use super::*;
 use crate::config::{
     LocalLibraryConfig, MetadataConfig, MetadataMaintenanceConfig, MetadataMaintenancePolicyConfig,
-    PlaybackConfig, StagingConfig, TranscodeConfig, WebDavLibraryConfig,
+    MetadataProviderConfig, PlaybackConfig, StagingConfig, TranscodeConfig, WebDavLibraryConfig,
 };
 
 #[tokio::test]
@@ -147,6 +147,71 @@ async fn app_startup_rejects_duplicate_configured_library_ids() {
     };
     assert!(message.contains("duplicate configured library id"));
     assert!(message.contains(&library_id.to_string()));
+}
+
+#[tokio::test]
+async fn app_startup_rejects_duplicate_metadata_provider_configs() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let mut metadata = MetadataConfig::default();
+    metadata.providers = vec![
+        MetadataProviderConfig {
+            provider: ExternalProvider::Tmdb,
+            enabled: false,
+            token_env: None,
+            api_key_env: None,
+            api_base_url: None,
+            image_base_url: None,
+            language: None,
+            include_adult: false,
+            headers: Vec::new(),
+            runtime: None,
+        },
+        MetadataProviderConfig {
+            provider: ExternalProvider::Tmdb,
+            enabled: false,
+            token_env: None,
+            api_key_env: None,
+            api_base_url: None,
+            image_base_url: None,
+            language: None,
+            include_adult: false,
+            headers: Vec::new(),
+            runtime: None,
+        },
+    ];
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata,
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().join("movies"),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+
+    let err = TaruApp::new_with_store(config, store).await.unwrap_err();
+
+    let TaruError::InvalidInput { message } = err else {
+        panic!("expected duplicate provider validation error");
+    };
+    assert_eq!(message, "duplicate metadata provider config: tmdb");
 }
 
 #[tokio::test]
@@ -428,8 +493,18 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let mut metadata = MetadataConfig::default();
-    metadata.tmdb.enabled = true;
-    metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Tmdb,
+        enabled: true,
+        token_env: Some("TARU_TEST_MISSING_TMDB_TOKEN".to_owned()),
+        api_key_env: None,
+        api_base_url: None,
+        image_base_url: None,
+        language: None,
+        include_adult: false,
+        headers: Vec::new(),
+        runtime: None,
+    }];
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
@@ -501,6 +576,19 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
 async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
+    let mut metadata = MetadataConfig::default();
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Tmdb,
+        enabled: false,
+        token_env: None,
+        api_key_env: None,
+        api_base_url: None,
+        image_base_url: None,
+        language: None,
+        include_adult: false,
+        headers: Vec::new(),
+        runtime: None,
+    }];
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
@@ -513,7 +601,7 @@ async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
         webhook_concurrency: 2,
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("taru-cache").join("remux"),
-        metadata: MetadataConfig::default(),
+        metadata,
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
@@ -558,8 +646,18 @@ async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavaila
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let mut metadata = MetadataConfig::default();
-    metadata.tmdb.enabled = true;
-    metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Tmdb,
+        enabled: true,
+        token_env: Some("TARU_TEST_MISSING_TMDB_TOKEN".to_owned()),
+        api_key_env: None,
+        api_base_url: None,
+        image_base_url: None,
+        language: None,
+        include_adult: false,
+        headers: Vec::new(),
+        runtime: None,
+    }];
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
@@ -615,9 +713,6 @@ async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavaila
 async fn metadata_refresh_resolves_provider_order_from_library_profile() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let mut metadata = MetadataConfig::default();
-    metadata.tmdb.enabled = true;
-    metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
@@ -630,7 +725,7 @@ async fn metadata_refresh_resolves_provider_order_from_library_profile() {
         webhook_concurrency: 2,
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("taru-cache").join("remux"),
-        metadata,
+        metadata: MetadataConfig::default(),
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
@@ -752,7 +847,7 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
     assert_eq!(output.summary.provider_attempts.len(), 1);
     assert_eq!(
         output.summary.provider_attempts[0].status,
-        MetadataProviderAttemptStatus::SkippedDisabled
+        MetadataProviderAttemptStatus::NotImplemented
     );
     assert!(input.get("access_token").is_none());
     assert!(input.get("api_key").is_none());

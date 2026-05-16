@@ -629,9 +629,6 @@ async fn missing_job_returns_404() {
 async fn metadata_refresh_route_queues_background_job() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let mut metadata = MetadataConfig::default();
-    metadata.tmdb.enabled = true;
-    metadata.tmdb.access_token_env = "TARU_TEST_MISSING_TMDB_TOKEN".to_owned();
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
@@ -644,7 +641,7 @@ async fn metadata_refresh_route_queues_background_job() {
         webhook_concurrency: 2,
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("taru-cache").join("remux"),
-        metadata,
+        metadata: MetadataConfig::default(),
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),

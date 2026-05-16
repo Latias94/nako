@@ -121,8 +121,6 @@ pub struct MetadataConfig {
     pub maintenance: MetadataMaintenanceConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub providers: Vec<MetadataProviderConfig>,
-    #[serde(default)]
-    pub tmdb: TmdbMetadataConfig,
 }
 
 impl Default for MetadataConfig {
@@ -132,7 +130,6 @@ impl Default for MetadataConfig {
             raw_cache_retention_ms: default_metadata_raw_cache_retention_ms(),
             maintenance: MetadataMaintenanceConfig::default(),
             providers: Vec::new(),
-            tmdb: TmdbMetadataConfig::default(),
         }
     }
 }
@@ -286,35 +283,6 @@ impl TranscodeConfig {
     #[must_use]
     pub const fn resource_budget(self) -> TranscodeResourceBudget {
         TranscodeResourceBudget::new(self.cpu_concurrency, self.gpu_concurrency)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TmdbMetadataConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_tmdb_access_token_env")]
-    pub access_token_env: String,
-    #[serde(default = "default_tmdb_api_base_url")]
-    pub api_base_url: String,
-    #[serde(default = "default_tmdb_image_base_url")]
-    pub image_base_url: String,
-    #[serde(default = "default_tmdb_language")]
-    pub language: String,
-    #[serde(default)]
-    pub include_adult: bool,
-}
-
-impl Default for TmdbMetadataConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            access_token_env: default_tmdb_access_token_env(),
-            api_base_url: default_tmdb_api_base_url(),
-            image_base_url: default_tmdb_image_base_url(),
-            language: default_tmdb_language(),
-            include_adult: false,
-        }
     }
 }
 
@@ -484,22 +452,6 @@ fn default_remux_staging_root() -> PathBuf {
     PathBuf::from("taru-cache/remux")
 }
 
-fn default_tmdb_access_token_env() -> String {
-    "TMDB_READ_ACCESS_TOKEN".to_owned()
-}
-
-fn default_tmdb_api_base_url() -> String {
-    "https://api.themoviedb.org/3".to_owned()
-}
-
-fn default_tmdb_image_base_url() -> String {
-    "https://image.tmdb.org/t/p/original".to_owned()
-}
-
-fn default_tmdb_language() -> String {
-    "en-US".to_owned()
-}
-
 const fn default_metadata_provider_timeout_ms() -> u64 {
     10_000
 }
@@ -595,12 +547,6 @@ mod tests {
             timeout_ms = 10000
             max_attempts = 3
 
-            [metadata.tmdb]
-            enabled = true
-            access_token_env = "TMDB_READ_ACCESS_TOKEN"
-            language = "zh-CN"
-            include_adult = false
-
             [metadata.runtime]
             timeout_ms = 7000
             max_attempts = 3
@@ -610,6 +556,13 @@ mod tests {
             proxy = "http://127.0.0.1:10809"
             circuit_breaker_failures = 4
             circuit_breaker_backoff_ms = 12345
+
+            [[metadata.providers]]
+            provider = "tmdb"
+            enabled = true
+            token_env = "TMDB_READ_ACCESS_TOKEN"
+            language = "zh-CN"
+            include_adult = false
 
             [[metadata.providers]]
             provider = "bangumi"
@@ -671,12 +624,6 @@ mod tests {
         assert!(!config.staging.cleanup_on_startup);
         assert_eq!(config.playback.remote_stream_concurrency, 7);
         assert_eq!(config.playback.remote_stage_concurrency, 2);
-        assert!(config.metadata.tmdb.enabled);
-        assert_eq!(
-            config.metadata.tmdb.access_token_env,
-            "TMDB_READ_ACCESS_TOKEN"
-        );
-        assert_eq!(config.metadata.tmdb.language, "zh-CN");
         assert_eq!(config.metadata.runtime.timeout_ms, 7_000);
         assert_eq!(config.metadata.runtime.max_attempts, 3);
         assert_eq!(config.metadata.runtime.min_interval_ms, 500);
@@ -693,19 +640,31 @@ mod tests {
         );
         assert_eq!(config.metadata.runtime.circuit_breaker_failures, 4);
         assert_eq!(config.metadata.runtime.circuit_breaker_backoff_ms, 12_345);
-        assert_eq!(config.metadata.providers.len(), 2);
+        assert_eq!(config.metadata.providers.len(), 3);
         assert_eq!(
             config.metadata.providers[0].provider,
-            taru_core::ExternalProvider::Bangumi
+            taru_core::ExternalProvider::Tmdb
         );
         assert_eq!(
             config.metadata.providers[0].token_env.as_deref(),
+            Some("TMDB_READ_ACCESS_TOKEN")
+        );
+        assert_eq!(
+            config.metadata.providers[0].language.as_deref(),
+            Some("zh-CN")
+        );
+        assert_eq!(
+            config.metadata.providers[1].provider,
+            taru_core::ExternalProvider::Bangumi
+        );
+        assert_eq!(
+            config.metadata.providers[1].token_env.as_deref(),
             Some("BANGUMI_TOKEN")
         );
-        assert!(config.metadata.providers[0].include_adult);
-        assert_eq!(config.metadata.providers[0].headers[0].name, "X-Test");
+        assert!(config.metadata.providers[1].include_adult);
+        assert_eq!(config.metadata.providers[1].headers[0].name, "X-Test");
         assert_eq!(
-            config.metadata.providers[1].api_key_env.as_deref(),
+            config.metadata.providers[2].api_key_env.as_deref(),
             Some("DOUBAN_API_KEY")
         );
         assert_eq!(config.libraries.len(), 1);
@@ -831,7 +790,6 @@ mod tests {
         assert_eq!(config.transcode.gpu_concurrency, 1);
         assert_eq!(config.staging, StagingConfig::default());
         assert_eq!(config.playback, PlaybackConfig::default());
-        assert!(!config.metadata.tmdb.enabled);
         assert_eq!(
             config.metadata.runtime,
             MetadataProviderRuntimeConfig::default()
@@ -839,10 +797,6 @@ mod tests {
         assert!(config.metadata.providers.is_empty());
         let library = &config.libraries[0];
         assert_eq!(library.preset, LibraryPreset::Movies);
-        assert_eq!(
-            config.metadata.tmdb.access_token_env,
-            "TMDB_READ_ACCESS_TOKEN"
-        );
         assert!(library.webdav.is_none());
         assert_eq!(
             default_library_from_config(&config).unwrap().roots,

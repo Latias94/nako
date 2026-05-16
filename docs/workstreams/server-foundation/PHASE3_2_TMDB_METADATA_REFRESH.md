@@ -28,9 +28,10 @@ inputs. The server config stores an environment variable name:
 ```toml
 metadata_concurrency = 2
 
-[metadata.tmdb]
+[[metadata.providers]]
+provider = "tmdb"
 enabled = true
-access_token_env = "TMDB_READ_ACCESS_TOKEN"
+token_env = "TMDB_READ_ACCESS_TOKEN"
 api_base_url = "https://api.themoviedb.org/3"
 image_base_url = "https://image.tmdb.org/t/p/original"
 language = "en-US"

@@ -98,9 +98,10 @@ id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
 root = "F:/Media/Movies"
 
-[metadata.tmdb]
+[[metadata.providers]]
+provider = "tmdb"
 enabled = false
-access_token_env = "TMDB_READ_ACCESS_TOKEN"
+token_env = "TMDB_READ_ACCESS_TOKEN"
 api_base_url = "https://api.themoviedb.org/3"
 image_base_url = "https://image.tmdb.org/t/p/original"
 language = "en-US"

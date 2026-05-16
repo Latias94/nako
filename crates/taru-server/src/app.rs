@@ -23,6 +23,7 @@ mod catalog;
 mod jobs;
 mod library;
 mod metadata;
+mod metadata_runtime;
 mod nfo;
 pub(crate) mod playback;
 mod staging;
@@ -98,7 +99,7 @@ impl TaruApp {
                 nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 webhook_permits: Arc::new(Semaphore::new(config.webhook_concurrency.max(1))),
                 storage_backends: StorageBackendRegistry::new(&config, store.clone()),
-                metadata_providers: metadata::build_metadata_provider_registry(&config),
+                metadata_providers: metadata_runtime::build_metadata_provider_registry(&config)?,
                 remux: RemuxAppService::new(&config),
                 hls: HlsAppService::new(&config)?,
                 config,
