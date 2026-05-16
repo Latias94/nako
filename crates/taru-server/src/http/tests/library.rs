@@ -87,6 +87,87 @@ async fn nfo_routes_queue_background_jobs() {
 }
 
 #[tokio::test]
+async fn ingestion_failure_routes_list_and_ignore_failures() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    store
+        .record_ingestion_failure(NewIngestionFailure {
+            library_id,
+            job_id: None,
+            scan_id: None,
+            source_id: None,
+            phase: IngestionFailurePhase::Scan,
+            target_uri: "local:///Movies/Broken/".to_owned(),
+            target_kind: "directory".to_owned(),
+            failure_class: IngestionFailureClass::Storage,
+            message: "failed to list local directory".to_owned(),
+            retryable: true,
+            failed_at_ms: 1,
+        })
+        .await
+        .unwrap();
+    let router = build_router(app);
+    let path = format!("/libraries/{library_id}/ingestion/failures");
+
+    let open = request_json::<IngestionFailuresResponse>(&router, Method::GET, &path).await;
+    assert_eq!(open.failures.len(), 1);
+    assert_eq!(
+        open.failures[0].failure.status,
+        IngestionFailureStatus::Open
+    );
+    assert!(open.failures[0].retryable_now);
+
+    let ignored = request_body_json::<taru_api::IngestionFailureDiagnostic, _>(
+        &router,
+        Method::POST,
+        &path,
+        &IgnoreIngestionFailureRequest {
+            phase: IngestionFailurePhase::Scan,
+            target_uri: "local:///Movies/Broken/".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(ignored.failure.status, IngestionFailureStatus::Ignored);
+    assert!(!ignored.retryable_now);
+
+    let open_after_ignore =
+        request_json::<IngestionFailuresResponse>(&router, Method::GET, &path).await;
+    assert!(open_after_ignore.failures.is_empty());
+    let ignored_path = format!("{path}?status=ignored");
+    let ignored_list =
+        request_json::<IngestionFailuresResponse>(&router, Method::GET, &ignored_path).await;
+    assert_eq!(ignored_list.failures.len(), 1);
+}
+
+#[tokio::test]
 async fn missing_job_returns_404() {
     let temp = tempfile::tempdir().unwrap();
     let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;

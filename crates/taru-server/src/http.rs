@@ -28,7 +28,10 @@ use catalog::{
     search_items,
 };
 use jobs::get_job;
-use library::{export_nfo, import_nfo, list_libraries, list_library_sources, scan_library};
+use library::{
+    export_nfo, ignore_ingestion_failure, import_nfo, list_ingestion_failures, list_libraries,
+    list_library_sources, scan_library,
+};
 use metadata::{
     cleanup_metadata_raw_responses, enqueue_metadata_maintenance, list_item_metadata_attempts,
     list_item_metadata_raw_responses, list_metadata_providers, plan_metadata_maintenance,
@@ -53,6 +56,10 @@ pub fn build_router(app: TaruApp) -> Router {
         .route("/libraries/{library_id}/nfo/import", post(import_nfo))
         .route("/libraries/{library_id}/nfo/export", post(export_nfo))
         .route("/libraries/{library_id}/sources", get(list_library_sources))
+        .route(
+            "/libraries/{library_id}/ingestion/failures",
+            get(list_ingestion_failures).post(ignore_ingestion_failure),
+        )
         .route("/items", get(list_items))
         .route("/items/{item_id}", get(get_item))
         .route("/items/{item_id}/credits", get(list_item_credits))

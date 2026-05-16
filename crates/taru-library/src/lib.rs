@@ -1,12 +1,17 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    CanonicalMetadata, CatalogRepository, DirectorySnapshot, JobId, Library, LibraryId,
+    CanonicalMetadata, CatalogRepository, DirectorySnapshot, IngestionFailureClass,
+    IngestionFailurePhase, IngestionFailureRepository, JobId, Library, LibraryId,
     LibraryRepository, MediaItem, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
-    MediaSourceId, PageRequest, Result, ScanRepository, ScanSnapshotId, ScanStatus, SourceState,
+    MediaSourceId, NewIngestionFailure, PageRequest, Result, ScanRepository, ScanSnapshotId,
+    ScanStatus, SourceState, TaruError,
 };
 use taru_media_probe::{MediaProbe, MediaProbeRequest};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
@@ -32,6 +37,7 @@ pub struct LibraryScanSummary {
     pub used_stale_cache: bool,
     pub media_sources: Vec<DiscoveredMediaSource>,
     pub directories: Vec<ScannedDirectory>,
+    pub failures: Vec<LibraryScanFailure>,
 }
 
 #[async_trait]
@@ -56,6 +62,7 @@ pub struct LibraryIndexSummary {
     pub inserted_sources: u64,
     pub updated_sources: u64,
     pub tombstoned_sources: u64,
+    pub failed_entries: u64,
 }
 
 #[derive(Debug)]
@@ -103,8 +110,20 @@ pub struct LibraryProbeSummary {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryProbeFailure {
+    pub source_id: Option<MediaSourceId>,
     pub locator: String,
+    pub failure_class: IngestionFailureClass,
     pub message: String,
+    pub retryable: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryScanFailure {
+    pub uri: StorageUri,
+    pub target_kind: String,
+    pub failure_class: IngestionFailureClass,
+    pub message: String,
+    pub retryable: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -159,7 +178,7 @@ impl<B, P, R> LibraryProbeService<B, P, R>
 where
     B: StorageBackend,
     P: MediaProbe,
-    R: MediaRepository + MediaProbeRepository,
+    R: IngestionFailureRepository + MediaRepository + MediaProbeRepository,
 {
     pub async fn probe_library(&self, request: LibraryProbeRequest) -> Result<LibraryProbeSummary> {
         let sources = self.list_all_media_sources(request.library_id).await?;
@@ -186,6 +205,7 @@ where
                 ProbeSourceOutcome::Probed => summary.probed_sources += 1,
                 ProbeSourceOutcome::Skipped => summary.skipped_sources += 1,
                 ProbeSourceOutcome::Failed(failure) => {
+                    self.persist_probe_failure(&request, &failure).await?;
                     summary.failed_sources += 1;
                     summary.failures.push(failure);
                 }
@@ -227,18 +247,47 @@ where
         Ok(sources)
     }
 
+    async fn persist_probe_failure(
+        &self,
+        request: &LibraryProbeRequest,
+        failure: &LibraryProbeFailure,
+    ) -> Result<()> {
+        self.repository
+            .record_ingestion_failure(NewIngestionFailure {
+                library_id: request.library_id,
+                job_id: Some(request.job_id),
+                scan_id: None,
+                source_id: failure.source_id,
+                phase: IngestionFailurePhase::Probe,
+                target_uri: failure.locator.clone(),
+                target_kind: "source".to_owned(),
+                failure_class: failure.failure_class,
+                message: failure.message.clone(),
+                retryable: failure.retryable,
+                failed_at_ms: ingestion_failure_time_ms(),
+            })
+            .await?;
+
+        Ok(())
+    }
+
     async fn probe_source(&self, source: MediaSource, force: bool) -> ProbeSourceOutcome {
         if !force {
             match self.repository.get_media_probe(source.id).await {
-                Ok(Some(_existing)) => return ProbeSourceOutcome::Skipped,
+                Ok(Some(_existing)) => {
+                    return match self.resolve_probe_failure(&source).await {
+                        Ok(()) => ProbeSourceOutcome::Skipped,
+                        Err(err) => probe_failure(&source, err),
+                    };
+                }
                 Ok(None) => {}
-                Err(err) => return probe_failure(source.locator, err),
+                Err(err) => return probe_failure(&source, err),
             }
         }
 
         let uri = match StorageUri::parse(&source.locator) {
             Ok(uri) => uri,
-            Err(err) => return probe_failure(source.locator, err),
+            Err(err) => return probe_failure(&source, err),
         };
         let virtual_file = match self
             .backend
@@ -252,7 +301,7 @@ where
             .await
         {
             Ok(virtual_file) => virtual_file,
-            Err(err) => return probe_failure(source.locator, err),
+            Err(err) => return probe_failure(&source, err),
         };
         let local_path_hint = match virtual_file.local_path_hint {
             Some(path) => Some(path),
@@ -263,7 +312,7 @@ where
                     .await
                 {
                     Ok(staged) => Some(staged.path),
-                    Err(err) => return probe_failure(source.locator, err),
+                    Err(err) => return probe_failure(&source, err),
                 },
                 None => None,
             },
@@ -277,7 +326,7 @@ where
             .await
         {
             Ok(result) => result,
-            Err(err) => return probe_failure(source.locator, err),
+            Err(err) => return probe_failure(&source, err),
         };
 
         match self
@@ -285,9 +334,25 @@ where
             .upsert_media_probe(source.id, &probe_result)
             .await
         {
-            Ok(()) => ProbeSourceOutcome::Probed,
-            Err(err) => probe_failure(source.locator, err),
+            Ok(()) => match self.resolve_probe_failure(&source).await {
+                Ok(()) => ProbeSourceOutcome::Probed,
+                Err(err) => probe_failure(&source, err),
+            },
+            Err(err) => probe_failure(&source, err),
         }
+    }
+
+    async fn resolve_probe_failure(&self, source: &MediaSource) -> Result<()> {
+        self.repository
+            .resolve_ingestion_failure(
+                source.library_id,
+                IngestionFailurePhase::Probe,
+                &source.locator,
+                ingestion_failure_time_ms(),
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
@@ -297,17 +362,25 @@ enum ProbeSourceOutcome {
     Failed(LibraryProbeFailure),
 }
 
-fn probe_failure(locator: String, err: impl ToString) -> ProbeSourceOutcome {
+fn probe_failure(source: &MediaSource, err: TaruError) -> ProbeSourceOutcome {
     ProbeSourceOutcome::Failed(LibraryProbeFailure {
-        locator,
+        source_id: Some(source.id),
+        locator: source.locator.clone(),
+        failure_class: ingestion_failure_class(&err),
         message: err.to_string(),
+        retryable: ingestion_failure_is_retryable(&err),
     })
 }
 
 impl<S, R> LibraryIndexService<S, R>
 where
     S: LibraryScanner,
-    R: CatalogRepository + LibraryRepository + MediaRepository + ScanRepository + SearchIndex,
+    R: CatalogRepository
+        + IngestionFailureRepository
+        + LibraryRepository
+        + MediaRepository
+        + ScanRepository
+        + SearchIndex,
 {
     pub async fn index_library(&self, request: LibraryIndexRequest) -> Result<LibraryIndexSummary> {
         self.repository.upsert_library(&request.library).await?;
@@ -322,6 +395,7 @@ where
             inserted_sources: 0,
             updated_sources: 0,
             tombstoned_sources: 0,
+            failed_entries: 0,
         };
 
         let first_root = request
@@ -378,8 +452,13 @@ where
 
             summary.scanned_roots += 1;
             summary.discovered_files += scan.discovered_files;
-            if scan.used_stale_cache {
+            summary.failed_entries += scan.failures.len() as u64;
+            if scan.used_stale_cache || !scan.failures.is_empty() {
                 complete = false;
+            }
+
+            for failure in &scan.failures {
+                self.persist_scan_failure(request, scan_id, failure).await?;
             }
 
             for directory in scan.directories {
@@ -391,6 +470,14 @@ where
                         modified_at: directory.modified_at,
                         child_count: directory.child_count,
                     })
+                    .await?;
+                self.repository
+                    .resolve_ingestion_failure(
+                        request.library.id,
+                        IngestionFailurePhase::Scan,
+                        directory.uri.as_str(),
+                        ingestion_failure_time_ms(),
+                    )
                     .await?;
             }
 
@@ -428,6 +515,14 @@ where
                     .record_scanned_media_source(&item, &source, &state)
                     .await?;
                 self.rebuild_search_document(item, source).await?;
+                self.repository
+                    .resolve_ingestion_failure(
+                        request.library.id,
+                        IngestionFailurePhase::Scan,
+                        &locator,
+                        ingestion_failure_time_ms(),
+                    )
+                    .await?;
 
                 if existing.is_some() {
                     summary.updated_sources += 1;
@@ -438,6 +533,31 @@ where
         }
 
         Ok(IndexRootsOutcome { complete })
+    }
+
+    async fn persist_scan_failure(
+        &self,
+        request: &LibraryIndexRequest,
+        scan_id: ScanSnapshotId,
+        failure: &LibraryScanFailure,
+    ) -> Result<()> {
+        self.repository
+            .record_ingestion_failure(NewIngestionFailure {
+                library_id: request.library.id,
+                job_id: Some(request.job_id),
+                scan_id: Some(scan_id),
+                source_id: None,
+                phase: IngestionFailurePhase::Scan,
+                target_uri: failure.uri.as_str().to_owned(),
+                target_kind: failure.target_kind.clone(),
+                failure_class: failure.failure_class,
+                message: failure.message.clone(),
+                retryable: failure.retryable,
+                failed_at_ms: ingestion_failure_time_ms(),
+            })
+            .await?;
+
+        Ok(())
     }
 
     async fn rebuild_search_document(&self, item: MediaItem, source: MediaSource) -> Result<()> {
@@ -677,6 +797,7 @@ where
     async fn scan(&self, request: LibraryScanRequest) -> Result<LibraryScanSummary> {
         let mut media_sources = Vec::new();
         let mut directories = Vec::new();
+        let mut failures = Vec::new();
         let mut stack = vec![(request.root.clone(), 0_usize)];
 
         while let Some((uri, depth)) = stack.pop() {
@@ -684,12 +805,24 @@ where
                 continue;
             }
 
-            let metadata = self.backend.stat(&uri).await?;
+            let metadata = match self.backend.stat(&uri).await {
+                Ok(metadata) => metadata,
+                Err(err) => {
+                    failures.push(scan_failure(uri, "entry", err));
+                    continue;
+                }
+            };
             let metadata_stale = metadata_is_stale(&metadata);
 
             match metadata.kind {
                 ObjectKind::Directory => {
-                    let listing = self.backend.list_with_status(&uri).await?;
+                    let listing = match self.backend.list_with_status(&uri).await {
+                        Ok(listing) => listing,
+                        Err(err) => {
+                            failures.push(scan_failure(uri, "directory", err));
+                            continue;
+                        }
+                    };
                     let listing_stale = listing_is_stale(&listing);
                     let mut entries = listing.entries;
                     directories.push(ScannedDirectory {
@@ -722,6 +855,7 @@ where
             used_stale_cache: used_stale_cache(&media_sources, &directories),
             media_sources,
             directories,
+            failures,
         })
     }
 }
@@ -781,6 +915,44 @@ fn listing_is_stale(listing: &taru_vfs::ObjectListing) -> bool {
         .is_some_and(|cache| cache.state == ObjectCacheState::StaleFallback)
 }
 
+fn scan_failure(uri: StorageUri, target_kind: &str, err: TaruError) -> LibraryScanFailure {
+    LibraryScanFailure {
+        uri,
+        target_kind: target_kind.to_owned(),
+        failure_class: ingestion_failure_class(&err),
+        message: err.to_string(),
+        retryable: ingestion_failure_is_retryable(&err),
+    }
+}
+
+fn ingestion_failure_class(err: &TaruError) -> IngestionFailureClass {
+    match err {
+        TaruError::Storage { .. } => IngestionFailureClass::Storage,
+        TaruError::Provider { provider, .. } if provider == "ffprobe" => {
+            IngestionFailureClass::Probe
+        }
+        TaruError::Provider { .. } => IngestionFailureClass::Unknown,
+        TaruError::Database { .. } => IngestionFailureClass::Database,
+        TaruError::InvalidInput { .. } => IngestionFailureClass::InvalidInput,
+        TaruError::Unsupported(_) => IngestionFailureClass::Unsupported,
+        TaruError::NotFound { .. } | TaruError::Conflict { .. } => IngestionFailureClass::Unknown,
+    }
+}
+
+fn ingestion_failure_is_retryable(err: &TaruError) -> bool {
+    matches!(
+        err,
+        TaruError::Storage { .. } | TaruError::Provider { .. } | TaruError::Database { .. }
+    )
+}
+
+fn ingestion_failure_time_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| i64::try_from(duration.as_millis()).unwrap_or(i64::MAX))
+        .unwrap_or_default()
+}
+
 fn extension(path: &str) -> Option<&str> {
     let file_name = path.rsplit('/').next()?;
     let (_stem, extension) = file_name.rsplit_once('.')?;
@@ -815,15 +987,16 @@ mod tests {
         routing::any,
     };
     use taru_core::{
-        LibraryOptions, LibraryPreset, MediaKind, MediaProbeRepository, MediaProbeResult,
-        MediaRepository, MediaStreamInfo, MediaStreamKind, ScanRepository, TaruError,
-        TransactionManager,
+        IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
+        IngestionFailureStatus, LibraryOptions, LibraryPreset, MediaKind, MediaProbeRepository,
+        MediaProbeResult, MediaRepository, MediaStreamInfo, MediaStreamKind, ScanRepository,
+        TaruError, TransactionManager,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
     use taru_vfs::{
-        CachedStorageBackend, LocalFsBackend, StorageCapabilities, VfsCacheOptions, WebDavBackend,
-        WebDavBackendConfig,
+        CachedStorageBackend, LocalFsBackend, ObjectListing, StorageCapabilities, VfsCacheOptions,
+        WebDavBackend, WebDavBackendConfig,
     };
     use tokio::time::sleep;
 
@@ -935,6 +1108,43 @@ mod tests {
         assert!(!summary.media_sources[0].uri.as_str().contains('@'));
         assert_eq!(summary.directories.len(), 1);
         assert_eq!(summary.directories[0].uri.as_str(), "webdav:///Movies/");
+    }
+
+    #[tokio::test]
+    async fn webdav_scan_records_partial_directory_failures() {
+        let server = PartialFailureWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig {
+            base_url: server.base_url(),
+            username: None,
+            password_env: None,
+            timeout_ms: 5_000,
+            max_attempts: 1,
+        })
+        .unwrap();
+        let scanner = VfsLibraryScanner::new(backend);
+
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id: LibraryId::new(),
+                root: StorageUri::from_parts("webdav", "Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert_eq!(
+            summary.media_sources[0].uri.as_str(),
+            "webdav:///Movies/Good.mkv"
+        );
+        assert_eq!(summary.failures.len(), 1);
+        assert_eq!(summary.failures[0].uri.as_str(), "webdav:///Movies/Broken/");
+        assert_eq!(
+            summary.failures[0].failure_class,
+            IngestionFailureClass::Storage
+        );
+        assert!(summary.failures[0].retryable);
     }
 
     #[tokio::test]
@@ -1374,6 +1584,58 @@ mod tests {
         assert!(!missing_state.tombstoned);
     }
 
+    #[tokio::test]
+    async fn index_service_records_scan_failures_without_blocking_good_sources() {
+        let backend = PartiallyFailingScanBackend;
+        let scanner = VfsLibraryScanner::new(backend);
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["fixture:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+
+        let summary = service
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library: library.clone(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let sources = store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap();
+        let failures = store
+            .list_ingestion_failures(
+                IngestionFailureFilter {
+                    library_id: Some(library.id),
+                    phase: Some(IngestionFailurePhase::Scan),
+                    status: Some(IngestionFailureStatus::Open),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert_eq!(summary.inserted_sources, 1);
+        assert_eq!(summary.failed_entries, 1);
+        assert_eq!(summary.tombstoned_sources, 0);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].locator, "fixture:///Movies/Good.mkv");
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].target_uri, "fixture:///Movies/Broken/");
+        assert_eq!(failures[0].phase, IngestionFailurePhase::Scan);
+        assert_eq!(failures[0].status, IngestionFailureStatus::Open);
+        assert!(failures[0].retryable);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn probe_service_uses_bounded_concurrency_and_persists_results() {
         let temp = tempfile::tempdir().unwrap();
@@ -1512,6 +1774,21 @@ mod tests {
         assert_eq!(second_summary.probed_sources, 0);
         assert_eq!(second_summary.skipped_sources, 1);
         assert_eq!(second_summary.failed_sources, 1);
+
+        let failures = store
+            .list_ingestion_failures(
+                IngestionFailureFilter {
+                    library_id: Some(library.id),
+                    phase: Some(IngestionFailurePhase::Probe),
+                    status: Some(IngestionFailureStatus::Open),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].attempts, 2);
+        assert!(failures[0].target_uri.contains("Bad Movie"));
     }
 
     #[derive(Clone, Default)]
@@ -1564,6 +1841,91 @@ mod tests {
                     sample_rate: None,
                 }],
             })
+        }
+    }
+
+    #[derive(Clone)]
+    struct PartiallyFailingScanBackend;
+
+    impl PartiallyFailingScanBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(4),
+                modified_at: Some("100".to_owned()),
+                etag: None,
+                fingerprint: Some("fixture:fingerprint".to_owned()),
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl StorageBackend for PartiallyFailingScanBackend {
+        fn scheme(&self) -> &'static str {
+            "fixture"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() == "fixture:///Movies/Broken/" {
+                return Err(TaruError::Storage {
+                    uri: uri.to_string(),
+                    message: "fixture directory is unreadable".to_owned(),
+                });
+            }
+
+            if uri.as_str() == "fixture:///Movies" {
+                return Ok(ObjectListing {
+                    entries: vec![
+                        Self::metadata(StorageUri::parse("fixture:///Movies/Good.mkv").unwrap()),
+                        Self::metadata(StorageUri::parse("fixture:///Movies/Broken/").unwrap()),
+                    ],
+                    cache: None,
+                });
+            }
+
+            Ok(ObjectListing {
+                entries: Vec::new(),
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<taru_vfs::VirtualFile> {
+            Ok(taru_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(TaruError::Unsupported("fixture backend does not read text"))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(TaruError::Unsupported(
+                "fixture backend does not write text",
+            ))
         }
     }
 
@@ -1741,6 +2103,82 @@ mod tests {
 </D:multistatus>"#,
             )
                 .into_response();
+        }
+
+        StatusCode::NOT_FOUND.into_response()
+    }
+
+    struct PartialFailureWebDavServer {
+        addr: std::net::SocketAddr,
+    }
+
+    impl PartialFailureWebDavServer {
+        async fn start() -> Self {
+            let router = Router::new().route("/{*path}", any(partial_failure_webdav_handler));
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                axum::serve(listener, router).await.unwrap();
+            });
+
+            Self { addr }
+        }
+
+        fn base_url(&self) -> String {
+            format!("http://{}/dav", self.addr)
+        }
+    }
+
+    async fn partial_failure_webdav_handler(
+        method: axum::http::Method,
+        uri: axum::http::Uri,
+    ) -> Response {
+        let path = uri.path();
+
+        if method.as_str() != "PROPFIND" {
+            return StatusCode::METHOD_NOT_ALLOWED.into_response();
+        }
+
+        if path.ends_with("/Movies/") || path.ends_with("/Movies") {
+            return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/Movies/</D:href>
+    <D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype><D:getetag>"movies"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/dav/Movies/Good.mkv</D:href>
+    <D:propstat><D:prop><D:resourcetype/><D:getcontentlength>4</D:getcontentlength><D:getetag>"good"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/dav/Movies/Broken/</D:href>
+    <D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype><D:getetag>"broken"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+</D:multistatus>"#,
+            )
+                .into_response();
+        }
+
+        if path.ends_with("/Movies/Good.mkv") {
+            return (
+                StatusCode::MULTI_STATUS,
+                [(header::CONTENT_TYPE, "application/xml")],
+                r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/Movies/Good.mkv</D:href>
+    <D:propstat><D:prop><D:resourcetype/><D:getcontentlength>4</D:getcontentlength><D:getetag>"good"</D:getetag></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>
+  </D:response>
+</D:multistatus>"#,
+            )
+                .into_response();
+        }
+
+        if path.ends_with("/Movies/Broken/") || path.ends_with("/Movies/Broken") {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
 
         StatusCode::NOT_FOUND.into_response()

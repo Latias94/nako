@@ -3,7 +3,9 @@ use std::{path::PathBuf, process::ExitCode};
 use axum::Router;
 use clap::{Parser, Subcommand};
 use serde::Serialize;
-use taru_core::{LibraryId, MediaItemId, Result, TaruError};
+use taru_core::{
+    IngestionFailurePhase, IngestionFailureStatus, LibraryId, MediaItemId, Result, TaruError,
+};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -44,6 +46,17 @@ enum Command {
     List {
         #[arg(long)]
         library_id: Option<LibraryId>,
+    },
+    /// List scan/probe ingestion failures as JSON.
+    IngestionFailures {
+        #[arg(long)]
+        library_id: Option<LibraryId>,
+        #[arg(long)]
+        phase: Option<IngestionFailurePhase>,
+        #[arg(long)]
+        status: Option<IngestionFailureStatus>,
+        #[arg(long)]
+        all: bool,
     },
     /// Refresh TMDB metadata for one indexed media item.
     RefreshMetadata { item_id: MediaItemId },
@@ -97,6 +110,31 @@ async fn run(cli: Cli) -> Result<()> {
             print_json(
                 &app.list_library_sources(library_id, taru_core::PageRequest::first_page())
                     .await?,
+            )
+        }
+        Command::IngestionFailures {
+            library_id,
+            phase,
+            status,
+            all,
+        } => {
+            let config = load_config(&cli.config)?;
+            let app = TaruApp::new(config).await?;
+            let library_id =
+                resolve_cli_library_id(app.config(), library_id, "ingestion-failures")?;
+            let status = if all {
+                None
+            } else {
+                status.or(Some(IngestionFailureStatus::Open))
+            };
+            print_json(
+                &app.list_ingestion_failures(
+                    library_id,
+                    phase,
+                    status,
+                    taru_core::PageRequest::first_page(),
+                )
+                .await?,
             )
         }
         Command::RefreshMetadata { item_id } => {

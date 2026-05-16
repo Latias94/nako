@@ -4,10 +4,11 @@ use crate::{
     AddonId, AddonRegistrationRecord, AddonStatus, ArtworkTask, ArtworkTaskId,
     AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
     AutomationProviderConfigRecord, AutomationProviderId, Collection, CollectionId, CollectionItem,
-    DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId,
-    MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewMetadataProviderAttempt,
+    DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset, ImageAssetId,
+    IngestionFailureFilter, IngestionFailureRecord, IngestionFailureStatus, ItemCredit, ItemGenre,
+    ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem, MediaItemId, MediaProbeResult,
+    MediaSource, MediaSourceId, MetadataFieldLock, NewAddonRegistration, NewAutomationArtifact,
+    NewAutomationProviderConfig, NewIngestionFailure, NewJob, NewMetadataProviderAttempt,
     NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person, PersonId,
     ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
@@ -264,6 +265,43 @@ pub trait ScanRepository: Send + Sync {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<SourceState>>;
+}
+
+#[async_trait]
+pub trait IngestionFailureRepository: Send + Sync {
+    async fn record_ingestion_failure(
+        &self,
+        failure: NewIngestionFailure,
+    ) -> Result<IngestionFailureRecord>;
+
+    async fn resolve_ingestion_failure(
+        &self,
+        library_id: LibraryId,
+        phase: crate::IngestionFailurePhase,
+        target_uri: &str,
+        resolved_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>>;
+
+    async fn ignore_ingestion_failure(
+        &self,
+        library_id: LibraryId,
+        phase: crate::IngestionFailurePhase,
+        target_uri: &str,
+        ignored_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>>;
+
+    async fn list_ingestion_failures(
+        &self,
+        filter: IngestionFailureFilter,
+        page: PageRequest,
+    ) -> Result<Vec<IngestionFailureRecord>>;
+
+    async fn count_ingestion_failures(
+        &self,
+        library_id: LibraryId,
+        phase: Option<crate::IngestionFailurePhase>,
+        status: IngestionFailureStatus,
+    ) -> Result<u64>;
 }
 
 #[async_trait]

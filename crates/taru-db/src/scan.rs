@@ -238,9 +238,11 @@ async fn upsert_source_state_in_transaction(
 #[cfg(test)]
 mod tests {
     use taru_core::{
-        CanonicalMetadata, Library, LibraryId, LibraryOptions, LibraryRepository, MediaItem,
-        MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId, ScanRepository,
-        ScanSnapshotId, SourceState, TransactionManager,
+        CanonicalMetadata, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+        IngestionFailureRepository, IngestionFailureStatus, Library, LibraryId, LibraryOptions,
+        LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
+        MediaSourceId, NewIngestionFailure, PageRequest, ScanRepository, ScanSnapshotId,
+        SourceState, TransactionManager,
     };
 
     use crate::SqliteStore;
@@ -312,6 +314,141 @@ mod tests {
             store.get_source_state(library_id, locator).await.unwrap(),
             None
         );
+    }
+
+    #[tokio::test]
+    async fn ingestion_failures_upsert_resolve_ignore_and_filter() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let scan_id = ScanSnapshotId::new();
+        let source_id = MediaSourceId::new();
+        let item_id = MediaItemId::new();
+        let locator = "local:///Movies/Broken.mkv";
+
+        store
+            .upsert_library(&Library {
+                id: library_id,
+                name: "Movies".to_owned(),
+                roots: vec!["local:///Movies".to_owned()],
+                options: LibraryOptions::default(),
+            })
+            .await
+            .unwrap();
+        store
+            .begin_scan_snapshot(scan_id, library_id, "local:///Movies")
+            .await
+            .unwrap();
+        store
+            .upsert_media_item(&media_item(item_id, "Broken"))
+            .await
+            .unwrap();
+        store
+            .upsert_media_source(&media_source(library_id, item_id, source_id, locator))
+            .await
+            .unwrap();
+
+        let first = store
+            .record_ingestion_failure(NewIngestionFailure {
+                library_id,
+                job_id: None,
+                scan_id: Some(scan_id),
+                source_id: Some(source_id),
+                phase: IngestionFailurePhase::Probe,
+                target_uri: locator.to_owned(),
+                target_kind: "source".to_owned(),
+                failure_class: IngestionFailureClass::Probe,
+                message: "ffprobe failed".to_owned(),
+                retryable: true,
+                failed_at_ms: 10,
+            })
+            .await
+            .unwrap();
+        let second = store
+            .record_ingestion_failure(NewIngestionFailure {
+                message: "ffprobe still failed".to_owned(),
+                failed_at_ms: 20,
+                ..NewIngestionFailure {
+                    library_id,
+                    job_id: None,
+                    scan_id: Some(scan_id),
+                    source_id: Some(source_id),
+                    phase: IngestionFailurePhase::Probe,
+                    target_uri: locator.to_owned(),
+                    target_kind: "source".to_owned(),
+                    failure_class: IngestionFailureClass::Probe,
+                    message: "unused".to_owned(),
+                    retryable: true,
+                    failed_at_ms: 0,
+                }
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(first.attempts, 1);
+        assert_eq!(second.attempts, 2);
+        assert_eq!(second.status, IngestionFailureStatus::Open);
+        assert_eq!(second.message, "ffprobe still failed");
+        assert_eq!(
+            store
+                .count_ingestion_failures(
+                    library_id,
+                    Some(IngestionFailurePhase::Probe),
+                    IngestionFailureStatus::Open
+                )
+                .await
+                .unwrap(),
+            1
+        );
+
+        let resolved = store
+            .resolve_ingestion_failure(library_id, IngestionFailurePhase::Probe, locator, 30)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(resolved.status, IngestionFailureStatus::Resolved);
+        assert_eq!(resolved.resolved_at_ms, Some(30));
+
+        let reopened = store
+            .record_ingestion_failure(NewIngestionFailure {
+                library_id,
+                job_id: None,
+                scan_id: Some(scan_id),
+                source_id: Some(source_id),
+                phase: IngestionFailurePhase::Probe,
+                target_uri: locator.to_owned(),
+                target_kind: "source".to_owned(),
+                failure_class: IngestionFailureClass::Probe,
+                message: "ffprobe failed again".to_owned(),
+                retryable: true,
+                failed_at_ms: 40,
+            })
+            .await
+            .unwrap();
+        assert_eq!(reopened.status, IngestionFailureStatus::Open);
+        assert_eq!(reopened.attempts, 3);
+        assert_eq!(reopened.resolved_at_ms, None);
+
+        let ignored = store
+            .ignore_ingestion_failure(library_id, IngestionFailurePhase::Probe, locator, 50)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(ignored.status, IngestionFailureStatus::Ignored);
+        assert_eq!(ignored.ignored_at_ms, Some(50));
+
+        let records = store
+            .list_ingestion_failures(
+                IngestionFailureFilter {
+                    library_id: Some(library_id),
+                    phase: Some(IngestionFailurePhase::Probe),
+                    status: Some(IngestionFailureStatus::Ignored),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(records, vec![ignored]);
     }
 
     fn media_item(id: MediaItemId, title: &str) -> MediaItem {

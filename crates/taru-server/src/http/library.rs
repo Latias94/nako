@@ -4,13 +4,16 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use taru_api::JobResponse;
-use taru_core::LibraryId;
+use taru_api::{IgnoreIngestionFailureRequest, JobResponse};
+use taru_core::{IngestionFailureStatus, LibraryId};
 use tracing::instrument;
 
 use crate::app::TaruApp;
 
-use super::{error::ApiResult, query::PageQuery};
+use super::{
+    error::ApiResult,
+    query::{IngestionFailureQuery, PageQuery},
+};
 
 #[instrument(skip(app))]
 pub(super) async fn list_libraries(
@@ -58,6 +61,35 @@ pub(super) async fn list_library_sources(
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(
         app.list_library_sources(library_id, page.try_into()?)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_ingestion_failures(
+    State(app): State<TaruApp>,
+    Path(library_id): Path<LibraryId>,
+    Query(query): Query<IngestionFailureQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.list_ingestion_failures(
+            library_id,
+            query.phase,
+            query.status.or(Some(IngestionFailureStatus::Open)),
+            query.page.try_into()?,
+        )
+        .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn ignore_ingestion_failure(
+    State(app): State<TaruApp>,
+    Path(library_id): Path<LibraryId>,
+    Json(request): Json<IgnoreIngestionFailureRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.ignore_ingestion_failure(library_id, request.phase, &request.target_uri)
             .await?,
     ))
 }

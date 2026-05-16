@@ -111,7 +111,10 @@
 - [x] Persist scan snapshots and directory snapshots.
 - [x] Persist source state with fingerprint, last-seen scan, and tombstone flag.
 - [x] Rebuild search projection when scan ingestion creates or updates an item.
-- [ ] Add scan failure table for isolated per-directory/per-object errors.
+- [x] Add scan/probe failure table for isolated per-directory/per-source errors.
+- [x] Keep partial scan failures from tombstoning sources from incomplete passes.
+- [x] Add ingestion failure diagnostics API and CLI query surface.
+- [x] Add ignore semantics for expected ingestion failures.
 - [ ] Add rename/move detection using strong fingerprints when available.
 
 ## Streaming and Transcoding

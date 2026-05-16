@@ -4,12 +4,12 @@ use taru_core::{
     AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
     AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
     AutomationProviderStatus, CollectionItem, EventId, ExternalProvider, Genre, ImageAsset,
-    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId,
-    MediaItem, MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId,
-    MetadataProfile, MetadataProviderAttemptRecord, MetadataRefreshMode, OutboxEventRecord,
-    PageRequest, Person, ProviderRawResponse, ProviderRawResponseCleanup, Tag,
-    TranscodeSessionRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord,
-    WebhookEndpointStatus,
+    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, ItemCredit, ItemGenre,
+    ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId, MediaItem,
+    MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId, MetadataProfile,
+    MetadataProviderAttemptRecord, MetadataRefreshMode, OutboxEventRecord, PageRequest, Person,
+    ProviderRawResponse, ProviderRawResponseCleanup, Tag, TranscodeSessionRecord,
+    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use taru_streaming::PlaybackDecision;
 
@@ -110,6 +110,37 @@ pub struct LibrarySourcesResponse {
     pub library: Library,
     pub sources: Vec<LibrarySourceResponse>,
     pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct IngestionFailuresResponse {
+    pub library_id: LibraryId,
+    pub failures: Vec<IngestionFailureDiagnostic>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct IngestionFailureDiagnostic {
+    #[serde(flatten)]
+    pub failure: IngestionFailureRecord,
+    pub retryable_now: bool,
+}
+
+impl IngestionFailureDiagnostic {
+    #[must_use]
+    pub fn from_record(failure: IngestionFailureRecord) -> Self {
+        let retryable_now = failure.status == IngestionFailureStatus::Open && failure.retryable;
+        Self {
+            failure,
+            retryable_now,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct IgnoreIngestionFailureRequest {
+    pub phase: IngestionFailurePhase,
+    pub target_uri: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

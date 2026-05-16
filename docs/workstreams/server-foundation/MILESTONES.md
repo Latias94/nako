@@ -646,3 +646,30 @@ Exit criteria:
 - `cargo check -p taru-server --tests`
 - `cargo nextest run -p taru-server`
 - `git diff --check`
+
+## M22: Ingestion Failure Diagnostics
+
+Outcome: scan and probe failures are isolated, durable, and diagnosable without
+turning partial local or remote ingestion failures into opaque whole-library
+failures.
+
+Deliverables:
+
+- Add an `ingestion_failures` persistence model for scan and probe failures.
+- Record scan directory/object failures without blocking successful sibling
+  media sources.
+- Record per-source probe/open/stage/ffprobe failures without blocking other
+  sources.
+- Keep partial scan failures from tombstoning existing sources from incomplete
+  passes.
+- Add retry/resolve semantics through repeated successful ingestion and ignore
+  semantics for expected failures.
+- Expose HTTP and CLI diagnostics for open, resolved, and ignored failures.
+- Include scan/probe failure counts in job summaries and library scanned events.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`

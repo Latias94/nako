@@ -1,5 +1,7 @@
 use serde::Deserialize;
-use taru_core::{AddonStatus, PageRequest, TaruError};
+use taru_core::{
+    AddonStatus, IngestionFailurePhase, IngestionFailureStatus, PageRequest, TaruError,
+};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 pub(super) struct PageQuery {
@@ -19,6 +21,14 @@ pub(super) struct SearchPageQuery {
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 pub(super) struct AddonListQuery {
     pub(super) status: Option<AddonStatus>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub(super) struct IngestionFailureQuery {
+    pub(super) phase: Option<IngestionFailurePhase>,
+    pub(super) status: Option<IngestionFailureStatus>,
+    #[serde(flatten)]
+    pub(super) page: PageQuery,
 }
 
 impl TryFrom<PageQuery> for PageRequest {

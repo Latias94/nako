@@ -11,9 +11,9 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus is storage runtime boundary hardening after server
-surface decomposition. The local video-library playback MVP was stabilized in
-[Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
+Current implementation focus is ingestion failure isolation and diagnostics
+after storage runtime boundary hardening. The local video-library playback MVP
+was stabilized in [Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
 
 ## Goals
 

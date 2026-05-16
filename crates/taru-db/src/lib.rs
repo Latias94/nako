@@ -9,13 +9,15 @@ use taru_core::{
     AutomationRepository, CanonicalMetadata, CatalogRepository, Collection, CollectionId,
     CollectionItem, CreditRole, DirectorySnapshot, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId,
-    ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
-    JobRepository, JobStatus, Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain,
-    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
-    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptRecord,
-    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
-    NewAddonRegistration, NewAutomationArtifact, NewAutomationProviderConfig, NewJob,
+    ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+    IngestionFailureRecord, IngestionFailureRepository, IngestionFailureStatus, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobRepository, JobStatus, Library,
+    LibraryId, LibraryOptions, LibraryRepository, MediaDomain, MediaItem, MediaItemId, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
+    MetadataMatchKind, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
+    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewAddonRegistration,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
     NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
     PageRequest, Person, PersonId, ProviderRawResponse, ProviderRawResponseCleanup,
@@ -40,6 +42,7 @@ mod automation;
 mod catalog;
 mod codec;
 mod event_outbox;
+mod ingestion;
 mod jobs;
 mod library;
 mod media;

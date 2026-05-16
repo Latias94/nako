@@ -194,6 +194,30 @@ pub(crate) fn parse_transcode_failure_category(
         .transpose()
 }
 
+pub(crate) fn ingestion_failure_phase_to_str(phase: IngestionFailurePhase) -> &'static str {
+    phase.as_str()
+}
+
+pub(crate) fn parse_ingestion_failure_phase(value: String) -> Result<IngestionFailurePhase> {
+    IngestionFailurePhase::parse(&value)
+}
+
+pub(crate) fn ingestion_failure_class_to_str(class: IngestionFailureClass) -> &'static str {
+    class.as_str()
+}
+
+pub(crate) fn parse_ingestion_failure_class(value: String) -> Result<IngestionFailureClass> {
+    IngestionFailureClass::parse(&value)
+}
+
+pub(crate) fn ingestion_failure_status_to_str(status: IngestionFailureStatus) -> &'static str {
+    status.as_str()
+}
+
+pub(crate) fn parse_ingestion_failure_status(value: String) -> Result<IngestionFailureStatus> {
+    IngestionFailureStatus::parse(&value)
+}
+
 pub(crate) fn credit_role_to_parts(role: &CreditRole) -> (String, String) {
     match role {
         CreditRole::Actor => ("actor".to_owned(), String::new()),
@@ -785,6 +809,27 @@ pub(crate) fn row_to_source_state(row: SqliteRow) -> Result<SourceState> {
         fingerprint: row_get(&row, "fingerprint")?,
         last_seen_scan_id: parse_id(row_get::<String>(&row, "last_seen_scan_id")?)?,
         tombstoned: i64_to_bool(row_get(&row, "tombstoned")?)?,
+    })
+}
+
+pub(crate) fn row_to_ingestion_failure(row: SqliteRow) -> Result<IngestionFailureRecord> {
+    Ok(IngestionFailureRecord {
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        job_id: parse_optional_id(row_get::<Option<String>>(&row, "job_id")?)?,
+        scan_id: parse_optional_id(row_get::<Option<String>>(&row, "scan_id")?)?,
+        source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
+        phase: parse_ingestion_failure_phase(row_get(&row, "phase")?)?,
+        target_uri: row_get(&row, "target_uri")?,
+        target_kind: row_get(&row, "target_kind")?,
+        failure_class: parse_ingestion_failure_class(row_get(&row, "failure_class")?)?,
+        status: parse_ingestion_failure_status(row_get(&row, "status")?)?,
+        message: row_get(&row, "message")?,
+        retryable: i64_to_bool(row_get(&row, "retryable")?)?,
+        attempts: i64_to_u32(row_get(&row, "attempts")?)?,
+        first_failed_at_ms: row_get(&row, "first_failed_at_ms")?,
+        last_failed_at_ms: row_get(&row, "last_failed_at_ms")?,
+        resolved_at_ms: row_get(&row, "resolved_at_ms")?,
+        ignored_at_ms: row_get(&row, "ignored_at_ms")?,
     })
 }
 

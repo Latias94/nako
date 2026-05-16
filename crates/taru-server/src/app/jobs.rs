@@ -186,6 +186,7 @@ impl TaruApp {
             "inserted_sources": index.inserted_sources,
             "updated_sources": index.updated_sources,
             "tombstoned_sources": index.tombstoned_sources,
+            "failed_scan_entries": index.failed_entries,
             "probed_sources": probe.probed_sources,
             "failed_probe_sources": probe.failed_sources,
         });
