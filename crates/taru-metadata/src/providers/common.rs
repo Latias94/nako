@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue};
-use taru_core::{ExternalProvider, ImageKind, ImageRef, Result, TaruError};
+use taru_core::{ExternalProvider, ImageKind, ImageRef, Result, SecretString, TaruError};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::TMDB_PROVIDER_NAME;
@@ -31,34 +31,37 @@ pub(crate) fn provider_parse_error(
     }
 }
 
-pub(crate) fn bearer_headers(token: &str) -> Result<HeaderMap> {
+pub(crate) fn bearer_headers(token: &SecretString) -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
-    let value = HeaderValue::from_str(&format!("Bearer {token}")).map_err(|err| {
-        TaruError::InvalidInput {
-            message: format!("invalid bearer token for metadata provider header: {err}"),
-        }
-    })?;
+    let value =
+        HeaderValue::from_str(&format!("Bearer {}", token.expose_secret())).map_err(|err| {
+            TaruError::InvalidInput {
+                message: format!("invalid bearer token for metadata provider header: {err}"),
+            }
+        })?;
     headers.insert(AUTHORIZATION, value);
     Ok(headers)
 }
 
-pub(crate) fn api_key_query(name: &str, value: &Option<String>) -> Vec<(String, String)> {
+pub(crate) fn api_key_query(name: &str, value: &Option<SecretString>) -> Vec<(String, String)> {
     value
         .as_ref()
-        .filter(|value| !value.trim().is_empty())
-        .map(|value| vec![(name.to_owned(), value.clone())])
+        .filter(|value| !value.is_blank())
+        .map(|value| vec![(name.to_owned(), value.expose_secret().to_owned())])
         .unwrap_or_default()
 }
 
-pub(crate) fn header_map_from_pairs(pairs: &[(String, String)]) -> Result<HeaderMap> {
+pub(crate) fn header_map_from_pairs(pairs: &[(String, SecretString)]) -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     for (name, value) in pairs {
         let name =
             HeaderName::from_bytes(name.as_bytes()).map_err(|err| TaruError::InvalidInput {
                 message: format!("invalid metadata provider header name {name}: {err}"),
             })?;
-        let value = HeaderValue::from_str(value).map_err(|err| TaruError::InvalidInput {
-            message: format!("invalid metadata provider header value for {name}: {err}"),
+        let value = HeaderValue::from_str(value.expose_secret()).map_err(|err| {
+            TaruError::InvalidInput {
+                message: format!("invalid metadata provider header value for {name}: {err}"),
+            }
         })?;
         headers.insert(name, value);
     }

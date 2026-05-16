@@ -1,9 +1,6 @@
 use std::{fmt::Display, path::PathBuf, str::FromStr};
 
-use sqlx::{
-    Decode, Row, Sqlite, SqlitePool, Type,
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
-};
+use sqlx::{Decode, Row, Sqlite, SqlitePool, Type, sqlite::SqliteRow};
 use taru_core::{
     AddonId, AddonRegistrationRecord, AddonRepository, AddonStatus, ArtworkTask, ArtworkTaskId,
     ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactId, AutomationArtifactKind,
@@ -23,168 +20,18 @@ use taru_core::{
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
     PageRequest, Person, PersonId, ProviderRawResponse, ProviderRawResponseCleanup,
     ProviderRawResponseFilter, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
-    SourceState, Studio, StudioId, Tag, TagId, TaruError, TransactionManager,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
-    WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
-    WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus, WebhookRepository,
+    SourceState, Studio, StudioId, Tag, TagId, TaruError, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionState, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryAttemptId,
+    WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
+    WebhookEndpointStatus, WebhookRepository,
 };
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
-
-const MIGRATIONS: &[(&str, &str)] = &[
-    (
-        "0001_initial",
-        include_str!("../migrations/0001_initial.sql"),
-    ),
-    (
-        "0002_media_probe",
-        include_str!("../migrations/0002_media_probe.sql"),
-    ),
-    ("0003_jobs", include_str!("../migrations/0003_jobs.sql")),
-    (
-        "0004_job_input_payload",
-        include_str!("../migrations/0004_job_input_payload.sql"),
-    ),
-    (
-        "0005_metadata_policy",
-        include_str!("../migrations/0005_metadata_policy.sql"),
-    ),
-    (
-        "0006_library_profiles",
-        include_str!("../migrations/0006_library_profiles.sql"),
-    ),
-    (
-        "0007_catalog_ingestion",
-        include_str!("../migrations/0007_catalog_ingestion.sql"),
-    ),
-    (
-        "0008_transcode_sessions",
-        include_str!("../migrations/0008_transcode_sessions.sql"),
-    ),
-    (
-        "0009_event_outbox",
-        include_str!("../migrations/0009_event_outbox.sql"),
-    ),
-    (
-        "0010_webhooks",
-        include_str!("../migrations/0010_webhooks.sql"),
-    ),
-    (
-        "0011_automation",
-        include_str!("../migrations/0011_automation.sql"),
-    ),
-    ("0012_addons", include_str!("../migrations/0012_addons.sql")),
-    (
-        "0013_vfs_cache",
-        include_str!("../migrations/0013_vfs_cache.sql"),
-    ),
-    (
-        "0014_staging_manifest",
-        include_str!("../migrations/0014_staging_manifest.sql"),
-    ),
-    (
-        "0015_media_source_library_locator",
-        include_str!("../migrations/0015_media_source_library_locator.sql"),
-    ),
-    (
-        "0016_metadata_provider_attempts",
-        include_str!("../migrations/0016_metadata_provider_attempts.sql"),
-    ),
-];
 
 #[derive(Clone, Debug)]
 pub struct SqliteStore {
     pool: SqlitePool,
-}
-
-impl SqliteStore {
-    pub async fn connect(database_url: &str) -> Result<Self> {
-        let options = SqliteConnectOptions::from_str(database_url)
-            .map_err(database_error)?
-            .create_if_missing(true)
-            .foreign_keys(true);
-
-        Self::connect_with(options).await
-    }
-
-    pub async fn connect_in_memory() -> Result<Self> {
-        let options = SqliteConnectOptions::from_str("sqlite::memory:")
-            .map_err(database_error)?
-            .foreign_keys(true);
-
-        Self::connect_with(options).await
-    }
-
-    async fn connect_with(options: SqliteConnectOptions) -> Result<Self> {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(options)
-            .await
-            .map_err(database_error)?;
-
-        Ok(Self { pool })
-    }
-
-    #[must_use]
-    pub fn pool(&self) -> &SqlitePool {
-        &self.pool
-    }
-}
-
-#[async_trait::async_trait]
-impl TransactionManager for SqliteStore {
-    async fn migrate(&self) -> Result<()> {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS taru_schema_migrations (
-                version TEXT PRIMARY KEY NOT NULL,
-                applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        for (version, sql) in MIGRATIONS {
-            let already_applied = sqlx::query(
-                r#"
-                SELECT version
-                FROM taru_schema_migrations
-                WHERE version = ?1
-                "#,
-            )
-            .bind(*version)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(database_error)?
-            .is_some();
-
-            if already_applied {
-                continue;
-            }
-
-            let mut transaction = self.pool.begin().await.map_err(database_error)?;
-
-            for statement in split_sql_statements(sql) {
-                sqlx::query(&statement)
-                    .execute(&mut *transaction)
-                    .await
-                    .map_err(database_error)?;
-            }
-
-            sqlx::query("INSERT INTO taru_schema_migrations (version) VALUES (?1)")
-                .bind(*version)
-                .execute(&mut *transaction)
-                .await
-                .map_err(database_error)?;
-
-            transaction.commit().await.map_err(database_error)?;
-        }
-
-        Ok(())
-    }
 }
 
 mod artwork;
@@ -193,7 +40,9 @@ mod jobs;
 mod library;
 mod media;
 mod metadata;
+mod migrations;
 mod playback;
+mod runtime;
 mod scan;
 mod search;
 mod staging;
@@ -1207,14 +1056,6 @@ fn metadata_field_from_str(value: &str) -> Result<MetadataField> {
     }
 }
 
-fn split_sql_statements(sql: &str) -> Vec<String> {
-    sql.split(';')
-        .map(str::trim)
-        .filter(|statement| !statement.is_empty())
-        .map(ToOwned::to_owned)
-        .collect()
-}
-
 fn row_get<T>(row: &SqliteRow, column: &str) -> Result<T>
 where
     for<'row> T: Decode<'row, Sqlite> + Type<Sqlite>,
@@ -1233,7 +1074,8 @@ mod tests {
     use taru_core::{
         AutomationJobInput, ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef,
         LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure,
-        VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+        TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+        VfsCachedObjectKind,
     };
 
     use super::*;

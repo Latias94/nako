@@ -898,7 +898,7 @@ async fn metadata_http_runtime_records_failure_status() {
 async fn tmdb_provider_uses_runtime_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = TmdbMetadataProvider::new(TmdbProviderConfig {
-        read_access_token: fixtures::TMDB_TOKEN.to_owned(),
+        read_access_token: fixtures::TMDB_TOKEN.into(),
         api_base_url: server.url("/tmdb"),
         runtime: MetadataHttpRuntimeConfig {
             min_interval_ms: 0,
@@ -943,11 +943,33 @@ async fn tmdb_provider_uses_runtime_and_maps_http_response() {
     );
 }
 
+#[test]
+fn provider_configs_redact_resolved_secrets_in_debug_output() {
+    let tmdb = TmdbProviderConfig::new(fixtures::TMDB_TOKEN);
+    let bangumi = BangumiProviderConfig {
+        access_token: Some(fixtures::BANGUMI_TOKEN.into()),
+        ..BangumiProviderConfig::default()
+    };
+    let douban = DoubanProviderConfig {
+        api_key: Some(fixtures::DOUBAN_API_KEY.into()),
+        headers: vec![("X-Douban-Secret".to_owned(), "header-secret".into())],
+        ..DoubanProviderConfig::default()
+    };
+
+    let debug = format!("{tmdb:?}\n{bangumi:?}\n{douban:?}");
+
+    assert!(!debug.contains(fixtures::TMDB_TOKEN));
+    assert!(!debug.contains(fixtures::BANGUMI_TOKEN));
+    assert!(!debug.contains(fixtures::DOUBAN_API_KEY));
+    assert!(!debug.contains("header-secret"));
+    assert!(debug.contains("<redacted>"));
+}
+
 #[tokio::test]
 async fn bangumi_provider_uses_runtime_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = BangumiMetadataProvider::new(BangumiProviderConfig {
-        access_token: Some(fixtures::BANGUMI_TOKEN.to_owned()),
+        access_token: Some(fixtures::BANGUMI_TOKEN.into()),
         api_base_url: server.base_url(),
         runtime: MetadataHttpRuntimeConfig {
             min_interval_ms: 0,
@@ -991,13 +1013,13 @@ async fn bangumi_provider_uses_runtime_and_maps_http_response() {
 async fn douban_provider_uses_api_key_and_maps_http_response() {
     let server = MockMetadataServer::start().await;
     let provider = DoubanMetadataProvider::new(DoubanProviderConfig {
-        api_key: Some(fixtures::DOUBAN_API_KEY.to_owned()),
+        api_key: Some(fixtures::DOUBAN_API_KEY.into()),
         api_base_url: server.base_url(),
         runtime: MetadataHttpRuntimeConfig {
             min_interval_ms: 0,
             ..MetadataHttpRuntimeConfig::default()
         },
-        headers: vec![("X-Douban-Test".to_owned(), "ok".to_owned())],
+        headers: vec![("X-Douban-Test".to_owned(), "ok".into())],
         ..DoubanProviderConfig::default()
     })
     .unwrap();

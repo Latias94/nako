@@ -14,7 +14,7 @@ use taru_core::{
     JobRepository, LibraryId, MediaItem, MediaItemId, MediaRepository, MetadataAttemptFilter,
     MetadataProfile, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
     MetadataRefreshMode, MetadataRepository, NewJob, NewOutboxEvent, PageRequest,
-    ProviderRawResponseFilter, Result, TaruError,
+    ProviderRawResponseFilter, Result, SecretString, TaruError,
 };
 use taru_metadata::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
@@ -1144,10 +1144,7 @@ fn provider_runtime_diagnostic(
         min_interval_ms: config.min_interval_ms,
         concurrency: config.concurrency,
         user_agent: config.user_agent.clone(),
-        proxy_configured: config
-            .proxy
-            .as_ref()
-            .is_some_and(|proxy| !proxy.trim().is_empty()),
+        proxy_configured: config.proxy.as_ref().is_some_and(|proxy| !proxy.is_blank()),
         circuit_breaker_failures: config.circuit_breaker_failures,
         circuit_breaker_backoff_ms: config.circuit_breaker_backoff_ms,
         circuit_open: status.as_ref().is_some_and(|status| status.circuit_open),
@@ -1409,7 +1406,7 @@ fn resolve_required_secret(
     provider: ExternalProvider,
     env_name: &str,
     label: &str,
-) -> std::result::Result<String, MetadataProviderBuildError> {
+) -> std::result::Result<SecretString, MetadataProviderBuildError> {
     let value = env::var(env_name).map_err(|err| {
         MetadataProviderBuildError::Unavailable(
             provider.clone(),
@@ -1430,13 +1427,13 @@ fn resolve_required_secret(
         ));
     }
 
-    Ok(value)
+    Ok(SecretString::new(value))
 }
 
 fn resolve_headers(
     provider: ExternalProvider,
     headers: &[MetadataProviderHeaderConfig],
-) -> std::result::Result<Vec<(String, String)>, MetadataProviderBuildError> {
+) -> std::result::Result<Vec<(String, SecretString)>, MetadataProviderBuildError> {
     headers
         .iter()
         .map(|header| {

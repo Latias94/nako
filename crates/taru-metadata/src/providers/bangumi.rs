@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
-use taru_core::{ExternalProvider, MediaKind, Result, TaruError};
+use taru_core::{ExternalProvider, MediaKind, Result, SecretString, TaruError};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -14,7 +14,7 @@ use super::{
 };
 #[derive(Clone, Debug)]
 pub struct BangumiProviderConfig {
-    pub access_token: Option<String>,
+    pub access_token: Option<SecretString>,
     pub api_base_url: String,
     pub image_base_url: String,
     pub include_nsfw: bool,
@@ -56,8 +56,8 @@ impl BangumiMetadataProvider {
     fn headers(&self) -> Result<HeaderMap> {
         self.config
             .access_token
-            .as_deref()
-            .filter(|token| !token.trim().is_empty())
+            .as_ref()
+            .filter(|token| !token.is_blank())
             .map(bearer_headers)
             .unwrap_or_else(|| Ok(HeaderMap::new()))
     }

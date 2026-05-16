@@ -29,7 +29,7 @@ use taru_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStat
 use taru_library::{LibraryScanRequest, LibraryScanner};
 use taru_metadata::MetadataRefreshSummary;
 use taru_streaming::{ClientPlaybackCapabilities, DirectPlayRangeRequest};
-use taru_transcode::RemuxContainer;
+use taru_transcode::{HardwareAcceleration, HardwareAccelerationFallback, RemuxContainer};
 use taru_vfs::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageCapabilities, VirtualFile,
@@ -1305,6 +1305,82 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
         HlsSourceDisposition::ReusedExisting
     );
     assert_eq!(restarted_reused.session.id, session_id);
+}
+
+#[tokio::test]
+async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_cpu_fallback");
+    let (_temp, app, _store, source) = remux_app_with_source_and_transcode(
+        ffmpeg_path,
+        TranscodeConfig {
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            hardware_fallback: HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 1,
+            gpu_concurrency: 1,
+        },
+    )
+    .await;
+
+    let output = app
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(
+        fs::read_to_string(output.playlist_path)
+            .unwrap()
+            .contains("#EXTM3U")
+    );
+}
+
+#[tokio::test]
+async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_gpu_required");
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path,
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig {
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            hardware_fallback: HardwareAccelerationFallback::Fail,
+            cpu_concurrency: 1,
+            gpu_concurrency: 1,
+        },
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+
+    let err = TaruApp::new_with_store(config, store).await.unwrap_err();
+
+    assert!(matches!(err, TaruError::Unsupported(_)));
+    assert!(err.to_string().contains("hardware accelerator"));
 }
 
 #[tokio::test]
@@ -2722,6 +2798,13 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool) -> PathBuf {
 async fn remux_app_with_source(
     ffmpeg_path: PathBuf,
 ) -> (tempfile::TempDir, TaruApp, SqliteStore, MediaSource) {
+    remux_app_with_source_and_transcode(ffmpeg_path, TranscodeConfig::default()).await
+}
+
+async fn remux_app_with_source_and_transcode(
+    ffmpeg_path: PathBuf,
+    transcode: TranscodeConfig,
+) -> (tempfile::TempDir, TaruApp, SqliteStore, MediaSource) {
     let temp = tempfile::tempdir().unwrap();
     let library_root = temp.path().join("library");
     let staging_root = temp.path().join("cache").join("remux");
@@ -2741,7 +2824,7 @@ async fn remux_app_with_source(
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: staging_root,
         metadata: MetadataConfig::default(),
-        transcode: TranscodeConfig::default(),
+        transcode,
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
         libraries: vec![LocalLibraryConfig {

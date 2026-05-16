@@ -7,7 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use taru_core::{
     ExternalProvider, Library, LibraryId, LibraryOptions, LibraryPreset, MediaItemId, MediaKind,
-    MetadataProfile, MetadataRefreshMode, Result, TaruError,
+    MetadataProfile, MetadataRefreshMode, Result, SecretString, TaruError,
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
@@ -197,7 +197,7 @@ pub struct MetadataProviderRuntimeConfig {
     #[serde(default = "default_metadata_provider_user_agent")]
     pub user_agent: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proxy: Option<String>,
+    pub proxy: Option<SecretString>,
     #[serde(default = "default_metadata_provider_circuit_breaker_failures")]
     pub circuit_breaker_failures: u32,
     #[serde(default = "default_metadata_provider_circuit_breaker_backoff_ms")]
@@ -246,7 +246,7 @@ pub struct MetadataProviderConfig {
 pub struct MetadataProviderHeaderConfig {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
+    pub value: Option<SecretString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value_env: Option<String>,
 }
@@ -683,7 +683,12 @@ mod tests {
         assert_eq!(config.metadata.runtime.concurrency, 2);
         assert_eq!(config.metadata.runtime.user_agent, "taru-test/1");
         assert_eq!(
-            config.metadata.runtime.proxy.as_deref(),
+            config
+                .metadata
+                .runtime
+                .proxy
+                .as_ref()
+                .map(SecretString::expose_secret),
             Some("http://127.0.0.1:10809")
         );
         assert_eq!(config.metadata.runtime.circuit_breaker_failures, 4);
@@ -843,5 +848,43 @@ mod tests {
             default_library_from_config(&config).unwrap().roots,
             vec!["local:///"]
         );
+    }
+
+    #[test]
+    fn config_debug_redacts_literal_runtime_and_header_secrets() {
+        let mut config = toml::from_str::<TaruServerConfig>(
+            r#"
+            database_url = "sqlite://taru.db"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            "#,
+        )
+        .unwrap();
+        config.metadata.runtime.proxy = Some("http://user:proxy-secret@127.0.0.1:10809".into());
+        config.metadata.providers = vec![MetadataProviderConfig {
+            provider: ExternalProvider::Douban,
+            enabled: true,
+            token_env: None,
+            api_key_env: None,
+            api_base_url: None,
+            image_base_url: None,
+            language: None,
+            include_adult: false,
+            headers: vec![MetadataProviderHeaderConfig {
+                name: "X-Test".to_owned(),
+                value: Some("literal-header-secret".into()),
+                value_env: None,
+            }],
+            runtime: None,
+        }];
+
+        let debug = format!("{config:?}");
+
+        assert!(!debug.contains("proxy-secret"));
+        assert!(!debug.contains("literal-header-secret"));
+        assert!(debug.contains("<redacted>"));
     }
 }

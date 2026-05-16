@@ -7,7 +7,7 @@ use std::{
 
 use reqwest::header::HeaderMap;
 use serde::Serialize;
-use taru_core::{Result, TaruError};
+use taru_core::{Result, SecretString, TaruError};
 use time::OffsetDateTime;
 use tokio::sync::{Mutex, Semaphore};
 use tokio::time::{sleep, timeout};
@@ -29,7 +29,7 @@ pub struct MetadataHttpRuntimeConfig {
     pub min_interval_ms: u64,
     pub concurrency: usize,
     pub user_agent: String,
-    pub proxy: Option<String>,
+    pub proxy: Option<SecretString>,
     pub circuit_breaker_failures: u32,
     pub circuit_breaker_backoff_ms: u64,
 }
@@ -83,12 +83,8 @@ impl MetadataHttpRuntime {
             .user_agent(config.user_agent.clone())
             .timeout(Duration::from_millis(config.timeout_ms));
 
-        if let Some(proxy) = config
-            .proxy
-            .as_ref()
-            .filter(|proxy| !proxy.trim().is_empty())
-        {
-            builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(|err| {
+        if let Some(proxy) = config.proxy.as_ref().filter(|proxy| !proxy.is_blank()) {
+            builder = builder.proxy(reqwest::Proxy::all(proxy.expose_secret()).map_err(|err| {
                 TaruError::InvalidInput {
                     message: format!("invalid metadata provider proxy configuration: {err}"),
                 }

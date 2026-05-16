@@ -1,8 +1,6 @@
-use std::fmt;
-
 use async_trait::async_trait;
 use serde::Deserialize;
-use taru_core::{ExternalProvider, MediaKind, Result, TaruError};
+use taru_core::{ExternalProvider, MediaKind, Result, SecretString, TaruError};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -13,9 +11,9 @@ use super::{
     DEFAULT_TMDB_API_BASE_URL, DEFAULT_TMDB_IMAGE_BASE_URL, DEFAULT_TMDB_LANGUAGE,
     TMDB_PROVIDER_NAME, bearer_headers, release_year, tmdb_parse_error,
 };
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TmdbProviderConfig {
-    pub read_access_token: String,
+    pub read_access_token: SecretString,
     pub api_base_url: String,
     pub image_base_url: String,
     pub language: String,
@@ -25,7 +23,7 @@ pub struct TmdbProviderConfig {
 
 impl TmdbProviderConfig {
     #[must_use]
-    pub fn new(read_access_token: impl Into<String>) -> Self {
+    pub fn new(read_access_token: impl Into<SecretString>) -> Self {
         Self {
             read_access_token: read_access_token.into(),
             api_base_url: DEFAULT_TMDB_API_BASE_URL.to_owned(),
@@ -34,20 +32,6 @@ impl TmdbProviderConfig {
             include_adult: false,
             runtime: MetadataHttpRuntimeConfig::default(),
         }
-    }
-}
-
-impl fmt::Debug for TmdbProviderConfig {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("TmdbProviderConfig")
-            .field("read_access_token", &"<redacted>")
-            .field("api_base_url", &self.api_base_url)
-            .field("image_base_url", &self.image_base_url)
-            .field("language", &self.language)
-            .field("include_adult", &self.include_adult)
-            .field("runtime", &self.runtime)
-            .finish()
     }
 }
 

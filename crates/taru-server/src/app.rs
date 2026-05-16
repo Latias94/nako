@@ -100,7 +100,7 @@ impl TaruApp {
                 storage_backends: StorageBackendRegistry::new(&config, store.clone()),
                 metadata_providers: metadata::build_metadata_provider_registry(&config),
                 remux: RemuxAppService::new(&config),
-                hls: HlsAppService::new(&config),
+                hls: HlsAppService::new(&config)?,
                 config,
                 store,
             }),

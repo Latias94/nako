@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
-use taru_core::{ExternalProvider, MediaKind, Result, TaruError};
+use taru_core::{ExternalProvider, MediaKind, Result, SecretString, TaruError};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -14,11 +14,11 @@ use super::{
 };
 #[derive(Clone, Debug)]
 pub struct DoubanProviderConfig {
-    pub api_key: Option<String>,
+    pub api_key: Option<SecretString>,
     pub api_base_url: String,
     pub image_base_url: Option<String>,
     pub runtime: MetadataHttpRuntimeConfig,
-    pub headers: Vec<(String, String)>,
+    pub headers: Vec<(String, SecretString)>,
 }
 
 impl Default for DoubanProviderConfig {

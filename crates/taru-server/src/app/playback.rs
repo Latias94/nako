@@ -22,8 +22,10 @@ use taru_streaming::{
 };
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHlsRunner, FfmpegOverwritePolicy,
-    FfmpegRemuxRunner, HardwareAcceleration, HlsRequest, HlsRunOutcome, RemuxContainer,
-    RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, TranscodeSessionManager,
+    FfmpegRemuxRunner, HardwareAccelerationDetector, HardwareAccelerationReport,
+    HardwareAccelerationSelection, HlsRequest, HlsRunOutcome, RemuxContainer, RemuxRequest,
+    RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits, StaticHardwareAccelerationDetector,
+    TranscodeSessionManager, select_hardware_acceleration,
 };
 use taru_vfs::{ByteRange, ReadStream, StageRequest, StorageBackend, StorageUri};
 use tokio::sync::{Mutex, OwnedSemaphorePermit};
@@ -819,26 +821,36 @@ enum RemuxRequestAdmission {
 pub(super) struct HlsAppService {
     builder: FfmpegCommandBuilder,
     runner: FfmpegHlsRunner,
-    hardware_acceleration: HardwareAcceleration,
+    hardware_selection: HardwareAccelerationSelection,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
 }
 
 impl HlsAppService {
-    pub(super) fn new(config: &TaruServerConfig) -> Self {
+    pub(super) fn new(config: &TaruServerConfig) -> Result<Self> {
+        let detector =
+            StaticHardwareAccelerationDetector::new(HardwareAccelerationReport::cpu_only());
+        Self::new_with_hardware_detector(config, &detector)
+    }
+
+    fn new_with_hardware_detector(
+        config: &TaruServerConfig,
+        detector: &dyn HardwareAccelerationDetector,
+    ) -> Result<Self> {
         let hardware_policy = config.transcode.hardware_policy();
-        let hardware_acceleration = hardware_policy.requested;
+        let hardware_report = detector.detect();
+        let hardware_selection = select_hardware_acceleration(hardware_policy, &hardware_report)?;
         let transcode_budget = config.transcode.resource_budget();
         let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
-            max_concurrent_sessions: transcode_budget.slots_for(hardware_acceleration),
+            max_concurrent_sessions: transcode_budget.slots_for(hardware_selection.acceleration),
             timeout_ms: config.remux_timeout_ms,
         });
 
-        Self {
+        Ok(Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
             runner: FfmpegHlsRunner::new(guard),
-            hardware_acceleration,
+            hardware_selection,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
-        }
+        })
     }
 
     async fn run(
@@ -968,7 +980,7 @@ impl HlsAppService {
                 playlist_path: layout.playlist_path.clone(),
                 segment_pattern: layout.segment_pattern.clone(),
                 segment_time_seconds: 6,
-                hardware_acceleration: self.hardware_acceleration,
+                hardware_acceleration: self.hardware_selection.acceleration,
                 overwrite: FfmpegOverwritePolicy::Allow,
             },
             &self.builder,
@@ -1329,4 +1341,60 @@ async fn ensure_remux_output_parent(output_path: &Path) -> Result<()> {
             uri: parent.display().to_string(),
             message: format!("failed to create remux output directory: {err}"),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use taru_transcode::{
+        HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationReport,
+        StaticHardwareAccelerationDetector,
+    };
+
+    use super::*;
+    use crate::config::{MetadataConfig, PlaybackConfig, StagingConfig, TranscodeConfig};
+
+    fn test_config(transcode: TranscodeConfig) -> TaruServerConfig {
+        TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 1,
+            remux_timeout_ms: 1_000,
+            remux_staging_root: PathBuf::from("cache/remux"),
+            metadata: MetadataConfig::default(),
+            transcode,
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn hls_service_uses_available_hardware_detector_selection() {
+        let config = test_config(TranscodeConfig {
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            hardware_fallback: HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 1,
+            gpu_concurrency: 2,
+        });
+        let detector =
+            StaticHardwareAccelerationDetector::new(HardwareAccelerationReport::with_available([
+                HardwareAcceleration::Nvenc,
+            ]));
+
+        let service = HlsAppService::new_with_hardware_detector(&config, &detector).unwrap();
+
+        assert_eq!(
+            service.hardware_selection.acceleration,
+            HardwareAcceleration::Nvenc
+        );
+        assert!(!service.hardware_selection.fallback_used);
+    }
 }

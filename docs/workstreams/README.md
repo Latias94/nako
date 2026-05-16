@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [runtime-foundation](runtime-foundation/README.md): active M15 runtime
+  hardening, covering SQLite concurrency, migration execution, secret
+  redaction, hardware capability selection, and cross-cutting operational
+  boundaries.
 - [playback-streaming](playback-streaming/README.md): active M7 remote
   direct-body streaming, staging budget/cleanup, playback error mapping,
   remote playback resource budgets, and multi-library configuration work.

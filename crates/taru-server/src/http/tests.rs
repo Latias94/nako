@@ -682,7 +682,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         min_interval_ms: 125,
         concurrency: 2,
         user_agent: "taru-test/metadata-diagnostics".to_owned(),
-        proxy: Some("http://user:proxy-secret@127.0.0.1:10809".to_owned()),
+        proxy: Some("http://user:proxy-secret@127.0.0.1:10809".into()),
         circuit_breaker_failures: 4,
         circuit_breaker_backoff_ms: 12_345,
     };
@@ -697,7 +697,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         include_adult: false,
         headers: vec![MetadataProviderHeaderConfig {
             name: "X-Douban-Secret".to_owned(),
-            value: Some("diagnostics-header-secret".to_owned()),
+            value: Some("diagnostics-header-secret".into()),
             value_env: None,
         }],
         runtime: None,

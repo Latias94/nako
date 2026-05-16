@@ -16,4 +16,5 @@ taru-core = { path = "../taru-core" }
 taru-search = { path = "../taru-search" }
 
 [dev-dependencies]
+tempfile.workspace = true
 tokio.workspace = true
