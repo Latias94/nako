@@ -15,13 +15,14 @@ use taru_core::{
     ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
     JobRepository, JobStatus, Library, LibraryId, LibraryOptions, LibraryRepository, MediaDomain,
     MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataField, MetadataFieldLock,
-    MetadataMatchKind, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
-    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewAddonRegistration,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewMetadataProviderAttempt,
-    NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus, PageRequest, Person, PersonId,
-    ProviderRawResponse, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptRecord,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
+    NewAddonRegistration, NewAutomationArtifact, NewAutomationProviderConfig, NewJob,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
+    PageRequest, Person, PersonId, ProviderRawResponse, ProviderRawResponseCleanup,
+    ProviderRawResponseFilter, Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
     SourceState, Studio, StudioId, Tag, TagId, TaruError, TransactionManager,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure, VfsCacheOperation,
@@ -1612,11 +1613,22 @@ mod tests {
             fetched_at: "2026-05-14T00:00:00.000Z".to_owned(),
             body_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
         };
+        let raw_douban = ProviderRawResponse {
+            item_id: item.id,
+            provider: ExternalProvider::Douban,
+            provider_key: "1291843".to_owned(),
+            fetched_at: "2026-05-16T00:00:00.000Z".to_owned(),
+            body_json: r#"{"id":"1291843","title":"The Matrix"}"#.to_owned(),
+        };
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
         store.upsert_field_lock(&lock).await.unwrap();
         store.upsert_provider_raw_response(&raw).await.unwrap();
+        store
+            .upsert_provider_raw_response(&raw_douban)
+            .await
+            .unwrap();
 
         assert_eq!(store.list_field_locks(item.id).await.unwrap(), vec![lock]);
         assert_eq!(
@@ -1624,20 +1636,68 @@ mod tests {
                 .get_provider_raw_response(item.id, &ExternalProvider::Tmdb, "603")
                 .await
                 .unwrap(),
-            Some(raw)
+            Some(raw.clone())
         );
         assert_eq!(
             store
-                .list_provider_raw_responses(item.id, PageRequest::first_page())
+                .list_provider_raw_responses(
+                    item.id,
+                    ProviderRawResponseFilter::default(),
+                    PageRequest::first_page(),
+                )
                 .await
                 .unwrap(),
-            vec![ProviderRawResponse {
-                item_id: item.id,
-                provider: ExternalProvider::Tmdb,
-                provider_key: "603".to_owned(),
-                fetched_at: "2026-05-14T00:00:00.000Z".to_owned(),
-                body_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
-            }]
+            vec![
+                ProviderRawResponse {
+                    item_id: item.id,
+                    provider: ExternalProvider::Douban,
+                    provider_key: "1291843".to_owned(),
+                    fetched_at: "2026-05-16T00:00:00.000Z".to_owned(),
+                    body_json: r#"{"id":"1291843","title":"The Matrix"}"#.to_owned(),
+                },
+                ProviderRawResponse {
+                    item_id: item.id,
+                    provider: ExternalProvider::Tmdb,
+                    provider_key: "603".to_owned(),
+                    fetched_at: "2026-05-14T00:00:00.000Z".to_owned(),
+                    body_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
+                }
+            ]
+        );
+        assert_eq!(
+            store
+                .list_provider_raw_responses(
+                    item.id,
+                    ProviderRawResponseFilter {
+                        provider: Some(ExternalProvider::Tmdb),
+                    },
+                    PageRequest::first_page(),
+                )
+                .await
+                .unwrap(),
+            vec![raw.clone()]
+        );
+
+        let cleanup = store
+            .cleanup_provider_raw_responses(
+                ProviderRawResponseFilter {
+                    provider: Some(ExternalProvider::Tmdb),
+                },
+                "2026-05-15T00:00:00.000Z",
+            )
+            .await
+            .unwrap();
+        assert_eq!(cleanup.deleted, 1);
+        assert_eq!(
+            store
+                .list_provider_raw_responses(
+                    item.id,
+                    ProviderRawResponseFilter::default(),
+                    PageRequest::first_page(),
+                )
+                .await
+                .unwrap(),
+            vec![raw_douban]
         );
     }
 
@@ -1687,9 +1747,26 @@ mod tests {
             error_class: None,
             message: None,
         };
+        let failed_attempt = NewMetadataProviderAttempt {
+            id: taru_core::MetadataProviderAttemptId::new(),
+            job_id: job.id,
+            item_id: item.id,
+            provider: ExternalProvider::Douban,
+            status: MetadataProviderAttemptStatus::NoMatch,
+            provider_key: None,
+            matched_by: None,
+            started_at: "2026-05-14T00:00:02Z".to_owned(),
+            finished_at: "2026-05-14T00:00:03Z".to_owned(),
+            error_class: Some(MetadataProviderErrorClass::NoMatch),
+            message: Some("no match".to_owned()),
+        };
 
         store
             .insert_metadata_provider_attempt(attempt.clone())
+            .await
+            .unwrap();
+        store
+            .insert_metadata_provider_attempt(failed_attempt.clone())
             .await
             .unwrap();
 
@@ -1706,17 +1783,48 @@ mod tests {
             error_class: attempt.error_class,
             message: attempt.message,
         };
+        let failed_expected = MetadataProviderAttemptRecord {
+            id: failed_attempt.id,
+            job_id: failed_attempt.job_id,
+            item_id: failed_attempt.item_id,
+            provider: failed_attempt.provider,
+            status: failed_attempt.status,
+            provider_key: failed_attempt.provider_key,
+            matched_by: failed_attempt.matched_by,
+            started_at: failed_attempt.started_at,
+            finished_at: failed_attempt.finished_at,
+            error_class: failed_attempt.error_class,
+            message: failed_attempt.message,
+        };
 
         assert_eq!(
             store.list_metadata_provider_attempts(job.id).await.unwrap(),
-            vec![expected.clone()]
+            vec![expected.clone(), failed_expected.clone()]
         );
         assert_eq!(
             store
-                .list_metadata_provider_attempts_for_item(item.id, PageRequest::first_page())
+                .list_metadata_provider_attempts_for_item(
+                    item.id,
+                    MetadataAttemptFilter::default(),
+                    PageRequest::first_page(),
+                )
                 .await
                 .unwrap(),
-            vec![expected]
+            vec![failed_expected.clone(), expected.clone()]
+        );
+        assert_eq!(
+            store
+                .list_metadata_provider_attempts_for_item(
+                    item.id,
+                    MetadataAttemptFilter {
+                        provider: Some(ExternalProvider::Douban),
+                        status: Some(MetadataProviderAttemptStatus::NoMatch),
+                    },
+                    PageRequest::first_page(),
+                )
+                .await
+                .unwrap(),
+            vec![failed_expected]
         );
     }
 

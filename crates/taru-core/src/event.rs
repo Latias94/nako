@@ -9,6 +9,7 @@ use crate::{
 pub enum DomainEventKind {
     LibraryScanned,
     ItemMetadataRefreshed,
+    MetadataMaintenanceCompleted,
     NfoImported,
     NfoExported,
     PlaybackSessionFinished,
@@ -20,6 +21,7 @@ impl DomainEventKind {
         match self {
             Self::LibraryScanned => "library.scanned",
             Self::ItemMetadataRefreshed => "item.metadata_refreshed",
+            Self::MetadataMaintenanceCompleted => "metadata.maintenance_completed",
             Self::NfoImported => "nfo.imported",
             Self::NfoExported => "nfo.exported",
             Self::PlaybackSessionFinished => "playback.session_finished",
@@ -30,6 +32,7 @@ impl DomainEventKind {
         match value {
             "library.scanned" => Ok(Self::LibraryScanned),
             "item.metadata_refreshed" => Ok(Self::ItemMetadataRefreshed),
+            "metadata.maintenance_completed" => Ok(Self::MetadataMaintenanceCompleted),
             "nfo.imported" => Ok(Self::NfoImported),
             "nfo.exported" => Ok(Self::NfoExported),
             "playback.session_finished" => Ok(Self::PlaybackSessionFinished),

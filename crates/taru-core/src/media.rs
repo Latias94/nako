@@ -847,6 +847,24 @@ pub struct ProviderRawResponse {
     pub body_json: String,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataAttemptFilter {
+    pub provider: Option<ExternalProvider>,
+    pub status: Option<MetadataProviderAttemptStatus>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderRawResponseFilter {
+    pub provider: Option<ExternalProvider>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderRawResponseCleanup {
+    pub provider: Option<ExternalProvider>,
+    pub fetched_before: String,
+    pub deleted: u64,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewMetadataProviderAttempt {
     pub id: MetadataProviderAttemptId,

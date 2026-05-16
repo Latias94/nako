@@ -17,24 +17,25 @@ use taru_addon_protocol::{
 use taru_api::{
     AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
     AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
-    ErrorResponse, HealthResponse, JobResponse, LibraryListResponse,
-    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
-    MetadataProviderDiagnosticsResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
-    TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
-    WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
+    EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse, JobResponse,
+    LibraryListResponse, MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
+    MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
+    RegisterAddonRequest, TranscodeSessionResponse, UpsertAutomationProviderRequest,
+    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
+    WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
     CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
     ImageOwner, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository, JobStatus,
-    LibraryId, MediaItem, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRepository, MetadataSource, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
-    NewTranscodeSession, Person, PersonId, ProviderRawResponse, Tag, TagId, TaruError,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
-    WebhookEndpointStatus,
+    LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult,
+    MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
+    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
+    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewJob,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, Person, PersonId,
+    ProviderRawResponse, Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex};
@@ -777,8 +778,11 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         .unwrap();
 
     let router = build_router(app);
-    let attempts_path = format!("/items/{}/metadata/attempts", item.id);
-    let raw_path = format!("/items/{}/metadata/raw", item.id);
+    let attempts_path = format!(
+        "/items/{}/metadata/attempts?provider=douban&status=failed",
+        item.id
+    );
+    let raw_path = format!("/items/{}/metadata/raw?provider=douban", item.id);
 
     let attempts =
         request_json::<MetadataProviderAttemptsResponse>(&router, Method::GET, &attempts_path)
@@ -799,6 +803,14 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
     assert_eq!(raw.item_id, item.id);
     assert_eq!(raw.page.returned, 1);
     assert_eq!(raw.responses[0].provider_key, "douban-42");
+
+    let cleanup = request_json::<MetadataRawCleanupResponse>(
+        &router,
+        Method::POST,
+        "/metadata/raw/cleanup?provider=douban&fetched_before=2026-05-17T00:00:00.000Z",
+    )
+    .await;
+    assert_eq!(cleanup.cleanup.deleted, 1);
 
     let response = router
         .oneshot(
@@ -831,6 +843,103 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
     assert!(providers.providers[0].runtime.proxy_configured);
     assert_eq!(providers.providers[0].runtime.timeout_ms, 4_000);
     assert_eq!(providers.providers[0].runtime.max_attempts, 3);
+    assert!(!providers.providers[0].runtime.circuit_open);
+    assert_eq!(providers.providers[0].runtime.consecutive_failures, 0);
+    assert_eq!(
+        providers.providers[0].runtime.state_scope,
+        taru_api::MetadataProviderRuntimeStateScope::ProcessLocal
+    );
+}
+
+#[tokio::test]
+async fn metadata_maintenance_route_enqueues_batch_job() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: vec![LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
+            }],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Route Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: item.id,
+            locator: "local:///Route Demo.mkv".to_owned(),
+            file_name: "Route Demo.mkv".to_owned(),
+            size_bytes: Some(1024),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/metadata/maintenance/jobs")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&EnqueueMetadataMaintenanceRequest {
+                        library_id: Some(library_id),
+                        item_ids: Vec::new(),
+                        providers: Some(vec![ExternalProvider::Tmdb]),
+                        item_kinds: vec![MediaKind::Movie],
+                        profile: None,
+                        language: None,
+                        refresh_mode: None,
+                        force: false,
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let job = body_json::<JobResponse>(response).await;
+    assert_eq!(job.kind, JobKind::MetadataMaintenance);
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(job.library_id, Some(library_id));
+    assert!(job.input.unwrap().get("access_token").is_none());
 }
 
 #[tokio::test]

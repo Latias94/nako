@@ -817,6 +817,10 @@ async fn metadata_http_runtime_retries_and_sends_user_agent() {
         server.user_agents(),
         vec!["taru-test-agent", "taru-test-agent"]
     );
+    let status = runtime.status();
+    assert!(!status.circuit_open);
+    assert_eq!(status.consecutive_failures, 0);
+    assert_eq!(status.last_error, None);
 }
 
 #[tokio::test]
@@ -840,6 +844,41 @@ async fn metadata_http_runtime_rate_limits_requests() {
         .unwrap();
 
     assert!(started.elapsed().as_millis() >= 35);
+    assert!(runtime.status().last_rate_limit_wait_ms > 0);
+}
+
+#[tokio::test]
+async fn metadata_http_runtime_records_failure_status() {
+    let server = MockMetadataServer::start().await;
+    let runtime = MetadataHttpRuntime::new(MetadataHttpRuntimeConfig {
+        max_attempts: 1,
+        min_interval_ms: 0,
+        circuit_breaker_failures: 1,
+        ..MetadataHttpRuntimeConfig::default()
+    })
+    .unwrap();
+
+    let err = runtime
+        .get_json(
+            "mock",
+            "missing",
+            server.url("/missing"),
+            &[],
+            HeaderMap::new(),
+        )
+        .await
+        .unwrap_err();
+    let status = runtime.status();
+
+    assert!(err.to_string().contains("HTTP 404"));
+    assert!(status.circuit_open);
+    assert_eq!(status.consecutive_failures, 1);
+    assert!(
+        status
+            .last_error
+            .as_deref()
+            .is_some_and(|message| message.contains("HTTP 404"))
+    );
 }
 
 #[tokio::test]

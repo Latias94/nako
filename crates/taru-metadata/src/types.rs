@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_core::{CanonicalMetadata, ExternalId, ExternalProvider, MediaKind, Result};
+
+use crate::runtime::MetadataHttpRuntimeStatus;
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataLookup {
     pub kind: Option<MediaKind>,
@@ -38,6 +40,10 @@ pub trait MetadataProvider: Send + Sync {
     fn provider(&self) -> ExternalProvider;
 
     fn provider_name(&self) -> &'static str;
+
+    fn runtime_status(&self) -> Option<MetadataHttpRuntimeStatus> {
+        None
+    }
 
     async fn search(&self, lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>>;
 

@@ -1,23 +1,27 @@
-use std::env;
+use std::{collections::HashSet, env};
 
 use serde::Serialize;
 use taru_api::{
-    MetadataProviderAttemptDiagnostic, MetadataProviderAttemptsResponse,
-    MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
+    EnqueueMetadataMaintenanceRequest, MetadataProviderAttemptDiagnostic,
+    MetadataProviderAttemptsResponse, MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
     MetadataProviderDiagnosticsResponse, MetadataProviderRuntimeDiagnostic,
-    MetadataRawResponsesResponse, PageInfo,
+    MetadataProviderRuntimeStateScope, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
+    PageInfo,
 };
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, ExternalProvider, Job, JobId, JobKind,
-    JobRepository, MediaItemId, MediaRepository, MetadataProfile, MetadataRepository, NewJob,
-    NewOutboxEvent, PageRequest, Result, TaruError,
+    JobRepository, LibraryId, MediaItem, MediaItemId, MediaRepository, MetadataAttemptFilter,
+    MetadataProfile, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
+    MetadataRefreshMode, MetadataRepository, NewJob, NewOutboxEvent, PageRequest,
+    ProviderRawResponseFilter, Result, TaruError,
 };
 use taru_metadata::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
-    MetadataHttpRuntimeConfig, MetadataProvider as _, MetadataProviderRegistry,
-    MetadataRefreshJobInput, MetadataRefreshRequest, MetadataRefreshSummary,
-    MetadataStrategyExecutor, TmdbMetadataProvider, TmdbProviderConfig,
+    MetadataHttpRuntimeConfig, MetadataHttpRuntimeStatus, MetadataProviderRegistrationStatus,
+    MetadataProviderRegistry, MetadataRefreshJobInput, MetadataRefreshRequest,
+    MetadataRefreshSummary, MetadataStrategyExecutor, TmdbMetadataProvider, TmdbProviderConfig,
 };
+use time::OffsetDateTime;
 use tracing::{Instrument, error, info, info_span, warn};
 
 use super::TaruApp;
@@ -30,6 +34,40 @@ use crate::config::{
 pub struct MetadataRefreshCommandOutput {
     pub job: Job,
     pub refresh: MetadataRefreshSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MetadataMaintenanceCommandOutput {
+    pub job: Job,
+    pub summary: MetadataMaintenanceSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MetadataMaintenanceSummary {
+    pub job_id: JobId,
+    pub library_id: Option<LibraryId>,
+    pub requested_items: u32,
+    pub attempted_items: u32,
+    pub succeeded_items: u32,
+    pub failed_items: u32,
+    pub no_match_items: u32,
+    pub rate_limited_items: u32,
+    pub skipped_items: u32,
+    pub provider_attempts: Vec<MetadataMaintenanceProviderAttemptCount>,
+    pub errors: Vec<MetadataMaintenanceItemError>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MetadataMaintenanceProviderAttemptCount {
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderAttemptStatus,
+    pub count: u32,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MetadataMaintenanceItemError {
+    pub item_id: MediaItemId,
+    pub message: String,
 }
 
 impl TaruApp {
@@ -59,6 +97,36 @@ impl TaruApp {
     ) -> Result<MetadataRefreshCommandOutput> {
         let job = self.create_metadata_refresh_job(item_id).await?;
         self.execute_metadata_refresh_job(job.id, item_id).await
+    }
+
+    pub async fn enqueue_metadata_maintenance(
+        &self,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) -> Result<Job> {
+        let job = self.create_metadata_maintenance_job(&request).await?;
+        let job_id = job.id;
+        let app = self.clone();
+
+        tokio::spawn(
+            async move {
+                app.finish_metadata_maintenance_job(job_id, request).await;
+            }
+            .instrument(info_span!(
+                "metadata_maintenance_background_job",
+                job_id = %job_id,
+                resource_class = "metadata.maintenance"
+            )),
+        );
+
+        Ok(job)
+    }
+
+    pub async fn run_metadata_maintenance(
+        &self,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) -> Result<MetadataMaintenanceCommandOutput> {
+        let job = self.create_metadata_maintenance_job(&request).await?;
+        self.execute_metadata_maintenance_job(job.id, request).await
     }
 
     pub(super) async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
@@ -98,6 +166,28 @@ impl TaruApp {
             .await
     }
 
+    async fn create_metadata_maintenance_job(
+        &self,
+        request: &EnqueueMetadataMaintenanceRequest,
+    ) -> Result<Job> {
+        self.validate_metadata_maintenance_request(request).await?;
+        let input_json = serde_json::to_string(request).map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to serialize metadata maintenance job input: {err}"),
+        })?;
+
+        self.inner
+            .store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataMaintenance,
+                resource_class: metadata_maintenance_resource_class(request),
+                library_id: request.library_id,
+                source_id: None,
+                input_json: Some(input_json),
+            })
+            .await
+    }
+
     async fn finish_metadata_refresh_job(&self, job_id: JobId, item_id: MediaItemId) {
         match self.execute_metadata_refresh_job(job_id, item_id).await {
             Ok(output) => {
@@ -115,6 +205,32 @@ impl TaruApp {
                     item_id = %item_id,
                     error = %err,
                     "metadata refresh job failed"
+                );
+            }
+        }
+    }
+
+    async fn finish_metadata_maintenance_job(
+        &self,
+        job_id: JobId,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) {
+        match self.execute_metadata_maintenance_job(job_id, request).await {
+            Ok(output) => {
+                info!(
+                    job_id = %output.job.id,
+                    attempted_items = output.summary.attempted_items,
+                    succeeded_items = output.summary.succeeded_items,
+                    failed_items = output.summary.failed_items,
+                    status = ?output.job.status,
+                    "metadata maintenance job completed"
+                );
+            }
+            Err(err) => {
+                error!(
+                    job_id = %job_id,
+                    error = %err,
+                    "metadata maintenance job failed"
                 );
             }
         }
@@ -169,6 +285,56 @@ impl TaruApp {
         }
     }
 
+    async fn execute_metadata_maintenance_job(
+        &self,
+        job_id: JobId,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) -> Result<MetadataMaintenanceCommandOutput> {
+        let permit = self
+            .inner
+            .metadata_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| TaruError::InvalidInput {
+                message: format!("metadata concurrency limiter is unavailable: {err}"),
+            })?;
+        let _permit = permit;
+
+        self.inner.store.start_job(job_id).await?;
+
+        match self.run_metadata_maintenance_job(job_id, request).await {
+            Ok(summary) => {
+                let summary_json =
+                    serde_json::to_string(&summary).map_err(|err| TaruError::InvalidInput {
+                        message: format!(
+                            "failed to serialize metadata maintenance job summary: {err}"
+                        ),
+                    })?;
+                let job = self
+                    .inner
+                    .store
+                    .succeed_job(job_id, Some(summary_json))
+                    .await?;
+                self.record_metadata_maintenance_completed_event(&summary)
+                    .await;
+
+                Ok(MetadataMaintenanceCommandOutput { job, summary })
+            }
+            Err(err) => {
+                if let Err(update_err) = self.inner.store.fail_job(job_id, err.to_string()).await {
+                    warn!(
+                        job_id = %job_id,
+                        error = %update_err,
+                        "failed to persist failed metadata maintenance job state"
+                    );
+                }
+
+                Err(err)
+            }
+        }
+    }
+
     pub(super) async fn record_metadata_refreshed_event(
         &self,
         job_id: JobId,
@@ -210,6 +376,33 @@ impl TaruApp {
         .await;
     }
 
+    async fn record_metadata_maintenance_completed_event(
+        &self,
+        summary: &MetadataMaintenanceSummary,
+    ) {
+        let payload = serde_json::json!({
+            "job_id": summary.job_id,
+            "library_id": summary.library_id,
+            "requested_items": summary.requested_items,
+            "attempted_items": summary.attempted_items,
+            "succeeded_items": summary.succeeded_items,
+            "failed_items": summary.failed_items,
+            "no_match_items": summary.no_match_items,
+            "rate_limited_items": summary.rate_limited_items,
+            "skipped_items": summary.skipped_items,
+        });
+        self.record_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::MetadataMaintenanceCompleted,
+            subject: DomainEventSubject::Job(summary.job_id),
+            library_id: summary.library_id,
+            source_id: None,
+            idempotency_key: format!("metadata.maintenance_completed:{}", summary.job_id),
+            payload_json: payload.to_string(),
+        })
+        .await;
+    }
+
     pub(super) async fn run_metadata_refresh(
         &self,
         job_id: JobId,
@@ -226,6 +419,17 @@ impl TaruApp {
             })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
+        self.run_metadata_refresh_with_profile(job_id, item_id, profile, false)
+            .await
+    }
+
+    async fn run_metadata_refresh_with_profile(
+        &self,
+        job_id: JobId,
+        item_id: MediaItemId,
+        profile: MetadataProfile,
+        force: bool,
+    ) -> Result<MetadataRefreshSummary> {
         let registry = self.metadata_provider_registry();
         let executor = MetadataStrategyExecutor::new(registry, self.inner.store.clone());
 
@@ -234,21 +438,86 @@ impl TaruApp {
                 job_id,
                 item_id,
                 profile,
-                force: false,
+                force,
             })
             .await
+    }
+
+    async fn run_metadata_maintenance_job(
+        &self,
+        job_id: JobId,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) -> Result<MetadataMaintenanceSummary> {
+        self.validate_metadata_maintenance_request(&request).await?;
+        let items = self.metadata_maintenance_items(&request).await?;
+        let mut summary = MetadataMaintenanceSummary {
+            job_id,
+            library_id: request.library_id,
+            requested_items: usize_to_u32(items.len()),
+            attempted_items: 0,
+            succeeded_items: 0,
+            failed_items: 0,
+            no_match_items: 0,
+            rate_limited_items: 0,
+            skipped_items: 0,
+            provider_attempts: Vec::new(),
+            errors: Vec::new(),
+        };
+
+        for item in items {
+            let profile = match self
+                .metadata_maintenance_profile_for_item(&item, &request)
+                .await
+            {
+                Ok(profile) => profile,
+                Err(err) => {
+                    summary.skipped_items += 1;
+                    summary.errors.push(MetadataMaintenanceItemError {
+                        item_id: item.id,
+                        message: err.to_string(),
+                    });
+                    continue;
+                }
+            };
+
+            summary.attempted_items += 1;
+            match self
+                .run_metadata_refresh_with_profile(job_id, item.id, profile, request.force)
+                .await
+            {
+                Ok(refresh) => {
+                    summary.succeeded_items += 1;
+                    self.record_metadata_refreshed_event(job_id, item.id, &refresh)
+                        .await;
+                }
+                Err(err) => {
+                    let attempts = self.metadata_attempts_for_job_item(job_id, item.id).await?;
+                    classify_metadata_maintenance_failure(&mut summary, item.id, &attempts, &err);
+                }
+            }
+        }
+
+        let attempts = self
+            .inner
+            .store
+            .list_metadata_provider_attempts(job_id)
+            .await?;
+        summary.provider_attempts = summarize_metadata_attempt_counts(&attempts);
+
+        Ok(summary)
     }
 
     pub async fn list_metadata_provider_attempts_for_item(
         &self,
         item_id: MediaItemId,
+        filter: MetadataAttemptFilter,
         page: PageRequest,
     ) -> Result<MetadataProviderAttemptsResponse> {
         self.ensure_metadata_item_exists(item_id).await?;
         let attempts = self
             .inner
             .store
-            .list_metadata_provider_attempts_for_item(item_id, page)
+            .list_metadata_provider_attempts_for_item(item_id, filter, page)
             .await?;
         let returned = attempts.len();
 
@@ -265,13 +534,14 @@ impl TaruApp {
     pub async fn list_provider_raw_responses_for_item(
         &self,
         item_id: MediaItemId,
+        filter: ProviderRawResponseFilter,
         page: PageRequest,
     ) -> Result<MetadataRawResponsesResponse> {
         self.ensure_metadata_item_exists(item_id).await?;
         let responses = self
             .inner
             .store
-            .list_provider_raw_responses(item_id, page)
+            .list_provider_raw_responses(item_id, filter, page)
             .await?;
 
         Ok(MetadataRawResponsesResponse {
@@ -281,10 +551,192 @@ impl TaruApp {
         })
     }
 
+    pub async fn cleanup_provider_raw_responses(
+        &self,
+        filter: ProviderRawResponseFilter,
+        fetched_before: Option<String>,
+        retention_ms: Option<u64>,
+    ) -> Result<MetadataRawCleanupResponse> {
+        let fetched_before = match fetched_before {
+            Some(value) if !value.trim().is_empty() => value,
+            Some(_) => {
+                return Err(TaruError::InvalidInput {
+                    message: "fetched_before must not be empty".to_owned(),
+                });
+            }
+            None => metadata_raw_retention_cutoff(
+                retention_ms.unwrap_or(self.config().metadata.raw_cache_retention_ms),
+            )?,
+        };
+        let cleanup = self
+            .inner
+            .store
+            .cleanup_provider_raw_responses(filter, &fetched_before)
+            .await?;
+
+        Ok(MetadataRawCleanupResponse { cleanup })
+    }
+
     pub fn list_metadata_provider_diagnostics(&self) -> MetadataProviderDiagnosticsResponse {
         MetadataProviderDiagnosticsResponse {
             providers: self.metadata_provider_diagnostics(),
         }
+    }
+
+    async fn validate_metadata_maintenance_request(
+        &self,
+        request: &EnqueueMetadataMaintenanceRequest,
+    ) -> Result<()> {
+        let has_library = request.library_id.is_some();
+        let has_items = !request.item_ids.is_empty();
+        if has_library == has_items {
+            return Err(TaruError::InvalidInput {
+                message: "metadata maintenance must target either library_id or item_ids"
+                    .to_owned(),
+            });
+        }
+
+        if let Some(library_id) = request.library_id {
+            self.configured_library_for(library_id)?;
+        }
+
+        if let Some(providers) = request.providers.as_ref() {
+            if providers.is_empty() {
+                return Err(TaruError::InvalidInput {
+                    message: "metadata maintenance providers override must not be empty".to_owned(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn metadata_maintenance_items(
+        &self,
+        request: &EnqueueMetadataMaintenanceRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let mut items = if let Some(library_id) = request.library_id {
+            self.list_metadata_maintenance_library_items(library_id)
+                .await?
+        } else {
+            self.load_metadata_maintenance_explicit_items(&request.item_ids)
+                .await?
+        };
+
+        if !request.item_kinds.is_empty() {
+            items.retain(|item| request.item_kinds.contains(&item.kind));
+        }
+
+        Ok(items)
+    }
+
+    async fn list_metadata_maintenance_library_items(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<Vec<MediaItem>> {
+        let mut items = Vec::new();
+        let mut offset = 0;
+
+        loop {
+            let page = PageRequest {
+                limit: PageRequest::MAX_LIMIT,
+                offset,
+            };
+            let mut page_items = self
+                .inner
+                .store
+                .list_media_items_for_library(library_id, page)
+                .await?;
+            let returned = page_items.len();
+            items.append(&mut page_items);
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            offset += u64::from(PageRequest::MAX_LIMIT);
+        }
+
+        Ok(items)
+    }
+
+    async fn load_metadata_maintenance_explicit_items(
+        &self,
+        item_ids: &[MediaItemId],
+    ) -> Result<Vec<MediaItem>> {
+        let mut seen = HashSet::new();
+        let mut items = Vec::with_capacity(item_ids.len());
+
+        for item_id in item_ids {
+            if !seen.insert(*item_id) {
+                continue;
+            }
+
+            let item = self
+                .inner
+                .store
+                .get_media_item(*item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+            items.push(item);
+        }
+
+        Ok(items)
+    }
+
+    async fn metadata_maintenance_profile_for_item(
+        &self,
+        item: &MediaItem,
+        request: &EnqueueMetadataMaintenanceRequest,
+    ) -> Result<MetadataProfile> {
+        let mut profile = if let Some(profile) = request.profile.clone() {
+            profile
+        } else {
+            let library = if let Some(library_id) = request.library_id {
+                self.configured_library_for(library_id)?
+            } else {
+                self.library_for_item(item.id).await?
+            };
+            self.effective_metadata_profile(&library, item.kind)?
+        };
+
+        validate_profile_applies_to_item_kind(&profile, item.kind)?;
+
+        if let Some(providers) = request.providers.as_ref() {
+            profile.metadata_providers = providers.clone();
+        }
+        if let Some(language) = request
+            .language
+            .as_ref()
+            .filter(|language| !language.trim().is_empty())
+        {
+            profile.language = Some(language.clone());
+        }
+        if let Some(refresh_mode) = request.refresh_mode {
+            profile.refresh_mode = refresh_mode;
+        } else if request.force {
+            profile.refresh_mode = MetadataRefreshMode::FullRefresh;
+        }
+
+        Ok(profile)
+    }
+
+    async fn metadata_attempts_for_job_item(
+        &self,
+        job_id: JobId,
+        item_id: MediaItemId,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        Ok(self
+            .inner
+            .store
+            .list_metadata_provider_attempts(job_id)
+            .await?
+            .into_iter()
+            .filter(|attempt| attempt.item_id == item_id)
+            .collect())
     }
 
     async fn ensure_metadata_item_exists(&self, item_id: MediaItemId) -> Result<()> {
@@ -307,14 +759,7 @@ impl TaruApp {
     ) -> Result<MetadataProfile> {
         let mut profile = library.options.metadata_profile.clone();
 
-        if !profile.item_kinds.is_empty()
-            && !profile.item_kinds.contains(&item_kind)
-            && !profile.item_kinds.contains(&taru_core::MediaKind::Unknown)
-        {
-            return Err(TaruError::Unsupported(
-                "library metadata profile does not apply to this item kind",
-            ));
-        }
+        validate_profile_applies_to_item_kind(&profile, item_kind)?;
 
         if profile.language.is_none() && !self.config().metadata.tmdb.language.trim().is_empty() {
             profile.language = Some(self.config().metadata.tmdb.language.clone());
@@ -335,38 +780,7 @@ impl TaruApp {
     }
 
     fn metadata_provider_registry(&self) -> MetadataProviderRegistry {
-        let mut registry = MetadataProviderRegistry::new();
-
-        if self.config().metadata.providers.is_empty() {
-            register_legacy_tmdb_provider(
-                &mut registry,
-                &self.config().metadata.tmdb,
-                &self.config().metadata.runtime,
-            );
-            return registry;
-        }
-
-        for provider in &self.config().metadata.providers {
-            match self.build_metadata_provider(provider) {
-                Ok(BuiltMetadataProvider::Tmdb(provider)) => {
-                    registry.register(provider);
-                }
-                Ok(BuiltMetadataProvider::Bangumi(provider)) => {
-                    registry.register(provider);
-                }
-                Ok(BuiltMetadataProvider::Douban(provider)) => {
-                    registry.register(provider);
-                }
-                Err(MetadataProviderBuildError::Disabled(provider, message)) => {
-                    registry.register_disabled(provider, message);
-                }
-                Err(MetadataProviderBuildError::Unavailable(provider, message)) => {
-                    registry.register_unavailable(provider, message);
-                }
-            }
-        }
-
-        registry
+        self.inner.metadata_providers.clone()
     }
 
     fn metadata_provider_diagnostics(&self) -> Vec<MetadataProviderDiagnostic> {
@@ -383,77 +797,35 @@ impl TaruApp {
     }
 
     fn legacy_tmdb_provider_diagnostic(&self) -> MetadataProviderDiagnostic {
-        let runtime = provider_runtime_diagnostic(&self.config().metadata.runtime);
-
-        match build_legacy_tmdb_provider(
-            &self.config().metadata.tmdb,
+        let provider = ExternalProvider::Tmdb;
+        let runtime = provider_runtime_diagnostic(
             &self.config().metadata.runtime,
-        ) {
-            Ok(provider) => available_provider_diagnostic(
-                provider.provider(),
-                Some(provider.provider_name().to_owned()),
-                runtime,
-            ),
-            Err(err) => build_error_diagnostic(err, runtime),
-        }
+            self.inner
+                .metadata_providers
+                .describe(&provider)
+                .and_then(|diagnostic| diagnostic.runtime_status),
+        );
+
+        registry_provider_diagnostic(&self.inner.metadata_providers, provider, runtime)
     }
 
     fn configured_provider_diagnostic(
         &self,
         settings: &MetadataProviderConfig,
     ) -> MetadataProviderDiagnostic {
+        let provider = settings.provider.clone();
         let runtime = provider_runtime_diagnostic(
             settings
                 .runtime
                 .as_ref()
                 .unwrap_or(&self.config().metadata.runtime),
+            self.inner
+                .metadata_providers
+                .describe(&provider)
+                .and_then(|diagnostic| diagnostic.runtime_status),
         );
 
-        match self.build_metadata_provider(settings) {
-            Ok(provider) => available_provider_diagnostic(
-                provider.provider(),
-                Some(provider.provider_name().to_owned()),
-                runtime,
-            ),
-            Err(err) => build_error_diagnostic(err, runtime),
-        }
-    }
-
-    fn build_metadata_provider(
-        &self,
-        settings: &MetadataProviderConfig,
-    ) -> std::result::Result<BuiltMetadataProvider, MetadataProviderBuildError> {
-        if !settings.enabled {
-            return Err(MetadataProviderBuildError::Disabled(
-                settings.provider.clone(),
-                format!(
-                    "{} metadata provider is disabled in config",
-                    provider_resource_name(&settings.provider).to_uppercase()
-                ),
-            ));
-        }
-
-        match settings.provider {
-            ExternalProvider::Tmdb => {
-                build_tmdb_provider(settings, &self.config().metadata.runtime)
-                    .map(BuiltMetadataProvider::Tmdb)
-            }
-            ExternalProvider::Bangumi => {
-                build_bangumi_provider(settings, &self.config().metadata.runtime)
-                    .map(BuiltMetadataProvider::Bangumi)
-            }
-            ExternalProvider::Douban => {
-                build_douban_provider(settings, &self.config().metadata.runtime)
-                    .map(BuiltMetadataProvider::Douban)
-            }
-            _ => Err(MetadataProviderBuildError::Unavailable(
-                settings.provider.clone(),
-                format!(
-                    "{} metadata provider is not implemented",
-                    provider_resource_name(&settings.provider)
-                ),
-            )),
-        }
+        registry_provider_diagnostic(&self.inner.metadata_providers, provider, runtime)
     }
 }
 
@@ -465,6 +837,77 @@ fn provider_resource_name(provider: &ExternalProvider) -> &str {
         ExternalProvider::Imdb => "imdb",
         ExternalProvider::Local => "local",
         ExternalProvider::Other(_) => "other",
+    }
+}
+
+pub(super) fn build_metadata_provider_registry(
+    config: &crate::config::TaruServerConfig,
+) -> MetadataProviderRegistry {
+    let mut registry = MetadataProviderRegistry::new();
+
+    if config.metadata.providers.is_empty() {
+        register_legacy_tmdb_provider(
+            &mut registry,
+            &config.metadata.tmdb,
+            &config.metadata.runtime,
+        );
+        return registry;
+    }
+
+    for provider in &config.metadata.providers {
+        match build_configured_metadata_provider(provider, &config.metadata.runtime) {
+            Ok(BuiltMetadataProvider::Tmdb(provider)) => {
+                registry.register(provider);
+            }
+            Ok(BuiltMetadataProvider::Bangumi(provider)) => {
+                registry.register(provider);
+            }
+            Ok(BuiltMetadataProvider::Douban(provider)) => {
+                registry.register(provider);
+            }
+            Err(MetadataProviderBuildError::Disabled(provider, message)) => {
+                registry.register_disabled(provider, message);
+            }
+            Err(MetadataProviderBuildError::Unavailable(provider, message)) => {
+                registry.register_unavailable(provider, message);
+            }
+        }
+    }
+
+    registry
+}
+
+fn build_configured_metadata_provider(
+    settings: &MetadataProviderConfig,
+    inherited_runtime: &MetadataProviderRuntimeConfig,
+) -> std::result::Result<BuiltMetadataProvider, MetadataProviderBuildError> {
+    if !settings.enabled {
+        return Err(MetadataProviderBuildError::Disabled(
+            settings.provider.clone(),
+            format!(
+                "{} metadata provider is disabled in config",
+                provider_resource_name(&settings.provider).to_uppercase()
+            ),
+        ));
+    }
+
+    match settings.provider {
+        ExternalProvider::Tmdb => {
+            build_tmdb_provider(settings, inherited_runtime).map(BuiltMetadataProvider::Tmdb)
+        }
+        ExternalProvider::Bangumi => {
+            build_bangumi_provider(settings, inherited_runtime).map(BuiltMetadataProvider::Bangumi)
+        }
+        ExternalProvider::Douban => {
+            build_douban_provider(settings, inherited_runtime).map(BuiltMetadataProvider::Douban)
+        }
+        _ => Err(MetadataProviderBuildError::Unavailable(
+            settings.provider.clone(),
+            format!(
+                "{} metadata provider is not implemented",
+                provider_resource_name(&settings.provider)
+            ),
+        )),
     }
 }
 
@@ -480,62 +923,43 @@ enum BuiltMetadataProvider {
     Douban(DoubanMetadataProvider),
 }
 
-impl BuiltMetadataProvider {
-    fn provider(&self) -> ExternalProvider {
-        match self {
-            Self::Tmdb(provider) => provider.provider(),
-            Self::Bangumi(provider) => provider.provider(),
-            Self::Douban(provider) => provider.provider(),
-        }
-    }
-
-    fn provider_name(&self) -> &'static str {
-        match self {
-            Self::Tmdb(provider) => provider.provider_name(),
-            Self::Bangumi(provider) => provider.provider_name(),
-            Self::Douban(provider) => provider.provider_name(),
-        }
-    }
-}
-
-fn available_provider_diagnostic(
+fn registry_provider_diagnostic(
+    registry: &MetadataProviderRegistry,
     provider: ExternalProvider,
-    provider_name: Option<String>,
     runtime: MetadataProviderRuntimeDiagnostic,
 ) -> MetadataProviderDiagnostic {
-    MetadataProviderDiagnostic {
-        provider,
-        status: MetadataProviderDiagnosticStatus::Available,
-        provider_name,
-        reason: None,
-        runtime,
-    }
-}
-
-fn build_error_diagnostic(
-    error: MetadataProviderBuildError,
-    runtime: MetadataProviderRuntimeDiagnostic,
-) -> MetadataProviderDiagnostic {
-    match error {
-        MetadataProviderBuildError::Disabled(provider, reason) => MetadataProviderDiagnostic {
-            provider,
-            status: MetadataProviderDiagnosticStatus::Disabled,
-            provider_name: None,
-            reason: Some(reason),
-            runtime,
-        },
-        MetadataProviderBuildError::Unavailable(provider, reason) => MetadataProviderDiagnostic {
+    let Some(diagnostic) = registry.describe(&provider) else {
+        return MetadataProviderDiagnostic {
             provider,
             status: MetadataProviderDiagnosticStatus::Unavailable,
             provider_name: None,
-            reason: Some(reason),
+            reason: Some("metadata provider is not registered".to_owned()),
             runtime,
+        };
+    };
+
+    MetadataProviderDiagnostic {
+        provider: diagnostic.provider,
+        status: match diagnostic.status {
+            MetadataProviderRegistrationStatus::Available => {
+                MetadataProviderDiagnosticStatus::Available
+            }
+            MetadataProviderRegistrationStatus::Disabled => {
+                MetadataProviderDiagnosticStatus::Disabled
+            }
+            MetadataProviderRegistrationStatus::Unavailable => {
+                MetadataProviderDiagnosticStatus::Unavailable
+            }
         },
+        provider_name: diagnostic.provider_name,
+        reason: diagnostic.reason,
+        runtime,
     }
 }
 
 fn provider_runtime_diagnostic(
     config: &MetadataProviderRuntimeConfig,
+    status: Option<MetadataHttpRuntimeStatus>,
 ) -> MetadataProviderRuntimeDiagnostic {
     MetadataProviderRuntimeDiagnostic {
         timeout_ms: config.timeout_ms,
@@ -548,7 +972,116 @@ fn provider_runtime_diagnostic(
             .as_ref()
             .is_some_and(|proxy| !proxy.trim().is_empty()),
         circuit_breaker_failures: config.circuit_breaker_failures,
+        circuit_open: status.as_ref().is_some_and(|status| status.circuit_open),
+        consecutive_failures: status
+            .as_ref()
+            .map_or(0, |status| status.consecutive_failures),
+        last_error: status.as_ref().and_then(|status| status.last_error.clone()),
+        last_rate_limit_wait_ms: status.map_or(0, |status| status.last_rate_limit_wait_ms),
+        state_scope: MetadataProviderRuntimeStateScope::ProcessLocal,
     }
+}
+
+fn metadata_maintenance_resource_class(request: &EnqueueMetadataMaintenanceRequest) -> String {
+    request
+        .providers
+        .as_ref()
+        .and_then(|providers| providers.first())
+        .map(|provider| format!("metadata.{}", provider_resource_name(provider)))
+        .unwrap_or_else(|| "metadata.maintenance".to_owned())
+}
+
+fn validate_profile_applies_to_item_kind(
+    profile: &MetadataProfile,
+    item_kind: taru_core::MediaKind,
+) -> Result<()> {
+    if !profile.item_kinds.is_empty()
+        && !profile.item_kinds.contains(&item_kind)
+        && !profile.item_kinds.contains(&taru_core::MediaKind::Unknown)
+    {
+        return Err(TaruError::Unsupported(
+            "metadata profile does not apply to this item kind",
+        ));
+    }
+
+    Ok(())
+}
+
+fn classify_metadata_maintenance_failure(
+    summary: &mut MetadataMaintenanceSummary,
+    item_id: MediaItemId,
+    attempts: &[MetadataProviderAttemptRecord],
+    error: &TaruError,
+) {
+    if attempts
+        .iter()
+        .any(|attempt| attempt.status == MetadataProviderAttemptStatus::RateLimited)
+    {
+        summary.rate_limited_items += 1;
+    } else if attempts
+        .iter()
+        .any(|attempt| attempt.status == MetadataProviderAttemptStatus::NoMatch)
+    {
+        summary.no_match_items += 1;
+    } else {
+        summary.failed_items += 1;
+    }
+
+    summary.errors.push(MetadataMaintenanceItemError {
+        item_id,
+        message: error.to_string(),
+    });
+}
+
+fn summarize_metadata_attempt_counts(
+    attempts: &[MetadataProviderAttemptRecord],
+) -> Vec<MetadataMaintenanceProviderAttemptCount> {
+    let mut counts: Vec<MetadataMaintenanceProviderAttemptCount> = Vec::new();
+
+    for attempt in attempts {
+        if let Some(count) = counts
+            .iter_mut()
+            .find(|count| count.provider == attempt.provider && count.status == attempt.status)
+        {
+            count.count += 1;
+            continue;
+        }
+
+        counts.push(MetadataMaintenanceProviderAttemptCount {
+            provider: attempt.provider.clone(),
+            status: attempt.status,
+            count: 1,
+        });
+    }
+
+    counts.sort_by(|left, right| {
+        provider_resource_name(&left.provider)
+            .cmp(provider_resource_name(&right.provider))
+            .then_with(|| left.status.as_str().cmp(right.status.as_str()))
+    });
+    counts
+}
+
+fn metadata_raw_retention_cutoff(retention_ms: u64) -> Result<String> {
+    let millis = i64::try_from(retention_ms).map_err(|_| TaruError::InvalidInput {
+        message: "metadata raw cache retention_ms is too large".to_owned(),
+    })?;
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::milliseconds(millis);
+
+    Ok(format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+        cutoff.year(),
+        u8::from(cutoff.month()),
+        cutoff.day(),
+        cutoff.hour(),
+        cutoff.minute(),
+        cutoff.second(),
+        cutoff.millisecond()
+    ))
+}
+
+fn usize_to_u32(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
 }
 
 fn register_legacy_tmdb_provider(

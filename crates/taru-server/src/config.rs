@@ -114,6 +114,8 @@ impl Default for PlaybackConfig {
 pub struct MetadataConfig {
     #[serde(default)]
     pub runtime: MetadataProviderRuntimeConfig,
+    #[serde(default = "default_metadata_raw_cache_retention_ms")]
+    pub raw_cache_retention_ms: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub providers: Vec<MetadataProviderConfig>,
     #[serde(default)]
@@ -124,6 +126,7 @@ impl Default for MetadataConfig {
     fn default() -> Self {
         Self {
             runtime: MetadataProviderRuntimeConfig::default(),
+            raw_cache_retention_ms: default_metadata_raw_cache_retention_ms(),
             providers: Vec::new(),
             tmdb: TmdbMetadataConfig::default(),
         }
@@ -465,6 +468,10 @@ fn default_metadata_provider_user_agent() -> String {
 
 const fn default_metadata_provider_circuit_breaker_failures() -> u32 {
     5
+}
+
+const fn default_metadata_raw_cache_retention_ms() -> u64 {
+    90 * 24 * 60 * 60 * 1_000
 }
 
 fn default_library_preset() -> LibraryPreset {

@@ -30,8 +30,8 @@ use catalog::{
 use jobs::get_job;
 use library::{export_nfo, import_nfo, list_libraries, list_library_sources, scan_library};
 use metadata::{
-    list_item_metadata_attempts, list_item_metadata_raw_responses, list_metadata_providers,
-    refresh_item_metadata,
+    cleanup_metadata_raw_responses, enqueue_metadata_maintenance, list_item_metadata_attempts,
+    list_item_metadata_raw_responses, list_metadata_providers, refresh_item_metadata,
 };
 use playback::{
     get_playback_session, get_source_playback_decision, head_stream_source, hls_playlist_source,
@@ -76,6 +76,14 @@ pub fn build_router(app: TaruApp) -> Router {
             get(list_item_metadata_raw_responses),
         )
         .route("/metadata/providers", get(list_metadata_providers))
+        .route(
+            "/metadata/maintenance/jobs",
+            post(enqueue_metadata_maintenance),
+        )
+        .route(
+            "/metadata/raw/cleanup",
+            post(cleanup_metadata_raw_responses),
+        )
         .route("/sources/{source_id}/probe", get(get_source_probe))
         .route(
             "/sources/{source_id}/playback/decision",

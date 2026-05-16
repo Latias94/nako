@@ -109,6 +109,13 @@ Metadata refresh jobs use the same envelope with kind `metadata_refresh`.
 Their input includes the item ID, selected first provider, force flag, and
 language. It must not include the resolved provider token.
 
+Metadata maintenance jobs use kind `metadata_maintenance`. Their input targets
+either one `library_id` or an explicit `item_ids` set, and may include provider,
+profile, item kind, language, refresh mode, and force overrides. Their summary records
+attempted, succeeded, failed, no-match, rate-limited, and skipped item counts
+plus provider attempt counts. Inputs and summaries must not include resolved
+provider secrets.
+
 NFO jobs use kinds `nfo_import` and `nfo_export`. Their input includes the
 library ID, local metadata policy, and force flag.
 
@@ -134,9 +141,11 @@ GET  /genres?limit=50&offset=0
 GET  /genres/{genre_id}/items?limit=50&offset=0
 GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
 POST /items/{item_id}/metadata/refresh
-GET  /items/{item_id}/metadata/attempts?limit=50&offset=0
-GET  /items/{item_id}/metadata/raw?limit=50&offset=0
+GET  /items/{item_id}/metadata/attempts?provider=tmdb&status=failed&limit=50&offset=0
+GET  /items/{item_id}/metadata/raw?provider=tmdb&limit=50&offset=0
 GET  /metadata/providers
+POST /metadata/maintenance/jobs
+POST /metadata/raw/cleanup?provider=tmdb&fetched_before=2026-05-01T00:00:00.000Z
 GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
 GET  /sources/{source_id}/stream
@@ -173,10 +182,37 @@ API.
 Metadata diagnostics routes expose provider refresh visibility without exposing
 resolved secrets. `GET /items/{item_id}/metadata/attempts` returns persisted
 provider attempts with status, failure class, message, matched key, and a
-computed `retryable` flag. `GET /items/{item_id}/metadata/raw` returns cached raw
-provider responses for the item. `GET /metadata/providers` returns configured
-provider availability, sanitized runtime budgets, and whether a proxy is
-configured; it never returns token, API key, custom header, or proxy URL values.
+computed `retryable` flag. It accepts optional `provider` and `status` filters.
+`GET /items/{item_id}/metadata/raw` returns cached raw provider responses for the
+item and accepts an optional `provider` filter. `POST /metadata/raw/cleanup`
+deletes raw cache entries by provider and cutoff. When `fetched_before` is not
+provided, the server computes the cutoff from `metadata.raw_cache_retention_ms`.
+
+`GET /metadata/providers` returns configured provider availability, sanitized
+runtime budgets, process-local circuit breaker state, consecutive failure count,
+last error, last rate-limit wait, and whether a proxy is configured. The runtime
+state scope is `process_local`; it is not a distributed health view. The route
+never returns token, API key, custom header, or proxy URL values.
+
+`POST /metadata/maintenance/jobs` returns `202 Accepted` with a queued
+`metadata_maintenance` job. The request body targets either a library or explicit
+items:
+
+```json
+{
+  "library_id": "018f0000-0000-7000-8000-000000000002",
+  "item_ids": [],
+  "providers": ["tmdb"],
+  "item_kinds": ["movie"],
+  "profile": null,
+  "language": "en-US",
+  "refresh_mode": "missing_only",
+  "force": false
+}
+```
+
+Exactly one of `library_id` or a non-empty `item_ids` array must be provided.
+`force` maps to `full_refresh` when `refresh_mode` is omitted.
 
 `POST /libraries/{library_id}/nfo/import` and
 `POST /libraries/{library_id}/nfo/export` return `202 Accepted` with queued NFO

@@ -11,8 +11,14 @@ pub use providers::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
     TmdbMetadataProvider, TmdbProviderConfig,
 };
-pub use registry::MetadataProviderRegistry;
-pub use runtime::{MetadataHttpJsonResponse, MetadataHttpRuntime, MetadataHttpRuntimeConfig};
+pub use registry::{
+    MetadataProviderRegistrationDiagnostic, MetadataProviderRegistrationStatus,
+    MetadataProviderRegistry,
+};
+pub use runtime::{
+    MetadataHttpJsonResponse, MetadataHttpRuntime, MetadataHttpRuntimeConfig,
+    MetadataHttpRuntimeStatus,
+};
 pub use strategy::{
     MetadataProviderAttempt, MetadataRefreshJobInput, MetadataRefreshRequest,
     MetadataRefreshService, MetadataRefreshSummary, MetadataStrategyExecutor,

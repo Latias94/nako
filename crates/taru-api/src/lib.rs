@@ -5,10 +5,11 @@ use taru_core::{
     AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
     AutomationProviderStatus, CollectionItem, EventId, ExternalProvider, Genre, ImageAsset,
     ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId,
-    MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
-    MetadataProviderAttemptRecord, OutboxEventRecord, PageRequest, Person, ProviderRawResponse,
-    Tag, TranscodeSessionRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId,
-    WebhookEndpointRecord, WebhookEndpointStatus,
+    MediaItem, MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId,
+    MetadataProfile, MetadataProviderAttemptRecord, MetadataRefreshMode, OutboxEventRecord,
+    PageRequest, Person, ProviderRawResponse, ProviderRawResponseCleanup, Tag,
+    TranscodeSessionRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord,
+    WebhookEndpointStatus,
 };
 use taru_streaming::PlaybackDecision;
 
@@ -275,6 +276,41 @@ pub struct MetadataProviderRuntimeDiagnostic {
     pub user_agent: String,
     pub proxy_configured: bool,
     pub circuit_breaker_failures: u32,
+    pub circuit_open: bool,
+    pub consecutive_failures: u64,
+    pub last_error: Option<String>,
+    pub last_rate_limit_wait_ms: u64,
+    pub state_scope: MetadataProviderRuntimeStateScope,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProviderRuntimeStateScope {
+    ProcessLocal,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct EnqueueMetadataMaintenanceRequest {
+    pub library_id: Option<LibraryId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_ids: Vec<MediaItemId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub providers: Option<Vec<ExternalProvider>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_kinds: Vec<MediaKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<MetadataProfile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh_mode: Option<MetadataRefreshMode>,
+    #[serde(default)]
+    pub force: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataRawCleanupResponse {
+    pub cleanup: ProviderRawResponseCleanup,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

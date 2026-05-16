@@ -114,19 +114,25 @@ impl MetadataRepository for SqliteStore {
     async fn list_provider_raw_responses(
         &self,
         item_id: MediaItemId,
+        filter: ProviderRawResponseFilter,
         page: PageRequest,
     ) -> Result<Vec<ProviderRawResponse>> {
         let page = page.clamped();
+        let provider = filter
+            .provider
+            .map(|provider| provider_to_parts(&provider).0);
         let rows = sqlx::query(
             r#"
             SELECT item_id, provider, provider_key, body_json, fetched_at
             FROM provider_raw_responses
             WHERE item_id = ?1
+              AND (?2 IS NULL OR provider = ?2)
             ORDER BY fetched_at DESC, provider ASC, provider_key ASC
-            LIMIT ?2 OFFSET ?3
+            LIMIT ?3 OFFSET ?4
             "#,
         )
         .bind(item_id.to_string())
+        .bind(provider)
         .bind(u32_to_i64(page.limit))
         .bind(u64_to_i64(page.offset)?)
         .fetch_all(&self.pool)
@@ -134,6 +140,35 @@ impl MetadataRepository for SqliteStore {
         .map_err(database_error)?;
 
         rows.into_iter().map(row_to_provider_raw_response).collect()
+    }
+
+    async fn cleanup_provider_raw_responses(
+        &self,
+        filter: ProviderRawResponseFilter,
+        fetched_before: &str,
+    ) -> Result<ProviderRawResponseCleanup> {
+        let provider = filter
+            .provider
+            .map(|provider| provider_to_parts(&provider).0);
+        let deleted = sqlx::query(
+            r#"
+            DELETE FROM provider_raw_responses
+            WHERE fetched_at < ?1
+              AND (?2 IS NULL OR provider = ?2)
+            "#,
+        )
+        .bind(fetched_before)
+        .bind(&provider)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?
+        .rows_affected();
+
+        Ok(ProviderRawResponseCleanup {
+            provider: provider.map(|provider| provider_from_parts(provider, String::new())),
+            fetched_before: fetched_before.to_owned(),
+            deleted,
+        })
     }
 
     async fn insert_metadata_provider_attempt(
@@ -214,9 +249,14 @@ impl MetadataRepository for SqliteStore {
     async fn list_metadata_provider_attempts_for_item(
         &self,
         item_id: MediaItemId,
+        filter: MetadataAttemptFilter,
         page: PageRequest,
     ) -> Result<Vec<MetadataProviderAttemptRecord>> {
         let page = page.clamped();
+        let provider = filter
+            .provider
+            .map(|provider| provider_to_parts(&provider).0);
+        let status = filter.status.map(MetadataProviderAttemptStatus::as_str);
         let rows = sqlx::query(
             r#"
             SELECT
@@ -233,11 +273,15 @@ impl MetadataRepository for SqliteStore {
                 message
             FROM metadata_provider_attempts
             WHERE item_id = ?1
+              AND (?2 IS NULL OR provider = ?2)
+              AND (?3 IS NULL OR status = ?3)
             ORDER BY started_at DESC, created_at DESC
-            LIMIT ?2 OFFSET ?3
+            LIMIT ?4 OFFSET ?5
             "#,
         )
         .bind(item_id.to_string())
+        .bind(provider)
+        .bind(status)
         .bind(u32_to_i64(page.limit))
         .bind(u64_to_i64(page.offset)?)
         .fetch_all(&self.pool)

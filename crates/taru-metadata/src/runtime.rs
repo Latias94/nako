@@ -1,5 +1,6 @@
 use std::{
     sync::Arc,
+    sync::Mutex as StdMutex,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::Duration,
 };
@@ -53,6 +54,16 @@ pub struct MetadataHttpRuntime {
     throttle: Arc<Mutex<OffsetDateTime>>,
     consecutive_failures: Arc<AtomicU64>,
     circuit_open: Arc<AtomicBool>,
+    last_error: Arc<StdMutex<Option<String>>>,
+    last_rate_limit_wait_ms: Arc<AtomicU64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct MetadataHttpRuntimeStatus {
+    pub circuit_open: bool,
+    pub consecutive_failures: u64,
+    pub last_error: Option<String>,
+    pub last_rate_limit_wait_ms: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +85,7 @@ impl MetadataHttpRuntime {
         {
             builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(|err| {
                 TaruError::InvalidInput {
-                    message: format!("invalid metadata provider proxy {proxy}: {err}"),
+                    message: format!("invalid metadata provider proxy configuration: {err}"),
                 }
             })?);
         }
@@ -91,12 +102,24 @@ impl MetadataHttpRuntime {
             throttle: Arc::new(Mutex::new(OffsetDateTime::UNIX_EPOCH)),
             consecutive_failures: Arc::new(AtomicU64::new(0)),
             circuit_open: Arc::new(AtomicBool::new(false)),
+            last_error: Arc::new(StdMutex::new(None)),
+            last_rate_limit_wait_ms: Arc::new(AtomicU64::new(0)),
         })
     }
 
     #[must_use]
     pub fn config(&self) -> &MetadataHttpRuntimeConfig {
         &self.config
+    }
+
+    #[must_use]
+    pub fn status(&self) -> MetadataHttpRuntimeStatus {
+        MetadataHttpRuntimeStatus {
+            circuit_open: self.circuit_open.load(Ordering::SeqCst),
+            consecutive_failures: self.consecutive_failures.load(Ordering::SeqCst),
+            last_error: self.last_error.lock().ok().and_then(|error| error.clone()),
+            last_rate_limit_wait_ms: self.last_rate_limit_wait_ms.load(Ordering::SeqCst),
+        }
     }
 
     pub async fn get_json(
@@ -246,8 +269,16 @@ impl MetadataHttpRuntime {
 
             if status.is_success() {
                 self.consecutive_failures.store(0, Ordering::SeqCst);
-                let value = serde_json::from_str(&text)
-                    .map_err(|err| provider_parse_error(provider, operation, err))?;
+                self.circuit_open.store(false, Ordering::SeqCst);
+                self.set_last_error(None);
+                let value = match serde_json::from_str(&text) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        let error = provider_parse_error(provider, operation, err);
+                        self.record_failure(Some(error.to_string()));
+                        return Err(error);
+                    }
+                };
                 return Ok((status, value));
             }
 
@@ -260,7 +291,7 @@ impl MetadataHttpRuntime {
             };
 
             if !status.is_server_error() && status.as_u16() != 429 {
-                self.record_failure();
+                self.record_failure(Some(error.to_string()));
                 return Err(error);
             }
 
@@ -270,11 +301,12 @@ impl MetadataHttpRuntime {
             }
         }
 
-        self.record_failure();
-        Err(last_error.unwrap_or_else(|| TaruError::Provider {
+        let error = last_error.unwrap_or_else(|| TaruError::Provider {
             provider: provider.to_owned(),
             message: format!("{operation} failed without a provider response"),
-        }))
+        });
+        self.record_failure(Some(error.to_string()));
+        Err(error)
     }
 
     async fn wait_for_rate_limit(&self) -> Result<()> {
@@ -289,22 +321,37 @@ impl MetadataHttpRuntime {
             let wait = (*next_allowed - now)
                 .try_into()
                 .unwrap_or_else(|_| Duration::from_millis(self.config.min_interval_ms));
+            self.last_rate_limit_wait_ms
+                .store(duration_millis(wait), Ordering::SeqCst);
             sleep(wait).await;
+        } else {
+            self.last_rate_limit_wait_ms.store(0, Ordering::SeqCst);
         }
         *next_allowed = OffsetDateTime::now_utc() + min_interval;
 
         Ok(())
     }
 
-    fn record_failure(&self) {
+    fn record_failure(&self, error: Option<String>) {
+        self.set_last_error(error);
         let failures = self.consecutive_failures.fetch_add(1, Ordering::SeqCst) + 1;
         let threshold = u64::from(self.config.circuit_breaker_failures);
         if threshold > 0 && failures >= threshold {
             self.circuit_open.store(true, Ordering::SeqCst);
         }
     }
+
+    fn set_last_error(&self, error: Option<String>) {
+        if let Ok(mut last_error) = self.last_error.lock() {
+            *last_error = error;
+        }
+    }
 }
 
 fn default_metadata_user_agent() -> String {
     format!("taru/{}", env!("CARGO_PKG_VERSION"))
+}
+
+fn duration_millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }

@@ -10,6 +10,7 @@ use taru_core::{
     TranscodeFailureCategory, TranscodeSessionRepository,
 };
 use taru_db::SqliteStore;
+use taru_metadata::MetadataProviderRegistry;
 use taru_vfs::StorageUri;
 use tokio::sync::Semaphore;
 use tracing::warn;
@@ -54,6 +55,7 @@ struct TaruAppInner {
     nfo_permits: Arc<Semaphore>,
     webhook_permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
+    metadata_providers: MetadataProviderRegistry,
     remux: RemuxAppService,
     hls: HlsAppService,
 }
@@ -96,6 +98,7 @@ impl TaruApp {
                 nfo_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
                 webhook_permits: Arc::new(Semaphore::new(config.webhook_concurrency.max(1))),
                 storage_backends: StorageBackendRegistry::new(&config, store.clone()),
+                metadata_providers: metadata::build_metadata_provider_registry(&config),
                 remux: RemuxAppService::new(&config),
                 hls: HlsAppService::new(&config),
                 config,

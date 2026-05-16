@@ -5,7 +5,7 @@ use taru_core::{ExternalProvider, MediaKind, Result, TaruError};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
-    MetadataHttpRuntimeConfig, MetadataLookup, MetadataProvider,
+    MetadataHttpRuntimeConfig, MetadataHttpRuntimeStatus, MetadataLookup, MetadataProvider,
 };
 
 use super::{
@@ -71,6 +71,10 @@ impl MetadataProvider for BangumiMetadataProvider {
 
     fn provider_name(&self) -> &'static str {
         BANGUMI_PROVIDER_NAME
+    }
+
+    fn runtime_status(&self) -> Option<MetadataHttpRuntimeStatus> {
+        Some(self.runtime.status())
     }
 
     async fn search(&self, lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>> {

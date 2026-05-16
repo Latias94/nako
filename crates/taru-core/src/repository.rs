@@ -10,10 +10,11 @@ use crate::{
     NewAutomationArtifact, NewAutomationProviderConfig, NewJob, NewMetadataProviderAttempt,
     NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, Person, PersonId,
-    ProviderRawResponse, Result, ScanSnapshot, ScanSnapshotId, SourceState, StagingManifestId,
-    StagingManifestRecord, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionState, VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
+    ScanSnapshot, ScanSnapshotId, SourceState, StagingManifestId, StagingManifestRecord,
+    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
     WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
     WebhookEndpointId, WebhookEndpointRecord,
 };
@@ -39,6 +40,12 @@ pub trait MediaRepository: Send + Sync {
     async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
 
     async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>>;
+
+    async fn list_media_items_for_library(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>>;
 
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()>;
 
@@ -385,8 +392,15 @@ pub trait MetadataRepository: Send + Sync {
     async fn list_provider_raw_responses(
         &self,
         item_id: MediaItemId,
+        filter: ProviderRawResponseFilter,
         page: PageRequest,
     ) -> Result<Vec<ProviderRawResponse>>;
+
+    async fn cleanup_provider_raw_responses(
+        &self,
+        filter: ProviderRawResponseFilter,
+        fetched_before: &str,
+    ) -> Result<ProviderRawResponseCleanup>;
 
     async fn insert_metadata_provider_attempt(
         &self,
@@ -401,6 +415,7 @@ pub trait MetadataRepository: Send + Sync {
     async fn list_metadata_provider_attempts_for_item(
         &self,
         item_id: MediaItemId,
+        filter: crate::MetadataAttemptFilter,
         page: PageRequest,
     ) -> Result<Vec<crate::MetadataProviderAttemptRecord>>;
 }

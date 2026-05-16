@@ -9,6 +9,9 @@ attention.
 - [playback-streaming](playback-streaming/README.md): active M7 remote
   direct-body streaming, staging budget/cleanup, playback error mapping,
   remote playback resource budgets, and multi-library configuration work.
+- [metadata-operations](metadata-operations/README.md): active M13 metadata
+  maintenance jobs, diagnostics filtering, raw cache retention, and provider
+  health visibility.
 - [storage-vfs](storage-vfs/README.md): completed M6 remote storage, VFS cache,
   remote staging, playback policy, and WebDAV preview work.
 - [addons-automation](addons-automation/README.md): completed M5 webhook,
@@ -29,7 +32,6 @@ Split a workstream when one of these becomes true:
 
 Expected future splits:
 
-- `metadata-catalog`
 - `clients`
 
 Keep unsplit domains in `server-foundation` until a split reduces real

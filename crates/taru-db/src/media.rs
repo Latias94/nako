@@ -137,6 +137,49 @@ impl MediaRepository for SqliteStore {
         Ok(items)
     }
 
+    async fn list_media_items_for_library(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT DISTINCT
+                media_items.id,
+                media_items.kind,
+                media_items.parent_id,
+                media_items.title,
+                media_items.original_title,
+                media_items.sort_title,
+                media_items.overview,
+                media_items.release_date,
+                media_items.metadata_json
+            FROM media_items
+            INNER JOIN media_sources ON media_sources.item_id = media_items.id
+            WHERE media_sources.library_id = ?1
+            ORDER BY media_items.title ASC, media_items.id ASC
+            LIMIT ?2 OFFSET ?3
+            "#,
+        )
+        .bind(library_id.to_string())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut items = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self.list_external_ids(id).await?;
+            items.push(row_to_media_item(row, external_ids)?);
+        }
+
+        Ok(items)
+    }
+
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
         sqlx::query(
             r#"

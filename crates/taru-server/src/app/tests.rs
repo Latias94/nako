@@ -15,6 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::any,
 };
+use taru_api::EnqueueMetadataMaintenanceRequest;
 use taru_core::{
     CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId, JobKind,
     JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
@@ -667,6 +668,103 @@ async fn metadata_refresh_resolves_provider_order_from_library_profile() {
         input.get("provider").and_then(serde_json::Value::as_str),
         Some("bangumi")
     );
+}
+
+#[tokio::test]
+async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempts() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///The Matrix.mkv".to_owned(),
+        file_name: "The Matrix.mkv".to_owned(),
+        size_bytes: Some(1024),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let output = app
+        .run_metadata_maintenance(EnqueueMetadataMaintenanceRequest {
+            library_id: Some(library_id),
+            item_ids: Vec::new(),
+            providers: Some(vec![ExternalProvider::Tmdb]),
+            item_kinds: vec![MediaKind::Movie],
+            profile: None,
+            language: Some("en-US".to_owned()),
+            refresh_mode: Some(MetadataRefreshMode::MissingOnly),
+            force: false,
+        })
+        .await
+        .unwrap();
+    let input = output
+        .job
+        .input_json
+        .as_ref()
+        .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+        .unwrap();
+
+    assert_eq!(output.job.kind, JobKind::MetadataMaintenance);
+    assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(output.summary.requested_items, 1);
+    assert_eq!(output.summary.attempted_items, 1);
+    assert_eq!(output.summary.succeeded_items, 0);
+    assert_eq!(output.summary.failed_items, 1);
+    assert_eq!(output.summary.provider_attempts.len(), 1);
+    assert_eq!(
+        output.summary.provider_attempts[0].status,
+        MetadataProviderAttemptStatus::SkippedDisabled
+    );
+    assert!(input.get("access_token").is_none());
+    assert!(input.get("api_key").is_none());
+
+    let events = store
+        .list_outbox_events(PageRequest::first_page())
+        .await
+        .unwrap();
+    assert!(events.iter().any(|event| {
+        event.kind == DomainEventKind::MetadataMaintenanceCompleted
+            && event.subject == DomainEventSubject::Job(output.job.id)
+    }));
 }
 
 #[tokio::test]

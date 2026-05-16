@@ -6,6 +6,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use super::TMDB_PROVIDER_NAME;
 pub(crate) fn provider_request_error(provider: &str, error: reqwest::Error) -> TaruError {
+    let error = error.without_url();
     TaruError::Provider {
         provider: provider.to_owned(),
         message: error.to_string(),

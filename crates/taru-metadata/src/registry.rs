@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt, sync::Arc};
 
 use taru_core::ExternalProvider;
 
-use crate::MetadataProvider;
+use crate::{MetadataHttpRuntimeStatus, MetadataProvider};
 #[derive(Clone, Default)]
 pub struct MetadataProviderRegistry {
     providers: HashMap<ExternalProvider, RegisteredMetadataProvider>,
@@ -76,6 +76,60 @@ impl MetadataProviderRegistry {
     pub(crate) fn get(&self, provider: &ExternalProvider) -> Option<&RegisteredMetadataProvider> {
         self.providers.get(provider)
     }
+
+    #[must_use]
+    pub fn describe(
+        &self,
+        provider: &ExternalProvider,
+    ) -> Option<MetadataProviderRegistrationDiagnostic> {
+        self.providers
+            .get(provider)
+            .map(|registered| match registered {
+                RegisteredMetadataProvider::Available(provider_impl) => {
+                    MetadataProviderRegistrationDiagnostic {
+                        provider: provider.clone(),
+                        status: MetadataProviderRegistrationStatus::Available,
+                        provider_name: Some(provider_impl.provider_name().to_owned()),
+                        reason: None,
+                        runtime_status: provider_impl.runtime_status(),
+                    }
+                }
+                RegisteredMetadataProvider::Disabled { reason } => {
+                    MetadataProviderRegistrationDiagnostic {
+                        provider: provider.clone(),
+                        status: MetadataProviderRegistrationStatus::Disabled,
+                        provider_name: None,
+                        reason: Some(reason.clone()),
+                        runtime_status: None,
+                    }
+                }
+                RegisteredMetadataProvider::Unavailable { reason } => {
+                    MetadataProviderRegistrationDiagnostic {
+                        provider: provider.clone(),
+                        status: MetadataProviderRegistrationStatus::Unavailable,
+                        provider_name: None,
+                        reason: Some(reason.clone()),
+                        runtime_status: None,
+                    }
+                }
+            })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MetadataProviderRegistrationStatus {
+    Available,
+    Disabled,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MetadataProviderRegistrationDiagnostic {
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderRegistrationStatus,
+    pub provider_name: Option<String>,
+    pub reason: Option<String>,
+    pub runtime_status: Option<MetadataHttpRuntimeStatus>,
 }
 
 impl fmt::Debug for MetadataProviderRegistry {
