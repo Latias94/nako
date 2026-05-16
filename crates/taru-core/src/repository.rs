@@ -638,6 +638,12 @@ pub trait TranscodeSessionRepository: Send + Sync {
         failure_message: Option<String>,
     ) -> Result<TranscodeSessionRecord>;
 
+    async fn request_transcode_session_cancellation(
+        &self,
+        id: TranscodeSessionId,
+        failure_message: String,
+    ) -> Result<Option<TranscodeSessionRecord>>;
+
     async fn fail_stale_transcode_sessions(
         &self,
         failure_category: TranscodeFailureCategory,

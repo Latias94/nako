@@ -21,19 +21,24 @@ use tokio::sync::Mutex;
 use crate::config::TaruServerConfig;
 
 use super::{
-    RemuxSourceDisposition, RemuxSourceOutput, ensure_remux_output_parent, map_remux_runner_error,
-    path_exists, persist_session_failure, record_playback_session_finished_event,
+    PlaybackSessionCancellationRegistry, RemuxSourceDisposition, RemuxSourceOutput,
+    ensure_remux_output_parent, map_remux_runner_error, path_exists, persist_session_failure,
+    record_playback_session_finished_event,
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct RemuxAppService {
     builder: FfmpegCommandBuilder,
     runner: FfmpegRemuxRunner,
+    cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<RemuxRequestKey>>>,
 }
 
 impl RemuxAppService {
-    pub(super) fn new(config: &TaruServerConfig) -> Self {
+    pub(super) fn new(
+        config: &TaruServerConfig,
+        cancellations: PlaybackSessionCancellationRegistry,
+    ) -> Self {
         let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
             max_concurrent_sessions: config.remux_concurrency,
             timeout_ms: config.remux_timeout_ms,
@@ -42,6 +47,7 @@ impl RemuxAppService {
         Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
             runner: FfmpegRemuxRunner::new(guard),
+            cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         }
     }
@@ -169,6 +175,8 @@ impl RemuxAppService {
         output_container: RemuxContainer,
     ) -> Result<RemuxSourceOutput> {
         let session_id = persisted_session.id;
+        let cancel = CancellationToken::new();
+        let _cancel_handle = self.cancellations.register(session_id, cancel.clone());
 
         if let Err(error) = ensure_remux_output_parent(&output_path).await {
             persist_session_failure(sessions, session_id, &error).await;
@@ -195,13 +203,13 @@ impl RemuxAppService {
             .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
             .await?;
 
-        let cancel = CancellationToken::new();
-
         let run_result = self
             .runner
             .run(&mut manager, session_id, cancel)
             .await
             .map_err(map_remux_runner_error);
+
+        drop(_cancel_handle);
 
         match run_result {
             Ok(RemuxRunOutcome::Finished { .. }) => {

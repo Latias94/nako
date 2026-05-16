@@ -469,6 +469,166 @@ async fn playback_session_route_returns_remux_session_state() {
 }
 
 #[tokio::test]
+async fn playback_session_cancel_route_cancels_active_remux_session() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, marker, store) =
+        router_with_remux_source(true).await;
+    let remux_path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+    let first_router = router.clone();
+    let first_path = remux_path.clone();
+    let first = tokio::spawn(async move {
+        first_router
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(first_path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    });
+
+    for _ in 0..50 {
+        if marker.exists() {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert!(marker.exists());
+
+    let session = store
+        .find_active_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
+        .await
+        .unwrap()
+        .unwrap();
+    let cancel_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/playback/sessions/{}/cancel", session.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+    let cancel_body = body_json::<TranscodeSessionResponse>(cancel_response).await;
+    assert_eq!(cancel_body.session.id, session.id);
+    assert!(matches!(
+        cancel_body.session.state,
+        TranscodeSessionState::CancelRequested | TranscodeSessionState::Cancelled
+    ));
+    assert_eq!(
+        cancel_body.session.failure_category,
+        Some(taru_core::TranscodeFailureCategory::Cancelled)
+    );
+
+    let first_response = first.await.unwrap();
+    assert_eq!(first_response.status(), StatusCode::BAD_GATEWAY);
+    let first_error = body_json::<ErrorResponse>(first_response).await;
+    assert_eq!(first_error.code, "ffmpeg_error");
+
+    let mut final_session = None;
+    for _ in 0..50 {
+        let session_response = request_json::<TranscodeSessionResponse>(
+            &router,
+            Method::GET,
+            &format!("/playback/sessions/{}", session.id),
+        )
+        .await;
+        if session_response.session.state == TranscodeSessionState::Cancelled {
+            final_session = Some(session_response.session);
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    let final_session = final_session.expect("cancelled remux session should become terminal");
+
+    assert_eq!(
+        final_session.failure_category,
+        Some(taru_core::TranscodeFailureCategory::Cancelled)
+    );
+    assert!(final_session.completed_at.is_some());
+}
+
+#[tokio::test]
+async fn playback_session_cancel_route_rejects_terminal_session() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    let remux_path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&remux_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let session = store
+        .find_latest_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(session.state, TranscodeSessionState::Finished);
+
+    let cancel_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/playback/sessions/{}/cancel", session.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(cancel_response.status(), StatusCode::CONFLICT);
+    let error = body_json::<ErrorResponse>(cancel_response).await;
+    assert_eq!(error.code, "conflict");
+    assert!(error.message.contains("already terminal"));
+}
+
+#[tokio::test]
+async fn playback_session_cancel_route_rejects_process_local_stale_active_session() {
+    let (temp, router, source, store) = router_with_hls_source().await;
+    let stale = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mp4".to_owned(),
+            output_path: temp.path().join("stale.mp4"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+
+    let cancel_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/playback/sessions/{}/cancel", stale.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(cancel_response.status(), StatusCode::CONFLICT);
+    let error = body_json::<ErrorResponse>(cancel_response).await;
+    assert_eq!(error.code, "conflict");
+    assert!(error.message.contains("not running in this process"));
+}
+
+#[tokio::test]
 async fn hls_playlist_and_segment_routes_work() {
     let (_temp, router, source, store) = router_with_hls_source().await;
     let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);

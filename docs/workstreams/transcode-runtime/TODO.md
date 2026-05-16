@@ -39,6 +39,19 @@
       public shapes change.
 ## Post-M25 Follow-Ups
 
-- [ ] Add a public cancellation endpoint if client playback control needs it.
 - [ ] Add device-initialization hardware diagnostics if encoder-name probing is
       too weak for operators.
+
+## M26.0 Playback API Contract and Client Readiness
+
+- [x] Add a public playback session cancellation endpoint.
+- [x] Wire cancellation to live remux/HLS runner tokens.
+- [x] Return `TranscodeSessionResponse` for session inspection and successful
+      cancellation.
+- [x] Map missing, terminal, and process-local stale active sessions to stable
+      `404 not_found` or `409 conflict` envelopes.
+- [x] Document active/terminal playback session states and cancellation
+      semantics in the HTTP API guide.
+- [x] Add route-level tests for active cancellation, terminal cancellation
+      conflict, process-local stale active-session conflict, session
+      inspection, and HLS segment readiness/error behavior.

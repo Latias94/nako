@@ -88,3 +88,29 @@ Exit criteria:
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace`
 - `git diff --check`
+
+## M26.0: Playback API Contract and Client Readiness
+
+Status: active.
+
+Outcome: playback/session HTTP routes expose a stable control and inspection
+contract that future web or Flutter clients can depend on.
+
+Deliverables:
+
+- Add a public playback session cancellation route.
+- Wire cancellation to the live remux/HLS FFmpeg runner token, not only to the
+  persisted session row.
+- Keep session inspection on the existing `TranscodeSessionResponse` envelope.
+- Document active and terminal session states, cancellation conflicts, and
+  playback error DTO behavior.
+- Add route-level tests for active cancellation, terminal cancellation
+  conflicts, process-local stale active-session conflicts, session inspection,
+  and HLS segment readiness/error behavior.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check -p taru-server --tests`
+- focused `cargo nextest run -p taru-server` playback route tests
+- `git diff --check`

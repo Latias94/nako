@@ -24,11 +24,13 @@ use crate::config::TaruServerConfig;
 
 use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
 
+mod control;
 mod direct;
 mod hls;
 mod input;
 mod remux;
 
+use control::PlaybackSessionCancellationRegistry;
 pub(crate) use direct::{
     DirectPlaySourceBody, DirectPlaySourcePlan, DirectPlayStreamBody, plan_direct_play_with_backend,
 };
@@ -214,6 +216,7 @@ pub(crate) struct PlaybackAppService {
     store: SqliteStore,
     storage_backends: StorageBackendRegistry,
     input: FfmpegInputService,
+    cancellations: PlaybackSessionCancellationRegistry,
     remux: RemuxAppService,
     hls: HlsAppService,
 }
@@ -225,13 +228,16 @@ impl PlaybackAppService {
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
     ) -> Result<Self> {
+        let cancellations = PlaybackSessionCancellationRegistry::default();
+
         Ok(Self {
             input: FfmpegInputService::new(config.clone(), store.clone(), runtime),
-            remux: RemuxAppService::new(&config),
-            hls: HlsAppService::new(&config)?,
+            remux: RemuxAppService::new(&config, cancellations.clone()),
+            hls: HlsAppService::new(&config, cancellations.clone())?,
             config,
             store,
             storage_backends,
+            cancellations,
         })
     }
 
@@ -460,6 +466,42 @@ impl PlaybackAppService {
             .ok_or_else(|| TaruError::NotFound {
                 entity: "transcode_session",
                 id: session_id.to_string(),
+            })
+    }
+
+    pub(crate) async fn cancel_transcode_session(
+        &self,
+        session_id: TranscodeSessionId,
+    ) -> Result<TranscodeSessionRecord> {
+        let session = self.get_transcode_session(session_id).await?;
+
+        if session.state.is_terminal() {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "playback session {session_id} is already terminal; current state is {}",
+                    session.state.as_str()
+                ),
+            });
+        }
+
+        if !self.cancellations.cancel(session_id) {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "playback session {session_id} is active but is not running in this process"
+                ),
+            });
+        }
+
+        self.store
+            .request_transcode_session_cancellation(
+                session_id,
+                "playback session cancellation requested".to_owned(),
+            )
+            .await?
+            .ok_or_else(|| TaruError::Conflict {
+                message: format!(
+                    "playback session {session_id} is no longer active enough to cancel"
+                ),
             })
     }
 

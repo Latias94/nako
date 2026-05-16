@@ -159,6 +159,7 @@ HEAD /sources/{source_id}/stream
 GET  /sources/{source_id}/stream/remux
 GET  /sources/{source_id}/stream/hls/playlist.m3u8
 GET  /playback/sessions/{session_id}
+POST /playback/sessions/{session_id}/cancel
 GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
 POST /webhooks/endpoints
 GET  /webhooks/endpoints
@@ -300,6 +301,23 @@ WebDAV credentials are not passed to FFmpeg.
 remux and HLS transcode sessions. The response includes the source ID, session
 kind, request key, staged output path, state, failure category/message, and
 lifecycle timestamps. Missing sessions return `404 not_found`.
+
+Client-visible session states are stable strings:
+
+```text
+active:   planned, starting, running, cancel_requested
+terminal: finished, failed, cancelled
+```
+
+`POST /playback/sessions/{session_id}/cancel` requests cancellation for a
+currently running process-local remux or HLS session. On success it returns the
+same `TranscodeSessionResponse` envelope as `GET /playback/sessions/{id}` with
+state `cancel_requested` or, if the runner already observed the signal,
+`cancelled`. Cancellation is best-effort and process-local because the current
+runtime is a single-process modular monolith; an active session record left
+behind by a previous process cannot be cancelled by the new process and returns
+`409 conflict`. Missing sessions return `404 not_found`. Terminal sessions also
+return `409 conflict`.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.
@@ -509,6 +527,8 @@ invalid client capability query   -> 400 invalid_input
 unsupported local playback source -> 400 unsupported
 in-flight equivalent remux/HLS    -> 409 conflict
 unfinished HLS segment session    -> 409 conflict
+terminal session cancellation     -> 409 conflict
+stale process-local cancellation  -> 409 conflict
 storage read/metadata failures    -> 502 storage_error/provider_error
 storage timeout                   -> 504 storage_timeout
 storage unauthorized/forbidden    -> 502 storage_unauthorized

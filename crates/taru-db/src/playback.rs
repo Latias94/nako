@@ -147,6 +147,36 @@ impl TranscodeSessionRepository for SqliteStore {
         self.get_transcode_session_or_not_found(id).await
     }
 
+    async fn request_transcode_session_cancellation(
+        &self,
+        id: TranscodeSessionId,
+        failure_message: String,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE transcode_sessions
+            SET
+                state = 'cancel_requested',
+                failure_category = 'cancelled',
+                failure_message = ?2,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+                AND state IN ('planned', 'starting', 'running', 'cancel_requested')
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(failure_message)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        Ok(Some(self.get_transcode_session_or_not_found(id).await?))
+    }
+
     async fn fail_stale_transcode_sessions(
         &self,
         failure_category: TranscodeFailureCategory,

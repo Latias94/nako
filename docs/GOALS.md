@@ -748,3 +748,48 @@ Close-out validation:
 - `cargo nextest run -p taru-server --no-fail-fast`: 90 tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 231 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
+
+## Latest Completed Goal
+
+### M26: Playback API Contract and Client Readiness
+
+Status: completed.
+
+Objective:
+
+- Stabilize playback/session HTTP contracts before future web or Flutter
+  clients depend on them.
+
+Deliverables:
+
+- Add a public playback session cancellation route.
+- Wire cancellation to live remux/HLS FFmpeg runner tokens, not only persisted
+  session rows.
+- Keep inspection and successful cancellation on `TranscodeSessionResponse`.
+- Document active/terminal playback session lifecycle states and stable error
+  DTO behavior.
+- Validate with route-level tests for active cancellation, terminal conflicts,
+  process-local stale active-session conflicts, session inspection, and HLS
+  segment readiness/error behavior.
+
+Non-goals:
+
+- no adaptive bitrate ladder;
+- no client UI implementation;
+- no distributed transcode queue or cross-process cancellation coordinator.
+
+Evidence:
+
+- [Phase 26.0](workstreams/transcode-runtime/PHASE26_0_PLAYBACK_CLIENT_CONTRACT.md)
+  records the playback client contract scope, cancellation semantics, and
+  validation gates.
+
+Close-out validation:
+
+- `cargo fmt --all -- --check`
+- `cargo check -p taru-server --tests`
+- `cargo check --workspace --tests`
+- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`: 16
+  playback route tests passed.
+- `cargo nextest run --workspace --no-fail-fast`: 234 tests passed.
+- `git diff --check`: passed with Git CRLF normalization warnings only.

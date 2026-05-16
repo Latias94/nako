@@ -18,8 +18,9 @@ use tokio::sync::Mutex;
 use crate::config::TaruServerConfig;
 
 use super::{
-    HlsOutputLayout, HlsSourceDisposition, HlsSourceOutput, map_hls_runner_error, path_exists,
-    persist_session_failure, record_playback_session_finished_event,
+    HlsOutputLayout, HlsSourceDisposition, HlsSourceOutput, PlaybackSessionCancellationRegistry,
+    map_hls_runner_error, path_exists, persist_session_failure,
+    record_playback_session_finished_event,
 };
 
 #[derive(Clone, Debug)]
@@ -27,13 +28,17 @@ pub(super) struct HlsAppService {
     builder: FfmpegCommandBuilder,
     runner: FfmpegHlsRunner,
     pub(super) hardware_selection: HardwareAccelerationSelection,
+    cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
 }
 
 impl HlsAppService {
-    pub(super) fn new(config: &TaruServerConfig) -> Result<Self> {
+    pub(super) fn new(
+        config: &TaruServerConfig,
+        cancellations: PlaybackSessionCancellationRegistry,
+    ) -> Result<Self> {
         let detector = FfmpegHardwareAccelerationDetector::new(&config.ffmpeg_path);
-        Self::new_with_hardware_report(config, detector.detect())
+        Self::new_with_hardware_report(config, detector.detect(), cancellations)
     }
 
     #[cfg(test)]
@@ -41,12 +46,17 @@ impl HlsAppService {
         config: &TaruServerConfig,
         detector: &dyn HardwareAccelerationDetector,
     ) -> Result<Self> {
-        Self::new_with_hardware_report(config, detector.detect())
+        Self::new_with_hardware_report(
+            config,
+            detector.detect(),
+            PlaybackSessionCancellationRegistry::default(),
+        )
     }
 
     pub(super) fn new_with_hardware_report(
         config: &TaruServerConfig,
         hardware_report: HardwareAccelerationReport,
+        cancellations: PlaybackSessionCancellationRegistry,
     ) -> Result<Self> {
         let hardware_policy = config.transcode.hardware_policy();
         let hardware_selection = select_hardware_acceleration(hardware_policy, &hardware_report)?;
@@ -60,6 +70,7 @@ impl HlsAppService {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
             runner: FfmpegHlsRunner::new(guard),
             hardware_selection,
+            cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         })
     }
@@ -180,6 +191,8 @@ impl HlsAppService {
         layout: HlsOutputLayout,
     ) -> Result<HlsSourceOutput> {
         let session_id = persisted_session.id;
+        let cancel = CancellationToken::new();
+        let _cancel_handle = self.cancellations.register(session_id, cancel.clone());
         let mut manager = TranscodeSessionManager::new();
 
         if let Err(error) = manager.plan_hls_with_id(
@@ -204,12 +217,13 @@ impl HlsAppService {
             .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
             .await?;
 
-        let cancel = CancellationToken::new();
         let run_result = self
             .runner
             .run(&mut manager, session_id, cancel)
             .await
             .map_err(map_hls_runner_error);
+
+        drop(_cancel_handle);
 
         match run_result {
             Ok(HlsRunOutcome::Finished { .. }) => {

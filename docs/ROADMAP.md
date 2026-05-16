@@ -288,13 +288,23 @@ Completed:
   fail-fast policy, CPU/GPU resource budgets, runner timeout/cancellation, and
   stale-startup recovery behavior.
 
-### Client and Product Experience: M26+
+### Playback Client Contract: M26
 
-Status: intentionally deferred.
+Status: active.
 
-The likely first client target is Flutter, but the server should expose stable
-API contracts and predictable media URLs before client work dominates. Client
-planning should start after the browse and playback surfaces are coherent.
+This phase hardens the server contract that future web or Flutter clients will
+depend on before client UI work dominates:
+
+- keep playback session inspection on a stable `TranscodeSessionResponse`
+  envelope;
+- add a public playback session cancellation route backed by live remux/HLS
+  runner cancellation tokens;
+- document active and terminal playback session states, cancellation conflict
+  behavior, and error DTOs;
+- validate the route behavior with focused HTTP tests.
+
+Future client and product experience work remains intentionally deferred until
+the server browse and playback contracts are coherent.
 
 ## Workstream Split Direction
 

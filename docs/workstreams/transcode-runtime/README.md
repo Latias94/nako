@@ -10,7 +10,8 @@ client-facing playback contracts.
 
 ## Status
 
-Completed as M25.
+M25 is completed. M26 is active and hardens the playback/session HTTP contract
+for client readiness.
 
 M25 builds on the completed M24 server architecture cleanup. The goal is not to
 add a flashy streaming feature first; the goal is to make the runtime shape
@@ -25,6 +26,7 @@ Top-level tracking:
 - [Milestones](MILESTONES.md)
 - [TODO](TODO.md)
 - [Phase 25.1 runtime productization slice](PHASE25_1_RUNTIME_PRODUCTIZATION.md)
+- [Phase 26.0 playback client contract](PHASE26_0_PLAYBACK_CLIENT_CONTRACT.md)
 
 ## Goals
 

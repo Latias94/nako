@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use serde::Deserialize;
 use taru_api::TranscodeSessionResponse;
@@ -46,6 +46,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             get(hls_playlist_source),
         )
         .route("/playback/sessions/{session_id}", get(get_playback_session))
+        .route(
+            "/playback/sessions/{session_id}/cancel",
+            post(cancel_playback_session),
+        )
         .route(
             "/playback/sessions/{session_id}/hls/segments/{segment_name}",
             get(hls_segment),
@@ -202,6 +206,16 @@ pub(super) async fn get_playback_session(
 ) -> ApiResult<Json<TranscodeSessionResponse>> {
     Ok(Json(TranscodeSessionResponse::from_session(
         app.playback().get_transcode_session(session_id).await?,
+    )))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn cancel_playback_session(
+    State(app): State<TaruApp>,
+    Path(session_id): Path<TranscodeSessionId>,
+) -> ApiResult<Json<TranscodeSessionResponse>> {
+    Ok(Json(TranscodeSessionResponse::from_session(
+        app.playback().cancel_transcode_session(session_id).await?,
     )))
 }
 
