@@ -214,6 +214,11 @@ impl LibraryStorageBackend {
     }
 
     #[must_use]
+    pub(super) fn clone_backend(&self) -> Arc<dyn StorageBackend> {
+        self.inner.clone()
+    }
+
+    #[must_use]
     pub(super) fn health(&self) -> Arc<StorageBackendHealth> {
         self.health.clone()
     }

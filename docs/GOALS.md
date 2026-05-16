@@ -701,11 +701,11 @@ Close-out validation:
 - `cargo nextest run --workspace --no-fail-fast`: 229 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
 
-## Recommended Next Goal
+## Latest Completed Goal
 
 ### M25: Transcode Runtime Productization
 
-Status: proposed.
+Status: completed.
 
 Objective:
 
@@ -731,3 +731,20 @@ Non-goals:
 - no client UI implementation;
 - no direct FFmpeg remote credential input until a separate storage security
   design is accepted.
+
+Evidence:
+
+- [transcode-runtime workstream](workstreams/transcode-runtime/README.md)
+  tracks the M25 module split, runtime contracts, and post-M25 follow-ups.
+- [Phase 25.1](workstreams/transcode-runtime/PHASE25_1_RUNTIME_PRODUCTIZATION.md)
+  records the playback service decomposition, FFmpeg hardware detector, CPU/GPU
+  budget selection, session lifecycle, validation evidence, and known follow-up
+  work.
+
+Close-out validation:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run -p taru-server --no-fail-fast`: 90 tests passed.
+- `cargo nextest run --workspace --no-fail-fast`: 231 tests passed.
+- `git diff --check`: passed with Git CRLF normalization warnings only.

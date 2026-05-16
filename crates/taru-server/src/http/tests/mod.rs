@@ -318,6 +318,7 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
 
         let path = root.join(name);
         let mut content = String::from("#!/bin/sh\n");
+        content.push_str("if [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\n");
         content.push_str("for arg do out=\"$arg\"; done\n");
         if slow {
             content.push_str(&format!("printf started > \"{}\"\n", marker.display()));
@@ -338,6 +339,8 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -356,6 +359,11 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
             content.push_str("ping -n 3 127.0.0.1 > nul\r\n");
         }
         content.push_str("exit /b 0\r\n");
+        content.push_str(":encoders\r\n");
+        content.push_str("echo  V..... h264_nvenc\r\n");
+        content.push_str("echo  V..... h264_vaapi\r\n");
+        content.push_str("echo  V..... h264_qsv\r\n");
+        content.push_str("exit /b 0\r\n");
         fs::write(&path, content).unwrap();
         path
     }
@@ -368,6 +376,7 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
 
         let path = root.join(name);
         let mut content = String::from("#!/bin/sh\n");
+        content.push_str("if [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\n");
         content.push_str("for arg do out=\"$arg\"; done\n");
         content.push_str("dir=$(dirname \"$out\")\n");
         content.push_str("mkdir -p \"$dir\"\n");
@@ -387,6 +396,8 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -401,6 +412,11 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
         content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
         content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
         content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+        content.push_str("exit /b 0\r\n");
+        content.push_str(":encoders\r\n");
+        content.push_str("echo  V..... h264_nvenc\r\n");
+        content.push_str("echo  V..... h264_vaapi\r\n");
+        content.push_str("echo  V..... h264_qsv\r\n");
         content.push_str("exit /b 0\r\n");
         fs::write(&path, content).unwrap();
         path

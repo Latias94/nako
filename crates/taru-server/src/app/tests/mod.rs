@@ -493,8 +493,7 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
-        let content =
-            "#!/bin/sh\nfor arg do out=\"$arg\"; done\nprintf remuxed > \"$out\"\nexit 0\n";
+        let content = "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\nfor arg do out=\"$arg\"; done\nprintf remuxed > \"$out\"\nexit 0\n";
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
         permissions.set_mode(0o755);
@@ -506,6 +505,8 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -514,6 +515,11 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         content.push_str("goto args\r\n");
         content.push_str(":run\r\n");
         content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
+        content.push_str("exit /b 0\r\n");
+        content.push_str(":encoders\r\n");
+        content.push_str("echo  V..... h264_nvenc\r\n");
+        content.push_str("echo  V..... h264_vaapi\r\n");
+        content.push_str("echo  V..... h264_qsv\r\n");
         content.push_str("exit /b 0\r\n");
         fs::write(&path, content).unwrap();
         path
@@ -526,7 +532,7 @@ fn fake_failing_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
-        let content = "#!/bin/sh\necho remux failed >&2\nexit 7\n";
+        let content = "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\necho remux failed >&2\nexit 7\n";
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
         permissions.set_mode(0o755);
@@ -538,28 +544,54 @@ fn fake_failing_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
         content.push_str("echo remux failed 1>&2\r\n");
         content.push_str("exit /b 7\r\n");
+        content.push_str(":encoders\r\n");
+        content.push_str("echo  V..... h264_nvenc\r\n");
+        content.push_str("echo  V..... h264_vaapi\r\n");
+        content.push_str("echo  V..... h264_qsv\r\n");
+        content.push_str("exit /b 0\r\n");
         fs::write(&path, content).unwrap();
         path
     }
 }
 
 fn fake_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
-    hls_ffmpeg_script(root, name, true)
+    hls_ffmpeg_script(root, name, true, hardware_encoder_lines())
 }
 
 fn fake_failing_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
-    hls_ffmpeg_script(root, name, false)
+    hls_ffmpeg_script(root, name, false, hardware_encoder_lines())
 }
 
-fn hls_ffmpeg_script(root: &Path, name: &str, success: bool) -> PathBuf {
+fn fake_cpu_only_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+    hls_ffmpeg_script(root, name, true, &[" V..... libx264"])
+}
+
+fn hardware_encoder_lines() -> &'static [&'static str] {
+    &[
+        " V..... h264_nvenc",
+        " V..... h264_vaapi",
+        " V..... h264_qsv",
+    ]
+}
+
+fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&str]) -> PathBuf {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
         let mut content = String::from("#!/bin/sh\n");
+        content.push_str("if [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n");
+        content.push_str("  cat <<'EOF'\n");
+        for line in encoder_lines {
+            content.push_str(line);
+            content.push('\n');
+        }
+        content.push_str("EOF\n  exit 0\nfi\n");
         content.push_str("for arg do out=\"$arg\"; done\n");
         content.push_str("dir=$(dirname \"$out\")\n");
         content.push_str("mkdir -p \"$dir\"\n");
@@ -585,6 +617,8 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool) -> PathBuf {
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -606,6 +640,13 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool) -> PathBuf {
             content.push_str("echo hls-failed 1>&2\r\n");
             content.push_str("exit /b 42\r\n");
         }
+        content.push_str(":encoders\r\n");
+        for line in encoder_lines {
+            content.push_str("echo ");
+            content.push_str(line);
+            content.push_str("\r\n");
+        }
+        content.push_str("exit /b 0\r\n");
         fs::write(&path, content).unwrap();
         path
     }

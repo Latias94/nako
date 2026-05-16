@@ -6,7 +6,7 @@ attention.
 
 ## Current Workstreams
 
-- [transcode-runtime](transcode-runtime/README.md): proposed M25 playback and
+- [transcode-runtime](transcode-runtime/README.md): completed M25 playback and
   transcode runtime productization, covering playback service decomposition,
   FFmpeg-backed hardware capability probing, acceleration selection, resource
   budgets, session lifecycle, and client-facing playback contracts.

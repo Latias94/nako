@@ -285,7 +285,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
 #[tokio::test]
 async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
     let script_root = tempfile::tempdir().unwrap();
-    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_cpu_fallback");
+    let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_cpu_fallback");
     let (_temp, app, _store, source) = remux_app_with_source_and_transcode(
         ffmpeg_path,
         TranscodeConfig {
@@ -317,7 +317,7 @@ async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
 #[tokio::test]
 async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
     let script_root = tempfile::tempdir().unwrap();
-    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_gpu_required");
+    let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_gpu_required");
     let temp = tempfile::tempdir().unwrap();
     let library_root = temp.path().join("library");
     fs::create_dir_all(&library_root).unwrap();

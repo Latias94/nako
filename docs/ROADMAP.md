@@ -256,15 +256,15 @@ Completed:
   temporary root-app forwards, and replaced hand-written NFO XML parsing with a
   `roxmltree` parser boundary.
 
-Recommended next goal:
+Completed:
 
 - M25 transcode runtime productization.
 
 ### Transcode Runtime Productization: M25
 
-Status: proposed.
+Status: completed.
 
-This phase should turn the existing remux/HLS MVP into a cleaner playback and
+This phase turns the existing remux/HLS MVP into a cleaner playback and
 transcode runtime boundary before client work depends on it:
 
 - split playback application code into focused direct-play, remux, HLS,
@@ -277,6 +277,16 @@ transcode runtime boundary before client work depends on it:
   URL behavior;
 - keep adaptive bitrate HLS ladder as a follow-up after the runtime boundary is
   clean.
+
+Completed:
+
+- M25.1 split playback orchestration into focused direct-play, FFmpeg input,
+  remux, and HLS app modules.
+- M25.2 replaced CPU-only runtime detection with FFmpeg-backed encoder
+  capability probing for VAAPI, NVENC, and QuickSync/QSV.
+- M25.3 documented the session lifecycle and validated acceleration fallback,
+  fail-fast policy, CPU/GPU resource budgets, runner timeout/cancellation, and
+  stale-startup recovery behavior.
 
 ### Client and Product Experience: M26+
 
@@ -292,7 +302,7 @@ planning should start after the browse and playback surfaces are coherent.
 `addons-automation` into its own completed workstream, M6 split `storage-vfs`,
 M7 split `playback-streaming`, M13-M19 used metadata and runtime operations for
 specialized hardening, M24 split `server-architecture-hardening` for the server
-composition pass, and M25 should split `transcode-runtime` for playback runtime
+composition pass, and M25 split `transcode-runtime` for playback runtime
 productization. As implementation grows, split the
 remaining broad domains into narrower workstreams:
 

@@ -10,13 +10,13 @@ client-facing playback contracts.
 
 ## Status
 
-Proposed for M25.
+Completed as M25.
 
-M25 should build on the completed M24 server architecture cleanup. The goal is
-not to add a flashy streaming feature first; the goal is to make the runtime
-shape clean enough that adaptive HLS, future subtitles, client playback
-controls, and hardware-specific behavior do not re-entangle `taru-server`,
-`taru-transcode`, `taru-streaming`, and storage code.
+M25 builds on the completed M24 server architecture cleanup. The goal is not to
+add a flashy streaming feature first; the goal is to make the runtime shape
+clean enough that adaptive HLS, future subtitles, client playback controls, and
+hardware-specific behavior do not re-entangle `taru-server`, `taru-transcode`,
+`taru-streaming`, and storage code.
 
 Top-level tracking:
 
@@ -24,6 +24,7 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Milestones](MILESTONES.md)
 - [TODO](TODO.md)
+- [Phase 25.1 runtime productization slice](PHASE25_1_RUNTIME_PRODUCTIZATION.md)
 
 ## Goals
 

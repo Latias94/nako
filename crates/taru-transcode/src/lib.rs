@@ -127,6 +127,16 @@ impl HardwareAccelerationReport {
                 .iter()
                 .any(|capability| capability.accelerator == accelerator && capability.available)
     }
+
+    #[must_use]
+    pub fn capability_for(
+        &self,
+        accelerator: HardwareAcceleration,
+    ) -> Option<&HardwareAccelerationCapability> {
+        self.capabilities
+            .iter()
+            .find(|capability| capability.accelerator == accelerator)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -183,6 +193,51 @@ pub trait HardwareAccelerationDetector: Send + Sync {
     fn detect(&self) -> HardwareAccelerationReport;
 }
 
+#[derive(Clone, Debug)]
+pub struct FfmpegHardwareAccelerationDetector {
+    ffmpeg_path: PathBuf,
+}
+
+impl FfmpegHardwareAccelerationDetector {
+    #[must_use]
+    pub fn new(ffmpeg_path: impl Into<PathBuf>) -> Self {
+        Self {
+            ffmpeg_path: ffmpeg_path.into(),
+        }
+    }
+
+    pub fn detect_result(&self) -> Result<HardwareAccelerationReport> {
+        let output = std::process::Command::new(&self.ffmpeg_path)
+            .arg("-hide_banner")
+            .arg("-encoders")
+            .output()
+            .map_err(|err| TaruError::Provider {
+                provider: "ffmpeg".to_owned(),
+                message: format!("failed to run ffmpeg hardware capability probe: {err}"),
+            })?;
+
+        if !output.status.success() {
+            return Err(TaruError::Provider {
+                provider: "ffmpeg".to_owned(),
+                message: format!(
+                    "ffmpeg hardware capability probe failed: {}",
+                    stderr_message(&output.stderr)
+                ),
+            });
+        }
+
+        let encoders = String::from_utf8_lossy(&output.stdout);
+        Ok(report_from_ffmpeg_encoders(&encoders))
+    }
+}
+
+impl HardwareAccelerationDetector for FfmpegHardwareAccelerationDetector {
+    fn detect(&self) -> HardwareAccelerationReport {
+        self.detect_result()
+            .unwrap_or_else(|err| hardware_report_with_probe_error(err.to_string()))
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct StaticHardwareAccelerationDetector {
     report: HardwareAccelerationReport,
@@ -192,6 +247,71 @@ impl StaticHardwareAccelerationDetector {
     #[must_use]
     pub fn new(report: HardwareAccelerationReport) -> Self {
         Self { report }
+    }
+}
+
+pub fn report_from_ffmpeg_encoders(encoders: &str) -> HardwareAccelerationReport {
+    let has_vaapi = encoders.contains("h264_vaapi");
+    let has_nvenc = encoders.contains("h264_nvenc");
+    let has_qsv = encoders.contains("h264_qsv");
+
+    HardwareAccelerationReport {
+        capabilities: vec![
+            HardwareAccelerationCapability {
+                accelerator: HardwareAcceleration::None,
+                available: true,
+                device: None,
+                reason: Some("cpu encode is always available".to_owned()),
+            },
+            encoder_capability(HardwareAcceleration::Vaapi, "h264_vaapi", has_vaapi),
+            encoder_capability(HardwareAcceleration::Nvenc, "h264_nvenc", has_nvenc),
+            encoder_capability(HardwareAcceleration::QuickSync, "h264_qsv", has_qsv),
+        ],
+    }
+}
+
+fn encoder_capability(
+    accelerator: HardwareAcceleration,
+    encoder: &'static str,
+    available: bool,
+) -> HardwareAccelerationCapability {
+    HardwareAccelerationCapability {
+        accelerator,
+        available,
+        device: None,
+        reason: Some(if available {
+            format!("ffmpeg encoder {encoder} is available")
+        } else {
+            format!("ffmpeg encoder {encoder} is not listed")
+        }),
+    }
+}
+
+fn hardware_report_with_probe_error(message: String) -> HardwareAccelerationReport {
+    HardwareAccelerationReport {
+        capabilities: vec![
+            HardwareAccelerationCapability {
+                accelerator: HardwareAcceleration::None,
+                available: true,
+                device: None,
+                reason: Some("cpu encode is always available".to_owned()),
+            },
+            probe_error_capability(HardwareAcceleration::Vaapi, &message),
+            probe_error_capability(HardwareAcceleration::Nvenc, &message),
+            probe_error_capability(HardwareAcceleration::QuickSync, &message),
+        ],
+    }
+}
+
+fn probe_error_capability(
+    accelerator: HardwareAcceleration,
+    message: &str,
+) -> HardwareAccelerationCapability {
+    HardwareAccelerationCapability {
+        accelerator,
+        available: false,
+        device: None,
+        reason: Some(message.to_owned()),
     }
 }
 
@@ -1476,6 +1596,51 @@ mod tests {
         assert!(!nvenc.fallback_used);
         assert_eq!(fallback.acceleration, HardwareAcceleration::None);
         assert!(fallback.fallback_used);
+    }
+
+    #[test]
+    fn ffmpeg_encoder_report_detects_hardware_accelerators() {
+        let report = report_from_ffmpeg_encoders(
+            r#"
+ V..... libx264
+ V..... h264_nvenc
+ V..... h264_vaapi
+ V..... h264_qsv
+"#,
+        );
+
+        assert!(report.is_available(HardwareAcceleration::None));
+        assert!(report.is_available(HardwareAcceleration::Nvenc));
+        assert!(report.is_available(HardwareAcceleration::Vaapi));
+        assert!(report.is_available(HardwareAcceleration::QuickSync));
+        assert!(
+            report
+                .capability_for(HardwareAcceleration::Nvenc)
+                .unwrap()
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("h264_nvenc")
+        );
+    }
+
+    #[test]
+    fn ffmpeg_encoder_report_marks_missing_hardware_unavailable() {
+        let report = report_from_ffmpeg_encoders(" V..... libx264\n");
+
+        assert!(report.is_available(HardwareAcceleration::None));
+        assert!(!report.is_available(HardwareAcceleration::Nvenc));
+        assert!(!report.is_available(HardwareAcceleration::Vaapi));
+        assert!(!report.is_available(HardwareAcceleration::QuickSync));
+        assert!(
+            report
+                .capability_for(HardwareAcceleration::QuickSync)
+                .unwrap()
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("not listed")
+        );
     }
 
     #[test]

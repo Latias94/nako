@@ -2,6 +2,8 @@
 
 ## M25.0: Transcode Runtime Design Baseline
 
+Status: completed in [Phase 25.1](PHASE25_1_RUNTIME_PRODUCTIZATION.md).
+
 Outcome: the runtime productization target is documented before code is moved.
 
 Deliverables:
@@ -20,6 +22,8 @@ Exit criteria:
 - `git diff --check`
 
 ## M25.1: Playback Service Decomposition
+
+Status: completed in [Phase 25.1](PHASE25_1_RUNTIME_PRODUCTIZATION.md).
 
 Outcome: playback orchestration is split into focused modules without changing
 public behavior.
@@ -40,6 +44,8 @@ Exit criteria:
 - `git diff --check`
 
 ## M25.2: FFmpeg Hardware Capability Probe
+
+Status: completed in [Phase 25.1](PHASE25_1_RUNTIME_PRODUCTIZATION.md).
 
 Outcome: hardware acceleration is selected from real FFmpeg capability evidence
 when configured.
@@ -62,6 +68,8 @@ Exit criteria:
 - `git diff --check`
 
 ## M25.3: Runtime Contracts and Stabilization
+
+Status: completed in [Phase 25.1](PHASE25_1_RUNTIME_PRODUCTIZATION.md).
 
 Outcome: transcode sessions have a clean service contract for future clients
 and adaptive streaming work.
