@@ -12,5 +12,6 @@ workspace = true
 serde.workspace = true
 serde_json.workspace = true
 taru-addon-protocol = { path = "../taru-addon-protocol" }
+taru-client-protocol = { path = "../taru-client-protocol" }
 taru-core = { path = "../taru-core" }
 taru-streaming = { path = "../taru-streaming" }

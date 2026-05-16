@@ -6,11 +6,14 @@ attention.
 
 ## Current Workstreams
 
+- [crate-boundary-hardening](crate-boundary-hardening/README.md): M28 crate
+  boundary and public protocol hardening, covering the permissive public
+  client protocol boundary, core/module deepening, library/NFO workflow
+  splits, and playback seam clarification.
 - [metadata-catalog](metadata-catalog/README.md): M27 media-library domain
-  expansion, covering the completed video-first domain baseline and
-  schema/repository slice for source relationships, provider mappings, local
-  inference evidence, metadata authority, NFO, artwork, browse facets, sort
-  keys, and search breadth.
+  expansion, covering the completed video-first domain baseline,
+  schema/repository slice, local inference, provisional hierarchy,
+  provider/NFO expansion, and metadata authority.
 - [transcode-runtime](transcode-runtime/README.md): completed M25 playback and
   transcode runtime productization, covering playback service decomposition,
   FFmpeg-backed hardware capability probing, acceleration selection, resource

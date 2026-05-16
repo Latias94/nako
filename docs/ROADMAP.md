@@ -352,7 +352,28 @@ Completed implementation slice:
 
 Recommended next goal:
 
-- M28 NFO Round Trip and Library File Write hardening.
+- M28 crate boundary and public protocol hardening.
+
+### Crate Boundary And Public Protocol Hardening: M28
+
+Status: in progress.
+
+This phase deepens Taru's crate and module seams so public client wire types
+can live in a permissive protocol crate while server internals remain AGPL and
+the large workflow crates become easier to navigate.
+
+Planned slices:
+
+- M28.0 boundary baseline and scope freeze.
+- M28.1 public client protocol extraction.
+- M28.2 core module deepening and repository seam narrowing.
+- M28.3 library and NFO module decomposition.
+- M28.4 playback seam clarification.
+- M28.5 closeout and follow-on split.
+
+Recommended next goal:
+
+- M28.0 boundary baseline and scope freeze.
 
 ## Workstream Split Direction
 

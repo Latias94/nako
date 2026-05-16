@@ -2028,6 +2028,7 @@ dependencies = [
  "serde",
  "serde_json",
  "taru-addon-protocol",
+ "taru-client-protocol",
  "taru-core",
  "taru-streaming",
 ]
@@ -2054,6 +2055,14 @@ dependencies = [
  "taru-db",
  "taru-search",
  "tokio",
+]
+
+[[package]]
+name = "taru-client-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

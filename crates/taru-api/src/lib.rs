@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{AddonManifest, AddonScope};
+pub use taru_client_protocol::{
+    CLIENT_PROTOCOL_VERSION as API_VERSION, ErrorResponse, HealthResponse, PageInfo,
+};
 use taru_core::{
     AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
     AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
@@ -19,38 +22,15 @@ use taru_core::{
 };
 use taru_streaming::PlaybackDecision;
 
-pub const API_VERSION: &str = "v1";
+#[must_use]
+pub fn page_info_from_request(page: PageRequest, returned: usize) -> PageInfo {
+    let page = page.clamped();
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct HealthResponse {
-    pub status: String,
-    pub version: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ErrorResponse {
-    pub code: String,
-    pub message: String,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PageInfo {
-    pub limit: u32,
-    pub offset: u64,
-    pub returned: u32,
-}
-
-impl PageInfo {
-    #[must_use]
-    pub fn new(page: PageRequest, returned: usize) -> Self {
-        let page = page.clamped();
-
-        Self {
-            limit: page.limit,
-            offset: page.offset,
-            returned: u32::try_from(returned).unwrap_or(u32::MAX),
-        }
-    }
+    PageInfo::new(
+        page.limit,
+        page.offset,
+        u32::try_from(returned).unwrap_or(u32::MAX),
+    )
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -1029,6 +1009,20 @@ mod tests {
         CanonicalMetadata, IngestionFailureClass, MediaItem, TranscodeSessionKind,
         TranscodeSessionState,
     };
+
+    #[test]
+    fn page_info_adapter_keeps_server_pagination_out_of_protocol_types() {
+        let page = PageRequest {
+            limit: 25,
+            offset: 50,
+        };
+
+        let info = page_info_from_request(page, usize::MAX);
+
+        assert_eq!(info.limit, 25);
+        assert_eq!(info.offset, 50);
+        assert_eq!(info.returned, u32::MAX);
+    }
 
     #[test]
     fn media_item_dto_serializes_field_level_payload() {

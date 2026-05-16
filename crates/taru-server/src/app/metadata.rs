@@ -5,7 +5,7 @@ use taru_api::{
     EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanError, MetadataMaintenancePlanItem,
     MetadataMaintenancePlanResponse, MetadataProviderAttemptDiagnostic,
     MetadataProviderAttemptsResponse, MetadataProviderDiagnosticsResponse,
-    MetadataRawCleanupResponse, MetadataRawResponsesResponse, PageInfo,
+    MetadataRawCleanupResponse, MetadataRawResponsesResponse, page_info_from_request,
 };
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Job,
@@ -584,7 +584,7 @@ impl MetadataAppService {
 
         Ok(MetadataProviderAttemptsResponse {
             item_id,
-            page: PageInfo::new(page, returned),
+            page: page_info_from_request(page, returned),
             attempts: attempts
                 .into_iter()
                 .map(MetadataProviderAttemptDiagnostic::from_record)
@@ -606,7 +606,7 @@ impl MetadataAppService {
 
         Ok(MetadataRawResponsesResponse {
             item_id,
-            page: PageInfo::new(page, responses.len()),
+            page: page_info_from_request(page, responses.len()),
             responses,
         })
     }

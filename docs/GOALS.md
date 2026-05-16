@@ -24,6 +24,22 @@ reuse earlier gaps such as M10-M12 or M17 for new work. New implementation
 goals should use the next number after the highest documented completed or
 proposed milestone.
 
+## Current Goal
+
+### M28: Crate Boundary and Public Protocol Hardening
+
+Status: active.
+
+Objective:
+
+- Build a permissive public client protocol boundary and deepen the large
+  workflow crates so future client applications and maintenance refactors do
+  not stay coupled to broad server internals.
+
+Evidence:
+
+- [crate-boundary-hardening workstream](workstreams/crate-boundary-hardening/README.md)
+
 ## Completed Goals
 
 ### M0-M2.1: Server Runtime Foundation
@@ -854,7 +870,7 @@ Close-out validation:
 
 Next recommended implementation goal:
 
-- M28 NFO Round Trip and Library File Write hardening.
+- M28 crate boundary and public protocol hardening.
 
 ## Latest Completed Goal
 

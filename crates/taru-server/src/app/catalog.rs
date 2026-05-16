@@ -1,7 +1,7 @@
 use taru_api::{
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
-    SearchResponse, TagItemsResponse, TagsResponse,
+    ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
+    SearchResponse, TagItemsResponse, TagsResponse, page_info_from_request,
 };
 use taru_core::{
     CatalogRepository, GenreId, MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId,
@@ -25,7 +25,7 @@ impl CatalogAppService {
         let items = self.store.list_media_items(page).await?;
 
         Ok(ItemsResponse {
-            page: PageInfo::new(page, items.len()),
+            page: page_info_from_request(page, items.len()),
             items: items.into_iter().map(Into::into).collect(),
         })
     }
@@ -108,7 +108,7 @@ impl CatalogAppService {
         let people = self.store.list_people(page).await?;
 
         Ok(PeopleResponse {
-            page: PageInfo::new(page, people.len()),
+            page: page_info_from_request(page, people.len()),
             people: people.into_iter().map(Into::into).collect(),
         })
     }
@@ -140,7 +140,7 @@ impl CatalogAppService {
 
         Ok(PersonItemsResponse {
             person: person.into(),
-            page: PageInfo::new(page, items.len()),
+            page: page_info_from_request(page, items.len()),
             items: items.into_iter().map(Into::into).collect(),
         })
     }
@@ -150,7 +150,7 @@ impl CatalogAppService {
         let tags = self.store.list_tags(page).await?;
 
         Ok(TagsResponse {
-            page: PageInfo::new(page, tags.len()),
+            page: page_info_from_request(page, tags.len()),
             tags: tags.into_iter().map(Into::into).collect(),
         })
     }
@@ -173,7 +173,7 @@ impl CatalogAppService {
 
         Ok(TagItemsResponse {
             tag: tag.into(),
-            page: PageInfo::new(page, items.len()),
+            page: page_info_from_request(page, items.len()),
             items: items.into_iter().map(Into::into).collect(),
         })
     }
@@ -183,7 +183,7 @@ impl CatalogAppService {
         let genres = self.store.list_genres(page).await?;
 
         Ok(GenreListResponse {
-            page: PageInfo::new(page, genres.len()),
+            page: page_info_from_request(page, genres.len()),
             genres: genres.into_iter().map(Into::into).collect(),
         })
     }
@@ -206,7 +206,7 @@ impl CatalogAppService {
 
         Ok(GenreItemsResponse {
             genre: genre.into(),
-            page: PageInfo::new(page, items.len()),
+            page: page_info_from_request(page, items.len()),
             items: items.into_iter().map(Into::into).collect(),
         })
     }
@@ -247,7 +247,7 @@ impl CatalogAppService {
         }
 
         Ok(SearchResponse {
-            page: PageInfo::new(page, output_hits.len()),
+            page: page_info_from_request(page, output_hits.len()),
             hits: output_hits,
         })
     }

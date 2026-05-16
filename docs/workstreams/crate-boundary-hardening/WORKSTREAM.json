@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "slug": "crate-boundary-hardening",
+  "title": "Crate Boundary and Public Protocol Hardening",
+  "status": "completed",
+  "updated": "2026-05-17",
+  "scope_kind": "execution",
+  "problem": "Taru's public client wire types and several workflow crates are still coupled too closely to broad server internals, making future client reuse and maintenance refactors harder than they should be.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/crate-boundary-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/crate-boundary-hardening/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/crate-boundary-hardening/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo nextest run --workspace --no-fail-fast",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
+    "docs/workstreams/crate-boundary-hardening/PHASE28_0_CRATE_BOUNDARY_BASELINE.md",
+    "crates/taru-client-protocol",
+    "crates/taru-api",
+    "crates/taru-core/src/media.rs",
+    "crates/taru-core/src/media",
+    "crates/taru-core/src/repository.rs",
+    "crates/taru-core/src/repository",
+    "crates/taru-library/src",
+    "crates/taru-nfo/src",
+    "crates/taru-streaming/src",
+    "crates/taru-transcode/src",
+    "crates/taru-server/src/app/playback"
+  ],
+  "adr_refs": [
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "M28 closeout gate passed. Follow-ons are broader public protocol DTO migration and behavior-preserving repository trait narrowing when concrete callers need it."
+  }
+}

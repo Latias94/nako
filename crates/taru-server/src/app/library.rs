@@ -1,6 +1,6 @@
 use taru_api::{
     IngestionFailureDiagnostic, IngestionFailuresResponse, LibraryListResponse,
-    LibrarySourceResponse, LibrarySourcesResponse, PageInfo,
+    LibrarySourceResponse, LibrarySourcesResponse, page_info_from_request,
 };
 use taru_core::{
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
@@ -24,7 +24,7 @@ impl LibraryAppService {
         let libraries = self.store.list_libraries(page).await?;
 
         Ok(LibraryListResponse {
-            page: PageInfo::new(page, libraries.len()),
+            page: page_info_from_request(page, libraries.len()),
             libraries: libraries.into_iter().map(Into::into).collect(),
         })
     }
@@ -51,7 +51,7 @@ impl LibraryAppService {
 
         Ok(LibrarySourcesResponse {
             library: library.into(),
-            page: PageInfo::new(page, output_sources.len()),
+            page: page_info_from_request(page, output_sources.len()),
             sources: output_sources,
         })
     }
@@ -83,7 +83,7 @@ impl LibraryAppService {
 
         Ok(IngestionFailuresResponse {
             library_id,
-            page: PageInfo::new(page, output.len()),
+            page: page_info_from_request(page, output.len()),
             failures: output,
         })
     }

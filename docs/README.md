@@ -7,8 +7,9 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
-- Current planned workstream: [metadata catalog](workstreams/metadata-catalog/README.md)
-- Latest completed workstream: [transcode runtime](workstreams/transcode-runtime/README.md)
+- Current planned workstream: [crate boundary hardening](workstreams/crate-boundary-hardening/README.md)
+- Latest completed workstream: [metadata catalog](workstreams/metadata-catalog/README.md)
+- Previous completed workstream: [transcode runtime](workstreams/transcode-runtime/README.md)
 - Previous completed workstream: [server architecture hardening](workstreams/server-architecture-hardening/README.md)
 - Previous completed workstream: [playback streaming](workstreams/playback-streaming/README.md)
 - Storage and VFS archive: [storage and VFS](workstreams/storage-vfs/README.md)
