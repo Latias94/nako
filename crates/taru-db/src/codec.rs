@@ -452,6 +452,14 @@ pub(crate) fn row_to_library(row: SqliteRow) -> Result<Library> {
     })
 }
 
+pub(crate) fn row_to_library_item_state(row: SqliteRow) -> Result<LibraryItemState> {
+    Ok(LibraryItemState {
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        provisional: i64_to_bool(row_get(&row, "provisional")?)?,
+    })
+}
+
 pub(crate) fn row_to_library_options(row: &SqliteRow) -> Result<LibraryOptions> {
     if let Some(options_json) = row_get::<Option<String>>(row, "options_json")? {
         return serde_json::from_str(&options_json).map_err(database_error);

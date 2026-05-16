@@ -16,6 +16,13 @@ pub struct Library {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryItemState {
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub provisional: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryOptions {
     pub domain: MediaDomain,
     pub preset: LibraryPreset,

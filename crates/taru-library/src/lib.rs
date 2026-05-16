@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 use taru_core::{
     CanonicalMetadata, CatalogRepository, DirectorySnapshot, IngestionFailureClass,
     IngestionFailurePhase, IngestionFailureRepository, JobId, Library, LibraryId,
-    LibraryRepository, MediaItem, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
-    MediaSourceId, NewIngestionFailure, PageRequest, Result, ScanRepository, ScanSnapshotId,
-    ScanStatus, SourceState, TaruError,
+    LibraryItemRepository, LibraryItemState, LibraryRepository, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceRepository, MediaItem, MediaItemId,
+    MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, NewIngestionFailure,
+    PageRequest, Result, ScanRepository, ScanSnapshotId, ScanStatus, SourceState, TaruError,
 };
 use taru_media_probe::{MediaProbe, MediaProbeRequest};
 use taru_naming::{DefaultNameParser, NameParser, ParsedName};
@@ -377,7 +378,9 @@ where
     S: LibraryScanner,
     R: CatalogRepository
         + IngestionFailureRepository
+        + LibraryItemRepository
         + LibraryRepository
+        + LocalInferenceRepository
         + MediaRepository
         + ScanRepository
         + SearchIndex,
@@ -497,7 +500,10 @@ where
                     .map(|source| source.id)
                     .unwrap_or_else(MediaSourceId::new);
 
-                let item = media_item_from_discovered(item_id, &discovered);
+                let item_resolution = self
+                    .media_item_for_discovered(request.library.id, item_id, &discovered)
+                    .await?;
+                let evidence = local_inference_evidence_from_discovered(source_id, &discovered);
                 let state = source_state_from_discovered(
                     request.library.id,
                     source_id,
@@ -507,14 +513,24 @@ where
                 let source = media_source_from_discovered(
                     source_id,
                     request.library.id,
-                    item_id,
+                    item_resolution.item.id,
                     discovered,
                 );
 
                 self.repository
-                    .record_scanned_media_source(&item, &source, &state)
+                    .record_scanned_media_source(&item_resolution.item, &source, &state)
                     .await?;
-                self.rebuild_search_document(item, source).await?;
+                self.record_library_item_state(
+                    request.library.id,
+                    item_resolution.item.id,
+                    item_resolution.provisional,
+                )
+                .await?;
+                self.repository
+                    .upsert_local_inference_evidence(&evidence)
+                    .await?;
+                self.rebuild_search_document(item_resolution.item, source)
+                    .await?;
                 self.repository
                     .resolve_ingestion_failure(
                         request.library.id,
@@ -533,6 +549,136 @@ where
         }
 
         Ok(IndexRootsOutcome { complete })
+    }
+
+    async fn media_item_for_discovered(
+        &self,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        discovered: &DiscoveredMediaSource,
+    ) -> Result<MediaItemResolution> {
+        if let Some(state) = self
+            .repository
+            .get_library_item_state(library_id, item_id)
+            .await?
+        {
+            if !state.provisional {
+                if let Some(item) = self.repository.get_media_item(item_id).await? {
+                    return Ok(MediaItemResolution {
+                        item,
+                        provisional: false,
+                    });
+                }
+            }
+        }
+
+        if discovered.parsed_name.kind_hint != taru_core::MediaKind::Episode {
+            return Ok(MediaItemResolution {
+                item: media_item_from_discovered(item_id, discovered),
+                provisional: true,
+            });
+        }
+
+        let Some(season_number) = discovered.parsed_name.season_number else {
+            return Ok(MediaItemResolution {
+                item: media_item_from_discovered(item_id, discovered),
+                provisional: true,
+            });
+        };
+        let series = self
+            .find_or_create_provisional_item(
+                library_id,
+                taru_core::MediaKind::Series,
+                None,
+                &discovered.parsed_name.title,
+                None,
+            )
+            .await?;
+        let season = self
+            .find_or_create_provisional_item(
+                library_id,
+                taru_core::MediaKind::Season,
+                Some(series.id),
+                &format!("Season {season_number}"),
+                None,
+            )
+            .await?;
+        let episode_title = discovered
+            .parsed_name
+            .episode_number
+            .map(|episode| format!("Episode {episode}"))
+            .unwrap_or_else(|| discovered.parsed_name.title.clone());
+
+        Ok(MediaItemResolution {
+            item: MediaItem {
+                id: item_id,
+                kind: taru_core::MediaKind::Episode,
+                parent_id: Some(season.id),
+                metadata: CanonicalMetadata {
+                    title: episode_title,
+                    original_title: None,
+                    sort_title: None,
+                    overview: None,
+                    release_date: discovered.parsed_name.year.map(|year| year.to_string()),
+                    external_ids: Vec::new(),
+                    ..CanonicalMetadata::default()
+                },
+            },
+            provisional: true,
+        })
+    }
+
+    async fn find_or_create_provisional_item(
+        &self,
+        library_id: LibraryId,
+        kind: taru_core::MediaKind,
+        parent_id: Option<MediaItemId>,
+        title: &str,
+        release_year: Option<u16>,
+    ) -> Result<MediaItem> {
+        if let Some(item) = self
+            .repository
+            .find_library_item_by_kind_parent_title(library_id, kind, parent_id, title)
+            .await?
+        {
+            return Ok(item);
+        }
+
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind,
+            parent_id,
+            metadata: CanonicalMetadata {
+                title: title.to_owned(),
+                original_title: None,
+                sort_title: None,
+                overview: None,
+                release_date: release_year.map(|year| year.to_string()),
+                external_ids: Vec::new(),
+                ..CanonicalMetadata::default()
+            },
+        };
+
+        self.repository.upsert_media_item(&item).await?;
+        self.record_library_item_state(library_id, item.id, true)
+            .await?;
+
+        Ok(item)
+    }
+
+    async fn record_library_item_state(
+        &self,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        provisional: bool,
+    ) -> Result<()> {
+        self.repository
+            .upsert_library_item_state(&LibraryItemState {
+                library_id,
+                item_id,
+                provisional,
+            })
+            .await
     }
 
     async fn persist_scan_failure(
@@ -688,6 +834,11 @@ pub struct ScannedDirectory {
     pub stale: bool,
 }
 
+struct MediaItemResolution {
+    item: MediaItem,
+    provisional: bool,
+}
+
 fn media_item_from_discovered(id: MediaItemId, discovered: &DiscoveredMediaSource) -> MediaItem {
     MediaItem {
         id,
@@ -738,6 +889,25 @@ fn media_source_from_discovered(
         file_name: discovered.file_name,
         size_bytes: discovered.size_bytes,
         fingerprint: discovered.fingerprint,
+    }
+}
+
+fn local_inference_evidence_from_discovered(
+    source_id: MediaSourceId,
+    discovered: &DiscoveredMediaSource,
+) -> LocalInferenceEvidence {
+    LocalInferenceEvidence {
+        id: LocalInferenceEvidenceId::new(),
+        source_id,
+        inferred_kind: discovered.parsed_name.kind_hint,
+        inferred_title: Some(discovered.parsed_name.title.clone()),
+        inferred_year: discovered.parsed_name.year.map(i32::from),
+        inferred_season: discovered.parsed_name.season_number.map(u32::from),
+        inferred_episode: discovered.parsed_name.episode_number.map(u32::from),
+        confidence_milli: Some(discovered.parsed_name.confidence_milli),
+        evidence_source: discovered.parsed_name.evidence_source.clone(),
+        evidence_value: discovered.parsed_name.evidence_value.clone(),
+        inference_version: discovered.parsed_name.parser_version.clone(),
     }
 }
 
@@ -988,9 +1158,10 @@ mod tests {
     };
     use taru_core::{
         IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
-        IngestionFailureStatus, LibraryOptions, LibraryPreset, MediaKind, MediaProbeRepository,
-        MediaProbeResult, MediaRepository, MediaStreamInfo, MediaStreamKind, ScanRepository,
-        TaruError, TransactionManager,
+        IngestionFailureStatus, LibraryItemRepository, LibraryItemState, LibraryOptions,
+        LibraryPreset, LocalInferenceEvidenceSource, LocalInferenceRepository, MediaKind,
+        MediaProbeRepository, MediaProbeResult, MediaRepository, MediaStreamInfo, MediaStreamKind,
+        ScanRepository, TaruError, TransactionManager,
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
@@ -1271,6 +1442,10 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        let evidence = store
+            .list_local_inference_evidence_for_source(sources[0].id, PageRequest::first_page())
+            .await
+            .unwrap();
         let hits = store
             .search(SearchQuery {
                 query: "matrix".to_owned(),
@@ -1294,9 +1469,232 @@ mod tests {
         assert!(!state.tombstoned);
         assert_eq!(sources.len(), 1);
         assert_eq!(sources[0].file_name, "The Matrix (1999).mkv");
+        assert_eq!(evidence.len(), 1);
         assert_eq!(item.metadata.title, "The Matrix");
         assert_eq!(item.metadata.release_date, Some("1999".to_owned()));
         assert_eq!(hits[0].item_id, item.id);
+    }
+
+    #[tokio::test]
+    async fn index_service_preserves_confirmed_canonical_metadata_on_rescan() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(
+            temp.path().join("Movies").join("The Matrix (1999).mkv"),
+            b"movie",
+        )
+        .unwrap();
+
+        let scanner = VfsLibraryScanner::new(LocalFsBackend::new(temp.path()).unwrap());
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        service.index_library(request.clone()).await.unwrap();
+        let source = store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let mut confirmed_item = store.get_media_item(source.item_id).await.unwrap().unwrap();
+        confirmed_item.metadata.title = "Curated Matrix Title".to_owned();
+        confirmed_item.metadata.release_date = Some("1999-03-31".to_owned());
+        confirmed_item.metadata.overview = Some("Confirmed user metadata.".to_owned());
+        store.upsert_media_item(&confirmed_item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id: confirmed_item.id,
+                provisional: false,
+            })
+            .await
+            .unwrap();
+
+        let second_summary = service.index_library(request).await.unwrap();
+        let loaded_item = store
+            .get_media_item(confirmed_item.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let state = store
+            .get_library_item_state(library.id, confirmed_item.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let evidence = store
+            .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
+            .await
+            .unwrap();
+
+        assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(loaded_item, confirmed_item);
+        assert!(!state.provisional);
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].inferred_title, Some("The Matrix".to_owned()));
+    }
+
+    #[tokio::test]
+    async fn index_service_creates_provisional_hierarchy_and_local_inference_evidence() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("TV").join("Firefly").join("Season 01")).unwrap();
+        fs::write(
+            temp.path()
+                .join("TV")
+                .join("Firefly")
+                .join("Season 01")
+                .join("Firefly.S01E02.The Train Job.mkv"),
+            b"episode",
+        )
+        .unwrap();
+
+        let scanner = VfsLibraryScanner::new(LocalFsBackend::new(temp.path()).unwrap());
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "TV".to_owned(),
+            roots: vec!["local:///TV".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Tv),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+
+        let summary = service
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library: library.clone(),
+                force: false,
+            })
+            .await
+            .unwrap();
+        let sources = store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap();
+        let episode = store
+            .get_media_item(sources[0].item_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let season = store
+            .get_media_item(episode.parent_id.unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        let series = store
+            .get_media_item(season.parent_id.unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        let evidence = store
+            .list_local_inference_evidence_for_source(sources[0].id, PageRequest::first_page())
+            .await
+            .unwrap();
+
+        assert_eq!(summary.inserted_sources, 1);
+        assert_eq!(series.kind, MediaKind::Series);
+        assert_eq!(series.metadata.title, "Firefly");
+        assert_eq!(season.kind, MediaKind::Season);
+        assert_eq!(season.metadata.title, "Season 1");
+        assert_eq!(episode.kind, MediaKind::Episode);
+        assert_eq!(episode.parent_id, Some(season.id));
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, series.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .provisional,
+            true
+        );
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, season.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .provisional,
+            true
+        );
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, episode.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .provisional,
+            true
+        );
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].inferred_kind, MediaKind::Episode);
+        assert_eq!(evidence[0].inferred_title, Some("Firefly".to_owned()));
+        assert_eq!(evidence[0].inferred_season, Some(1));
+        assert_eq!(evidence[0].inferred_episode, Some(2));
+        assert_eq!(evidence[0].confidence_milli, Some(900));
+        assert_eq!(
+            evidence[0].evidence_source,
+            LocalInferenceEvidenceSource::FileName
+        );
+        assert_eq!(
+            evidence[0].inference_version,
+            taru_naming::DEFAULT_PARSER_VERSION
+        );
+    }
+
+    #[tokio::test]
+    async fn index_service_uses_unknown_item_for_weak_local_inference() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Uploads")).unwrap();
+        fs::write(temp.path().join("Uploads").join("random.clip.mkv"), b"clip").unwrap();
+
+        let scanner = VfsLibraryScanner::new(LocalFsBackend::new(temp.path()).unwrap());
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Uploads".to_owned(),
+            roots: vec!["local:///Uploads".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::MixedVideo),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+
+        service
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library: library.clone(),
+                force: false,
+            })
+            .await
+            .unwrap();
+        let source = store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let item = store.get_media_item(source.item_id).await.unwrap().unwrap();
+        let evidence = store
+            .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
+            .await
+            .unwrap();
+
+        assert_eq!(item.kind, MediaKind::Unknown);
+        assert_eq!(item.parent_id, None);
+        assert_eq!(item.metadata.title, "random clip");
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].inferred_kind, MediaKind::Unknown);
+        assert_eq!(evidence[0].confidence_milli, Some(350));
     }
 
     #[tokio::test]

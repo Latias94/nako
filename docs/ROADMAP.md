@@ -308,8 +308,9 @@ the server browse and playback contracts are coherent.
 
 ### Metadata-Catalog Expansion: M27
 
-Status: completed for M27.0 design baseline and M27.1 schema/repository
-slice. M27.2 provider and NFO expansion is planned next.
+Status: completed for M27.0 design baseline, M27.1 schema/repository slice,
+and M27.2 local inference/provisional hierarchy slice. M27.3 provider and NFO
+expansion is planned next.
 
 M27.0 turned the movie-first metadata/catalog foundation into a video-first
 media-server model using the project language in `CONTEXT.md` and ADR 0021:
@@ -338,10 +339,16 @@ Completed implementation slice:
   Inference Evidence** records through `taru-core` records, `taru-db`
   migration `0018_metadata_catalog_domain.sql`, repository traits, SQLite
   adapters, and focused repository tests.
+- M27.2 local inference and provisional hierarchy connected scan indexing to
+  source-owned **Local Inference Evidence**, added weak-name **Unknown Media
+  Item** fallback, keeps inference evidence as a current source/version
+  snapshot, preserves confirmed canonical metadata during rescan, and creates
+  provisional series/season/episode hierarchy without provider, NFO, Source
+  Variant UI, or browse API breadth.
 
 Next phase:
 
-- M27.2 provider and NFO expansion slice.
+- M27.3 provider and NFO expansion slice.
 
 ## Workstream Split Direction
 

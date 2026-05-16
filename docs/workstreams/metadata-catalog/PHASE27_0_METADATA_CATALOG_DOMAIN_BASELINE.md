@@ -325,7 +325,14 @@ M27.1 should be the schema and repository slice. It may touch:
 M27.1 should not add provider API breadth or public client browse behavior
 until the selected persistence model is covered.
 
-M27.2 should be the provider, NFO, and artwork expansion slice. It may touch:
+After later domain review, M27.2 was narrowed to local inference and
+provider-neutral provisional hierarchy before provider breadth. It may touch:
+
+- scanner/name parser evidence, confidence, and version output;
+- local inference persistence during scanning;
+- provisional series/season/episode creation and unknown item fallback.
+
+M27.3 should be the provider, NFO, and artwork expansion slice. It may touch:
 
 - TMDB series/season/episode mapping;
 - Douban and Bangumi provider mapping;
@@ -333,7 +340,7 @@ M27.2 should be the provider, NFO, and artwork expansion slice. It may touch:
 - artwork candidate/selected/managed contracts;
 - catalog hydration and search projection updates.
 
-M27.2 should not expose new browse/sort contracts until DTO names and
+M27.2/M27.3 should not expose new browse/sort contracts until DTO names and
 repository queries are explicit.
 
 Client-facing browse/sort work should be a later M27 slice after M27.1 schema
@@ -353,7 +360,8 @@ public API DTOs in a way this phase note does not already cover.
    authority, and artwork ownership.
 3. Move active metadata/catalog TODOs out of `server-foundation`.
 4. Draft the schema/repository change plan for M27.1.
-5. Only then implement provider breadth in M27.2.
+5. Implement local inference and provisional hierarchy in M27.2.
+6. Only then implement provider breadth in M27.3.
 
 ## Non-Goals
 

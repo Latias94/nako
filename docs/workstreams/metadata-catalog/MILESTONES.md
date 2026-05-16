@@ -100,9 +100,64 @@ Close-out evidence:
 - `cargo fmt --all -- --check`, `cargo check --workspace --tests`, and
   `git diff --check` passed.
 
-## M27.2: Provider and NFO Expansion Slice
+## M27.2: Local Inference and Provisional Hierarchy Slice
 
-Status: planned after M27.1.
+Status: completed.
+
+Outcome: scanning can persist local inference evidence and create a
+provider-neutral provisional video hierarchy before provider or NFO
+confirmation.
+
+Deliverables:
+
+- Extend `taru-naming` parsed-name output with confidence, evidence source,
+  parser version, and inferred kind/title/year/season/episode fields.
+- Persist **Local Inference Evidence** from `taru-library` scanning.
+- Create provisional series, season, episode, and unknown item hierarchy during
+  scanning.
+- Keep provider/NFO confirmation as a later upgrade path.
+
+Non-goals:
+
+- No TMDB, Douban, or Bangumi breadth.
+- No NFO confirmation.
+- No Source Variant UI.
+- No browse API.
+- No rating or user-state work.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- focused `cargo nextest run -p taru-naming`
+- focused `cargo nextest run -p taru-library`
+- focused `cargo nextest run -p taru-db`
+- `git diff --check`
+
+Close-out evidence:
+
+- [Phase 27.2](PHASE27_2_LOCAL_INFERENCE_PROVISIONAL_HIERARCHY.md) records the
+  scan-path local inference implementation and remaining M27.3 boundaries.
+- `taru-naming` emits confidence, evidence source, evidence value, parser
+  version, and unknown fallback results.
+- `taru-library` writes source-owned **Local Inference Evidence** and creates
+  provisional series/season/episode items during indexing.
+- `taru-db/migrations/0019_library_item_states.sql` persists library-scoped
+  source-less item membership.
+- `taru-db/migrations/0020_local_inference_evidence_snapshot_key.sql` keeps
+  local inference evidence as a source-owned current snapshot rather than an
+  append-only scan log.
+- Confirmed items are protected from local-inference canonical metadata
+  overwrites during rescan.
+- `cargo nextest run -p taru-naming` passed with 6 tests.
+- `cargo nextest run -p taru-library` passed with 15 tests.
+- `cargo nextest run -p taru-db` passed with 32 tests.
+- `cargo fmt --all -- --check`, `cargo check --workspace --tests`, and
+  `git diff --check` passed.
+
+## M27.3: Provider and NFO Expansion Slice
+
+Status: planned after M27.2.
 
 Outcome: built-in providers and NFO import/export can populate the expanded
 catalog model without bypassing local authority rules.

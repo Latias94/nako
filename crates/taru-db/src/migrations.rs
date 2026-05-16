@@ -84,6 +84,16 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "metadata catalog domain",
         include_str!("../migrations/0018_metadata_catalog_domain.sql"),
     ),
+    (
+        19,
+        "library item states",
+        include_str!("../migrations/0019_library_item_states.sql"),
+    ),
+    (
+        20,
+        "local inference evidence snapshot key",
+        include_str!("../migrations/0020_local_inference_evidence_snapshot_key.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

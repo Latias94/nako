@@ -12,15 +12,15 @@ use taru_core::{
     GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass,
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRecord,
     IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
-    Job, JobId, JobKind, JobRepository, JobStatus, Library, LibraryId, LibraryOptions,
-    LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, MediaDomain, MediaItem, MediaItemId,
-    MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
-    MetadataMatchKind, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
-    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewAddonRegistration,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
-    NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
+    Job, JobId, JobKind, JobRepository, JobStatus, Library, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryRepository, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository, MediaDomain,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptRecord,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
+    NewAddonRegistration, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
+    NewJob, NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
     PageRequest, Person, PersonId, ProviderMapping, ProviderMappingRepository,
     ProviderMappingStatus, ProviderRawResponse, ProviderRawResponseCleanup,
@@ -50,6 +50,7 @@ mod event_outbox;
 mod ingestion;
 mod jobs;
 mod library;
+mod library_item;
 mod local_inference;
 mod media;
 mod metadata;

@@ -54,6 +54,14 @@ _Avoid_: Direct addon path write
 Future Taru functionality for discovering, installing, updating, starting, or removing addons.
 _Avoid_: Addon Protocol
 
+**Addon Install Guide**:
+Instructions or generated deployment snippets that help a user run an **Addon Sidecar** outside Taru.
+_Avoid_: Taru-managed container lifecycle
+
+**Addon Health Check**:
+Taru's check that an **Addon Sidecar** is reachable and still matches its registered manifest contract.
+_Avoid_: Process supervision
+
 **Addon Resource**:
 A declared capability of an **Addon** that Taru may call after the user grants the required access.
 _Avoid_: Plugin hook, arbitrary callback
@@ -422,6 +430,8 @@ _Avoid_: Addon callback
 - A **Webhook Endpoint** receives event notifications from Taru; it is not an **Addon**.
 - A **Native Plugin** is intentionally distinct from an **Addon** and is not the current extension model.
 - An **Addon Manager** may automate addon installation and lifecycle later, but it is not required for the **Addon Protocol**.
+- The first **Addon Manager** should focus on registry, permissions, token rotation, **Addon Health Check**, and **Addon Install Guide** behavior.
+- The first **Addon Manager** should not directly manage container or process lifecycle.
 - A **Media Library** contains many **Media Sources**.
 - Taru's **Media Server Scope** is broader than the **Video-First Phase**.
 - A **Media Library** has a **Media Domain** and may start from a **Library Preset**.
@@ -443,6 +453,11 @@ _Avoid_: Addon callback
 - **Local Inference** may create a **Provisional Hierarchy** during scanning.
 - **Local Inference Evidence** should be preserved for search, diagnostics, and rematching.
 - **Local Inference Evidence** records should include enough information to explain the inferred kind, title, year, season, episode, confidence, evidence source, and **Local Inference Version**.
+- **Local Inference Evidence** is primarily owned by the **Media Source** that produced it.
+- **Local Inference Evidence** represents the current inference snapshot for a source and inference version, not a scan-history log.
+- **Local Inference Evidence** may reference inferred item or hierarchy targets without becoming canonical item metadata.
+- **Local Inference** may seed **Canonical Metadata** only while an item remains provisional.
+- **Local Inference** must not overwrite **Canonical Metadata** after **Hierarchy Confirmation**, accepted **Provider Mapping**, NFO authority, or user edits.
 - A **Provisional Hierarchy** may be corrected by NFO, provider mapping, user edits, or accepted addon writes.
 - **Hierarchy Confirmation** should update existing provisional items in place when possible.
 - **Hierarchy Repair** is reserved for cases where the inferred hierarchy is structurally wrong.
@@ -500,6 +515,9 @@ _Avoid_: Addon callback
 >
 > **Dev:** "Does Taru install and launch addons itself?"
 > **Domain expert:** "Not in the first phase. An **Addon** is an **Addon Sidecar** registered through the **Addon Protocol**; an **Addon Manager** can come later."
+>
+> **Dev:** "Should Taru control Docker to install addons?"
+> **Domain expert:** "Not first. Prefer **Addon Install Guide** output and **Addon Health Check** over Taru-managed container lifecycle."
 >
 > **Dev:** "Can an **Addon Sidecar** actively change Taru state?"
 > **Domain expert:** "Yes, through Taru APIs using an **Addon Token** scoped to the accepted permissions and libraries."
@@ -569,6 +587,12 @@ _Avoid_: Addon callback
 >
 > **Dev:** "Can inference evidence be transient?"
 > **Domain expert:** "No. Persist enough **Local Inference Evidence** to explain, diagnose, and rerun inference when the **Local Inference Version** changes."
+>
+> **Dev:** "Does inference evidence belong to the item or the source?"
+> **Domain expert:** "Primarily the **Media Source**, because the evidence comes from source path, file name, local files, and probe facts."
+>
+> **Dev:** "Can local inference overwrite canonical metadata on rescan?"
+> **Domain expert:** "Only while the item is provisional. After confirmation, rescan updates source state and **Local Inference Evidence**, not canonical fields."
 >
 > **Dev:** "Should provider matching replace local provisional items?"
 > **Domain expert:** "No. Use **Hierarchy Confirmation** to update provisional items in place unless **Hierarchy Repair** is required."
@@ -640,6 +664,7 @@ _Avoid_: Addon callback
 - Addon UI integration means **Addon Entry Points**, not embedded client-side plugin execution.
 - Addon-hosted settings or diagnostics use **Addon Hosted Pages** and must not receive Taru admin credentials.
 - Addon installation and automatic lifecycle management belong to a future **Addon Manager**, not the first **Addon Protocol** slice.
+- The first **Addon Manager** should not require Docker socket or process-supervision authority.
 - Addon-initiated writes use an **Addon Token** and Taru APIs, not direct database or filesystem mutation.
 - Addon authentication starts with revocable long-lived tokens and explicit rotation, not OAuth.
 - Addon event automation uses **Addon Event Subscriptions**, not database polling or hidden API polling loops.
@@ -662,6 +687,9 @@ _Avoid_: Addon callback
 - Local path and file-name parsing is **Local Inference**, not a metadata provider or scraper.
 - Local inferred titles and structure are **Local Inference Evidence** that may differ from canonical metadata.
 - **Local Inference Evidence** should be persisted minimally rather than thrown away after scanning.
+- **Local Inference Evidence** is source-owned and may point at inferred hierarchy targets.
+- **Local Inference Evidence** should be updated as a current snapshot; historical inference attempts need a separate history concept.
+- **Local Inference** can seed provisional **Canonical Metadata** but must not replace confirmed canonical fields during rescan.
 - Confirming provider or NFO data should normally use **Hierarchy Confirmation**, not replacement item creation.
 - Structural mistakes from local inference use **Hierarchy Repair**.
 - **Local Inference** should prefer **Unknown Media Item** over overconfident classification.

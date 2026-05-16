@@ -57,6 +57,32 @@
       taru-db`, focused `cargo nextest run -p taru-core`, and `git diff
       --check`.
 
+## M27.2 Local Inference and Provisional Hierarchy
+
+- [x] Keep M27.2 focused on local inference and provisional hierarchy; do not
+      add TMDB, Douban, Bangumi, NFO confirmation, Source Variant UI, or
+      browse API behavior.
+- [x] Extend `taru-naming` parsed-name output with confidence, evidence source,
+      parser version, and inferred kind/title/year/season/episode fields.
+- [x] Make weak local parsing create **Unknown Media Item** output instead of a
+      confident movie guess.
+- [x] Persist **Local Inference Evidence** from `taru-library` scanning.
+- [x] Keep **Local Inference Evidence** as a current snapshot per source,
+      evidence source, and parser version rather than an append-only scan log.
+- [x] Prevent local inference rescan from overwriting canonical metadata after
+      an item is confirmed out of provisional state.
+- [x] Create provisional series, season, and episode parent items during
+      scanning.
+- [x] Preserve or introduce library-scoped provisional item membership so
+      source-less series/season items do not collide across libraries.
+- [x] Keep existing movie indexing behavior working for confident movie names.
+- [x] Update metadata-catalog evidence or milestone notes with validation
+      commands and remaining M27.3 boundaries.
+- [x] Run M27.2 gates: `cargo fmt --all -- --check`,
+      `cargo check --workspace --tests`, focused `cargo nextest run -p
+      taru-naming`, focused `cargo nextest run -p taru-library`, focused
+      `cargo nextest run -p taru-db`, and `git diff --check`.
+
 ## Provider Breadth
 
 - [ ] Add TMDB series, season, and episode support.

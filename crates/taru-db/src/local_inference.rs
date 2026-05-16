@@ -26,18 +26,19 @@ impl LocalInferenceRepository for SqliteStore {
                 inference_version
             )
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
-            ON CONFLICT(id) DO UPDATE SET
-                source_id = excluded.source_id,
+            ON CONFLICT(
+                source_id,
+                evidence_source,
+                evidence_source_key,
+                inference_version
+            ) DO UPDATE SET
                 inferred_kind = excluded.inferred_kind,
                 inferred_title = excluded.inferred_title,
                 inferred_year = excluded.inferred_year,
                 inferred_season = excluded.inferred_season,
                 inferred_episode = excluded.inferred_episode,
                 confidence_milli = excluded.confidence_milli,
-                evidence_source = excluded.evidence_source,
-                evidence_source_key = excluded.evidence_source_key,
                 evidence_value = excluded.evidence_value,
-                inference_version = excluded.inference_version,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
             "#,
         )

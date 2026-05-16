@@ -78,8 +78,17 @@ Commands run:
 
 ## Remaining Boundaries
 
-M27.2 should build on this schema and remain focused on provider/NFO/artwork
-expansion:
+M27.2 should build on this schema by connecting local inference evidence to the
+scan path and creating provider-neutral provisional hierarchy:
+
+- parsed-name confidence, evidence source, parser version, and inferred fields.
+- source-owned **Local Inference Evidence** writes during scanning.
+- provisional series, season, episode, and unknown item fallback behavior.
+- no TMDB, Douban, Bangumi, NFO confirmation, Source Variant UI, or browse API
+  breadth.
+
+M27.3 should then use the same schema and provisional hierarchy for
+provider/NFO/artwork expansion:
 
 - TMDB series, season, and episode provider mapping.
 - Douban provider MVP.

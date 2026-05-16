@@ -796,6 +796,66 @@ Close-out validation:
 
 ## Latest Completed Goal
 
+### M27.2: Local Inference and Provisional Hierarchy Slice
+
+Status: completed.
+
+Objective:
+
+- Connect M27.1's local inference persistence to the scan path so Taru can keep
+  source-owned parsing evidence and create a provider-neutral provisional video
+  hierarchy before TMDB, Douban, Bangumi, or NFO confirmation.
+
+Deliverables:
+
+- extend `taru-naming` parsed-name output with confidence, evidence source,
+  evidence value, parser version, inferred kind, title, year, season, and
+  episode fields;
+- make weak file-name evidence produce an **Unknown Media Item** instead of a
+  confident movie guess;
+- persist **Local Inference Evidence** from `taru-library` scan indexing;
+- keep **Local Inference Evidence** as a current snapshot per source, evidence
+  source, and parser version instead of an append-only scan log;
+- preserve confirmed **Canonical Metadata** on rescan while still updating
+  source-owned inference evidence;
+- create provisional series, season, and episode items during scanning;
+- persist library-scoped **Library Item State** membership for source-less
+  provisional series and season items.
+
+Non-goals:
+
+- no TMDB, Douban, or Bangumi provider breadth;
+- no NFO confirmation;
+- no Source Variant UI;
+- no browse API.
+
+Evidence:
+
+- [Phase 27.2](workstreams/metadata-catalog/PHASE27_2_LOCAL_INFERENCE_PROVISIONAL_HIERARCHY.md)
+  records the scan-path local inference implementation and M27.3 boundaries.
+- `crates/taru-db/migrations/0019_library_item_states.sql` adds
+  library-scoped source-less item membership.
+- `crates/taru-db/migrations/0020_local_inference_evidence_snapshot_key.sql`
+  adds the current-snapshot key for source-owned inference evidence.
+- `taru-library` keeps confirmed items' canonical fields intact during rescan.
+- [metadata-catalog TODO](workstreams/metadata-catalog/TODO.md) marks the
+  M27.2 checklist complete.
+
+Close-out validation:
+
+- `cargo nextest run -p taru-naming`: 6 tests passed.
+- `cargo nextest run -p taru-library`: 15 tests passed.
+- `cargo nextest run -p taru-db`: 32 tests passed.
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `git diff --check`: passed with Git CRLF normalization warnings only.
+
+Next recommended implementation goal:
+
+- M27.3 provider and NFO expansion slice.
+
+## Latest Completed Goal
+
 ### M27.1: Catalog Schema and Repository Slice
 
 Status: completed.
@@ -837,7 +897,7 @@ Close-out validation:
 
 Next recommended implementation goal:
 
-- M27.2 provider and NFO expansion slice.
+- M27.2 local inference and provisional hierarchy slice.
 
 ### M27.0: Metadata-Catalog Domain Baseline
 
@@ -897,4 +957,4 @@ Close-out validation:
 
 Next recommended implementation goal:
 
-- M27.2 provider and NFO expansion slice.
+- M27.1 catalog schema and repository slice.

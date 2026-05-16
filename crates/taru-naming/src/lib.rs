@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use taru_core::MediaKind;
+use taru_core::{LocalInferenceEvidenceSource, MediaKind};
+
+pub const DEFAULT_PARSER_VERSION: &str = "taru-naming:default:v1";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ParsedName {
@@ -8,6 +10,10 @@ pub struct ParsedName {
     pub year: Option<u16>,
     pub season_number: Option<u16>,
     pub episode_number: Option<u16>,
+    pub confidence_milli: u16,
+    pub evidence_source: LocalInferenceEvidenceSource,
+    pub evidence_value: String,
+    pub parser_version: String,
 }
 
 pub trait NameParser: Send + Sync {
@@ -24,17 +30,18 @@ impl NameParser for DefaultNameParser {
 }
 
 pub fn parse_path(path: &str) -> ParsedName {
-    let file_stem = file_stem(path);
+    let file_name = file_name(path).to_owned();
+    let file_stem = file_stem(&file_name);
     let cleaned = clean_separators(file_stem);
 
-    if let Some(parsed) = parse_episode_name(&cleaned) {
+    if let Some(parsed) = parse_episode_name(&cleaned, &file_name) {
         return parsed;
     }
 
-    parse_movie_name(&cleaned)
+    parse_movie_or_unknown_name(&cleaned, &file_name)
 }
 
-fn parse_episode_name(cleaned: &str) -> Option<ParsedName> {
+fn parse_episode_name(cleaned: &str, evidence_value: &str) -> Option<ParsedName> {
     let tokens = tokenize(cleaned);
 
     for (index, token) in tokens.iter().enumerate() {
@@ -45,6 +52,10 @@ fn parse_episode_name(cleaned: &str) -> Option<ParsedName> {
                 year: year_from_tokens(&tokens[..index]),
                 season_number: Some(season_number),
                 episode_number: Some(episode_number),
+                confidence_milli: 900,
+                evidence_source: LocalInferenceEvidenceSource::FileName,
+                evidence_value: evidence_value.to_owned(),
+                parser_version: DEFAULT_PARSER_VERSION.to_owned(),
             });
         }
 
@@ -55,6 +66,10 @@ fn parse_episode_name(cleaned: &str) -> Option<ParsedName> {
                 year: year_from_tokens(&tokens[..index]),
                 season_number: Some(season_number),
                 episode_number: Some(episode_number),
+                confidence_milli: 880,
+                evidence_source: LocalInferenceEvidenceSource::FileName,
+                evidence_value: evidence_value.to_owned(),
+                parser_version: DEFAULT_PARSER_VERSION.to_owned(),
             });
         }
     }
@@ -62,7 +77,7 @@ fn parse_episode_name(cleaned: &str) -> Option<ParsedName> {
     None
 }
 
-fn parse_movie_name(cleaned: &str) -> ParsedName {
+fn parse_movie_or_unknown_name(cleaned: &str, evidence_value: &str) -> ParsedName {
     let tokens = tokenize(cleaned);
     let year = year_from_tokens(&tokens);
     let title = if let Some(year) = year {
@@ -70,23 +85,36 @@ fn parse_movie_name(cleaned: &str) -> ParsedName {
     } else {
         cleaned.trim().to_owned()
     };
+    let kind_hint = if year.is_some() {
+        MediaKind::Movie
+    } else {
+        MediaKind::Unknown
+    };
+    let confidence_milli = if year.is_some() { 760 } else { 350 };
 
     ParsedName {
-        kind_hint: MediaKind::Movie,
+        kind_hint,
         title: normalize_title(&title),
         year,
         season_number: None,
         episode_number: None,
+        confidence_milli,
+        evidence_source: LocalInferenceEvidenceSource::FileName,
+        evidence_value: evidence_value.to_owned(),
+        parser_version: DEFAULT_PARSER_VERSION.to_owned(),
     }
 }
 
-fn file_stem(path: &str) -> &str {
+fn file_name(path: &str) -> &str {
     let normalized = path.trim_matches('/');
-    let file_name = normalized
+
+    normalized
         .rsplit_once('/')
         .map(|(_parent, file_name)| file_name)
-        .unwrap_or(normalized);
+        .unwrap_or(normalized)
+}
 
+fn file_stem(file_name: &str) -> &str {
     file_name
         .rsplit_once('.')
         .map(|(stem, _extension)| stem)
@@ -195,6 +223,13 @@ mod tests {
         assert_eq!(parsed.title, "Firefly");
         assert_eq!(parsed.season_number, Some(1));
         assert_eq!(parsed.episode_number, Some(2));
+        assert_eq!(parsed.confidence_milli, 900);
+        assert_eq!(
+            parsed.evidence_source,
+            LocalInferenceEvidenceSource::FileName
+        );
+        assert_eq!(parsed.evidence_value, "Firefly.S01E02.The Train Job.mkv");
+        assert_eq!(parsed.parser_version, DEFAULT_PARSER_VERSION);
     }
 
     #[test]
@@ -222,5 +257,22 @@ mod tests {
         assert_eq!(parsed.kind_hint, MediaKind::Movie);
         assert_eq!(parsed.title, "Sample Movie");
         assert_eq!(parsed.year, Some(2024));
+        assert_eq!(parsed.confidence_milli, 760);
+    }
+
+    #[test]
+    fn weak_file_name_evidence_returns_unknown_item() {
+        let parsed = parse_path("Uploads/random.clip.mkv");
+
+        assert_eq!(parsed.kind_hint, MediaKind::Unknown);
+        assert_eq!(parsed.title, "random clip");
+        assert_eq!(parsed.year, None);
+        assert_eq!(parsed.confidence_milli, 350);
+        assert_eq!(
+            parsed.evidence_source,
+            LocalInferenceEvidenceSource::FileName
+        );
+        assert_eq!(parsed.evidence_value, "random.clip.mkv");
+        assert_eq!(parsed.parser_version, DEFAULT_PARSER_VERSION);
     }
 }

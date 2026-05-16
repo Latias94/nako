@@ -96,8 +96,11 @@ impl MediaRepository for SqliteStore {
                 media_items.release_date,
                 media_items.metadata_json
             FROM media_items
-            INNER JOIN media_sources ON media_sources.item_id = media_items.id
-            WHERE media_sources.library_id = ?1
+            WHERE media_items.id IN (
+                SELECT item_id FROM media_sources WHERE library_id = ?1
+                UNION
+                SELECT item_id FROM library_item_states WHERE library_id = ?1
+            )
             ORDER BY media_items.title ASC, media_items.id ASC
             LIMIT ?2 OFFSET ?3
             "#,

@@ -260,6 +260,64 @@ async fn sqlite_store_round_trips_video_item_hierarchy_and_multiple_sources() {
 }
 
 #[tokio::test]
+async fn sqlite_store_tracks_source_less_library_items() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let series = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Example Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let state = LibraryItemState {
+        library_id: library.id,
+        item_id: series.id,
+        provisional: true,
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&series).await.unwrap();
+    store.upsert_library_item_state(&state).await.unwrap();
+
+    assert_eq!(
+        store
+            .get_library_item_state(library.id, series.id)
+            .await
+            .unwrap(),
+        Some(state)
+    );
+    assert_eq!(
+        store
+            .find_library_item_by_kind_parent_title(
+                library.id,
+                MediaKind::Series,
+                None,
+                "Example Series",
+            )
+            .await
+            .unwrap(),
+        Some(series.clone())
+    );
+    assert_eq!(
+        store
+            .list_media_items_for_library(library.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![series]
+    );
+}
+
+#[tokio::test]
 async fn sqlite_store_round_trips_transcode_sessions() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -956,7 +1014,34 @@ async fn sqlite_store_round_trips_local_inference_evidence_without_confirming_me
             .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
             .await
             .unwrap(),
-        vec![evidence]
+        vec![evidence.clone()]
+    );
+
+    let mut updated_evidence = evidence.clone();
+    updated_evidence.id = LocalInferenceEvidenceId::new();
+    updated_evidence.inferred_title = Some("Show Name Revised".to_owned());
+    updated_evidence.confidence_milli = Some(900);
+    updated_evidence.evidence_value = "Show.Name.S01E02.1080p.mkv".to_owned();
+    store
+        .upsert_local_inference_evidence(&updated_evidence)
+        .await
+        .unwrap();
+
+    let mut expected_snapshot = updated_evidence;
+    expected_snapshot.id = evidence.id;
+    assert_eq!(
+        store
+            .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![expected_snapshot.clone()]
+    );
+    assert_eq!(
+        store
+            .get_local_inference_evidence(evidence.id)
+            .await
+            .unwrap(),
+        Some(expected_snapshot)
     );
     assert_eq!(store.get_media_item(item.id).await.unwrap(), Some(item));
 }
