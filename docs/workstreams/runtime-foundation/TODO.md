@@ -53,3 +53,19 @@
       policies.
 - [ ] Use explicit DTOs for new public API routes.
 - [x] Delete legacy helpers once their replacement is fully wired.
+
+## M16 Storage Backend Registry And Lease Lifecycle
+
+- [x] Keep `StorageBackendRegistry` owned by `TaruApp`.
+- [x] Cache backend wrappers by `library_id`.
+- [x] Route scan, probe, playback, remux/HLS staging, and NFO through the
+      registry boundary.
+- [x] Keep per-library remote stream and stage resource budgets attached to
+      backend wrappers.
+- [x] Track backend health counters on storage operations.
+- [x] Expose sanitized storage backend diagnostics through explicit API DTOs.
+- [x] Model staging reserved, staging, ready, leased, expired, deleted, and
+      failed states.
+- [x] Ensure cleanup protects active leases.
+- [x] Release staged-input leases explicitly after playback and through a
+      drop-time fallback.

@@ -1564,6 +1564,24 @@ async fn manifest_recording_backend_records_probe_staging() {
     assert_eq!(record.etag.as_deref(), Some("etag-remote"));
     assert_eq!(record.fingerprint.as_deref(), Some("remote-fingerprint"));
     assert!(record.expires_at_ms.unwrap() > record.created_at_ms);
+    let reserved = store
+        .list_staging_manifest_records(
+            Some(StagingPurpose::ProbeInput),
+            Some(StagingState::Reserved),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    let staging = store
+        .list_staging_manifest_records(
+            Some(StagingPurpose::ProbeInput),
+            Some(StagingState::Staging),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert!(reserved.is_empty());
+    assert!(staging.is_empty());
 }
 
 #[tokio::test]
@@ -1792,7 +1810,7 @@ async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() 
             size_bytes: Some(8),
             etag: Some("etag-reserved".to_owned()),
             fingerprint: Some("reserved".to_owned()),
-            state: StagingState::Staging,
+            state: StagingState::Reserved,
             created_at_ms: 1,
             updated_at_ms: 1,
             last_accessed_at_ms: 1,
@@ -2054,7 +2072,7 @@ async fn staging_cleanup_removes_expired_pending_reservations() {
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     let mut record = staging_manifest_record(record_id, &staged_path, Some(1), 0);
-    record.state = StagingState::Staging;
+    record.state = StagingState::Reserved;
     store.upsert_staging_manifest_record(record).await.unwrap();
 
     let cleanup = cleanup_expired_staging_inputs(&store, 2_000).await.unwrap();
@@ -2063,6 +2081,31 @@ async fn staging_cleanup_removes_expired_pending_reservations() {
     assert_eq!(cleanup.deleted_files, 1);
     assert!(!staged_path.exists());
     assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 0);
+    let record = store
+        .get_staging_manifest_record(record_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.state, StagingState::Deleted);
+}
+
+#[tokio::test]
+async fn staging_cleanup_retries_expired_manifest_records() {
+    let temp = tempfile::tempdir().unwrap();
+    let staged_path = temp.path().join("expired.mkv");
+    fs::write(&staged_path, b"expired").unwrap();
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let record_id = StagingManifestId::new();
+    let mut record = staging_manifest_record(record_id, &staged_path, Some(1), 0);
+    record.state = StagingState::Expired;
+    store.upsert_staging_manifest_record(record).await.unwrap();
+
+    let cleanup = cleanup_expired_staging_inputs(&store, 2_000).await.unwrap();
+
+    assert_eq!(cleanup.deleted_records, 1);
+    assert_eq!(cleanup.deleted_files, 1);
+    assert!(!staged_path.exists());
     let record = store
         .get_staging_manifest_record(record_id)
         .await
@@ -2103,6 +2146,53 @@ async fn staging_lease_transitions_between_ready_and_leased() {
     let released = lease.release().await.unwrap();
     assert_eq!(released.state, StagingState::Ready);
     assert_eq!(released.active_leases, 0);
+}
+
+#[tokio::test]
+async fn dropped_staging_lease_releases_manifest_record() {
+    let temp = tempfile::tempdir().unwrap();
+    let staged_path = temp.path().join("dropped-lease.mkv");
+    fs::write(&staged_path, b"leased").unwrap();
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let record_id = StagingManifestId::new();
+    store
+        .upsert_staging_manifest_record(staging_manifest_record(
+            record_id,
+            &staged_path,
+            Some(1_000),
+            0,
+        ))
+        .await
+        .unwrap();
+
+    let lease = super::staging::StagingLease::acquire(store.clone(), record_id)
+        .await
+        .unwrap();
+    drop(lease);
+
+    for _ in 0..50 {
+        let record = store
+            .get_staging_manifest_record(record_id)
+            .await
+            .unwrap()
+            .unwrap();
+        if record.active_leases == 0 {
+            assert_eq!(record.state, StagingState::Ready);
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    let record = store
+        .get_staging_manifest_record(record_id)
+        .await
+        .unwrap()
+        .unwrap();
+    panic!(
+        "dropped lease was not released: state={:?}, active_leases={}",
+        record.state, record.active_leases
+    );
 }
 
 #[tokio::test]

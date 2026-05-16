@@ -72,9 +72,9 @@ impl StagingManifestRepository for SqliteStore {
         max_total_bytes: u64,
         now_ms: i64,
     ) -> Result<StagingManifestRecord> {
-        if record.state != StagingState::Staging {
+        if record.state != StagingState::Reserved {
             return Err(TaruError::InvalidInput {
-                message: "staging reservation must use staging state".to_owned(),
+                message: "staging reservation must use reserved state".to_owned(),
             });
         }
 
@@ -95,7 +95,10 @@ impl StagingManifestRepository for SqliteStore {
             .transpose()?;
 
         if existing.as_ref().is_some_and(|existing| {
-            existing.state == StagingState::Staging && !record_expired(existing, now_ms)
+            matches!(
+                existing.state,
+                StagingState::Reserved | StagingState::Staging
+            ) && !record_expired(existing, now_ms)
         }) {
             return Err(TaruError::Storage {
                 uri: record.source_uri,
@@ -141,6 +144,44 @@ impl StagingManifestRepository for SqliteStore {
         transaction.commit().await.map_err(database_error)?;
 
         Ok(saved)
+    }
+
+    async fn start_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        started_at_ms: i64,
+    ) -> Result<StagingManifestRecord> {
+        let result = sqlx::query(
+            r#"
+            UPDATE staging_manifest_records
+            SET state = ?2,
+                updated_at_ms = ?3,
+                last_accessed_at_ms = ?3
+            WHERE id = ?1
+              AND state = ?4
+              AND active_leases = 0
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(StagingState::Staging.as_str())
+        .bind(started_at_ms)
+        .bind(StagingState::Reserved.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(TaruError::Conflict {
+                message: format!("staging manifest {id} is not reserved"),
+            });
+        }
+
+        self.get_staging_manifest_record(id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "staging_manifest_record",
+                id: id.to_string(),
+            })
     }
 
     async fn complete_staging_manifest_record(
@@ -197,6 +238,8 @@ impl StagingManifestRepository for SqliteStore {
                 last_accessed_at_ms = ?3,
                 active_leases = 0
             WHERE id = ?1
+              AND active_leases = 0
+              AND state IN ('reserved', 'staging', 'ready', 'failed', 'expired')
             "#,
         )
         .bind(id.to_string())
@@ -393,7 +436,7 @@ impl StagingManifestRepository for SqliteStore {
             r#"
             SELECT *
             FROM staging_manifest_records
-            WHERE state IN ('staging', 'ready', 'failed')
+            WHERE state IN ('reserved', 'staging', 'ready', 'failed', 'expired')
               AND active_leases = 0
               AND expires_at_ms IS NOT NULL
               AND expires_at_ms <= ?1
@@ -451,7 +494,7 @@ impl StagingManifestRepository for SqliteStore {
             SELECT COALESCE(SUM(size_bytes), 0) AS total_bytes
             FROM staging_manifest_records
             WHERE size_bytes IS NOT NULL
-              AND state IN ('staging', 'ready', 'leased')
+              AND state IN ('reserved', 'staging', 'ready', 'leased')
             "#,
         )
         .fetch_one(&self.pool)
@@ -564,7 +607,7 @@ async fn sum_staging_manifest_bytes_in_transaction(
         SELECT COALESCE(SUM(size_bytes), 0) AS total_bytes
         FROM staging_manifest_records
         WHERE size_bytes IS NOT NULL
-          AND state IN ('staging', 'ready', 'leased')
+          AND state IN ('reserved', 'staging', 'ready', 'leased')
         "#,
     )
     .fetch_one(&mut **transaction)
@@ -583,7 +626,7 @@ fn record_expired(record: &StagingManifestRecord, now_ms: i64) -> bool {
 fn staging_state_counts_toward_budget(state: StagingState) -> bool {
     matches!(
         state,
-        StagingState::Staging | StagingState::Ready | StagingState::Leased
+        StagingState::Reserved | StagingState::Staging | StagingState::Ready | StagingState::Leased
     )
 }
 
@@ -659,12 +702,12 @@ mod tests {
         let staging_id = StagingManifestId::new();
         let staging_record = NewStagingManifestRecord {
             id: staging_id,
-            state: StagingState::Staging,
+            state: StagingState::Reserved,
             local_path: "F:/Taru/cache/remux/inputs/pending.mkv".to_owned(),
             last_accessed_at_ms: 1_300,
             ..record.clone()
         };
-        let saved_staging = store
+        let saved_reserved = store
             .upsert_staging_manifest_record(staging_record)
             .await
             .unwrap();
@@ -673,7 +716,14 @@ mod tests {
             .list_staging_cleanup_candidates(2_000, PageRequest::first_page())
             .await
             .unwrap();
-        assert_eq!(cleanup, vec![saved.clone(), saved_staging]);
+        assert_eq!(cleanup, vec![saved.clone(), saved_reserved.clone()]);
+
+        let started = store
+            .start_staging_manifest_record(staging_id, 2_100)
+            .await
+            .unwrap();
+        assert_eq!(started.state, StagingState::Staging);
+        assert_eq!(started.active_leases, 0);
 
         let touched = store
             .touch_staging_manifest_record(id, 2_500)
@@ -696,5 +746,50 @@ mod tests {
                 .is_none()
         );
         assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_does_not_expire_active_staging_lease() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let id = StagingManifestId::new();
+        let record = NewStagingManifestRecord {
+            id,
+            source_uri: "webdav:///Movies/Demo.mkv".to_owned(),
+            source_scheme: "webdav".to_owned(),
+            purpose: StagingPurpose::FfmpegInput,
+            local_path: "F:/Taru/cache/remux/inputs/demo.mkv".to_owned(),
+            size_bytes: Some(12),
+            etag: Some("etag-demo".to_owned()),
+            fingerprint: Some("fingerprint-demo".to_owned()),
+            state: StagingState::Ready,
+            created_at_ms: 1_000,
+            updated_at_ms: 1_100,
+            last_accessed_at_ms: 1_200,
+            expires_at_ms: Some(1_500),
+            active_leases: 0,
+            validation_error: None,
+        };
+
+        store.upsert_staging_manifest_record(record).await.unwrap();
+        let leased = store
+            .acquire_staging_manifest_lease(id, 1_300)
+            .await
+            .unwrap();
+        assert_eq!(leased.state, StagingState::Leased);
+        assert_eq!(leased.active_leases, 1);
+
+        let after_expire_attempt = store
+            .expire_staging_manifest_record(id, 2_000)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(after_expire_attempt.state, StagingState::Leased);
+        assert_eq!(after_expire_attempt.active_leases, 1);
+        store
+            .release_staging_manifest_lease(id, 2_100)
+            .await
+            .unwrap();
     }
 }

@@ -127,6 +127,7 @@ library ID, local metadata policy, and force flag.
 
 ```text
 GET  /health
+GET  /storage/backends
 GET  /libraries?limit=50&offset=0
 POST /libraries/{library_id}/scan
 POST /libraries/{library_id}/nfo/import
@@ -178,6 +179,12 @@ GET  /jobs/{job_id}
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
 The job runs in the background.
+
+`GET /storage/backends` returns process-local storage backend registry
+diagnostics. It reports one entry per configured library, backend kind, storage
+scheme, registry cache state, remote stream/stage permit availability, and
+health counters. The route does not perform remote I/O and never returns local
+filesystem roots, WebDAV base URLs, usernames, passwords, or secret values.
 
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
 metadata refresh job. The current implementation uses the library metadata

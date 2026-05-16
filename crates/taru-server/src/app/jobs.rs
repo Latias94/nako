@@ -227,7 +227,7 @@ impl TaruApp {
 
         let storage_backend = self.storage_backend_for_library_root(&library).await?;
         let probe_backend = ManifestRecordingStorageBackend::new(
-            storage_backend.inner(),
+            storage_backend.clone(),
             self.inner.store.clone(),
             StagingPurpose::ProbeInput,
             self.config().staging.max_bytes,

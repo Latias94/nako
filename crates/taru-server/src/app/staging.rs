@@ -88,15 +88,36 @@ pub(super) async fn cleanup_expired_staging_inputs(
         }
 
         for record in candidates {
-            if let Err(err) = store
+            match store
                 .expire_staging_manifest_record(record.id, now_ms)
                 .await
             {
-                warn!(
-                    record_id = %record.id,
-                    error = %err,
-                    "failed to mark staging record expired before deletion"
-                );
+                Ok(Some(expired))
+                    if expired.state == StagingState::Expired && expired.active_leases == 0 => {}
+                Ok(Some(current)) => {
+                    warn!(
+                        record_id = %record.id,
+                        state = ?current.state,
+                        active_leases = current.active_leases,
+                        "skipped staging cleanup because record is no longer an unleased cleanup candidate"
+                    );
+                    continue;
+                }
+                Ok(None) => {
+                    warn!(
+                        record_id = %record.id,
+                        "skipped staging cleanup because record disappeared before expiration"
+                    );
+                    continue;
+                }
+                Err(err) => {
+                    warn!(
+                        record_id = %record.id,
+                        error = %err,
+                        "failed to mark staging record expired before deletion"
+                    );
+                    continue;
+                }
             }
             match tokio::fs::remove_file(Path::new(&record.local_path)).await {
                 Ok(()) => {
@@ -189,7 +210,7 @@ impl ManifestRecordingStorageBackend {
                     size_bytes: Some(incoming_bytes),
                     etag: metadata.etag.clone(),
                     fingerprint: metadata.fingerprint.clone(),
-                    state: StagingState::Staging,
+                    state: StagingState::Reserved,
                     created_at_ms: now_ms,
                     updated_at_ms: now_ms,
                     last_accessed_at_ms: now_ms,
@@ -320,6 +341,15 @@ impl StorageBackend for ManifestRecordingStorageBackend {
         let metadata = self.inner.stat(&request.uri).await?;
         let reservation = self.reserve_budget(&request, &metadata).await?;
 
+        if let Err(err) = self
+            .store
+            .start_staging_manifest_record(reservation.record.id, current_time_ms()?)
+            .await
+        {
+            self.record_reservation_failure(&reservation, &err).await;
+            return Err(err);
+        }
+
         let staged = match self.inner.stage(request).await {
             Ok(staged) => staged,
             Err(err) => {
@@ -343,6 +373,7 @@ pub(super) struct StagingLease {
     store: SqliteStore,
     record_id: StagingManifestId,
     local_path: PathBuf,
+    released: bool,
 }
 
 impl StagingLease {
@@ -354,18 +385,66 @@ impl StagingLease {
             store,
             record_id,
             local_path: PathBuf::from(record.local_path),
+            released: false,
         })
     }
 
-    pub(super) async fn release(self) -> Result<StagingManifestRecord> {
-        let Self {
-            store,
-            record_id,
-            local_path: _,
-        } = self;
-        store
+    pub(super) async fn release(mut self) -> Result<StagingManifestRecord> {
+        let store = self.store.clone();
+        let record_id = self.record_id;
+        let record = store
             .release_staging_manifest_lease(record_id, current_time_ms()?)
-            .await
+            .await?;
+        self.released = true;
+
+        Ok(record)
+    }
+}
+
+impl Drop for StagingLease {
+    fn drop(&mut self) {
+        if self.released {
+            return;
+        }
+
+        let store = self.store.clone();
+        let record_id = self.record_id;
+        let local_path = self.local_path.clone();
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            warn!(
+                record_id = %record_id,
+                path = %local_path.display(),
+                "dropped staging lease outside a Tokio runtime"
+            );
+            return;
+        };
+
+        handle.spawn(async move {
+            let released_at_ms = match current_time_ms() {
+                Ok(value) => value,
+                Err(err) => {
+                    warn!(
+                        record_id = %record_id,
+                        path = %local_path.display(),
+                        error = %err,
+                        "failed to compute staging lease drop release timestamp"
+                    );
+                    return;
+                }
+            };
+
+            if let Err(err) = store
+                .release_staging_manifest_lease(record_id, released_at_ms)
+                .await
+            {
+                warn!(
+                    record_id = %record_id,
+                    path = %local_path.display(),
+                    error = %err,
+                    "failed to release dropped staging lease"
+                );
+            }
+        });
     }
 }
 

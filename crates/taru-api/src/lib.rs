@@ -291,6 +291,62 @@ pub enum MetadataProviderRuntimeStateScope {
     ProcessLocal,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackendDiagnosticsResponse {
+    pub backends: Vec<StorageBackendDiagnostic>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackendDiagnostic {
+    pub library_id: LibraryId,
+    pub library_name: String,
+    pub root_uri: String,
+    pub backend_kind: StorageBackendKind,
+    pub scheme: String,
+    pub status: StorageBackendStatus,
+    pub reason: Option<String>,
+    pub registry: StorageBackendRegistryDiagnostic,
+    pub health: StorageBackendHealthDiagnostic,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageBackendKind {
+    Local,
+    WebDav,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageBackendStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackendRegistryDiagnostic {
+    pub cached: bool,
+    pub stream_permits_available: usize,
+    pub stream_permits_max: usize,
+    pub stage_permits_available: usize,
+    pub stage_permits_max: usize,
+    pub state_scope: StorageBackendRuntimeStateScope,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackendHealthDiagnostic {
+    pub consecutive_errors: u64,
+    pub last_success_at_ms: Option<i64>,
+    pub last_error_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageBackendRuntimeStateScope {
+    ProcessLocal,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct EnqueueMetadataMaintenanceRequest {
     pub library_id: Option<LibraryId>,

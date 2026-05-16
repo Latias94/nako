@@ -38,7 +38,7 @@ use playback::{
     get_playback_session, get_source_playback_decision, head_stream_source, hls_playlist_source,
     hls_segment, remux_stream_source, stream_source,
 };
-use system::health;
+use system::{health, list_storage_backends};
 use webhooks::{
     deliver_webhooks_for_event, get_webhook_endpoint, list_webhook_delivery_attempts,
     list_webhook_endpoints, upsert_webhook_endpoint,
@@ -47,6 +47,7 @@ use webhooks::{
 pub fn build_router(app: TaruApp) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/storage/backends", get(list_storage_backends))
         .route("/libraries", get(list_libraries))
         .route("/libraries/{library_id}/scan", post(scan_library))
         .route("/libraries/{library_id}/nfo/import", post(import_nfo))

@@ -295,6 +295,12 @@ pub trait StagingManifestRepository: Send + Sync {
         now_ms: i64,
     ) -> Result<StagingManifestRecord>;
 
+    async fn start_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        started_at_ms: i64,
+    ) -> Result<StagingManifestRecord>;
+
     async fn complete_staging_manifest_record(
         &self,
         record: NewStagingManifestRecord,

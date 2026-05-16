@@ -11,7 +11,12 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 
 use crate::config::{
     LocalLibraryConfig, PlaybackConfig, TaruServerConfig, WebDavLibraryConfig,
-    configured_library_config_for,
+    configured_library_config_for, libraries_from_config,
+};
+use taru_api::{
+    StorageBackendDiagnostic, StorageBackendDiagnosticsResponse, StorageBackendHealthDiagnostic,
+    StorageBackendKind, StorageBackendRegistryDiagnostic, StorageBackendRuntimeStateScope,
+    StorageBackendStatus,
 };
 use taru_core::{Library, LibraryId, MediaSource, Result, TaruError};
 use taru_db::SqliteStore;
@@ -75,6 +80,55 @@ impl StorageBackendRegistry {
         Ok(backend)
     }
 
+    pub(super) async fn diagnostics(&self) -> StorageBackendDiagnosticsResponse {
+        let libraries = libraries_from_config(&self.config);
+        let mut backends = Vec::with_capacity(libraries.len());
+
+        for library in libraries {
+            let config = match configured_library_config_for(&self.config, library.id) {
+                Ok(config) => config,
+                Err(_) => {
+                    backends.push(unavailable_backend_diagnostic(
+                        &library,
+                        None,
+                        None,
+                        "configured library backend is unavailable".to_owned(),
+                    ));
+                    continue;
+                }
+            };
+            let root_uri = library
+                .roots
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "local:///".to_owned());
+            let backend_kind = backend_kind(&config);
+
+            match self.backend_for_library_config(config).await {
+                Ok(backend) => {
+                    backends.push(backend.diagnostic(
+                        library.id,
+                        library.name,
+                        root_uri,
+                        backend_kind,
+                    ));
+                }
+                Err(err) => {
+                    let reason = safe_unavailable_reason(&err, backend_kind);
+                    backends.push(unavailable_backend_diagnostic(
+                        &library,
+                        Some(root_uri),
+                        Some(backend_kind),
+                        reason,
+                    ));
+                }
+            }
+        }
+
+        backends.sort_by(|left, right| left.library_name.cmp(&right.library_name));
+        StorageBackendDiagnosticsResponse { backends }
+    }
+
     fn build_backend(&self, config: &LocalLibraryConfig) -> Result<Arc<dyn StorageBackend>> {
         match config.webdav.as_ref() {
             Some(webdav) => self.webdav_storage_backend(webdav),
@@ -128,7 +182,9 @@ pub(super) struct LibraryStorageBackend {
     library_id: LibraryId,
     inner: Arc<dyn StorageBackend>,
     stream_permits: Arc<Semaphore>,
+    stream_permits_max: usize,
     stage_permits: Arc<Semaphore>,
+    stage_permits_max: usize,
     health: Arc<StorageBackendHealth>,
 }
 
@@ -138,11 +194,16 @@ impl LibraryStorageBackend {
         inner: Arc<dyn StorageBackend>,
         playback: PlaybackConfig,
     ) -> Self {
+        let stream_permits_max = playback.remote_stream_concurrency.max(1);
+        let stage_permits_max = playback.remote_stage_concurrency.max(1);
+
         Self {
             library_id: config.id,
             inner,
-            stream_permits: Arc::new(Semaphore::new(playback.remote_stream_concurrency.max(1))),
-            stage_permits: Arc::new(Semaphore::new(playback.remote_stage_concurrency.max(1))),
+            stream_permits: Arc::new(Semaphore::new(stream_permits_max)),
+            stream_permits_max,
+            stage_permits: Arc::new(Semaphore::new(stage_permits_max)),
+            stage_permits_max,
             health: Arc::new(StorageBackendHealth::new()),
         }
     }
@@ -150,11 +211,6 @@ impl LibraryStorageBackend {
     #[must_use]
     pub(super) fn library_id(&self) -> LibraryId {
         self.library_id
-    }
-
-    #[must_use]
-    pub(super) fn inner(&self) -> Arc<dyn StorageBackend> {
-        self.inner.clone()
     }
 
     #[must_use]
@@ -181,6 +237,40 @@ impl LibraryStorageBackend {
     #[cfg(test)]
     pub(super) fn available_stream_permits(&self) -> usize {
         self.stream_permits.available_permits()
+    }
+
+    fn diagnostic(
+        &self,
+        library_id: LibraryId,
+        library_name: String,
+        root_uri: String,
+        backend_kind: StorageBackendKind,
+    ) -> StorageBackendDiagnostic {
+        let health = self.health.diagnostic();
+        let status = if health.consecutive_errors == 0 {
+            StorageBackendStatus::Ready
+        } else {
+            StorageBackendStatus::Degraded
+        };
+
+        StorageBackendDiagnostic {
+            library_id,
+            library_name,
+            root_uri,
+            backend_kind,
+            scheme: self.inner.scheme().to_owned(),
+            status,
+            reason: None,
+            registry: StorageBackendRegistryDiagnostic {
+                cached: true,
+                stream_permits_available: self.stream_permits.available_permits(),
+                stream_permits_max: self.stream_permits_max,
+                stage_permits_available: self.stage_permits.available_permits(),
+                stage_permits_max: self.stage_permits_max,
+                state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
+            },
+            health,
+        }
     }
 
     fn record_success(&self) {
@@ -223,6 +313,16 @@ impl StorageBackendHealth {
     #[cfg(test)]
     pub(super) fn consecutive_errors(&self) -> u64 {
         self.consecutive_errors.load(Ordering::Relaxed)
+    }
+
+    fn diagnostic(&self) -> StorageBackendHealthDiagnostic {
+        StorageBackendHealthDiagnostic {
+            consecutive_errors: self.consecutive_errors.load(Ordering::Relaxed),
+            last_success_at_ms: timestamp_diagnostic(
+                self.last_success_at_ms.load(Ordering::Relaxed),
+            ),
+            last_error_at_ms: timestamp_diagnostic(self.last_error_at_ms.load(Ordering::Relaxed)),
+        }
     }
 }
 
@@ -322,6 +422,8 @@ impl std::fmt::Debug for LibraryStorageBackend {
                 "available_stage_permits",
                 &self.stage_permits.available_permits(),
             )
+            .field("stream_permits_max", &self.stream_permits_max)
+            .field("stage_permits_max", &self.stage_permits_max)
             .field("health", &self.health)
             .finish()
     }
@@ -343,6 +445,75 @@ pub(super) fn library_config_matches_uri(config: &LocalLibraryConfig, uri: &Stor
         ("webdav", Some(webdav)) => storage_uri_is_within_root(uri.as_str(), &webdav.root),
         _ => false,
     }
+}
+
+fn backend_kind(config: &LocalLibraryConfig) -> StorageBackendKind {
+    if config.webdav.is_some() {
+        StorageBackendKind::WebDav
+    } else {
+        StorageBackendKind::Local
+    }
+}
+
+fn unavailable_backend_diagnostic(
+    library: &Library,
+    root_uri: Option<String>,
+    backend_kind: Option<StorageBackendKind>,
+    reason: String,
+) -> StorageBackendDiagnostic {
+    StorageBackendDiagnostic {
+        library_id: library.id,
+        library_name: library.name.clone(),
+        root_uri: root_uri.unwrap_or_else(|| {
+            library
+                .roots
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "local:///".to_owned())
+        }),
+        backend_kind: backend_kind.unwrap_or(StorageBackendKind::Local),
+        scheme: library
+            .roots
+            .first()
+            .and_then(|root| StorageUri::parse(root).ok())
+            .map(|uri| uri.scheme().to_owned())
+            .unwrap_or_else(|| "unknown".to_owned()),
+        status: StorageBackendStatus::Unavailable,
+        reason: Some(reason),
+        registry: StorageBackendRegistryDiagnostic {
+            cached: false,
+            stream_permits_available: 0,
+            stream_permits_max: 0,
+            stage_permits_available: 0,
+            stage_permits_max: 0,
+            state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
+        },
+        health: StorageBackendHealthDiagnostic {
+            consecutive_errors: 0,
+            last_success_at_ms: None,
+            last_error_at_ms: None,
+        },
+    }
+}
+
+fn safe_unavailable_reason(err: &TaruError, backend_kind: StorageBackendKind) -> String {
+    match err {
+        TaruError::InvalidInput { .. } => match backend_kind {
+            StorageBackendKind::Local => "local storage backend configuration is invalid",
+            StorageBackendKind::WebDav => "WebDAV storage backend configuration is invalid",
+        },
+        TaruError::Storage { .. } => match backend_kind {
+            StorageBackendKind::Local => "local storage backend could not be initialized",
+            StorageBackendKind::WebDav => "WebDAV storage backend could not be initialized",
+        },
+        TaruError::NotFound { .. } => "configured library backend was not found",
+        _ => "storage backend is unavailable",
+    }
+    .to_owned()
+}
+
+fn timestamp_diagnostic(value: i64) -> Option<i64> {
+    (value > 0).then_some(value)
 }
 
 pub(super) fn storage_uri_is_within_root(uri: &str, root: &str) -> bool {
@@ -440,6 +611,51 @@ mod tests {
         assert!(backend.stat(&uri).await.is_err());
         assert!(backend.stat(&uri).await.is_err());
         assert_eq!(backend.health().consecutive_errors(), 2);
+    }
+
+    #[tokio::test]
+    async fn registry_diagnostics_redacts_unavailable_backend_details() {
+        let temp = tempdir().unwrap();
+        let missing_root = temp.path().join("missing-root");
+        let library_config = LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            root: missing_root.clone(),
+            preset: LibraryPreset::Movies,
+            webdav: None,
+        };
+        let config = TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 1,
+            remux_timeout_ms: 1,
+            remux_staging_root: temp.path().join("cache").join("remux"),
+            metadata: Default::default(),
+            transcode: Default::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: vec![library_config],
+        };
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let registry = StorageBackendRegistry::new(&config, store);
+
+        let diagnostics = registry.diagnostics().await;
+
+        assert_eq!(diagnostics.backends.len(), 1);
+        let backend = &diagnostics.backends[0];
+        assert_eq!(backend.status, StorageBackendStatus::Unavailable);
+        assert_eq!(
+            backend.reason.as_deref(),
+            Some("local storage backend could not be initialized")
+        );
+        let serialized = serde_json::to_string(backend).unwrap();
+        assert!(!serialized.contains(&missing_root.display().to_string()));
     }
 
     struct FailingBackend;

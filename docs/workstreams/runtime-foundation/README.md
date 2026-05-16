@@ -14,7 +14,8 @@ has become a shared system risk.
 
 ## Status
 
-Active planning for M15.
+Active for M16 storage backend registry and lease lifecycle hardening after
+M15 runtime foundation implementation.
 
 ## Goals
 
@@ -54,6 +55,7 @@ the next several milestones.
 
 - [Phase 15.0: Runtime Hardening Baseline](PHASE15_0_RUNTIME_HARDENING_BASELINE.md)
 - [Phase 15.1: Runtime Hardening Implementation](PHASE15_1_RUNTIME_HARDENING_IMPLEMENTATION.md)
+- [Phase 16: Storage Backend Registry And Lease Lifecycle](PHASE16_STORAGE_BACKEND_REGISTRY_AND_LEASE_LIFECYCLE.md)
 
 ## Related Workstreams
 

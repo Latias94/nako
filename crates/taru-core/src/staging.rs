@@ -32,6 +32,7 @@ impl StagingPurpose {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StagingState {
+    Reserved,
     Staging,
     Ready,
     Leased,
@@ -44,6 +45,7 @@ impl StagingState {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Reserved => "reserved",
             Self::Staging => "staging",
             Self::Ready => "ready",
             Self::Leased => "leased",
@@ -55,6 +57,7 @@ impl StagingState {
 
     pub fn parse(value: &str) -> Result<Self> {
         match value {
+            "reserved" => Ok(Self::Reserved),
             "staging" => Ok(Self::Staging),
             "ready" => Ok(Self::Ready),
             "leased" => Ok(Self::Leased),
@@ -111,7 +114,11 @@ impl StagingManifestRecord {
     pub const fn is_cleanup_candidate_at(&self, now_ms: i64) -> bool {
         matches!(
             self.state,
-            StagingState::Staging | StagingState::Ready | StagingState::Failed
+            StagingState::Reserved
+                | StagingState::Staging
+                | StagingState::Ready
+                | StagingState::Expired
+                | StagingState::Failed
         ) && self.active_leases == 0
             && matches!(self.expires_at_ms, Some(expires_at_ms) if expires_at_ms <= now_ms)
     }

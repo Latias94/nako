@@ -117,6 +117,12 @@ impl TaruApp {
         &self.inner.config
     }
 
+    pub async fn list_storage_backend_diagnostics(
+        &self,
+    ) -> taru_api::StorageBackendDiagnosticsResponse {
+        self.inner.storage_backends.diagnostics().await
+    }
+
     async fn storage_backend_for_library_root(
         &self,
         library: &taru_core::Library,

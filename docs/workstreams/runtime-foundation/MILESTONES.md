@@ -92,3 +92,29 @@ Candidate deliverables:
 - Playback hardware/runtime policy split from HLS session orchestration.
 - New API surfaces use explicit DTOs and avoid expanding direct core model
   exposure.
+
+## M16: Storage Backend Registry And Lease Lifecycle
+
+Outcome: storage backend construction, remote staging, and staged-input lease
+lifecycle are explicit process-local runtime boundaries instead of ad hoc
+per-request behavior.
+
+Deliverables:
+
+- `TaruApp` owns a `StorageBackendRegistry`.
+- The registry caches `LibraryStorageBackend` instances by `library_id`.
+- Scan, probe, playback, FFmpeg input staging, and NFO import/export resolve
+  storage through the registry boundary.
+- Staging manifest state transitions cover reserved, staging, ready, leased,
+  expired, deleted, and failed records.
+- Cleanup protects active leases and removes expired pending reservations.
+- Dropped staging leases are released through a runtime fallback.
+- Storage backend diagnostics are exposed through explicit API DTOs without
+  returning local roots, WebDAV URLs, or secrets.
+
+Exit criteria:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace`
+- `git diff --check`

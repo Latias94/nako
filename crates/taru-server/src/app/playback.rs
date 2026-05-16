@@ -521,7 +521,7 @@ impl TaruApp {
     async fn source_input_for_ffmpeg(&self, source: &MediaSource) -> Result<FfmpegSourceInput> {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         let backend = ManifestRecordingStorageBackend::new(
-            backend.inner(),
+            backend.clone(),
             self.inner.store.clone(),
             StagingPurpose::FfmpegInput,
             self.config().staging.max_bytes,
