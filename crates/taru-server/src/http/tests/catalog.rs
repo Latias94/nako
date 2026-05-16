@@ -11,7 +11,7 @@ async fn empty_sources_and_items_routes_work() {
         request_json::<taru_api::LibrarySourcesResponse>(&router, Method::GET, &sources_path).await;
     let items = request_json::<taru_api::ItemsResponse>(&router, Method::GET, "/items").await;
 
-    assert_eq!(sources.library.id, library_id);
+    assert_eq!(sources.library.id, library_id.to_string());
     assert_eq!(sources.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
     assert_eq!(sources.page.offset, 0);
     assert!(sources.sources.is_empty());
@@ -80,7 +80,7 @@ async fn search_route_returns_indexed_items() {
     .await;
 
     assert_eq!(result.page.returned, 1);
-    assert_eq!(result.hits[0].item.id, item.id);
+    assert_eq!(result.hits[0].item.id, item.id.to_string());
 }
 
 #[tokio::test]
@@ -237,15 +237,15 @@ async fn browse_routes_return_catalog_graph() {
     )
     .await;
 
-    assert_eq!(detail.item.id, item.id);
-    assert_eq!(detail.sources[0].id, source.id);
+    assert_eq!(detail.item.id, item.id.to_string());
+    assert_eq!(detail.sources[0].id, source.id.to_string());
     assert_eq!(detail.credits.len(), 1);
     assert_eq!(credits.people[0].name, "Demo Actor");
-    assert_eq!(images.images[0].id, image.id);
-    assert_eq!(people.people[0].id, person.id);
-    assert_eq!(person_items.items[0].id, item.id);
+    assert_eq!(images.images[0].id, image.id.to_string());
+    assert_eq!(people.people[0].id, person.id.to_string());
+    assert_eq!(person_items.items[0].id, item.id.to_string());
     assert_eq!(tags.tags[0].name, "favorite");
-    assert_eq!(tag_items.items[0].id, item.id);
+    assert_eq!(tag_items.items[0].id, item.id.to_string());
     assert_eq!(genres.genres[0].name, "Science Fiction");
-    assert_eq!(genre_items.items[0].id, item.id);
+    assert_eq!(genre_items.items[0].id, item.id.to_string());
 }

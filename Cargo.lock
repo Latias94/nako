@@ -2031,6 +2031,7 @@ dependencies = [
  "taru-client-protocol",
  "taru-core",
  "taru-streaming",
+ "taru-transcode",
 ]
 
 [[package]]

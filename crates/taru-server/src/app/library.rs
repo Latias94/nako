@@ -1,6 +1,7 @@
 use taru_api::{
     IngestionFailureDiagnostic, IngestionFailuresResponse, LibraryListResponse,
-    LibrarySourceResponse, LibrarySourcesResponse, page_info_from_request,
+    LibrarySourceResponse, LibrarySourcesResponse, library_to_dto, media_item_to_dto,
+    media_probe_to_dto, media_source_to_dto, page_info_from_request,
 };
 use taru_core::{
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
@@ -25,7 +26,7 @@ impl LibraryAppService {
 
         Ok(LibraryListResponse {
             page: page_info_from_request(page, libraries.len()),
-            libraries: libraries.into_iter().map(Into::into).collect(),
+            libraries: libraries.into_iter().map(library_to_dto).collect(),
         })
     }
 
@@ -43,14 +44,14 @@ impl LibraryAppService {
             let item = self.store.get_media_item(source.item_id).await?;
             let probe = self.store.get_media_probe(source.id).await?;
             output_sources.push(LibrarySourceResponse {
-                source: source.into(),
-                item: item.map(Into::into),
-                probe: probe.map(Into::into),
+                source: media_source_to_dto(source),
+                item: item.map(media_item_to_dto),
+                probe: probe.map(media_probe_to_dto),
             });
         }
 
         Ok(LibrarySourcesResponse {
-            library: library.into(),
+            library: library_to_dto(library),
             page: page_info_from_request(page, output_sources.len()),
             sources: output_sources,
         })

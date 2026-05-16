@@ -43,9 +43,7 @@ use taru_core::{
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex};
-use taru_streaming::{
-    DirectPlayRangeRequest, PlaybackMode, RequestedByteRange, plan_direct_play_response,
-};
+use taru_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
 use taru_vfs::{ByteRange, ReadStream, StorageUri};
 use tokio::{net::TcpListener, task::yield_now, time::sleep};
 use tower::ServiceExt;

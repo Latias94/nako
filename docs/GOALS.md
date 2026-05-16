@@ -26,21 +26,32 @@ proposed milestone.
 
 ## Current Goal
 
-### M28: Crate Boundary and Public Protocol Hardening
+No active implementation goal is selected after M29 closeout.
 
-Status: active.
+## Completed Goals
+
+### M29: Public Client API Contract and Catalog Browse Surface
+
+Status: completed.
 
 Objective:
 
-- Build a permissive public client protocol boundary and deepen the large
-  workflow crates so future client applications and maintenance refactors do
-  not stay coupled to broad server internals.
+- Expand `taru-client-protocol` into the first useful public client contract
+  for library/catalog browse, search, list/detail, probe, and playback
+  decision responses while keeping `taru-api` as the server adapter over
+  internal models.
 
 Evidence:
 
-- [crate-boundary-hardening workstream](workstreams/crate-boundary-hardening/README.md)
-
-## Completed Goals
+- [public-client-api workstream](workstreams/public-client-api/README.md)
+- `taru-client-protocol` owns protocol DTOs with string wire IDs and public
+  protocol enums.
+- `taru-api` owns explicit mapping functions from `taru-core`,
+  `taru-streaming`, and `taru-transcode`.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  253 tests passed, `cargo tree -p taru-client-protocol`, and
+  `git diff --check`.
 
 ### M0-M2.1: Server Runtime Foundation
 

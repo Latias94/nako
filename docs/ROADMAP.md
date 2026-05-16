@@ -356,13 +356,13 @@ Recommended next goal:
 
 ### Crate Boundary And Public Protocol Hardening: M28
 
-Status: in progress.
+Status: completed.
 
 This phase deepens Taru's crate and module seams so public client wire types
 can live in a permissive protocol crate while server internals remain AGPL and
 the large workflow crates become easier to navigate.
 
-Planned slices:
+Completed slices:
 
 - M28.0 boundary baseline and scope freeze.
 - M28.1 public client protocol extraction.
@@ -373,7 +373,38 @@ Planned slices:
 
 Recommended next goal:
 
-- M28.0 boundary baseline and scope freeze.
+- M29 public client API contract and catalog browse surface.
+
+### Public Client API Contract: M29
+
+Status: completed.
+
+This phase grows the permissive client protocol boundary into a useful API
+contract for future Flutter, web, and CLI clients:
+
+- move the first stable library/catalog browse DTOs into
+  `taru-client-protocol`;
+- define browse/search/list/detail wire response envelopes;
+- move public playback decision response types without exposing
+  `taru_streaming` internals;
+- keep `taru-api` as the AGPL adapter layer that maps server/domain records
+  into protocol DTOs;
+- keep server-admin diagnostics, job internals, provider runtime state,
+  webhook, automation, and addon administration out of the first public
+  protocol expansion.
+
+Completed slices:
+
+- M29.0 scope and evidence freeze.
+- M29.1 public browse protocol DTO slice.
+- M29.2 public playback decision DTO slice.
+- M29.3 contract docs and route evidence.
+- M29.4 closeout.
+
+Recommended next goal:
+
+- Select M30 based on the next product risk: API versioning/error envelopes,
+  client SDK generation, or a concrete client-driven contract slice.
 
 ## Workstream Split Direction
 

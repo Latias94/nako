@@ -1,7 +1,10 @@
 use taru_api::{
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
     ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
-    SearchResponse, TagItemsResponse, TagsResponse, page_info_from_request,
+    SearchResponse, TagItemsResponse, TagsResponse, collection_item_to_dto, genre_to_dto,
+    image_asset_to_dto, item_credit_to_dto, item_genre_to_dto, item_studio_to_dto, item_tag_to_dto,
+    media_item_to_dto, media_probe_to_dto, media_source_to_dto, page_info_from_request,
+    person_to_dto, tag_to_dto,
 };
 use taru_core::{
     CatalogRepository, GenreId, MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId,
@@ -26,7 +29,7 @@ impl CatalogAppService {
 
         Ok(ItemsResponse {
             page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(Into::into).collect(),
+            items: items.into_iter().map(media_item_to_dto).collect(),
         })
     }
 
@@ -51,14 +54,17 @@ impl CatalogAppService {
         let images = self.store.list_item_images(item.id).await?;
 
         Ok(ItemDetailResponse {
-            item: item.into(),
-            sources: sources.into_iter().map(Into::into).collect(),
-            credits: credits.into_iter().map(Into::into).collect(),
-            genres: genres.into_iter().map(Into::into).collect(),
-            tags: tags.into_iter().map(Into::into).collect(),
-            collections: collections.into_iter().map(Into::into).collect(),
-            studios: studios.into_iter().map(Into::into).collect(),
-            images: images.into_iter().map(Into::into).collect(),
+            item: media_item_to_dto(item),
+            sources: sources.into_iter().map(media_source_to_dto).collect(),
+            credits: credits.into_iter().map(item_credit_to_dto).collect(),
+            genres: genres.into_iter().map(item_genre_to_dto).collect(),
+            tags: tags.into_iter().map(item_tag_to_dto).collect(),
+            collections: collections
+                .into_iter()
+                .map(collection_item_to_dto)
+                .collect(),
+            studios: studios.into_iter().map(item_studio_to_dto).collect(),
+            images: images.into_iter().map(image_asset_to_dto).collect(),
         })
     }
 
@@ -81,9 +87,9 @@ impl CatalogAppService {
         }
 
         Ok(ItemCreditsResponse {
-            item_id: item.id,
-            credits: credits.into_iter().map(Into::into).collect(),
-            people: people.into_iter().map(Into::into).collect(),
+            item_id: item.id.to_string(),
+            credits: credits.into_iter().map(item_credit_to_dto).collect(),
+            people: people.into_iter().map(person_to_dto).collect(),
         })
     }
 
@@ -98,8 +104,8 @@ impl CatalogAppService {
         let images = self.store.list_item_images(item_id).await?;
 
         Ok(ImagesResponse {
-            item_id,
-            images: images.into_iter().map(Into::into).collect(),
+            item_id: item_id.to_string(),
+            images: images.into_iter().map(image_asset_to_dto).collect(),
         })
     }
 
@@ -109,13 +115,13 @@ impl CatalogAppService {
 
         Ok(PeopleResponse {
             page: page_info_from_request(page, people.len()),
-            people: people.into_iter().map(Into::into).collect(),
+            people: people.into_iter().map(person_to_dto).collect(),
         })
     }
 
     pub async fn get_person(&self, person_id: PersonId) -> Result<PersonResponse> {
         Ok(PersonResponse {
-            person: self.get_person_record(person_id).await?.into(),
+            person: person_to_dto(self.get_person_record(person_id).await?),
         })
     }
 
@@ -139,9 +145,9 @@ impl CatalogAppService {
         let items = self.store.list_person_items(person.id, page).await?;
 
         Ok(PersonItemsResponse {
-            person: person.into(),
+            person: person_to_dto(person),
             page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(Into::into).collect(),
+            items: items.into_iter().map(media_item_to_dto).collect(),
         })
     }
 
@@ -151,7 +157,7 @@ impl CatalogAppService {
 
         Ok(TagsResponse {
             page: page_info_from_request(page, tags.len()),
-            tags: tags.into_iter().map(Into::into).collect(),
+            tags: tags.into_iter().map(tag_to_dto).collect(),
         })
     }
 
@@ -172,9 +178,9 @@ impl CatalogAppService {
         let items = self.store.list_tag_items(tag.id, page).await?;
 
         Ok(TagItemsResponse {
-            tag: tag.into(),
+            tag: tag_to_dto(tag),
             page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(Into::into).collect(),
+            items: items.into_iter().map(media_item_to_dto).collect(),
         })
     }
 
@@ -184,7 +190,7 @@ impl CatalogAppService {
 
         Ok(GenreListResponse {
             page: page_info_from_request(page, genres.len()),
-            genres: genres.into_iter().map(Into::into).collect(),
+            genres: genres.into_iter().map(genre_to_dto).collect(),
         })
     }
 
@@ -205,9 +211,9 @@ impl CatalogAppService {
         let items = self.store.list_genre_items(genre.id, page).await?;
 
         Ok(GenreItemsResponse {
-            genre: genre.into(),
+            genre: genre_to_dto(genre),
             page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(Into::into).collect(),
+            items: items.into_iter().map(media_item_to_dto).collect(),
         })
     }
 
@@ -241,7 +247,7 @@ impl CatalogAppService {
                     id: hit.item_id.to_string(),
                 })?;
             output_hits.push(SearchItemHit {
-                item: item.into(),
+                item: media_item_to_dto(item),
                 score: hit.score,
             });
         }
@@ -266,8 +272,8 @@ impl CatalogAppService {
             })?;
 
         Ok(taru_api::SourceProbeResponse {
-            source_id,
-            probe: probe.into(),
+            source_id: source_id.to_string(),
+            probe: media_probe_to_dto(probe),
         })
     }
 }

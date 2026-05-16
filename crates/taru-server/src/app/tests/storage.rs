@@ -129,10 +129,11 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
         libraries
             .libraries
             .iter()
-            .any(|library| library.id == local_library_id && library.roots == vec!["local:///"])
+            .any(|library| library.id == local_library_id.to_string()
+                && library.roots == vec!["local:///"])
     );
     assert!(libraries.libraries.iter().any(|library| {
-        library.id == remote_library_id && library.roots == vec!["webdav:///Movies"]
+        library.id == remote_library_id.to_string() && library.roots == vec!["webdav:///Movies"]
     }));
 
     let item = MediaItem {

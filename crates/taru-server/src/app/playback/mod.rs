@@ -4,7 +4,7 @@ use std::{
 };
 
 use serde::Serialize;
-use taru_api::PlaybackDecisionResponse;
+use taru_api::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
     MediaRepository, MediaSource, MediaSourceId, NewOutboxEvent, Result, TaruError,
@@ -250,11 +250,7 @@ impl PlaybackAppService {
         let probe = self.store.get_media_probe(source.id).await?;
         let decision = decide_playback(&source, probe.as_ref(), &client);
 
-        Ok(PlaybackDecisionResponse {
-            source: source.into(),
-            probe: probe.map(Into::into),
-            decision,
-        })
+        Ok(playback_decision_response_to_dto(source, probe, decision))
     }
 
     pub(crate) async fn plan_direct_play(

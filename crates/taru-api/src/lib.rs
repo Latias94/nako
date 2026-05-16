@@ -1,26 +1,38 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{AddonManifest, AddonScope};
 pub use taru_client_protocol::{
-    CLIENT_PROTOCOL_VERSION as API_VERSION, ErrorResponse, HealthResponse, PageInfo,
+    CLIENT_PROTOCOL_VERSION as API_VERSION, CanonicalMetadataDto, ClientCreditRole,
+    ClientDirectPlayPlan, ClientExternalProvider, ClientHardwareAcceleration, ClientImageKind,
+    ClientImageOwner, ClientLibraryPreset, ClientLocalMetadataPolicy, ClientLocalMetadataReader,
+    ClientMediaDomain, ClientMediaKind, ClientMediaStreamKind, ClientMetadataRefreshMode,
+    ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer, ClientPlaybackDecision,
+    ClientPlaybackMode, ClientTranscodePlan, CollectionItemDto, CollectionRefDto, ContentRatingDto,
+    CreditDto, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse,
+    HealthResponse, ImageAssetDto, ImageRefDto, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
+    ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
+    LibraryListResponse, LibraryOptionsDto, LibraryScanOptionsDto, LibrarySourceResponse,
+    LibrarySourcesResponse, MediaItemDto, MediaProbeDto, MediaSourceDto, MediaStreamDto,
+    MetadataProfileDto, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse, PersonResponse,
+    PlaybackDecisionResponse, SearchItemHit, SearchResponse, SourceProbeResponse, StudioRefDto,
+    TagDto, TagItemsResponse, TagsResponse,
 };
 use taru_core::{
     AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
     AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, CanonicalMetadata, CollectionItem, CollectionRef, ContentRating,
-    Credit, CreditRole, EventId, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset,
-    ImageAssetId, ImageKind, ImageOwner, ImageRef, IngestionFailureClass, IngestionFailurePhase,
-    IngestionFailureRecord, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
-    Job, JobId, JobKind, JobStatus, Library, LibraryId, LibraryOptions, LibraryPreset,
-    LibraryScanOptions, LocalMetadataPolicy, LocalMetadataReader, MediaDomain, MediaItem,
-    MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataProfile, MetadataProviderAttemptRecord, MetadataRefreshMode,
-    MetadataSource, NamingStrategy, OutboxEventRecord, PageRequest, Person, PersonId,
-    ProviderRawResponse, ProviderRawResponseCleanup, ScanSnapshotId, StudioId, StudioRef, Tag,
-    TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState, WebhookDeliveryAttemptRecord, WebhookEndpointId,
-    WebhookEndpointRecord, WebhookEndpointStatus,
+    AutomationProviderStatus, CanonicalMetadata, CollectionItem, Credit, CreditRole, EventId,
+    ExternalId, ExternalProvider, Genre, ImageAsset, ImageKind, ImageOwner, ImageRef,
+    IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus,
+    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobStatus, Library, LibraryId,
+    LibraryOptions, LibraryPreset, LocalMetadataPolicy, LocalMetadataReader, MediaDomain,
+    MediaItem, MediaItemId, MediaKind, MediaProbeResult, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataProfile, MetadataProviderAttemptRecord,
+    MetadataRefreshMode, MetadataSource, NamingStrategy, OutboxEventRecord, PageRequest, Person,
+    ProviderRawResponse, ProviderRawResponseCleanup, ScanSnapshotId, Tag, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
-use taru_streaming::PlaybackDecision;
+use taru_streaming::{DirectPlayPlan, PlaybackDecision, PlaybackMode};
+use taru_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
 
 #[must_use]
 pub fn page_info_from_request(page: PageRequest, returned: usize) -> PageInfo {
@@ -31,6 +43,503 @@ pub fn page_info_from_request(page: PageRequest, returned: usize) -> PageInfo {
         page.offset,
         u32::try_from(returned).unwrap_or(u32::MAX),
     )
+}
+
+#[must_use]
+pub fn library_to_dto(library: Library) -> LibraryDto {
+    LibraryDto {
+        id: library.id.to_string(),
+        name: library.name,
+        roots: library.roots,
+        options: library_options_to_dto(library.options),
+    }
+}
+
+#[must_use]
+pub fn library_options_to_dto(options: LibraryOptions) -> LibraryOptionsDto {
+    LibraryOptionsDto {
+        domain: media_domain_to_dto(options.domain),
+        preset: library_preset_to_dto(options.preset),
+        scan: LibraryScanOptionsDto {
+            realtime_monitor: options.scan.realtime_monitor,
+            max_depth: options.scan.max_depth,
+        },
+        naming_strategy: naming_strategy_to_dto(options.naming_strategy),
+        metadata_profile: metadata_profile_to_dto(options.metadata_profile),
+    }
+}
+
+#[must_use]
+pub fn metadata_profile_to_dto(profile: MetadataProfile) -> MetadataProfileDto {
+    MetadataProfileDto {
+        item_kinds: profile
+            .item_kinds
+            .into_iter()
+            .map(media_kind_to_dto)
+            .collect(),
+        local_readers: profile
+            .local_readers
+            .into_iter()
+            .map(local_metadata_reader_to_dto)
+            .collect(),
+        metadata_providers: profile
+            .metadata_providers
+            .into_iter()
+            .map(external_provider_to_dto)
+            .collect(),
+        image_providers: profile
+            .image_providers
+            .into_iter()
+            .map(external_provider_to_dto)
+            .collect(),
+        language: profile.language,
+        country: profile.country,
+        refresh_mode: metadata_refresh_mode_to_dto(profile.refresh_mode),
+        local_metadata_policy: local_metadata_policy_to_dto(profile.local_metadata_policy),
+    }
+}
+
+#[must_use]
+pub fn media_item_to_dto(item: MediaItem) -> MediaItemDto {
+    MediaItemDto {
+        id: item.id.to_string(),
+        kind: media_kind_to_dto(item.kind),
+        parent_id: item.parent_id.map(|id| id.to_string()),
+        metadata: canonical_metadata_to_dto(item.metadata),
+    }
+}
+
+#[must_use]
+pub fn canonical_metadata_to_dto(metadata: CanonicalMetadata) -> CanonicalMetadataDto {
+    CanonicalMetadataDto {
+        title: metadata.title,
+        original_title: metadata.original_title,
+        sort_title: metadata.sort_title,
+        overview: metadata.overview,
+        release_date: metadata.release_date,
+        runtime_minutes: metadata.runtime_minutes,
+        tagline: metadata.tagline,
+        genres: metadata.genres,
+        tags: metadata.tags,
+        ratings: metadata
+            .ratings
+            .into_iter()
+            .map(|rating| ContentRatingDto {
+                source: rating.source,
+                value: rating.value,
+            })
+            .collect(),
+        images: metadata.images.into_iter().map(image_ref_to_dto).collect(),
+        credits: metadata.credits.into_iter().map(credit_to_dto).collect(),
+        collections: metadata
+            .collections
+            .into_iter()
+            .map(|collection| CollectionRefDto {
+                name: collection.name,
+                overview: collection.overview,
+                sort_order: collection.sort_order,
+                external_ids: collection
+                    .external_ids
+                    .into_iter()
+                    .map(external_id_to_dto)
+                    .collect(),
+            })
+            .collect(),
+        studios: metadata
+            .studios
+            .into_iter()
+            .map(|studio| StudioRefDto {
+                name: studio.name,
+                external_ids: studio
+                    .external_ids
+                    .into_iter()
+                    .map(external_id_to_dto)
+                    .collect(),
+            })
+            .collect(),
+        external_ids: metadata
+            .external_ids
+            .into_iter()
+            .map(external_id_to_dto)
+            .collect(),
+    }
+}
+
+#[must_use]
+pub fn media_source_to_dto(source: MediaSource) -> MediaSourceDto {
+    MediaSourceDto {
+        id: source.id.to_string(),
+        library_id: source.library_id.to_string(),
+        item_id: source.item_id.to_string(),
+        locator: source.locator,
+        file_name: source.file_name,
+        size_bytes: source.size_bytes,
+        fingerprint: source.fingerprint,
+    }
+}
+
+#[must_use]
+pub fn media_probe_to_dto(probe: MediaProbeResult) -> MediaProbeDto {
+    MediaProbeDto {
+        duration_ms: probe.duration_ms,
+        container: probe.container,
+        bit_rate: probe.bit_rate,
+        streams: probe.streams.into_iter().map(media_stream_to_dto).collect(),
+    }
+}
+
+#[must_use]
+pub fn playback_decision_response_to_dto(
+    source: MediaSource,
+    probe: Option<MediaProbeResult>,
+    decision: PlaybackDecision,
+) -> PlaybackDecisionResponse {
+    PlaybackDecisionResponse {
+        source: media_source_to_dto(source),
+        probe: probe.map(media_probe_to_dto),
+        decision: playback_decision_to_dto(decision),
+    }
+}
+
+#[must_use]
+pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDecision {
+    ClientPlaybackDecision {
+        mode: playback_mode_to_dto(decision.mode),
+        reason: decision.reason,
+        direct_play: decision.direct_play.map(direct_play_plan_to_dto),
+        transcode_plan: decision.transcode_plan.map(transcode_plan_to_dto),
+    }
+}
+
+fn direct_play_plan_to_dto(plan: DirectPlayPlan) -> ClientDirectPlayPlan {
+    ClientDirectPlayPlan {
+        source_id: plan.source_id.to_string(),
+        content_type: plan.content_type,
+        supports_range_requests: plan.supports_range_requests,
+    }
+}
+
+fn transcode_plan_to_dto(plan: TranscodePlan) -> ClientTranscodePlan {
+    ClientTranscodePlan {
+        input_locator: plan.input_locator,
+        output_container: output_container_to_dto(plan.output_container),
+        video_codec: plan.video_codec,
+        audio_codec: plan.audio_codec,
+        hardware_acceleration: hardware_acceleration_to_dto(plan.hardware_acceleration),
+    }
+}
+
+#[must_use]
+pub fn media_stream_to_dto(stream: MediaStreamInfo) -> MediaStreamDto {
+    MediaStreamDto {
+        index: stream.index,
+        kind: media_stream_kind_to_dto(stream.kind),
+        codec: stream.codec,
+        language: stream.language,
+        duration_ms: stream.duration_ms,
+        bit_rate: stream.bit_rate,
+        width: stream.width,
+        height: stream.height,
+        channels: stream.channels,
+        sample_rate: stream.sample_rate,
+    }
+}
+
+#[must_use]
+pub fn person_to_dto(person: Person) -> PersonDto {
+    PersonDto {
+        id: person.id.to_string(),
+        name: person.name,
+        sort_name: person.sort_name,
+        overview: person.overview,
+        external_ids: person
+            .external_ids
+            .into_iter()
+            .map(external_id_to_dto)
+            .collect(),
+    }
+}
+
+#[must_use]
+pub fn item_credit_to_dto(credit: ItemCredit) -> ItemCreditDto {
+    ItemCreditDto {
+        item_id: credit.item_id.to_string(),
+        person_id: credit.person_id.to_string(),
+        role: credit_role_to_dto(credit.role),
+        character: credit.character,
+        sort_order: credit.sort_order,
+    }
+}
+
+#[must_use]
+pub fn genre_to_dto(genre: Genre) -> GenreDto {
+    GenreDto {
+        id: genre.id.to_string(),
+        name: genre.name,
+        source: metadata_source_to_dto(genre.source),
+    }
+}
+
+#[must_use]
+pub fn item_genre_to_dto(genre: ItemGenre) -> ItemGenreDto {
+    ItemGenreDto {
+        item_id: genre.item_id.to_string(),
+        genre_id: genre.genre_id.to_string(),
+    }
+}
+
+#[must_use]
+pub fn tag_to_dto(tag: Tag) -> TagDto {
+    TagDto {
+        id: tag.id.to_string(),
+        name: tag.name,
+        source: metadata_source_to_dto(tag.source),
+    }
+}
+
+#[must_use]
+pub fn item_tag_to_dto(tag: ItemTag) -> ItemTagDto {
+    ItemTagDto {
+        item_id: tag.item_id.to_string(),
+        tag_id: tag.tag_id.to_string(),
+    }
+}
+
+#[must_use]
+pub fn collection_item_to_dto(collection: CollectionItem) -> CollectionItemDto {
+    CollectionItemDto {
+        collection_id: collection.collection_id.to_string(),
+        item_id: collection.item_id.to_string(),
+        sort_order: collection.sort_order,
+    }
+}
+
+#[must_use]
+pub fn item_studio_to_dto(studio: ItemStudio) -> ItemStudioDto {
+    ItemStudioDto {
+        item_id: studio.item_id.to_string(),
+        studio_id: studio.studio_id.to_string(),
+    }
+}
+
+#[must_use]
+pub fn image_asset_to_dto(image: ImageAsset) -> ImageAssetDto {
+    ImageAssetDto {
+        id: image.id.to_string(),
+        owner: image_owner_to_dto(image.owner),
+        kind: image_kind_to_dto(image.kind),
+        source_uri: image.source_uri,
+        provider: external_provider_to_dto(image.provider),
+        cache_uri: image.cache_uri,
+        width: image.width,
+        height: image.height,
+        language: image.language,
+        selected: image.selected,
+        content_hash: image.content_hash,
+        etag: image.etag,
+    }
+}
+
+fn external_id_to_dto(id: ExternalId) -> ExternalIdDto {
+    ExternalIdDto {
+        provider: external_provider_to_dto(id.provider),
+        value: id.value,
+    }
+}
+
+fn image_ref_to_dto(image: ImageRef) -> ImageRefDto {
+    ImageRefDto {
+        kind: image_kind_to_dto(image.kind),
+        uri: image.uri,
+        provider: external_provider_to_dto(image.provider),
+        width: image.width,
+        height: image.height,
+        language: image.language,
+    }
+}
+
+fn credit_to_dto(credit: Credit) -> CreditDto {
+    CreditDto {
+        name: credit.name,
+        role: credit_role_to_dto(credit.role),
+        character: credit.character,
+        order: credit.order,
+        external_ids: credit
+            .external_ids
+            .into_iter()
+            .map(external_id_to_dto)
+            .collect(),
+    }
+}
+
+fn media_kind_to_dto(kind: MediaKind) -> ClientMediaKind {
+    match kind {
+        MediaKind::Movie => ClientMediaKind::Movie,
+        MediaKind::Series => ClientMediaKind::Series,
+        MediaKind::Season => ClientMediaKind::Season,
+        MediaKind::Episode => ClientMediaKind::Episode,
+        MediaKind::Collection => ClientMediaKind::Collection,
+        MediaKind::Extra => ClientMediaKind::Extra,
+        MediaKind::Unknown => ClientMediaKind::Unknown,
+    }
+}
+
+fn media_domain_to_dto(domain: MediaDomain) -> ClientMediaDomain {
+    match domain {
+        MediaDomain::Video => ClientMediaDomain::Video,
+        MediaDomain::Audio => ClientMediaDomain::Audio,
+        MediaDomain::Image => ClientMediaDomain::Image,
+        MediaDomain::Document => ClientMediaDomain::Document,
+        MediaDomain::Mixed => ClientMediaDomain::Mixed,
+        MediaDomain::Online => ClientMediaDomain::Online,
+    }
+}
+
+fn library_preset_to_dto(preset: LibraryPreset) -> ClientLibraryPreset {
+    match preset {
+        LibraryPreset::Movies => ClientLibraryPreset::Movies,
+        LibraryPreset::Tv => ClientLibraryPreset::Tv,
+        LibraryPreset::Anime => ClientLibraryPreset::Anime,
+        LibraryPreset::Music => ClientLibraryPreset::Music,
+        LibraryPreset::Podcast => ClientLibraryPreset::Podcast,
+        LibraryPreset::Photos => ClientLibraryPreset::Photos,
+        LibraryPreset::HomeVideo => ClientLibraryPreset::HomeVideo,
+        LibraryPreset::MixedVideo => ClientLibraryPreset::MixedVideo,
+        LibraryPreset::OnlineCatalog => ClientLibraryPreset::OnlineCatalog,
+        LibraryPreset::Custom => ClientLibraryPreset::Custom,
+    }
+}
+
+fn naming_strategy_to_dto(strategy: NamingStrategy) -> ClientNamingStrategy {
+    match strategy {
+        NamingStrategy::Movie => ClientNamingStrategy::Movie,
+        NamingStrategy::Series => ClientNamingStrategy::Series,
+        NamingStrategy::Anime => ClientNamingStrategy::Anime,
+        NamingStrategy::Music => ClientNamingStrategy::Music,
+        NamingStrategy::Podcast => ClientNamingStrategy::Podcast,
+        NamingStrategy::Photo => ClientNamingStrategy::Photo,
+        NamingStrategy::HomeVideo => ClientNamingStrategy::HomeVideo,
+        NamingStrategy::Mixed => ClientNamingStrategy::Mixed,
+        NamingStrategy::OnlineCatalog => ClientNamingStrategy::OnlineCatalog,
+    }
+}
+
+fn local_metadata_reader_to_dto(reader: LocalMetadataReader) -> ClientLocalMetadataReader {
+    match reader {
+        LocalMetadataReader::Nfo => ClientLocalMetadataReader::Nfo,
+        LocalMetadataReader::Embedded => ClientLocalMetadataReader::Embedded,
+        LocalMetadataReader::Sidecar => ClientLocalMetadataReader::Sidecar,
+        LocalMetadataReader::Other(value) => ClientLocalMetadataReader::Other(value),
+    }
+}
+
+fn metadata_refresh_mode_to_dto(mode: MetadataRefreshMode) -> ClientMetadataRefreshMode {
+    match mode {
+        MetadataRefreshMode::None => ClientMetadataRefreshMode::None,
+        MetadataRefreshMode::ValidationOnly => ClientMetadataRefreshMode::ValidationOnly,
+        MetadataRefreshMode::Default => ClientMetadataRefreshMode::Default,
+        MetadataRefreshMode::MissingOnly => ClientMetadataRefreshMode::MissingOnly,
+        MetadataRefreshMode::FullRefresh => ClientMetadataRefreshMode::FullRefresh,
+    }
+}
+
+fn local_metadata_policy_to_dto(policy: LocalMetadataPolicy) -> ClientLocalMetadataPolicy {
+    match policy {
+        LocalMetadataPolicy::Disabled => ClientLocalMetadataPolicy::Disabled,
+        LocalMetadataPolicy::ReadOnly => ClientLocalMetadataPolicy::ReadOnly,
+        LocalMetadataPolicy::LocalFirst => ClientLocalMetadataPolicy::LocalFirst,
+        LocalMetadataPolicy::RemoteFirst => ClientLocalMetadataPolicy::RemoteFirst,
+        LocalMetadataPolicy::WriteSidecar => ClientLocalMetadataPolicy::WriteSidecar,
+    }
+}
+
+fn external_provider_to_dto(provider: ExternalProvider) -> ClientExternalProvider {
+    match provider {
+        ExternalProvider::Tmdb => ClientExternalProvider::Tmdb,
+        ExternalProvider::Douban => ClientExternalProvider::Douban,
+        ExternalProvider::Bangumi => ClientExternalProvider::Bangumi,
+        ExternalProvider::Imdb => ClientExternalProvider::Imdb,
+        ExternalProvider::Local => ClientExternalProvider::Local,
+        ExternalProvider::Other(value) => ClientExternalProvider::Other(value),
+    }
+}
+
+fn metadata_source_to_dto(source: MetadataSource) -> ClientMetadataSource {
+    match source {
+        MetadataSource::Local => ClientMetadataSource::Local,
+        MetadataSource::Nfo => ClientMetadataSource::Nfo,
+        MetadataSource::Provider(provider) => {
+            ClientMetadataSource::Provider(external_provider_to_dto(provider))
+        }
+        MetadataSource::User => ClientMetadataSource::User,
+    }
+}
+
+fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
+    match kind {
+        ImageKind::Poster => ClientImageKind::Poster,
+        ImageKind::Backdrop => ClientImageKind::Backdrop,
+        ImageKind::Logo => ClientImageKind::Logo,
+        ImageKind::Thumbnail => ClientImageKind::Thumbnail,
+        ImageKind::Banner => ClientImageKind::Banner,
+        ImageKind::Other(value) => ClientImageKind::Other(value),
+    }
+}
+
+fn credit_role_to_dto(role: CreditRole) -> ClientCreditRole {
+    match role {
+        CreditRole::Actor => ClientCreditRole::Actor,
+        CreditRole::Director => ClientCreditRole::Director,
+        CreditRole::Writer => ClientCreditRole::Writer,
+        CreditRole::Producer => ClientCreditRole::Producer,
+        CreditRole::Creator => ClientCreditRole::Creator,
+        CreditRole::Other(value) => ClientCreditRole::Other(value),
+    }
+}
+
+fn image_owner_to_dto(owner: ImageOwner) -> ClientImageOwner {
+    match owner {
+        ImageOwner::Item(id) => ClientImageOwner::Item(id.to_string()),
+        ImageOwner::Person(id) => ClientImageOwner::Person(id.to_string()),
+        ImageOwner::Collection(id) => ClientImageOwner::Collection(id.to_string()),
+        ImageOwner::Studio(id) => ClientImageOwner::Studio(id.to_string()),
+    }
+}
+
+fn media_stream_kind_to_dto(kind: MediaStreamKind) -> ClientMediaStreamKind {
+    match kind {
+        MediaStreamKind::Video => ClientMediaStreamKind::Video,
+        MediaStreamKind::Audio => ClientMediaStreamKind::Audio,
+        MediaStreamKind::Subtitle => ClientMediaStreamKind::Subtitle,
+        MediaStreamKind::Data => ClientMediaStreamKind::Data,
+        MediaStreamKind::Attachment => ClientMediaStreamKind::Attachment,
+        MediaStreamKind::Other(value) => ClientMediaStreamKind::Other(value),
+    }
+}
+
+fn playback_mode_to_dto(mode: PlaybackMode) -> ClientPlaybackMode {
+    match mode {
+        PlaybackMode::DirectPlay => ClientPlaybackMode::DirectPlay,
+        PlaybackMode::Remux => ClientPlaybackMode::Remux,
+        PlaybackMode::Transcode => ClientPlaybackMode::Transcode,
+    }
+}
+
+fn output_container_to_dto(container: OutputContainer) -> ClientOutputContainer {
+    match container {
+        OutputContainer::Hls => ClientOutputContainer::Hls,
+        OutputContainer::Mp4 => ClientOutputContainer::Mp4,
+        OutputContainer::Mkv => ClientOutputContainer::Mkv,
+    }
+}
+
+fn hardware_acceleration_to_dto(acceleration: HardwareAcceleration) -> ClientHardwareAcceleration {
+    match acceleration {
+        HardwareAcceleration::None => ClientHardwareAcceleration::None,
+        HardwareAcceleration::Vaapi => ClientHardwareAcceleration::Vaapi,
+        HardwareAcceleration::Nvenc => ClientHardwareAcceleration::Nvenc,
+        HardwareAcceleration::QuickSync => ClientHardwareAcceleration::QuickSync,
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -123,101 +632,6 @@ impl From<TranscodeSessionRecord> for TranscodeSessionDto {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LibraryListResponse {
-    pub libraries: Vec<LibraryDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LibrarySourcesResponse {
-    pub library: LibraryDto,
-    pub sources: Vec<LibrarySourceResponse>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LibraryDto {
-    pub id: LibraryId,
-    pub name: String,
-    pub roots: Vec<String>,
-    pub options: LibraryOptionsDto,
-}
-
-impl From<Library> for LibraryDto {
-    fn from(library: Library) -> Self {
-        Self {
-            id: library.id,
-            name: library.name,
-            roots: library.roots,
-            options: library.options.into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LibraryOptionsDto {
-    pub domain: MediaDomain,
-    pub preset: LibraryPreset,
-    pub scan: LibraryScanOptionsDto,
-    pub naming_strategy: NamingStrategy,
-    pub metadata_profile: MetadataProfileDto,
-}
-
-impl From<LibraryOptions> for LibraryOptionsDto {
-    fn from(options: LibraryOptions) -> Self {
-        Self {
-            domain: options.domain,
-            preset: options.preset,
-            scan: options.scan.into(),
-            naming_strategy: options.naming_strategy,
-            metadata_profile: options.metadata_profile.into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LibraryScanOptionsDto {
-    pub realtime_monitor: bool,
-    pub max_depth: Option<usize>,
-}
-
-impl From<LibraryScanOptions> for LibraryScanOptionsDto {
-    fn from(options: LibraryScanOptions) -> Self {
-        Self {
-            realtime_monitor: options.realtime_monitor,
-            max_depth: options.max_depth,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MetadataProfileDto {
-    pub item_kinds: Vec<MediaKind>,
-    pub local_readers: Vec<LocalMetadataReader>,
-    pub metadata_providers: Vec<ExternalProvider>,
-    pub image_providers: Vec<ExternalProvider>,
-    pub language: Option<String>,
-    pub country: Option<String>,
-    pub refresh_mode: MetadataRefreshMode,
-    pub local_metadata_policy: LocalMetadataPolicy,
-}
-
-impl From<MetadataProfile> for MetadataProfileDto {
-    fn from(profile: MetadataProfile) -> Self {
-        Self {
-            item_kinds: profile.item_kinds,
-            local_readers: profile.local_readers,
-            metadata_providers: profile.metadata_providers,
-            image_providers: profile.image_providers,
-            language: profile.language,
-            country: profile.country,
-            refresh_mode: profile.refresh_mode,
-            local_metadata_policy: profile.local_metadata_policy,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct IngestionFailuresResponse {
     pub library_id: LibraryId,
     pub failures: Vec<IngestionFailureDiagnostic>,
@@ -289,421 +703,6 @@ impl From<IngestionFailureRecord> for IngestionFailureDto {
 pub struct IgnoreIngestionFailureRequest {
     pub phase: IngestionFailurePhase,
     pub target_uri: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LibrarySourceResponse {
-    pub source: MediaSourceDto,
-    pub item: Option<MediaItemDto>,
-    pub probe: Option<MediaProbeDto>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemsResponse {
-    pub items: Vec<MediaItemDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemDetailResponse {
-    pub item: MediaItemDto,
-    pub sources: Vec<MediaSourceDto>,
-    pub credits: Vec<ItemCreditDto>,
-    pub genres: Vec<ItemGenreDto>,
-    pub tags: Vec<ItemTagDto>,
-    pub collections: Vec<CollectionItemDto>,
-    pub studios: Vec<ItemStudioDto>,
-    pub images: Vec<ImageAssetDto>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemCreditsResponse {
-    pub item_id: taru_core::MediaItemId,
-    pub credits: Vec<ItemCreditDto>,
-    pub people: Vec<PersonDto>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ImagesResponse {
-    pub item_id: taru_core::MediaItemId,
-    pub images: Vec<ImageAssetDto>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PlaybackDecisionResponse {
-    pub source: MediaSourceDto,
-    pub probe: Option<MediaProbeDto>,
-    pub decision: PlaybackDecision,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PeopleResponse {
-    pub people: Vec<PersonDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PersonResponse {
-    pub person: PersonDto,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PersonItemsResponse {
-    pub person: PersonDto,
-    pub items: Vec<MediaItemDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TagsResponse {
-    pub tags: Vec<TagDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TagItemsResponse {
-    pub tag: TagDto,
-    pub items: Vec<MediaItemDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct GenreListResponse {
-    pub genres: Vec<GenreDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct GenreItemsResponse {
-    pub genre: GenreDto,
-    pub items: Vec<MediaItemDto>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct SearchResponse {
-    pub hits: Vec<SearchItemHit>,
-    pub page: PageInfo,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct SearchItemHit {
-    pub item: MediaItemDto,
-    pub score: f32,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct SourceProbeResponse {
-    pub source_id: MediaSourceId,
-    pub probe: MediaProbeDto,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MediaItemDto {
-    pub id: MediaItemId,
-    pub kind: MediaKind,
-    pub parent_id: Option<MediaItemId>,
-    pub metadata: CanonicalMetadataDto,
-}
-
-impl From<MediaItem> for MediaItemDto {
-    fn from(item: MediaItem) -> Self {
-        Self {
-            id: item.id,
-            kind: item.kind,
-            parent_id: item.parent_id,
-            metadata: item.metadata.into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct CanonicalMetadataDto {
-    pub title: String,
-    pub original_title: Option<String>,
-    pub sort_title: Option<String>,
-    pub overview: Option<String>,
-    pub release_date: Option<String>,
-    pub runtime_minutes: Option<u32>,
-    pub tagline: Option<String>,
-    pub genres: Vec<String>,
-    pub tags: Vec<String>,
-    pub ratings: Vec<ContentRating>,
-    pub images: Vec<ImageRef>,
-    pub credits: Vec<Credit>,
-    pub collections: Vec<CollectionRef>,
-    pub studios: Vec<StudioRef>,
-    pub external_ids: Vec<ExternalId>,
-}
-
-impl From<CanonicalMetadata> for CanonicalMetadataDto {
-    fn from(metadata: CanonicalMetadata) -> Self {
-        Self {
-            title: metadata.title,
-            original_title: metadata.original_title,
-            sort_title: metadata.sort_title,
-            overview: metadata.overview,
-            release_date: metadata.release_date,
-            runtime_minutes: metadata.runtime_minutes,
-            tagline: metadata.tagline,
-            genres: metadata.genres,
-            tags: metadata.tags,
-            ratings: metadata.ratings,
-            images: metadata.images,
-            credits: metadata.credits,
-            collections: metadata.collections,
-            studios: metadata.studios,
-            external_ids: metadata.external_ids,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MediaSourceDto {
-    pub id: MediaSourceId,
-    pub library_id: LibraryId,
-    pub item_id: MediaItemId,
-    pub locator: String,
-    pub file_name: String,
-    pub size_bytes: Option<u64>,
-    pub fingerprint: Option<String>,
-}
-
-impl From<MediaSource> for MediaSourceDto {
-    fn from(source: MediaSource) -> Self {
-        Self {
-            id: source.id,
-            library_id: source.library_id,
-            item_id: source.item_id,
-            locator: source.locator,
-            file_name: source.file_name,
-            size_bytes: source.size_bytes,
-            fingerprint: source.fingerprint,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MediaProbeDto {
-    pub duration_ms: Option<u64>,
-    pub container: Option<String>,
-    pub bit_rate: Option<u64>,
-    pub streams: Vec<MediaStreamDto>,
-}
-
-impl From<MediaProbeResult> for MediaProbeDto {
-    fn from(probe: MediaProbeResult) -> Self {
-        Self {
-            duration_ms: probe.duration_ms,
-            container: probe.container,
-            bit_rate: probe.bit_rate,
-            streams: probe.streams.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MediaStreamDto {
-    pub index: u32,
-    pub kind: MediaStreamKind,
-    pub codec: Option<String>,
-    pub language: Option<String>,
-    pub duration_ms: Option<u64>,
-    pub bit_rate: Option<u64>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub channels: Option<u32>,
-    pub sample_rate: Option<u32>,
-}
-
-impl From<MediaStreamInfo> for MediaStreamDto {
-    fn from(stream: MediaStreamInfo) -> Self {
-        Self {
-            index: stream.index,
-            kind: stream.kind,
-            codec: stream.codec,
-            language: stream.language,
-            duration_ms: stream.duration_ms,
-            bit_rate: stream.bit_rate,
-            width: stream.width,
-            height: stream.height,
-            channels: stream.channels,
-            sample_rate: stream.sample_rate,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PersonDto {
-    pub id: PersonId,
-    pub name: String,
-    pub sort_name: Option<String>,
-    pub overview: Option<String>,
-    pub external_ids: Vec<ExternalId>,
-}
-
-impl From<Person> for PersonDto {
-    fn from(person: Person) -> Self {
-        Self {
-            id: person.id,
-            name: person.name,
-            sort_name: person.sort_name,
-            overview: person.overview,
-            external_ids: person.external_ids,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemCreditDto {
-    pub item_id: MediaItemId,
-    pub person_id: PersonId,
-    pub role: CreditRole,
-    pub character: Option<String>,
-    pub sort_order: Option<u32>,
-}
-
-impl From<ItemCredit> for ItemCreditDto {
-    fn from(credit: ItemCredit) -> Self {
-        Self {
-            item_id: credit.item_id,
-            person_id: credit.person_id,
-            role: credit.role,
-            character: credit.character,
-            sort_order: credit.sort_order,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct GenreDto {
-    pub id: GenreId,
-    pub name: String,
-    pub source: MetadataSource,
-}
-
-impl From<Genre> for GenreDto {
-    fn from(genre: Genre) -> Self {
-        Self {
-            id: genre.id,
-            name: genre.name,
-            source: genre.source,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemGenreDto {
-    pub item_id: MediaItemId,
-    pub genre_id: GenreId,
-}
-
-impl From<ItemGenre> for ItemGenreDto {
-    fn from(genre: ItemGenre) -> Self {
-        Self {
-            item_id: genre.item_id,
-            genre_id: genre.genre_id,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TagDto {
-    pub id: TagId,
-    pub name: String,
-    pub source: MetadataSource,
-}
-
-impl From<Tag> for TagDto {
-    fn from(tag: Tag) -> Self {
-        Self {
-            id: tag.id,
-            name: tag.name,
-            source: tag.source,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemTagDto {
-    pub item_id: MediaItemId,
-    pub tag_id: TagId,
-}
-
-impl From<ItemTag> for ItemTagDto {
-    fn from(tag: ItemTag) -> Self {
-        Self {
-            item_id: tag.item_id,
-            tag_id: tag.tag_id,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct CollectionItemDto {
-    pub collection_id: taru_core::CollectionId,
-    pub item_id: MediaItemId,
-    pub sort_order: Option<u32>,
-}
-
-impl From<CollectionItem> for CollectionItemDto {
-    fn from(collection: CollectionItem) -> Self {
-        Self {
-            collection_id: collection.collection_id,
-            item_id: collection.item_id,
-            sort_order: collection.sort_order,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ItemStudioDto {
-    pub item_id: MediaItemId,
-    pub studio_id: StudioId,
-}
-
-impl From<ItemStudio> for ItemStudioDto {
-    fn from(studio: ItemStudio) -> Self {
-        Self {
-            item_id: studio.item_id,
-            studio_id: studio.studio_id,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ImageAssetDto {
-    pub id: ImageAssetId,
-    pub owner: ImageOwner,
-    pub kind: ImageKind,
-    pub source_uri: String,
-    pub provider: ExternalProvider,
-    pub cache_uri: Option<String>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub language: Option<String>,
-    pub selected: bool,
-    pub content_hash: Option<String>,
-    pub etag: Option<String>,
-}
-
-impl From<ImageAsset> for ImageAssetDto {
-    fn from(image: ImageAsset) -> Self {
-        Self {
-            id: image.id,
-            owner: image.owner,
-            kind: image.kind,
-            source_uri: image.source_uri,
-            provider: image.provider,
-            cache_uri: image.cache_uri,
-            width: image.width,
-            height: image.height,
-            language: image.language,
-            selected: image.selected,
-            content_hash: image.content_hash,
-            etag: image.etag,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1037,7 +1036,7 @@ mod tests {
             },
         };
 
-        let value = serde_json::to_value(MediaItemDto::from(item)).unwrap();
+        let value = serde_json::to_value(media_item_to_dto(item)).unwrap();
 
         assert_eq!(value["kind"], "movie");
         assert_eq!(value["metadata"]["title"], "DTO Demo");

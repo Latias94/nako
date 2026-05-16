@@ -11,7 +11,7 @@ async fn health_and_libraries_routes_work() {
 
     assert_eq!(health.status, "ok");
     assert_eq!(libraries.libraries.len(), 1);
-    assert_eq!(libraries.libraries[0].id, library_id);
+    assert_eq!(libraries.libraries[0].id, library_id.to_string());
 }
 
 #[tokio::test]

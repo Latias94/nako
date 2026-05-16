@@ -6,9 +6,13 @@ attention.
 
 ## Current Workstreams
 
-- [crate-boundary-hardening](crate-boundary-hardening/README.md): M28 crate
-  boundary and public protocol hardening, covering the permissive public
-  client protocol boundary, core/module deepening, library/NFO workflow
+- [public-client-api](public-client-api/README.md): completed M29 public
+  client API contract work, covering the permissive protocol DTO expansion,
+  browse/search/list/detail wire contracts, and playback decision response
+  migration for future Flutter, web, and CLI clients.
+- [crate-boundary-hardening](crate-boundary-hardening/README.md): completed
+  M28 crate boundary and public protocol hardening, covering the permissive
+  public client protocol boundary, core/module deepening, library/NFO workflow
   splits, and playback seam clarification.
 - [metadata-catalog](metadata-catalog/README.md): M27 media-library domain
   expansion, covering the completed video-first domain baseline,
@@ -51,7 +55,8 @@ Split a workstream when one of these becomes true:
 
 Expected future splits:
 
-- `clients`
+- client SDK generation or concrete Flutter/web app work after the public
+  protocol contract stabilizes.
 
 Keep unsplit domains in `server-foundation` until a split reduces real
 coordination cost. Avoid splitting merely because a domain exists conceptually.

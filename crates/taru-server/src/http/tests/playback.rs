@@ -110,7 +110,10 @@ async fn playback_decision_and_direct_stream_routes_work() {
         .await
         .unwrap();
 
-    assert_eq!(decision.decision.mode, PlaybackMode::DirectPlay);
+    assert_eq!(
+        decision.decision.mode,
+        taru_api::ClientPlaybackMode::DirectPlay
+    );
     assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
     assert_eq!(
         response
