@@ -1,14 +1,14 @@
-# Phase 9.1: Server Architecture Hardening Implementation Slice
+# Phase 24.1: Server Architecture Hardening Implementation Slice
 
 ## Summary
 
-This slice moves M9 from documentation into enforceable server code. The
+This slice moves M24 from documentation into enforceable server code. The
 server now has a runtime supervisor boundary, focused service handles for
 catalog, library administration, storage diagnostics, NFO, and extension
 workflows, stricter library identity resolution from persisted media sources,
 and an atomic repository boundary for catalog graph replacement.
 
-Follow-up passes in this M9 slice also moved metadata and playback orchestration
+Follow-up passes in this M24 slice also moved metadata and playback orchestration
 behind service handles, kept library scan/probe behind `LibraryScanAppService`,
 removed the temporary CLI/test root-app forwards, and replaced hand-written NFO
 XML walking with a `roxmltree` parser boundary.
@@ -133,4 +133,4 @@ Results:
 
 ## Close-Out Status
 
-All M9 close-out gates are satisfied as of this slice.
+All M24 close-out gates are satisfied as of this slice.

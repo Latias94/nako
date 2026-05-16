@@ -6,17 +6,21 @@ attention.
 
 ## Current Workstreams
 
+- [transcode-runtime](transcode-runtime/README.md): proposed M25 playback and
+  transcode runtime productization, covering playback service decomposition,
+  FFmpeg-backed hardware capability probing, acceleration selection, resource
+  budgets, session lifecycle, and client-facing playback contracts.
 - [server-architecture-hardening](server-architecture-hardening/README.md):
-  active M9 server composition, application service, runtime supervisor,
+  completed M24 server composition, application service, runtime supervisor,
   repository boundary, and obsolete-helper cleanup work.
-- [runtime-foundation](runtime-foundation/README.md): active M19 database and
+- [runtime-foundation](runtime-foundation/README.md): completed M15-M19 database and
   runtime hardening, covering SQLite concurrency, migration execution, secret
   redaction, hardware capability selection, and cross-cutting operational
   boundaries.
 - [playback-streaming](playback-streaming/README.md): completed M7 remote
   direct-body streaming, staging budget/cleanup, playback error mapping,
   remote playback resource budgets, and multi-library configuration work.
-- [metadata-operations](metadata-operations/README.md): active M18 metadata
+- [metadata-operations](metadata-operations/README.md): completed M13-M18 metadata
   maintenance jobs, diagnostics filtering, raw cache retention, and provider
   health visibility.
 - [storage-vfs](storage-vfs/README.md): completed M6 remote storage, VFS cache,
@@ -39,6 +43,7 @@ Split a workstream when one of these becomes true:
 
 Expected future splits:
 
+- `metadata-catalog`
 - `clients`
 
 Keep unsplit domains in `server-foundation` until a split reduces real

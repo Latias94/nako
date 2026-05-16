@@ -7,9 +7,10 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
-- Active workstream: [server architecture hardening](workstreams/server-architecture-hardening/README.md)
-- Last completed workstream: [playback streaming](workstreams/playback-streaming/README.md)
-- Previous completed workstream: [storage and VFS](workstreams/storage-vfs/README.md)
+- Proposed next workstream: [transcode runtime](workstreams/transcode-runtime/README.md)
+- Latest completed workstream: [server architecture hardening](workstreams/server-architecture-hardening/README.md)
+- Previous completed workstream: [playback streaming](workstreams/playback-streaming/README.md)
+- Storage and VFS archive: [storage and VFS](workstreams/storage-vfs/README.md)
 - Foundation archive: [server foundation](workstreams/server-foundation/README.md)
 - Refactoring policy: [development/REFACTORING_POLICY.md](development/REFACTORING_POLICY.md)
 

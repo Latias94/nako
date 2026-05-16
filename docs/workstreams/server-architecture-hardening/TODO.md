@@ -3,7 +3,7 @@
 ## Baseline
 
 - [x] Add ADR 0019 for server architecture hardening boundaries.
-- [x] Add M9 workstream documentation.
+- [x] Add M24 workstream documentation.
 - [x] Re-audit `crates/taru-server/src/app.rs` after the first code pass and
   record the target `TaruApp` public surface.
 - [x] Map existing background task launch sites and classify them by worker
@@ -73,6 +73,6 @@ Remaining service handles:
 - [x] Run `cargo fmt --all -- --check`.
 - [x] Run `cargo check --workspace --tests`.
 - [x] Run focused `cargo nextest` suites for changed crates during each phase.
-- [x] Run `cargo nextest run --workspace` before M9 close-out.
+- [x] Run `cargo nextest run --workspace` before M24 close-out.
 - [x] Run `git diff --check`.
 - [x] Record validation evidence in the relevant phase close-out note.

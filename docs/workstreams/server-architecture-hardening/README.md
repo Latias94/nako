@@ -10,9 +10,9 @@ boundaries, and removes obsolete helper paths.
 
 ## Status
 
-Active for M9.
+Completed as M24.
 
-M9 is intentionally architecture-first. It should prepare the server for
+M24 was intentionally architecture-first. It prepared the server for
 metadata provider expansion, future clients, stronger NFO handling, network
 storage growth, and AI/automation surfaces without adding new product features
 in the same slice.
@@ -24,8 +24,8 @@ Top-level tracking:
 - [ADR 0019: server architecture hardening boundaries](../../adr/0019-server-architecture-hardening-boundaries.md)
 - [Milestones](MILESTONES.md)
 - [TODO](TODO.md)
-- [Phase 9.0 baseline](PHASE9_0_SERVER_ARCHITECTURE_BASELINE.md)
-- [Phase 9.1 implementation slice](PHASE9_1_IMPLEMENTATION_SLICE.md)
+- [Phase 24.0 baseline](PHASE24_0_SERVER_ARCHITECTURE_BASELINE.md)
+- [Phase 24.1 implementation slice](PHASE24_1_IMPLEMENTATION_SLICE.md)
 
 ## Goals
 

@@ -1,6 +1,6 @@
 # Server Architecture Hardening Milestones
 
-## M9.0: Server Architecture Baseline
+## M24.0: Server Architecture Baseline
 
 Outcome: the target boundaries are documented before Rust code is moved.
 
@@ -16,7 +16,7 @@ Exit criteria:
 
 - `git diff --check`
 
-## M9.1: App Service Decomposition
+## M24.1: App Service Decomposition
 
 Outcome: `TaruApp` becomes a composition root and workflow logic moves into
 focused application services.
@@ -36,7 +36,7 @@ Exit criteria:
 - focused `cargo nextest run -p taru-server`
 - `git diff --check`
 
-## M9.2: Repository and Transaction Boundary Cleanup
+## M24.2: Repository and Transaction Boundary Cleanup
 
 Outcome: high-level services depend on narrow contracts and multi-record
 updates have explicit atomic boundaries.
@@ -58,7 +58,7 @@ Exit criteria:
 - focused `cargo nextest run -p taru-server`
 - `git diff --check`
 
-## M9.3: Runtime Supervisor and Lifecycle Ownership
+## M24.3: Runtime Supervisor and Lifecycle Ownership
 
 Outcome: background tasks have one lifecycle owner instead of feature-local
 detached spawns.
@@ -79,7 +79,7 @@ Exit criteria:
 - focused `cargo nextest run -p taru-server`
 - `git diff --check`
 
-## M9.4: Domain Cleanup and Obsolete Code Removal
+## M24.4: Domain Cleanup and Obsolete Code Removal
 
 Outcome: early MVP shortcuts are removed after their replacement invariants are
 available.
@@ -101,13 +101,13 @@ Exit criteria:
 - focused `cargo nextest run -p taru-server`
 - `git diff --check`
 
-## M9.5: Stabilization and Validation
+## M24.5: Stabilization and Validation
 
-Outcome: M9 closes with a small, enforceable architecture contract.
+Outcome: M24 closes with a small, enforceable architecture contract.
 
 Deliverables:
 
-- Phase close-out note mapping M9 goals to code, tests, and removed obsolete
+- Phase close-out note mapping M24 goals to code, tests, and removed obsolete
   paths.
 - Updated development docs for adding new application services and workers.
 - Validation evidence for server, DB, NFO, metadata, catalog, and playback

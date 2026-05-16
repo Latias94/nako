@@ -9,7 +9,9 @@ multi-library profile correctness.
 
 ## Status
 
-Active in M18.
+Completed for M13-M18. Future provider breadth, catalog graph expansion, NFO
+format breadth, artwork, and search work should move into a dedicated
+`metadata-catalog` workstream when that domain becomes the next active goal.
 
 ## Goals
 

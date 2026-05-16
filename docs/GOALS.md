@@ -17,6 +17,13 @@ Each implementation goal should define:
 Use one goal per meaningful milestone. A goal should be large enough to produce
 a coherent commit, but small enough that validation remains clear.
 
+## Numbering Policy
+
+Goal numbers are historical identifiers, not dense release numbers. Do not
+reuse earlier gaps such as M10-M12 or M17 for new work. New implementation
+goals should use the next number after the highest documented completed or
+proposed milestone.
+
 ## Completed Goals
 
 ### M0-M2.1: Server Runtime Foundation
@@ -551,14 +558,72 @@ Deliverables:
 - [Phase 8.0](workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md)
   records source identity, CLI, and staging budget invariants.
 
-Recommended next implementation goal:
+Later follow-up:
 
-- Start M9 server architecture hardening before expanding metadata providers,
-  clients, or plugin/runtime surfaces.
+- M13-M23 completed the metadata, runtime, database, storage, ingestion, and
+  API boundary hardening needed before the M24 server architecture pass.
 
-## Current Goal
+### M13-M14: Metadata Maintenance and Scheduling
 
-### M9: Server Architecture Hardening
+Status: completed.
+
+Evidence:
+
+- [metadata-operations milestones](workstreams/metadata-operations/MILESTONES.md)
+  track library-scale maintenance jobs, scheduling, lifecycle, provider
+  diagnostics, and raw-cache cleanup.
+- [Phase 13.0](workstreams/metadata-operations/PHASE13_0_MAINTENANCE_JOB_BOUNDARY.md)
+  and [Phase 14.0](workstreams/metadata-operations/PHASE14_0_SCHEDULING_AND_LIFECYCLE.md)
+  record the implemented boundaries.
+
+### M15-M16: Runtime Foundation and Storage Lease Lifecycle
+
+Status: completed.
+
+Evidence:
+
+- [runtime-foundation milestones](workstreams/runtime-foundation/MILESTONES.md)
+  track SQLite runtime behavior, migration execution, secret redaction,
+  hardware selection, storage backend registry, and staged-input lease
+  lifecycle.
+- [Phase 15.0](workstreams/runtime-foundation/PHASE15_0_RUNTIME_HARDENING_BASELINE.md),
+  [Phase 15.1](workstreams/runtime-foundation/PHASE15_1_RUNTIME_HARDENING_IMPLEMENTATION.md),
+  and [Phase 16](workstreams/runtime-foundation/PHASE16_STORAGE_BACKEND_REGISTRY_AND_LEASE_LIFECYCLE.md)
+  record the implementation evidence.
+
+### M18-M19: Provider Runtime and Database Boundary Hardening
+
+Status: completed.
+
+Evidence:
+
+- [Phase 18.0](workstreams/metadata-operations/PHASE18_0_PROVIDER_RUNTIME_PRODUCTIZATION.md)
+  records the shared metadata provider runtime, secret resolution, and
+  provider configuration cleanup.
+- [Phase 19.0](workstreams/runtime-foundation/PHASE19_0_DATABASE_BOUNDARY_HARDENING.md)
+  records the SQLite repository split, transaction boundaries, and database
+  module cleanup.
+
+### M20-M23: Server Surface, Storage, Ingestion, and API Boundary Cleanup
+
+Status: completed.
+
+Evidence:
+
+- [server-foundation milestones](workstreams/server-foundation/MILESTONES.md)
+  track M20-M23.
+- [Phase 20.0](workstreams/server-foundation/PHASE20_0_SERVER_SURFACE_DECOMPOSITION.md)
+  split oversized app and HTTP tests by bounded context.
+- [Phase 21.0](workstreams/server-foundation/PHASE21_0_STORAGE_BACKEND_REGISTRY.md)
+  recorded storage backend registry ownership.
+- [Phase 22.0](workstreams/server-foundation/PHASE22_0_INGESTION_FAILURE_DIAGNOSTICS.md)
+  recorded durable ingestion failure diagnostics.
+- [Phase 23.0](workstreams/server-foundation/PHASE23_0_API_HTTP_DB_BOUNDARY_CLEANUP.md)
+  recorded API DTO, HTTP router, and DB module cleanup.
+
+## Latest Completed Goal
+
+### M24: Server Architecture Hardening
 
 Status: completed.
 
@@ -573,7 +638,7 @@ Deliverables:
 - [ADR 0019](adr/0019-server-architecture-hardening-boundaries.md) for server
   composition, service, supervisor, and repository boundaries.
 - [server-architecture-hardening workstream](workstreams/server-architecture-hardening/README.md)
-  with M9 milestones, TODOs, and a baseline phase note.
+  with M24 milestones, TODOs, and a baseline phase note.
 - App-service decomposition that moves workflow orchestration out of
   `TaruApp`.
 - Runtime supervisor or worker registry for background jobs and cleanup loops.
@@ -608,18 +673,18 @@ Exit criteria:
 - `cargo nextest run --workspace`
 - `git diff --check`
 
-Evidence for M9.0:
+Evidence for M24.0:
 
 - [ADR 0019](adr/0019-server-architecture-hardening-boundaries.md) documents
   the target server architecture boundaries.
 - [server-architecture-hardening workstream](workstreams/server-architecture-hardening/README.md)
-  tracks M9 milestones, TODOs, phase notes, and refactor policy.
-- [Phase 9.0](workstreams/server-architecture-hardening/PHASE9_0_SERVER_ARCHITECTURE_BASELINE.md)
+  tracks M24 milestones, TODOs, phase notes, and refactor policy.
+- [Phase 24.0](workstreams/server-architecture-hardening/PHASE24_0_SERVER_ARCHITECTURE_BASELINE.md)
   records the starting surfaces and implementation sequence.
 
-Evidence for M9.1-M9.4:
+Evidence for M24.1-M24.4:
 
-- [Phase 9.1](workstreams/server-architecture-hardening/PHASE9_1_IMPLEMENTATION_SLICE.md)
+- [Phase 24.1](workstreams/server-architecture-hardening/PHASE24_1_IMPLEMENTATION_SLICE.md)
   records the service decomposition, runtime supervisor, catalog transaction
   boundary, removed root-app forwards, and NFO structured parser migration.
 - `TaruApp` now composes focused service handles for jobs, library scan/probe,
@@ -635,3 +700,34 @@ Close-out validation:
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace --no-fail-fast`: 229 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
+
+## Recommended Next Goal
+
+### M25: Transcode Runtime Productization
+
+Status: proposed.
+
+Objective:
+
+- Turn playback/transcode from an MVP HLS/remux implementation into a clean
+  runtime product boundary for hardware acceleration, session orchestration,
+  resource budgets, and future adaptive streaming.
+
+Deliverables:
+
+- Create a dedicated transcode runtime workstream and design baseline.
+- Decompose the large playback application service into focused direct-play,
+  remux, HLS, staging, and transcode-runtime modules.
+- Replace the CPU-only server hardware detector with an FFmpeg-backed
+  capability probe when hardware acceleration is configured.
+- Make VAAPI, NVENC, and QuickSync selection, fallback, and resource budget
+  behavior explicit API/service contracts.
+- Define the stable client-facing playback session lifecycle and error model
+  before Flutter or web client work depends on it.
+
+Non-goals:
+
+- no adaptive bitrate ladder implementation in the first slice;
+- no client UI implementation;
+- no direct FFmpeg remote credential input until a separate storage security
+  design is accepted.

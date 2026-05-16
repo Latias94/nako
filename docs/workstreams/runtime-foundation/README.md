@@ -14,8 +14,9 @@ has become a shared system risk.
 
 ## Status
 
-Active for M19 database boundary hardening after M18 metadata provider runtime
-productization.
+Completed for M15-M19. Later runtime productization work should use the
+domain-specific workstream that owns the active boundary, such as
+`transcode-runtime` for M25 playback and transcode runtime work.
 
 ## Goals
 

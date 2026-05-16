@@ -2,8 +2,8 @@
 
 ## Status
 
-Draft. This workstream tracks the first server-side architecture decisions for
-Taru before implementation expands beyond the initial binary crate.
+Historical foundation archive. This workstream tracks the first server-side
+architecture decisions and the completed M20-M23 cleanup phases.
 
 Top-level tracking:
 
@@ -11,10 +11,10 @@ Top-level tracking:
 - [Roadmap](../../ROADMAP.md)
 - [Refactoring policy](../../development/REFACTORING_POLICY.md)
 
-Current implementation focus is API, HTTP router, and SQLite repository
-boundary cleanup ([Phase 23.0](PHASE23_0_API_HTTP_DB_BOUNDARY_CLEANUP.md))
-after ingestion failure diagnostics. The local video-library playback MVP was
-stabilized in [Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
+The latest completed phase in this workstream is API, HTTP router, and SQLite
+repository boundary cleanup ([Phase 23.0](PHASE23_0_API_HTTP_DB_BOUNDARY_CLEANUP.md)).
+The local video-library playback MVP was stabilized in
+[Phase 4.10](PHASE4_10_MVP_STABILIZATION.md).
 
 ## Goals
 

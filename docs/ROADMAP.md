@@ -5,6 +5,10 @@ server backend. The roadmap is intentionally staged so storage, metadata,
 playback, search, automation, and future clients can grow without collapsing
 into a single tightly coupled crate.
 
+Goal numbers are historical identifiers. Earlier gaps such as M10-M12 and M17
+are not reused; new work uses the next number after the highest documented
+milestone.
+
 ## Phase Bands
 
 ### Foundation: M0-M2.1
@@ -195,12 +199,35 @@ Completed:
 - [Phase 8.0](workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md)
   records source identity, CLI, and staging budget invariants.
 
-Recommended next goal:
+Later follow-up:
 
-- M9 server architecture hardening before expanding metadata providers,
-  clients, or plugin/runtime surfaces.
+- M13-M23 completed the metadata, runtime, database, storage, ingestion, and
+  API boundary hardening needed before the M24 server architecture pass.
 
-### Server Architecture Hardening: M9
+### Operational and Boundary Hardening: M13-M23
+
+Status: completed.
+
+After the first remote playback and multi-library hardening waves, Taru added
+several focused operational cleanup phases before the final server composition
+pass:
+
+- M13-M14 metadata maintenance, scheduling, provider diagnostics, and raw-cache
+  lifecycle.
+- M15-M16 runtime foundation, SQLite/migration behavior, secret redaction,
+  hardware selection policy, storage backend registry, and staged-input lease
+  lifecycle.
+- M18 metadata provider runtime productization.
+- M19 database boundary hardening.
+- M20 server test-surface decomposition.
+- M21 storage backend registry documentation in the server-foundation stream.
+- M22 ingestion failure diagnostics.
+- M23 API, HTTP router, and DB boundary cleanup.
+
+The detailed evidence lives in the `metadata-operations`, `runtime-foundation`,
+and `server-foundation` workstreams.
+
+### Server Architecture Hardening: M24
 
 Status: completed.
 
@@ -219,11 +246,11 @@ boundary:
 
 Completed:
 
-- M9.0 design baseline with ADR 0019, a dedicated
-  `server-architecture-hardening` workstream, M9 milestone split, and audit
+- M24.0 design baseline with ADR 0019, a dedicated
+  `server-architecture-hardening` workstream, M24 milestone split, and audit
   notes for server composition, runtime ownership, repository boundaries, NFO,
   catalog hydration, and obsolete helpers.
-- M9.1-M9.4 implementation has decomposed `TaruApp` into focused service
+- M24.1-M24.4 implementation has decomposed `TaruApp` into focused service
   handles, added runtime supervisor ownership for detached workers, moved
   catalog graph hydration behind an atomic repository operation, removed
   temporary root-app forwards, and replaced hand-written NFO XML parsing with a
@@ -231,10 +258,27 @@ Completed:
 
 Recommended next goal:
 
-- after M9 stabilization, continue provider/runtime productization and client
-  contract planning on top of the cleaned server boundary.
+- M25 transcode runtime productization.
 
-### Client and Product Experience: M10+
+### Transcode Runtime Productization: M25
+
+Status: proposed.
+
+This phase should turn the existing remux/HLS MVP into a cleaner playback and
+transcode runtime boundary before client work depends on it:
+
+- split playback application code into focused direct-play, remux, HLS,
+  staging, and runtime modules;
+- replace the CPU-only detector with FFmpeg-backed hardware capability probing
+  when hardware acceleration is configured;
+- make VAAPI, NVENC, and QuickSync selection, fallback, and resource budgets
+  explicit contracts;
+- define stable playback session lifecycle, error categories, and client-facing
+  URL behavior;
+- keep adaptive bitrate HLS ladder as a follow-up after the runtime boundary is
+  clean.
+
+### Client and Product Experience: M26+
 
 Status: intentionally deferred.
 
@@ -246,10 +290,10 @@ planning should start after the browse and playback surfaces are coherent.
 
 `server-foundation` was the initial planning hub. M5 split
 `addons-automation` into its own completed workstream, M6 split `storage-vfs`,
-M7 split `playback-streaming`, and M9 split
-`server-architecture-hardening` for the active server composition and fearless
-refactor pass. Existing runtime and metadata operations workstreams continue to
-track later specialized hardening. As implementation grows, split the
+M7 split `playback-streaming`, M13-M19 used metadata and runtime operations for
+specialized hardening, M24 split `server-architecture-hardening` for the server
+composition pass, and M25 should split `transcode-runtime` for playback runtime
+productization. As implementation grows, split the
 remaining broad domains into narrower workstreams:
 
 - `metadata-catalog`: providers, NFO, catalog graph, artwork, search.

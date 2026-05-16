@@ -1,8 +1,8 @@
-# Phase 9.0: Server Architecture Baseline
+# Phase 24.0: Server Architecture Baseline
 
 ## Summary
 
-M9 starts with documentation because the next implementation work is a
+M24 starts with documentation because the next implementation work is a
 cross-cutting refactor, not a feature patch. The target is a cleaner server
 architecture: `TaruApp` composes runtime pieces, focused services own
 workflows, supervised workers own background execution, repositories own
@@ -27,14 +27,14 @@ Important current surfaces to re-audit during the first code pass:
 - `docs/workstreams/server-foundation/PHASE20_0_SERVER_SURFACE_DECOMPOSITION.md`:
   earlier test-surface decomposition evidence.
 - `docs/workstreams/server-foundation/PHASE23_0_API_HTTP_DB_BOUNDARY_CLEANUP.md`:
-  API, HTTP router, and DB cleanup rules that M9 should preserve.
+  API, HTTP router, and DB cleanup rules that M24 should preserve.
 - `docs/workstreams/runtime-foundation/PHASE19_0_DATABASE_BOUNDARY_HARDENING.md`:
-  database transaction and repository boundary evidence that M9 should build
+  database transaction and repository boundary evidence that M24 should build
   on rather than duplicate.
 
 ## Decisions
 
-- Treat M9 as an architecture workstream, not as metadata provider feature
+- Treat M24 as an architecture workstream, not as metadata provider feature
   expansion.
 - Keep the modular monolith. Do not split server processes.
 - Make `TaruApp` thin enough that new feature work naturally lands in focused
@@ -44,7 +44,7 @@ Important current surfaces to re-audit during the first code pass:
 - Prefer deleting obsolete code over carrying compatibility shims while Taru is
   pre-compatibility.
 - Use existing later phase notes as evidence and follow-up context, but keep
-  M9 scoped to server architecture cleanup.
+  M24 scoped to server architecture cleanup.
 
 ## Suggested Implementation Order
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Context
 
@@ -77,7 +77,7 @@ old root app was too broad.
 - Some existing code will be deleted or moved aggressively. This is acceptable
   while Taru is pre-compatibility, but every deletion needs focused validation
   evidence.
-- The first M9 slice is allowed to be architecture-only. It should not add new
+- The first M24 slice is allowed to be architecture-only. It should not add new
   product features while reshaping the server boundary.
 
 ## Alternatives Considered
