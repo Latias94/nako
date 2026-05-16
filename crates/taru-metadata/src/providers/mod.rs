@@ -15,7 +15,9 @@ pub(crate) use common::{
 };
 pub(crate) use douban::{DoubanPerson, DoubanSubject};
 pub(crate) use tmdb::{
-    TmdbCredits, TmdbImage, TmdbMovieDetails, TmdbMovieSearchResult, TmdbReleaseDates,
+    TmdbCredits, TmdbEpisodeDetails, TmdbImage, TmdbMovieDetails, TmdbMovieSearchResult,
+    TmdbReleaseDates, TmdbSeasonDetails, TmdbSeriesDetails, result_original_title,
+    result_release_date, result_title,
 };
 
 pub(crate) const DEFAULT_TMDB_API_BASE_URL: &str = "https://api.themoviedb.org/3";

@@ -2163,6 +2163,7 @@ dependencies = [
  "taru-catalog",
  "taru-core",
  "taru-db",
+ "taru-metadata",
  "taru-search",
  "taru-vfs",
  "tempfile",

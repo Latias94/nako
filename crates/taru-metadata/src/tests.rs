@@ -15,11 +15,13 @@ use reqwest::header::HeaderMap;
 use serde_json::json;
 use taru_core::{
     CanonicalMetadata, CatalogRepository, ContentRating, CreditRole, ExternalId, ExternalProvider,
-    ImageKind, JobId, JobKind, JobRepository, Library, LibraryId, LibraryOptions, LibraryPreset,
-    LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataField,
-    MetadataFieldLock, MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus,
-    MetadataProviderErrorClass, MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob,
-    PageRequest, Result, TaruError, TransactionManager,
+    ImageKind, JobId, JobKind, JobRepository, Library, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository, MediaItem, MediaItemId,
+    MediaKind, MediaRepository, MediaSource, MediaSourceId, MetadataField, MetadataFieldLock,
+    MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
+    MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob, PageRequest,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderSubjectKind, Result, TaruError,
+    TransactionManager,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchIndex, SearchQuery};
@@ -35,6 +37,459 @@ use crate::providers::{
 };
 
 mod fixtures;
+
+#[tokio::test]
+async fn hierarchy_confirmation_confirms_provisional_items_in_place() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let series = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Fireflie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let season = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(series.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let episode = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Episode,
+        parent_id: Some(season.id),
+        metadata: CanonicalMetadata {
+            title: "Episode 2".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    for item in [&series, &season, &episode] {
+        store.upsert_media_item(item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id: item.id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+    }
+    store
+        .upsert_field_lock(&MetadataFieldLock {
+            item_id: episode.id,
+            field: MetadataField::Title,
+            locked: true,
+            source: MetadataSource::User,
+        })
+        .await
+        .unwrap();
+
+    let service = HierarchyConfirmationService::new(store.clone());
+    let summary = service
+        .confirm_hierarchy(HierarchyConfirmationRequest {
+            library_id: library.id,
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+            refresh_mode: MetadataRefreshMode::FullRefresh,
+            items: vec![
+                HierarchyConfirmationItem {
+                    item_id: series.id,
+                    kind: MediaKind::Series,
+                    parent_id: None,
+                    metadata: CanonicalMetadata {
+                        title: "Firefly".to_owned(),
+                        release_date: Some("2002-09-20".to_owned()),
+                        ..CanonicalMetadata::default()
+                    },
+                    provider_subject: Some(HierarchyProviderSubject {
+                        provider: ExternalProvider::Tmdb,
+                        subject_kind: ProviderSubjectKind::Series,
+                        subject_key: "1437".to_owned(),
+                        title: Some("Firefly".to_owned()),
+                        release_year: Some(2002),
+                        locale: Some("en-US".to_owned()),
+                    }),
+                    confidence_milli: Some(980),
+                },
+                HierarchyConfirmationItem {
+                    item_id: season.id,
+                    kind: MediaKind::Season,
+                    parent_id: Some(series.id),
+                    metadata: CanonicalMetadata {
+                        title: "Season 1".to_owned(),
+                        release_date: Some("2002".to_owned()),
+                        ..CanonicalMetadata::default()
+                    },
+                    provider_subject: Some(HierarchyProviderSubject {
+                        provider: ExternalProvider::Tmdb,
+                        subject_kind: ProviderSubjectKind::Season,
+                        subject_key: "1437/1".to_owned(),
+                        title: Some("Season 1".to_owned()),
+                        release_year: Some(2002),
+                        locale: Some("en-US".to_owned()),
+                    }),
+                    confidence_milli: Some(980),
+                },
+                HierarchyConfirmationItem {
+                    item_id: episode.id,
+                    kind: MediaKind::Episode,
+                    parent_id: Some(season.id),
+                    metadata: CanonicalMetadata {
+                        title: "The Train Job".to_owned(),
+                        overview: Some("The crew takes a train heist job.".to_owned()),
+                        release_date: Some("2002-09-20".to_owned()),
+                        ..CanonicalMetadata::default()
+                    },
+                    provider_subject: Some(HierarchyProviderSubject {
+                        provider: ExternalProvider::Tmdb,
+                        subject_kind: ProviderSubjectKind::Episode,
+                        subject_key: "1437/1/2".to_owned(),
+                        title: Some("The Train Job".to_owned()),
+                        release_year: Some(2002),
+                        locale: Some("en-US".to_owned()),
+                    }),
+                    confidence_milli: Some(980),
+                },
+            ],
+        })
+        .await
+        .unwrap();
+
+    let confirmed_series = store.get_media_item(series.id).await.unwrap().unwrap();
+    let confirmed_episode = store.get_media_item(episode.id).await.unwrap().unwrap();
+    let episode_mappings = store
+        .list_provider_mappings_for_item(episode.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let episode_subjects = store
+        .list_provider_subjects_for_item(episode.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let hits = store
+        .search(SearchQuery {
+            query: "heist".to_owned(),
+            facets: Vec::new(),
+            limit: 10,
+            offset: 0,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(summary.confirmed_items, 3);
+    assert_eq!(summary.updated_items, 3);
+    assert_eq!(summary.provider_mappings, 3);
+    assert_eq!(confirmed_series.id, series.id);
+    assert_eq!(confirmed_series.metadata.title, "Firefly");
+    assert_eq!(confirmed_episode.id, episode.id);
+    assert_eq!(confirmed_episode.parent_id, Some(season.id));
+    assert_eq!(confirmed_episode.metadata.title, "Episode 2");
+    assert_eq!(
+        confirmed_episode.metadata.overview,
+        Some("The crew takes a train heist job.".to_owned())
+    );
+    for item_id in [series.id, season.id, episode.id] {
+        assert!(
+            !store
+                .get_library_item_state(library.id, item_id)
+                .await
+                .unwrap()
+                .unwrap()
+                .provisional
+        );
+    }
+    assert_eq!(episode_mappings.len(), 1);
+    assert_eq!(episode_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(episode_mappings[0].confidence_milli, Some(980));
+    assert_eq!(
+        episode_subjects[0].subject_kind,
+        ProviderSubjectKind::Episode
+    );
+    assert_eq!(episode_subjects[0].subject_key, "1437/1/2");
+    assert_eq!(hits[0].item_id, episode.id);
+}
+
+#[tokio::test]
+async fn hierarchy_confirmation_rejects_confirmed_structure_changes() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Episode,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Confirmed".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    let service = HierarchyConfirmationService::new(store);
+    let err = service
+        .confirm_hierarchy(HierarchyConfirmationRequest {
+            library_id: library.id,
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+            refresh_mode: MetadataRefreshMode::FullRefresh,
+            items: vec![HierarchyConfirmationItem {
+                item_id: item.id,
+                kind: MediaKind::Movie,
+                parent_id: None,
+                metadata: item.metadata.clone(),
+                provider_subject: None,
+                confidence_milli: None,
+            }],
+        })
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("use hierarchy repair"));
+}
+
+#[tokio::test]
+async fn metadata_refresh_confirms_provider_state_across_all_library_memberships() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            release_date: Some("1999".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "603".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        },
+    };
+    let first_library = Library {
+        id: LibraryId::new(),
+        name: "Movies A".to_owned(),
+        roots: vec!["local:///A".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let second_library = Library {
+        id: LibraryId::new(),
+        name: "Movies B".to_owned(),
+        roots: vec!["local:///B".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let source_a = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: first_library.id,
+        item_id: item.id,
+        locator: "local:///A/The Matrix.mkv".to_owned(),
+        file_name: "The Matrix.mkv".to_owned(),
+        size_bytes: Some(1),
+        fingerprint: None,
+    };
+    let source_b = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: second_library.id,
+        item_id: item.id,
+        locator: "local:///B/The Matrix.mkv".to_owned(),
+        file_name: "The Matrix.mkv".to_owned(),
+        size_bytes: Some(1),
+        fingerprint: None,
+    };
+    let provider = mock_provider(
+        ExternalProvider::Tmdb,
+        vec![mock_candidate(ExternalProvider::Tmdb, "603", "The Matrix")],
+        mock_fetch_result(
+            ExternalProvider::Tmdb,
+            "603",
+            CanonicalMetadata {
+                title: "The Matrix".to_owned(),
+                release_date: Some("1999-03-31".to_owned()),
+                ..CanonicalMetadata::default()
+            },
+        ),
+    );
+    let service = MetadataRefreshService::new(provider, store.clone());
+    let job_id = seed_metadata_job(&store, &item).await;
+
+    store.upsert_library(&first_library).await.unwrap();
+    store.upsert_library(&second_library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source_a).await.unwrap();
+    store.upsert_media_source(&source_b).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: first_library.id,
+            item_id: item.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: second_library.id,
+            item_id: item.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+
+    service
+        .refresh_item(MetadataRefreshRequest {
+            job_id,
+            item_id: item.id,
+            profile: MetadataProfile::from_preset(LibraryPreset::Movies),
+            force: false,
+        })
+        .await
+        .unwrap();
+
+    assert!(
+        !store
+            .get_library_item_state(first_library.id, item.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .provisional
+    );
+    assert!(
+        !store
+            .get_library_item_state(second_library.id, item.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .provisional
+    );
+}
+
+#[tokio::test]
+async fn metadata_refresh_accepts_douban_and_bangumi_provider_mappings() {
+    let server = MockMetadataServer::start().await;
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let douban_item = seed_media_item(
+        &store,
+        LibraryPreset::Movies,
+        MediaKind::Movie,
+        "肖申克的救赎",
+        Some("1994".to_owned()),
+        vec![ExternalId {
+            provider: ExternalProvider::Douban,
+            value: "1292052".to_owned(),
+        }],
+    )
+    .await;
+    let bangumi_item = seed_media_item(
+        &store,
+        LibraryPreset::Anime,
+        MediaKind::Series,
+        "Cowboy Bebop",
+        Some("1998".to_owned()),
+        vec![ExternalId {
+            provider: ExternalProvider::Bangumi,
+            value: "8".to_owned(),
+        }],
+    )
+    .await;
+    let douban = DoubanMetadataProvider::new(DoubanProviderConfig {
+        api_key: Some(fixtures::DOUBAN_API_KEY.into()),
+        api_base_url: server.base_url(),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..DoubanProviderConfig::default()
+    })
+    .unwrap();
+    let bangumi = BangumiMetadataProvider::new(BangumiProviderConfig {
+        access_token: Some(fixtures::BANGUMI_TOKEN.into()),
+        api_base_url: server.base_url(),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..BangumiProviderConfig::default()
+    })
+    .unwrap();
+    let mut douban_profile = MetadataProfile::from_preset(LibraryPreset::Movies);
+    douban_profile.metadata_providers = vec![ExternalProvider::Douban];
+    let mut bangumi_profile = MetadataProfile::from_preset(LibraryPreset::Anime);
+    bangumi_profile.metadata_providers = vec![ExternalProvider::Bangumi];
+
+    MetadataRefreshService::new(douban, store.clone())
+        .refresh_item(MetadataRefreshRequest {
+            job_id: seed_metadata_job(&store, &douban_item).await,
+            item_id: douban_item.id,
+            profile: douban_profile,
+            force: false,
+        })
+        .await
+        .unwrap();
+    MetadataRefreshService::new(bangumi, store.clone())
+        .refresh_item(MetadataRefreshRequest {
+            job_id: seed_metadata_job(&store, &bangumi_item).await,
+            item_id: bangumi_item.id,
+            profile: bangumi_profile,
+            force: false,
+        })
+        .await
+        .unwrap();
+
+    let douban_subjects = store
+        .list_provider_subjects_for_item(douban_item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let bangumi_subjects = store
+        .list_provider_subjects_for_item(bangumi_item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let douban_mappings = store
+        .list_provider_mappings_for_item(douban_item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let bangumi_mappings = store
+        .list_provider_mappings_for_item(bangumi_item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(douban_subjects[0].provider, ExternalProvider::Douban);
+    assert_eq!(douban_subjects[0].subject_kind, ProviderSubjectKind::Movie);
+    assert_eq!(douban_subjects[0].subject_key, "1292052");
+    assert_eq!(douban_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(bangumi_subjects[0].provider, ExternalProvider::Bangumi);
+    assert_eq!(
+        bangumi_subjects[0].subject_kind,
+        ProviderSubjectKind::Series
+    );
+    assert_eq!(bangumi_subjects[0].subject_key, "8");
+    assert_eq!(bangumi_mappings[0].status, ProviderMappingStatus::Accepted);
+}
+
 #[test]
 fn merge_preserves_locked_fields() {
     let item_id = MediaItemId::new();
@@ -177,6 +632,14 @@ async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
         .await
         .unwrap()
         .unwrap();
+    let provider_mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let provider_subjects = store
+        .list_provider_subjects_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
     let persisted_attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
     let genres = store.list_genres(PageRequest::first_page()).await.unwrap();
     let hits = store
@@ -226,6 +689,17 @@ async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
         vec!["Action".to_owned(), "Science Fiction".to_owned()]
     );
     assert_eq!(raw.body_json, r#"{"id":603,"title":"The Matrix"}"#);
+    assert_eq!(provider_mappings.len(), 1);
+    assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(
+        provider_mappings[0].source,
+        MetadataSource::Provider(ExternalProvider::Tmdb)
+    );
+    assert_eq!(
+        provider_subjects[0].subject_kind,
+        ProviderSubjectKind::Movie
+    );
+    assert_eq!(provider_subjects[0].subject_key, "603");
     assert!(genres.iter().any(|genre| genre.name == "Science Fiction"));
     assert_eq!(hits[0].item_id, item.id);
     assert_eq!(search_count.load(Ordering::SeqCst), 1);
@@ -943,6 +1417,79 @@ async fn tmdb_provider_uses_runtime_and_maps_http_response() {
     );
 }
 
+#[tokio::test]
+async fn tmdb_provider_supports_series_season_and_episode_fetches() {
+    let server = MockMetadataServer::start().await;
+    let provider = TmdbMetadataProvider::new(TmdbProviderConfig {
+        read_access_token: fixtures::TMDB_TOKEN.into(),
+        api_base_url: server.url("/tmdb"),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            user_agent: "taru-tmdb-test".to_owned(),
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..TmdbProviderConfig::new(fixtures::TMDB_TOKEN.to_owned())
+    })
+    .unwrap();
+
+    let candidates = provider
+        .search(MetadataLookup {
+            kind: Some(MediaKind::Series),
+            title: "Firefly".to_owned(),
+            year: Some(2002),
+            language: Some("en-US".to_owned()),
+            external_ids: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let series = provider
+        .fetch(MetadataFetchRequest {
+            kind: MediaKind::Series,
+            provider_key: candidates[0].provider_key.clone(),
+            language: Some("en-US".to_owned()),
+        })
+        .await
+        .unwrap();
+    let season = provider
+        .fetch(MetadataFetchRequest {
+            kind: MediaKind::Season,
+            provider_key: "1437/1".to_owned(),
+            language: Some("en-US".to_owned()),
+        })
+        .await
+        .unwrap();
+    let episode = provider
+        .fetch(MetadataFetchRequest {
+            kind: MediaKind::Episode,
+            provider_key: "1437/1/2".to_owned(),
+            language: Some("en-US".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(candidates[0].provider_key, "1437");
+    assert_eq!(candidates[0].metadata.title, "Firefly");
+    assert_eq!(series.provider_key, "1437");
+    assert_eq!(series.metadata.title, "Firefly");
+    assert_eq!(season.provider_key, "1437/1");
+    assert_eq!(season.metadata.title, "Season 1");
+    assert_eq!(episode.provider_key, "1437/1/2");
+    assert_eq!(episode.metadata.title, "The Train Job");
+    assert_eq!(episode.metadata.release_date, Some("2002-09-20".to_owned()));
+    assert!(
+        server
+            .uris()
+            .iter()
+            .any(|uri| uri.contains("/tmdb/search/tv"))
+    );
+    assert!(
+        server
+            .uris()
+            .iter()
+            .any(|uri| uri.contains("/tmdb/tv/1437/season/1/episode/2"))
+    );
+}
+
 #[test]
 fn provider_configs_redact_resolved_secrets_in_debug_output() {
     let tmdb = TmdbProviderConfig::new(fixtures::TMDB_TOKEN);
@@ -1065,15 +1612,34 @@ async fn seed_movie(
     release_date: Option<String>,
     external_ids: Vec<ExternalId>,
 ) -> MediaItem {
+    seed_media_item(
+        store,
+        LibraryPreset::Movies,
+        MediaKind::Movie,
+        title,
+        release_date,
+        external_ids,
+    )
+    .await
+}
+
+async fn seed_media_item(
+    store: &SqliteStore,
+    preset: LibraryPreset,
+    kind: MediaKind,
+    title: &str,
+    release_date: Option<String>,
+    external_ids: Vec<ExternalId>,
+) -> MediaItem {
     let library = Library {
         id: LibraryId::new(),
-        name: "Movies".to_owned(),
-        roots: vec!["local:///Movies".to_owned()],
-        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        name: format!("{preset:?}"),
+        roots: vec![format!("local:///{preset:?}")],
+        options: LibraryOptions::from_preset(preset),
     };
     let item = MediaItem {
         id: MediaItemId::new(),
-        kind: MediaKind::Movie,
+        kind,
         parent_id: None,
         metadata: CanonicalMetadata {
             title: title.to_owned(),
@@ -1085,6 +1651,14 @@ async fn seed_movie(
 
     store.upsert_library(&library).await.unwrap();
     store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: item.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
     item
 }
 
@@ -1221,7 +1795,17 @@ impl MockMetadataServer {
             .route("/bad-request", get(mock_bad_request))
             .route("/flaky", get(mock_flaky))
             .route("/tmdb/search/movie", get(mock_tmdb_search_movie))
+            .route("/tmdb/search/tv", get(mock_tmdb_search_tv))
             .route("/tmdb/movie/{id}", get(mock_tmdb_movie_details))
+            .route("/tmdb/tv/{id}", get(mock_tmdb_tv_details))
+            .route(
+                "/tmdb/tv/{id}/season/{season}",
+                get(mock_tmdb_season_details),
+            )
+            .route(
+                "/tmdb/tv/{id}/season/{season}/episode/{episode}",
+                get(mock_tmdb_episode_details),
+            )
             .route("/v0/search/subjects", post(mock_bangumi_search))
             .route("/v0/subjects/{id}", get(mock_bangumi_subject))
             .route("/movie/search", get(mock_douban_search))
@@ -1390,6 +1974,25 @@ async fn mock_tmdb_search_movie(
     }))
 }
 
+async fn mock_tmdb_search_tv(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "results": [{
+            "id": 1437,
+            "name": "Firefly",
+            "original_name": "Firefly",
+            "overview": "A crew aboard a small transport ship.",
+            "first_air_date": "2002-09-20",
+            "poster_path": "/firefly.jpg",
+            "popularity": 42.0
+        }]
+    }))
+}
+
 async fn mock_tmdb_movie_details(
     State(state): State<MockMetadataState>,
     headers: AxumHeaderMap,
@@ -1410,6 +2013,67 @@ async fn mock_tmdb_movie_details(
         "images": {"posters": [], "backdrops": []},
         "release_dates": {"results": []},
         "external_ids": {"imdb_id": "tt0133093"}
+    }))
+}
+
+async fn mock_tmdb_tv_details(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "id": 1437,
+        "name": "Firefly",
+        "original_name": "Firefly",
+        "overview": "A crew aboard a small transport ship.",
+        "first_air_date": "2002-09-20",
+        "episode_run_time": [45],
+        "tagline": "You can't take the sky from me.",
+        "genres": [{"name": "Sci-Fi & Fantasy"}],
+        "poster_path": "/firefly.jpg",
+        "backdrop_path": "/firefly-backdrop.jpg",
+        "credits": {"cast": [], "crew": []},
+        "images": {"posters": [], "backdrops": []},
+        "external_ids": {"imdb_id": "tt0303461"}
+    }))
+}
+
+async fn mock_tmdb_season_details(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "id": 3624,
+        "name": "Season 1",
+        "overview": "The first season.",
+        "air_date": "2002-09-20",
+        "season_number": 1,
+        "poster_path": "/firefly-s1.jpg",
+        "credits": {"cast": [], "crew": []},
+        "images": {"posters": []}
+    }))
+}
+
+async fn mock_tmdb_episode_details(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "id": 12345,
+        "name": "The Train Job",
+        "overview": "The crew takes a train heist job.",
+        "air_date": "2002-09-20",
+        "season_number": 1,
+        "episode_number": 2,
+        "runtime": 45,
+        "still_path": "/train-job.jpg",
+        "credits": {"cast": [], "crew": []},
+        "images": {"backdrops": []}
     }))
 }
 

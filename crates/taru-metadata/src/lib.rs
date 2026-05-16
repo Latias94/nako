@@ -1,3 +1,4 @@
+mod confirmation;
 mod mapping;
 mod merge;
 mod providers;
@@ -6,6 +7,10 @@ mod runtime;
 mod strategy;
 mod types;
 
+pub use confirmation::{
+    HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
+    HierarchyConfirmationSummary, HierarchyProviderSubject,
+};
 pub use merge::MetadataMergePolicy;
 pub use providers::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,

@@ -1,16 +1,19 @@
 use serde::{Deserialize, Serialize};
 use taru_catalog::hydrate_item_catalog;
 use taru_core::{
-    CatalogRepository, ExternalProvider, JobId, MediaItem, MediaItemId, MediaRepository,
-    MetadataMatchKind, MetadataProfile, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
-    MetadataProviderErrorClass, MetadataRefreshMode, MetadataRepository, MetadataSource,
-    NewMetadataProviderAttempt, ProviderRawResponse, Result, TaruError,
+    CatalogRepository, ExternalProvider, JobId, LibraryItemRepository, LibraryItemState, MediaItem,
+    MediaItemId, MediaKind, MediaRepository, MetadataMatchKind, MetadataProfile,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
+    MetadataRefreshMode, MetadataRepository, MetadataSource, NewMetadataProviderAttempt,
+    PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, TaruError,
 };
 use taru_search::SearchIndex;
 
 use crate::{
-    MetadataFetchRequest, MetadataLookup, MetadataMergePolicy, MetadataProvider,
-    MetadataProviderRegistry,
+    MetadataFetchRequest, MetadataFetchResult, MetadataLookup, MetadataMergePolicy,
+    MetadataProvider, MetadataProviderRegistry,
     providers::{now_utc_string, release_year},
     registry::RegisteredMetadataProvider,
 };
@@ -81,7 +84,12 @@ impl<R> MetadataStrategyExecutor<R> {
 
 impl<R> MetadataStrategyExecutor<R>
 where
-    R: CatalogRepository + MediaRepository + MetadataRepository + SearchIndex,
+    R: CatalogRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + MetadataRepository
+        + ProviderMappingRepository
+        + SearchIndex,
 {
     pub async fn refresh_item(
         &self,
@@ -235,7 +243,12 @@ impl<P, R> MetadataRefreshService<P, R> {
 impl<P, R> MetadataRefreshService<P, R>
 where
     P: MetadataProvider,
-    R: CatalogRepository + MediaRepository + MetadataRepository + SearchIndex,
+    R: CatalogRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + MetadataRepository
+        + ProviderMappingRepository
+        + SearchIndex,
 {
     pub async fn refresh_item(
         &self,
@@ -471,7 +484,7 @@ async fn refresh_existing_with_provider<P, R>(
 ) -> std::result::Result<MetadataProviderRefreshSuccess, MetadataProviderRefreshError>
 where
     P: MetadataProvider + ?Sized,
-    R: MediaRepository + MetadataRepository,
+    R: LibraryItemRepository + MediaRepository + MetadataRepository + ProviderMappingRepository,
 {
     let (provider_key, matched_by) = resolve_provider_key(provider, request, existing).await?;
     let fetched = provider
@@ -512,9 +525,15 @@ where
                 provider: fetched.provider.clone(),
                 provider_key: fetched.provider_key.clone(),
                 fetched_at: now_utc_string().map_err(MetadataProviderRefreshError::Fatal)?,
-                body_json: fetched.raw_json,
+                body_json: fetched.raw_json.clone(),
             },
         )
+        .await
+        .map_err(MetadataProviderRefreshError::Fatal)?;
+    accept_provider_mapping(repository, &updated_item, &fetched)
+        .await
+        .map_err(MetadataProviderRefreshError::Fatal)?;
+    confirm_item_source_libraries(repository, updated_item.id)
         .await
         .map_err(MetadataProviderRefreshError::Fatal)?;
 
@@ -526,6 +545,114 @@ where
         refresh_mode: request.profile.refresh_mode,
         updated,
     })
+}
+
+async fn accept_provider_mapping<R>(
+    repository: &R,
+    item: &MediaItem,
+    fetched: &MetadataFetchResult,
+) -> Result<()>
+where
+    R: ProviderMappingRepository,
+{
+    let subject_kind = provider_subject_kind_for_item(item.kind);
+    let subject = match repository
+        .find_provider_subject(&fetched.provider, &subject_kind, &fetched.provider_key)
+        .await?
+    {
+        Some(existing) => ProviderSubject {
+            title: Some(fetched.metadata.title.clone()),
+            release_year: release_year(fetched.metadata.release_date.as_deref()).map(i32::from),
+            ..existing
+        },
+        None => ProviderSubject {
+            id: ProviderSubjectId::new(),
+            provider: fetched.provider.clone(),
+            subject_kind,
+            subject_key: fetched.provider_key.clone(),
+            title: Some(fetched.metadata.title.clone()),
+            release_year: release_year(fetched.metadata.release_date.as_deref()).map(i32::from),
+            locale: None,
+        },
+    };
+    repository.upsert_provider_subject(&subject).await?;
+
+    let mapping_id = existing_mapping_id(repository, item.id, subject.id).await?;
+    repository
+        .upsert_provider_mapping(&ProviderMapping {
+            id: mapping_id.unwrap_or_else(ProviderMappingId::new),
+            item_id: item.id,
+            subject_id: subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: Some(1_000),
+            source: MetadataSource::Provider(fetched.provider.clone()),
+        })
+        .await
+}
+
+async fn existing_mapping_id<R>(
+    repository: &R,
+    item_id: MediaItemId,
+    subject_id: ProviderSubjectId,
+) -> Result<Option<ProviderMappingId>>
+where
+    R: ProviderMappingRepository,
+{
+    let mut offset = 0;
+
+    loop {
+        let mappings = repository
+            .list_provider_mappings_for_item(
+                item_id,
+                PageRequest {
+                    limit: PageRequest::MAX_LIMIT,
+                    offset,
+                },
+            )
+            .await?;
+        let returned = mappings.len();
+        if let Some(mapping) = mappings
+            .into_iter()
+            .find(|mapping| mapping.subject_id == subject_id)
+        {
+            return Ok(Some(mapping.id));
+        }
+        if returned < PageRequest::MAX_LIMIT as usize {
+            return Ok(None);
+        }
+        offset += u64::from(PageRequest::MAX_LIMIT);
+    }
+}
+
+async fn confirm_item_source_libraries<R>(repository: &R, item_id: MediaItemId) -> Result<()>
+where
+    R: LibraryItemRepository,
+{
+    for state in repository
+        .list_library_item_states_for_item(item_id)
+        .await?
+    {
+        repository
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: state.library_id,
+                item_id,
+                provisional: false,
+            })
+            .await?;
+    }
+
+    Ok(())
+}
+
+fn provider_subject_kind_for_item(kind: MediaKind) -> ProviderSubjectKind {
+    match kind {
+        MediaKind::Movie => ProviderSubjectKind::Movie,
+        MediaKind::Series => ProviderSubjectKind::Series,
+        MediaKind::Season => ProviderSubjectKind::Season,
+        MediaKind::Episode => ProviderSubjectKind::Episode,
+        MediaKind::Collection => ProviderSubjectKind::Collection,
+        MediaKind::Extra | MediaKind::Unknown => ProviderSubjectKind::Subject,
+    }
 }
 
 async fn resolve_provider_key<P>(

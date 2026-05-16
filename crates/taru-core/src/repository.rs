@@ -45,6 +45,11 @@ pub trait LibraryItemRepository: Send + Sync {
         item_id: MediaItemId,
     ) -> Result<Option<LibraryItemState>>;
 
+    async fn list_library_item_states_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<LibraryItemState>>;
+
     async fn find_library_item_by_kind_parent_title(
         &self,
         library_id: LibraryId,

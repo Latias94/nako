@@ -78,12 +78,14 @@ impl MetadataProvider for TmdbMetadataProvider {
     }
 
     async fn search(&self, lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>> {
-        if !lookup
-            .kind
-            .is_none_or(|kind| kind == MediaKind::Movie || kind == MediaKind::Unknown)
-        {
+        if !lookup.kind.is_none_or(|kind| {
+            matches!(
+                kind,
+                MediaKind::Movie | MediaKind::Series | MediaKind::Unknown
+            )
+        }) {
             return Err(TaruError::Unsupported(
-                "TMDB provider search currently supports movie lookups only",
+                "TMDB provider search currently supports movie and series lookups only",
             ));
         }
 
@@ -101,21 +103,32 @@ impl MetadataProvider for TmdbMetadataProvider {
         ];
 
         if let Some(year) = lookup.year {
-            query.push(("primary_release_year".to_owned(), year.to_string()));
+            let year_key = if lookup.kind == Some(MediaKind::Series) {
+                "first_air_date_year"
+            } else {
+                "primary_release_year"
+            };
+            query.push((year_key.to_owned(), year.to_string()));
         }
+
+        let (operation, endpoint) = if lookup.kind == Some(MediaKind::Series) {
+            ("search tv", self.endpoint("search/tv"))
+        } else {
+            ("search movie", self.endpoint("search/movie"))
+        };
 
         let value = self
             .runtime
             .get_json(
                 TMDB_PROVIDER_NAME,
-                "search movie",
-                self.endpoint("search/movie"),
+                operation,
+                endpoint,
                 &query,
                 bearer_headers(&self.config.read_access_token)?,
             )
             .await?;
         let search: TmdbSearchResponse =
-            serde_json::from_value(value).map_err(|err| tmdb_parse_error("search movie", err))?;
+            serde_json::from_value(value).map_err(|err| tmdb_parse_error(operation, err))?;
 
         let candidates = search
             .results
@@ -138,12 +151,6 @@ impl MetadataProvider for TmdbMetadataProvider {
     }
 
     async fn fetch(&self, request: MetadataFetchRequest) -> Result<MetadataFetchResult> {
-        if request.kind != MediaKind::Movie {
-            return Err(TaruError::Unsupported(
-                "TMDB provider fetch currently supports movie metadata only",
-            ));
-        }
-
         let query = [
             (
                 "language".to_owned(),
@@ -154,28 +161,103 @@ impl MetadataProvider for TmdbMetadataProvider {
                 "credits,images,release_dates,external_ids".to_owned(),
             ),
         ];
+        let (operation, endpoint) = match request.kind {
+            MediaKind::Movie => (
+                "movie details",
+                self.endpoint(&format!("movie/{}", request.provider_key)),
+            ),
+            MediaKind::Series => (
+                "tv details",
+                self.endpoint(&format!("tv/{}", request.provider_key)),
+            ),
+            MediaKind::Season => {
+                let (series_id, season_number) = split_tmdb_season_key(&request.provider_key)?;
+                (
+                    "tv season details",
+                    self.endpoint(&format!("tv/{series_id}/season/{season_number}")),
+                )
+            }
+            MediaKind::Episode => {
+                let (series_id, season_number, episode_number) =
+                    split_tmdb_episode_key(&request.provider_key)?;
+                (
+                    "tv episode details",
+                    self.endpoint(&format!(
+                        "tv/{series_id}/season/{season_number}/episode/{episode_number}"
+                    )),
+                )
+            }
+            _ => {
+                return Err(TaruError::Unsupported(
+                    "TMDB provider fetch supports movie, series, season, and episode metadata only",
+                ));
+            }
+        };
         let value = self
             .runtime
             .get_json(
                 TMDB_PROVIDER_NAME,
-                "movie details",
-                self.endpoint(&format!("movie/{}", request.provider_key)),
+                operation,
+                endpoint,
                 &query,
                 bearer_headers(&self.config.read_access_token)?,
             )
             .await?;
         let raw_json = serde_json::to_string(&value)
-            .map_err(|err| tmdb_parse_error("serialize movie details", err))?;
-        let details: TmdbMovieDetails =
-            serde_json::from_value(value).map_err(|err| tmdb_parse_error("movie details", err))?;
+            .map_err(|err| tmdb_parse_error(&format!("serialize {operation}"), err))?;
+
+        let (provider_key, metadata) = match request.kind {
+            MediaKind::Movie => {
+                let details: TmdbMovieDetails = serde_json::from_value(value)
+                    .map_err(|err| tmdb_parse_error(operation, err))?;
+                (
+                    details.id.to_string(),
+                    crate::mapping::tmdb_movie_details_to_metadata(
+                        details,
+                        &self.config.image_base_url,
+                    ),
+                )
+            }
+            MediaKind::Series => {
+                let details: TmdbSeriesDetails = serde_json::from_value(value)
+                    .map_err(|err| tmdb_parse_error(operation, err))?;
+                (
+                    details.id.to_string(),
+                    crate::mapping::tmdb_series_details_to_metadata(
+                        details,
+                        &self.config.image_base_url,
+                    ),
+                )
+            }
+            MediaKind::Season => {
+                let details: TmdbSeasonDetails = serde_json::from_value(value)
+                    .map_err(|err| tmdb_parse_error(operation, err))?;
+                (
+                    request.provider_key,
+                    crate::mapping::tmdb_season_details_to_metadata(
+                        details,
+                        &self.config.image_base_url,
+                    ),
+                )
+            }
+            MediaKind::Episode => {
+                let details: TmdbEpisodeDetails = serde_json::from_value(value)
+                    .map_err(|err| tmdb_parse_error(operation, err))?;
+                (
+                    request.provider_key,
+                    crate::mapping::tmdb_episode_details_to_metadata(
+                        details,
+                        &self.config.image_base_url,
+                    ),
+                )
+            }
+            _ => unreachable!("request kind was validated above"),
+        };
 
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Tmdb,
-            provider_key: details.id.to_string(),
-            metadata: crate::mapping::tmdb_movie_details_to_metadata(
-                details,
-                &self.config.image_base_url,
-            ),
+            provider_key,
+            metadata,
             raw_json,
         })
     }
@@ -193,11 +275,17 @@ pub(crate) struct TmdbMovieSearchResult {
     #[serde(default)]
     pub(crate) title: String,
     #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
     pub(crate) original_title: Option<String>,
+    #[serde(default)]
+    pub(crate) original_name: Option<String>,
     #[serde(default)]
     pub(crate) overview: Option<String>,
     #[serde(default)]
     pub(crate) release_date: Option<String>,
+    #[serde(default)]
+    pub(crate) first_air_date: Option<String>,
     #[serde(default)]
     pub(crate) poster_path: Option<String>,
     #[serde(default)]
@@ -338,12 +426,90 @@ pub(crate) struct TmdbExternalIds {
     pub(crate) imdb_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct TmdbSeriesDetails {
+    pub(crate) id: u64,
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) original_name: Option<String>,
+    #[serde(default)]
+    pub(crate) overview: Option<String>,
+    #[serde(default)]
+    pub(crate) first_air_date: Option<String>,
+    #[serde(default)]
+    pub(crate) episode_run_time: Vec<u32>,
+    #[serde(default)]
+    pub(crate) tagline: Option<String>,
+    #[serde(default)]
+    pub(crate) genres: Vec<TmdbGenre>,
+    #[serde(default)]
+    pub(crate) production_companies: Vec<TmdbProductionCompany>,
+    #[serde(default)]
+    pub(crate) poster_path: Option<String>,
+    #[serde(default)]
+    pub(crate) backdrop_path: Option<String>,
+    #[serde(default)]
+    pub(crate) credits: Option<TmdbCredits>,
+    #[serde(default)]
+    pub(crate) images: Option<TmdbImages>,
+    #[serde(default)]
+    pub(crate) external_ids: Option<TmdbExternalIds>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TmdbSeasonDetails {
+    pub(crate) id: u64,
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) overview: Option<String>,
+    #[serde(default)]
+    pub(crate) air_date: Option<String>,
+    #[serde(default)]
+    pub(crate) season_number: Option<u32>,
+    #[serde(default)]
+    pub(crate) poster_path: Option<String>,
+    #[serde(default)]
+    pub(crate) credits: Option<TmdbCredits>,
+    #[serde(default)]
+    pub(crate) images: Option<TmdbImages>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TmdbEpisodeDetails {
+    pub(crate) id: u64,
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) overview: Option<String>,
+    #[serde(default)]
+    pub(crate) air_date: Option<String>,
+    #[serde(default)]
+    pub(crate) episode_number: Option<u32>,
+    #[serde(default)]
+    pub(crate) season_number: Option<u32>,
+    #[serde(default)]
+    pub(crate) runtime: Option<u32>,
+    #[serde(default)]
+    pub(crate) still_path: Option<String>,
+    #[serde(default)]
+    pub(crate) credits: Option<TmdbCredits>,
+    #[serde(default)]
+    pub(crate) images: Option<TmdbImages>,
+}
+
 fn tmdb_search_score(lookup: &MetadataLookup, result: &TmdbMovieSearchResult) -> f32 {
     let mut score = 0.50;
+    let title = result_title(result);
 
-    if result.title.eq_ignore_ascii_case(&lookup.title)
+    if title.eq_ignore_ascii_case(&lookup.title)
         || result
             .original_title
+            .as_ref()
+            .is_some_and(|title| title.eq_ignore_ascii_case(&lookup.title))
+        || result
+            .original_name
             .as_ref()
             .is_some_and(|title| title.eq_ignore_ascii_case(&lookup.title))
     {
@@ -354,6 +520,7 @@ fn tmdb_search_score(lookup: &MetadataLookup, result: &TmdbMovieSearchResult) ->
         result
             .release_date
             .as_deref()
+            .or(result.first_air_date.as_deref())
             .and_then(|value| release_year(Some(value)))
             .is_some_and(|release_year| release_year == year)
     }) {
@@ -361,4 +528,49 @@ fn tmdb_search_score(lookup: &MetadataLookup, result: &TmdbMovieSearchResult) ->
     }
 
     score + (result.popularity.clamp(0.0, 100.0) / 2_000.0)
+}
+
+pub(crate) fn result_title(result: &TmdbMovieSearchResult) -> String {
+    if result.title.trim().is_empty() {
+        result.name.clone()
+    } else {
+        result.title.clone()
+    }
+}
+
+pub(crate) fn result_original_title(result: &TmdbMovieSearchResult) -> Option<String> {
+    result
+        .original_title
+        .clone()
+        .or_else(|| result.original_name.clone())
+}
+
+pub(crate) fn result_release_date(result: &TmdbMovieSearchResult) -> Option<String> {
+    result
+        .release_date
+        .clone()
+        .or_else(|| result.first_air_date.clone())
+}
+
+fn split_tmdb_season_key(value: &str) -> Result<(&str, &str)> {
+    let parts = split_slash_key(value, 2)?;
+    Ok((parts[0], parts[1]))
+}
+
+fn split_tmdb_episode_key(value: &str) -> Result<(&str, &str, &str)> {
+    let parts = split_slash_key(value, 3)?;
+    Ok((parts[0], parts[1], parts[2]))
+}
+
+fn split_slash_key(value: &str, expected_parts: usize) -> Result<Vec<&str>> {
+    let parts = value.split('/').collect::<Vec<_>>();
+    if parts.len() != expected_parts || parts.iter().any(|part| part.trim().is_empty()) {
+        return Err(TaruError::InvalidInput {
+            message: format!(
+                "TMDB provider key must contain {expected_parts} slash-separated parts"
+            ),
+        });
+    }
+
+    Ok(parts)
 }

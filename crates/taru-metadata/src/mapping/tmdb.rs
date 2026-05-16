@@ -4,8 +4,9 @@ use taru_core::{
 };
 
 use crate::providers::{
-    TmdbCredits, TmdbImage, TmdbMovieDetails, TmdbMovieSearchResult, TmdbReleaseDates,
-    push_provider_image_uri,
+    TmdbCredits, TmdbEpisodeDetails, TmdbImage, TmdbMovieDetails, TmdbMovieSearchResult,
+    TmdbReleaseDates, TmdbSeasonDetails, TmdbSeriesDetails, push_provider_image_uri,
+    result_original_title, result_release_date, result_title,
 };
 
 pub(crate) fn tmdb_search_result_to_metadata(
@@ -33,12 +34,15 @@ pub(crate) fn tmdb_search_result_to_metadata(
         None,
         None,
     );
+    let title = result_title(&result);
+    let original_title = result_original_title(&result);
+    let release_date = result_release_date(&result);
 
     CanonicalMetadata {
-        title: result.title,
-        original_title: result.original_title,
+        title,
+        original_title,
         overview: result.overview,
-        release_date: result.release_date,
+        release_date,
         images,
         external_ids: vec![ExternalId {
             provider: ExternalProvider::Tmdb,
@@ -170,6 +174,182 @@ pub(crate) fn tmdb_movie_details_to_metadata(
             })
             .collect(),
         external_ids,
+        ..CanonicalMetadata::default()
+    }
+}
+
+pub(crate) fn tmdb_series_details_to_metadata(
+    details: TmdbSeriesDetails,
+    image_base_url: &str,
+) -> CanonicalMetadata {
+    let mut external_ids = vec![ExternalId {
+        provider: ExternalProvider::Tmdb,
+        value: details.id.to_string(),
+    }];
+    if let Some(imdb_id) = details
+        .external_ids
+        .as_ref()
+        .and_then(|ids| ids.imdb_id.as_ref())
+        .filter(|value| !value.trim().is_empty())
+    {
+        external_ids.push(ExternalId {
+            provider: ExternalProvider::Imdb,
+            value: imdb_id.clone(),
+        });
+    }
+
+    let mut images = Vec::new();
+    push_provider_image_uri(
+        &mut images,
+        ImageKind::Poster,
+        details.poster_path.as_deref(),
+        image_base_url,
+        ExternalProvider::Tmdb,
+        None,
+        None,
+        None,
+    );
+    push_provider_image_uri(
+        &mut images,
+        ImageKind::Backdrop,
+        details.backdrop_path.as_deref(),
+        image_base_url,
+        ExternalProvider::Tmdb,
+        None,
+        None,
+        None,
+    );
+    if let Some(tmdb_images) = details.images.as_ref() {
+        for image in &tmdb_images.posters {
+            push_tmdb_image(&mut images, ImageKind::Poster, image, image_base_url);
+        }
+        for image in &tmdb_images.backdrops {
+            push_tmdb_image(&mut images, ImageKind::Backdrop, image, image_base_url);
+        }
+        for image in &tmdb_images.logos {
+            push_tmdb_image(&mut images, ImageKind::Logo, image, image_base_url);
+        }
+    }
+
+    CanonicalMetadata {
+        title: details.name,
+        original_title: details.original_name,
+        overview: details.overview,
+        release_date: details.first_air_date,
+        runtime_minutes: details.episode_run_time.into_iter().next(),
+        tagline: details.tagline,
+        genres: details
+            .genres
+            .into_iter()
+            .map(|genre| genre.name)
+            .filter(|name| !name.trim().is_empty())
+            .collect(),
+        images,
+        credits: credits_from_tmdb(details.credits.unwrap_or_default()),
+        studios: details
+            .production_companies
+            .into_iter()
+            .filter(|company| !company.name.trim().is_empty())
+            .map(|company| StudioRef {
+                name: company.name,
+                external_ids: vec![ExternalId {
+                    provider: ExternalProvider::Tmdb,
+                    value: company.id.to_string(),
+                }],
+            })
+            .collect(),
+        external_ids,
+        ..CanonicalMetadata::default()
+    }
+}
+
+pub(crate) fn tmdb_season_details_to_metadata(
+    details: TmdbSeasonDetails,
+    image_base_url: &str,
+) -> CanonicalMetadata {
+    let mut images = Vec::new();
+    push_provider_image_uri(
+        &mut images,
+        ImageKind::Poster,
+        details.poster_path.as_deref(),
+        image_base_url,
+        ExternalProvider::Tmdb,
+        None,
+        None,
+        None,
+    );
+    if let Some(tmdb_images) = details.images.as_ref() {
+        for image in &tmdb_images.posters {
+            push_tmdb_image(&mut images, ImageKind::Poster, image, image_base_url);
+        }
+    }
+
+    CanonicalMetadata {
+        title: if details.name.trim().is_empty() {
+            details
+                .season_number
+                .map(|season| format!("Season {season}"))
+                .unwrap_or_else(|| "Season".to_owned())
+        } else {
+            details.name
+        },
+        overview: details.overview,
+        release_date: details.air_date,
+        images,
+        credits: credits_from_tmdb(details.credits.unwrap_or_default()),
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Tmdb,
+            value: details.id.to_string(),
+        }],
+        ..CanonicalMetadata::default()
+    }
+}
+
+pub(crate) fn tmdb_episode_details_to_metadata(
+    details: TmdbEpisodeDetails,
+    image_base_url: &str,
+) -> CanonicalMetadata {
+    let mut images = Vec::new();
+    push_provider_image_uri(
+        &mut images,
+        ImageKind::Thumbnail,
+        details.still_path.as_deref(),
+        image_base_url,
+        ExternalProvider::Tmdb,
+        None,
+        None,
+        None,
+    );
+    if let Some(tmdb_images) = details.images.as_ref() {
+        for image in &tmdb_images.backdrops {
+            push_tmdb_image(&mut images, ImageKind::Backdrop, image, image_base_url);
+        }
+    }
+
+    let mut tags = Vec::new();
+    if let Some(season) = details.season_number {
+        tags.push(format!("tmdb:season:{season}"));
+    }
+
+    CanonicalMetadata {
+        title: if details.name.trim().is_empty() {
+            match details.episode_number {
+                Some(episode) => format!("Episode {episode}"),
+                None => "Episode".to_owned(),
+            }
+        } else {
+            details.name
+        },
+        overview: details.overview,
+        release_date: details.air_date,
+        runtime_minutes: details.runtime,
+        tags,
+        images,
+        credits: credits_from_tmdb(details.credits.unwrap_or_default()),
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Tmdb,
+            value: details.id.to_string(),
+        }],
         ..CanonicalMetadata::default()
     }
 }

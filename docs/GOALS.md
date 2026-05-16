@@ -796,63 +796,65 @@ Close-out validation:
 
 ## Latest Completed Goal
 
-### M27.2: Local Inference and Provisional Hierarchy Slice
+### M27.3: Hierarchy Confirmation and Provider/NFO Expansion Slice
 
 Status: completed.
 
 Objective:
 
-- Connect M27.1's local inference persistence to the scan path so Taru can keep
-  source-owned parsing evidence and create a provider-neutral provisional video
-  hierarchy before TMDB, Douban, Bangumi, or NFO confirmation.
+- Build on M27.2's **Local Inference Evidence** and **Provisional Hierarchy**
+  so NFO and built-in providers can confirm series, season, and episode items
+  in place instead of replacing Taru item identity.
 
 Deliverables:
 
-- extend `taru-naming` parsed-name output with confidence, evidence source,
-  evidence value, parser version, inferred kind, title, year, season, and
-  episode fields;
-- make weak file-name evidence produce an **Unknown Media Item** instead of a
-  confident movie guess;
-- persist **Local Inference Evidence** from `taru-library` scan indexing;
-- keep **Local Inference Evidence** as a current snapshot per source, evidence
-  source, and parser version instead of an append-only scan log;
-- preserve confirmed **Canonical Metadata** on rescan while still updating
-  source-owned inference evidence;
-- create provisional series, season, and episode items during scanning;
-- persist library-scoped **Library Item State** membership for source-less
-  provisional series and season items.
+- add a shared **Hierarchy Confirmation** service boundary for provider/NFO
+  confirmation of provisional hierarchy;
+- confirm provisional series, season, and episode items in place without
+  replacing Taru `MediaItem` identity;
+- write accepted **Provider Mapping** records when metadata provider refresh
+  succeeds;
+- connect NFO episode import to the shared confirmation service while
+  preserving local/NFO authority;
+- add TMDB series, season, and episode provider fetch support;
+- keep Douban and Bangumi MVPs inside the shared **Provider Subject** and
+  **Provider Mapping** boundary.
 
 Non-goals:
 
-- no TMDB, Douban, or Bangumi provider breadth;
-- no NFO confirmation;
 - no Source Variant UI;
-- no browse API.
+- no browse API;
+- no artwork candidate, selected artwork, or managed artwork expansion;
+- no rating, user state, or browse facet work;
+- no automatic duplicate merge;
+- no general **Hierarchy Repair** flow.
 
 Evidence:
 
-- [Phase 27.2](workstreams/metadata-catalog/PHASE27_2_LOCAL_INFERENCE_PROVISIONAL_HIERARCHY.md)
-  records the scan-path local inference implementation and M27.3 boundaries.
-- `crates/taru-db/migrations/0019_library_item_states.sql` adds
-  library-scoped source-less item membership.
-- `crates/taru-db/migrations/0020_local_inference_evidence_snapshot_key.sql`
-  adds the current-snapshot key for source-owned inference evidence.
-- `taru-library` keeps confirmed items' canonical fields intact during rescan.
+- [Phase 27.3](workstreams/metadata-catalog/PHASE27_3_HIERARCHY_CONFIRMATION_PROVIDER_NFO.md)
+  records the hierarchy confirmation, provider mapping, TMDB series/season/
+  episode, and NFO episode confirmation slice.
+- `taru-metadata` owns the shared **Hierarchy Confirmation** service boundary.
+- Metadata refresh writes accepted **Provider Subject** and **Provider
+  Mapping** records for successful TMDB, Douban, and Bangumi fetches.
+- `taru-nfo` confirms provisional episode hierarchy in place through the
+  shared service.
 - [metadata-catalog TODO](workstreams/metadata-catalog/TODO.md) marks the
-  M27.2 checklist complete.
+  provider breadth checklist complete.
 
 Close-out validation:
 
-- `cargo nextest run -p taru-naming`: 6 tests passed.
-- `cargo nextest run -p taru-library`: 15 tests passed.
-- `cargo nextest run -p taru-db`: 32 tests passed.
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
+- `cargo nextest run -p taru-db --no-fail-fast`: 32 tests passed.
+- `cargo nextest run -p taru-library --no-fail-fast`: 15 tests passed.
+- `cargo nextest run -p taru-metadata --no-fail-fast`: 26 tests passed.
+- `cargo nextest run -p taru-nfo --no-fail-fast`: 8 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
 
 Next recommended implementation goal:
 
-- M27.3 provider and NFO expansion slice.
+- M28 NFO Round Trip and Library File Write hardening.
 
 ## Latest Completed Goal
 

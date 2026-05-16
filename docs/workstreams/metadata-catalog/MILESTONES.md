@@ -157,24 +157,61 @@ Close-out evidence:
 
 ## M27.3: Provider and NFO Expansion Slice
 
-Status: planned after M27.2.
+Status: completed.
 
 Outcome: built-in providers and NFO import/export can populate the expanded
 catalog model without bypassing local authority rules.
 
 Deliverables:
 
+- Add a shared **Hierarchy Confirmation** service boundary for provider/NFO
+  confirmation of provisional hierarchy.
+- Confirm provisional series, season, and episode items in place by updating
+  existing `MediaItem` rows and clearing `LibraryItemState.provisional`.
+- Write accepted **Provider Mapping** records when provider metadata refresh
+  succeeds.
 - Add TMDB series, season, and episode mapping.
 - Add Douban provider MVP when the domain model can store its identifiers and
   localized metadata safely.
 - Add Bangumi provider MVP when anime profiles can map to ordinary movie or
   episode item kinds instead of a separate hard media kind.
 - Preserve local edits and NFO authority through **Metadata Source Priority**.
-- Add NFO round-trip tests for preserved unknown content.
+- Keep NFO unknown-content round-trip preservation as a separate **NFO Round
+  Trip** hardening follow-up.
+
+Non-goals:
+
+- No Source Variant UI.
+- No browse API.
+- No artwork candidate, selected artwork, or managed artwork expansion.
+- No rating, user state, or browse facet work.
+- No automatic duplicate merge.
+- No general **Hierarchy Repair** flow.
 
 Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
+- focused `cargo nextest run -p taru-db`
+- focused `cargo nextest run -p taru-library`
+- focused `cargo nextest run -p taru-metadata`
+- focused `cargo nextest run -p taru-nfo`
 - focused provider and NFO nextest runs
 - `git diff --check`
+
+Close-out evidence:
+
+- [Phase 27.3](PHASE27_3_HIERARCHY_CONFIRMATION_PROVIDER_NFO.md) records the
+  hierarchy confirmation, provider mapping, TMDB series/season/episode, and
+  NFO episode confirmation slice.
+- `taru-metadata` owns the shared **Hierarchy Confirmation** service boundary.
+- Metadata refresh writes accepted **Provider Subject** and **Provider
+  Mapping** records for successful TMDB, Douban, and Bangumi fetches.
+- `taru-nfo` confirms provisional episode hierarchy in place through the
+  shared service.
+- `cargo nextest run -p taru-db --no-fail-fast` passed with 32 tests.
+- `cargo nextest run -p taru-library --no-fail-fast` passed with 15 tests.
+- `cargo nextest run -p taru-metadata --no-fail-fast` passed with 26 tests.
+- `cargo nextest run -p taru-nfo --no-fail-fast` passed with 8 tests.
+- `cargo fmt --all -- --check`, `cargo check --workspace --tests`, and
+  `git diff --check` passed.

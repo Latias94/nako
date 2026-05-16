@@ -43,6 +43,26 @@ impl LibraryItemRepository for SqliteStore {
         row.map(row_to_library_item_state).transpose()
     }
 
+    async fn list_library_item_states_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<LibraryItemState>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT library_id, item_id, provisional
+            FROM library_item_states
+            WHERE item_id = ?1
+            ORDER BY library_id ASC
+            "#,
+        )
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_library_item_state).collect()
+    }
+
     async fn find_library_item_by_kind_parent_title(
         &self,
         library_id: LibraryId,

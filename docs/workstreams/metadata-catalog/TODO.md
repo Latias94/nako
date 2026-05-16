@@ -85,9 +85,19 @@
 
 ## Provider Breadth
 
-- [ ] Add TMDB series, season, and episode support.
-- [ ] Add Douban provider MVP.
-- [ ] Add Bangumi provider MVP.
+- [x] Add shared **Hierarchy Confirmation** service boundary for provider/NFO
+      confirmation of provisional hierarchy.
+- [x] Confirm provisional series, season, and episode items in place without
+      replacing Taru `MediaItem` identity.
+- [x] Write accepted **Provider Mapping** records when metadata provider
+      refresh succeeds.
+- [x] Connect NFO episode import to the shared confirmation service while
+      preserving local/NFO authority.
+- [x] Add TMDB series, season, and episode provider fetch support.
+- [x] Keep Douban provider MVP inside the shared Provider Subject / Mapping
+      boundary.
+- [x] Keep Bangumi provider MVP inside the shared Provider Subject / Mapping
+      boundary.
 - [ ] Add item-level metadata profile overrides.
 
 ## NFO and Library File Writes

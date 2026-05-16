@@ -309,8 +309,8 @@ the server browse and playback contracts are coherent.
 ### Metadata-Catalog Expansion: M27
 
 Status: completed for M27.0 design baseline, M27.1 schema/repository slice,
-and M27.2 local inference/provisional hierarchy slice. M27.3 provider and NFO
-expansion is planned next.
+M27.2 local inference/provisional hierarchy slice, and M27.3 provider/NFO
+expansion.
 
 M27.0 turned the movie-first metadata/catalog foundation into a video-first
 media-server model using the project language in `CONTEXT.md` and ADR 0021:
@@ -345,10 +345,14 @@ Completed implementation slice:
   snapshot, preserves confirmed canonical metadata during rescan, and creates
   provisional series/season/episode hierarchy without provider, NFO, Source
   Variant UI, or browse API breadth.
+- M27.3 hierarchy confirmation and provider/NFO expansion added a shared
+  confirmation service, in-place provisional hierarchy confirmation, accepted
+  provider mapping writes for TMDB/Douban/Bangumi metadata refreshes, TMDB
+  series/season/episode fetch support, and NFO episode hierarchy confirmation.
 
-Next phase:
+Recommended next goal:
 
-- M27.3 provider and NFO expansion slice.
+- M28 NFO Round Trip and Library File Write hardening.
 
 ## Workstream Split Direction
 

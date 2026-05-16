@@ -14,8 +14,8 @@ workstream instead of drifting back to file-centric or provider-centric names.
 ## Status
 
 M27.0 design baseline completed. M27.1 schema and repository slice completed.
-M27.2 local inference and provisional hierarchy completed. M27.3 provider and
-NFO expansion is planned next.
+M27.2 local inference and provisional hierarchy completed. M27.3 hierarchy
+confirmation and provider/NFO expansion completed.
 
 ## Top-Level Tracking
 
@@ -26,6 +26,7 @@ NFO expansion is planned next.
 - [Phase 27.0 metadata-catalog domain baseline](PHASE27_0_METADATA_CATALOG_DOMAIN_BASELINE.md)
 - [Phase 27.1 catalog schema and repository slice](PHASE27_1_CATALOG_SCHEMA_REPOSITORY_SLICE.md)
 - [Phase 27.2 local inference and provisional hierarchy](PHASE27_2_LOCAL_INFERENCE_PROVISIONAL_HIERARCHY.md)
+- [Phase 27.3 hierarchy confirmation and provider/NFO expansion](PHASE27_3_HIERARCHY_CONFIRMATION_PROVIDER_NFO.md)
 
 ## Goals
 

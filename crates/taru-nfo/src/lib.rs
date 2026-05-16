@@ -2,9 +2,13 @@ use serde::{Deserialize, Serialize};
 use taru_catalog::hydrate_item_catalog;
 use taru_core::{
     CanonicalMetadata, CatalogRepository, Credit, CreditRole, ExternalId, ExternalProvider,
-    ImageKind, ImageRef, JobId, LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind,
-    MediaRepository, MediaSource, MediaSourceId, MetadataField, MetadataFieldLock,
-    MetadataRepository, MetadataSource, PageRequest, Result, TaruError,
+    ImageKind, ImageRef, JobId, LibraryItemRepository, LocalMetadataPolicy, MediaItem, MediaItemId,
+    MediaKind, MediaRepository, MediaSource, MediaSourceId, MetadataField, MetadataFieldLock,
+    MetadataRefreshMode, MetadataRepository, MetadataSource, PageRequest,
+    ProviderMappingRepository, Result, TaruError,
+};
+use taru_metadata::{
+    HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
 };
 use taru_search::SearchIndex;
 use taru_vfs::{StorageBackend, StorageUri};
@@ -15,6 +19,15 @@ type XmlNode<'a, 'input> = roxmltree::Node<'a, 'input>;
 pub struct NfoDocument {
     pub metadata: CanonicalMetadata,
     pub external_ids: Vec<ExternalId>,
+    pub hierarchy: NfoHierarchy,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoHierarchy {
+    pub kind: Option<MediaKind>,
+    pub series_title: Option<String>,
+    pub season_number: Option<u32>,
+    pub episode_number: Option<u32>,
 }
 
 pub trait NfoCodec: Send + Sync {
@@ -104,7 +117,13 @@ impl<B, R, C> NfoService<B, R, C> {
 impl<B, R, C> NfoService<B, R, C>
 where
     B: StorageBackend,
-    R: CatalogRepository + MediaRepository + MetadataRepository + SearchIndex,
+    R: CatalogRepository
+        + Clone
+        + LibraryItemRepository
+        + MediaRepository
+        + MetadataRepository
+        + ProviderMappingRepository
+        + SearchIndex,
     C: NfoCodec,
 {
     pub async fn discover_sidecars(
@@ -280,7 +299,14 @@ where
         };
         let merged = merge_nfo_metadata(&existing.metadata, &document.metadata, policy, &locks);
         let changed = merged != existing.metadata;
-        if !changed && !force {
+        let confirmation_items = match self
+            .nfo_hierarchy_confirmation_items(&existing, &document)
+            .await
+        {
+            Ok(items) => items,
+            Err(err) => return import_failure(&source, err),
+        };
+        if !changed && confirmation_items.is_empty() && !force {
             if let Err(err) =
                 hydrate_item_catalog(&self.repository, existing.id, MetadataSource::Nfo).await
             {
@@ -314,13 +340,96 @@ where
             }
         }
 
-        if let Err(err) =
-            hydrate_item_catalog(&self.repository, updated.id, MetadataSource::Nfo).await
-        {
-            return import_failure(&source, err);
+        if confirmation_items.is_empty() {
+            if let Err(err) =
+                hydrate_item_catalog(&self.repository, updated.id, MetadataSource::Nfo).await
+            {
+                return import_failure(&source, err);
+            }
+        } else {
+            let confirmation = HierarchyConfirmationService::new(self.repository.clone());
+            if let Err(err) = confirmation
+                .confirm_hierarchy(HierarchyConfirmationRequest {
+                    library_id: source.library_id,
+                    source: MetadataSource::Nfo,
+                    refresh_mode: MetadataRefreshMode::FullRefresh,
+                    items: confirmation_items,
+                })
+                .await
+            {
+                return import_failure(&source, err);
+            }
         }
 
         NfoImportOutcome::Imported
+    }
+
+    async fn nfo_hierarchy_confirmation_items(
+        &self,
+        item: &MediaItem,
+        document: &NfoDocument,
+    ) -> Result<Vec<HierarchyConfirmationItem>> {
+        if document.hierarchy.kind != Some(MediaKind::Episode) && item.kind != MediaKind::Episode {
+            return Ok(Vec::new());
+        }
+
+        let mut items = Vec::new();
+        if let Some(season_id) = item.parent_id {
+            let season = self
+                .repository
+                .get_media_item(season_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: season_id.to_string(),
+                })?;
+            if let Some(series_id) = season.parent_id {
+                let series = self
+                    .repository
+                    .get_media_item(series_id)
+                    .await?
+                    .ok_or_else(|| TaruError::NotFound {
+                        entity: "media_item",
+                        id: series_id.to_string(),
+                    })?;
+                let mut series_metadata = series.metadata.clone();
+                if let Some(title) = document.hierarchy.series_title.as_ref() {
+                    series_metadata.title = title.clone();
+                }
+                items.push(HierarchyConfirmationItem {
+                    item_id: series.id,
+                    kind: MediaKind::Series,
+                    parent_id: series.parent_id,
+                    metadata: series_metadata,
+                    provider_subject: None,
+                    confidence_milli: None,
+                });
+            }
+
+            let mut season_metadata = season.metadata.clone();
+            if let Some(season_number) = document.hierarchy.season_number {
+                season_metadata.title = format!("Season {season_number}");
+            }
+            items.push(HierarchyConfirmationItem {
+                item_id: season.id,
+                kind: MediaKind::Season,
+                parent_id: season.parent_id,
+                metadata: season_metadata,
+                provider_subject: None,
+                confidence_milli: None,
+            });
+        }
+
+        items.push(HierarchyConfirmationItem {
+            item_id: item.id,
+            kind: MediaKind::Episode,
+            parent_id: item.parent_id,
+            metadata: document.metadata.clone(),
+            provider_subject: None,
+            confidence_milli: None,
+        });
+
+        Ok(items)
     }
 
     async fn export_source(&self, source: MediaSource, force: bool) -> NfoExportOutcome {
@@ -357,6 +466,7 @@ where
         let xml = match self.codec.render(&NfoDocument {
             metadata: item.metadata,
             external_ids: Vec::new(),
+            hierarchy: NfoHierarchy::default(),
         }) {
             Ok(xml) => xml,
             Err(err) => return export_failure(&source, err),
@@ -378,12 +488,15 @@ impl NfoCodec for MovieNfoCodec {
             message: format!("invalid NFO XML: {err}"),
         })?;
         let root = document.root_element();
+        let hierarchy = hierarchy_from_nfo(root);
         let metadata = CanonicalMetadata {
             title: required_child_text(root, "title")?,
             original_title: optional_child_text(root, "originaltitle"),
             sort_title: optional_child_text(root, "sorttitle"),
             overview: optional_child_text(root, "plot"),
             release_date: optional_child_text(root, "releasedate")
+                .or_else(|| optional_child_text(root, "aired"))
+                .or_else(|| optional_child_text(root, "premiered"))
                 .or_else(|| optional_child_text(root, "year")),
             runtime_minutes: optional_child_text(root, "runtime")
                 .and_then(|value| value.parse().ok()),
@@ -398,6 +511,7 @@ impl NfoCodec for MovieNfoCodec {
         Ok(NfoDocument {
             metadata,
             external_ids: Vec::new(),
+            hierarchy,
         })
     }
 
@@ -729,6 +843,23 @@ fn populated_fields(metadata: &CanonicalMetadata) -> Vec<MetadataField> {
     fields
 }
 
+fn hierarchy_from_nfo(root: XmlNode<'_, '_>) -> NfoHierarchy {
+    let kind = match root.tag_name().name() {
+        "movie" => Some(MediaKind::Movie),
+        "tvshow" => Some(MediaKind::Series),
+        "episodedetails" => Some(MediaKind::Episode),
+        _ => None,
+    };
+
+    NfoHierarchy {
+        kind,
+        series_title: optional_child_text(root, "showtitle")
+            .or_else(|| optional_child_text(root, "series")),
+        season_number: optional_child_text(root, "season").and_then(|value| value.parse().ok()),
+        episode_number: optional_child_text(root, "episode").and_then(|value| value.parse().ok()),
+    }
+}
+
 fn required_child_text(node: XmlNode<'_, '_>, name: &str) -> Result<String> {
     optional_child_text(node, name).ok_or_else(|| TaruError::InvalidInput {
         message: format!("NFO is missing required <{name}> tag"),
@@ -870,8 +1001,8 @@ mod tests {
     use std::fs;
 
     use taru_core::{
-        Library, LibraryId, LibraryOptions, LibraryPreset, MediaRepository, PageRequest,
-        TransactionManager,
+        Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+        MediaRepository, PageRequest, TransactionManager,
         repository::{CatalogRepository, LibraryRepository, MetadataRepository},
     };
     use taru_db::SqliteStore;
@@ -903,6 +1034,7 @@ mod tests {
                 ..CanonicalMetadata::default()
             },
             external_ids: Vec::new(),
+            hierarchy: NfoHierarchy::default(),
         };
         let codec = MovieNfoCodec;
 
@@ -1129,6 +1261,136 @@ mod tests {
         let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
         assert_eq!(loaded.metadata.title, "File Title");
         assert_eq!(loaded.metadata.overview, Some("NFO overview".to_owned()));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_confirms_provisional_episode_hierarchy_in_place() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("TV").join("Firefly")).unwrap();
+        fs::write(
+            temp.path()
+                .join("TV")
+                .join("Firefly")
+                .join("Firefly.S01E02.mkv"),
+            b"media",
+        )
+        .unwrap();
+        fs::write(
+            temp.path()
+                .join("TV")
+                .join("Firefly")
+                .join("Firefly.S01E02.nfo"),
+            r#"<episodedetails>
+  <title>The Train Job</title>
+  <showtitle>Firefly</showtitle>
+  <season>1</season>
+  <episode>2</episode>
+  <aired>2002-09-20</aired>
+  <plot>The crew takes a train heist job.</plot>
+</episodedetails>
+"#,
+        )
+        .unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "TV".to_owned(),
+            roots: vec!["local:///TV".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Tv),
+        };
+        let series = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Series,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Fireflie".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let season = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Season,
+            parent_id: Some(series.id),
+            metadata: CanonicalMetadata {
+                title: "Season 01".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let episode = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Episode,
+            parent_id: Some(season.id),
+            metadata: CanonicalMetadata {
+                title: "Episode 2".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: library.id,
+            item_id: episode.id,
+            locator: "local:///TV/Firefly/Firefly.S01E02.mkv".to_owned(),
+            file_name: "Firefly.S01E02.mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        for item in [&series, &season, &episode] {
+            store.upsert_media_item(item).await.unwrap();
+            store
+                .upsert_library_item_state(&LibraryItemState {
+                    library_id: library.id,
+                    item_id: item.id,
+                    provisional: true,
+                })
+                .await
+                .unwrap();
+        }
+        store.upsert_media_source(&source).await.unwrap();
+
+        let service = NfoService::new(
+            LocalFsBackend::new(temp.path()).unwrap(),
+            store.clone(),
+            MovieNfoCodec,
+        );
+        let summary = service
+            .import_library(NfoImportRequest {
+                job_id: JobId::new(),
+                library_id: library.id,
+                policy: LocalMetadataPolicy::LocalFirst,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let loaded_series = store.get_media_item(series.id).await.unwrap().unwrap();
+        let loaded_season = store.get_media_item(season.id).await.unwrap().unwrap();
+        let loaded_episode = store.get_media_item(episode.id).await.unwrap().unwrap();
+
+        assert_eq!(summary.discovered_nfo, 1);
+        assert_eq!(summary.imported_items, 1);
+        assert_eq!(loaded_series.id, series.id);
+        assert_eq!(loaded_series.metadata.title, "Firefly");
+        assert_eq!(loaded_season.id, season.id);
+        assert_eq!(loaded_season.metadata.title, "Season 1");
+        assert_eq!(loaded_episode.id, episode.id);
+        assert_eq!(loaded_episode.parent_id, Some(season.id));
+        assert_eq!(loaded_episode.metadata.title, "The Train Job");
+        assert_eq!(
+            loaded_episode.metadata.overview,
+            Some("The crew takes a train heist job.".to_owned())
+        );
+        for item_id in [series.id, season.id, episode.id] {
+            assert!(
+                !store
+                    .get_library_item_state(library.id, item_id)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .provisional
+            );
+        }
     }
 
     #[tokio::test]

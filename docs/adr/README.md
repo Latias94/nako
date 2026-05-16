@@ -40,3 +40,4 @@ evidence has been reviewed.
 - [0019: Use a Thin Server Composition Root and Explicit Runtime Supervisors](0019-server-architecture-hardening-boundaries.md)
 - [0020: Use Jellyfin-Like Sidecar Addons with Scoped Taru API Access](0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md)
 - [0021: Use a Video-First Media Server Domain Model](0021-video-first-media-server-domain-model.md)
+- [0022: Keep Public Protocol Crates Permissive While Server Crates Remain AGPL](0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md)
