@@ -6,9 +6,11 @@ attention.
 
 ## Current Workstreams
 
-- [metadata-catalog](metadata-catalog/README.md): proposed M27 media-library
-  domain expansion, covering source relationships, metadata authority, NFO,
-  artwork, and search breadth.
+- [metadata-catalog](metadata-catalog/README.md): M27 media-library domain
+  expansion, covering the completed video-first domain baseline and
+  schema/repository slice for source relationships, provider mappings, local
+  inference evidence, metadata authority, NFO, artwork, browse facets, sort
+  keys, and search breadth.
 - [transcode-runtime](transcode-runtime/README.md): completed M25 playback and
   transcode runtime productization, covering playback service decomposition,
   FFmpeg-backed hardware capability probing, acceleration selection, resource

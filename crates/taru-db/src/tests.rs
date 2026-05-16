@@ -1,7 +1,8 @@
 use taru_core::{
     AutomationJobInput, ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef,
     LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure,
-    TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    ProviderMappingId, ProviderSubjectId, TransactionManager, VfsCacheOperation, VfsCachedListing,
+    VfsCachedObject, VfsCachedObjectKind,
 };
 
 use super::*;
@@ -148,6 +149,113 @@ async fn sqlite_store_round_trips_media_items_and_sources() {
             .await
             .unwrap(),
         vec![source]
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_video_item_hierarchy_and_multiple_sources() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let series = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Example Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let season = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(series.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let episode = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Episode,
+        parent_id: Some(season.id),
+        metadata: CanonicalMetadata {
+            title: "Episode 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let extra = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Extra,
+        parent_id: Some(series.id),
+        metadata: CanonicalMetadata {
+            title: "Behind the Scenes".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let unknown = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Unknown,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Unclassified Clip".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let episode_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: episode.id,
+        locator: "local:///TV/Example Series/S01E01.mkv".to_owned(),
+        file_name: "S01E01.mkv".to_owned(),
+        size_bytes: Some(100),
+        fingerprint: Some("episode-fingerprint".to_owned()),
+    };
+    let alternate_episode_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: episode.id,
+        locator: "local:///TV/Example Series/S01E01.z-remux.mkv".to_owned(),
+        file_name: "S01E01.z-remux.mkv".to_owned(),
+        size_bytes: Some(200),
+        fingerprint: Some("episode-remux-fingerprint".to_owned()),
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&series).await.unwrap();
+    store.upsert_media_item(&season).await.unwrap();
+    store.upsert_media_item(&episode).await.unwrap();
+    store.upsert_media_item(&extra).await.unwrap();
+    store.upsert_media_item(&unknown).await.unwrap();
+    store.upsert_media_source(&episode_source).await.unwrap();
+    store
+        .upsert_media_source(&alternate_episode_source)
+        .await
+        .unwrap();
+
+    assert_eq!(store.get_media_item(series.id).await.unwrap(), Some(series));
+    assert_eq!(store.get_media_item(season.id).await.unwrap(), Some(season));
+    assert_eq!(
+        store.get_media_item(episode.id).await.unwrap(),
+        Some(episode.clone())
+    );
+    assert_eq!(store.get_media_item(extra.id).await.unwrap(), Some(extra));
+    assert_eq!(
+        store.get_media_item(unknown.id).await.unwrap(),
+        Some(unknown)
+    );
+    assert_eq!(
+        store
+            .list_item_sources(episode.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![episode_source, alternate_episode_source]
     );
 }
 
@@ -582,6 +690,275 @@ async fn sqlite_store_round_trips_metadata_provider_attempts() {
             .unwrap(),
         vec![failed_expected]
     );
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_provider_subjects_and_mappings() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Anime".to_owned(),
+        roots: vec!["local:///Anime".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Anime),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Title".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let tmdb_movie = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "603".to_owned(),
+        title: Some("The Matrix".to_owned()),
+        release_year: Some(1999),
+        locale: Some("en-US".to_owned()),
+    };
+    let bangumi_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "265".to_owned(),
+        title: Some("Cowboy Bebop".to_owned()),
+        release_year: Some(1998),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let tmdb_mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: item.id,
+        subject_id: tmdb_movie.id,
+        status: ProviderMappingStatus::Accepted,
+        confidence_milli: Some(940),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+    let bangumi_mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: item.id,
+        subject_id: bangumi_subject.id,
+        status: ProviderMappingStatus::Candidate,
+        confidence_milli: Some(720),
+        source: MetadataSource::Provider(ExternalProvider::Bangumi),
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_provider_subject(&tmdb_movie).await.unwrap();
+    store
+        .upsert_provider_subject(&bangumi_subject)
+        .await
+        .unwrap();
+    store.upsert_provider_mapping(&tmdb_mapping).await.unwrap();
+    store
+        .upsert_provider_mapping(&bangumi_mapping)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .find_provider_subject(&ExternalProvider::Tmdb, &ProviderSubjectKind::Movie, "603",)
+            .await
+            .unwrap(),
+        Some(tmdb_movie.clone())
+    );
+    assert_eq!(
+        store
+            .list_provider_subjects_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![bangumi_subject, tmdb_movie]
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![bangumi_mapping, tmdb_mapping]
+    );
+    assert_eq!(store.get_media_item(item.id).await.unwrap(), Some(item));
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_source_duplicate_relationships_without_merging_items() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let first_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Movie A".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let second_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Movie A Remux".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let first_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: first_item.id,
+        locator: "local:///Movies/Movie A.mkv".to_owned(),
+        file_name: "Movie A.mkv".to_owned(),
+        size_bytes: Some(100),
+        fingerprint: Some("sha256:movie-a".to_owned()),
+    };
+    let second_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: second_item.id,
+        locator: "local:///Movies/Movie A Remux.mkv".to_owned(),
+        file_name: "Movie A Remux.mkv".to_owned(),
+        size_bytes: Some(100),
+        fingerprint: Some("sha256:movie-a".to_owned()),
+    };
+    let relationship = SourceDuplicateRelationship {
+        id: SourceDuplicateRelationshipId::new(),
+        source_id: second_source.id,
+        duplicate_source_id: first_source.id,
+        evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
+        evidence_value: Some("sha256:movie-a".to_owned()),
+        status: SourceDuplicateRelationshipStatus::Suggested,
+        confidence_milli: Some(990),
+    };
+    let expected_relationship = relationship.canonicalized();
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&first_item).await.unwrap();
+    store.upsert_media_item(&second_item).await.unwrap();
+    store.upsert_media_source(&first_source).await.unwrap();
+    store.upsert_media_source(&second_source).await.unwrap();
+    store
+        .upsert_source_duplicate_relationship(&relationship)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .get_source_duplicate_relationship(relationship.id)
+            .await
+            .unwrap(),
+        Some(expected_relationship.clone())
+    );
+    assert_eq!(
+        store
+            .list_source_duplicate_relationships(first_source.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![expected_relationship.clone()]
+    );
+    assert_eq!(
+        store
+            .list_source_duplicate_relationships(second_source.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![expected_relationship]
+    );
+    assert_eq!(
+        store
+            .get_media_source(first_source.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .item_id,
+        first_item.id
+    );
+    assert_eq!(
+        store
+            .get_media_source(second_source.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .item_id,
+        second_item.id
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_local_inference_evidence_without_confirming_metadata() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Mixed Video".to_owned(),
+        roots: vec!["local:///Videos".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::MixedVideo),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Unknown,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Unmatched Local File".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Videos/Show.Name.S01E02.mkv".to_owned(),
+        file_name: "Show.Name.S01E02.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let evidence = LocalInferenceEvidence {
+        id: LocalInferenceEvidenceId::new(),
+        source_id: source.id,
+        inferred_kind: MediaKind::Episode,
+        inferred_title: Some("Show Name".to_owned()),
+        inferred_year: None,
+        inferred_season: Some(1),
+        inferred_episode: Some(2),
+        confidence_milli: Some(650),
+        evidence_source: LocalInferenceEvidenceSource::FileName,
+        evidence_value: "Show.Name.S01E02.mkv".to_owned(),
+        inference_version: "local-path-parser:v1".to_owned(),
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_local_inference_evidence(&evidence)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .get_local_inference_evidence(evidence.id)
+            .await
+            .unwrap(),
+        Some(evidence.clone())
+    );
+    assert_eq!(
+        store
+            .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![evidence]
+    );
+    assert_eq!(store.get_media_item(item.id).await.unwrap(), Some(item));
 }
 
 #[tokio::test]

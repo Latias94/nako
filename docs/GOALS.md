@@ -794,33 +794,107 @@ Close-out validation:
 - `cargo nextest run --workspace --no-fail-fast`: 234 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
 
-## Next Proposed Goal
+## Latest Completed Goal
 
-### M27: Metadata-Catalog Domain Baseline
+### M27.1: Catalog Schema and Repository Slice
+
+Status: completed.
 
 Objective:
 
-- Turn the movie-first metadata and catalog foundation into a broader
-  media-library model using the project language defined in `CONTEXT.md`.
+- Turn the M27.0 metadata-catalog domain baseline into durable `taru-core`
+  records, `taru-db` schema, repository traits, SQLite adapters, and focused
+  repository tests without adding provider breadth.
 
-Why this should come next:
+Deliverables:
+
+- persist **Provider Subject** and **Provider Mapping** separately from Taru
+  **Media Item** identity;
+- persist **Source Duplicate Relationship** separately from source identity
+  and item merging;
+- persist minimal **Local Inference Evidence** for inferred kind, title, year,
+  season, episode, confidence, evidence source, and inference version;
+- cover the selected video item hierarchy and multi-source item link behavior
+  through repository tests;
+- keep existing movie MVP `MediaItem` and `MediaSource` behavior compatible.
+
+Evidence:
+
+- [Phase 27.1](workstreams/metadata-catalog/PHASE27_1_CATALOG_SCHEMA_REPOSITORY_SLICE.md)
+  records the schema/repository implementation and M27.2 boundaries.
+- `crates/taru-db/migrations/0018_metadata_catalog_domain.sql` adds the
+  durable catalog-domain tables.
+- [metadata-catalog TODO](workstreams/metadata-catalog/TODO.md) marks the
+  M27.1 checklist complete.
+
+Close-out validation:
+
+- `cargo nextest run -p taru-db`: 31 tests passed.
+- `cargo nextest run -p taru-core`: 3 tests passed.
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `git diff --check`: passed with Git CRLF normalization warnings only.
+
+Next recommended implementation goal:
+
+- M27.2 provider and NFO expansion slice.
+
+### M27.0: Metadata-Catalog Domain Baseline
+
+Status: completed.
+
+Objective:
+
+- Turn the movie-first metadata and catalog foundation into a video-first
+  media-server model using the project language defined in `CONTEXT.md` and
+  ADR 0021.
+
+Why this came next:
 
 - the playback/runtime contract is now stable enough for client planning;
 - the remaining product risk is the metadata domain shape, not FFmpeg or HTTP;
 - the current `server-foundation` backlog mixes metadata, NFO, artwork, and
   search follow-ups that should be owned by a dedicated workstream.
 
-Proposed deliverables:
+Deliverables:
 
 - create a `metadata-catalog` workstream;
 - decide the first stable **Media Item** hierarchy for movie, series, season,
-  episode, collection, and extra-like items;
+  episode, **Episode-Like Item**, **Extra Item**, **Franchise Collection**,
+  and unknown video items;
+- define **Provider Subject** and **Provider Mapping** rules for TMDB, Douban,
+  Bangumi, and future provider/addon evidence;
+- decide how **Media Domain** and **Library Preset** influence defaults without
+  becoming item identity;
 - decide the source-to-item and duplicate-source model;
-- define **Metadata Source Priority** and **NFO Round Trip** rules;
+- separate **Canonical Metadata**, **Media Technical Facts**, **Library Item
+  State**, and **User Playback State**;
+- define **Metadata Source Priority**, **NFO Round Trip**, **Browse Facet**,
+  and **Sort Key** rules;
 - define client-facing artwork concepts and search expansion boundaries;
 - move the relevant TODO items out of `server-foundation`.
 
-Suggested first validation gates:
+Non-goals:
 
-- `git diff --check`
-- `cargo fmt --all -- --check` after any code follow-up
+- no schema migrations;
+- no provider feature implementation;
+- no runtime behavior changes;
+- no public API changes.
+
+Evidence:
+
+- [Phase 27.0](workstreams/metadata-catalog/PHASE27_0_METADATA_CATALOG_DOMAIN_BASELINE.md)
+  records the current code audit, baseline decisions, and M27.1/M27.2 handoff.
+- [ADR 0021](adr/0021-video-first-media-server-domain-model.md) is accepted.
+- [metadata-catalog TODO](workstreams/metadata-catalog/TODO.md) marks the
+  M27.0 design-baseline checklist complete.
+- [server-foundation TODO](workstreams/server-foundation/TODO.md) no longer
+  owns active metadata/catalog/artwork/search follow-ups.
+
+Close-out validation:
+
+- `git diff --check`: passed with Git CRLF normalization warnings only
+
+Next recommended implementation goal:
+
+- M27.2 provider and NFO expansion slice.

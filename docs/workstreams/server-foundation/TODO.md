@@ -49,8 +49,10 @@
 - [x] Add lightweight local file fingerprints for incremental scan state.
 - [ ] Document local filesystem backend behavior.
 - [ ] Document WebDAV/S3/rclone integration paths.
-- [ ] Decide how hard links and soft links are represented for non-local
-      storage backends.
+
+Library file-write and link-capability policy now lives in
+[metadata-catalog](../metadata-catalog/TODO.md); concrete backend capability
+work remains storage-owned.
 
 ## Metadata and NFO
 
@@ -67,9 +69,8 @@
 - [x] Design catalog graph for people, credits, tags, genres, collections,
       studios, and artwork.
 - [x] Design NFO actor/director mapping into the catalog graph.
-- [ ] Add TMDB series, season, and episode support.
-- [ ] Add Douban provider MVP.
-- [ ] Add Bangumi provider MVP.
+Remaining provider breadth, catalog expansion, and NFO format breadth now live
+in [metadata-catalog](../metadata-catalog/TODO.md).
 
 ## Library Profiles and Scraping Strategy
 
@@ -89,7 +90,9 @@
 - [x] Add multi-provider fallback when the first configured provider cannot
       handle an item.
 - [x] Design search indexing strategy for catalog graph fields.
-- [ ] Add item-level metadata profile overrides.
+
+Further metadata-profile breadth now lives in
+[metadata-catalog](../metadata-catalog/TODO.md).
 
 ## Catalog Graph and Artwork
 
@@ -105,8 +108,9 @@
 - [x] Rebuild search projection after metadata refresh and NFO import.
 - [x] Add browse APIs for item detail, credits, images, people, tags, and
       genres.
-- [ ] Add image proxy/cache routes with etag and variant support.
-- [ ] Add thumbnail and preview-frame generation jobs.
+
+Further artwork route, cache, thumbnail, and preview-frame work now lives in
+[metadata-catalog](../metadata-catalog/TODO.md).
 
 ## Search
 
@@ -115,10 +119,9 @@
 - [x] Define search update triggers from scan, metadata refresh, NFO import, and
       user edits.
 - [x] Implement SQLite search projection fallback behind `SearchIndex`.
-- [ ] Upgrade SQLite fallback to FTS ranking/tokenization when bundled FTS
-      support is guaranteed.
-- [ ] Add item/person/tag/genre search filters.
-- [ ] Add optional Tantivy or Meilisearch adapter boundary after SQLite FTS.
+
+Further search ranking, filtering, and adapter breadth now lives in
+[metadata-catalog](../metadata-catalog/TODO.md).
 
 ## Scan State and Ingestion
 
@@ -129,7 +132,9 @@
 - [x] Keep partial scan failures from tombstoning sources from incomplete passes.
 - [x] Add ingestion failure diagnostics API and CLI query surface.
 - [x] Add ignore semantics for expected ingestion failures.
-- [ ] Add rename/move detection using strong fingerprints when available.
+
+Further rename, move, fingerprint, and duplicate-source relationship work now
+lives in [metadata-catalog](../metadata-catalog/TODO.md).
 
 ## Streaming and Transcoding
 

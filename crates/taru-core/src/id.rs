@@ -83,6 +83,10 @@ define_id!(ArtworkTaskId);
 define_id!(TranscodeSessionId);
 define_id!(StagingManifestId);
 define_id!(MetadataProviderAttemptId);
+define_id!(ProviderSubjectId);
+define_id!(ProviderMappingId);
+define_id!(SourceDuplicateRelationshipId);
+define_id!(LocalInferenceEvidenceId);
 
 #[cfg(test)]
 mod tests {

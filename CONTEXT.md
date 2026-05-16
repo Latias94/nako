@@ -110,6 +110,26 @@ _Avoid_: Source identity
 A relationship indicating that multiple **Media Sources** likely refer to the same content.
 _Avoid_: Merged source
 
+**Source Variant**:
+A playable technical variant of the same media item, such as different resolution, codec, bitrate, HDR, or optimized output.
+_Avoid_: Edition
+
+**Source Variant Label**:
+A user-facing label for a **Source Variant** derived from technical facts, local inference, or user override.
+_Avoid_: Playback decision fact
+
+**Edition**:
+A content-level version with meaningfully different cut, runtime, or release form.
+_Avoid_: Source variant
+
+**Edition Relationship**:
+A relationship connecting media items that are different editions of the same work.
+_Avoid_: Source variant group
+
+**Playback Source Selection**:
+The runtime decision that chooses which **Media Source** or **Source Variant** to play for a user and client.
+_Avoid_: Permanent default source
+
 **Media Item**:
 A user-facing media entry such as a movie, season, episode, or collection.
 _Avoid_: Source, file, path
@@ -125,6 +145,34 @@ _Avoid_: Media Item
 **Provider Mapping**:
 The relationship between a **Media Item** and one or more **Provider Subjects**.
 _Avoid_: Provider-owned item identity
+
+**Local Inference**:
+Low-confidence structure and identity evidence inferred from paths, file names, nearby local files, and media probe facts.
+_Avoid_: Metadata provider, scraper
+
+**Local Inference Evidence**:
+The path, file-name, directory, or local-file facts that explain a **Local Inference** result.
+_Avoid_: Canonical metadata
+
+**Local Inference Version**:
+The parser or rule version that produced a **Local Inference** result.
+_Avoid_: Provider version
+
+**Provisional Hierarchy**:
+A locally inferred **Media Item Hierarchy** that can be browsed before provider or NFO confirmation.
+_Avoid_: Provider-confirmed hierarchy
+
+**Hierarchy Confirmation**:
+The process of applying NFO, provider mapping, user edits, or accepted addon writes to a **Provisional Hierarchy**.
+_Avoid_: New item replacement
+
+**Hierarchy Repair**:
+The exceptional process of splitting, merging, or reparenting items when local inference produced the wrong hierarchy.
+_Avoid_: Normal provider refresh
+
+**Unknown Media Item**:
+A media item Taru discovered but cannot confidently classify yet.
+_Avoid_: Guessed movie or episode
 
 **Genre**:
 A broad provider or local category used for browsing and filtering media items.
@@ -382,9 +430,23 @@ _Avoid_: Addon callback
 - A **Media Source** has a **Source Locator** that is unique only within its **Media Library**.
 - A **Source Fingerprint** may support a **Source Duplicate Relationship**, but it does not replace **Media Source** identity.
 - A **Source Duplicate Relationship** preserves each source's library, file, metadata, permission, and playback context.
+- Multiple **Media Sources** for one **Media Item** may represent **Source Variants**.
+- **Source Variants** may span multiple **Media Libraries**, but each underlying **Media Source** keeps its library context.
+- A **Source Variant Label** helps users distinguish variants but does not replace **Media Technical Facts**.
+- An **Edition** is content-level and should not be treated as an ordinary **Source Variant**.
+- An **Edition** should be represented as its own **Media Item** and connected through an **Edition Relationship**.
+- **Playback Source Selection** chooses a playable source at runtime instead of relying on a permanent item-level default.
+- **Playback Source Selection** must respect **Library Access**.
 - A **Media Item** may be linked to one or more **Media Sources**.
 - A **Source Duplicate Relationship** does not automatically merge sources into one **Media Item**.
 - A **Media Item Hierarchy** is provider-neutral.
+- **Local Inference** may create a **Provisional Hierarchy** during scanning.
+- **Local Inference Evidence** should be preserved for search, diagnostics, and rematching.
+- **Local Inference Evidence** records should include enough information to explain the inferred kind, title, year, season, episode, confidence, evidence source, and **Local Inference Version**.
+- A **Provisional Hierarchy** may be corrected by NFO, provider mapping, user edits, or accepted addon writes.
+- **Hierarchy Confirmation** should update existing provisional items in place when possible.
+- **Hierarchy Repair** is reserved for cases where the inferred hierarchy is structurally wrong.
+- **Local Inference** should create an **Unknown Media Item** when classification evidence is weak.
 - A **Provider Subject** is mapped to Taru through **Provider Mapping** rather than replacing **Media Item** identity.
 - A **Media Item** may have many **Genres** and **Tags**.
 - A **Tag** is not a **Genre** and does not change **Media Item** kind.
@@ -472,6 +534,18 @@ _Avoid_: Addon callback
 > **Dev:** "Are hard-linked files in two libraries the same **Media Source**?"
 > **Domain expert:** "No. They are separate **Media Sources** connected by a **Source Duplicate Relationship** when the evidence supports it."
 >
+> **Dev:** "Is a 4K file a different movie from a 1080p file?"
+> **Domain expert:** "Usually no. They are **Source Variants** for one **Media Item**. A director's cut is an **Edition**, not just a source variant."
+>
+> **Dev:** "Can the UI show a version name like 4K HDR?"
+> **Domain expert:** "Yes, through a **Source Variant Label**, while playback decisions still use **Media Technical Facts**."
+>
+> **Dev:** "Can one item have variants from different libraries?"
+> **Domain expert:** "Yes, but each **Media Source** keeps its library context and **Playback Source Selection** only uses sources allowed by **Library Access**."
+>
+> **Dev:** "Should the director's cut live inside the theatrical item?"
+> **Domain expert:** "No. It should be its own **Media Item** linked by an **Edition Relationship**."
+>
 > **Dev:** "Is a photo library a different database model from a movie library?"
 > **Domain expert:** "No. It is a **Media Library** with a different **Media Domain** and **Library Preset**."
 >
@@ -483,6 +557,21 @@ _Avoid_: Addon callback
 >
 > **Dev:** "Should Bangumi subjects create a separate anime item model?"
 > **Domain expert:** "No. Map **Provider Subjects** into Taru's provider-neutral **Media Item Hierarchy** through **Provider Mapping**."
+>
+> **Dev:** "Can Taru show a series before provider matching?"
+> **Domain expert:** "Yes, through **Local Inference** creating a **Provisional Hierarchy** from path and file-name evidence."
+>
+> **Dev:** "Should Taru guess a movie when it is unsure?"
+> **Domain expert:** "No. Weak evidence should produce an **Unknown Media Item** instead of a confident but wrong classification."
+>
+> **Dev:** "If provider metadata renames a locally inferred series, do we lose the local name?"
+> **Domain expert:** "No. Canonical metadata may change, but keep the local name as **Local Inference Evidence**."
+>
+> **Dev:** "Can inference evidence be transient?"
+> **Domain expert:** "No. Persist enough **Local Inference Evidence** to explain, diagnose, and rerun inference when the **Local Inference Version** changes."
+>
+> **Dev:** "Should provider matching replace local provisional items?"
+> **Domain expert:** "No. Use **Hierarchy Confirmation** to update provisional items in place unless **Hierarchy Repair** is required."
 >
 > **Dev:** "Can Bangumi tags be stored?"
 > **Domain expert:** "Yes, as **Tags**. Keep **Genres** for broader category browsing and do not use tags as item identity."
@@ -561,10 +650,21 @@ _Avoid_: Addon callback
 - Addon settings store **Secret References** for sensitive values, not plaintext secrets.
 - Addon compatibility is governed by **Addon Protocol Version**, not by assuming every Taru server version accepts every addon.
 - Duplicate content was resolved as **Source Duplicate Relationship**, not merged **Media Source** identity.
+- Technical alternatives are **Source Variants**; different cuts are **Editions**.
+- **Source Variant Labels** are display aids, not substitutes for technical facts.
+- Cross-library **Source Variants** are allowed, but visibility and playback are constrained by **Library Access**.
+- **Editions** are separate **Media Items** linked by **Edition Relationships**.
+- Playback should use **Playback Source Selection**, not a permanent default source.
 - Duplicate **Media Sources** do not automatically collapse into one **Media Item**.
 - Taru is **Video-First** now, but should not hard-code a video-only **Media Server Scope**.
 - Taru should grow toward multiple **Media Domains** through **Library Presets**, not through hard-coded library types.
 - Provider-specific concepts use **Provider Mapping** and do not split the core **Media Item Hierarchy**.
+- Local path and file-name parsing is **Local Inference**, not a metadata provider or scraper.
+- Local inferred titles and structure are **Local Inference Evidence** that may differ from canonical metadata.
+- **Local Inference Evidence** should be persisted minimally rather than thrown away after scanning.
+- Confirming provider or NFO data should normally use **Hierarchy Confirmation**, not replacement item creation.
+- Structural mistakes from local inference use **Hierarchy Repair**.
+- **Local Inference** should prefer **Unknown Media Item** over overconfident classification.
 - Taru has **Tags** and **Genres**; tags are flexible labels, not item kinds or source identity.
 - Anime specials map as **Episode-Like Items** only when they belong in watch order; otherwise they are **Extra Items**.
 - Metadata resolution uses **Metadata Source Priority** with local and NFO data ahead of external providers by default.

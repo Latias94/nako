@@ -308,22 +308,40 @@ the server browse and playback contracts are coherent.
 
 ### Metadata-Catalog Expansion: M27
 
-Status: proposed next.
+Status: completed for M27.0 design baseline and M27.1 schema/repository
+slice. M27.2 provider and NFO expansion is planned next.
 
-The next server goal should turn the movie-first metadata/catalog foundation
-into a broader media-library model using the project language in `CONTEXT.md`:
+M27.0 turned the movie-first metadata/catalog foundation into a video-first
+media-server model using the project language in `CONTEXT.md` and ADR 0021:
 
-- treat **Media Library**, **Media Source**, **Media Item**, **Canonical
-  Metadata**, **Metadata Source Priority**, **NFO Round Trip**, **Managed
-  Artwork**, and **Source Duplicate Relationship** as first-class planning
-  terms;
+- treat **Media Library**, **Media Domain**, **Library Preset**, **Media
+  Source**, **Media Item**, **Canonical Metadata**, **Media Technical Facts**,
+  **Metadata Source Priority**, **NFO Round Trip**, **Managed Artwork**, and
+  **Source Duplicate Relationship** as first-class planning terms;
 - split the remaining metadata, NFO, artwork, and search follow-ups out of the
   historical `server-foundation` backlog into a dedicated
   `metadata-catalog` workstream;
-- design the series, season, episode, anime, and collection model before
-  adding TMDB series, Douban, or Bangumi breadth;
+- design the movie, series, season, episode, **Episode-Like Item**,
+  **Extra Item**, and **Franchise Collection** model before adding TMDB series,
+  Douban, or Bangumi breadth;
+- map TMDB, Douban, Bangumi, and future provider concepts through **Provider
+  Subject** and **Provider Mapping**, not provider-owned item identity;
+- define stable **Browse Facets** and **Sort Keys** instead of exposing raw
+  database columns as client query contracts;
 - preserve local/NFO authority and library-scoped policy while opening a clean
   path for provider and addon metadata contributions.
+
+Completed implementation slice:
+
+- M27.1 catalog schema and repository slice persisted **Provider Subject**,
+  **Provider Mapping**, **Source Duplicate Relationship**, and **Local
+  Inference Evidence** records through `taru-core` records, `taru-db`
+  migration `0018_metadata_catalog_domain.sql`, repository traits, SQLite
+  adapters, and focused repository tests.
+
+Next phase:
+
+- M27.2 provider and NFO expansion slice.
 
 ## Workstream Split Direction
 
@@ -332,8 +350,8 @@ into a broader media-library model using the project language in `CONTEXT.md`:
 M7 split `playback-streaming`, M13-M19 used metadata and runtime operations for
 specialized hardening, M24 split `server-architecture-hardening` for the server
 composition pass, M25 split `transcode-runtime` for playback runtime
-productization, and M27 should split `metadata-catalog` for media-library
-domain expansion. As implementation grows, split the remaining broad domains
+productization, and M27 split `metadata-catalog` for media-library domain
+expansion. As implementation grows, split the remaining broad domains
 into narrower workstreams:
 
 - `clients`: future Flutter and web client contracts.

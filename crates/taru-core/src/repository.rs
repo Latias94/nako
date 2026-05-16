@@ -6,18 +6,19 @@ use crate::{
     AutomationProviderConfigRecord, AutomationProviderId, CatalogItemGraphReplacement, Collection,
     CollectionId, CollectionItem, DirectorySnapshot, DomainEventKind, Genre, GenreId, ImageAsset,
     ImageAssetId, IngestionFailureFilter, IngestionFailureRecord, IngestionFailureStatus,
-    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId, MediaItem,
-    MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, MetadataFieldLock,
-    NewAddonRegistration, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
-    NewJob, NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord,
-    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
-    OutboxEventRecord, Person, PersonId, ProviderRawResponse, ProviderRawResponseCleanup,
-    ProviderRawResponseFilter, Result, ScanSnapshot, ScanSnapshotId, SourceState,
-    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState, Studio, StudioId, Tag,
-    TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState, VfsCacheFailure, VfsCacheOperation,
-    VfsCachedListing, VfsCachedObject, WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord,
-    WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
+    ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, Library, LibraryId,
+    LocalInferenceEvidence, MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId,
+    MetadataFieldLock, NewAddonRegistration, NewAutomationArtifact, NewAutomationProviderConfig,
+    NewIngestionFailure, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
+    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, OutboxEventRecord, Person, PersonId, ProviderMapping, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, Result, ScanSnapshot,
+    ScanSnapshotId, SourceDuplicateRelationship, SourceState, StagingManifestId,
+    StagingManifestRecord, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState, VfsCacheFailure, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+    WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
+    WebhookEndpointId, WebhookEndpointRecord,
 };
 
 #[async_trait]
@@ -481,6 +482,75 @@ pub trait MetadataRepository: Send + Sync {
         filter: crate::MetadataAttemptFilter,
         page: PageRequest,
     ) -> Result<Vec<crate::MetadataProviderAttemptRecord>>;
+}
+
+#[async_trait]
+pub trait ProviderMappingRepository: Send + Sync {
+    async fn upsert_provider_subject(&self, subject: &ProviderSubject) -> Result<()>;
+
+    async fn get_provider_subject(
+        &self,
+        id: crate::ProviderSubjectId,
+    ) -> Result<Option<ProviderSubject>>;
+
+    async fn find_provider_subject(
+        &self,
+        provider: &crate::ExternalProvider,
+        subject_kind: &crate::ProviderSubjectKind,
+        subject_key: &str,
+    ) -> Result<Option<ProviderSubject>>;
+
+    async fn list_provider_subjects_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderSubject>>;
+
+    async fn upsert_provider_mapping(&self, mapping: &ProviderMapping) -> Result<()>;
+
+    async fn list_provider_mappings_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderMapping>>;
+}
+
+#[async_trait]
+pub trait SourceDuplicateRepository: Send + Sync {
+    async fn upsert_source_duplicate_relationship(
+        &self,
+        relationship: &SourceDuplicateRelationship,
+    ) -> Result<()>;
+
+    async fn get_source_duplicate_relationship(
+        &self,
+        id: crate::SourceDuplicateRelationshipId,
+    ) -> Result<Option<SourceDuplicateRelationship>>;
+
+    async fn list_source_duplicate_relationships(
+        &self,
+        source_id: MediaSourceId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceDuplicateRelationship>>;
+}
+
+#[async_trait]
+pub trait LocalInferenceRepository: Send + Sync {
+    async fn upsert_local_inference_evidence(
+        &self,
+        evidence: &LocalInferenceEvidence,
+    ) -> Result<()>;
+
+    async fn get_local_inference_evidence(
+        &self,
+        id: crate::LocalInferenceEvidenceId,
+    ) -> Result<Option<LocalInferenceEvidence>>;
+
+    async fn list_local_inference_evidence_for_source(
+        &self,
+        source_id: MediaSourceId,
+        page: PageRequest,
+    ) -> Result<Vec<LocalInferenceEvidence>>;
 }
 
 #[async_trait]

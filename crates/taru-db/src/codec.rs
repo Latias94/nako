@@ -122,6 +122,46 @@ pub(crate) fn provider_from_parts(provider: String, provider_key: String) -> Ext
     }
 }
 
+pub(crate) fn provider_subject_kind_to_parts(kind: &ProviderSubjectKind) -> (String, String) {
+    let (kind, kind_key) = kind.as_parts();
+    (kind.to_owned(), kind_key.to_owned())
+}
+
+pub(crate) fn provider_subject_kind_from_parts(
+    kind: String,
+    kind_key: String,
+) -> ProviderSubjectKind {
+    ProviderSubjectKind::from_parts(&kind, kind_key)
+}
+
+pub(crate) fn source_duplicate_evidence_kind_to_parts(
+    kind: &SourceDuplicateEvidenceKind,
+) -> (String, String) {
+    let (kind, kind_key) = kind.as_parts();
+    (kind.to_owned(), kind_key.to_owned())
+}
+
+pub(crate) fn source_duplicate_evidence_kind_from_parts(
+    kind: String,
+    kind_key: String,
+) -> SourceDuplicateEvidenceKind {
+    SourceDuplicateEvidenceKind::from_parts(&kind, kind_key)
+}
+
+pub(crate) fn local_inference_evidence_source_to_parts(
+    source: &LocalInferenceEvidenceSource,
+) -> (String, String) {
+    let (source, source_key) = source.as_parts();
+    (source.to_owned(), source_key.to_owned())
+}
+
+pub(crate) fn local_inference_evidence_source_from_parts(
+    source: String,
+    source_key: String,
+) -> LocalInferenceEvidenceSource {
+    LocalInferenceEvidenceSource::from_parts(&source, source_key)
+}
+
 pub(crate) fn metadata_source_to_parts(source: &MetadataSource) -> (String, String) {
     match source {
         MetadataSource::Local => ("local".to_owned(), String::new()),
@@ -341,6 +381,34 @@ pub(crate) fn optional_i64_to_u32(value: Option<i64>) -> Result<Option<u32>> {
         .transpose()
 }
 
+pub(crate) fn optional_i64_to_u16(value: Option<i64>) -> Result<Option<u16>> {
+    value
+        .map(|value| {
+            u16::try_from(value).map_err(|err| TaruError::Database {
+                message: format!("SQLite integer cannot be converted to u16: {err}"),
+            })
+        })
+        .transpose()
+}
+
+pub(crate) fn optional_u16_to_i64(value: Option<u16>) -> Option<i64> {
+    value.map(i64::from)
+}
+
+pub(crate) fn optional_i64_to_i32(value: Option<i64>) -> Result<Option<i32>> {
+    value
+        .map(|value| {
+            i32::try_from(value).map_err(|err| TaruError::Database {
+                message: format!("SQLite integer cannot be converted to i32: {err}"),
+            })
+        })
+        .transpose()
+}
+
+pub(crate) fn optional_i32_to_i64(value: Option<i32>) -> Option<i64> {
+    value.map(i64::from)
+}
+
 pub(crate) fn bool_to_i64(value: bool) -> i64 {
     if value { 1 } else { 0 }
 }
@@ -369,16 +437,6 @@ pub(crate) fn i64_to_u32(value: i64) -> Result<u32> {
     u32::try_from(value).map_err(|err| TaruError::Database {
         message: format!("SQLite integer cannot be converted to u32: {err}"),
     })
-}
-
-pub(crate) fn optional_i64_to_u16(value: Option<i64>) -> Result<Option<u16>> {
-    value
-        .map(|value| {
-            u16::try_from(value).map_err(|err| TaruError::Database {
-                message: format!("SQLite integer cannot be converted to u16: {err}"),
-            })
-        })
-        .transpose()
 }
 
 pub(crate) fn row_to_library(row: SqliteRow) -> Result<Library> {
@@ -667,6 +725,68 @@ pub(crate) fn row_to_metadata_provider_attempt(
             .map(|value| MetadataProviderErrorClass::parse(&value))
             .transpose()?,
         message: row_get(&row, "message")?,
+    })
+}
+
+pub(crate) fn row_to_provider_subject(row: SqliteRow) -> Result<ProviderSubject> {
+    Ok(ProviderSubject {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        provider: provider_from_parts(row_get(&row, "provider")?, row_get(&row, "provider_key")?),
+        subject_kind: provider_subject_kind_from_parts(
+            row_get(&row, "subject_kind")?,
+            row_get(&row, "subject_kind_key")?,
+        ),
+        subject_key: row_get(&row, "subject_key")?,
+        title: row_get(&row, "title")?,
+        release_year: optional_i64_to_i32(row_get(&row, "release_year")?)?,
+        locale: row_get(&row, "locale")?,
+    })
+}
+
+pub(crate) fn row_to_provider_mapping(row: SqliteRow) -> Result<ProviderMapping> {
+    Ok(ProviderMapping {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        subject_id: parse_id(row_get::<String>(&row, "subject_id")?)?,
+        status: ProviderMappingStatus::parse(&row_get::<String>(&row, "status")?)?,
+        confidence_milli: optional_i64_to_u16(row_get(&row, "confidence_milli")?)?,
+        source: metadata_source_from_parts(row_get(&row, "source")?, row_get(&row, "source_key")?),
+    })
+}
+
+pub(crate) fn row_to_source_duplicate_relationship(
+    row: SqliteRow,
+) -> Result<SourceDuplicateRelationship> {
+    Ok(SourceDuplicateRelationship {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        source_id: parse_id(row_get::<String>(&row, "source_id")?)?,
+        duplicate_source_id: parse_id(row_get::<String>(&row, "duplicate_source_id")?)?,
+        evidence_kind: source_duplicate_evidence_kind_from_parts(
+            row_get(&row, "evidence_kind")?,
+            row_get(&row, "evidence_kind_key")?,
+        ),
+        evidence_value: row_get(&row, "evidence_value")?,
+        status: SourceDuplicateRelationshipStatus::parse(&row_get::<String>(&row, "status")?)?,
+        confidence_milli: optional_i64_to_u16(row_get(&row, "confidence_milli")?)?,
+    })
+}
+
+pub(crate) fn row_to_local_inference_evidence(row: SqliteRow) -> Result<LocalInferenceEvidence> {
+    Ok(LocalInferenceEvidence {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        source_id: parse_id(row_get::<String>(&row, "source_id")?)?,
+        inferred_kind: parse_media_kind(row_get(&row, "inferred_kind")?)?,
+        inferred_title: row_get(&row, "inferred_title")?,
+        inferred_year: optional_i64_to_i32(row_get(&row, "inferred_year")?)?,
+        inferred_season: optional_i64_to_u32(row_get(&row, "inferred_season")?)?,
+        inferred_episode: optional_i64_to_u32(row_get(&row, "inferred_episode")?)?,
+        confidence_milli: optional_i64_to_u16(row_get(&row, "confidence_milli")?)?,
+        evidence_source: local_inference_evidence_source_from_parts(
+            row_get(&row, "evidence_source")?,
+            row_get(&row, "evidence_source_key")?,
+        ),
+        evidence_value: row_get(&row, "evidence_value")?,
+        inference_version: row_get(&row, "inference_version")?,
     })
 }
 

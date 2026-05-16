@@ -13,19 +13,24 @@ use taru_core::{
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRecord,
     IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
     Job, JobId, JobKind, JobRepository, JobStatus, Library, LibraryId, LibraryOptions,
-    LibraryRepository, MediaDomain, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
-    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRepository, MetadataSource, NewAddonRegistration, NewAutomationArtifact,
-    NewAutomationProviderConfig, NewIngestionFailure, NewJob, NewMetadataProviderAttempt,
-    NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus, PageRequest, Person, PersonId,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
-    ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus, SourceState, Studio, StudioId, Tag,
-    TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, MediaDomain, MediaItem, MediaItemId,
+    MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
+    MetadataMatchKind, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
+    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewAddonRegistration,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, OutboxEventRecord, OutboxEventStatus,
+    PageRequest, Person, PersonId, ProviderMapping, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderRawResponseCleanup,
+    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
+    ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceDuplicateRepository, SourceState, Studio, StudioId, Tag, TagId, TaruError,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure, VfsCacheOperation,
+    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
     WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus, WebhookRepository,
 };
@@ -45,13 +50,16 @@ mod event_outbox;
 mod ingestion;
 mod jobs;
 mod library;
+mod local_inference;
 mod media;
 mod metadata;
 mod migrations;
 mod playback;
+mod provider_mapping;
 mod runtime;
 mod scan;
 mod search;
+mod source_duplicate;
 mod staging;
 mod vfs_cache;
 mod webhooks;

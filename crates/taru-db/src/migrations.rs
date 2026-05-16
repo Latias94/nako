@@ -79,6 +79,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "ingestion failures",
         include_str!("../migrations/0017_ingestion_failures.sql"),
     ),
+    (
+        18,
+        "metadata catalog domain",
+        include_str!("../migrations/0018_metadata_catalog_domain.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ArtworkTaskId, CollectionId, GenreId, ImageAssetId, JobStatus, LibraryId, MediaItemId,
-    MediaSourceId, MetadataProviderAttemptId, PersonId, ScanSnapshotId, StudioId, TagId,
+    ArtworkTaskId, CollectionId, GenreId, ImageAssetId, JobStatus, LibraryId,
+    LocalInferenceEvidenceId, MediaItemId, MediaSourceId, MetadataProviderAttemptId, PersonId,
+    ProviderMappingId, ProviderSubjectId, ScanSnapshotId, SourceDuplicateRelationshipId, StudioId,
+    TagId,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -463,6 +465,154 @@ pub struct MediaSource {
     pub fingerprint: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceDuplicateEvidenceKind {
+    StrongFingerprint,
+    SizeAndEtag,
+    PathEvidence,
+    FilesystemLink,
+    Manual,
+    Other(String),
+}
+
+impl SourceDuplicateEvidenceKind {
+    #[must_use]
+    pub fn as_parts(&self) -> (&'static str, &str) {
+        match self {
+            Self::StrongFingerprint => ("strong_fingerprint", ""),
+            Self::SizeAndEtag => ("size_and_etag", ""),
+            Self::PathEvidence => ("path_evidence", ""),
+            Self::FilesystemLink => ("filesystem_link", ""),
+            Self::Manual => ("manual", ""),
+            Self::Other(value) => ("other", value.as_str()),
+        }
+    }
+
+    #[must_use]
+    pub fn from_parts(kind: &str, kind_key: String) -> Self {
+        match kind {
+            "strong_fingerprint" => Self::StrongFingerprint,
+            "size_and_etag" => Self::SizeAndEtag,
+            "path_evidence" => Self::PathEvidence,
+            "filesystem_link" => Self::FilesystemLink,
+            "manual" => Self::Manual,
+            "other" => Self::Other(kind_key),
+            _ => Self::Other(kind.to_owned()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceDuplicateRelationshipStatus {
+    Suggested,
+    Confirmed,
+    Rejected,
+}
+
+impl SourceDuplicateRelationshipStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Suggested => "suggested",
+            Self::Confirmed => "confirmed",
+            Self::Rejected => "rejected",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "suggested" => Ok(Self::Suggested),
+            "confirmed" => Ok(Self::Confirmed),
+            "rejected" => Ok(Self::Rejected),
+            _ => Err(crate::TaruError::Database {
+                message: format!(
+                    "unknown source duplicate relationship status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceDuplicateRelationship {
+    pub id: SourceDuplicateRelationshipId,
+    pub source_id: MediaSourceId,
+    pub duplicate_source_id: MediaSourceId,
+    pub evidence_kind: SourceDuplicateEvidenceKind,
+    pub evidence_value: Option<String>,
+    pub status: SourceDuplicateRelationshipStatus,
+    pub confidence_milli: Option<u16>,
+}
+
+impl SourceDuplicateRelationship {
+    #[must_use]
+    pub fn canonicalized(&self) -> Self {
+        let mut relationship = self.clone();
+        if relationship.source_id > relationship.duplicate_source_id {
+            std::mem::swap(
+                &mut relationship.source_id,
+                &mut relationship.duplicate_source_id,
+            );
+        }
+        relationship
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocalInferenceEvidenceSource {
+    Path,
+    FileName,
+    Directory,
+    NearbyFile,
+    MediaProbe,
+    Other(String),
+}
+
+impl LocalInferenceEvidenceSource {
+    #[must_use]
+    pub fn as_parts(&self) -> (&'static str, &str) {
+        match self {
+            Self::Path => ("path", ""),
+            Self::FileName => ("file_name", ""),
+            Self::Directory => ("directory", ""),
+            Self::NearbyFile => ("nearby_file", ""),
+            Self::MediaProbe => ("media_probe", ""),
+            Self::Other(value) => ("other", value.as_str()),
+        }
+    }
+
+    #[must_use]
+    pub fn from_parts(source: &str, source_key: String) -> Self {
+        match source {
+            "path" => Self::Path,
+            "file_name" => Self::FileName,
+            "directory" => Self::Directory,
+            "nearby_file" => Self::NearbyFile,
+            "media_probe" => Self::MediaProbe,
+            "other" => Self::Other(source_key),
+            _ => Self::Other(source.to_owned()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LocalInferenceEvidence {
+    pub id: LocalInferenceEvidenceId,
+    pub source_id: MediaSourceId,
+    pub inferred_kind: MediaKind,
+    pub inferred_title: Option<String>,
+    pub inferred_year: Option<i32>,
+    pub inferred_season: Option<u32>,
+    pub inferred_episode: Option<u32>,
+    pub confidence_milli: Option<u16>,
+    pub evidence_source: LocalInferenceEvidenceSource,
+    pub evidence_value: String,
+    pub inference_version: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Person {
     pub id: PersonId,
@@ -776,6 +926,101 @@ pub enum ExternalProvider {
 pub struct ExternalId {
     pub provider: ExternalProvider,
     pub value: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderSubjectKind {
+    Movie,
+    Series,
+    Season,
+    Episode,
+    Collection,
+    Subject,
+    Person,
+    Other(String),
+}
+
+impl ProviderSubjectKind {
+    #[must_use]
+    pub fn as_parts(&self) -> (&'static str, &str) {
+        match self {
+            Self::Movie => ("movie", ""),
+            Self::Series => ("series", ""),
+            Self::Season => ("season", ""),
+            Self::Episode => ("episode", ""),
+            Self::Collection => ("collection", ""),
+            Self::Subject => ("subject", ""),
+            Self::Person => ("person", ""),
+            Self::Other(value) => ("other", value.as_str()),
+        }
+    }
+
+    #[must_use]
+    pub fn from_parts(kind: &str, kind_key: String) -> Self {
+        match kind {
+            "movie" => Self::Movie,
+            "series" => Self::Series,
+            "season" => Self::Season,
+            "episode" => Self::Episode,
+            "collection" => Self::Collection,
+            "subject" => Self::Subject,
+            "person" => Self::Person,
+            "other" => Self::Other(kind_key),
+            _ => Self::Other(kind.to_owned()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderSubject {
+    pub id: ProviderSubjectId,
+    pub provider: ExternalProvider,
+    pub subject_kind: ProviderSubjectKind,
+    pub subject_key: String,
+    pub title: Option<String>,
+    pub release_year: Option<i32>,
+    pub locale: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderMappingStatus {
+    Candidate,
+    Accepted,
+    Rejected,
+}
+
+impl ProviderMappingStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Candidate => "candidate",
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "candidate" => Ok(Self::Candidate),
+            "accepted" => Ok(Self::Accepted),
+            "rejected" => Ok(Self::Rejected),
+            _ => Err(crate::TaruError::Database {
+                message: format!("unknown provider mapping status stored in database: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderMapping {
+    pub id: ProviderMappingId,
+    pub item_id: MediaItemId,
+    pub subject_id: ProviderSubjectId,
+    pub status: ProviderMappingStatus,
+    pub confidence_milli: Option<u16>,
+    pub source: MetadataSource,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
