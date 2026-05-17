@@ -7,7 +7,8 @@ Last updated: 2026-05-17
 
 The design baseline is documented. `ACF-010` created the Android scaffold
 under `apps/android` as a single Gradle `:app` module outside the Rust Cargo
-workspace. `ACF-020` added the first connection/auth slice.
+workspace. `ACF-020` added the first connection/auth slice. `ACF-030A` added
+the first minimal browse tracer.
 
 Implemented scaffold:
 
@@ -32,6 +33,19 @@ Implemented connection/auth slice:
 - Mocked HTTP unit tests for success, unreachable, unauthorized, version
   mismatch, token redaction, and profile isolation.
 
+Implemented browse tracer:
+
+- Direct Kotlin browse client for public `GET /libraries` and
+  `GET /items?limit=&offset=`.
+- Minimal Android DTO mirrors for library and media item list responses.
+- Root app shell switches from setup to Home/Libraries when an active server
+  profile and token reference exist.
+- Home/Libraries Compose shell with active-server-scoped loading, empty,
+  unauthorized, unreachable, forbidden, public API error, invalid-response, and
+  missing-token states.
+- Mocked HTTP unit tests for browse pagination, empty-state input, sanitized
+  diagnostics, active-server URL switching, and token-reference isolation.
+
 Resolved decisions:
 
 - Android is the first implementation target.
@@ -51,12 +65,19 @@ Resolved decisions:
 
 ## Next Task
 
-Continue with `ACF-030`: Minimal Media Library Browse Loop.
+Continue with the next `ACF-030` sub-slice: Media Item detail tracer.
 
-Preserve the `ACF-020` boundary while doing `ACF-030`: consume Public Client
-API DTOs from the active server profile, keep token values out of diagnostics,
-and avoid Media3 playback, UniFFI, downloads, or external-player work until
-their own tasks.
+Preserve the `ACF-020` and `ACF-030A` boundaries: consume Public Client API
+DTOs from the active server profile, keep token values out of diagnostics, and
+avoid Media3 playback, UniFFI, downloads, playback request construction, or
+external-player work until their own tasks.
+
+Recommended next task:
+
+- `ACF-030B`: add a minimal item-detail client for `GET /items/{item_id}` and a
+  navigation path from the current item list to a read-only Media Item detail
+  surface. Keep Play/Resume buttons disabled or absent until ACF-040 playback
+  decision APIs are implemented.
 
 ## Risks To Preserve
 
@@ -73,4 +94,8 @@ Use `EVIDENCE_AND_GATES.md` for commands. `ACF-010` validated
 `apps/android/gradlew.bat :app:assembleDebug`. `ACF-020` validated
 `apps/android/gradlew.bat :app:assembleDebug`,
 `apps/android/gradlew.bat :app:testDebugUnitTest`,
-`cargo check --workspace --tests`, and `git diff --check`.
+`cargo check --workspace --tests`, and `git diff --check`. `ACF-030A`
+validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`
+and `apps/android/gradlew.bat -p apps/android :app:assembleDebug`; final
+closeout should also keep `cargo check --workspace --tests` and
+`git diff --check` green.

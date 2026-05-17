@@ -67,7 +67,7 @@ Candidate validation:
 
 ## ACF-M3: Browse-To-Item Loop
 
-Status: pending
+Status: in_progress
 
 Exit criteria:
 
@@ -94,6 +94,23 @@ Candidate validation:
 
 - Android unit tests with mocked public API responses.
 - Manual local debug app walkthrough.
+
+Progress:
+
+- `ACF-030A` completed on 2026-05-17:
+  - active-server-scoped `GET /libraries` browse client;
+  - minimal `GET /items?limit=&offset=` tracer;
+  - Home/Libraries Compose shell;
+  - loading, empty, unauthorized, unreachable, and public error states;
+  - mocked API tests for pagination, empty input, diagnostics, active-server
+    switching, and token redaction.
+
+Remaining before milestone completion:
+
+- item detail route;
+- search shell;
+- settings shell;
+- manual walkthrough from connection to item detail.
 
 ## ACF-M4: Playback Decision Loop
 

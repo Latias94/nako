@@ -76,9 +76,11 @@ fun TaruConnectionShellContent(
     tokenVault: TokenVault,
     client: TaruConnectionClient,
     modifier: Modifier = Modifier,
+    initialSnapshot: ServerProfileSnapshot? = null,
+    onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    var snapshot by remember { mutableStateOf(store.load()) }
+    var snapshot by remember(initialSnapshot) { mutableStateOf(initialSnapshot ?: store.load()) }
     var displayName by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf(snapshot.profiles.firstOrNull()?.baseUrl.orEmpty()) }
     var accessToken by remember { mutableStateOf("") }
@@ -88,6 +90,7 @@ fun TaruConnectionShellContent(
     fun updateSnapshot(next: ServerProfileSnapshot) {
         store.save(next)
         snapshot = next
+        onSnapshotChanged(next)
     }
 
     Surface(

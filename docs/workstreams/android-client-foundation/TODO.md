@@ -77,8 +77,8 @@ Validation:
 
 ### ACF-030: Minimal Media Library Browse Loop
 
-Status: pending
-Owner: unassigned
+Status: in_progress
+Owner: codex
 Depends on: ACF-020
 
 Expose the smallest browse flow needed to choose playable content.
@@ -115,6 +115,47 @@ Validation:
 
 - Mocked API tests for pagination and empty/error states.
 - Manual debug build can navigate from server connection to item detail.
+
+#### ACF-030A: Minimal Library Browse Tracer
+
+Status: complete
+Owner: codex
+Completed: 2026-05-17
+
+This sub-slice proves active-server-scoped browse without claiming the full
+ACF-030 browse-to-detail loop.
+
+Scope completed:
+
+- Direct Kotlin Public Client API browse client for `GET /libraries` and the
+  smallest `GET /items?limit=&offset=` tracer.
+- Kotlin DTO mirrors for the minimal `LibraryListResponse`, `ItemsResponse`,
+  `PageInfo`, `LibraryDto`, and `MediaItemDto` fields needed by the first
+  browse shell.
+- Home/Libraries Compose shell after a saved active server profile exists.
+- Loading, empty, unauthorized, unreachable, forbidden, unsupported-version,
+  public API error, invalid-response, and missing-token states.
+- Mocked API unit tests for pagination, empty library state input,
+  unauthorized diagnostics, unreachable diagnostics, public error redaction,
+  active-server base URL switching, and token-reference isolation.
+
+Explicit non-goals preserved:
+
+- No Media3 playback.
+- No playback decision or playback request construction.
+- No UniFFI implementation.
+- No downloads/offline.
+- No external-player handoff.
+- No advanced search/facets.
+- No dependency on server/internal Rust crates from Android.
+
+Remaining ACF-030 work:
+
+- Library detail route.
+- Media Item detail route.
+- Search shell and result navigation.
+- Settings shell beyond server switching through the setup surface.
+- Manual debug walkthrough from connection to item detail once detail exists.
 
 ### ACF-040: Playback Decision And Request Construction
 

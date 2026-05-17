@@ -54,6 +54,40 @@ Dependency boundary for `ACF-020`:
   `taru-streaming`, or `taru-transcode`.
 - No Media3, UniFFI, Downloads, or external-player code is introduced.
 
+## Android Browse Tracer Gates
+
+Validated for `ACF-030A` on 2026-05-17:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `cargo fmt --all -- --check` passed.
+- `cargo check --workspace --tests` passed.
+- `git diff --check` passed with line-ending normalization warnings only.
+- Android unit tests cover:
+  - paginated `GET /libraries`;
+  - minimal paginated `GET /items`;
+  - empty library response as successful empty-state input;
+  - unauthorized browse diagnostics;
+  - unreachable browse diagnostics;
+  - public error-envelope redaction for tokens, local paths, and FFmpeg
+    commands;
+  - active profile switching changing request base URL and token reference.
+
+Dependency boundary for `ACF-030A`:
+
+- Android browse uses direct Kotlin HTTP against Public Client API routes.
+- Android DTOs mirror only the public protocol fields needed by the first
+  browse shell.
+- Android still does not depend on `taru-api`, `taru-server`, `taru-core`,
+  `taru-streaming`, or `taru-transcode`.
+- No Media3, UniFFI, Downloads, external-player, playback decision, or
+  playback request construction code is introduced.
+
+Remaining validation before full `ACF-030` can close:
+
+- mocked tests for item detail and search navigation;
+- manual debug app walkthrough from server connection to item detail.
+
 ## Shared Rust Client-Core Gates
 
 If a mobile shared Rust crate is introduced:
