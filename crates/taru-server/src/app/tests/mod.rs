@@ -18,10 +18,10 @@ use axum::{
 use taru_api::EnqueueMetadataMaintenanceRequest;
 use taru_core::{
     CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId, JobKind,
-    JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    JobRepository, JobStatus, LibraryId, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository, MetadataSource,
-    NewStagingManifestRecord, NewTranscodeSession, PageRequest, ProviderRawResponse,
+    NewJob, NewStagingManifestRecord, NewTranscodeSession, PageRequest, ProviderRawResponse,
     StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
     TranscodeSessionState,

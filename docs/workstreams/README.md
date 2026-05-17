@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [durable-job-recovery](durable-job-recovery/README.md): completed M41 durable
+  job recovery work, covering startup recovery for unfinished queued/running
+  jobs, server startup reporting, and removal of an unused old catalog search
+  projection seam.
 - [metadata-refresh-seam](metadata-refresh-seam/README.md): completed M40
   metadata refresh seam work, covering refresh workflow ports, provider runtime
   boundary review, fake-port behavior tests, and preservation of existing

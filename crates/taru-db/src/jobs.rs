@@ -98,6 +98,29 @@ impl JobRepository for SqliteStore {
         self.get_job_or_not_found(id).await
     }
 
+    async fn fail_unfinished_jobs(&self, error: String) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE jobs
+            SET
+                status = ?1,
+                error = ?2,
+                completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE status IN (?3, ?4)
+            "#,
+        )
+        .bind(JobStatus::Failed.as_str())
+        .bind(error)
+        .bind(JobStatus::Queued.as_str())
+        .bind(JobStatus::Running.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(result.rows_affected())
+    }
+
     async fn get_job(&self, id: JobId) -> Result<Option<Job>> {
         let row = sqlx::query(
             r#"

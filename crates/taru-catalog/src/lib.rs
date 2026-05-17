@@ -305,16 +305,6 @@ where
     Ok(summary)
 }
 
-pub async fn rebuild_search_projection<R>(repository: &R, item_id: MediaItemId) -> Result<()>
-where
-    R: CatalogRepository + MediaRepository + SearchIndex,
-{
-    let snapshot = repository.load_hydration_snapshot(item_id).await?;
-    repository
-        .upsert(search_document_from_snapshot(&snapshot))
-        .await
-}
-
 fn hydrate_credits(
     lookup: &CatalogHydrationLookup,
     item: &MediaItem,
@@ -684,50 +674,6 @@ fn search_document_from_graph(
     SearchDocument {
         item_id: item.id,
         title: item.metadata.title.clone(),
-        body: body_parts.join(" "),
-        facets,
-    }
-}
-
-fn search_document_from_snapshot(snapshot: &CatalogHydrationSnapshot) -> SearchDocument {
-    let mut body_parts = Vec::new();
-    let mut facets = Vec::new();
-
-    add_search_item_metadata(&snapshot.item, &mut body_parts, &mut facets);
-
-    for source in &snapshot.sources {
-        push_body(&mut body_parts, &source.file_name);
-        push_unique_facet(&mut facets, format!("source:{}", source.file_name));
-    }
-
-    for (_item_genre, genre) in &snapshot.genres {
-        push_body(&mut body_parts, &genre.name);
-        push_unique_facet(&mut facets, format!("genre:{}", genre.name));
-    }
-    for (_item_tag, tag) in &snapshot.tags {
-        push_body(&mut body_parts, &tag.name);
-        push_unique_facet(&mut facets, format!("tag:{}", tag.name));
-    }
-    for (_collection_item, collection) in &snapshot.collections {
-        push_body(&mut body_parts, &collection.name);
-        push_unique_facet(&mut facets, format!("collection:{}", collection.name));
-    }
-    for (_item_studio, studio) in &snapshot.studios {
-        push_body(&mut body_parts, &studio.name);
-        push_unique_facet(&mut facets, format!("studio:{}", studio.name));
-    }
-    for (credit, person) in &snapshot.credits {
-        let role = credit_role_label(&credit.role);
-        push_body(&mut body_parts, &person.name);
-        push_optional_body(&mut body_parts, credit.character.as_deref());
-        push_unique_facet(&mut facets, format!("credit:{}", person.name));
-        push_unique_facet(&mut facets, format!("{role}:{}", person.name));
-    }
-    facets.sort();
-
-    SearchDocument {
-        item_id: snapshot.item.id,
-        title: snapshot.item.metadata.title.clone(),
         body: body_parts.join(" "),
         facets,
     }

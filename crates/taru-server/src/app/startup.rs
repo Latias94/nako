@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use taru_core::{
-    LibraryRepository, Result, TaruError, TransactionManager, TranscodeFailureCategory,
-    TranscodeSessionRepository,
+    JobRepository, LibraryRepository, Result, TaruError, TransactionManager,
+    TranscodeFailureCategory, TranscodeSessionRepository,
 };
 use taru_db::SqliteStore;
 use tracing::warn;
@@ -16,6 +16,7 @@ use crate::config::{TaruServerConfig, libraries_from_config};
 pub(crate) struct ServerStartupReport {
     pub configured_libraries: usize,
     pub recovered_transcode_sessions: u64,
+    pub recovered_jobs: u64,
     pub staging_cleanup: Option<ServerStartupStagingCleanupReport>,
     pub metadata_raw_cache_deleted: u64,
     pub metadata_lifecycle_tasks_started: usize,
@@ -51,6 +52,7 @@ impl<'a> ServerStartupWorkflow<'a> {
         self.store.migrate().await?;
 
         let recovered_transcode_sessions = self.recover_stale_transcode_sessions().await?;
+        let recovered_jobs = self.recover_unfinished_jobs().await?;
         let staging_cleanup = self.cleanup_staging_inputs().await?;
         let configured_libraries = self.ensure_configured_libraries().await?;
         let metadata_raw_cache_deleted = self
@@ -62,6 +64,7 @@ impl<'a> ServerStartupWorkflow<'a> {
         Ok(ServerStartupReport {
             configured_libraries,
             recovered_transcode_sessions,
+            recovered_jobs,
             staging_cleanup,
             metadata_raw_cache_deleted,
             metadata_lifecycle_tasks_started,
@@ -84,6 +87,21 @@ impl<'a> ServerStartupWorkflow<'a> {
         }
 
         Ok(recovered_sessions)
+    }
+
+    async fn recover_unfinished_jobs(&self) -> Result<u64> {
+        let recovered_jobs = self
+            .store
+            .fail_unfinished_jobs("job was unfinished during server startup".to_owned())
+            .await?;
+        if recovered_jobs > 0 {
+            warn!(
+                recovered_jobs,
+                "marked unfinished durable jobs failed during startup"
+            );
+        }
+
+        Ok(recovered_jobs)
     }
 
     async fn cleanup_staging_inputs(&self) -> Result<Option<ServerStartupStagingCleanupReport>> {

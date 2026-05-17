@@ -700,9 +700,33 @@ Completed:
 - M40.3 added a fake-port refresh test without SQLite while preserving
   existing metadata behavior.
 
-Recommended next goal:
+### Durable Job Recovery: M41
 
-- M41 provider runtime seam or library scan/probe seam deepening.
+Status: completed.
+
+This phase fixes the durable job correctness gap left after M38:
+
+- unfinished queued/running jobs are recovered at server startup;
+- startup reports expose recovered durable job count;
+- SQLite and server startup tests lock down the behavior;
+- the unused old catalog search projection seam is removed if it has no caller;
+- generic job retry/dispatch, public API changes, and `CatalogHydrationPort`
+  lookup deepening remain follow-ons.
+
+Completed:
+
+- M41.1 added `JobRepository::fail_unfinished_jobs` and SQLite recovery for
+  queued/running jobs.
+- M41.2 wired recovery into `ServerStartupWorkflow` and exposed
+  `ServerStartupReport::recovered_jobs`.
+- M41.3 removed the unused old `rebuild_search_projection` catalog entrypoint.
+- M41.4 validated focused gates and the workspace with 288 nextest tests
+  passed.
+
+Recommended next goal after M41:
+
+- M42 `CatalogHydrationPort` lookup deepening, unless another correctness issue
+  is found first.
 
 ## Workstream Split Direction
 

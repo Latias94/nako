@@ -26,10 +26,59 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M41 Provider Runtime Or
-Library Scan/Probe Seam Deepening.
+No active implementation goal. Recommended next goal: M42
+`CatalogHydrationPort` lookup deepening, unless another correctness issue is
+found first.
 
 ## Completed Goals
+
+### M41: Durable Job Recovery and Abort Semantics
+
+Status: completed.
+
+Objective:
+
+- Prevent durable jobs from remaining permanently queued or running after
+  shutdown, task abort, or process restart.
+- Add startup recovery for unfinished durable jobs, because in-process abort
+  paths cannot reliably await database writes.
+- Keep runtime shutdown semantics honest while making the persistent job table
+  converge to terminal states after restart.
+- Remove the unused old `rebuild_search_projection` entrypoint if no caller
+  depends on it.
+
+Deliverables:
+
+- `JobRepository` and `SqliteStore` support stale unfinished job recovery.
+- `ServerStartupWorkflow` records recovered durable jobs in
+  `ServerStartupReport`.
+- SQLite and server startup regression tests cover the recovery behavior.
+- The M41 workstream records evidence and follow-on architecture tasks.
+
+Non-goals:
+
+- No durable queue dispatcher, retry policy, or resumable job execution.
+- No public HTTP API, SDK, CLI, or license-boundary changes.
+- No new job status unless a later workflow needs it.
+- No `CatalogHydrationPort` lookup deepening in this goal.
+
+Evidence:
+
+- [durable-job-recovery workstream](workstreams/durable-job-recovery/README.md)
+  records design, task ledger, milestones, evidence, and closeout.
+- `JobRepository::fail_unfinished_jobs` and `SqliteStore::fail_unfinished_jobs`
+  mark queued/running jobs failed during startup recovery while preserving
+  terminal jobs.
+- `ServerStartupWorkflow` records recovered durable jobs in
+  `ServerStartupReport::recovered_jobs`.
+- `sqlite_store_marks_unfinished_jobs_failed_on_startup` and
+  `app_startup_marks_unfinished_jobs_failed` cover adapter and startup
+  behavior.
+- Removed unused `rebuild_search_projection` and its dead snapshot projection
+  helper from `taru-catalog`.
+- Close-out validation: `cargo fmt --all -- --check`, focused db/server/catalog
+  gates, `cargo check --workspace --tests`, and `cargo nextest run --workspace
+  --no-fail-fast` with 288 tests passed.
 
 ### M40: Metadata Refresh Workflow Port and Provider Runtime Seam Deepening
 

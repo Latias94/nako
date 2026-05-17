@@ -1573,6 +1573,103 @@ async fn sqlite_store_round_trips_job_lifecycle() {
 }
 
 #[tokio::test]
+async fn sqlite_store_marks_unfinished_jobs_failed_on_startup() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    store.upsert_library(&library).await.unwrap();
+
+    let queued_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: queued_id,
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.refresh".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let running_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: running_id,
+            kind: JobKind::LibraryScan,
+            resource_class: "library.scan".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(running_id).await.unwrap();
+
+    let succeeded_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: succeeded_id,
+            kind: JobKind::NfoImport,
+            resource_class: "nfo.import".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(succeeded_id).await.unwrap();
+    store
+        .succeed_job(succeeded_id, Some(r#"{"imported":1}"#.to_owned()))
+        .await
+        .unwrap();
+
+    let failed_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: failed_id,
+            kind: JobKind::LibraryProbe,
+            resource_class: "library.probe".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(failed_id).await.unwrap();
+    store
+        .fail_job(failed_id, "probe failed".to_owned())
+        .await
+        .unwrap();
+
+    let error = "job was unfinished during server startup".to_owned();
+    let recovered = store.fail_unfinished_jobs(error.clone()).await.unwrap();
+
+    let queued = store.get_job(queued_id).await.unwrap().unwrap();
+    let running = store.get_job(running_id).await.unwrap().unwrap();
+    let succeeded = store.get_job(succeeded_id).await.unwrap().unwrap();
+    let failed = store.get_job(failed_id).await.unwrap().unwrap();
+
+    assert_eq!(recovered, 2);
+    assert_eq!(queued.status, JobStatus::Failed);
+    assert_eq!(queued.error, Some(error.clone()));
+    assert!(queued.completed_at.is_some());
+    assert_eq!(running.status, JobStatus::Failed);
+    assert_eq!(running.error, Some(error));
+    assert!(running.completed_at.is_some());
+    assert_eq!(succeeded.status, JobStatus::Succeeded);
+    assert_eq!(succeeded.summary_json, Some(r#"{"imported":1}"#.to_owned()));
+    assert_eq!(failed.status, JobStatus::Failed);
+    assert_eq!(failed.error, Some("probe failed".to_owned()));
+}
+
+#[tokio::test]
 async fn sqlite_store_round_trips_outbox_events_idempotently() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

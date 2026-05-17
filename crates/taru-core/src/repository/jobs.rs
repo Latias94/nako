@@ -15,6 +15,8 @@ pub trait JobRepository: Send + Sync {
 
     async fn fail_job(&self, id: JobId, error: String) -> Result<Job>;
 
+    async fn fail_unfinished_jobs(&self, error: String) -> Result<u64>;
+
     async fn get_job(&self, id: JobId) -> Result<Option<Job>>;
 }
 

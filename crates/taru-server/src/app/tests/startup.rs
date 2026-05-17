@@ -295,6 +295,108 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
 }
 
 #[tokio::test]
+async fn app_startup_marks_unfinished_jobs_failed() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let config = app.config().clone();
+
+    let queued_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: queued_id,
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.refresh".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let running_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: running_id,
+            kind: JobKind::LibraryScan,
+            resource_class: "library.scan".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(running_id).await.unwrap();
+
+    let succeeded_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: succeeded_id,
+            kind: JobKind::NfoImport,
+            resource_class: "nfo.import".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(succeeded_id).await.unwrap();
+    store
+        .succeed_job(succeeded_id, Some(r#"{"imported":1}"#.to_owned()))
+        .await
+        .unwrap();
+
+    drop(app);
+    let restarted = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let queued = store.get_job(queued_id).await.unwrap().unwrap();
+    let running = store.get_job(running_id).await.unwrap().unwrap();
+    let succeeded = store.get_job(succeeded_id).await.unwrap().unwrap();
+
+    assert_eq!(queued.status, JobStatus::Failed);
+    assert_eq!(
+        queued.error,
+        Some("job was unfinished during server startup".to_owned())
+    );
+    assert_eq!(running.status, JobStatus::Failed);
+    assert_eq!(
+        running.error,
+        Some("job was unfinished during server startup".to_owned())
+    );
+    assert_eq!(succeeded.status, JobStatus::Succeeded);
+    assert_eq!(restarted.startup_report().recovered_jobs, 2);
+}
+
+#[tokio::test]
 async fn startup_report_tracks_disabled_staging_cleanup() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

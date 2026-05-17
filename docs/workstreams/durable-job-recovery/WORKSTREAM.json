@@ -1,0 +1,17 @@
+{
+  "slug": "durable-job-recovery",
+  "status": "completed",
+  "goal": "M41 Durable Job Recovery and Abort Semantics",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "unfinished job startup recovery",
+  "non_goals": [
+    "generic durable queue dispatcher",
+    "job retry policy",
+    "public API or SDK changes",
+    "new cancelled job status",
+    "CatalogHydrationPort lookup deepening"
+  ]
+}
