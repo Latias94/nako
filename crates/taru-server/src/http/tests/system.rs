@@ -74,6 +74,89 @@ async fn storage_backend_diagnostics_route_exposes_registry_state_without_secret
 }
 
 #[tokio::test]
+async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let health_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health_response.status(), StatusCode::OK);
+
+    let missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        missing.headers()[taru_api::API_VERSION_HEADER],
+        taru_api::API_VERSION
+    );
+    assert_eq!(missing.headers()[header::WWW_AUTHENTICATE], "Bearer");
+    let missing_error = body_json::<ErrorResponse>(missing).await;
+    assert_eq!(
+        missing_error.code,
+        taru_api::ClientErrorCode::Unauthorized.as_str()
+    );
+    assert_eq!(missing_error.message, "authentication required");
+
+    let wrong = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::AUTHORIZATION, "Bearer wrong-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(wrong.status(), StatusCode::UNAUTHORIZED);
+    let wrong_error = body_json::<ErrorResponse>(wrong).await;
+    let wrong_error_json = serde_json::to_string(&wrong_error).unwrap();
+    assert_eq!(
+        wrong_error.code,
+        taru_api::ClientErrorCode::Unauthorized.as_str()
+    );
+    assert!(!wrong_error_json.contains("wrong-token"));
+    assert!(!wrong_error_json.contains(token));
+
+    let ok = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ok.status(), StatusCode::OK);
+    let libraries = body_json::<LibraryListResponse>(ok).await;
+    assert_eq!(libraries.libraries[0].id, library_id.to_string());
+}
+
+#[tokio::test]
 async fn api_errors_map_playback_storage_categories() {
     let cases = [
         (

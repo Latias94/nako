@@ -76,6 +76,7 @@ async fn router_with_media_source(
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -148,6 +149,7 @@ async fn router_with_remux_source(
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -221,6 +223,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Sq
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path,
         scan_concurrency: 1,
@@ -425,6 +428,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -449,6 +453,37 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     build_router(app)
+}
+
+async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, token: &str) -> Router {
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: root.join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root,
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    build_router_with_auth(app, auth::InboundAuthState::bearer_token(token))
 }
 
 fn addon_manifest() -> AddonManifest {

@@ -41,6 +41,7 @@ cargo nextest run --workspace
 Run the server:
 
 ```powershell
+$env:TARU_ADMIN_TOKEN = "<local admin token>"
 cargo run -p taru-server -- --config taru.toml serve
 ```
 
@@ -78,6 +79,10 @@ webhook_concurrency = 2
 remux_timeout_ms = 1800000
 remux_staging_root = "F:/Taru/cache/remux"
 
+[auth]
+enabled = true
+token_env = "TARU_ADMIN_TOKEN"
+
 [transcode]
 hardware_acceleration = "none"
 hardware_fallback = "cpu"
@@ -107,6 +112,20 @@ image_base_url = "https://image.tmdb.org/t/p/original"
 language = "en-US"
 include_adult = false
 ```
+
+`[auth]` controls inbound HTTP client/admin authentication. `GET /health` is
+public for readiness checks; other routes require
+`Authorization: Bearer <token>`, where the token is read from `token_env`.
+For isolated local experiments only, auth can be disabled explicitly:
+
+```toml
+[auth]
+enabled = false
+```
+
+Do not reuse `TARU_ADMIN_TOKEN` for addon, webhook, metadata provider,
+automation provider, or storage backend credentials; those are separate
+outbound integration secrets.
 
 ## Library And WebDAV Config
 

@@ -7,6 +7,7 @@ async fn metadata_refresh_route_queues_background_job() {
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -130,6 +131,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -290,6 +292,7 @@ async fn metadata_maintenance_route_enqueues_batch_job() {
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
+            auth: crate::config::AuthConfig::disabled(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: 1,

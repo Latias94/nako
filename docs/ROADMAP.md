@@ -436,6 +436,35 @@ Recommended next goal:
   auth/session boundary design, or deeper public route coverage based on the
   next client implementation need.
 
+### Access Boundary And Token Authentication: M31
+
+Status: completed.
+
+This phase establishes an inbound HTTP access boundary before future clients,
+remote access, or tunnel/NAT traversal depend on unauthenticated server APIs:
+
+- define inbound client/admin auth as separate from addon, webhook, metadata,
+  automation, and storage outbound integration secrets;
+- add bearer-token config with auth enabled by default and token resolution
+  from an environment reference;
+- keep `GET /health` public for readiness/preflight;
+- protect non-health routes with `Authorization: Bearer <token>`;
+- return M30-compatible public error envelopes for missing or invalid tokens;
+- document local development setup and follow-ons for users, sessions, RBAC,
+  OpenAPI auth schemes, and tunnel integration.
+
+Completed slices:
+
+- M31.0 scope and boundary baseline.
+- M31.1 protocol and config slice.
+- M31.2 HTTP middleware slice.
+- M31.3 docs and route evidence slice.
+- M31.4 closeout.
+
+Recommended next goal:
+
+- M32 OpenAPI and public client SDK contract foundation.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split

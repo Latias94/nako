@@ -16,6 +16,7 @@ inspection envelopes, and error envelopes for current server routes.
 - List endpoints use offset pagination.
 - Error responses use a stable JSON envelope.
 - Job responses include both durable input and generated summary when present.
+- Inbound client/admin access uses bearer-token authentication when enabled.
 
 ## API Version And Compatibility
 
@@ -72,6 +73,41 @@ provider diagnostics, raw metadata cache inspection, webhook administration,
 automation administration, addon administration, ingestion failure inspection,
 and metadata maintenance internals.
 
+## Authentication
+
+Inbound HTTP authentication is controlled by server config:
+
+```toml
+[auth]
+enabled = true
+token_env = "TARU_ADMIN_TOKEN"
+```
+
+When auth is enabled, every route except `GET /health` requires:
+
+```text
+Authorization: Bearer <token from token_env>
+```
+
+Missing, malformed, or incorrect tokens return:
+
+```http
+401 Unauthorized
+www-authenticate: Bearer
+```
+
+```json
+{
+  "code": "unauthorized",
+  "message": "authentication required"
+}
+```
+
+The resolved token value is never returned in responses. This inbound client
+auth boundary is separate from outbound addon auth, webhook signing, metadata
+provider credentials, automation provider credentials, and storage backend
+credentials.
+
 ## Pagination
 
 List routes accept:
@@ -117,6 +153,8 @@ invalid_input
 not_found
 conflict
 unsupported
+unauthorized
+forbidden
 provider_error
 storage_error
 ffmpeg_error

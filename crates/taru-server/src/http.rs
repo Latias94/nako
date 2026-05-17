@@ -1,10 +1,11 @@
 use axum::http::{HeaderName, HeaderValue};
-use axum::{Router, middleware, response::Response};
+use axum::{Extension, Router, middleware, response::Response};
 use taru_api::{API_VERSION, API_VERSION_HEADER};
 
 use crate::app::TaruApp;
 
 mod addons;
+mod auth;
 mod automation;
 mod catalog;
 mod error;
@@ -17,6 +18,11 @@ mod system;
 mod webhooks;
 
 pub fn build_router(app: TaruApp) -> Router {
+    let auth = auth::InboundAuthState::from_config(&app.config().auth);
+    build_router_with_auth(app, auth)
+}
+
+fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router {
     Router::new()
         .merge(system::routes())
         .merge(library::routes())
@@ -27,6 +33,8 @@ pub fn build_router(app: TaruApp) -> Router {
         .merge(automation::routes())
         .merge(addons::routes())
         .merge(jobs::routes())
+        .layer(middleware::from_fn(auth::require_auth))
+        .layer(Extension(auth))
         .layer(middleware::map_response(add_api_version_header))
         .with_state(app)
 }

@@ -373,6 +373,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
+            auth: crate::config::AuthConfig::disabled(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: 1,
@@ -479,6 +480,7 @@ async fn app_startup_cleans_expired_staging_inputs() {
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
+            auth: crate::config::AuthConfig::disabled(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: 1,

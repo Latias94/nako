@@ -325,6 +325,7 @@ async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path,
         scan_concurrency: 1,
@@ -509,6 +510,7 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
+            auth: crate::config::AuthConfig::disabled(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: 1,

@@ -8,6 +8,7 @@ async fn webdav_preview_config_builds_scanner_backend() {
     let config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -77,6 +78,7 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
+            auth: crate::config::AuthConfig::disabled(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: 1,

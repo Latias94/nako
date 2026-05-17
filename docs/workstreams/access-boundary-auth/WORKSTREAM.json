@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "access-boundary-auth",
+  "title": "Access Boundary and Token Authentication",
+  "status": "completed",
+  "updated": "2026-05-17",
+  "scope_kind": "execution",
+  "problem": "Taru has a public client API contract but no inbound HTTP authentication boundary, which would make future clients and remote access depend on unauthenticated server APIs.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/access-boundary-auth/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/access-boundary-auth/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/access-boundary-auth/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo nextest run -p taru-server http::tests --no-fail-fast",
+    "cargo nextest run --workspace --no-fail-fast",
+    "cargo tree -p taru-client-protocol",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/api/HTTP_API.md",
+    "docs/development/LOCAL_SETUP.md",
+    "crates/taru-client-protocol/src/lib.rs",
+    "crates/taru-api/src/lib.rs",
+    "crates/taru-server/src/config.rs",
+    "crates/taru-server/src/http.rs",
+    "crates/taru-server/src/http/tests"
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "M31 is complete. Split OpenAPI bearer-auth documentation, client SDK generation, user accounts, sessions, RBAC, tunnel integration, and broader route coverage into follow-on goals."
+  }
+}

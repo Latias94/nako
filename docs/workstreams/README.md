@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [access-boundary-auth](access-boundary-auth/README.md): completed M31
+  inbound HTTP access-boundary work, covering bearer-token auth, public/admin
+  route protection, local development config, and separation from addon/
+  webhook/provider outbound integration secrets.
 - [public-api-contract](public-api-contract/README.md): completed M30 public
   API versioning and error envelope hardening, covering public v1
   compatibility, stable error code vocabulary, pagination/envelope rules, and

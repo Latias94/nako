@@ -19,6 +19,8 @@ pub struct TaruServerConfig {
     #[serde(default = "default_listen_addr")]
     pub listen_addr: SocketAddr,
     pub database_url: String,
+    #[serde(default)]
+    pub auth: AuthConfig,
     #[serde(default = "default_ffprobe_path")]
     pub ffprobe_path: PathBuf,
     #[serde(default = "default_ffmpeg_path")]
@@ -47,6 +49,36 @@ pub struct TaruServerConfig {
     pub playback: PlaybackConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LocalLibraryConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AuthConfig {
+    #[serde(default = "default_auth_enabled")]
+    pub enabled: bool,
+    #[serde(
+        default = "default_auth_token_env",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub token_env: Option<String>,
+}
+
+impl AuthConfig {
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            token_env: None,
+        }
+    }
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_auth_enabled(),
+            token_env: default_auth_token_env(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -300,6 +332,7 @@ pub fn example_config() -> Result<String> {
     let config = TaruServerConfig {
         listen_addr: default_listen_addr(),
         database_url: "sqlite://taru.db".to_owned(),
+        auth: AuthConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: default_ffmpeg_path(),
         scan_concurrency: default_scan_concurrency(),
@@ -378,6 +411,14 @@ fn configured_library_root(library: &LocalLibraryConfig) -> String {
 
 fn default_listen_addr() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000)
+}
+
+const fn default_auth_enabled() -> bool {
+    true
+}
+
+fn default_auth_token_env() -> Option<String> {
+    Some("TARU_ADMIN_TOKEN".to_owned())
 }
 
 fn default_ffprobe_path() -> PathBuf {
@@ -518,6 +559,10 @@ mod tests {
             remux_timeout_ms = 60000
             remux_staging_root = "F:/Taru/cache/remux"
 
+            [auth]
+            enabled = true
+            token_env = "TARU_ADMIN_TOKEN"
+
             [transcode]
             hardware_acceleration = "nvenc"
             hardware_fallback = "fail"
@@ -586,6 +631,8 @@ mod tests {
 
         assert_eq!(config.listen_addr, "127.0.0.1:4000".parse().unwrap());
         assert_eq!(config.database_url, "sqlite://taru.db");
+        assert!(config.auth.enabled);
+        assert_eq!(config.auth.token_env.as_deref(), Some("TARU_ADMIN_TOKEN"));
         assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
         assert_eq!(config.ffmpeg_path, PathBuf::from("ffmpeg"));
         assert_eq!(config.scan_concurrency, 2);
@@ -790,6 +837,7 @@ mod tests {
         assert_eq!(config.transcode.gpu_concurrency, 1);
         assert_eq!(config.staging, StagingConfig::default());
         assert_eq!(config.playback, PlaybackConfig::default());
+        assert_eq!(config.auth, AuthConfig::default());
         assert_eq!(
             config.metadata.runtime,
             MetadataProviderRuntimeConfig::default()

@@ -26,9 +26,45 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is selected after M30 closeout.
+No active implementation goal is recorded in this file after M31 closeout.
+
+Next recommended implementation goal:
+
+- M32 OpenAPI and public client SDK contract foundation.
 
 ## Completed Goals
+
+### M31: Access Boundary and Token Authentication Foundation
+
+Status: completed.
+
+Objective:
+
+- Establish an inbound HTTP access boundary so future Flutter, web, CLI,
+  remote access, and tunnel work does not depend on unauthenticated server
+  APIs.
+- Define the difference between Public Client API, Server Admin/Internal API,
+  and outbound addon/provider/webhook integration auth.
+- Implement the first bearer-token authentication foundation with safe
+  defaults, local-development ergonomics, route-level tests, and no token
+  leakage.
+
+Evidence:
+
+- [access-boundary-auth workstream](workstreams/access-boundary-auth/README.md)
+- [ADR 0024](adr/0024-inbound-token-authentication-boundary.md)
+- `taru-client-protocol` owns public `unauthorized` and `forbidden` error
+  codes.
+- `taru-server` config exposes `[auth]` with auth enabled by default and
+  `TARU_ADMIN_TOKEN` as the default token environment reference.
+- `taru-server` HTTP middleware protects every non-health route when auth is
+  enabled, while `GET /health` remains public.
+- Auth failures return M30-compatible `401 unauthorized` error envelopes with
+  `WWW-Authenticate: Bearer` and no token leakage.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  256 tests passed, `cargo tree -p taru-client-protocol`, and `git diff
+  --check`.
 
 ### M30: Public API Versioning and Error Envelope Hardening
 

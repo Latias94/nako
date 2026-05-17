@@ -7,8 +7,9 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
-- Current planned workstream: none selected after M30 closeout.
-- Latest completed workstream: [public API contract](workstreams/public-api-contract/README.md)
+- Current planned workstream: none.
+- Latest completed workstream: [access boundary auth](workstreams/access-boundary-auth/README.md)
+- Previous completed workstream: [public API contract](workstreams/public-api-contract/README.md)
 - Previous completed workstream: [public client API](workstreams/public-client-api/README.md)
 - Previous completed workstream: [crate boundary hardening](workstreams/crate-boundary-hardening/README.md)
 - Previous completed workstream: [metadata catalog](workstreams/metadata-catalog/README.md)

@@ -36,6 +36,8 @@ pub enum ClientErrorCode {
     NotFound,
     Conflict,
     Unsupported,
+    Unauthorized,
+    Forbidden,
     ProviderError,
     StorageError,
     FfmpegError,
@@ -53,6 +55,8 @@ impl ClientErrorCode {
         Self::NotFound,
         Self::Conflict,
         Self::Unsupported,
+        Self::Unauthorized,
+        Self::Forbidden,
         Self::ProviderError,
         Self::StorageError,
         Self::FfmpegError,
@@ -71,6 +75,8 @@ impl ClientErrorCode {
             Self::NotFound => "not_found",
             Self::Conflict => "conflict",
             Self::Unsupported => "unsupported",
+            Self::Unauthorized => "unauthorized",
+            Self::Forbidden => "forbidden",
             Self::ProviderError => "provider_error",
             Self::StorageError => "storage_error",
             Self::FfmpegError => "ffmpeg_error",
@@ -156,6 +162,10 @@ mod tests {
         assert_eq!(
             ClientErrorCode::from_code("storage_timeout"),
             Some(ClientErrorCode::StorageTimeout)
+        );
+        assert_eq!(
+            ClientErrorCode::from_code("unauthorized"),
+            Some(ClientErrorCode::Unauthorized)
         );
         assert_eq!(ClientErrorCode::from_code("server_stack_trace"), None);
     }
