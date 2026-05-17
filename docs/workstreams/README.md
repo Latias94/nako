@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [sdk-client-scaffold](sdk-client-scaffold/README.md): completed M33 SDK
+  generation and client integration scaffold, covering a dependency-free
+  TypeScript/Web/CLI SDK generator, auth/error/version handling, public route
+  method inventory, and static leakage checks.
 - [openapi-client-contract](openapi-client-contract/README.md): completed M32
   OpenAPI and Public Client SDK contract foundation, covering the first public
   OpenAPI v1 artifact, bearer-auth/error/version schema, route inventory, and

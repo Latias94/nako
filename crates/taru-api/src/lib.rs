@@ -40,6 +40,7 @@ use taru_streaming::{DirectPlayPlan, PlaybackDecision, PlaybackMode};
 use taru_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
 
 pub mod openapi;
+pub mod sdk;
 
 #[must_use]
 pub fn page_info_from_request(page: PageRequest, returned: usize) -> PageInfo {

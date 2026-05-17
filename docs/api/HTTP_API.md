@@ -92,6 +92,34 @@ responses, and rejects internal/admin surfaces such as local output paths,
 secret references, raw provider cache, jobs, addons, webhooks, automation, and
 storage diagnostics.
 
+## SDK Scaffold
+
+The first client integration scaffold is a dependency-free TypeScript/Web/CLI
+wrapper generated from the same `taru-api` OpenAPI contract:
+
+```bash
+cargo run -p taru-api --example emit-typescript-sdk
+```
+
+The generated scaffold includes:
+
+- exported TypeScript interfaces for the public OpenAPI schemas;
+- `TaruClient` methods for health, library, catalog/search, source probe,
+  playback decision, direct stream, remux stream, HLS playlist/segment, and
+  playback session routes;
+- bearer token injection through `Authorization: Bearer <token>`;
+- `x-taru-api-version` response inspection;
+- `ErrorResponse` parsing into `TaruApiError`;
+- `limit`/`offset` pagination helpers and playback capability query helpers.
+
+The SDK scaffold is not a published npm package yet. Dart/Flutter SDK
+generation, package publishing, and UI clients are separate follow-ons.
+
+The scaffold is validated by `cargo check -p taru-api --examples` and
+`cargo nextest run -p taru-api --no-fail-fast`; full closeout also runs the
+workspace test gate and `cargo tree -p taru-client-protocol` to keep the public
+protocol crate dependency-light.
+
 ## Authentication
 
 Inbound HTTP authentication is controlled by server config:

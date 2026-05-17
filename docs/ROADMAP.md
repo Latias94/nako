@@ -495,6 +495,33 @@ Recommended next goal:
 
 - M33 SDK generation and client integration scaffold.
 
+### SDK Generation And Client Integration Scaffold: M33
+
+Status: completed.
+
+This phase turns the OpenAPI v1 contract into the first repeatable client
+integration scaffold:
+
+- generate a dependency-free TypeScript/Web/CLI client wrapper from
+  `taru-api`;
+- standardize bearer auth, `x-taru-api-version` inspection, error envelope
+  parsing, pagination helpers, and core public route calls;
+- add static checks that the scaffold follows the public route inventory and
+  excludes admin/internal routes;
+- keep Dart/Flutter SDK generation, package publishing, and UI implementation
+  as follow-ons.
+
+Completed slices:
+
+- M33.0 scope and boundary baseline.
+- M33.1 TypeScript SDK scaffold generator.
+- M33.2 SDK contract smoke checks.
+- M33.3 docs and closeout.
+
+Recommended next goal:
+
+- M34 TypeScript SDK package hardening and contract compile check.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split

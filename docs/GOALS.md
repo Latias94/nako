@@ -26,13 +26,44 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M32 closeout.
+No active implementation goal is recorded in this file after M33 closeout.
 
 Next recommended implementation goal:
 
-- M33 SDK generation and client integration scaffold.
+- M34 TypeScript SDK package hardening and contract compile check.
 
 ## Completed Goals
+
+### M33: SDK Generation and Client Integration Scaffold
+
+Status: completed.
+
+Objective:
+
+- Establish a repeatable SDK/client integration scaffold after M32 OpenAPI v1.
+- Prove future web, CLI, and Flutter work can start from the same public API
+  contract instead of scattered handwritten HTTP calls.
+- Produce a dependency-light TypeScript/Web/CLI SDK scaffold with bearer auth,
+  API-version inspection, error envelope parsing, pagination helpers, and core
+  public route methods.
+
+Evidence:
+
+- [sdk-client-scaffold workstream](workstreams/sdk-client-scaffold/README.md)
+- `taru-api` owns `sdk::typescript_sdk()` and the
+  `emit-typescript-sdk` example for generating a dependency-free
+  TypeScript/Web/CLI client scaffold from the OpenAPI v1 contract.
+- Generated scaffold covers API version constants, public path inventory,
+  OpenAPI-derived wire interfaces, `TaruClient`, `TaruApiError`, bearer-token
+  injection, `x-taru-api-version` inspection, error envelope parsing,
+  pagination helpers, and core library/catalog/playback/session route calls.
+- SDK generator tests cover route inventory, auth/version/error/pagination
+  runtime details, and rejection of admin/internal/secret/local-path terms.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo check -p taru-api --examples`, `cargo
+  nextest run -p taru-api --no-fail-fast` with 10 tests passed, `cargo
+  nextest run --workspace --no-fail-fast` with 263 tests passed, `cargo tree
+  -p taru-client-protocol`, and `git diff --check`.
 
 ### M32: OpenAPI and Public Client SDK Contract Foundation
 
