@@ -45,7 +45,7 @@ Public Client API contracts remain separate.
 | Metadata diagnostics | `GET /items/{item_id}/metadata/attempts`, `GET /items/{item_id}/metadata/raw`, `GET /metadata/providers`, `POST /metadata/raw/cleanup` | Admin/internal | Supports provider status, item attempts, raw cache view, and cleanup. |
 | Playback decisions | `GET /sources/{source_id}/playback/decision` | Public Client API | Supports decision preview for a single source. |
 | Streaming playback | `GET/HEAD /sources/{source_id}/stream`, `GET /sources/{source_id}/stream/remux`, `GET /sources/{source_id}/stream/hls/playlist.m3u8`, HLS segment route | Public Client API | Not a first admin-console need except safe diagnostics and request previews. |
-| Playback sessions | `GET /admin/v1/playback/sessions`, `GET /playback/sessions/{session_id}`, `POST /playback/sessions/{session_id}/cancel` | Admin API v1 plus Public Client API detail/cancel | Supports redacted admin list/filter by state, kind, Media Source, and pagination. Existing Public Client API supports detail/cancel only when the session ID is already known. |
+| Playback sessions | `GET /admin/v1/playback/sessions`, `GET /admin/v1/playback/runtime`, `GET /playback/sessions/{session_id}`, `POST /playback/sessions/{session_id}/cancel` | Admin API v1 plus Public Client API detail/cancel | Supports redacted admin list/filter by state, kind, Media Source, and pagination. Supports safe runtime diagnostics for hardware acceleration, FFmpeg capability evidence, resource budgets, and staging cleanup configuration. Existing Public Client API supports detail/cancel only when the session ID is already known. |
 | Jobs | `GET /admin/v1/jobs`, `GET /jobs/{job_id}` | Admin API v1 plus legacy admin/internal detail | Supports redacted list/filter by status, kind, resource class, Media Library, Media Source, and pagination. Supports detail only when job ID is known. Missing cancel/retry. |
 | Storage diagnostics | `GET /storage/backends` | Admin/internal | Supports storage page read-only diagnostics. |
 | Webhooks | `POST /webhooks/endpoints`, `GET /webhooks/endpoints`, `GET /webhooks/endpoints/{endpoint_id}`, `GET /events/{event_id}/webhook-attempts`, `POST /events/{event_id}/webhooks/deliver` | Admin/internal | Supports endpoint upsert/list/detail, event attempt detail, and explicit dispatch. Missing event list and disabled endpoint listing semantics need review. |
@@ -64,7 +64,7 @@ Public Client API contracts remain separate.
 | Metadata Providers | Good: provider diagnostics and runtime budgets exist. | Needs configuration edit if provider config becomes runtime editable. Current diagnostics are process-local. |
 | Metadata Maintenance | Good: dry-run plan, enqueue job, item refresh, raw cache cleanup. | Needs maintenance schedule read/edit routes if schedules become UI-managed. |
 | Jobs/Tasks | Good for first read-only list: `GET /admin/v1/jobs` supports redacted list/filter by status/kind/library/source/resource class and pagination. Existing `GET /jobs/{job_id}` supports known-ID detail. | Needs retry/cancel only after durable runtime semantics support them. |
-| Playback & Transcode | Good for first read-only session list: `GET /admin/v1/playback/sessions` supports redacted list/filter by state/kind/source and pagination. Public playback decision by source, known-session detail/cancel, and streaming routes remain available. | Needs transcode hardware capability report, selected hardware policy, resource budget summary, FFmpeg status, staging budget/cleanup summary, and safe request preview. |
+| Playback & Transcode | Good for first read-only session and runtime diagnostics: `GET /admin/v1/playback/sessions` supports redacted list/filter by state/kind/source and pagination, and `GET /admin/v1/playback/runtime` supports hardware policy/selection, FFmpeg capability evidence, transcode budgets, remote playback budgets, and staging cleanup configuration. Public playback decision by source, known-session detail/cancel, and streaming routes remain available. | Needs safe request preview, richer session detail, and deeper Playback Source Selection diagnostics after subtitles/audio tracks/HDR/client profiles/Source Variants are modeled. |
 | Storage | Good for first read-only page: storage backend diagnostics. | Needs staging manifest list/cleanup diagnostics if storage page includes cache/staging operations. |
 | Automation | Partial: provider list/detail/upsert, job enqueue, artifact list by job/item. | Needs all-provider list including disabled if current list remains enabled-only, job list/filter, artifact approval/reject/apply lifecycle, and provider health checks. |
 | Webhooks | Partial: endpoint upsert/list/detail, delivery attempts by event, manual delivery by event. | Needs event outbox list/detail route; endpoint list currently reads as enabled-only and may not support disabled endpoint administration. |
@@ -92,8 +92,8 @@ Likely new Admin DTO groups:
 - `AdminJobListResponse` and redacted `AdminJobListItem`
 - `AdminPlaybackSessionListResponse` and redacted
   `AdminPlaybackSessionListItem`
+- `AdminPlaybackRuntimeDiagnosticsResponse`
 - `OutboxEventListResponse` and `OutboxEventResponse`
-- `TranscodeRuntimeDiagnosticsResponse`
 - `ServerConfigDiagnosticsResponse`
 - `StartupReportResponse`
 - `CatalogGovernanceResponse` or narrower DTOs for unknown items, duplicate
@@ -126,9 +126,12 @@ These are the smallest useful vertical slices after the matrix:
    added `GET /admin/v1/playback/sessions`. Add list/filter endpoints for
    outbox events and recent failures when the console needs more drill-down
    data.
-2. **Playback diagnostics slice**: expose hardware acceleration report,
-   selected policy, FFmpeg availability, transcode resource budget, and
-   staging budget summary without local output paths.
+2. **Playback diagnostics follow-up**: M56 added
+   `GET /admin/v1/playback/runtime` for hardware acceleration report, selected
+   policy, FFmpeg capability evidence, transcode resource budget, remote
+   playback budgets, and staging cleanup summary without local output paths.
+   Follow with safe request preview or richer session detail only when the
+   console needs them.
 3. **Catalog governance slice**: expose unknown items, provider mappings,
    local inference evidence, duplicate-source relationships, and NFO sidecar
    status before adding repair mutations.
@@ -148,6 +151,7 @@ data. For the first prototype, API-backed claims should be limited to:
 - webhook/automation/addon registration views;
 - job list/filter through `GET /admin/v1/jobs`;
 - playback session list/filter through `GET /admin/v1/playback/sessions`;
+- playback runtime diagnostics through `GET /admin/v1/playback/runtime`;
 - job/session detail views only when seeded with known IDs or mocked data.
 
 Event lists, hardware capability dashboards, network checks, settings editing,
@@ -158,5 +162,7 @@ After M52, the overview page can use `GET /admin/v1/overview` for its compact
 server, storage, metadata-provider, runtime, and startup summary. After M54,
 Jobs/Tasks can use `GET /admin/v1/jobs` for redacted list/filter data. Other
 After M55, Playback & Transcode can use `GET /admin/v1/playback/sessions` for
-redacted session list/filter data. Other drill-down tables and operational
-histories remain mock or follow-up Admin API work.
+redacted session list/filter data. After M56, Playback & Transcode can use
+`GET /admin/v1/playback/runtime` for safe hardware, FFmpeg, budget, and staging
+diagnostics. Other drill-down tables and operational histories remain mock or
+follow-up Admin API work.

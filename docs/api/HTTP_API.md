@@ -418,6 +418,10 @@ POST /automation/jobs
 GET  /automation/jobs/{job_id}/artifacts
 GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
+GET  /admin/v1/overview
+GET  /admin/v1/jobs
+GET  /admin/v1/playback/sessions
+GET  /admin/v1/playback/runtime
 ```
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
@@ -545,6 +549,13 @@ kind, request key, state, failure category/message, and lifecycle timestamps.
 It does not expose the server-local staged output path. Missing sessions return
 `404 not_found`.
 
+`GET /admin/v1/playback/sessions` returns a redacted admin list/filter read
+model for playback sessions. It accepts optional `source_id`, `kind`, `state`,
+`limit`, and `offset` query parameters. Rows include IDs, kind, request key,
+state, failure category, a `has_failure_message` flag, active/terminal flags,
+and lifecycle timestamps. Rows do not expose staged output paths or raw failure
+messages.
+
 Client-visible session states are stable strings:
 
 ```text
@@ -561,6 +572,25 @@ runtime is a single-process modular monolith; an active session record left
 behind by a previous process cannot be cancelled by the new process and returns
 `409 conflict`. Missing sessions return `404 not_found`. Terminal sessions also
 return `409 conflict`.
+
+`GET /admin/v1/playback/runtime` returns a safe admin diagnostics snapshot for
+the **Playback Runtime**. It includes:
+
+- admin and public API versions;
+- FFmpeg probe status, hardware capability counts, and available GPU count;
+- configured hardware acceleration policy and selected HLS acceleration;
+- sanitized hardware capability reason codes such as `available`,
+  `encoder_not_listed`, and `probe_error`;
+- transcode CPU/GPU slot budgets and selected HLS slot budget;
+- remux concurrency and timeout;
+- aggregate remote stream/stage budget state;
+- staging disk budget, retention, cleanup-on-startup flag, and startup cleanup
+  counts.
+
+The runtime diagnostics route does not return `ffmpeg_path`,
+`remux_staging_root`, local library roots, staged output paths, raw FFmpeg probe
+errors, secrets, tokens, runner handles, or cancellation tokens. It is an Admin
+API route and is not part of Public Client OpenAPI or generated SDK artifacts.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.

@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [admin-playback-runtime-diagnostics](admin-playback-runtime-diagnostics/README.md):
+  completed M56 Admin API read-model work, covering safe playback runtime
+  diagnostics for hardware acceleration policy/selection, FFmpeg capability
+  evidence, transcode budgets, remote playback budgets, and staging cleanup
+  configuration without changing the Public Client API.
 - [admin-playback-session-read-model](admin-playback-session-read-model/README.md):
   completed M55 Admin API read-model work, covering safe playback session
   list/filter support for the web console without exposing transcode output

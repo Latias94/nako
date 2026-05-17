@@ -116,9 +116,10 @@ back the overview page's compact server/API version, storage status, metadata
 provider status, runtime counter, and startup recovery summaries. M54 adds
 `GET /admin/v1/jobs` for redacted Jobs/Tasks list and filter data. M55 adds
 `GET /admin/v1/playback/sessions` for redacted Playback & Transcode session
-list and filter data. Event lists, hardware dashboards, catalog repair queues,
-settings editing, and extension lifecycle details remain mock or planned Admin
-API data.
+list and filter data. M56 adds `GET /admin/v1/playback/runtime` for safe
+hardware acceleration, FFmpeg capability, resource budget, and staging cleanup
+diagnostics. Event lists, catalog repair queues, settings editing, and
+extension lifecycle details remain mock or planned Admin API data.
 
 Do not put admin-only DTOs into Public Client API language. Do not describe
 `taru-client-protocol` as the source for admin console diagnostics.
@@ -346,9 +347,10 @@ Prototype data-source split:
 - Jobs/Tasks: use `GET /admin/v1/jobs` for redacted list/filter data; existing
   `GET /jobs/{job_id}` can support detail by known ID.
 - Playback & Transcode: use `GET /admin/v1/playback/sessions` for redacted
-  session list/filter data. Hardware, budgets, FFmpeg status, and staging
-  dashboards remain mock or planned Admin API data. Public playback decision
-  and known-session detail/cancel routes exist.
+  session list/filter data and `GET /admin/v1/playback/runtime` for safe
+  hardware, FFmpeg, budget, and staging diagnostics. Public playback decision
+  and known-session detail/cancel routes exist. Safe request preview and richer
+  session detail remain mock or planned Admin API data.
 - Settings, Network, Addons, Automation, catalog repair, event lists, and
   drill-down histories: treat as mock or planned Admin API data.
 
@@ -359,6 +361,7 @@ Public Client API coverage.
 The overview page may be marked as partially live because
 `GET /admin/v1/overview` exists. Jobs/Tasks can be marked live for list/filter
 data through `GET /admin/v1/jobs`. Playback session tables can be marked live
-for list/filter data through `GET /admin/v1/playback/sessions`. Other
-drill-down tables and history panels should still be treated as mock data until
-follow-up Admin API routes land.
+for list/filter data through `GET /admin/v1/playback/sessions`, and playback
+runtime cards can be marked live through `GET /admin/v1/playback/runtime`.
+Other drill-down tables and history panels should still be treated as mock data
+until follow-up Admin API routes land.

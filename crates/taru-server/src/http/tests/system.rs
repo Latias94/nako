@@ -406,6 +406,117 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
 }
 
 #[tokio::test]
+async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let marker = temp.path().join("unused.marker");
+    let ffmpeg_path = fake_ffmpeg_script(temp.path(), "runtime", false, &marker);
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 3,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 90_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig {
+            hardware_acceleration: taru_transcode::HardwareAcceleration::Nvenc,
+            hardware_fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 2,
+            gpu_concurrency: 4,
+        },
+        staging: StagingConfig {
+            max_bytes: 123_456,
+            retention_ms: 654_321,
+            cleanup_on_startup: true,
+        },
+        playback: PlaybackConfig {
+            remote_stream_concurrency: 7,
+            remote_stage_concurrency: 3,
+        },
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    let router = build_router(app);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/runtime")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminPlaybackRuntimeDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(diagnostics.admin_api_version, taru_api::ADMIN_API_VERSION);
+    assert_eq!(diagnostics.public_api_version, taru_api::API_VERSION);
+    assert_eq!(
+        diagnostics.ffmpeg.probe_status,
+        AdminPlaybackRuntimeStatus::Ready
+    );
+    assert!(!diagnostics.ffmpeg.has_probe_error);
+    assert_eq!(diagnostics.ffmpeg.hardware_capability_count, 4);
+    assert_eq!(diagnostics.ffmpeg.available_gpu_capabilities, 3);
+    assert_eq!(
+        diagnostics.hardware.policy.requested,
+        taru_transcode::HardwareAcceleration::Nvenc
+    );
+    assert_eq!(
+        diagnostics.hardware.selection.acceleration,
+        taru_transcode::HardwareAcceleration::Nvenc
+    );
+    assert!(!diagnostics.hardware.selection.fallback_used);
+    assert_eq!(diagnostics.transcode.configured_cpu_slots, 2);
+    assert_eq!(diagnostics.transcode.configured_gpu_slots, 4);
+    assert_eq!(diagnostics.transcode.effective_cpu_slots, 2);
+    assert_eq!(diagnostics.transcode.effective_gpu_slots, 4);
+    assert_eq!(diagnostics.transcode.selected_hls_slots, 4);
+    assert_eq!(diagnostics.remux.max_concurrent_sessions, 3);
+    assert_eq!(diagnostics.remux.timeout_ms, 90_000);
+    assert_eq!(diagnostics.remote_playback.backend_count, 1);
+    assert_eq!(diagnostics.remote_playback.stream_permits_max, 7);
+    assert_eq!(diagnostics.remote_playback.stage_permits_max, 3);
+    assert_eq!(diagnostics.staging.max_bytes, 123_456);
+    assert_eq!(diagnostics.staging.retention_ms, 654_321);
+    assert!(diagnostics.staging.cleanup_on_startup);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!body.contains("secret-cache"));
+    assert!(!body.contains("ffmpeg_path"));
+    assert!(!body.contains("remux_staging_root"));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("token"));
+}
+
+#[tokio::test]
 async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -525,6 +636,22 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .await
         .unwrap();
     assert_eq!(admin_sessions_missing.status(), StatusCode::UNAUTHORIZED);
+
+    let admin_playback_runtime_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/runtime")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_playback_runtime_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
 
     let admin_ok = router
         .clone()

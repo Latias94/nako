@@ -6,6 +6,9 @@ use taru_core::{
     ScanSnapshotId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
     TranscodeSessionRecord, TranscodeSessionState,
 };
+use taru_transcode::{
+    HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
+};
 
 use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
 
@@ -135,6 +138,89 @@ impl AdminPlaybackSessionListItem {
             completed_at: session.completed_at,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackRuntimeDiagnosticsResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
+    pub hardware: AdminPlaybackHardwareDiagnostics,
+    pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
+    pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
+    pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
+    pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackFfmpegDiagnostics {
+    pub probe_status: AdminPlaybackRuntimeStatus,
+    pub has_probe_error: bool,
+    pub hardware_capability_count: u32,
+    pub available_gpu_capabilities: u32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackRuntimeStatus {
+    Ready,
+    Degraded,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackHardwareDiagnostics {
+    pub policy: HardwareAccelerationPolicy,
+    pub selection: HardwareAccelerationSelection,
+    pub capabilities: Vec<AdminPlaybackHardwareCapability>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackHardwareCapability {
+    pub accelerator: HardwareAcceleration,
+    pub available: bool,
+    pub reason_code: AdminPlaybackHardwareCapabilityReason,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHardwareCapabilityReason {
+    Available,
+    EncoderNotListed,
+    ProbeError,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackTranscodeBudgetDiagnostics {
+    pub configured_cpu_slots: usize,
+    pub configured_gpu_slots: usize,
+    pub effective_cpu_slots: usize,
+    pub effective_gpu_slots: usize,
+    pub selected_hls_slots: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackRemuxRuntimeDiagnostics {
+    pub max_concurrent_sessions: usize,
+    pub timeout_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackRemoteBudgetDiagnostics {
+    pub backend_count: u32,
+    pub stream_permits_available: usize,
+    pub stream_permits_max: usize,
+    pub stage_permits_available: usize,
+    pub stage_permits_max: usize,
+    pub state_scope: StorageBackendRuntimeStateScope,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackStagingDiagnostics {
+    pub max_bytes: u64,
+    pub retention_ms: u64,
+    pub cleanup_on_startup: bool,
+    pub startup_deleted_records: u32,
+    pub startup_deleted_files: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -481,6 +567,81 @@ mod tests {
         assert!(!body.contains("playlist.m3u8"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("ffmpeg failed while writing"));
+    }
+
+    #[test]
+    fn admin_playback_runtime_diagnostics_serializes_safe_summary_fields() {
+        let response = AdminPlaybackRuntimeDiagnosticsResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: crate::API_VERSION.to_owned(),
+            ffmpeg: AdminPlaybackFfmpegDiagnostics {
+                probe_status: AdminPlaybackRuntimeStatus::Degraded,
+                has_probe_error: true,
+                hardware_capability_count: 4,
+                available_gpu_capabilities: 1,
+            },
+            hardware: AdminPlaybackHardwareDiagnostics {
+                policy: HardwareAccelerationPolicy {
+                    requested: HardwareAcceleration::Nvenc,
+                    fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+                },
+                selection: HardwareAccelerationSelection {
+                    acceleration: HardwareAcceleration::None,
+                    fallback_used: true,
+                    reason: "nvenc is unavailable; falling back to cpu".to_owned(),
+                },
+                capabilities: vec![AdminPlaybackHardwareCapability {
+                    accelerator: HardwareAcceleration::Nvenc,
+                    available: false,
+                    reason_code: AdminPlaybackHardwareCapabilityReason::ProbeError,
+                }],
+            },
+            transcode: AdminPlaybackTranscodeBudgetDiagnostics {
+                configured_cpu_slots: 0,
+                configured_gpu_slots: 2,
+                effective_cpu_slots: 1,
+                effective_gpu_slots: 2,
+                selected_hls_slots: 1,
+            },
+            remux: AdminPlaybackRemuxRuntimeDiagnostics {
+                max_concurrent_sessions: 1,
+                timeout_ms: 30_000,
+            },
+            remote_playback: AdminPlaybackRemoteBudgetDiagnostics {
+                backend_count: 1,
+                stream_permits_available: 8,
+                stream_permits_max: 8,
+                stage_permits_available: 2,
+                stage_permits_max: 2,
+                state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
+            },
+            staging: AdminPlaybackStagingDiagnostics {
+                max_bytes: 100,
+                retention_ms: 200,
+                cleanup_on_startup: true,
+                startup_deleted_records: 1,
+                startup_deleted_files: 1,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["admin_api_version"], "v1");
+        assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
+        assert_eq!(value["hardware"]["policy"]["requested"], "nvenc");
+        assert_eq!(value["hardware"]["selection"]["acceleration"], "none");
+        assert_eq!(
+            value["hardware"]["capabilities"][0]["reason_code"],
+            "probe_error"
+        );
+        assert_eq!(value["remote_playback"]["state_scope"], "process_local");
+        assert!(!body.contains("ffmpeg_path"));
+        assert!(!body.contains("remux_staging_root"));
+        assert!(!body.contains("taru-cache"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("secret"));
+        assert!(!body.contains("token"));
     }
 
     #[test]
