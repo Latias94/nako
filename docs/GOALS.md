@@ -26,12 +26,57 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M46 `taru-api` module
-split, because public client DTOs, admin/internal DTOs, metadata diagnostics,
-extension/addon DTOs, and automation DTOs still share one crate root file even
-though `taru-client-protocol` now owns the stable Public Client API.
+No active implementation goal. Recommended next goal: M47 NFO Round Trip
+preservation, because export still regenerates only Taru-known XML and can
+eventually damage existing hand-authored or other-media-server NFO fields unless
+unknown XML preservation, partial update, and conflict reporting are designed
+before library file write/link policy work.
 
 ## Completed Goals
+
+### M46: taru-api Module Split
+
+Status: completed.
+
+Objective:
+
+- Make `taru-api` a thin API adapter crate with explicit module boundaries.
+- Separate stable Public Client API mapping from server admin/internal,
+  metadata diagnostic, extension, webhook, automation, and addon DTOs.
+- Preserve root-level compatibility exports so existing `taru-server`, OpenAPI,
+  SDK, and test call sites continue to compile unchanged.
+
+Deliverables:
+
+- `crates/taru-api/src/public_client.rs` owns Public Client protocol
+  re-exports and server model-to-DTO adapters.
+- `crates/taru-api/src/admin.rs` owns job, ingestion failure, and storage
+  backend diagnostic DTOs.
+- `crates/taru-api/src/metadata_diagnostics.rs` owns metadata provider attempt,
+  runtime diagnostic, raw response, cleanup, and maintenance DTOs.
+- `crates/taru-api/src/extension.rs` owns webhook, automation, and addon DTOs.
+- `crates/taru-api/src/lib.rs` is a compatibility facade over focused modules.
+
+Non-goals:
+
+- No DTO ownership migration into `taru-client-protocol`.
+- No public HTTP route, JSON shape, OpenAPI, SDK behavior, or protocol change.
+- No playback, storage, NFO, metadata provider breadth, database schema, or
+  server runtime behavior change.
+- No server call-site import cleanup beyond compilation needs.
+
+Evidence:
+
+- [api-module-split workstream](workstreams/api-module-split/README.md)
+  records design, task ledger, milestones, evidence, and handoff.
+- `public_client.rs` does not contain admin, metadata diagnostics, storage
+  diagnostics, webhook, automation, or addon DTO names.
+- Root-level `taru_api::*` imports remain compatible through re-exports.
+- Focused validation: `cargo fmt --all -- --check`, `cargo check -p taru-api
+  --tests`, `cargo check -p taru-api --examples`, `cargo nextest run -p
+  taru-api --no-fail-fast` with 12 tests passed, `npm run check --prefix
+  sdk/typescript`, `cargo check --workspace --tests`, `cargo nextest run
+  --workspace --no-fail-fast` with 293 tests passed, and `git diff --check`.
 
 ### M45: Typed VFS And Storage Error Classification
 
