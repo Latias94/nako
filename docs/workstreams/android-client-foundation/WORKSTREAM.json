@@ -1,0 +1,29 @@
+{
+  "slug": "android-client-foundation",
+  "status": "proposed",
+  "goal": "Android-first client implementation foundation",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": "ACF-010",
+  "architecture_decisions": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "scope": {
+    "implementation_order": "Android first",
+    "product_strategy": "iOS and Android remain peer flagship native client targets",
+    "first_platforms": ["Android phone", "Android tablet"],
+    "deferred_platforms": ["iOS", "tvOS", "Android TV", "desktop", "web"]
+  },
+  "license_boundary": {
+    "shared_client_crates": "Apache-2.0",
+    "allowed_taru_dependencies": ["taru-client", "taru-client-protocol"],
+    "forbidden_taru_dependencies": [
+      "taru-api",
+      "taru-server",
+      "taru-core",
+      "taru-streaming",
+      "taru-transcode"
+    ]
+  }
+}
