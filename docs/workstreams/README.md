@@ -19,6 +19,10 @@ attention.
   NFO storage write policy work, covering local atomic sidecar writes, explicit
   VFS write modes, internal NFO export diagnostics, and separation between XML
   preservation and storage persistence mechanics.
+- [admin-web-console](admin-web-console/README.md): proposed web admin console
+  planning work, covering Taru's administration-first web surface, media
+  governance page families, Admin API implications, brand direction, and a
+  v0.dev-oriented context document.
 - [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
   completed M47 NFO Round Trip preservation work, covering preservation-aware
   movie NFO update, unknown XML field retention, conflict reporting, forced

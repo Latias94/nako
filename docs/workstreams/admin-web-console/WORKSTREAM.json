@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-console",
+  "title": "Admin Web Console Planning And v0 Context",
+  "status": "proposed",
+  "updated": "2026-05-17",
+  "scope_kind": "planning",
+  "problem": "Taru needs a coherent web administration console product shape and v0-generation context before choosing a front-end stack or implementing UI code.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-console/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-console/DESIGN.md"
+    },
+    {
+      "role": "admin_api_matrix",
+      "path": "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md"
+    },
+    {
+      "role": "v0_context",
+      "path": "docs/workstreams/admin-web-console/V0_CONTEXT.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-console/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-console/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/admin-web-console",
+    "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
+    "docs/workstreams/README.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Next step is AWC-030: decide Admin API namespace/versioning, DTO ownership, and leakage rules before generating or implementing a front-end prototype."
+  }
+}
