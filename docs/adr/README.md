@@ -43,3 +43,4 @@ evidence has been reviewed.
 - [0022: Keep Public Protocol Crates Permissive While Server Crates Remain AGPL](0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md)
 - [0023: Stabilize Public API Versions and Error Envelopes](0023-public-api-versioning-and-error-envelope-contract.md)
 - [0024: Add an Inbound Token Authentication Boundary](0024-inbound-token-authentication-boundary.md)
+- [0025: Generate Public Client OpenAPI From Protocol-Owned Wire Types](0025-openapi-public-client-sdk-contract.md)

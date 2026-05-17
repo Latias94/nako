@@ -465,6 +465,36 @@ Recommended next goal:
 
 - M32 OpenAPI and public client SDK contract foundation.
 
+### OpenAPI And Public Client SDK Contract: M32
+
+Status: completed.
+
+This phase turns the stabilized public protocol, version/error envelope, and
+bearer-auth boundary into a machine-readable Public Client API contract:
+
+- define OpenAPI/Public Client SDK contract ownership across
+  `taru-client-protocol`, `taru-api`, and `taru-server`;
+- keep public wire DTOs protocol-owned and avoid server/internal record leakage;
+- add an OpenAPI v1 artifact/generator for core future Flutter, web, CLI, and
+  SDK route surfaces;
+- express `x-taru-api-version`, bearer auth, `ErrorResponse`, pagination, and
+  common public errors in the schema;
+- verify that the public spec excludes admin/internal routes, local path
+  fields, secret references, raw provider cache, job internals, addon,
+  webhook, automation, and storage diagnostics.
+
+Completed slices:
+
+- M32.0 scope and boundary baseline.
+- M32.1 protocol response hygiene slice.
+- M32.2 OpenAPI artifact slice.
+- M32.3 server route contract evidence slice.
+- M32.4 closeout.
+
+Recommended next goal:
+
+- M33 SDK generation and client integration scaffold.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split

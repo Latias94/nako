@@ -24,11 +24,15 @@ async fn health_and_libraries_routes_work() {
     );
     let health = body_json::<HealthResponse>(health_response).await;
     let libraries = request_json::<LibraryListResponse>(&router, Method::GET, "/libraries").await;
+    let library =
+        request_json::<LibraryResponse>(&router, Method::GET, &format!("/libraries/{library_id}"))
+            .await;
 
     assert_eq!(health.status, "ok");
     assert_eq!(health.version, taru_api::API_VERSION);
     assert_eq!(libraries.libraries.len(), 1);
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
+    assert_eq!(library.library.id, library_id.to_string());
     assert_eq!(libraries.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
     assert_eq!(libraries.page.offset, 0);
     assert_eq!(libraries.page.returned, 1);

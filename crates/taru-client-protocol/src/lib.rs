@@ -234,4 +234,29 @@ mod tests {
         assert_eq!(value["decision"]["direct_play"]["source_id"], "source-1");
         assert!(value["decision"].get("transcode_plan").is_some());
     }
+
+    #[test]
+    fn public_transcode_session_response_hides_server_paths() {
+        let response = TranscodeSessionResponse {
+            session: TranscodeSessionDto {
+                id: "session-1".to_owned(),
+                source_id: "source-1".to_owned(),
+                kind: ClientTranscodeSessionKind::HlsTranscode,
+                request_key: "hls:source-1".to_owned(),
+                state: ClientTranscodeSessionState::Running,
+                failure_category: None,
+                failure_message: None,
+                created_at: "2026-05-17T00:00:00Z".to_owned(),
+                updated_at: "2026-05-17T00:01:00Z".to_owned(),
+                started_at: Some("2026-05-17T00:00:01Z".to_owned()),
+                completed_at: None,
+            },
+        };
+
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["session"]["kind"], "hls_transcode");
+        assert_eq!(value["session"]["state"], "running");
+        assert!(value["session"].get("output_path").is_none());
+    }
 }

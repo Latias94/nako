@@ -26,13 +26,48 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M31 closeout.
+No active implementation goal is recorded in this file after M32 closeout.
 
 Next recommended implementation goal:
 
-- M32 OpenAPI and public client SDK contract foundation.
+- M33 SDK generation and client integration scaffold.
 
 ## Completed Goals
+
+### M32: OpenAPI and Public Client SDK Contract Foundation
+
+Status: completed.
+
+Objective:
+
+- Establish a machine-readable Public Client API schema after the M29 public
+  protocol, M30 version/error contract, and M31 bearer-auth boundary.
+- Keep `taru-client-protocol` as the permissive public wire-type owner,
+  `taru-api` as the AGPL adapter/schema aggregation layer, and `taru-server`
+  as route wiring and behavior evidence.
+- Produce the first verifiable OpenAPI v1 artifact for core future
+  Flutter/web/CLI/SDK surfaces: health, library, catalog browse/search, source
+  probe, playback decision, direct/remux/HLS playback, playback sessions, and
+  M30/M31 error/auth envelopes.
+
+Evidence:
+
+- [openapi-client-contract workstream](workstreams/openapi-client-contract/README.md)
+- [ADR 0025](adr/0025-openapi-public-client-sdk-contract.md)
+- `taru-client-protocol` owns protocol DTOs for library detail and playback
+  session responses.
+- Public playback session responses no longer expose server-local output paths.
+- `taru-api` owns `openapi::public_openapi_v1_json()` and the
+  `emit-openapi` example for generating the OpenAPI JSON artifact.
+- OpenAPI checker tests cover public route inventory, bearer auth,
+  `x-taru-api-version`, shared `ErrorResponse`, pagination, and internal/admin
+  leakage rejection.
+- `taru-server` exposes and tests `GET /libraries/{library_id}` for the
+  public library detail surface.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  260 tests passed, `cargo check -p taru-api --examples`, `cargo tree -p
+  taru-client-protocol`, and `git diff --check`.
 
 ### M31: Access Boundary and Token Authentication Foundation
 

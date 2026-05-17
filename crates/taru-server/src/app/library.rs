@@ -1,5 +1,5 @@
 use taru_api::{
-    IngestionFailureDiagnostic, IngestionFailuresResponse, LibraryListResponse,
+    IngestionFailureDiagnostic, IngestionFailuresResponse, LibraryListResponse, LibraryResponse,
     LibrarySourceResponse, LibrarySourcesResponse, library_to_dto, media_item_to_dto,
     media_probe_to_dto, media_source_to_dto, page_info_from_request,
 };
@@ -27,6 +27,12 @@ impl LibraryAppService {
         Ok(LibraryListResponse {
             page: page_info_from_request(page, libraries.len()),
             libraries: libraries.into_iter().map(library_to_dto).collect(),
+        })
+    }
+
+    pub async fn get_library(&self, library_id: LibraryId) -> Result<LibraryResponse> {
+        Ok(LibraryResponse {
+            library: library_to_dto(self.get_library_or_not_found(library_id).await?),
         })
     }
 

@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use taru_api::TranscodeSessionResponse;
+use taru_api::{TranscodeSessionResponse, transcode_session_response_from_record};
 use taru_core::{MediaSourceId, TaruError, TranscodeSessionId};
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -204,7 +204,7 @@ pub(super) async fn get_playback_session(
     State(app): State<TaruApp>,
     Path(session_id): Path<TranscodeSessionId>,
 ) -> ApiResult<Json<TranscodeSessionResponse>> {
-    Ok(Json(TranscodeSessionResponse::from_session(
+    Ok(Json(transcode_session_response_from_record(
         app.playback().get_transcode_session(session_id).await?,
     )))
 }
@@ -214,7 +214,7 @@ pub(super) async fn cancel_playback_session(
     State(app): State<TaruApp>,
     Path(session_id): Path<TranscodeSessionId>,
 ) -> ApiResult<Json<TranscodeSessionResponse>> {
-    Ok(Json(TranscodeSessionResponse::from_session(
+    Ok(Json(transcode_session_response_from_record(
         app.playback().cancel_transcode_session(session_id).await?,
     )))
 }

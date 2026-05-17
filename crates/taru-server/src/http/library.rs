@@ -19,6 +19,7 @@ use super::{
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/libraries", get(list_libraries))
+        .route("/libraries/{library_id}", get(get_library))
         .route("/libraries/{library_id}/scan", post(scan_library))
         .route("/libraries/{library_id}/nfo/import", post(import_nfo))
         .route("/libraries/{library_id}/nfo/export", post(export_nfo))
@@ -35,6 +36,14 @@ pub(super) async fn list_libraries(
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.library().list_libraries(page.try_into()?).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn get_library(
+    State(app): State<TaruApp>,
+    Path(library_id): Path<LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.library().get_library(library_id).await?))
 }
 
 #[instrument(skip(app))]

@@ -9,6 +9,11 @@ pub struct LibraryListResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryResponse {
+    pub library: LibraryDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibrarySourcesResponse {
     pub library: LibraryDto,
     pub sources: Vec<LibrarySourceResponse>,
@@ -278,6 +283,57 @@ pub struct ClientTranscodePlan {
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
     pub hardware_acceleration: ClientHardwareAcceleration,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeSessionResponse {
+    pub session: TranscodeSessionDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeSessionDto {
+    pub id: String,
+    pub source_id: String,
+    pub kind: ClientTranscodeSessionKind,
+    pub request_key: String,
+    pub state: ClientTranscodeSessionState,
+    pub failure_category: Option<ClientTranscodeFailureCategory>,
+    pub failure_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientTranscodeSessionKind {
+    Remux,
+    HlsTranscode,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientTranscodeSessionState {
+    Planned,
+    Starting,
+    Running,
+    CancelRequested,
+    Cancelled,
+    Failed,
+    Finished,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientTranscodeFailureCategory {
+    InvalidRequest,
+    Runner,
+    Timeout,
+    Storage,
+    Stale,
+    Cancelled,
+    Unknown,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

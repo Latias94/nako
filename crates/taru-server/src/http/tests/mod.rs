@@ -16,16 +16,16 @@ use taru_addon_protocol::{
 };
 use taru_api::{
     AddonRegistrationResponse, AddonRegistrationsResponse, AutomationArtifactsResponse,
-    AutomationProviderResponse, AutomationProvidersResponse, EnqueueAutomationJobRequest,
-    EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse,
-    IgnoreIngestionFailureRequest, IngestionFailuresResponse, JobResponse, LibraryListResponse,
-    MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
-    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
-    MetadataRawCleanupResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
-    StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-    StorageBackendStatus, TranscodeSessionResponse, UpsertAutomationProviderRequest,
-    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
-    WebhookEndpointsResponse,
+    AutomationProviderResponse, AutomationProvidersResponse, ClientTranscodeFailureCategory,
+    ClientTranscodeSessionState, EnqueueAutomationJobRequest, EnqueueMetadataMaintenanceRequest,
+    ErrorResponse, HealthResponse, IgnoreIngestionFailureRequest, IngestionFailuresResponse,
+    JobResponse, LibraryListResponse, LibraryResponse, MetadataMaintenancePlanResponse,
+    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
+    MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
+    RegisterAddonRequest, StorageBackendDiagnosticsResponse, StorageBackendKind,
+    StorageBackendRuntimeStateScope, StorageBackendStatus, TranscodeSessionResponse,
+    UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse,
+    WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,

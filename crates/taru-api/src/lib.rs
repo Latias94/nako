@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{AddonManifest, AddonScope};
 pub use taru_client_protocol::{
@@ -6,15 +8,18 @@ pub use taru_client_protocol::{
     ClientHardwareAcceleration, ClientImageKind, ClientImageOwner, ClientLibraryPreset,
     ClientLocalMetadataPolicy, ClientLocalMetadataReader, ClientMediaDomain, ClientMediaKind,
     ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
-    ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode, ClientTranscodePlan,
-    CollectionItemDto, CollectionRefDto, ContentRatingDto, CreditDto, ErrorResponse, ExternalIdDto,
-    GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse, ImageAssetDto, ImageRefDto,
-    ImagesResponse, ItemCreditDto, ItemCreditsResponse, ItemDetailResponse, ItemGenreDto,
-    ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto,
-    LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto,
-    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PageInfo, PeopleResponse,
-    PersonDto, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, SearchItemHit,
-    SearchResponse, SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse, TagsResponse,
+    ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode,
+    ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
+    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto, CreditDto,
+    ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse,
+    ImageAssetDto, ImageRefDto, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
+    ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
+    LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
+    LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto, MediaProbeDto, MediaSourceDto,
+    MediaStreamDto, MetadataProfileDto, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
+    PersonResponse, PlaybackDecisionResponse, SearchItemHit, SearchResponse, SourceProbeResponse,
+    StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
+    TranscodeSessionResponse,
 };
 use taru_core::{
     AddonId, AddonRegistrationRecord, AddonStatus, AutomationArtifactRecord, AutomationCapability,
@@ -28,11 +33,13 @@ use taru_core::{
     MediaStreamInfo, MediaStreamKind, MetadataProfile, MetadataProviderAttemptRecord,
     MetadataRefreshMode, MetadataSource, NamingStrategy, OutboxEventRecord, PageRequest, Person,
     ProviderRawResponse, ProviderRawResponseCleanup, ScanSnapshotId, Tag, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
     WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use taru_streaming::{DirectPlayPlan, PlaybackDecision, PlaybackMode};
 use taru_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
+
+pub mod openapi;
 
 #[must_use]
 pub fn page_info_from_request(page: PageRequest, returned: usize) -> PageInfo {
@@ -226,6 +233,34 @@ fn transcode_plan_to_dto(plan: TranscodePlan) -> ClientTranscodePlan {
         video_codec: plan.video_codec,
         audio_codec: plan.audio_codec,
         hardware_acceleration: hardware_acceleration_to_dto(plan.hardware_acceleration),
+    }
+}
+
+#[must_use]
+pub fn transcode_session_response_from_record(
+    session: TranscodeSessionRecord,
+) -> TranscodeSessionResponse {
+    TranscodeSessionResponse {
+        session: transcode_session_to_dto(session),
+    }
+}
+
+#[must_use]
+pub fn transcode_session_to_dto(session: TranscodeSessionRecord) -> TranscodeSessionDto {
+    TranscodeSessionDto {
+        id: session.id.to_string(),
+        source_id: session.source_id.to_string(),
+        kind: transcode_session_kind_to_dto(session.kind),
+        request_key: session.request_key,
+        state: transcode_session_state_to_dto(session.state),
+        failure_category: session
+            .failure_category
+            .map(transcode_failure_category_to_dto),
+        failure_message: session.failure_message,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+        started_at: session.started_at,
+        completed_at: session.completed_at,
     }
 }
 
@@ -542,6 +577,39 @@ fn hardware_acceleration_to_dto(acceleration: HardwareAcceleration) -> ClientHar
     }
 }
 
+fn transcode_session_kind_to_dto(kind: TranscodeSessionKind) -> ClientTranscodeSessionKind {
+    match kind {
+        TranscodeSessionKind::Remux => ClientTranscodeSessionKind::Remux,
+        TranscodeSessionKind::HlsTranscode => ClientTranscodeSessionKind::HlsTranscode,
+    }
+}
+
+fn transcode_session_state_to_dto(state: TranscodeSessionState) -> ClientTranscodeSessionState {
+    match state {
+        TranscodeSessionState::Planned => ClientTranscodeSessionState::Planned,
+        TranscodeSessionState::Starting => ClientTranscodeSessionState::Starting,
+        TranscodeSessionState::Running => ClientTranscodeSessionState::Running,
+        TranscodeSessionState::CancelRequested => ClientTranscodeSessionState::CancelRequested,
+        TranscodeSessionState::Cancelled => ClientTranscodeSessionState::Cancelled,
+        TranscodeSessionState::Failed => ClientTranscodeSessionState::Failed,
+        TranscodeSessionState::Finished => ClientTranscodeSessionState::Finished,
+    }
+}
+
+fn transcode_failure_category_to_dto(
+    category: TranscodeFailureCategory,
+) -> ClientTranscodeFailureCategory {
+    match category {
+        TranscodeFailureCategory::InvalidRequest => ClientTranscodeFailureCategory::InvalidRequest,
+        TranscodeFailureCategory::Runner => ClientTranscodeFailureCategory::Runner,
+        TranscodeFailureCategory::Timeout => ClientTranscodeFailureCategory::Timeout,
+        TranscodeFailureCategory::Storage => ClientTranscodeFailureCategory::Storage,
+        TranscodeFailureCategory::Stale => ClientTranscodeFailureCategory::Stale,
+        TranscodeFailureCategory::Cancelled => ClientTranscodeFailureCategory::Cancelled,
+        TranscodeFailureCategory::Unknown => ClientTranscodeFailureCategory::Unknown,
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct JobResponse {
     pub id: JobId,
@@ -578,55 +646,6 @@ impl JobResponse {
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TranscodeSessionResponse {
-    pub session: TranscodeSessionDto,
-}
-
-impl TranscodeSessionResponse {
-    #[must_use]
-    pub fn from_session(session: TranscodeSessionRecord) -> Self {
-        Self {
-            session: session.into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TranscodeSessionDto {
-    pub id: TranscodeSessionId,
-    pub source_id: MediaSourceId,
-    pub kind: TranscodeSessionKind,
-    pub request_key: String,
-    pub output_path: String,
-    pub state: TranscodeSessionState,
-    pub failure_category: Option<TranscodeFailureCategory>,
-    pub failure_message: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-    pub started_at: Option<String>,
-    pub completed_at: Option<String>,
-}
-
-impl From<TranscodeSessionRecord> for TranscodeSessionDto {
-    fn from(session: TranscodeSessionRecord) -> Self {
-        Self {
-            id: session.id,
-            source_id: session.source_id,
-            kind: session.kind,
-            request_key: session.request_key,
-            output_path: session.output_path.display().to_string(),
-            state: session.state,
-            failure_category: session.failure_category,
-            failure_message: session.failure_message,
-            created_at: session.created_at,
-            updated_at: session.updated_at,
-            started_at: session.started_at,
-            completed_at: session.completed_at,
         }
     }
 }
@@ -1005,8 +1024,8 @@ mod tests {
 
     use super::*;
     use taru_core::{
-        CanonicalMetadata, IngestionFailureClass, MediaItem, TranscodeSessionKind,
-        TranscodeSessionState,
+        CanonicalMetadata, IngestionFailureClass, MediaItem, TranscodeSessionId,
+        TranscodeSessionKind, TranscodeSessionState,
     };
 
     #[test]
@@ -1077,7 +1096,7 @@ mod tests {
     }
 
     #[test]
-    fn transcode_session_response_serializes_path_as_string() {
+    fn transcode_session_response_hides_server_output_path() {
         let session = TranscodeSessionRecord {
             id: TranscodeSessionId::new(),
             source_id: MediaSourceId::new(),
@@ -1093,15 +1112,11 @@ mod tests {
             completed_at: Some("2026-05-16T00:01:00Z".to_owned()),
         };
 
-        let response = TranscodeSessionResponse::from_session(session);
+        let response = transcode_session_response_from_record(session);
         let value = serde_json::to_value(response).unwrap();
 
         assert_eq!(value["session"]["kind"], "remux");
-        assert!(
-            value["session"]["output_path"]
-                .as_str()
-                .unwrap()
-                .contains("output.mp4")
-        );
+        assert_eq!(value["session"]["state"], "finished");
+        assert!(value["session"].get("output_path").is_none());
     }
 }

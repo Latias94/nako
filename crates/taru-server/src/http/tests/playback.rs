@@ -466,11 +466,13 @@ async fn playback_session_route_returns_remux_session_state() {
     )
     .await;
 
-    assert_eq!(session_response.session.id, session.id);
+    assert_eq!(session_response.session.id, session.id.to_string());
     assert_eq!(
         session_response.session.state,
-        TranscodeSessionState::Finished
+        ClientTranscodeSessionState::Finished
     );
+    let session_json = serde_json::to_value(&session_response).unwrap();
+    assert!(session_json["session"].get("output_path").is_none());
 }
 
 #[tokio::test]
@@ -520,14 +522,14 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
 
     assert_eq!(cancel_response.status(), StatusCode::OK);
     let cancel_body = body_json::<TranscodeSessionResponse>(cancel_response).await;
-    assert_eq!(cancel_body.session.id, session.id);
+    assert_eq!(cancel_body.session.id, session.id.to_string());
     assert!(matches!(
         cancel_body.session.state,
-        TranscodeSessionState::CancelRequested | TranscodeSessionState::Cancelled
+        ClientTranscodeSessionState::CancelRequested | ClientTranscodeSessionState::Cancelled
     ));
     assert_eq!(
         cancel_body.session.failure_category,
-        Some(taru_core::TranscodeFailureCategory::Cancelled)
+        Some(ClientTranscodeFailureCategory::Cancelled)
     );
 
     let first_response = first.await.unwrap();
@@ -543,7 +545,7 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
             &format!("/playback/sessions/{}", session.id),
         )
         .await;
-        if session_response.session.state == TranscodeSessionState::Cancelled {
+        if session_response.session.state == ClientTranscodeSessionState::Cancelled {
             final_session = Some(session_response.session);
             break;
         }
@@ -553,7 +555,7 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
 
     assert_eq!(
         final_session.failure_category,
-        Some(taru_core::TranscodeFailureCategory::Cancelled)
+        Some(ClientTranscodeFailureCategory::Cancelled)
     );
     assert!(final_session.completed_at.is_some());
 }

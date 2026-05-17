@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [openapi-client-contract](openapi-client-contract/README.md): completed M32
+  OpenAPI and Public Client SDK contract foundation, covering the first public
+  OpenAPI v1 artifact, bearer-auth/error/version schema, route inventory, and
+  leakage checks for future Flutter, web, CLI, and SDK work.
 - [access-boundary-auth](access-boundary-auth/README.md): completed M31
   inbound HTTP access-boundary work, covering bearer-token auth, public/admin
   route protection, local development config, and separation from addon/
