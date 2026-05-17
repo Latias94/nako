@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "rust-client-sdk",
+  "title": "Rust Client SDK Foundation",
+  "status": "completed",
+  "updated": "2026-05-17",
+  "scope_kind": "execution",
+  "problem": "Taru has public protocol DTOs, OpenAPI, and a TypeScript SDK package, but no Rust SDK crate for public client consumers.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/rust-client-sdk/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/rust-client-sdk/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/rust-client-sdk/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo nextest run -p taru-client --no-fail-fast",
+    "cargo nextest run --workspace --no-fail-fast",
+    "cargo tree -p taru-client",
+    "cargo tree -p taru-client-protocol",
+    "npm run check --prefix sdk/typescript",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-client/Cargo.toml",
+    "crates/taru-client/src/lib.rs",
+    "crates/taru-client-protocol",
+    "docs/api/HTTP_API.md",
+    "docs/workstreams/rust-client-sdk"
+  ],
+  "adr_refs": [
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "M35 is complete. Split crates.io publishing, full streaming, Rust CLI, Dart/Flutter SDK, OpenAPI inventory extraction, and concrete clients into follow-ons."
+  }
+}

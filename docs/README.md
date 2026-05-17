@@ -8,7 +8,8 @@ policy, and workstream-level design notes for Taru.
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
 - Current planned workstream: none.
-- Latest completed workstream: [TypeScript SDK package](workstreams/typescript-sdk-package/README.md)
+- Latest completed workstream: [Rust client SDK](workstreams/rust-client-sdk/README.md)
+- Previous completed workstream: [TypeScript SDK package](workstreams/typescript-sdk-package/README.md)
 - Previous completed workstream: [SDK client scaffold](workstreams/sdk-client-scaffold/README.md)
 - Previous completed workstream: [OpenAPI client contract](workstreams/openapi-client-contract/README.md)
 - Previous completed workstream: [access boundary auth](workstreams/access-boundary-auth/README.md)

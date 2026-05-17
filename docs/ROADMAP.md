@@ -547,7 +547,36 @@ Completed slices:
 
 Recommended next goal:
 
-- M35 Rust Client SDK Foundation.
+- M35 Rust Client SDK Foundation. Completed.
+
+### Rust Client SDK Foundation: M35
+
+Status: completed.
+
+This phase adds the first Rust SDK crate for public client consumers without
+making clients depend on server internals:
+
+- `crates/taru-client` is the Apache-2.0 Rust SDK runtime crate;
+- public DTOs come from `taru-client-protocol`, not OpenAPI-generated Rust
+  duplicates;
+- the SDK owns HTTP mechanics such as base URL normalization, bearer auth,
+  `x-taru-api-version` checking, public error envelope parsing, pagination,
+  playback capability query serialization, and path encoding;
+- `ClientTransport` makes the SDK testable without a live server, while
+  `ReqwestTransport` provides the default runtime HTTP backend;
+- JSON route methods cover health, libraries, catalog items/search, source
+  probe, playback decision, playback session inspection, and playback session
+  cancellation;
+- route inventory and leakage tests keep admin/internal/secret/local-path
+  surfaces out of the SDK.
+
+Streaming/raw byte body APIs, crates.io publishing, Rust CLI commands,
+Flutter/Dart SDK work, and concrete web/mobile clients remain separate
+follow-ons.
+
+Recommended next goal:
+
+- M36 client SDK inventory extraction and streaming request builders.
 
 ## Workstream Split Direction
 
@@ -560,7 +589,8 @@ productization, and M27 split `metadata-catalog` for media-library domain
 expansion. As implementation grows, split the remaining broad domains
 into narrower workstreams:
 
-- `clients`: future Flutter and web client contracts.
+- `clients`: SDK package publishing, client streaming/download helpers,
+  Dart/Flutter SDK, Rust CLI, or concrete Flutter/web client contracts.
 
 Do future splits when a domain needs independent milestones or ADRs. Do not
 split merely because a domain exists conceptually.

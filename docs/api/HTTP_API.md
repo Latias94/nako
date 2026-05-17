@@ -125,13 +125,57 @@ against the generated `src/index.ts`. `taru-api` tests compare the committed
 package entry with the Rust generator output so SDK drift is caught without
 requiring every Rust-focused test to run npm.
 
-The SDK package is not published to npm yet. Dart/Flutter SDK generation, Rust
-SDK implementation, package publishing, and UI clients are separate follow-ons.
+The SDK package is not published to npm yet. Dart/Flutter SDK generation,
+package publishing, and UI clients are separate follow-ons.
 
 The scaffold is validated by `cargo check -p taru-api --examples` and
 `cargo nextest run -p taru-api --no-fail-fast`; full closeout also runs the
 workspace test gate and `cargo tree -p taru-client-protocol` to keep the public
 protocol crate dependency-light.
+
+## Rust SDK
+
+The Rust client SDK foundation lives in `crates/taru-client`:
+
+```rust
+use taru_client::{PageQuery, TaruClient};
+
+# async fn example() -> Result<(), taru_client::TaruClientError> {
+let client = TaruClient::with_bearer_token("http://localhost:3000", "token")?;
+let libraries = client
+    .list_libraries(Some(PageQuery::new(Some(50), Some(0))))
+    .await?;
+# Ok(())
+# }
+```
+
+`taru-client` is a permissive public SDK boundary with explicit
+`license = "Apache-2.0"`. It reuses `taru-client-protocol` DTOs and does not
+depend on `taru-core`, `taru-api`, `taru-server`, `taru-streaming`, or
+`taru-transcode`.
+
+The SDK provides:
+
+- `TaruClient` with base URL normalization and bearer-token injection;
+- default `ReqwestTransport` and mockable `ClientTransport`;
+- `x-taru-api-version` response checking;
+- `ErrorResponse` parsing into `TaruClientError::Api`;
+- `PageQuery`, `SearchQuery`, and playback capability query helpers;
+- JSON methods for health, libraries, catalog items/search, source probe,
+  playback decision, playback session inspection, and playback session
+  cancellation.
+
+Streaming/raw byte routes remain public API routes, but M35 intentionally
+deferred Rust SDK streaming body abstractions and HLS/download helpers. A later
+SDK slice can add request builders or streaming helpers without changing the
+JSON DTO boundary.
+
+Validate the Rust SDK boundary with:
+
+```bash
+cargo nextest run -p taru-client --no-fail-fast
+cargo tree -p taru-client
+```
 
 ## Authentication
 

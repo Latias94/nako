@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [rust-client-sdk](rust-client-sdk/README.md): completed M35 Rust client SDK
+  foundation, covering the Apache-2.0 `taru-client` crate, protocol DTO reuse,
+  clean dependency boundary, async JSON client methods, mock transport tests,
+  route inventory checks, and SDK docs.
 - [typescript-sdk-package](typescript-sdk-package/README.md): completed M34
   TypeScript SDK package hardening, covering the private `sdk/typescript`
   package, local TypeScript tooling, strict compile gate, repeatable generation
@@ -75,9 +79,9 @@ Split a workstream when one of these becomes true:
 
 Expected future splits:
 
-- npm/package publishing, Rust SDK, Dart/Flutter SDK, or concrete Flutter/web
-  app work after the public protocol and first TypeScript package contract
-  stabilize.
+- SDK package publishing, client streaming/download helpers, Dart/Flutter SDK,
+  Rust CLI, or concrete Flutter/web app work after the public protocol and
+  first TypeScript/Rust SDK foundations stabilize.
 
 Keep unsplit domains in `server-foundation` until a split reduces real
 coordination cost. Avoid splitting merely because a domain exists conceptually.

@@ -2059,6 +2059,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "taru-client"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "taru-client-protocol",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "taru-client-protocol"
 version = "0.1.0"
 dependencies = [

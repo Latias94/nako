@@ -26,13 +26,54 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M34 closeout.
+No active implementation goal is recorded in this file after M35 closeout.
 
 Next recommended implementation goal:
 
-- M35 Rust Client SDK Foundation.
+- M36 Client SDK Inventory Extraction and Streaming Request Builders.
 
 ## Completed Goals
+
+### M35: Rust Client SDK Foundation
+
+Status: completed.
+
+Objective:
+
+- Add the first Rust client SDK foundation after M29-M34 stabilized the Public
+  Client API, OpenAPI contract, and TypeScript SDK package.
+- Reuse permissive `taru-client-protocol` DTOs instead of duplicating Rust wire
+  types from OpenAPI.
+- Give future Rust CLI, integration tests, third-party tools, and automation
+  clients a clean crate boundary for calling Taru public client APIs.
+
+Evidence:
+
+- [rust-client-sdk workstream](workstreams/rust-client-sdk/README.md)
+- `crates/taru-client` is an Apache-2.0 SDK crate with explicit license
+  metadata.
+- `taru-client` depends on `taru-client-protocol` for public DTOs and does not
+  depend on `taru-core`, `taru-api`, `taru-server`, `taru-streaming`, or
+  `taru-transcode`.
+- The SDK exposes `TaruClient`, `ReqwestTransport`, mockable
+  `ClientTransport`, `TaruClientError`, pagination helpers, search/playback
+  query helpers, bearer-token injection, API-version checking, and
+  `ErrorResponse` parsing.
+- JSON route methods cover health, libraries, catalog items/search, source
+  probe, playback decision, playback session inspection, and playback session
+  cancellation.
+- Tests cover auth, health without auth, API-version mismatch, public error
+  envelope parsing, pagination, URL/path behavior, playback query parameters,
+  route inventory, streaming-route deferral, and internal/admin leakage
+  rejection.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-client --tests`, `cargo nextest run -p taru-client --no-fail-fast`
+  with 7 tests passed, `cargo tree -p taru-client`, `cargo tree -p
+  taru-client-protocol`, `npm run check --prefix sdk/typescript`, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  271 tests passed, and `git diff --check`.
+- Streaming/raw byte methods, crates.io publishing, Rust CLI commands,
+  Flutter/Dart SDK, npm publishing, and concrete UI clients remain follow-ons.
 
 ### M34: TypeScript SDK Package Hardening and Contract Compile Check
 
