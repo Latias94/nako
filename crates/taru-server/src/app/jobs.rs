@@ -12,7 +12,7 @@ use taru_library::{
 };
 use taru_media_probe::FfprobeMediaProbe;
 use tokio::sync::Semaphore;
-use tracing::{Instrument, error, info, info_span, warn};
+use tracing::{Instrument, info, info_span, warn};
 
 use crate::config::{TaruServerConfig, libraries_from_config};
 
@@ -81,18 +81,20 @@ impl LibraryScanAppService {
         let job_id = job.id;
         let service = self.clone();
 
-        self.runtime.spawn(
+        self.runtime.spawn_job(
             "library_scan_background_job",
-            "disk.scan",
-            async move {
-                service.finish_library_scan_job(job_id, library_id).await;
-            }
-            .instrument(info_span!(
-                "library_scan_background_job",
-                job_id = %job_id,
-                library_id = %library_id,
-                resource_class = "disk.scan"
-            )),
+            job.resource_class.clone(),
+            job_id,
+            move |_context| {
+                async move { service.finish_library_scan_job(job_id, library_id).await }.instrument(
+                    info_span!(
+                        "library_scan_background_job",
+                        job_id = %job_id,
+                        library_id = %library_id,
+                        resource_class = "disk.scan"
+                    ),
+                )
+            },
         );
 
         Ok(job)
@@ -141,25 +143,15 @@ impl LibraryScanAppService {
             .await
     }
 
-    async fn finish_library_scan_job(&self, job_id: JobId, library_id: LibraryId) {
-        match self.execute_library_scan_job(job_id, library_id).await {
-            Ok(output) => {
-                info!(
-                    job_id = %output.job.id,
-                    library_id = %library_id,
-                    status = ?output.job.status,
-                    "library scan job completed"
-                );
-            }
-            Err(err) => {
-                error!(
-                    job_id = %job_id,
-                    library_id = %library_id,
-                    error = %err,
-                    "library scan job failed"
-                );
-            }
-        }
+    async fn finish_library_scan_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
+        let output = self.execute_library_scan_job(job_id, library_id).await?;
+        info!(
+            job_id = %output.job.id,
+            library_id = %library_id,
+            status = ?output.job.status,
+            "library scan job completed"
+        );
+        Ok(output.job)
     }
 
     async fn execute_library_scan_job(

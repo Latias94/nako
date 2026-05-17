@@ -625,10 +625,28 @@ Completed:
 Full streaming response abstraction, download manager, Rust SDK publishing,
 Flutter/Dart SDK, and concrete Web/mobile clients remain separate follow-ons.
 
+### Server Runtime Deepening: M38
+
+Status: completed.
+
+This phase deepens the server startup and runtime job seams before the next
+client or playback breadth:
+
+- startup side effects move from `TaruApp::new_with_store` into a
+  `ServerStartupWorkflow`;
+- startup reports become the test surface for migration, recovery, cleanup,
+  configured library persistence, metadata raw-cache cleanup, and lifecycle
+  task registration;
+- `RuntimeSupervisor` gains a durable job execution helper and job
+  success/failure diagnostics;
+- library scan, metadata refresh, and metadata maintenance background jobs use
+  the runtime job helper;
+- playback source selection, NFO round-trip preservation, broad repository
+  trait splitting, and public client changes remain follow-ons.
+
 Recommended next goal:
 
-- M38 should choose between full Rust SDK streaming body abstraction,
-  TypeScript SDK streaming/package parity, or Flutter/Dart SDK foundation.
+- M39 repository seam deepening.
 
 ## Workstream Split Direction
 

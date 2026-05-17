@@ -21,7 +21,7 @@ use taru_metadata::{
 };
 use time::OffsetDateTime;
 use tokio::sync::Semaphore;
-use tracing::{Instrument, error, info, info_span, warn};
+use tracing::{Instrument, info, info_span, warn};
 
 use super::metadata_runtime::provider_resource_name;
 use super::runtime::RuntimeSupervisor;
@@ -99,18 +99,19 @@ impl MetadataAppService {
         let resource_class = job.resource_class.clone();
         let service = self.clone();
 
-        self.runtime.spawn(
+        self.runtime.spawn_job(
             "metadata_refresh_background_job",
-            "metadata.refresh",
-            async move {
-                service.finish_metadata_refresh_job(job_id, item_id).await;
-            }
-            .instrument(info_span!(
-                "metadata_refresh_background_job",
-                job_id = %job_id,
-                item_id = %item_id,
-                resource_class = %resource_class
-            )),
+            job.resource_class.clone(),
+            job_id,
+            move |_context| {
+                async move { service.finish_metadata_refresh_job(job_id, item_id).await }
+                    .instrument(info_span!(
+                        "metadata_refresh_background_job",
+                        job_id = %job_id,
+                        item_id = %item_id,
+                        resource_class = %resource_class
+                    ))
+            },
         );
 
         Ok(job)
@@ -132,19 +133,22 @@ impl MetadataAppService {
         let job_id = job.id;
         let service = self.clone();
 
-        self.runtime.spawn(
+        self.runtime.spawn_job(
             "metadata_maintenance_background_job",
-            "metadata.maintenance",
-            async move {
-                service
-                    .finish_metadata_maintenance_job(job_id, request)
-                    .await;
-            }
-            .instrument(info_span!(
-                "metadata_maintenance_background_job",
-                job_id = %job_id,
-                resource_class = "metadata.maintenance"
-            )),
+            job.resource_class.clone(),
+            job_id,
+            move |_context| {
+                async move {
+                    service
+                        .finish_metadata_maintenance_job(job_id, request)
+                        .await
+                }
+                .instrument(info_span!(
+                    "metadata_maintenance_background_job",
+                    job_id = %job_id,
+                    resource_class = "metadata.maintenance"
+                ))
+            },
         );
 
         Ok(job)
@@ -265,52 +269,39 @@ impl MetadataAppService {
             .await
     }
 
-    async fn finish_metadata_refresh_job(&self, job_id: JobId, item_id: MediaItemId) {
-        match self.execute_metadata_refresh_job(job_id, item_id).await {
-            Ok(output) => {
-                info!(
-                    job_id = %output.job.id,
-                    item_id = %item_id,
-                    provider_key = %output.refresh.provider_key,
-                    status = ?output.job.status,
-                    "metadata refresh job completed"
-                );
-            }
-            Err(err) => {
-                error!(
-                    job_id = %job_id,
-                    item_id = %item_id,
-                    error = %err,
-                    "metadata refresh job failed"
-                );
-            }
-        }
+    async fn finish_metadata_refresh_job(
+        &self,
+        job_id: JobId,
+        item_id: MediaItemId,
+    ) -> Result<Job> {
+        let output = self.execute_metadata_refresh_job(job_id, item_id).await?;
+        info!(
+            job_id = %output.job.id,
+            item_id = %item_id,
+            provider_key = %output.refresh.provider_key,
+            status = ?output.job.status,
+            "metadata refresh job completed"
+        );
+        Ok(output.job)
     }
 
     async fn finish_metadata_maintenance_job(
         &self,
         job_id: JobId,
         request: EnqueueMetadataMaintenanceRequest,
-    ) {
-        match self.execute_metadata_maintenance_job(job_id, request).await {
-            Ok(output) => {
-                info!(
-                    job_id = %output.job.id,
-                    attempted_items = output.summary.attempted_items,
-                    succeeded_items = output.summary.succeeded_items,
-                    failed_items = output.summary.failed_items,
-                    status = ?output.job.status,
-                    "metadata maintenance job completed"
-                );
-            }
-            Err(err) => {
-                error!(
-                    job_id = %job_id,
-                    error = %err,
-                    "metadata maintenance job failed"
-                );
-            }
-        }
+    ) -> Result<Job> {
+        let output = self
+            .execute_metadata_maintenance_job(job_id, request)
+            .await?;
+        info!(
+            job_id = %output.job.id,
+            attempted_items = output.summary.attempted_items,
+            succeeded_items = output.summary.succeeded_items,
+            failed_items = output.summary.failed_items,
+            status = ?output.job.status,
+            "metadata maintenance job completed"
+        );
+        Ok(output.job)
     }
 
     async fn execute_metadata_refresh_job(
@@ -645,14 +636,14 @@ impl MetadataAppService {
         }
     }
 
-    pub(super) async fn cleanup_metadata_raw_cache_on_startup(&self) -> Result<()> {
+    pub(super) async fn cleanup_metadata_raw_cache_on_startup(&self) -> Result<u64> {
         if !self
             .config
             .metadata
             .maintenance
             .raw_cache_cleanup_on_startup
         {
-            return Ok(());
+            return Ok(0);
         }
 
         let cleanup = self
@@ -666,22 +657,22 @@ impl MetadataAppService {
             );
         }
 
-        Ok(())
+        Ok(cleanup.cleanup.deleted)
     }
 
-    pub(super) fn start_metadata_lifecycle_tasks(&self) {
-        self.start_metadata_raw_cache_cleanup_task();
-        self.start_metadata_maintenance_policy_tasks();
+    pub(super) fn start_metadata_lifecycle_tasks(&self) -> usize {
+        self.start_metadata_raw_cache_cleanup_task()
+            + self.start_metadata_maintenance_policy_tasks()
     }
 
-    fn start_metadata_raw_cache_cleanup_task(&self) {
+    fn start_metadata_raw_cache_cleanup_task(&self) -> usize {
         let interval_ms = self
             .config
             .metadata
             .maintenance
             .raw_cache_cleanup_interval_ms;
         if interval_ms == 0 {
-            return;
+            return 0;
         }
 
         let app = self.clone();
@@ -719,9 +710,11 @@ impl MetadataAppService {
                 }
             },
         );
+        1
     }
 
-    fn start_metadata_maintenance_policy_tasks(&self) {
+    fn start_metadata_maintenance_policy_tasks(&self) -> usize {
+        let mut started = 0;
         for policy in self
             .config
             .metadata
@@ -770,7 +763,9 @@ impl MetadataAppService {
                     }
                 },
             );
+            started += 1;
         }
+        started
     }
 
     pub(super) fn metadata_maintenance_request_from_policy(

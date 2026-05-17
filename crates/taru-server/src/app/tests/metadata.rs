@@ -1,5 +1,24 @@
 use super::*;
 
+async fn wait_for_runtime_jobs(
+    app: &TaruApp,
+    succeeded_jobs: u64,
+    failed_jobs: u64,
+) -> RuntimeSupervisorDiagnostics {
+    for _ in 0..100 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.succeeded_jobs == succeeded_jobs && diagnostics.failed_jobs == failed_jobs {
+            return diagnostics;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "runtime job diagnostics did not reach expected state: {:?}",
+        app.runtime_diagnostics()
+    );
+}
+
 async fn upsert_item_with_source(
     store: &SqliteStore,
     library_id: LibraryId,
@@ -188,6 +207,76 @@ async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
     assert_eq!(provider, "metadata_strategy");
     assert!(message.contains("tmdb=skipped_disabled"));
     assert!(message.contains("disabled in config"));
+}
+
+#[tokio::test]
+async fn background_metadata_refresh_job_uses_runtime_job_supervision() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let mut metadata = MetadataConfig::default();
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Tmdb,
+        enabled: false,
+        token_env: None,
+        api_key_env: None,
+        api_base_url: None,
+        image_base_url: None,
+        language: None,
+        include_adult: false,
+        headers: Vec::new(),
+        runtime: None,
+    }];
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata,
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    upsert_item_with_source(&store, library_id, &item).await;
+
+    let job = app
+        .metadata()
+        .enqueue_metadata_refresh(item.id)
+        .await
+        .unwrap();
+    let diagnostics = wait_for_runtime_jobs(&app, 0, 1).await;
+    let persisted = app.jobs().get_job(job.id).await.unwrap();
+
+    assert_eq!(persisted.status, JobStatus::Failed);
+    assert_eq!(diagnostics.completed_tasks, 1);
+    assert_eq!(diagnostics.failed_tasks, 0);
 }
 
 #[tokio::test]

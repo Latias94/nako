@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [server-runtime-deepening](server-runtime-deepening/README.md): completed M38
+  startup/runtime architecture work, covering `ServerStartupWorkflow`, startup
+  reports, durable job runtime supervision, and first migration of library scan
+  and metadata background jobs.
 - [client-cli](client-cli/README.md): completed M37 client entrypoint work,
   covering the Apache-2.0 Rust client CLI, `taru-client` consumption, public
   API command scope, streaming request construction, token redaction, and

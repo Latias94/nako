@@ -1,5 +1,24 @@
 use super::*;
 
+async fn wait_for_runtime_jobs(
+    app: &TaruApp,
+    succeeded_jobs: u64,
+    failed_jobs: u64,
+) -> RuntimeSupervisorDiagnostics {
+    for _ in 0..100 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.succeeded_jobs == succeeded_jobs && diagnostics.failed_jobs == failed_jobs {
+            return diagnostics;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "runtime job diagnostics did not reach expected state: {:?}",
+        app.runtime_diagnostics()
+    );
+}
+
 #[tokio::test]
 async fn scan_library_persists_job_success() {
     let temp = tempfile::tempdir().unwrap();
@@ -42,6 +61,17 @@ async fn scan_library_persists_job_success() {
         .unwrap();
 
     assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(app.startup_report().configured_libraries, 1);
+    assert_eq!(app.startup_report().recovered_transcode_sessions, 0);
+    assert_eq!(
+        app.startup_report()
+            .staging_cleanup
+            .expect("staging cleanup report")
+            .deleted_records,
+        0
+    );
+    assert_eq!(app.startup_report().metadata_raw_cache_deleted, 0);
+    assert_eq!(app.startup_report().metadata_lifecycle_tasks_started, 0);
     assert_eq!(job.status, JobStatus::Succeeded);
     assert_eq!(output.index.discovered_files, 0);
     assert_eq!(output.probe.total_sources, 0);
@@ -54,6 +84,51 @@ async fn scan_library_persists_job_success() {
             .payload_json
             .contains(&temp.path().display().to_string())
     );
+}
+
+#[tokio::test]
+async fn background_scan_job_uses_runtime_job_supervision() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+
+    let job = app
+        .library_scan()
+        .enqueue_library_scan(library_id)
+        .await
+        .unwrap();
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0).await;
+    let persisted = app.jobs().get_job(job.id).await.unwrap();
+
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert_eq!(diagnostics.completed_tasks, 1);
+    assert_eq!(diagnostics.failed_tasks, 0);
 }
 
 #[tokio::test]
@@ -197,7 +272,7 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
         .unwrap();
 
     drop(app);
-    let _restarted = TaruApp::new_with_store(config, store.clone())
+    let restarted = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
     let stale = store
@@ -211,4 +286,49 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
         stale.failure_category,
         Some(TranscodeFailureCategory::Stale)
     );
+    assert_eq!(restarted.startup_report().configured_libraries, 1);
+    assert_eq!(restarted.startup_report().recovered_transcode_sessions, 1);
+    assert_eq!(
+        restarted.startup_report().metadata_lifecycle_tasks_started,
+        0
+    );
+}
+
+#[tokio::test]
+async fn startup_report_tracks_disabled_staging_cleanup() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig {
+            cleanup_on_startup: false,
+            ..StagingConfig::default()
+        },
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+
+    assert_eq!(app.startup_report().configured_libraries, 1);
+    assert_eq!(app.startup_report().staging_cleanup, None);
 }

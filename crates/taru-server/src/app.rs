@@ -1,18 +1,13 @@
 use std::{
-    collections::HashSet,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use taru_core::{
-    LibraryRepository, Result, TaruError, TransactionManager, TranscodeFailureCategory,
-    TranscodeSessionRepository,
-};
+use taru_core::{Result, TaruError, TransactionManager};
 use taru_db::SqliteStore;
 use tokio::sync::Semaphore;
-use tracing::warn;
 
-use crate::config::{TaruServerConfig, libraries_from_config};
+use crate::config::TaruServerConfig;
 
 mod addons;
 mod automation;
@@ -25,6 +20,7 @@ mod nfo;
 pub(crate) mod playback;
 mod runtime;
 mod staging;
+mod startup;
 mod storage;
 mod webhooks;
 
@@ -42,7 +38,9 @@ pub(crate) use playback::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest,
 };
 use runtime::{RuntimeSupervisor, RuntimeSupervisorDiagnostics};
+#[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
+use startup::{ServerStartupReport, ServerStartupWorkflow};
 use storage::{StorageBackendRegistry, StorageDiagnosticsAppService};
 use webhooks::WebhookAppService;
 
@@ -57,7 +55,6 @@ pub struct TaruApp {
 #[derive(Debug)]
 struct TaruAppInner {
     config: TaruServerConfig,
-    store: SqliteStore,
     runtime: RuntimeSupervisor,
     jobs: JobAppService,
     library_scan: LibraryScanAppService,
@@ -70,6 +67,7 @@ struct TaruAppInner {
     metadata: MetadataAppService,
     nfo: NfoAppService,
     playback: PlaybackAppService,
+    startup_report: ServerStartupReport,
 }
 
 impl Drop for TaruAppInner {
@@ -85,84 +83,69 @@ impl TaruApp {
     }
 
     pub async fn new_with_store(config: TaruServerConfig, store: SqliteStore) -> Result<Self> {
-        store.migrate().await?;
-        let recovered_sessions = store
-            .fail_stale_transcode_sessions(
-                TranscodeFailureCategory::Stale,
-                "session was active during server startup".to_owned(),
-            )
-            .await?;
-        if recovered_sessions > 0 {
-            warn!(
-                recovered_sessions,
-                "marked stale transcode sessions failed during startup"
-            );
-        }
-        if config.staging.cleanup_on_startup {
-            let cleanup = cleanup_expired_staging_inputs(&store, current_time_ms()?).await?;
-            if cleanup.deleted_records > 0 || cleanup.deleted_files > 0 {
-                warn!(
-                    deleted_records = cleanup.deleted_records,
-                    deleted_files = cleanup.deleted_files,
-                    "cleaned expired staged inputs during startup"
-                );
-            }
-        }
-
         let webhook_permits = Arc::new(Semaphore::new(config.webhook_concurrency.max(1)));
         let storage_backends = StorageBackendRegistry::new(&config, store.clone());
         let runtime = RuntimeSupervisor::new();
         let scan_permits = Arc::new(Semaphore::new(config.scan_concurrency.max(1)));
         let metadata_permits = Arc::new(Semaphore::new(config.metadata_concurrency.max(1)));
         let metadata_providers = metadata_runtime::build_metadata_provider_registry(&config)?;
-        let app = Self {
+        let jobs = JobAppService::new(store.clone());
+        let library_scan = LibraryScanAppService::new(
+            config.clone(),
+            store.clone(),
+            scan_permits,
+            storage_backends.clone(),
+            runtime.clone(),
+        );
+        let addons = AddonAppService::new(store.clone());
+        let automation = AutomationAppService::new(store.clone());
+        let webhooks = WebhookAppService::new(store.clone(), webhook_permits);
+        let catalog = CatalogAppService::new(store.clone());
+        let library = LibraryAppService::new(store.clone());
+        let storage = StorageDiagnosticsAppService::new(storage_backends.clone());
+        let metadata = MetadataAppService::new(
+            config.clone(),
+            store.clone(),
+            metadata_permits.clone(),
+            metadata_providers,
+            runtime.clone(),
+        );
+        let nfo = NfoAppService::new(
+            config.clone(),
+            store.clone(),
+            metadata_permits,
+            storage_backends.clone(),
+            runtime.clone(),
+        );
+        let playback = PlaybackAppService::new(
+            config.clone(),
+            store.clone(),
+            storage_backends,
+            runtime.clone(),
+        )?;
+
+        let startup_report = ServerStartupWorkflow::new(&config, &store, metadata.clone())
+            .run()
+            .await?;
+
+        Ok(Self {
             inner: Arc::new(TaruAppInner {
                 runtime: runtime.clone(),
-                jobs: JobAppService::new(store.clone()),
-                library_scan: LibraryScanAppService::new(
-                    config.clone(),
-                    store.clone(),
-                    scan_permits,
-                    storage_backends.clone(),
-                    runtime.clone(),
-                ),
-                addons: AddonAppService::new(store.clone()),
-                automation: AutomationAppService::new(store.clone()),
-                webhooks: WebhookAppService::new(store.clone(), webhook_permits),
-                catalog: CatalogAppService::new(store.clone()),
-                library: LibraryAppService::new(store.clone()),
-                storage: StorageDiagnosticsAppService::new(storage_backends.clone()),
-                metadata: MetadataAppService::new(
-                    config.clone(),
-                    store.clone(),
-                    metadata_permits.clone(),
-                    metadata_providers,
-                    runtime.clone(),
-                ),
-                nfo: NfoAppService::new(
-                    config.clone(),
-                    store.clone(),
-                    metadata_permits,
-                    storage_backends.clone(),
-                    runtime.clone(),
-                ),
-                playback: PlaybackAppService::new(
-                    config.clone(),
-                    store.clone(),
-                    storage_backends,
-                    runtime,
-                )?,
+                jobs,
+                library_scan,
+                addons,
+                automation,
+                webhooks,
+                catalog,
+                library,
+                storage,
+                metadata,
+                nfo,
+                playback,
+                startup_report,
                 config,
-                store,
             }),
-        };
-
-        app.ensure_configured_libraries().await?;
-        app.metadata()
-            .cleanup_metadata_raw_cache_on_startup()
-            .await?;
-        app.metadata().start_metadata_lifecycle_tasks();
-        Ok(app)
+        })
     }
 
     #[must_use]
@@ -229,31 +212,12 @@ impl TaruApp {
         self.inner.runtime.diagnostics()
     }
 
-    pub(crate) fn shutdown_runtime(&self) {
-        self.inner.runtime.shutdown();
+    pub(crate) fn startup_report(&self) -> &ServerStartupReport {
+        &self.inner.startup_report
     }
 
-    async fn ensure_configured_libraries(&self) -> Result<()> {
-        let libraries = libraries_from_config(self.config());
-        if libraries.is_empty() {
-            return Err(TaruError::InvalidInput {
-                message: "server config must include at least one library".to_owned(),
-            });
-        }
-
-        let mut seen = HashSet::new();
-        for library in &libraries {
-            if !seen.insert(library.id) {
-                return Err(TaruError::InvalidInput {
-                    message: format!("duplicate configured library id: {}", library.id),
-                });
-            }
-        }
-
-        for library in libraries {
-            self.inner.store.upsert_library(&library).await?;
-        }
-        Ok(())
+    pub(crate) fn shutdown_runtime(&self) {
+        self.inner.runtime.shutdown();
     }
 }
 

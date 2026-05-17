@@ -26,15 +26,48 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M37 closeout.
+No active implementation goal is recorded in this file after M38 closeout.
 
 Next recommended implementation goal:
 
-- M38 should choose the next client-runtime risk: full Rust SDK streaming body
-  abstraction, TypeScript SDK streaming/package parity, or Flutter/Dart SDK
-  foundation.
+- M39 repository seam deepening.
 
 ## Completed Goals
+
+### M38: Server Startup Workflow and Durable Job Runtime Deepening
+
+Status: completed.
+
+Objective:
+
+- Move startup side effects out of `TaruApp::new_with_store` and into a
+  test-visible startup workflow.
+- Keep `TaruApp` as the server composition root while startup sequencing,
+  recovery, cleanup, configured-library persistence, and lifecycle task
+  registration live behind a deeper interface.
+- Add the first durable job runtime helper to `RuntimeSupervisor` and migrate
+  library scan, metadata refresh, and metadata maintenance background jobs.
+
+Evidence:
+
+- [server-runtime-deepening workstream](workstreams/server-runtime-deepening/README.md)
+  records design, tasks, evidence, gates, and closeout.
+- `crates/taru-server/src/app/startup.rs` owns `ServerStartupWorkflow` and
+  `ServerStartupReport`.
+- `TaruApp::new_with_store` composes app services, then delegates startup side
+  effects to the startup workflow.
+- Startup reports cover configured libraries, stale transcode recovery,
+  staging cleanup, metadata raw-cache cleanup, and lifecycle task registration.
+- `RuntimeSupervisor::spawn_job` records supervised job success/failure counts.
+- Library scan, metadata refresh, and metadata maintenance background jobs use
+  the durable job runtime helper.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-server --tests`, focused nextest gates for app runtime/startup/metadata,
+  `cargo check --workspace --tests`, `cargo nextest run --workspace
+  --no-fail-fast` with 284 tests passed, and `git diff --check`.
+- Non-goals preserved: no playback source selection or transcode plan redesign,
+  no NFO round-trip preservation, no broad repository trait split, and no
+  public HTTP API, SDK, CLI, or database schema changes.
 
 ### M37: Apache-2.0 Rust Client CLI Entrypoint
 
