@@ -78,10 +78,10 @@ Phone and tablet share one touch-first navigation model. Tablet layouts may use
 extra width for grids and detail context, but they must not fork the product
 model or become Android TV.
 
-The visual direction follows Design Language v0: quiet, artwork-led,
-dark-first, playback-confident, and source-clear. It uses Material 3 as the
-interaction foundation and defines principles, component semantics, and a small
-token set rather than a full brand manual.
+The visual direction is Findroid-inspired and expressive-leaning: immersive,
+artwork-led, dark-first, playback-confident, and source-clear. It uses
+Material 3 as the interaction foundation and defines principles, component
+semantics, and a small token set rather than a full brand manual.
 
 Source / Version Picker is part of the first playback loop whenever multiple
 playable Media Sources or Source Variants exist. It should show client-safe
@@ -131,7 +131,8 @@ portable enough for a later iOS shell.
 
 - Android project scaffold under `apps/android`.
 - A minimal Android app shell for connecting to a Taru server.
-- A basic dark-first Material 3 theme aligned with Design Language v0.
+- A basic dark-first Material 3 theme aligned with the visual baseline in
+  `UX_CONTEXT.md`.
 - Public Client API connection and bearer-token handling.
 - Server URL plus access-token setup flow with secure storage, connection
   preflight, and token-redaction behavior.

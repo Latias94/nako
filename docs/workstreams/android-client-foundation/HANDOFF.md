@@ -76,6 +76,8 @@ Resolved decisions:
 - ACF-020 starts with direct Kotlin HTTP. UniFFI is deferred until
   browse/search/playback request construction creates enough duplicated SDK
   logic to justify the packaging cost.
+- The playback client visual baseline is Findroid-inspired and expressive-leaning, not an
+  admin-console shell.
 
 ## Next Task
 

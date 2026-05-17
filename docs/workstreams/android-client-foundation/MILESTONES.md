@@ -28,8 +28,9 @@ Exit criteria:
 
 - `apps/android` exists.
 - The app builds a minimal debug shell.
-- The first theme follows Design Language v0: quiet, artwork-led, dark-first,
-  playback-confident, source-clear, and Material 3 based.
+- The first theme follows the playback client visual baseline: immersive, artwork-led,
+  dark-first, playback-confident, source-clear, expressive-leaning, and
+  Material 3 based.
 - Android files are not part of the Rust Cargo workspace.
 - Local build docs exist.
 

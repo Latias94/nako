@@ -17,9 +17,9 @@ Scope:
 
 - Android Gradle project scaffold.
 - App entry point and one local debug screen.
-- Basic dark-first Compose Material 3 theme aligned with Design Language v0 in
-  `UX_CONTEXT.md`, including initial color roles, spacing, type roles, poster
-  aspect ratios, corner radius, touch targets, and component semantics.
+- Basic dark-first Compose Material 3 theme aligned with the playback client visual baseline
+  in `UX_CONTEXT.md`, including initial color roles, spacing, type roles,
+  poster aspect ratios, corner radius, touch targets, and component semantics.
 - README with local Android prerequisites and build command.
 - No Taru server calls yet.
 

@@ -495,29 +495,27 @@ First-version tablet behavior:
 Android TV remains a separate later product surface because ten-foot UI and
 remote-control focus navigation need a different interaction model.
 
-## Visual Direction
+## Playback Client Visual Baseline
 
-Taru should have its own restrained media-client design language instead of
-copying Findroid.
+Taru Android does not have a finished in-house design language yet. In this
+workstream, `v0` refers to the frontend prototyping tool, not to the product
+design system.
 
-## Design Language V0
+The nearest visual target is a Findroid-like Android media client: immersive,
+artwork-led, dark-first, playback-confident, and emotionally engaging. Use
+Material 3 as the interaction foundation, but lean expressive on browse,
+detail, and player surfaces where it helps the media experience feel alive.
 
-Taru Android Design Language v0 is: quiet, artwork-led, dark-first,
-playback-confident, and source-clear.
-
-Taru Android is a quiet, artwork-led media client. It uses Material 3 as the
-interaction foundation, keeps chrome restrained, and prioritizes scanning,
-playback confidence, and source clarity over decorative branding.
-
-V0 defines principles and reusable component semantics, not a full brand manual.
+Use restrained chrome for setup and settings. Keep browse, detail, and player
+surfaces image-led, gesture-friendly, and comfortable for repeat scanning.
 
 Initial direction:
 
-- native Compose Material 3 foundation;
+- expressive-leaning Compose Material 3 foundation;
 - dark-first media viewing experience with a light theme later;
 - image-led browsing with clear poster/backdrop hierarchy;
 - dense enough for repeated browsing, but not admin-dashboard dense;
-- restrained accent color and motion so artwork remains the visual focus;
+- tactile motion and transitions that support mood and focus, not decoration;
 - predictable Android gestures and system back behavior;
 - tablet layouts should use additional width for grids and detail context,
   not oversized decorative hero sections.
@@ -528,7 +526,7 @@ Initial direction:
 - avoid decorative gradients, glowing chrome, oversized marketing heroes, or
   visual effects that compete with artwork.
 
-V0 component semantics:
+Core component semantics:
 
 - Poster Card: identifies a Media Item through artwork, title, progress, and
   minimal secondary facts.
@@ -546,7 +544,7 @@ V0 component semantics:
 - Settings List: groups client preferences and identity controls without
   server administration.
 
-V0 tokens stay intentionally small:
+Baseline tokens stay intentionally small:
 
 - dark-first color roles;
 - restrained accent color;
@@ -555,7 +553,7 @@ V0 tokens stay intentionally small:
 - readable title/body/caption type roles;
 - consistent corner radius and touch target rules.
 
-V0 explicitly does not define:
+This baseline explicitly does not define:
 
 - final logo or brand identity;
 - complete brand color system;
