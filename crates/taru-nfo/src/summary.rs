@@ -56,9 +56,27 @@ pub struct NfoExportSummary {
     pub failures: Vec<NfoFailure>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NfoFailureKind {
+    NfoParse,
+    NfoPreservation,
+    NfoRender,
+    NfoConflict,
+    StorageRead,
+    StorageWrite,
+    StorageUnsupported,
+    MissingMediaItem,
+    InvalidSidecarPath,
+    #[default]
+    Unknown,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoFailure {
     pub source_id: MediaSourceId,
     pub locator: String,
+    #[serde(default)]
+    pub kind: NfoFailureKind,
     pub message: String,
 }

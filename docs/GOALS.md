@@ -26,12 +26,71 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M48 NFO storage write
-policy and persistence diagnostics, because M47 now preserves XML semantics but
-VFS atomic write, backup, and file-write conflict policy remain intentionally
-outside the NFO codec.
+No active implementation goal. Recommended next goal: M49 NFO sidecar backup
+and write conflict policy, because M47/M48 now preserve XML semantics and make
+local writes safer, but retention/rollback behavior remains intentionally
+outside the codec and storage write primitive.
 
 ## Completed Goals
+
+### M48: NFO Storage Write Policy and Persistence Diagnostics
+
+Status: completed.
+
+Objective:
+
+- Build on M47 by adding a safe NFO sidecar write boundary for local storage.
+- Use atomic temp-file-and-rename writes where supported.
+- Keep XML preservation in the NFO codec and write mechanics in VFS/storage.
+- Make parse, preservation, conflict, unsupported, and storage write failures
+  clearer in internal/test-visible diagnostics.
+
+Deliverables:
+
+- VFS write request/report model for explicit write modes.
+- `LocalFsBackend` atomic replace implementation.
+- NFO export wiring that requests the safer sidecar write path.
+- Focused diagnostics for NFO export failure categories.
+- M48 workstream documentation and validation evidence.
+
+Non-goals:
+
+- No soft-link or hard-link management.
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public HTTP API, OpenAPI, SDK, or protocol changes.
+- No database schema or repository trait changes.
+- No provider breadth, metadata merge-policy redesign, playback work, or new
+  storage backends.
+
+Exit criteria:
+
+- Local NFO sidecar writes are atomic where supported.
+- Unsupported atomic write requests fail explicitly.
+- NFO export uses the explicit write policy path.
+- NFO export failures carry test-visible diagnostic categories.
+- M47 preservation behavior remains covered.
+- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-storage-write-policy workstream]
+  (workstreams/nfo-storage-write-policy/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `taru-vfs` defines `StorageWriteMode`, `StorageWriteRequest`, and
+  `StorageWriteReport`; unsupported atomic replace requests fail explicitly by
+  default.
+- `LocalFsBackend` implements atomic replace with a same-directory temp file
+  and rename where supported.
+- NFO export requests `StorageWriteMode::AtomicReplace` for sidecar writes.
+- `NfoFailureKind` classifies parse, preservation, unsupported atomic write,
+  storage read/write, missing item, invalid sidecar path, and unknown failures
+  in internal/test-visible summaries.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 22
+  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
+  taru-nfo --no-fail-fast` with 16 tests passed, `cargo check --workspace
+  --tests`, `cargo nextest run --workspace --no-fail-fast` with 305 tests
+  passed, and `git diff --check`.
 
 ### M47: NFO Round Trip Preservation Model
 

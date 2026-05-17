@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [nfo-storage-write-policy](nfo-storage-write-policy/README.md): completed M48
+  NFO storage write policy work, covering local atomic sidecar writes, explicit
+  VFS write modes, internal NFO export diagnostics, and separation between XML
+  preservation and storage persistence mechanics.
 - [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
   completed M47 NFO Round Trip preservation work, covering preservation-aware
   movie NFO update, unknown XML field retention, conflict reporting, forced

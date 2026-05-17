@@ -10,8 +10,8 @@ use taru_metadata::{
 use taru_vfs::StorageBackend;
 
 use super::{
-    NfoCodec, NfoDocument, NfoFailure, NfoImportRequest, NfoImportSummary, NfoService,
-    workflow::nfo_uri_for_source,
+    NfoCodec, NfoDocument, NfoFailure, NfoFailureKind, NfoImportRequest, NfoImportSummary,
+    NfoService, workflow::nfo_uri_for_source,
 };
 
 impl<B, R, C> NfoService<B, R, C>
@@ -76,31 +76,32 @@ where
     ) -> NfoImportOutcome {
         let nfo_uri = match nfo_uri_for_source(&source) {
             Ok(uri) => uri,
-            Err(err) => return import_failure(&source, err),
+            Err(err) => return import_failure(&source, NfoFailureKind::InvalidSidecarPath, err),
         };
         let xml = match self.backend.read_to_string(&nfo_uri).await {
             Ok(xml) => xml,
             Err(TaruError::NotFound { .. }) => {
                 return NfoImportOutcome::Skipped { discovered: false };
             }
-            Err(err) => return import_failure(&source, err),
+            Err(err) => return import_failure(&source, classify_read_failure(&err), err),
         };
         let document = match self.codec.parse(&xml) {
             Ok(document) => document,
-            Err(err) => return import_failure(&source, err),
+            Err(err) => return import_failure(&source, NfoFailureKind::NfoParse, err),
         };
         let existing = match self.repository.get_media_item(source.item_id).await {
             Ok(Some(item)) => item,
             Ok(None) => {
                 return import_failure(
                     &source,
+                    NfoFailureKind::MissingMediaItem,
                     TaruError::NotFound {
                         entity: "media_item",
                         id: source.item_id.to_string(),
                     },
                 );
             }
-            Err(err) => return import_failure(&source, err),
+            Err(err) => return import_failure(&source, NfoFailureKind::Unknown, err),
         };
 
         if !force && policy == LocalMetadataPolicy::RemoteFirst && !is_missing_metadata(&existing) {
@@ -109,7 +110,7 @@ where
 
         let locks = match self.repository.list_field_locks(existing.id).await {
             Ok(locks) => locks,
-            Err(err) => return import_failure(&source, err),
+            Err(err) => return import_failure(&source, NfoFailureKind::Unknown, err),
         };
         let merged = merge_nfo_metadata(&existing.metadata, &document.metadata, policy, &locks);
         let changed = merged != existing.metadata;
@@ -118,13 +119,13 @@ where
             .await
         {
             Ok(items) => items,
-            Err(err) => return import_failure(&source, err),
+            Err(err) => return import_failure(&source, NfoFailureKind::Unknown, err),
         };
         if !changed && confirmation_items.is_empty() && !force {
             if let Err(err) =
                 hydrate_item_catalog(&self.repository, existing.id, MetadataSource::Nfo).await
             {
-                return import_failure(&source, err);
+                return import_failure(&source, NfoFailureKind::Unknown, err);
             }
             return NfoImportOutcome::Skipped { discovered: true };
         }
@@ -134,7 +135,7 @@ where
             ..existing
         };
         if let Err(err) = self.repository.upsert_media_item(&updated).await {
-            return import_failure(&source, err);
+            return import_failure(&source, NfoFailureKind::Unknown, err);
         }
 
         if locks_should_be_written(policy) {
@@ -149,7 +150,7 @@ where
                     })
                     .await
                 {
-                    return import_failure(&source, err);
+                    return import_failure(&source, NfoFailureKind::Unknown, err);
                 }
             }
         }
@@ -158,7 +159,7 @@ where
             if let Err(err) =
                 hydrate_item_catalog(&self.repository, updated.id, MetadataSource::Nfo).await
             {
-                return import_failure(&source, err);
+                return import_failure(&source, NfoFailureKind::Unknown, err);
             }
         } else {
             let confirmation = HierarchyConfirmationService::new(self.repository.clone());
@@ -171,7 +172,7 @@ where
                 })
                 .await
             {
-                return import_failure(&source, err);
+                return import_failure(&source, NfoFailureKind::Unknown, err);
             }
         }
 
@@ -255,12 +256,25 @@ enum NfoImportOutcome {
     Failed(NfoFailure),
 }
 
-fn import_failure(source: &MediaSource, err: impl ToString) -> NfoImportOutcome {
+fn import_failure(
+    source: &MediaSource,
+    kind: NfoFailureKind,
+    err: impl ToString,
+) -> NfoImportOutcome {
     NfoImportOutcome::Failed(NfoFailure {
         source_id: source.id,
         locator: source.locator.clone(),
+        kind,
         message: err.to_string(),
     })
+}
+
+fn classify_read_failure(err: &TaruError) -> NfoFailureKind {
+    match err {
+        TaruError::Storage { .. } => NfoFailureKind::StorageRead,
+        TaruError::Unsupported(_) => NfoFailureKind::StorageUnsupported,
+        _ => NfoFailureKind::Unknown,
+    }
 }
 
 fn ensure_import_policy(policy: LocalMetadataPolicy) -> Result<()> {

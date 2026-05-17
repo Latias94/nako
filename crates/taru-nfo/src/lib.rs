@@ -15,8 +15,13 @@ pub struct NfoService<B, R, C> {
 }
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{
+        collections::HashMap,
+        fs,
+        sync::{Arc, Mutex},
+    };
 
+    use async_trait::async_trait;
     use taru_core::{
         CanonicalMetadata, Credit, CreditRole, ImageKind, JobId, Library, LibraryId,
         LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
@@ -27,7 +32,10 @@ mod tests {
     };
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
-    use taru_vfs::LocalFsBackend;
+    use taru_vfs::{
+        ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, StorageBackend, StorageCapabilities,
+        StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest, VirtualFile,
+    };
 
     use super::*;
 
@@ -566,6 +574,153 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nfo_service_exports_movie_sidecar_with_atomic_replace_request() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Atomic Export Title".to_owned(),
+                overview: Some("Atomic export overview".to_owned()),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = RecordingStorageBackend::default();
+        let recorder = backend.clone();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let writes = recorder.writes();
+        assert_eq!(summary.exported_items, 1);
+        assert_eq!(summary.failed_items, 0);
+        assert_eq!(writes.len(), 1);
+        assert_eq!(writes[0].mode, StorageWriteMode::AtomicReplace);
+        assert_eq!(
+            writes[0].uri,
+            StorageUri::parse("local:///Movies/demo.nfo").unwrap()
+        );
+        assert!(
+            writes[0]
+                .content
+                .contains("<title>Atomic Export Title</title>")
+        );
+    }
+
+    #[tokio::test]
+    async fn nfo_service_reports_storage_unsupported_when_atomic_write_is_unavailable() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Unsupported Atomic Export".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = RecordingStorageBackend::default().fail_atomic_replace();
+        let recorder = backend.clone();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.exported_items, 0);
+        assert_eq!(summary.failed_items, 1);
+        assert_eq!(summary.failures[0].kind, NfoFailureKind::StorageUnsupported);
+        assert_eq!(recorder.writes()[0].mode, StorageWriteMode::AtomicReplace);
+    }
+
+    #[tokio::test]
+    async fn nfo_service_reports_preservation_failure_when_forced_sidecar_is_invalid() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Forced Export Title".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = RecordingStorageBackend::default().with_file(
+            StorageUri::parse("local:///Movies/demo.nfo").unwrap(),
+            "<movie><title>broken",
+        );
+        let recorder = backend.clone();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.exported_items, 0);
+        assert_eq!(summary.failed_items, 1);
+        assert_eq!(summary.failures[0].kind, NfoFailureKind::NfoPreservation);
+        assert!(summary.failures[0].message.contains("invalid NFO XML"));
+        assert!(recorder.writes().is_empty());
+    }
+
+    #[tokio::test]
+    async fn nfo_service_reports_parse_failure_when_import_sidecar_is_invalid() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
+        let backend = RecordingStorageBackend::default().with_file(
+            StorageUri::parse("local:///Movies/demo.nfo").unwrap(),
+            "<movie><title>broken",
+        );
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .import_library(NfoImportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::LocalFirst,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.imported_items, 0);
+        assert_eq!(summary.failed_items, 1);
+        assert_eq!(summary.failures[0].kind, NfoFailureKind::NfoParse);
+    }
+
+    #[tokio::test]
     async fn nfo_service_preserves_existing_sidecar_unknown_fields_when_forced() {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp.path().join("Movies")).unwrap();
@@ -710,6 +865,116 @@ mod tests {
             err,
             TaruError::Unsupported("NFO export requires write-sidecar local metadata policy")
         );
+    }
+
+    #[derive(Clone, Default)]
+    struct RecordingStorageBackend {
+        files: Arc<Mutex<HashMap<StorageUri, String>>>,
+        writes: Arc<Mutex<Vec<StorageWriteRequest>>>,
+        fail_atomic_replace: bool,
+    }
+
+    impl RecordingStorageBackend {
+        fn with_file(self, uri: StorageUri, content: impl Into<String>) -> Self {
+            {
+                let mut files = self.files.lock().unwrap();
+                files.insert(uri, content.into());
+            }
+            self
+        }
+
+        fn fail_atomic_replace(mut self) -> Self {
+            self.fail_atomic_replace = true;
+            self
+        }
+
+        fn writes(&self) -> Vec<StorageWriteRequest> {
+            self.writes.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl StorageBackend for RecordingStorageBackend {
+        fn scheme(&self) -> &'static str {
+            "local"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> taru_core::Result<ObjectMetadata> {
+            let files = self.files.lock().unwrap();
+            let Some(content) = files.get(uri) else {
+                return Err(TaruError::NotFound {
+                    entity: "storage_object",
+                    id: uri.to_string(),
+                });
+            };
+
+            Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::File,
+                len: Some(content.len() as u64),
+                modified_at: None,
+                etag: None,
+                fingerprint: None,
+                capabilities: StorageCapabilities::WRITABLE,
+                cache: None,
+            })
+        }
+
+        async fn list(&self, _uri: &StorageUri) -> taru_core::Result<Vec<ObjectMetadata>> {
+            Ok(Vec::new())
+        }
+
+        async fn open_range(
+            &self,
+            _uri: &StorageUri,
+            _range: Option<ByteRange>,
+        ) -> taru_core::Result<VirtualFile> {
+            Err(TaruError::Unsupported(
+                "recording storage backend does not support opening files",
+            ))
+        }
+
+        async fn read_to_string(&self, uri: &StorageUri) -> taru_core::Result<String> {
+            self.files
+                .lock()
+                .unwrap()
+                .get(uri)
+                .cloned()
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "storage_object",
+                    id: uri.to_string(),
+                })
+        }
+
+        async fn write_string(&self, uri: &StorageUri, content: &str) -> taru_core::Result<()> {
+            self.files
+                .lock()
+                .unwrap()
+                .insert(uri.clone(), content.to_owned());
+            Ok(())
+        }
+
+        async fn write(
+            &self,
+            request: StorageWriteRequest,
+        ) -> taru_core::Result<StorageWriteReport> {
+            self.writes.lock().unwrap().push(request.clone());
+            if self.fail_atomic_replace && request.mode == StorageWriteMode::AtomicReplace {
+                return Err(TaruError::Unsupported(
+                    "recording storage backend does not support atomic replace writes",
+                ));
+            }
+
+            self.files
+                .lock()
+                .unwrap()
+                .insert(request.uri.clone(), request.content);
+            Ok(StorageWriteReport {
+                uri: request.uri,
+                mode: request.mode,
+                atomic: request.mode == StorageWriteMode::AtomicReplace,
+            })
+        }
     }
 
     async fn seed_item(store: &SqliteStore, library_id: LibraryId, locator: &str) -> MediaItem {

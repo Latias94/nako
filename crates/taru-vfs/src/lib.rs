@@ -225,6 +225,47 @@ pub struct StagedFile {
     pub reused: bool,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageWriteMode {
+    Direct,
+    AtomicReplace,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StorageWriteRequest {
+    pub uri: StorageUri,
+    pub content: String,
+    pub mode: StorageWriteMode,
+}
+
+impl StorageWriteRequest {
+    #[must_use]
+    pub fn direct(uri: StorageUri, content: impl Into<String>) -> Self {
+        Self {
+            uri,
+            content: content.into(),
+            mode: StorageWriteMode::Direct,
+        }
+    }
+
+    #[must_use]
+    pub fn atomic_replace(uri: StorageUri, content: impl Into<String>) -> Self {
+        Self {
+            uri,
+            content: content.into(),
+            mode: StorageWriteMode::AtomicReplace,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageWriteReport {
+    pub uri: StorageUri,
+    pub mode: StorageWriteMode,
+    pub atomic: bool,
+}
+
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
     fn scheme(&self) -> &'static str;
@@ -259,6 +300,22 @@ pub trait StorageBackend: Send + Sync {
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String>;
 
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()>;
+
+    async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        match request.mode {
+            StorageWriteMode::Direct => {
+                self.write_string(&request.uri, &request.content).await?;
+                Ok(StorageWriteReport {
+                    uri: request.uri,
+                    mode: StorageWriteMode::Direct,
+                    atomic: false,
+                })
+            }
+            StorageWriteMode::AtomicReplace => Err(TaruError::Unsupported(
+                "storage backend does not support atomic replace writes",
+            )),
+        }
+    }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let _ = request;
@@ -309,6 +366,10 @@ where
         self.as_ref().write_string(uri, content).await
     }
 
+    async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        self.as_ref().write(request).await
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.as_ref().stage(request).await
     }
@@ -353,6 +414,10 @@ where
 
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
         self.as_ref().write_string(uri, content).await
+    }
+
+    async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        self.as_ref().write(request).await
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {

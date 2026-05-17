@@ -10,7 +10,8 @@ use taru_core::{Result, StorageErrorKind, TaruError};
 
 use crate::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
-    StorageCapabilities, StorageUri, VirtualFile,
+    StorageCapabilities, StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest,
+    VirtualFile,
 };
 
 #[derive(Clone, Debug)]
@@ -319,6 +320,27 @@ impl StorageBackend for LocalFsBackend {
         })
     }
 
+    async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        match request.mode {
+            StorageWriteMode::Direct => {
+                self.write_string(&request.uri, &request.content).await?;
+                Ok(StorageWriteReport {
+                    uri: request.uri,
+                    mode: StorageWriteMode::Direct,
+                    atomic: false,
+                })
+            }
+            StorageWriteMode::AtomicReplace => {
+                let atomic = self.write_string_atomic_replace(&request.uri, &request.content)?;
+                Ok(StorageWriteReport {
+                    uri: request.uri,
+                    mode: StorageWriteMode::AtomicReplace,
+                    atomic,
+                })
+            }
+        }
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let metadata = self.stat(&request.uri).await?;
         let file = self.open_range(&request.uri, None).await?;
@@ -339,6 +361,112 @@ impl StorageBackend for LocalFsBackend {
             reused: true,
         })
     }
+}
+
+impl LocalFsBackend {
+    fn write_string_atomic_replace(&self, uri: &StorageUri, content: &str) -> Result<bool> {
+        let path = self.writable_path_for(uri)?;
+        let parent = path.parent().ok_or_else(|| {
+            TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "local atomic write target has no parent directory",
+            )
+        })?;
+        let temp_path = atomic_temp_path(&path);
+        let write_result = (|| -> Result<bool> {
+            {
+                let mut file = fs::File::create(&temp_path).map_err(|err| {
+                    TaruError::storage_io(
+                        temp_path.display().to_string(),
+                        format!("failed to create local atomic temp file: {err}"),
+                    )
+                })?;
+                use std::io::Write as _;
+                file.write_all(content.as_bytes()).map_err(|err| {
+                    TaruError::storage_io(
+                        temp_path.display().to_string(),
+                        format!("failed to write local atomic temp file: {err}"),
+                    )
+                })?;
+                file.sync_all().map_err(|err| {
+                    TaruError::storage_io(
+                        temp_path.display().to_string(),
+                        format!("failed to sync local atomic temp file: {err}"),
+                    )
+                })?;
+            }
+
+            let atomic = replace_temp_file(uri, &temp_path, &path)?;
+
+            if let Ok(directory) = fs::File::open(parent) {
+                let _ = directory.sync_all();
+            }
+
+            Ok(atomic)
+        })();
+
+        if write_result.is_err() {
+            let _ = fs::remove_file(&temp_path);
+        }
+
+        write_result
+    }
+}
+
+#[cfg(not(windows))]
+fn replace_temp_file(uri: &StorageUri, temp_path: &Path, path: &Path) -> Result<bool> {
+    fs::rename(temp_path, path).map_err(|err| {
+        TaruError::storage_io(
+            uri.to_string(),
+            format!("failed to replace local file atomically: {err}"),
+        )
+    })?;
+    Ok(true)
+}
+
+#[cfg(windows)]
+fn replace_temp_file(uri: &StorageUri, temp_path: &Path, path: &Path) -> Result<bool> {
+    match fs::rename(temp_path, path) {
+        Ok(()) => Ok(true),
+        Err(rename_err) if path.exists() => {
+            fs::remove_file(path).map_err(|err| {
+                TaruError::storage_io(
+                    uri.to_string(),
+                    format!(
+                        "failed to remove existing local file after atomic replace was unavailable: {err}"
+                    ),
+                )
+            })?;
+            fs::rename(temp_path, path).map_err(|err| {
+                TaruError::storage_io(
+                    uri.to_string(),
+                    format!(
+                        "failed to replace local file after atomic replace was unavailable: {err}"
+                    ),
+                )
+            })?;
+            let _ = rename_err;
+            Ok(false)
+        }
+        Err(err) => Err(TaruError::storage_io(
+            uri.to_string(),
+            format!("failed to replace local file atomically: {err}"),
+        )),
+    }
+}
+
+fn atomic_temp_path(path: &Path) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("taru-write");
+    let nonce = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let process_id = std::process::id();
+    path.with_file_name(format!(".{file_name}.taru-{process_id}-{nonce}.tmp"))
 }
 
 fn local_capabilities(kind: ObjectKind) -> StorageCapabilities {
@@ -516,6 +644,56 @@ mod tests {
     }
 
     #[test]
+    fn local_backend_atomic_replace_creates_text_file_under_root() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            let report = backend
+                .write(StorageWriteRequest::atomic_replace(
+                    uri.clone(),
+                    "<movie><title>Created</title></movie>",
+                ))
+                .await
+                .unwrap();
+            let content = backend.read_to_string(&uri).await.unwrap();
+
+            assert_eq!(report.uri, uri);
+            assert_eq!(report.mode, StorageWriteMode::AtomicReplace);
+            assert!(report.atomic);
+            assert_eq!(content, "<movie><title>Created</title></movie>");
+            assert_no_atomic_temp_files(temp.path().join("movies").as_path());
+        });
+    }
+
+    #[test]
+    fn local_backend_atomic_replace_updates_existing_text_file_without_temp_leftovers() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+            fs::write(temp.path().join("movies").join("demo.nfo"), "old").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            let report = backend
+                .write(StorageWriteRequest::atomic_replace(uri.clone(), "new"))
+                .await
+                .unwrap();
+            let content = backend.read_to_string(&uri).await.unwrap();
+
+            assert_eq!(report.uri, uri);
+            assert_eq!(report.mode, StorageWriteMode::AtomicReplace);
+            assert!(report.atomic || cfg!(windows));
+            assert_eq!(content, "new");
+            assert_no_atomic_temp_files(temp.path().join("movies").as_path());
+        });
+    }
+
+    #[test]
     fn local_backend_rejects_text_writes_outside_root() {
         pollster::block_on(async {
             let temp = tempfile::tempdir().unwrap();
@@ -524,5 +702,32 @@ mod tests {
 
             assert!(backend.write_string(&uri, "bad").await.is_err());
         });
+    }
+
+    #[test]
+    fn local_backend_rejects_atomic_text_writes_outside_root() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::parse("local:///../outside.nfo").unwrap();
+
+            assert!(
+                backend
+                    .write(StorageWriteRequest::atomic_replace(uri, "bad"))
+                    .await
+                    .is_err()
+            );
+        });
+    }
+
+    fn assert_no_atomic_temp_files(path: &Path) {
+        let leftovers = fs::read_dir(path)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.contains(".taru-") && name.ends_with(".tmp"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(leftovers, Vec::<String>::new());
     }
 }
