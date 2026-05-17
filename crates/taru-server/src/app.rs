@@ -37,7 +37,8 @@ use playback::PlaybackAppService;
 pub(crate) use playback::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest,
 };
-use runtime::{RuntimeSupervisor, RuntimeSupervisorDiagnostics};
+use runtime::RuntimeSupervisor;
+pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
 use startup::{ServerStartupReport, ServerStartupWorkflow};

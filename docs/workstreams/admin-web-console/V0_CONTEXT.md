@@ -111,6 +111,13 @@ job lists, event lists, hardware dashboards, catalog repair queues, settings
 editing, and extension lifecycle operations should be treated as mock or
 planned `/admin/v1/*` data unless explicitly wired later.
 
+M52 adds the first live Admin API data source: `GET /admin/v1/overview`. It can
+back the overview page's compact server/API version, storage status, metadata
+provider status, runtime counter, and startup recovery summaries. Job lists,
+session lists, event lists, hardware dashboards, catalog repair queues,
+settings editing, and extension lifecycle details remain mock or planned
+Admin API data.
+
 Do not put admin-only DTOs into Public Client API language. Do not describe
 `taru-client-protocol` as the source for admin console diagnostics.
 
@@ -327,3 +334,7 @@ information architecture and product language clear before real API wiring.
 Mock-only or planned `/admin/v1/*` prototype areas should be visually marked as
 diagnostic or planned data in internal handoff notes, not as existing stable
 Public Client API coverage.
+
+The overview page may be marked as partially live because
+`GET /admin/v1/overview` exists. Its drill-down tables and history panels should
+still be treated as mock data until follow-up Admin API routes land.

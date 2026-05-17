@@ -1,6 +1,6 @@
 # Admin Web Console Handoff
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-17
 
 ## Current State
@@ -17,6 +17,11 @@ AWC-030 is complete. ADR 0027 accepts `/admin/v1/*` as the Admin API boundary,
 keeps admin DTOs in `taru-api`, keeps `taru-client-protocol` public-client-only,
 and defines redaction/leakage rules for future Admin API slices.
 
+AWC-035 is complete for M52. `GET /admin/v1/overview` is the first code-backed
+Admin API v1 seam. The route is read-only and composes existing safe storage,
+metadata-provider, runtime, and startup diagnostics through admin-owned DTOs in
+`taru-api::admin`.
+
 The key artifact for v0.dev is:
 
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
@@ -26,6 +31,7 @@ The key artifact for v0.dev is:
 Run AWC-040:
 
 - refine `V0_CONTEXT.md` with ADR 0027's `/admin/v1/*` boundary;
+- describe `GET /admin/v1/overview` as the first live Admin API data source;
 - make clear which first prototype pages are mock-only versus backed by current
   routes;
 - keep generated UI context framework-neutral and admin-focused.

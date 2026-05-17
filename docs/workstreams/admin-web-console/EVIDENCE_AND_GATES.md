@@ -1,6 +1,6 @@
 # Admin Web Console Evidence And Gates
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-17
 
 ## Planning Gates
@@ -34,6 +34,20 @@ cargo check -p taru-server --tests
 cargo nextest run -p taru-api --no-fail-fast
 cargo nextest run -p taru-server --no-fail-fast
 git diff --check
+```
+
+M52 focused API commands:
+
+```bash
+cargo fmt --all -- --check
+cargo check -p taru-api --tests
+cargo nextest run -p taru-api --no-fail-fast
+cargo check -p taru-server --tests
+cargo nextest run -p taru-server http::tests::system --no-fail-fast
+cargo nextest run -p taru-api public_openapi --no-fail-fast
+cargo nextest run -p taru-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast
+git diff --check
+git diff --name-only -- crates/taru-client-protocol
 ```
 
 Broaden to workspace gates when API ownership, route behavior, or shared
@@ -74,3 +88,14 @@ implementation should provide:
 - 2026-05-17: Documentation gate passed with `git diff --check`; public
   protocol boundary verified by checking `crates/taru-client-protocol` had no
   changed files.
+- 2026-05-17: M52 opened as AWC-035 to implement the first read-only
+  `/admin/v1/*` route through `GET /admin/v1/overview`. Evidence is pending.
+- 2026-05-17: AWC-035 / M52 completed. `GET /admin/v1/overview` is wired in
+  `taru-server`, uses admin-owned DTOs in `taru-api::admin`, and returns safe
+  storage, metadata-provider, runtime, and startup summaries without root URI,
+  secret, token, raw provider response, or output path fields. Focused
+  validation passed: `cargo fmt --all -- --check`, `cargo check -p taru-api
+  --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 14 tests,
+  `cargo check -p taru-server --tests`, `cargo nextest run -p taru-server
+  http::tests::system --no-fail-fast` with 5 tests, `git diff --check`, and
+  `git diff --name-only -- crates/taru-client-protocol` with no changed files.

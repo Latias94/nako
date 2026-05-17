@@ -1,6 +1,6 @@
 # Admin Web Console
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-17
 
 This workstream owns the planning baseline for Taru's first web-based server
@@ -43,3 +43,5 @@ framework or detailed visual implementation.
 - Provide v0.dev with product and routing context, not implementation lock-in.
 - Preserve the distinction between Public Client API and versioned Admin API
   surfaces.
+- Implement the first read-only Admin API v1 overview seam before wiring any
+  frontend UI.

@@ -297,6 +297,11 @@ The recommended implementation sequence is:
 5. Keep redaction and public-route inventory checks as required gates for API
    implementation slices.
 
+M52 / AWC-035 implements the first slice in that sequence:
+`GET /admin/v1/overview`. It is a read-only summary route backed by existing
+safe diagnostics. It does not add frontend UI, write mutations, public client
+routes, or `taru-client-protocol` changes.
+
 ## Non-Goals
 
 - No front-end framework selection in this planning baseline.

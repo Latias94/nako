@@ -1,9 +1,14 @@
 use serde::{Deserialize, Serialize};
 use taru_client_protocol::PageInfo;
 use taru_core::{
-    IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus,
-    Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId, ScanSnapshotId,
+    ExternalProvider, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord,
+    IngestionFailureStatus, Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId,
+    ScanSnapshotId,
 };
+
+use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
+
+pub const ADMIN_API_VERSION: &str = "v1";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct JobResponse {
@@ -43,6 +48,77 @@ impl JobResponse {
             completed_at: job.completed_at,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub status: AdminOverviewStatus,
+    pub storage: AdminOverviewStorageSummary,
+    pub metadata: AdminOverviewMetadataSummary,
+    pub runtime: AdminOverviewRuntimeSummary,
+    pub startup: AdminOverviewStartupSummary,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminOverviewStatus {
+    Healthy,
+    Degraded,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewStorageSummary {
+    pub total_backends: u32,
+    pub ready_backends: u32,
+    pub degraded_backends: u32,
+    pub unavailable_backends: u32,
+    pub backends: Vec<AdminOverviewStorageBackendSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewStorageBackendSummary {
+    pub library_id: LibraryId,
+    pub library_name: String,
+    pub backend_kind: StorageBackendKind,
+    pub status: StorageBackendStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewMetadataSummary {
+    pub total_providers: u32,
+    pub available_providers: u32,
+    pub disabled_providers: u32,
+    pub unavailable_providers: u32,
+    pub providers: Vec<AdminOverviewMetadataProviderSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewMetadataProviderSummary {
+    pub provider: ExternalProvider,
+    pub status: MetadataProviderDiagnosticStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewRuntimeSummary {
+    pub active_tasks: u32,
+    pub completed_tasks: u64,
+    pub failed_tasks: u64,
+    pub succeeded_jobs: u64,
+    pub failed_jobs: u64,
+    pub shutdown_requested: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewStartupSummary {
+    pub configured_libraries: u32,
+    pub recovered_transcode_sessions: u64,
+    pub recovered_jobs: u64,
+    pub staging_deleted_records: u32,
+    pub staging_deleted_files: u32,
+    pub metadata_raw_cache_deleted: u64,
+    pub metadata_lifecycle_tasks_started: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -252,5 +328,69 @@ mod tests {
             "local:///demo.nfo.taru-backup-1"
         );
         assert_eq!(summary["prune_failures"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn admin_overview_response_serializes_safe_summary_fields() {
+        let library_id = LibraryId::new();
+        let response = AdminOverviewResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: crate::API_VERSION.to_owned(),
+            status: AdminOverviewStatus::Healthy,
+            storage: AdminOverviewStorageSummary {
+                total_backends: 1,
+                ready_backends: 1,
+                degraded_backends: 0,
+                unavailable_backends: 0,
+                backends: vec![AdminOverviewStorageBackendSummary {
+                    library_id,
+                    library_name: "Movies".to_owned(),
+                    backend_kind: StorageBackendKind::Local,
+                    status: StorageBackendStatus::Ready,
+                }],
+            },
+            metadata: AdminOverviewMetadataSummary {
+                total_providers: 1,
+                available_providers: 1,
+                disabled_providers: 0,
+                unavailable_providers: 0,
+                providers: vec![AdminOverviewMetadataProviderSummary {
+                    provider: taru_core::ExternalProvider::Tmdb,
+                    status: crate::MetadataProviderDiagnosticStatus::Available,
+                }],
+            },
+            runtime: AdminOverviewRuntimeSummary {
+                active_tasks: 0,
+                completed_tasks: 0,
+                failed_tasks: 0,
+                succeeded_jobs: 0,
+                failed_jobs: 0,
+                shutdown_requested: false,
+            },
+            startup: AdminOverviewStartupSummary {
+                configured_libraries: 1,
+                recovered_transcode_sessions: 0,
+                recovered_jobs: 0,
+                staging_deleted_records: 0,
+                staging_deleted_files: 0,
+                metadata_raw_cache_deleted: 0,
+                metadata_lifecycle_tasks_started: 0,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["admin_api_version"], "v1");
+        assert_eq!(value["public_api_version"], crate::API_VERSION);
+        assert_eq!(value["status"], "healthy");
+        assert_eq!(value["storage"]["ready_backends"], 1);
+        assert_eq!(value["storage"]["backends"][0]["status"], "ready");
+        assert_eq!(value["metadata"]["providers"][0]["provider"], "tmdb");
+        assert!(!body.contains("secret"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("root_uri"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("ProviderRawResponse"));
     }
 }

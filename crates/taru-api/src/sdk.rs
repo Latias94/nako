@@ -430,6 +430,8 @@ mod tests {
         let sdk = typescript_sdk().to_ascii_lowercase();
 
         for forbidden in [
+            "/admin",
+            "/admin/v1",
             "/addons",
             "/webhooks",
             "/automation",

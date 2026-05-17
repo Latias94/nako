@@ -27,11 +27,73 @@ proposed milestone.
 ## Current Goal
 
 No active implementation goal. Recommended next goal: AWC-040 v0 Context and
-First Prototype Prompt, because ADR 0027 now fixes the admin API boundary and
-the design-generation context should be updated into a concise prompt before
-any UI code is generated.
+First Prototype Prompt, because M52 now provides the first code-backed
+`/admin/v1/*` overview seam and the design-generation context should distinguish
+live overview data from remaining mock-only admin pages.
 
 ## Completed Goals
+
+### M52: Admin API v1 Overview Read-Only Seam
+
+Status: completed.
+
+Objective:
+
+- Build the first code-backed `/admin/v1/*` seam accepted by ADR 0027.
+- Add a small read-only admin overview route for the web console.
+- Keep the Public Client API, public OpenAPI, public SDK, and
+  `taru-client-protocol` unchanged.
+
+Deliverables:
+
+- Admin-owned overview DTOs in `taru-api::admin`.
+- `taru-server` route wiring for `GET /admin/v1/overview`.
+- Focused HTTP tests proving the route composes safe existing diagnostics and
+  preserves existing root/public routes.
+- Public OpenAPI and TypeScript SDK leakage checks that keep admin routes out
+  of public client artifacts.
+- Updated admin-web-console workstream docs and validation evidence.
+
+Non-goals:
+
+- No frontend UI implementation.
+- No Admin API mutations.
+- No Public Client API or `taru-client-protocol` changes.
+- No storage, NFO, metadata provider, playback, or transcode behavior
+  expansion beyond read-only diagnostic summaries.
+- No Admin OpenAPI or generated admin SDK in this slice.
+
+Exit criteria:
+
+- `GET /admin/v1/overview` returns an admin-owned DTO with server/API version,
+  storage summary, metadata-provider summary, runtime summary, and startup
+  summary derived from existing safe diagnostics.
+- The overview response does not expose secrets, tokens, unsafe local
+  filesystem paths, raw provider responses, or local transcode output paths.
+- Existing `/health`, `/libraries`, and `/storage/backends` route behavior is
+  preserved.
+- Public OpenAPI and TypeScript SDK artifacts still exclude `/admin/*` and
+  other admin/internal route groups.
+- Focused `taru-api` and `taru-server` gates pass.
+
+Evidence:
+
+- `taru-api::admin` defines `ADMIN_API_VERSION`, `AdminOverviewResponse`, and
+  focused storage, metadata, runtime, and startup overview DTOs.
+- `taru-server` wires `GET /admin/v1/overview` through a dedicated admin HTTP
+  module.
+- The overview route composes existing storage backend diagnostics, metadata
+  provider diagnostics, runtime supervisor counters, and startup report
+  counters without returning root URIs, secrets, tokens, raw provider bodies, or
+  local output paths.
+- Public OpenAPI and TypeScript SDK tests now explicitly reject `/admin` and
+  `/admin/v1` terms.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 14
+  tests passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast` with 5 tests passed, `git
+  diff --check`, and `git diff --name-only -- crates/taru-client-protocol`.
 
 ### M51: Admin API Boundary Decision for Web Console
 

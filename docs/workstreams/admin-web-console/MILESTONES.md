@@ -1,6 +1,6 @@
 # Admin Web Console Milestones
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-17
 
 ## M-AWC.0 Planning Baseline
@@ -55,6 +55,46 @@ Status: completed for AWC-030. ADR 0027 accepts `/admin/v1/*` as the
 admin-only route boundary, keeps admin DTOs in `taru-api`, keeps
 `taru-client-protocol` public-client-only, and defines leakage/redaction rules
 for future Admin API slices.
+
+## M-AWC.1.1 Admin API v1 Overview Seam
+
+Objective:
+
+- Implement the first code-backed `/admin/v1/*` route without expanding the
+  Public Client API.
+- Give the future web console a small safe overview summary that composes
+  existing diagnostics.
+
+Deliverables:
+
+- `GET /admin/v1/overview`.
+- Admin-owned overview DTOs in `taru-api::admin`.
+- Server route tests that prove the overview is read-only and redacted.
+- Public OpenAPI and SDK leakage checks that reject admin route terms.
+
+Exit criteria:
+
+- The route reports server/API version, storage status, metadata provider
+  status, runtime counters, and startup recovery counters.
+- The response excludes secrets, tokens, unsafe local filesystem paths, raw
+  provider bodies, and local transcode output paths.
+- Existing root/public route behavior remains compatible.
+- `taru-client-protocol` has no changes.
+
+Status: completed for AWC-035 / M52. `GET /admin/v1/overview` now reports
+safe storage, metadata-provider, runtime, and startup summaries through
+admin-owned DTOs in `taru-api::admin`.
+
+Close-out validation:
+
+- `cargo fmt --all -- --check`
+- `cargo check -p taru-api --tests`
+- `cargo nextest run -p taru-api --no-fail-fast`: 14 tests passed.
+- `cargo check -p taru-server --tests`
+- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`: 5
+  tests passed.
+- `git diff --check`
+- `git diff --name-only -- crates/taru-client-protocol`: no changed files.
 
 ## M-AWC.2 v0 Prototype Prompt
 

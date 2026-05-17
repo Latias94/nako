@@ -35,6 +35,7 @@ Public Client API contracts remain separate.
 | Area | Current routes | Surface | Console fit |
 | --- | --- | --- | --- |
 | Health | `GET /health` | Public Client API | Directly supports server status and API version. |
+| Admin overview | `GET /admin/v1/overview` | Admin API v1 | First read-only overview summary for server/API version, storage status, metadata provider status, runtime counters, and startup counters. |
 | Libraries | `GET /libraries`, `GET /libraries/{library_id}`, `GET /libraries/{library_id}/sources` | Public Client API | Directly supports library list/detail and source list, but uses client-facing DTOs. |
 | Library operations | `POST /libraries/{library_id}/scan`, `POST /libraries/{library_id}/nfo/import`, `POST /libraries/{library_id}/nfo/export` | Admin/internal | Supports scan and NFO job actions. |
 | Ingestion failures | `GET/POST /libraries/{library_id}/ingestion/failures` | Admin/internal | Supports failure list and ignore action. Missing retry/resolution actions. |
@@ -55,7 +56,7 @@ Public Client API contracts remain separate.
 
 | Console page | Current support | Missing or weak Admin API |
 | --- | --- | --- |
-| Overview | Partial: `GET /health`, `GET /metadata/providers`, `GET /storage/backends`, known job IDs through `GET /jobs/{job_id}`. | Needs a consolidated admin summary or separate list endpoints for jobs, sessions, events, failed attempts, startup report, and warnings. |
+| Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. | Still needs list/filter endpoints for jobs, playback sessions, outbox events, recent failures, and warnings if the console needs drill-down data. |
 | Media Libraries | Good for read and actions: library list/detail/sources, scan, NFO import/export, ingestion failure list/ignore. | Needs create/edit/delete library only if Taru supports runtime-configurable libraries. Needs failure retry/resolve semantics if desired. |
 | Library Detail | Good for core read-only detail and operations. | Needs latest scan summary, configured backend detail without unsafe local paths, and per-library job history. |
 | Catalog | Partial: public browse/search/item/credits/images/source probe. | Needs unknown-item filter, duplicate-source list, provider mapping list, local inference evidence route, hierarchy repair routes, and source variant/edition governance. |
@@ -119,9 +120,10 @@ Known current safety boundaries useful to preserve:
 
 These are the smallest useful vertical slices after the matrix:
 
-1. **Overview support slice**: add list/filter endpoints for jobs, playback
-   sessions, and outbox events, or a read-only overview summary that composes
-   those facts.
+1. **Overview follow-up slice**: M52 added the first read-only
+   `GET /admin/v1/overview` summary. Add list/filter endpoints for jobs,
+   playback sessions, outbox events, and recent failures when the console needs
+   drill-down data.
 2. **Playback diagnostics slice**: expose hardware acceleration report,
    selected policy, FFmpeg availability, transcode resource budget, and
    staging budget summary without local output paths.
@@ -147,3 +149,7 @@ data. For the first prototype, API-backed claims should be limited to:
 Job lists, session lists, event lists, hardware capability dashboards, network
 checks, settings editing, and catalog repair should remain prototype/mock
 states until follow-up Admin API work lands.
+
+After M52, the overview page can use `GET /admin/v1/overview` for its compact
+server, storage, metadata-provider, runtime, and startup summary. Drill-down
+tables and operational histories remain mock or follow-up Admin API work.

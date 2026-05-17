@@ -78,6 +78,79 @@ async fn storage_backend_diagnostics_route_exposes_registry_state_without_secret
 }
 
 #[tokio::test]
+async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[taru_api::API_VERSION_HEADER],
+        taru_api::API_VERSION
+    );
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(overview.admin_api_version, taru_api::ADMIN_API_VERSION);
+    assert_eq!(overview.public_api_version, taru_api::API_VERSION);
+    assert_eq!(overview.status, AdminOverviewStatus::Healthy);
+    assert_eq!(overview.storage.total_backends, 1);
+    assert_eq!(overview.storage.ready_backends, 1);
+    assert_eq!(overview.storage.backends.len(), 1);
+    assert_eq!(overview.storage.backends[0].library_id, library_id);
+    assert_eq!(overview.storage.backends[0].library_name, "Movies");
+    assert_eq!(
+        overview.storage.backends[0].backend_kind,
+        StorageBackendKind::Local
+    );
+    assert_eq!(
+        overview.storage.backends[0].status,
+        StorageBackendStatus::Ready
+    );
+    assert_eq!(overview.metadata.total_providers, 0);
+    assert_eq!(overview.runtime.failed_tasks, 0);
+    assert_eq!(overview.runtime.failed_jobs, 0);
+    assert!(!overview.runtime.shutdown_requested);
+    assert_eq!(overview.startup.configured_libraries, 1);
+    assert_eq!(overview.startup.recovered_jobs, 0);
+    assert_eq!(overview.startup.recovered_transcode_sessions, 0);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("secret"));
+    assert!(!body.contains("token"));
+    assert!(!body.contains("root_uri"));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("ProviderRawResponse"));
+
+    let health = request_json::<HealthResponse>(&router, Method::GET, "/health").await;
+    let libraries = request_json::<LibraryListResponse>(&router, Method::GET, "/libraries").await;
+    let storage = request_json::<StorageBackendDiagnosticsResponse>(
+        &router,
+        Method::GET,
+        "/storage/backends",
+    )
+    .await;
+
+    assert_eq!(health.status, "ok");
+    assert_eq!(libraries.libraries[0].id, library_id.to_string());
+    assert_eq!(storage.backends[0].library_id, library_id);
+}
+
+#[tokio::test]
 async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -158,6 +231,35 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
     assert_eq!(ok.status(), StatusCode::OK);
     let libraries = body_json::<LibraryListResponse>(ok).await;
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
+
+    let admin_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_missing.status(), StatusCode::UNAUTHORIZED);
+
+    let admin_ok = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_ok.status(), StatusCode::OK);
+    let overview = body_json::<AdminOverviewResponse>(admin_ok).await;
+    assert_eq!(overview.admin_api_version, taru_api::ADMIN_API_VERSION);
 }
 
 #[tokio::test]

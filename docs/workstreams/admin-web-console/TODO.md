@@ -1,6 +1,6 @@
 # Admin Web Console TODO
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-17
 
 ## AWC.0 Planning Baseline
@@ -35,6 +35,20 @@ Last updated: 2026-05-17
   contracts unless a route is genuinely client-facing.
 
 ## AWC.2 Generated Prototype Preparation
+
+- [x] AWC-035 [owner=codex] [deps=AWC-030] [scope=crates/taru-api, crates/taru-server, docs/workstreams/admin-web-console]
+  Goal: Implement the first read-only Admin API v1 overview seam for the web
+  console at `GET /admin/v1/overview`.
+  Validation: `cargo fmt --all -- --check`, `cargo check -p taru-api --tests`,
+  `cargo nextest run -p taru-api --no-fail-fast`, `cargo check -p taru-server
+  --tests`, focused `taru-server` HTTP admin/system tests, public OpenAPI and
+  TypeScript SDK leakage tests, `git diff --check`, and no
+  `crates/taru-client-protocol` diff.
+  Evidence: `taru_api::AdminOverviewResponse`, `crates/taru-server/src/http/admin.rs`,
+  `http::tests::system::admin_v1_overview_composes_safe_read_only_diagnostics`,
+  public OpenAPI/SDK leakage checks, and this workstream's evidence log.
+  Handoff: M52 is complete. Continue with AWC-040 to refine `V0_CONTEXT.md`
+  around the now-live overview seam and the remaining mock-only admin surfaces.
 
 - [ ] AWC-040 [owner=planner] [deps=AWC-030] [scope=docs/workstreams/admin-web-console/V0_CONTEXT.md]
   Goal: Refine the v0 context with the confirmed Admin API inventory and first

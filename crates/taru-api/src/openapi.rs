@@ -850,6 +850,7 @@ mod tests {
         }
 
         for excluded in [
+            "/admin/v1/overview",
             "/storage/backends",
             "/jobs/{job_id}",
             "/addons",
@@ -913,6 +914,8 @@ mod tests {
             "/automation",
             "/storage/backends",
             "/jobs",
+            "/admin",
+            "/admin/v1",
         ] {
             assert!(
                 !serialized.contains(forbidden),

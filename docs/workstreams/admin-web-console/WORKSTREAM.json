@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "slug": "admin-web-console",
-  "title": "Admin Web Console Planning And v0 Context",
-  "status": "proposed",
+  "title": "Admin Web Console Planning And First Admin API Seam",
+  "status": "active",
   "updated": "2026-05-17",
-  "scope_kind": "planning",
-  "problem": "Taru needs a coherent web administration console product shape and v0-generation context before choosing a front-end stack or implementing UI code.",
+  "scope_kind": "planning_and_api_slice",
+  "problem": "Taru needs a coherent web administration console product shape and the first safe Admin API v1 seam before choosing a front-end stack or implementing UI code.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -37,6 +37,11 @@
     }
   ],
   "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-api --tests",
+    "cargo nextest run -p taru-api --no-fail-fast",
+    "cargo check -p taru-server --tests",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
     "git diff --check"
   ],
   "evidence": [
@@ -53,6 +58,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Next step is AWC-040: refine V0_CONTEXT.md with the accepted /admin/v1 boundary, current API-backed claims, and mock-only prototype scope before generating or implementing a front-end prototype."
+    "notes": "AWC-035 / M52 is complete. Next step is AWC-040: refine V0_CONTEXT.md with the live GET /admin/v1/overview seam, current API-backed claims, and remaining mock-only prototype scope."
   }
 }
