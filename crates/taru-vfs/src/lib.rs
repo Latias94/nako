@@ -240,10 +240,55 @@ pub enum StorageBackupMode {
     ExistingFile,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackupPolicy {
+    pub mode: StorageBackupMode,
+    pub retention: StorageBackupRetention,
+}
+
+impl StorageBackupPolicy {
+    #[must_use]
+    pub fn none() -> Self {
+        Self {
+            mode: StorageBackupMode::None,
+            retention: StorageBackupRetention::default(),
+        }
+    }
+
+    #[must_use]
+    pub fn existing_file() -> Self {
+        Self {
+            mode: StorageBackupMode::ExistingFile,
+            retention: StorageBackupRetention::default(),
+        }
+    }
+
+    #[must_use]
+    pub fn keep_latest(mut self, count: usize) -> Self {
+        self.retention.keep_latest = Some(count);
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackupRetention {
+    pub keep_latest: Option<usize>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StorageBackupReport {
     pub original_uri: StorageUri,
     pub backup_uri: StorageUri,
+    #[serde(default)]
+    pub pruned_backups: Vec<StorageUri>,
+    #[serde(default)]
+    pub prune_failures: Vec<StorageBackupPruneFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackupPruneFailure {
+    pub uri: StorageUri,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -251,7 +296,7 @@ pub struct StorageWriteRequest {
     pub uri: StorageUri,
     pub content: String,
     pub mode: StorageWriteMode,
-    pub backup: StorageBackupMode,
+    pub backup: StorageBackupPolicy,
 }
 
 impl StorageWriteRequest {
@@ -261,7 +306,7 @@ impl StorageWriteRequest {
             uri,
             content: content.into(),
             mode: StorageWriteMode::Direct,
-            backup: StorageBackupMode::None,
+            backup: StorageBackupPolicy::none(),
         }
     }
 
@@ -271,12 +316,21 @@ impl StorageWriteRequest {
             uri,
             content: content.into(),
             mode: StorageWriteMode::AtomicReplace,
-            backup: StorageBackupMode::None,
+            backup: StorageBackupPolicy::none(),
         }
     }
 
     #[must_use]
     pub fn with_backup(mut self, backup: StorageBackupMode) -> Self {
+        self.backup = StorageBackupPolicy {
+            mode: backup,
+            retention: StorageBackupRetention::default(),
+        };
+        self
+    }
+
+    #[must_use]
+    pub fn with_backup_policy(mut self, backup: StorageBackupPolicy) -> Self {
         self.backup = backup;
         self
     }
@@ -326,7 +380,7 @@ pub trait StorageBackend: Send + Sync {
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()>;
 
     async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
-        if request.backup != StorageBackupMode::None {
+        if request.backup.mode != StorageBackupMode::None {
             return Err(TaruError::Unsupported(
                 "storage backend does not support backup writes",
             ));

@@ -210,4 +210,47 @@ mod tests {
         assert_eq!(value["status"], "open");
         assert!(value.get("failure").is_none());
     }
+
+    #[test]
+    fn job_response_preserves_nfo_backup_retention_summary_for_admin_diagnostics() {
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::NfoExport,
+            status: JobStatus::Succeeded,
+            resource_class: "metadata.nfo.export".to_owned(),
+            library_id: Some(LibraryId::new()),
+            source_id: None,
+            input_json: None,
+            summary_json: Some(
+                r#"{
+                    "exported_items": 1,
+                    "backed_up_items": 1,
+                    "pruned_backup_items": 1,
+                    "pruned_backups": 1,
+                    "backups": [{
+                        "backup_uri": "local:///demo.nfo.taru-backup-2",
+                        "pruned_backups": ["local:///demo.nfo.taru-backup-1"]
+                    }],
+                    "prune_failures": []
+                }"#
+                .to_owned(),
+            ),
+            error: None,
+            queued_at: "2026-05-17T00:00:00Z".to_owned(),
+            started_at: Some("2026-05-17T00:00:01Z".to_owned()),
+            completed_at: Some("2026-05-17T00:00:02Z".to_owned()),
+        };
+
+        let response = JobResponse::from_job(job);
+        let summary = response.summary.unwrap();
+
+        assert_eq!(summary["backed_up_items"], 1);
+        assert_eq!(summary["pruned_backup_items"], 1);
+        assert_eq!(summary["pruned_backups"], 1);
+        assert_eq!(
+            summary["backups"][0]["pruned_backups"][0],
+            "local:///demo.nfo.taru-backup-1"
+        );
+        assert_eq!(summary["prune_failures"].as_array().unwrap().len(), 0);
+    }
 }

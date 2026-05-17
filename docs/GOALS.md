@@ -26,11 +26,75 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M50 NFO backup retention
-and admin diagnostics, because M49 creates rollback artifacts but intentionally
-does not prune backups or expose them through an admin/public contract.
+No active implementation goal. Recommended next goal: M51 Admin Web Console
+Planning and API Readiness, because the server has accumulated strong admin
+diagnostics but no cohesive operator-facing surface yet.
 
 ## Completed Goals
+
+### M50: NFO Backup Retention and Admin Diagnostics
+
+Status: completed.
+
+Objective:
+
+- Build on M49 by adding a bounded retention policy for local NFO sidecar
+  backups.
+- Make backup creation, pruning, and failure states inspectable through
+  internal/admin-facing diagnostics.
+- Keep XML codec, storage backup mechanics, and API/admin adapter
+  responsibilities separated.
+- Avoid changing public client protocol crates in this slice.
+
+Deliverables:
+
+- VFS backup retention request/report model.
+- `LocalFsBackend` keep-latest pruning for Taru-created backups of the same
+  sidecar.
+- NFO export wiring that requests retention when it requests backup.
+- Internal/admin diagnostics for created, pruned, and failed backup operations.
+- M50 workstream documentation and validation evidence.
+
+Non-goals:
+
+- No soft-link or hard-link management.
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public client protocol changes.
+- No provider breadth, playback, transcode, or new storage backend work.
+- No database schema changes unless volatile job summaries prove insufficient.
+
+Exit criteria:
+
+- Local backup writes prune older Taru backups with a bounded keep-latest
+  policy.
+- Retention pruning preserves unrelated files and non-matching backups.
+- NFO forced export records backup creation and pruning diagnostics.
+- Admin/public boundary audit proves public client protocols remain unchanged.
+- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-backup-retention-diagnostics workstream]
+  (workstreams/nfo-backup-retention-diagnostics/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `StorageBackupPolicy` and `StorageBackupRetention` express keep-latest backup
+  retention at the VFS write boundary.
+- `LocalFsBackend` prunes only same-sidecar Taru backup files matching the
+  `*.taru-backup-*` prefix and preserves unrelated backups/manual files.
+- `NfoExportSummary` reports backup creation, pruned backup counts, and prune
+  failures for forced sidecar export.
+- Existing admin `JobResponse.summary` preserves the NFO retention diagnostics
+  without public protocol changes.
+- `taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 28
+  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
+  taru-nfo --no-fail-fast` with 19 tests passed, `cargo check -p taru-api
+  --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 13 tests
+  passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server nfo --no-fail-fast` with 5 selected tests passed, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  315 tests passed, and `git diff --check`.
 
 ### M49: NFO Sidecar Backup and Write Conflict Policy
 

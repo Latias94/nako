@@ -10,8 +10,9 @@ use taru_core::{Result, StorageErrorKind, TaruError};
 
 use crate::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
-    StorageBackupMode, StorageBackupReport, StorageCapabilities, StorageUri, StorageWriteMode,
-    StorageWriteReport, StorageWriteRequest, VirtualFile,
+    StorageBackupMode, StorageBackupPolicy, StorageBackupPruneFailure, StorageBackupReport,
+    StorageCapabilities, StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest,
+    VirtualFile,
 };
 
 #[derive(Clone, Debug)]
@@ -323,7 +324,7 @@ impl StorageBackend for LocalFsBackend {
     async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
         match request.mode {
             StorageWriteMode::Direct => {
-                let backup = self.backup_for_request(&request.uri, request.backup)?;
+                let backup = self.backup_for_request(&request.uri, &request.backup)?;
                 self.write_string(&request.uri, &request.content).await?;
                 Ok(StorageWriteReport {
                     uri: request.uri,
@@ -336,7 +337,7 @@ impl StorageBackend for LocalFsBackend {
                 let (atomic, backup) = self.write_string_atomic_replace(
                     &request.uri,
                     &request.content,
-                    request.backup,
+                    &request.backup,
                 )?;
                 Ok(StorageWriteReport {
                     uri: request.uri,
@@ -375,7 +376,7 @@ impl LocalFsBackend {
         &self,
         uri: &StorageUri,
         content: &str,
-        backup: StorageBackupMode,
+        backup: &StorageBackupPolicy,
     ) -> Result<(bool, Option<StorageBackupReport>)> {
         let path = self.writable_path_for(uri)?;
         let parent = path.parent().ok_or_else(|| {
@@ -427,7 +428,7 @@ impl LocalFsBackend {
     fn backup_for_request(
         &self,
         uri: &StorageUri,
-        backup: StorageBackupMode,
+        backup: &StorageBackupPolicy,
     ) -> Result<Option<StorageBackupReport>> {
         let path = self.writable_path_for(uri)?;
         self.backup_for_path(uri, &path, backup)
@@ -437,9 +438,9 @@ impl LocalFsBackend {
         &self,
         uri: &StorageUri,
         path: &Path,
-        backup: StorageBackupMode,
+        backup: &StorageBackupPolicy,
     ) -> Result<Option<StorageBackupReport>> {
-        match backup {
+        match backup.mode {
             StorageBackupMode::None => Ok(None),
             StorageBackupMode::ExistingFile => {
                 if !path.exists() {
@@ -456,12 +457,80 @@ impl LocalFsBackend {
                 if let Some(parent) = backup_path.parent() {
                     sync_directory_if_possible(parent);
                 }
+                let (pruned_backups, prune_failures) =
+                    self.prune_backups_for_path(path, backup.retention.keep_latest)?;
                 Ok(Some(StorageBackupReport {
                     original_uri: uri.clone(),
                     backup_uri: self.uri_for_local_path(&backup_path)?,
+                    pruned_backups,
+                    prune_failures,
                 }))
             }
         }
+    }
+
+    fn prune_backups_for_path(
+        &self,
+        path: &Path,
+        keep_latest: Option<usize>,
+    ) -> Result<(Vec<StorageUri>, Vec<StorageBackupPruneFailure>)> {
+        let Some(keep_latest) = keep_latest else {
+            return Ok((Vec::new(), Vec::new()));
+        };
+        let Some(parent) = path.parent() else {
+            return Ok((Vec::new(), Vec::new()));
+        };
+        let prefix = local_backup_file_prefix(path);
+        let mut candidates = Vec::new();
+
+        for entry in fs::read_dir(parent).map_err(|err| {
+            TaruError::storage_backup(
+                path.display().to_string(),
+                format!("failed to list local backup directory for pruning: {err}"),
+            )
+        })? {
+            let entry = entry.map_err(|err| {
+                TaruError::storage_backup(
+                    path.display().to_string(),
+                    format!("failed to read local backup directory entry for pruning: {err}"),
+                )
+            })?;
+            let file_name = entry.file_name().to_string_lossy().into_owned();
+            if file_name.starts_with(&prefix) {
+                candidates.push(entry.path());
+            }
+        }
+
+        candidates.sort_by(|left, right| {
+            let left_name = left
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
+            let right_name = right
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
+            right_name.cmp(left_name)
+        });
+
+        let mut pruned = Vec::new();
+        let mut failures = Vec::new();
+        for candidate in candidates.into_iter().skip(keep_latest) {
+            let uri = self.uri_for_local_path(&candidate)?;
+            match fs::remove_file(&candidate) {
+                Ok(()) => pruned.push(uri),
+                Err(err) => failures.push(StorageBackupPruneFailure {
+                    uri,
+                    message: format!("failed to prune local backup: {err}"),
+                }),
+            }
+        }
+
+        if !pruned.is_empty() || !failures.is_empty() {
+            sync_directory_if_possible(parent);
+        }
+
+        Ok((pruned, failures))
     }
 
     fn uri_for_local_path(&self, path: &Path) -> Result<StorageUri> {
@@ -532,15 +601,23 @@ fn atomic_temp_path(path: &Path) -> PathBuf {
 }
 
 fn local_backup_path(path: &Path) -> PathBuf {
-    let file_name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("taru-sidecar");
+    let file_name = local_sidecar_file_name(path);
     let nonce = std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_nanos())
         .unwrap_or_default();
     path.with_file_name(format!("{file_name}.taru-backup-{nonce}"))
+}
+
+fn local_backup_file_prefix(path: &Path) -> String {
+    format!("{}.taru-backup-", local_sidecar_file_name(path))
+}
+
+fn local_sidecar_file_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("taru-sidecar")
+        .to_owned()
 }
 
 fn sync_file_if_possible(path: &Path) {
@@ -838,6 +915,115 @@ mod tests {
                 backup_files(temp.path().join("movies").as_path()),
                 Vec::<String>::new()
             );
+        });
+    }
+
+    #[test]
+    fn local_backend_backup_retention_prunes_old_taru_backups_for_same_sidecar() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let movies = temp.path().join("movies");
+            fs::create_dir(&movies).unwrap();
+            fs::write(movies.join("demo.nfo"), "current").unwrap();
+            fs::write(movies.join("demo.nfo.taru-backup-0001"), "oldest").unwrap();
+            fs::write(movies.join("demo.nfo.taru-backup-0002"), "middle").unwrap();
+            fs::write(movies.join("demo.nfo.taru-backup-0003"), "newest").unwrap();
+            fs::write(movies.join("other.nfo.taru-backup-0001"), "other").unwrap();
+            fs::write(movies.join("demo.nfo.manual-backup"), "manual").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            let report = backend
+                .write(
+                    StorageWriteRequest::atomic_replace(uri.clone(), "replacement")
+                        .with_backup_policy(StorageBackupPolicy::existing_file().keep_latest(2)),
+                )
+                .await
+                .unwrap();
+            let backup = report.backup.unwrap();
+            let pruned = backup
+                .pruned_backups
+                .iter()
+                .map(StorageUri::as_str)
+                .collect::<Vec<_>>();
+
+            assert_eq!(backup.prune_failures, Vec::new());
+            assert_eq!(
+                pruned,
+                vec![
+                    "local:///movies/demo.nfo.taru-backup-0002",
+                    "local:///movies/demo.nfo.taru-backup-0001"
+                ]
+            );
+            assert_eq!(backend.read_to_string(&uri).await.unwrap(), "replacement");
+            assert!(movies.join("demo.nfo.taru-backup-0003").exists());
+            assert!(movies.join("other.nfo.taru-backup-0001").exists());
+            assert!(movies.join("demo.nfo.manual-backup").exists());
+            assert!(
+                backup
+                    .backup_uri
+                    .as_str()
+                    .starts_with("local:///movies/demo.nfo.taru-backup-")
+            );
+        });
+    }
+
+    #[test]
+    fn local_backend_backup_retention_zero_prunes_all_taru_backups_after_write() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let movies = temp.path().join("movies");
+            fs::create_dir(&movies).unwrap();
+            fs::write(movies.join("demo.nfo"), "current").unwrap();
+            fs::write(movies.join("demo.nfo.taru-backup-0001"), "old").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            let report = backend
+                .write(
+                    StorageWriteRequest::atomic_replace(uri, "replacement")
+                        .with_backup_policy(StorageBackupPolicy::existing_file().keep_latest(0)),
+                )
+                .await
+                .unwrap();
+            let backup = report.backup.unwrap();
+
+            assert_eq!(backup.prune_failures, Vec::new());
+            assert_eq!(backup.pruned_backups.len(), 2);
+            assert_eq!(backup_files(&movies), Vec::<String>::new());
+        });
+    }
+
+    #[test]
+    fn local_backend_backup_retention_reports_prune_failures() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let movies = temp.path().join("movies");
+            fs::create_dir(&movies).unwrap();
+            fs::write(movies.join("demo.nfo"), "current").unwrap();
+            fs::create_dir(movies.join("demo.nfo.taru-backup-0000")).unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            let report = backend
+                .write(
+                    StorageWriteRequest::atomic_replace(uri, "replacement")
+                        .with_backup_policy(StorageBackupPolicy::existing_file().keep_latest(0)),
+                )
+                .await
+                .unwrap();
+            let backup = report.backup.unwrap();
+
+            assert_eq!(backup.pruned_backups.len(), 1);
+            assert_eq!(backup.prune_failures.len(), 1);
+            assert_eq!(
+                backup.prune_failures[0].uri.as_str(),
+                "local:///movies/demo.nfo.taru-backup-0000"
+            );
+            assert!(movies.join("demo.nfo.taru-backup-0000").exists());
         });
     }
 

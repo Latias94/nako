@@ -57,6 +57,12 @@ pub struct NfoExportSummary {
     pub backed_up_items: u64,
     #[serde(default)]
     pub backups: Vec<NfoBackupReport>,
+    #[serde(default)]
+    pub pruned_backup_items: u64,
+    #[serde(default)]
+    pub pruned_backups: u64,
+    #[serde(default)]
+    pub prune_failures: Vec<NfoBackupPruneFailure>,
     pub failures: Vec<NfoFailure>,
 }
 
@@ -66,6 +72,18 @@ pub struct NfoBackupReport {
     pub locator: String,
     pub original_uri: StorageUri,
     pub backup_uri: StorageUri,
+    #[serde(default)]
+    pub pruned_backups: Vec<StorageUri>,
+    #[serde(default)]
+    pub prune_failures: Vec<NfoBackupPruneFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoBackupPruneFailure {
+    pub source_id: MediaSourceId,
+    pub locator: String,
+    pub backup_uri: StorageUri,
+    pub message: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

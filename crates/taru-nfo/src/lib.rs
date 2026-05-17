@@ -694,7 +694,10 @@ mod tests {
             recorder.read_to_string(&nfo_uri).await.unwrap(),
             "<movie><title>Old Title</title></movie>"
         );
-        assert_eq!(recorder.writes()[0].backup, StorageBackupMode::ExistingFile);
+        assert_eq!(
+            recorder.writes()[0].backup.mode,
+            StorageBackupMode::ExistingFile
+        );
     }
 
     #[tokio::test]
@@ -832,6 +835,68 @@ mod tests {
         )
         .unwrap();
         assert!(backup_xml.contains("<title>Old Sidecar Title</title>"));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_forced_export_reports_backup_retention_pruning() {
+        let temp = tempfile::tempdir().unwrap();
+        let movies = temp.path().join("Movies");
+        fs::create_dir_all(&movies).unwrap();
+        fs::write(movies.join("demo.mkv"), b"media").unwrap();
+        fs::write(
+            movies.join("demo.nfo"),
+            r#"<movie><title>Old Sidecar Title</title></movie>"#,
+        )
+        .unwrap();
+        for index in 0..5 {
+            fs::write(
+                movies.join(format!("demo.nfo.taru-backup-000{index}")),
+                format!("old backup {index}"),
+            )
+            .unwrap();
+        }
+        fs::write(movies.join("other.nfo.taru-backup-0000"), "other").unwrap();
+        fs::write(movies.join("demo.nfo.manual-backup"), "manual").unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Replacement Title".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.exported_items, 1);
+        assert_eq!(summary.backed_up_items, 1);
+        assert_eq!(summary.pruned_backup_items, 1);
+        assert_eq!(summary.pruned_backups, 1);
+        assert_eq!(summary.prune_failures, Vec::new());
+        assert_eq!(summary.backups[0].pruned_backups.len(), 1);
+        assert_eq!(
+            summary.backups[0].pruned_backups[0].as_str(),
+            "local:///Movies/demo.nfo.taru-backup-0000"
+        );
+        assert!(!movies.join("demo.nfo.taru-backup-0000").exists());
+        assert!(movies.join("demo.nfo.taru-backup-0001").exists());
+        assert!(movies.join("other.nfo.taru-backup-0000").exists());
+        assert!(movies.join("demo.nfo.manual-backup").exists());
     }
 
     #[tokio::test]
@@ -1070,20 +1135,22 @@ mod tests {
                     "recording storage backend does not support atomic replace writes",
                 ));
             }
-            if self.fail_backup && request.backup == StorageBackupMode::ExistingFile {
+            if self.fail_backup && request.backup.mode == StorageBackupMode::ExistingFile {
                 return Err(TaruError::storage_backup(
                     request.uri.to_string(),
                     "recording storage backend failed to create backup",
                 ));
             }
 
-            let backup = if request.backup == StorageBackupMode::ExistingFile
+            let backup = if request.backup.mode == StorageBackupMode::ExistingFile
                 && self.files.lock().unwrap().contains_key(&request.uri)
             {
                 Some(StorageBackupReport {
                     original_uri: request.uri.clone(),
                     backup_uri: StorageUri::parse(format!("{}.taru-backup-test", request.uri))
                         .unwrap(),
+                    pruned_backups: Vec::new(),
+                    prune_failures: Vec::new(),
                 })
             } else {
                 None

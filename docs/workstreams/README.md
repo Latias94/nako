@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [nfo-backup-retention-diagnostics](nfo-backup-retention-diagnostics/README.md):
+  completed M50 NFO backup retention and diagnostics work, covering bounded
+  keep-latest pruning for local NFO sidecar backups, internal/admin backup
+  diagnostics, and public client protocol boundary protection.
 - [nfo-sidecar-backup-policy](nfo-sidecar-backup-policy/README.md): completed M49
   NFO sidecar backup policy work, covering same-directory local backup before
   forced sidecar overwrite, explicit VFS backup requests, internal backup

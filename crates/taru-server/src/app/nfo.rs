@@ -334,6 +334,10 @@ impl NfoAppService {
             "exported_items": export.exported_items,
             "skipped_items": export.skipped_items,
             "failed_items": export.failed_items,
+            "backed_up_items": export.backed_up_items,
+            "pruned_backup_items": export.pruned_backup_items,
+            "pruned_backups": export.pruned_backups,
+            "prune_failures": export.prune_failures.len(),
         });
         self.record_outbox_event(NewOutboxEvent {
             id: EventId::new(),

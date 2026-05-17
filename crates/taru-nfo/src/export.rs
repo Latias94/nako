@@ -4,12 +4,15 @@ use taru_core::{
     TaruError,
 };
 use taru_search::SearchIndex;
-use taru_vfs::{StorageBackend, StorageBackupMode, StorageWriteRequest};
+use taru_vfs::{StorageBackend, StorageBackupPolicy, StorageWriteRequest};
 
 use super::{
-    NfoBackupReport, NfoCodec, NfoDocument, NfoExportRequest, NfoExportSummary, NfoFailure,
-    NfoFailureKind, NfoHierarchy, NfoService, workflow::nfo_uri_for_source,
+    NfoBackupPruneFailure, NfoBackupReport, NfoCodec, NfoDocument, NfoExportRequest,
+    NfoExportSummary, NfoFailure, NfoFailureKind, NfoHierarchy, NfoService,
+    workflow::nfo_uri_for_source,
 };
+
+const DEFAULT_NFO_BACKUP_KEEP_LATEST: usize = 5;
 
 impl<B, R, C> NfoService<B, R, C>
 where
@@ -35,6 +38,9 @@ where
             failed_items: 0,
             backed_up_items: 0,
             backups: Vec::new(),
+            pruned_backup_items: 0,
+            pruned_backups: 0,
+            prune_failures: Vec::new(),
             failures: Vec::new(),
         };
 
@@ -44,6 +50,10 @@ where
                     summary.exported_items += 1;
                     if let Some(backup) = backup {
                         summary.backed_up_items += 1;
+                        if !backup.pruned_backups.is_empty() {
+                            summary.pruned_backup_items += 1;
+                            summary.pruned_backups += backup.pruned_backups.len() as u64;
+                        }
                         summary.backups.push(backup);
                     }
                 }
@@ -60,6 +70,12 @@ where
             .sort_by(|left, right| left.locator.cmp(&right.locator));
         summary
             .backups
+            .sort_by(|left, right| left.locator.cmp(&right.locator));
+        for backup in &summary.backups {
+            summary.prune_failures.extend(backup.prune_failures.clone());
+        }
+        summary
+            .prune_failures
             .sort_by(|left, right| left.locator.cmp(&right.locator));
         Ok(summary)
     }
@@ -139,6 +155,17 @@ where
                     locator: source.locator.clone(),
                     original_uri: backup.original_uri,
                     backup_uri: backup.backup_uri,
+                    pruned_backups: backup.pruned_backups,
+                    prune_failures: backup
+                        .prune_failures
+                        .into_iter()
+                        .map(|failure| NfoBackupPruneFailure {
+                            source_id: source.id,
+                            locator: source.locator.clone(),
+                            backup_uri: failure.uri,
+                            message: failure.message,
+                        })
+                        .collect(),
                 }),
             },
             Err(err) => export_failure(&source, classify_write_failure(&err), err),
@@ -208,7 +235,9 @@ fn write_request(
 ) -> StorageWriteRequest {
     let request = StorageWriteRequest::atomic_replace(nfo_uri, xml);
     if should_backup {
-        request.with_backup(StorageBackupMode::ExistingFile)
+        request.with_backup_policy(
+            StorageBackupPolicy::existing_file().keep_latest(DEFAULT_NFO_BACKUP_KEEP_LATEST),
+        )
     } else {
         request
     }

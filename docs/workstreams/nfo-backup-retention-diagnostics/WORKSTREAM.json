@@ -1,0 +1,20 @@
+{
+  "slug": "nfo-backup-retention-diagnostics",
+  "status": "completed",
+  "goal": "M50 NFO Backup Retention and Admin Diagnostics",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": "closed",
+  "first_slice": "VFS keep-latest backup retention",
+  "non_goals": [
+    "soft or hard link management",
+    "public client protocol changes",
+    "database schema changes unless proven necessary",
+    "new storage backends",
+    "broad Jellyfin/Kodi/Plex compatibility",
+    "provider breadth",
+    "playback work",
+    "transcode work"
+  ]
+}
