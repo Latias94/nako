@@ -1,15 +1,15 @@
 use taru_core::{
     CatalogRepository, LibraryItemRepository, LocalMetadataPolicy, MediaKind, MediaRepository,
-    MediaSource, MetadataRepository, ProviderMappingRepository, Result, TaruError,
+    MediaSource, MetadataRepository, ProviderMappingRepository, Result, StorageErrorKind,
+    TaruError,
 };
 use taru_search::SearchIndex;
-use taru_vfs::StorageBackend;
+use taru_vfs::{StorageBackend, StorageBackupMode, StorageWriteRequest};
 
 use super::{
-    NfoCodec, NfoDocument, NfoExportRequest, NfoExportSummary, NfoFailure, NfoFailureKind,
-    NfoHierarchy, NfoService, workflow::nfo_uri_for_source,
+    NfoBackupReport, NfoCodec, NfoDocument, NfoExportRequest, NfoExportSummary, NfoFailure,
+    NfoFailureKind, NfoHierarchy, NfoService, workflow::nfo_uri_for_source,
 };
-use taru_vfs::StorageWriteRequest;
 
 impl<B, R, C> NfoService<B, R, C>
 where
@@ -33,12 +33,20 @@ where
             exported_items: 0,
             skipped_items: 0,
             failed_items: 0,
+            backed_up_items: 0,
+            backups: Vec::new(),
             failures: Vec::new(),
         };
 
         for source in sources {
             match self.export_source(source, request.force).await {
-                NfoExportOutcome::Exported => summary.exported_items += 1,
+                NfoExportOutcome::Exported { backup } => {
+                    summary.exported_items += 1;
+                    if let Some(backup) = backup {
+                        summary.backed_up_items += 1;
+                        summary.backups.push(backup);
+                    }
+                }
                 NfoExportOutcome::Skipped => summary.skipped_items += 1,
                 NfoExportOutcome::Failed(failure) => {
                     summary.failed_items += 1;
@@ -50,6 +58,9 @@ where
         summary
             .failures
             .sort_by(|left, right| left.locator.cmp(&right.locator));
+        summary
+            .backups
+            .sort_by(|left, right| left.locator.cmp(&right.locator));
         Ok(summary)
     }
 
@@ -58,10 +69,14 @@ where
             Ok(uri) => uri,
             Err(err) => return export_failure(&source, NfoFailureKind::InvalidSidecarPath, err),
         };
+        let mut should_backup = false;
         let existing_xml = if force {
             match self.backend.stat(&nfo_uri).await {
                 Ok(_) => match self.backend.read_to_string(&nfo_uri).await {
-                    Ok(xml) => Some(xml),
+                    Ok(xml) => {
+                        should_backup = true;
+                        Some(xml)
+                    }
                     Err(err) => return export_failure(&source, classify_read_failure(&err), err),
                 },
                 Err(TaruError::NotFound { .. }) => None,
@@ -115,17 +130,24 @@ where
 
         match self
             .backend
-            .write(StorageWriteRequest::atomic_replace(nfo_uri, xml))
+            .write(write_request(nfo_uri, xml, should_backup))
             .await
         {
-            Ok(_report) => NfoExportOutcome::Exported,
+            Ok(report) => NfoExportOutcome::Exported {
+                backup: report.backup.map(|backup| NfoBackupReport {
+                    source_id: source.id,
+                    locator: source.locator.clone(),
+                    original_uri: backup.original_uri,
+                    backup_uri: backup.backup_uri,
+                }),
+            },
             Err(err) => export_failure(&source, classify_write_failure(&err), err),
         }
     }
 }
 
 enum NfoExportOutcome {
-    Exported,
+    Exported { backup: Option<NfoBackupReport> },
     Skipped,
     Failed(NfoFailure),
 }
@@ -169,9 +191,26 @@ fn classify_render_failure(err: &TaruError) -> NfoFailureKind {
 
 fn classify_write_failure(err: &TaruError) -> NfoFailureKind {
     match err {
+        TaruError::Storage {
+            kind: StorageErrorKind::Backup,
+            ..
+        } => NfoFailureKind::StorageBackup,
         TaruError::Storage { .. } => NfoFailureKind::StorageWrite,
         TaruError::Unsupported(_) => NfoFailureKind::StorageUnsupported,
         _ => NfoFailureKind::Unknown,
+    }
+}
+
+fn write_request(
+    nfo_uri: taru_vfs::StorageUri,
+    xml: String,
+    should_backup: bool,
+) -> StorageWriteRequest {
+    let request = StorageWriteRequest::atomic_replace(nfo_uri, xml);
+    if should_backup {
+        request.with_backup(StorageBackupMode::ExistingFile)
+    } else {
+        request
     }
 }
 

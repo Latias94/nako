@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [nfo-sidecar-backup-policy](nfo-sidecar-backup-policy/README.md): completed M49
+  NFO sidecar backup policy work, covering same-directory local backup before
+  forced sidecar overwrite, explicit VFS backup requests, internal backup
+  diagnostics, and separation between XML preservation and storage persistence
+  mechanics.
 - [nfo-storage-write-policy](nfo-storage-write-policy/README.md): completed M48
   NFO storage write policy work, covering local atomic sidecar writes, explicit
   VFS write modes, internal NFO export diagnostics, and separation between XML

@@ -33,8 +33,9 @@ mod tests {
     use taru_db::SqliteStore;
     use taru_search::{SearchIndex, SearchQuery};
     use taru_vfs::{
-        ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, StorageBackend, StorageCapabilities,
-        StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest, VirtualFile,
+        ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, StorageBackend, StorageBackupMode,
+        StorageBackupReport, StorageCapabilities, StorageUri, StorageWriteMode, StorageWriteReport,
+        StorageWriteRequest, VirtualFile,
     };
 
     use super::*;
@@ -655,6 +656,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nfo_service_reports_backup_failure_before_replacing_sidecar() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Replacement Title".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let nfo_uri = StorageUri::parse("local:///Movies/demo.nfo").unwrap();
+        let backend = RecordingStorageBackend::default()
+            .with_file(nfo_uri.clone(), "<movie><title>Old Title</title></movie>")
+            .fail_backup();
+        let recorder = backend.clone();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.exported_items, 0);
+        assert_eq!(summary.failed_items, 1);
+        assert_eq!(summary.failures[0].kind, NfoFailureKind::StorageBackup);
+        assert_eq!(
+            recorder.read_to_string(&nfo_uri).await.unwrap(),
+            "<movie><title>Old Title</title></movie>"
+        );
+        assert_eq!(recorder.writes()[0].backup, StorageBackupMode::ExistingFile);
+    }
+
+    #[tokio::test]
     async fn nfo_service_reports_preservation_failure_when_forced_sidecar_is_invalid() {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
@@ -766,6 +809,12 @@ mod tests {
 
         let xml = fs::read_to_string(temp.path().join("Movies").join("demo.nfo")).unwrap();
         assert_eq!(summary.exported_items, 1);
+        assert_eq!(summary.backed_up_items, 1);
+        assert_eq!(summary.backups.len(), 1);
+        assert_eq!(
+            summary.backups[0].original_uri,
+            StorageUri::parse("local:///Movies/demo.nfo").unwrap()
+        );
         assert!(xml.contains("<title>Forced Export Title</title>"));
         assert!(xml.contains("<plot>Forced export overview</plot>"));
         assert!(xml.contains("<genre>Action</genre>"));
@@ -773,6 +822,57 @@ mod tests {
         assert!(!xml.contains("<plot>Old sidecar overview</plot>"));
         assert!(xml.contains(r#"<customrating system="local">five stars</customrating>"#));
         assert!(xml.contains(r#"<uniqueid type="imdb">tt0133093</uniqueid>"#));
+        let backup_xml = fs::read_to_string(
+            temp.path().join(
+                summary.backups[0]
+                    .backup_uri
+                    .path_part()
+                    .trim_start_matches('/'),
+            ),
+        )
+        .unwrap();
+        assert!(backup_xml.contains("<title>Old Sidecar Title</title>"));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_does_not_backup_fresh_sidecar_export() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("demo.mkv"), b"media").unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Fresh Export Title".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.exported_items, 1);
+        assert_eq!(summary.backed_up_items, 0);
+        assert!(summary.backups.is_empty());
+        assert!(
+            fs::read_to_string(temp.path().join("Movies").join("demo.nfo"))
+                .unwrap()
+                .contains("<title>Fresh Export Title</title>")
+        );
     }
 
     #[tokio::test]
@@ -872,6 +972,7 @@ mod tests {
         files: Arc<Mutex<HashMap<StorageUri, String>>>,
         writes: Arc<Mutex<Vec<StorageWriteRequest>>>,
         fail_atomic_replace: bool,
+        fail_backup: bool,
     }
 
     impl RecordingStorageBackend {
@@ -885,6 +986,11 @@ mod tests {
 
         fn fail_atomic_replace(mut self) -> Self {
             self.fail_atomic_replace = true;
+            self
+        }
+
+        fn fail_backup(mut self) -> Self {
+            self.fail_backup = true;
             self
         }
 
@@ -964,6 +1070,24 @@ mod tests {
                     "recording storage backend does not support atomic replace writes",
                 ));
             }
+            if self.fail_backup && request.backup == StorageBackupMode::ExistingFile {
+                return Err(TaruError::storage_backup(
+                    request.uri.to_string(),
+                    "recording storage backend failed to create backup",
+                ));
+            }
+
+            let backup = if request.backup == StorageBackupMode::ExistingFile
+                && self.files.lock().unwrap().contains_key(&request.uri)
+            {
+                Some(StorageBackupReport {
+                    original_uri: request.uri.clone(),
+                    backup_uri: StorageUri::parse(format!("{}.taru-backup-test", request.uri))
+                        .unwrap(),
+                })
+            } else {
+                None
+            };
 
             self.files
                 .lock()
@@ -973,6 +1097,7 @@ mod tests {
                 uri: request.uri,
                 mode: request.mode,
                 atomic: request.mode == StorageWriteMode::AtomicReplace,
+                backup,
             })
         }
     }

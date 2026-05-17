@@ -26,12 +26,73 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M49 NFO sidecar backup
-and write conflict policy, because M47/M48 now preserve XML semantics and make
-local writes safer, but retention/rollback behavior remains intentionally
-outside the codec and storage write primitive.
+No active implementation goal. Recommended next goal: M50 NFO backup retention
+and admin diagnostics, because M49 creates rollback artifacts but intentionally
+does not prune backups or expose them through an admin/public contract.
 
 ## Completed Goals
+
+### M49: NFO Sidecar Backup and Write Conflict Policy
+
+Status: completed.
+
+Objective:
+
+- Build on M47/M48 by adding an explicit backup boundary for local NFO sidecar
+  overwrites.
+- Create a same-directory backup before replacing an existing sidecar.
+- Keep XML preservation in the NFO codec and backup/write mechanics in
+  VFS/storage.
+- Make backup creation and backup failure visible in internal/test-visible
+  diagnostics.
+
+Deliverables:
+
+- VFS write request/report model for optional existing-file backup.
+- `LocalFsBackend` same-directory backup implementation before atomic replace.
+- NFO forced-export wiring that requests backup only for existing sidecar
+  overwrites.
+- Focused diagnostics for backup creation and failure categories.
+- M49 workstream documentation and validation evidence.
+
+Non-goals:
+
+- No soft-link or hard-link management.
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public HTTP API, OpenAPI, SDK, or protocol changes.
+- No database schema or repository trait changes.
+- No remote/WebDAV write support.
+- No provider breadth, metadata merge-policy redesign, playback work, or
+  transcode work.
+
+Exit criteria:
+
+- Local forced export over an existing NFO creates a backup before replacement.
+- Fresh sidecar export does not create a backup.
+- Unsupported backup requests fail explicitly.
+- Backup failure prevents final sidecar replacement.
+- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-sidecar-backup-policy workstream]
+  (workstreams/nfo-sidecar-backup-policy/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `taru-vfs` defines `StorageBackupMode` and `StorageBackupReport`, and storage
+  write reports can include backup details.
+- `LocalFsBackend` creates same-directory backups before overwriting existing
+  sidecars and skips backups for fresh sidecar creation.
+- NFO forced export requests backup only after confirming an existing sidecar
+  will be overwritten.
+- `NfoExportSummary` records backup counts and per-item backup reports.
+- Backup failures are classified as `NfoFailureKind::StorageBackup` and prevent
+  final sidecar replacement.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 25
+  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
+  taru-nfo --no-fail-fast` with 18 tests passed, `cargo check --workspace
+  --tests`, `cargo nextest run --workspace --no-fail-fast` with 310 tests
+  passed, and `git diff --check`.
 
 ### M48: NFO Storage Write Policy and Persistence Diagnostics
 

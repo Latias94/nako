@@ -53,7 +53,19 @@ pub struct NfoExportSummary {
     pub exported_items: u64,
     pub skipped_items: u64,
     pub failed_items: u64,
+    #[serde(default)]
+    pub backed_up_items: u64,
+    #[serde(default)]
+    pub backups: Vec<NfoBackupReport>,
     pub failures: Vec<NfoFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoBackupReport {
+    pub source_id: MediaSourceId,
+    pub locator: String,
+    pub original_uri: StorageUri,
+    pub backup_uri: StorageUri,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -66,6 +78,7 @@ pub enum NfoFailureKind {
     StorageRead,
     StorageWrite,
     StorageUnsupported,
+    StorageBackup,
     MissingMediaItem,
     InvalidSidecarPath,
     #[default]

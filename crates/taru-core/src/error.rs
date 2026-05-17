@@ -13,6 +13,7 @@ pub enum StorageErrorKind {
     StagingValidationMismatch,
     ResourceBudgetClosed,
     SecurityViolation,
+    Backup,
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -107,6 +108,10 @@ impl TaruError {
 
     pub fn storage_security_violation(uri: impl Into<String>, message: impl Into<String>) -> Self {
         Self::storage(uri, StorageErrorKind::SecurityViolation, message)
+    }
+
+    pub fn storage_backup(uri: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::storage(uri, StorageErrorKind::Backup, message)
     }
 }
 

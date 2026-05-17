@@ -232,11 +232,26 @@ pub enum StorageWriteMode {
     AtomicReplace,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageBackupMode {
+    #[default]
+    None,
+    ExistingFile,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageBackupReport {
+    pub original_uri: StorageUri,
+    pub backup_uri: StorageUri,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
     pub uri: StorageUri,
     pub content: String,
     pub mode: StorageWriteMode,
+    pub backup: StorageBackupMode,
 }
 
 impl StorageWriteRequest {
@@ -246,6 +261,7 @@ impl StorageWriteRequest {
             uri,
             content: content.into(),
             mode: StorageWriteMode::Direct,
+            backup: StorageBackupMode::None,
         }
     }
 
@@ -255,7 +271,14 @@ impl StorageWriteRequest {
             uri,
             content: content.into(),
             mode: StorageWriteMode::AtomicReplace,
+            backup: StorageBackupMode::None,
         }
+    }
+
+    #[must_use]
+    pub fn with_backup(mut self, backup: StorageBackupMode) -> Self {
+        self.backup = backup;
+        self
     }
 }
 
@@ -264,6 +287,7 @@ pub struct StorageWriteReport {
     pub uri: StorageUri,
     pub mode: StorageWriteMode,
     pub atomic: bool,
+    pub backup: Option<StorageBackupReport>,
 }
 
 #[async_trait]
@@ -302,6 +326,12 @@ pub trait StorageBackend: Send + Sync {
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()>;
 
     async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        if request.backup != StorageBackupMode::None {
+            return Err(TaruError::Unsupported(
+                "storage backend does not support backup writes",
+            ));
+        }
+
         match request.mode {
             StorageWriteMode::Direct => {
                 self.write_string(&request.uri, &request.content).await?;
@@ -309,6 +339,7 @@ pub trait StorageBackend: Send + Sync {
                     uri: request.uri,
                     mode: StorageWriteMode::Direct,
                     atomic: false,
+                    backup: None,
                 })
             }
             StorageWriteMode::AtomicReplace => Err(TaruError::Unsupported(
