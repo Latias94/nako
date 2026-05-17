@@ -261,6 +261,151 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
 }
 
 #[tokio::test]
+async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Playback Session Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Playback Session Demo.mkv".to_owned(),
+        file_name: "Playback Session Demo.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: "hls:single".to_owned(),
+            output_path: temp
+                .path()
+                .join("taru-cache")
+                .join("hls")
+                .join("secret")
+                .join("playlist.m3u8"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            session.id,
+            TranscodeSessionState::Failed,
+            Some(taru_core::TranscodeFailureCategory::Runner),
+            Some(format!(
+                "ffmpeg failed while writing {}",
+                temp.path().join("taru-cache").join("hls").display()
+            )),
+        )
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mp4".to_owned(),
+            output_path: temp
+                .path()
+                .join("taru-cache")
+                .join("remux")
+                .join("stream.mp4"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/playback/sessions?source_id={}&kind=hls_transcode&state=failed&limit=5",
+                    source.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let sessions: AdminPlaybackSessionListResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(sessions.sessions.len(), 1);
+    assert_eq!(sessions.sessions[0].id, session.id);
+    assert_eq!(sessions.sessions[0].source_id, source.id);
+    assert_eq!(
+        sessions.sessions[0].kind,
+        TranscodeSessionKind::HlsTranscode
+    );
+    assert_eq!(sessions.sessions[0].state, TranscodeSessionState::Failed);
+    assert!(sessions.sessions[0].has_failure_message);
+    assert!(!sessions.sessions[0].active);
+    assert!(sessions.sessions[0].terminal);
+    assert_eq!(sessions.page.limit, 5);
+    assert_eq!(sessions.page.returned, 1);
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("playlist.m3u8"));
+    assert!(!body.contains("ffmpeg failed while writing"));
+}
+
+#[tokio::test]
 async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -367,6 +512,19 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .await
         .unwrap();
     assert_eq!(admin_jobs_missing.status(), StatusCode::UNAUTHORIZED);
+
+    let admin_sessions_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/sessions")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_sessions_missing.status(), StatusCode::UNAUTHORIZED);
 
     let admin_ok = router
         .clone()

@@ -3,7 +3,8 @@ use taru_client_protocol::PageInfo;
 use taru_core::{
     ExternalProvider, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord,
     IngestionFailureStatus, Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId,
-    ScanSnapshotId,
+    ScanSnapshotId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionState,
 };
 
 use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
@@ -88,6 +89,50 @@ impl AdminJobListItem {
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSessionListResponse {
+    pub sessions: Vec<AdminPlaybackSessionListItem>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSessionListItem {
+    pub id: TranscodeSessionId,
+    pub source_id: MediaSourceId,
+    pub kind: TranscodeSessionKind,
+    pub request_key: String,
+    pub state: TranscodeSessionState,
+    pub failure_category: Option<TranscodeFailureCategory>,
+    pub has_failure_message: bool,
+    pub active: bool,
+    pub terminal: bool,
+    pub created_at: String,
+    pub updated_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl AdminPlaybackSessionListItem {
+    #[must_use]
+    pub fn from_record(session: TranscodeSessionRecord) -> Self {
+        Self {
+            id: session.id,
+            source_id: session.source_id,
+            kind: session.kind,
+            request_key: session.request_key,
+            state: session.state,
+            failure_category: session.failure_category,
+            has_failure_message: session.failure_message.is_some(),
+            active: session.state.is_active(),
+            terminal: session.state.is_terminal(),
+            created_at: session.created_at,
+            updated_at: session.updated_at,
+            started_at: session.started_at,
+            completed_at: session.completed_at,
         }
     }
 }
@@ -399,6 +444,43 @@ mod tests {
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn admin_playback_session_list_item_redacts_output_path_and_failure_message() {
+        let session = TranscodeSessionRecord {
+            id: TranscodeSessionId::new(),
+            source_id: MediaSourceId::new(),
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: "hls:single".to_owned(),
+            output_path: "C:\\taru-cache\\hls\\secret\\playlist.m3u8".into(),
+            state: TranscodeSessionState::Failed,
+            failure_category: Some(TranscodeFailureCategory::Runner),
+            failure_message: Some(
+                "ffmpeg failed while writing C:\\taru-cache\\hls\\secret\\playlist.m3u8".to_owned(),
+            ),
+            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+            started_at: Some("2026-05-18T00:00:00Z".to_owned()),
+            completed_at: Some("2026-05-18T00:00:01Z".to_owned()),
+        };
+
+        let item = AdminPlaybackSessionListItem::from_record(session);
+        let body = serde_json::to_string(&item).unwrap();
+
+        assert_eq!(item.kind, TranscodeSessionKind::HlsTranscode);
+        assert_eq!(item.state, TranscodeSessionState::Failed);
+        assert_eq!(
+            item.failure_category,
+            Some(TranscodeFailureCategory::Runner)
+        );
+        assert!(item.has_failure_message);
+        assert!(!item.active);
+        assert!(item.terminal);
+        assert!(!body.contains("taru-cache"));
+        assert!(!body.contains("playlist.m3u8"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("ffmpeg failed while writing"));
     }
 
     #[test]

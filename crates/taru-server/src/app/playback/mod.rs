@@ -8,8 +8,8 @@ use taru_api::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
     MediaRepository, MediaSource, MediaSourceId, NewOutboxEvent, Result, TaruError,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
 };
 use taru_db::SqliteStore;
 use taru_streaming::{
@@ -482,6 +482,14 @@ impl PlaybackAppService {
                 entity: "transcode_session",
                 id: session_id.to_string(),
             })
+    }
+
+    pub(crate) async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: taru_core::PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>> {
+        self.store.list_transcode_sessions(filter, page).await
     }
 
     pub(crate) async fn cancel_transcode_session(

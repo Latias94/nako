@@ -852,6 +852,7 @@ mod tests {
         for excluded in [
             "/admin/v1/overview",
             "/admin/v1/jobs",
+            "/admin/v1/playback/sessions",
             "/storage/backends",
             "/jobs/{job_id}",
             "/addons",

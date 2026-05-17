@@ -27,10 +27,71 @@ proposed milestone.
 ## Current Goal
 
 No active implementation goal is currently documented. Recommended next goal:
-playback session list/filter, event outbox list/filter, or storage
+playback runtime diagnostics, event outbox list/filter, or storage
 staging/cache diagnostics.
 
 ## Completed Goals
+
+### M55: Admin Playback Session List Read Model
+
+Status: completed.
+
+Objective:
+
+- Add a safe Admin API v1 playback session list/filter read model for the web
+  console.
+- Back it with focused repository/app support, admin-owned redacted DTOs, and
+  HTTP tests.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- Transcode session list/filter support in `taru-core`/`taru-db`.
+- Admin-owned playback session list DTOs in `taru-api::admin`.
+- `GET /admin/v1/playback/sessions` route and focused HTTP tests.
+- Updated admin-web-console data-source notes after route support lands.
+- Workstream evidence and closeout docs.
+
+Non-goals:
+
+- No Public Client API route changes.
+- No `taru-client-protocol` changes.
+- No public OpenAPI or TypeScript SDK expansion.
+- No playback session mutations beyond existing known-ID cancel route.
+- No transcode runner, hardware acceleration, FFmpeg, or resource-budget
+  behavior changes.
+- No frontend UI implementation.
+
+Exit criteria:
+
+- Admin Console can list/filter playback sessions by state, kind, Media Source,
+  and pagination through `/admin/v1/playback/sessions`.
+- Admin list responses do not expose local `output_path`, staging roots,
+  filesystem paths, or process-local runtime internals.
+- Existing Public Client API session detail/cancel routes remain compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API, DB, and server validation gates pass.
+
+Evidence:
+
+- `TranscodeSessionListFilter` and SQLite list/filter support back
+  `/admin/v1/playback/sessions`.
+- `AdminPlaybackSessionListItem` and `AdminPlaybackSessionListResponse` provide
+  redacted admin-owned DTOs without `output_path` or raw failure messages.
+- Focused tests cover source/kind/state filtering, pagination, route behavior,
+  redaction, and auth protection.
+- Existing Public Client API session detail/cancel routes remain unchanged.
+- Public OpenAPI and TypeScript SDK tests still exclude admin/internal
+  surfaces.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast`, `cargo
+  check -p taru-db --tests`, `cargo nextest run -p taru-db transcode
+  --no-fail-fast`, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast`, public OpenAPI/SDK leakage
+  checks, `git diff --check`, and `git diff --name-only --
+  crates/taru-client-protocol`.
 
 ### M54: Durable Job Runtime And Admin Job List Read Model
 

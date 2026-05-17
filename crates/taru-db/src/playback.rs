@@ -1,4 +1,22 @@
 use super::*;
+use sqlx::QueryBuilder;
+
+const TRANSCODE_SESSION_SELECT: &str = r#"
+            SELECT
+                id, source_id, kind, request_key, output_path, state,
+                failure_category, failure_message, created_at, updated_at,
+                started_at, completed_at
+            FROM transcode_sessions
+            "#;
+
+const TRANSCODE_SESSION_SELECT_BY_ID: &str = r#"
+            SELECT
+                id, source_id, kind, request_key, output_path, state,
+                failure_category, failure_message, created_at, updated_at,
+                started_at, completed_at
+            FROM transcode_sessions
+            WHERE id = ?1
+            "#;
 
 #[async_trait::async_trait]
 impl TranscodeSessionRepository for SqliteStore {
@@ -31,22 +49,49 @@ impl TranscodeSessionRepository for SqliteStore {
         &self,
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>> {
-        let row = sqlx::query(
-            r#"
-            SELECT
-                id, source_id, kind, request_key, output_path, state,
-                failure_category, failure_message, created_at, updated_at,
-                started_at, completed_at
-            FROM transcode_sessions
-            WHERE id = ?1
-            "#,
-        )
-        .bind(id.to_string())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let row = sqlx::query(TRANSCODE_SESSION_SELECT_BY_ID)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
 
         row.map(row_to_transcode_session).transpose()
+    }
+
+    async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>> {
+        let page = page.clamped();
+        let mut query = QueryBuilder::new(TRANSCODE_SESSION_SELECT);
+        query.push(" WHERE 1 = 1");
+
+        if let Some(source_id) = filter.source_id {
+            query.push(" AND source_id = ");
+            query.push_bind(source_id.to_string());
+        }
+        if let Some(kind) = filter.kind {
+            query.push(" AND kind = ");
+            query.push_bind(kind.as_str());
+        }
+        if let Some(state) = filter.state {
+            query.push(" AND state = ");
+            query.push_bind(state.as_str());
+        }
+
+        query.push(" ORDER BY updated_at DESC, id DESC LIMIT ");
+        query.push_bind(u32_to_i64(page.limit));
+        query.push(" OFFSET ");
+        query.push_bind(u64_to_i64(page.offset)?);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_transcode_session).collect()
     }
 
     async fn find_latest_transcode_session(

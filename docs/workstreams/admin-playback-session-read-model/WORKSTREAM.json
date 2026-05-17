@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "slug": "admin-playback-session-read-model",
+  "title": "Admin Playback Session Read Model",
+  "status": "completed",
+  "updated": "2026-05-18",
+  "scope_kind": "admin_api_read_model",
+  "problem": "The admin web console needs playback session list/filter data, but the existing Public Client API only supports known-ID session detail and the persistence record contains local output paths.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-playback-session-read-model/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-playback-session-read-model/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-playback-session-read-model/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/admin-playback-session-read-model/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-playback-session-read-model/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-playback-session-read-model/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-api --tests",
+    "cargo check -p taru-db --tests",
+    "cargo check -p taru-server --tests",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/admin-playback-session-read-model",
+    "crates/taru-core/src/repository/transcode.rs",
+    "crates/taru-db/src/playback.rs",
+    "crates/taru-api/src/admin.rs",
+    "crates/taru-server/src/http/admin.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "M55 is complete. Recommended follow-on is playback runtime diagnostics for hardware, FFmpeg, budgets, and staging."
+  }
+}

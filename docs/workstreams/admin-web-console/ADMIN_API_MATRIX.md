@@ -1,7 +1,7 @@
 # Admin API Matrix
 
 Status: Draft
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 This document records AWC-020: which current HTTP routes can support the Taru
 admin web console, which routes are public-client surfaces that the console can
@@ -45,7 +45,7 @@ Public Client API contracts remain separate.
 | Metadata diagnostics | `GET /items/{item_id}/metadata/attempts`, `GET /items/{item_id}/metadata/raw`, `GET /metadata/providers`, `POST /metadata/raw/cleanup` | Admin/internal | Supports provider status, item attempts, raw cache view, and cleanup. |
 | Playback decisions | `GET /sources/{source_id}/playback/decision` | Public Client API | Supports decision preview for a single source. |
 | Streaming playback | `GET/HEAD /sources/{source_id}/stream`, `GET /sources/{source_id}/stream/remux`, `GET /sources/{source_id}/stream/hls/playlist.m3u8`, HLS segment route | Public Client API | Not a first admin-console need except safe diagnostics and request previews. |
-| Playback sessions | `GET /playback/sessions/{session_id}`, `POST /playback/sessions/{session_id}/cancel` | Public Client API | Supports detail/cancel only when the session ID is already known. Missing list/filter route. |
+| Playback sessions | `GET /admin/v1/playback/sessions`, `GET /playback/sessions/{session_id}`, `POST /playback/sessions/{session_id}/cancel` | Admin API v1 plus Public Client API detail/cancel | Supports redacted admin list/filter by state, kind, Media Source, and pagination. Existing Public Client API supports detail/cancel only when the session ID is already known. |
 | Jobs | `GET /admin/v1/jobs`, `GET /jobs/{job_id}` | Admin API v1 plus legacy admin/internal detail | Supports redacted list/filter by status, kind, resource class, Media Library, Media Source, and pagination. Supports detail only when job ID is known. Missing cancel/retry. |
 | Storage diagnostics | `GET /storage/backends` | Admin/internal | Supports storage page read-only diagnostics. |
 | Webhooks | `POST /webhooks/endpoints`, `GET /webhooks/endpoints`, `GET /webhooks/endpoints/{endpoint_id}`, `GET /events/{event_id}/webhook-attempts`, `POST /events/{event_id}/webhooks/deliver` | Admin/internal | Supports endpoint upsert/list/detail, event attempt detail, and explicit dispatch. Missing event list and disabled endpoint listing semantics need review. |
@@ -56,7 +56,7 @@ Public Client API contracts remain separate.
 
 | Console page | Current support | Missing or weak Admin API |
 | --- | --- | --- |
-| Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. | Still needs list/filter endpoints for jobs, playback sessions, outbox events, recent failures, and warnings if the console needs drill-down data. |
+| Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. `GET /admin/v1/jobs` and `GET /admin/v1/playback/sessions` support drill-down tables. | Still needs outbox events, recent failures, and warning list/filter endpoints if the console needs more drill-down data. |
 | Media Libraries | Good for read and actions: library list/detail/sources, scan, NFO import/export, ingestion failure list/ignore. | Needs create/edit/delete library only if Taru supports runtime-configurable libraries. Needs failure retry/resolve semantics if desired. |
 | Library Detail | Good for core read-only detail and operations. | Needs latest scan summary, configured backend detail without unsafe local paths, and per-library job history. |
 | Catalog | Partial: public browse/search/item/credits/images/source probe. | Needs unknown-item filter, duplicate-source list, provider mapping list, local inference evidence route, hierarchy repair routes, and source variant/edition governance. |
@@ -64,7 +64,7 @@ Public Client API contracts remain separate.
 | Metadata Providers | Good: provider diagnostics and runtime budgets exist. | Needs configuration edit if provider config becomes runtime editable. Current diagnostics are process-local. |
 | Metadata Maintenance | Good: dry-run plan, enqueue job, item refresh, raw cache cleanup. | Needs maintenance schedule read/edit routes if schedules become UI-managed. |
 | Jobs/Tasks | Good for first read-only list: `GET /admin/v1/jobs` supports redacted list/filter by status/kind/library/source/resource class and pagination. Existing `GET /jobs/{job_id}` supports known-ID detail. | Needs retry/cancel only after durable runtime semantics support them. |
-| Playback & Transcode | Partial: playback decision by source, session detail/cancel by ID, streaming routes. | Needs session list/filter, transcode hardware capability report, selected hardware policy, resource budget summary, FFmpeg status, staging budget/cleanup summary, and safe request preview. |
+| Playback & Transcode | Good for first read-only session list: `GET /admin/v1/playback/sessions` supports redacted list/filter by state/kind/source and pagination. Public playback decision by source, known-session detail/cancel, and streaming routes remain available. | Needs transcode hardware capability report, selected hardware policy, resource budget summary, FFmpeg status, staging budget/cleanup summary, and safe request preview. |
 | Storage | Good for first read-only page: storage backend diagnostics. | Needs staging manifest list/cleanup diagnostics if storage page includes cache/staging operations. |
 | Automation | Partial: provider list/detail/upsert, job enqueue, artifact list by job/item. | Needs all-provider list including disabled if current list remains enabled-only, job list/filter, artifact approval/reject/apply lifecycle, and provider health checks. |
 | Webhooks | Partial: endpoint upsert/list/detail, delivery attempts by event, manual delivery by event. | Needs event outbox list/detail route; endpoint list currently reads as enabled-only and may not support disabled endpoint administration. |
@@ -90,8 +90,9 @@ Likely new Admin DTO groups:
 
 - `AdminOverviewResponse`
 - `AdminJobListResponse` and redacted `AdminJobListItem`
+- `AdminPlaybackSessionListResponse` and redacted
+  `AdminPlaybackSessionListItem`
 - `OutboxEventListResponse` and `OutboxEventResponse`
-- `TranscodeSessionListResponse`
 - `TranscodeRuntimeDiagnosticsResponse`
 - `ServerConfigDiagnosticsResponse`
 - `StartupReportResponse`
@@ -121,9 +122,10 @@ Known current safety boundaries useful to preserve:
 These are the smallest useful vertical slices after the matrix:
 
 1. **Overview follow-up slice**: M52 added the first read-only
-   `GET /admin/v1/overview` summary. M54 added `GET /admin/v1/jobs`. Add
-   list/filter endpoints for playback sessions, outbox events, and recent
-   failures when the console needs drill-down data.
+   `GET /admin/v1/overview` summary. M54 added `GET /admin/v1/jobs`. M55
+   added `GET /admin/v1/playback/sessions`. Add list/filter endpoints for
+   outbox events and recent failures when the console needs more drill-down
+   data.
 2. **Playback diagnostics slice**: expose hardware acceleration report,
    selected policy, FFmpeg availability, transcode resource budget, and
    staging budget summary without local output paths.
@@ -145,14 +147,16 @@ data. For the first prototype, API-backed claims should be limited to:
 - storage backend diagnostics;
 - webhook/automation/addon registration views;
 - job list/filter through `GET /admin/v1/jobs`;
+- playback session list/filter through `GET /admin/v1/playback/sessions`;
 - job/session detail views only when seeded with known IDs or mocked data.
 
-Session lists, event lists, hardware capability dashboards, network checks,
-settings editing, and catalog repair should remain prototype/mock states until
-follow-up Admin API work lands.
+Event lists, hardware capability dashboards, network checks, settings editing,
+and catalog repair should remain prototype/mock states until follow-up Admin
+API work lands.
 
 After M52, the overview page can use `GET /admin/v1/overview` for its compact
 server, storage, metadata-provider, runtime, and startup summary. After M54,
 Jobs/Tasks can use `GET /admin/v1/jobs` for redacted list/filter data. Other
-drill-down tables and operational histories remain mock or follow-up Admin API
-work.
+After M55, Playback & Transcode can use `GET /admin/v1/playback/sessions` for
+redacted session list/filter data. Other drill-down tables and operational
+histories remain mock or follow-up Admin API work.

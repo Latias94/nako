@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [admin-playback-session-read-model](admin-playback-session-read-model/README.md):
+  completed M55 Admin API read-model work, covering safe playback session
+  list/filter support for the web console without exposing transcode output
+  paths or changing the Public Client API.
 - [durable-job-runtime-admin-read-model](durable-job-runtime-admin-read-model/README.md):
   completed M54 server-side architecture work, covering durable job lifecycle
   centralization and the first Admin API v1 Jobs/Tasks read model.

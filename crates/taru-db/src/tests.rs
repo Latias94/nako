@@ -413,6 +413,137 @@ async fn sqlite_store_round_trips_transcode_sessions() {
 }
 
 #[tokio::test]
+async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Session List Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Session List Demo.mkv".to_owned(),
+        file_name: "Session List Demo.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let other_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Other Session List Demo.mkv".to_owned(),
+        file_name: "Other Session List Demo.mkv".to_owned(),
+        size_bytes: Some(24),
+        fingerprint: None,
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store.upsert_media_source(&other_source).await.unwrap();
+
+    let remux_id = TranscodeSessionId::new();
+    let hls_id = TranscodeSessionId::new();
+    let other_id = TranscodeSessionId::new();
+
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: remux_id,
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mp4".to_owned(),
+            output_path: "cache/remux/stream.mp4".into(),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: hls_id,
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: "hls:single".to_owned(),
+            output_path: "cache/hls/playlist.m3u8".into(),
+            state: TranscodeSessionState::Planned,
+        })
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: other_id,
+            source_id: other_source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mkv".to_owned(),
+            output_path: "cache/remux/other.mkv".into(),
+            state: TranscodeSessionState::Planned,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            hls_id,
+            TranscodeSessionState::Failed,
+            Some(TranscodeFailureCategory::Runner),
+            Some("ffmpeg failed".to_owned()),
+        )
+        .await
+        .unwrap();
+
+    let filtered = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter {
+                source_id: Some(source.id),
+                kind: Some(TranscodeSessionKind::HlsTranscode),
+                state: Some(TranscodeSessionState::Failed),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, hls_id);
+    assert_eq!(
+        filtered[0].failure_category,
+        Some(TranscodeFailureCategory::Runner)
+    );
+
+    let source_sessions = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter {
+                source_id: Some(source.id),
+                ..TranscodeSessionListFilter::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_sessions.len(), 2);
+
+    let second_page = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter::default(),
+            PageRequest::new(1, 1),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second_page.len(), 1);
+}
+
+#[tokio::test]
 async fn sqlite_store_marks_stale_transcode_sessions_failed() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

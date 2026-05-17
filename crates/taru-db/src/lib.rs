@@ -29,10 +29,11 @@ use taru_core::{
     SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, Studio, StudioId,
     Tag, TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState, VfsCacheFailure,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
-    WebhookDeliveryAttemptId, WebhookDeliveryAttemptRecord, WebhookDeliveryStatus,
-    WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus, WebhookRepository,
+    TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionState, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryAttemptId,
+    WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
+    WebhookEndpointStatus, WebhookRepository,
 };
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 

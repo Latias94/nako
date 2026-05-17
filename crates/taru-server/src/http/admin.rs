@@ -8,18 +8,26 @@ use taru_api::{
     ADMIN_API_VERSION, API_VERSION, AdminJobListItem, AdminJobListResponse,
     AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
     AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
-    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-    MetadataProviderDiagnosticStatus, StorageBackendStatus, page_info_from_request,
+    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary, AdminPlaybackSessionListItem,
+    AdminPlaybackSessionListResponse, MetadataProviderDiagnosticStatus, StorageBackendStatus,
+    page_info_from_request,
 };
 
 use crate::app::{RuntimeSupervisorDiagnostics, TaruApp};
 
-use super::{error::ApiResult, query::JobListQuery};
+use super::{
+    error::ApiResult,
+    query::{JobListQuery, PlaybackSessionListQuery},
+};
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
         .route("/admin/v1/jobs", get(list_admin_jobs))
+        .route(
+            "/admin/v1/playback/sessions",
+            get(list_admin_playback_sessions),
+        )
 }
 
 pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<AdminOverviewResponse> {
@@ -70,6 +78,24 @@ pub(super) async fn list_admin_jobs(
 
     Ok(Json(AdminJobListResponse {
         jobs,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn list_admin_playback_sessions(
+    State(app): State<TaruApp>,
+    Query(query): Query<PlaybackSessionListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let sessions = app.playback().list_transcode_sessions(filter, page).await?;
+    let returned = sessions.len();
+    let sessions = sessions
+        .into_iter()
+        .map(AdminPlaybackSessionListItem::from_record)
+        .collect();
+
+    Ok(Json(AdminPlaybackSessionListResponse {
+        sessions,
         page: page_info_from_request(page, returned),
     }))
 }
