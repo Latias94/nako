@@ -1,0 +1,21 @@
+{
+  "slug": "nfo-round-trip-preservation",
+  "status": "completed",
+  "goal": "M47 NFO Round Trip Preservation Model",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "codec preservation model",
+  "completed_at": "2026-05-17",
+  "non_goals": [
+    "broad Jellyfin/Kodi/Plex compatibility",
+    "public API changes",
+    "OpenAPI or SDK changes",
+    "database schema changes",
+    "provider breadth",
+    "metadata merge-policy redesign",
+    "soft or hard link management",
+    "VFS atomic write or backup policy"
+  ]
+}

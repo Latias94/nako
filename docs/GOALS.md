@@ -26,13 +26,73 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M47 NFO Round Trip
-preservation, because export still regenerates only Taru-known XML and can
-eventually damage existing hand-authored or other-media-server NFO fields unless
-unknown XML preservation, partial update, and conflict reporting are designed
-before library file write/link policy work.
+No active implementation goal. Recommended next goal: M48 NFO storage write
+policy and persistence diagnostics, because M47 now preserves XML semantics but
+VFS atomic write, backup, and file-write conflict policy remain intentionally
+outside the NFO codec.
 
 ## Completed Goals
+
+### M47: NFO Round Trip Preservation Model
+
+Status: completed.
+
+Objective:
+
+- Deepen `taru-nfo` so export over an existing sidecar preserves unknown XML
+  fields instead of regenerating only Taru-known XML.
+- Update only Taru-owned NFO fields from canonical metadata.
+- Report duplicate or conflicting Taru-owned fields in a structured,
+  test-visible model.
+- Protect hand-authored and other-media-server NFO content before VFS library
+  file write, backup, soft-link, or hard-link policy work.
+
+Deliverables:
+
+- A preservation-aware movie NFO update path in `taru-nfo`.
+- A small NFO preservation report/conflict model.
+- Forced export wiring that reads an existing sidecar and applies partial
+  preservation-aware update.
+- Focused tests proving unknown XML preservation, owned-field update, conflict
+  reporting, and export workflow behavior.
+
+Non-goals:
+
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public HTTP API, OpenAPI, SDK, or protocol changes.
+- No database schema or repository trait changes.
+- No provider breadth, catalog graph change, or metadata merge-policy redesign.
+- No VFS atomic write, backup, soft-link, or hard-link management.
+
+Exit criteria:
+
+- Forced export over an existing movie NFO preserves unknown XML elements.
+- Taru-owned fields are updated deterministically from current metadata.
+- Duplicate/conflicting owned fields are reported in codec tests.
+- Current import and new-sidecar export behavior remains compatible.
+- Focused `taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-round-trip-preservation workstream]
+  (workstreams/nfo-round-trip-preservation/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `taru-nfo` defines `NfoPreservedRender`, `NfoPreservationReport`,
+  `NfoFieldConflict`, and `NfoFieldConflictReason`.
+- `MovieNfoCodec::render_preserving` updates Taru-owned movie fields while
+  preserving unknown top-level XML elements, comments, and processing
+  instructions from the existing sidecar.
+- Forced export over an existing sidecar reads old XML and writes
+  preservation-aware output; missing sidecar creation remains deterministic
+  fresh rendering.
+- Codec tests cover unknown field preservation, owned-field update, and
+  duplicate/alias owned-field conflicts.
+- Service tests cover forced export preservation and import-then-forced-export
+  round trip preservation.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-nfo --tests`, `cargo nextest run -p taru-nfo --no-fail-fast` with 12
+  tests passed, `cargo check --workspace --tests`, `cargo nextest run
+  --workspace --no-fail-fast` with 298 tests passed, and `git diff --check`.
 
 ### M46: taru-api Module Split
 

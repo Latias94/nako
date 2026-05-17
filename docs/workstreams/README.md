@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
+  completed M47 NFO Round Trip preservation work, covering preservation-aware
+  movie NFO update, unknown XML field retention, conflict reporting, forced
+  export over existing sidecars, and import/export round trip preservation
+  before VFS file write/link policy work.
 - [android-client-foundation](android-client-foundation/README.md): proposed
   Android-first client work, covering native Android implementation order,
   playback-first mobile scope, shared Rust client-core boundaries, and Media3

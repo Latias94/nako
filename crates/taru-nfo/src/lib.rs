@@ -106,6 +106,119 @@ mod tests {
         );
     }
 
+    #[test]
+    fn movie_nfo_preservation_keeps_unknown_fields_and_updates_owned_fields() {
+        let codec = MovieNfoCodec;
+        let document = NfoDocument {
+            metadata: CanonicalMetadata {
+                title: "Canonical Title".to_owned(),
+                overview: Some("Canonical overview".to_owned()),
+                release_date: Some("1999-03-31".to_owned()),
+                genres: vec!["Action".to_owned()],
+                ..CanonicalMetadata::default()
+            },
+            external_ids: Vec::new(),
+            hierarchy: NfoHierarchy::default(),
+        };
+
+        let rendered = codec
+            .render_preserving(
+                &document,
+                r#"<movie>
+  <title>Old Title</title>
+  <plot>Old overview</plot>
+  <customrating system="local">five stars</customrating>
+  <!-- keep hand-authored notes -->
+  <uniqueid type="imdb">tt0133093</uniqueid>
+</movie>"#,
+            )
+            .unwrap();
+
+        assert!(rendered.xml.contains("<title>Canonical Title</title>"));
+        assert!(rendered.xml.contains("<plot>Canonical overview</plot>"));
+        assert!(rendered.xml.contains("<genre>Action</genre>"));
+        assert!(!rendered.xml.contains("<title>Old Title</title>"));
+        assert!(!rendered.xml.contains("<plot>Old overview</plot>"));
+        assert!(
+            rendered
+                .xml
+                .contains(r#"<customrating system="local">five stars</customrating>"#)
+        );
+        assert!(rendered.xml.contains("<!-- keep hand-authored notes -->"));
+        assert!(
+            rendered
+                .xml
+                .contains(r#"<uniqueid type="imdb">tt0133093</uniqueid>"#)
+        );
+        assert_eq!(
+            rendered.report.preserved_unknown_fields,
+            vec![
+                "customrating".to_owned(),
+                "#comment".to_owned(),
+                "uniqueid".to_owned()
+            ]
+        );
+        assert!(
+            rendered
+                .report
+                .updated_owned_fields
+                .contains(&"title".to_owned())
+        );
+        assert!(
+            rendered
+                .report
+                .updated_owned_fields
+                .contains(&"plot".to_owned())
+        );
+    }
+
+    #[test]
+    fn movie_nfo_preservation_reports_duplicate_owned_and_alias_fields() {
+        let codec = MovieNfoCodec;
+        let document = NfoDocument {
+            metadata: CanonicalMetadata {
+                title: "Canonical Title".to_owned(),
+                release_date: Some("1999-03-31".to_owned()),
+                ..CanonicalMetadata::default()
+            },
+            external_ids: Vec::new(),
+            hierarchy: NfoHierarchy::default(),
+        };
+
+        let rendered = codec
+            .render_preserving(
+                &document,
+                r#"<movie>
+  <title>Old Title</title>
+  <title>Duplicate Title</title>
+  <year>1999</year>
+</movie>"#,
+            )
+            .unwrap();
+
+        assert_eq!(rendered.report.conflicts.len(), 2);
+        assert!(rendered.report.conflicts.iter().any(|conflict| {
+            conflict.field == "title"
+                && conflict.existing_value.as_deref() == Some("Duplicate Title")
+                && conflict.replacement_value.as_deref() == Some("Canonical Title")
+                && conflict.reason == NfoFieldConflictReason::DuplicateOwnedField
+        }));
+        assert!(rendered.report.conflicts.iter().any(|conflict| {
+            conflict.field == "release_date"
+                && conflict.existing_value.as_deref() == Some("1999")
+                && conflict.replacement_value.as_deref() == Some("1999-03-31")
+                && conflict.reason == NfoFieldConflictReason::OwnedFieldAlias
+        }));
+        assert!(rendered.xml.contains("<title>Canonical Title</title>"));
+        assert!(
+            rendered
+                .xml
+                .contains("<releasedate>1999-03-31</releasedate>")
+        );
+        assert!(!rendered.xml.contains("Duplicate Title"));
+        assert!(!rendered.xml.contains("<year>1999</year>"));
+    }
+
     #[tokio::test]
     async fn nfo_service_discovers_and_imports_movie_sidecar_with_locks() {
         let temp = tempfile::tempdir().unwrap();
@@ -450,6 +563,126 @@ mod tests {
         assert_eq!(summary.exported_items, 1);
         assert!(xml.contains("<title>Exported Title</title>"));
         assert!(xml.contains("<genre>Action</genre>"));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_preserves_existing_sidecar_unknown_fields_when_forced() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("demo.mkv"), b"media").unwrap();
+        fs::write(
+            temp.path().join("Movies").join("demo.nfo"),
+            r#"<movie>
+  <title>Old Sidecar Title</title>
+  <plot>Old sidecar overview</plot>
+  <customrating system="local">five stars</customrating>
+  <uniqueid type="imdb">tt0133093</uniqueid>
+</movie>
+"#,
+        )
+        .unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/demo.mkv",
+            CanonicalMetadata {
+                title: "Forced Export Title".to_owned(),
+                overview: Some("Forced export overview".to_owned()),
+                genres: vec!["Action".to_owned()],
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let summary = service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        let xml = fs::read_to_string(temp.path().join("Movies").join("demo.nfo")).unwrap();
+        assert_eq!(summary.exported_items, 1);
+        assert!(xml.contains("<title>Forced Export Title</title>"));
+        assert!(xml.contains("<plot>Forced export overview</plot>"));
+        assert!(xml.contains("<genre>Action</genre>"));
+        assert!(!xml.contains("<title>Old Sidecar Title</title>"));
+        assert!(!xml.contains("<plot>Old sidecar overview</plot>"));
+        assert!(xml.contains(r#"<customrating system="local">five stars</customrating>"#));
+        assert!(xml.contains(r#"<uniqueid type="imdb">tt0133093</uniqueid>"#));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_import_then_forced_export_preserves_unknown_sidecar_fields() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("demo.mkv"), b"media").unwrap();
+        fs::write(
+            temp.path().join("Movies").join("demo.nfo"),
+            r#"<movie>
+  <title>Imported Title</title>
+  <plot>Imported overview</plot>
+  <customrating system="local">five stars</customrating>
+  <uniqueid type="imdb">tt0133093</uniqueid>
+</movie>
+"#,
+        )
+        .unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let item = seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        service
+            .import_library(NfoImportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::LocalFirst,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let imported = store.get_media_item(item.id).await.unwrap().unwrap();
+        assert_eq!(imported.metadata.title, "Imported Title");
+        store
+            .upsert_media_item(&MediaItem {
+                metadata: CanonicalMetadata {
+                    title: "Post Import Title".to_owned(),
+                    overview: Some("Post import overview".to_owned()),
+                    genres: vec!["Action".to_owned()],
+                    ..imported.metadata
+                },
+                ..imported
+            })
+            .await
+            .unwrap();
+
+        service
+            .export_library(NfoExportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        let xml = fs::read_to_string(temp.path().join("Movies").join("demo.nfo")).unwrap();
+        assert!(xml.contains("<title>Post Import Title</title>"));
+        assert!(xml.contains("<plot>Post import overview</plot>"));
+        assert!(xml.contains("<genre>Action</genre>"));
+        assert!(xml.contains(r#"<customrating system="local">five stars</customrating>"#));
+        assert!(xml.contains(r#"<uniqueid type="imdb">tt0133093</uniqueid>"#));
     }
 
     #[tokio::test]

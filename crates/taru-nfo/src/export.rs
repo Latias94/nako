@@ -57,13 +57,23 @@ where
             Ok(uri) => uri,
             Err(err) => return export_failure(&source, err),
         };
-        if !force {
+        let existing_xml = if force {
+            match self.backend.stat(&nfo_uri).await {
+                Ok(_) => match self.backend.read_to_string(&nfo_uri).await {
+                    Ok(xml) => Some(xml),
+                    Err(err) => return export_failure(&source, err),
+                },
+                Err(TaruError::NotFound { .. }) => None,
+                Err(err) => return export_failure(&source, err),
+            }
+        } else {
             match self.backend.stat(&nfo_uri).await {
                 Ok(_) => return NfoExportOutcome::Skipped,
                 Err(TaruError::NotFound { .. }) => {}
                 Err(err) => return export_failure(&source, err),
             }
-        }
+            None
+        };
 
         let item = match self.repository.get_media_item(source.item_id).await {
             Ok(Some(item)) => item,
@@ -83,13 +93,20 @@ where
             return NfoExportOutcome::Skipped;
         }
 
-        let xml = match self.codec.render(&NfoDocument {
+        let document = NfoDocument {
             metadata: item.metadata,
             external_ids: Vec::new(),
             hierarchy: NfoHierarchy::default(),
-        }) {
-            Ok(xml) => xml,
-            Err(err) => return export_failure(&source, err),
+        };
+        let xml = match existing_xml {
+            Some(existing_xml) => match self.codec.render_preserving(&document, &existing_xml) {
+                Ok(rendered) => rendered.xml,
+                Err(err) => return export_failure(&source, err),
+            },
+            None => match self.codec.render(&document) {
+                Ok(xml) => xml,
+                Err(err) => return export_failure(&source, err),
+            },
         };
 
         match self.backend.write_string(&nfo_uri, &xml).await {
