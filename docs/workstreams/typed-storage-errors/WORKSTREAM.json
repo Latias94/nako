@@ -1,0 +1,20 @@
+{
+  "slug": "typed-storage-errors",
+  "status": "completed",
+  "goal": "M45 Typed VFS And Storage Error Classification",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "core storage error kind and HTTP mapping",
+  "completed_at": "2026-05-17",
+  "non_goals": [
+    "new storage backends",
+    "public API changes",
+    "OpenAPI or SDK changes",
+    "database schema changes",
+    "NFO Round Trip work",
+    "playback source-selection changes",
+    "retry policy redesign"
+  ]
+}

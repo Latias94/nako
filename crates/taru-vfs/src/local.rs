@@ -6,7 +6,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use taru_core::{Result, TaruError};
+use taru_core::{Result, StorageErrorKind, TaruError};
 
 use crate::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
@@ -21,9 +21,11 @@ pub struct LocalFsBackend {
 impl LocalFsBackend {
     pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
-        let root = root.canonicalize().map_err(|err| TaruError::Storage {
-            uri: root.display().to_string(),
-            message: format!("failed to canonicalize local root: {err}"),
+        let root = root.canonicalize().map_err(|err| {
+            TaruError::storage_io(
+                root.display().to_string(),
+                format!("failed to canonicalize local root: {err}"),
+            )
         })?;
 
         if !root.is_dir() {
@@ -52,18 +54,19 @@ impl LocalFsBackend {
                     id: uri.to_string(),
                 }
             } else {
-                TaruError::Storage {
-                    uri: uri.to_string(),
-                    message: format!("failed to resolve local path: {err}"),
-                }
+                TaruError::storage_io(
+                    uri.to_string(),
+                    format!("failed to resolve local path: {err}"),
+                )
             }
         })?;
 
         if !canonical.starts_with(&self.root) {
-            return Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "resolved local path escaped backend root".to_owned(),
-            });
+            return Err(TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "resolved local path escaped backend root",
+            ));
         }
 
         Ok(candidate)
@@ -74,29 +77,37 @@ impl LocalFsBackend {
 
         let relative = relative_path(uri)?;
         let candidate = self.root.join(relative);
-        let parent = candidate.parent().ok_or_else(|| TaruError::Storage {
-            uri: uri.to_string(),
-            message: "local write target has no parent directory".to_owned(),
+        let parent = candidate.parent().ok_or_else(|| {
+            TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "local write target has no parent directory",
+            )
         })?;
-        let canonical_parent = parent.canonicalize().map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to resolve local write parent: {err}"),
+        let canonical_parent = parent.canonicalize().map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to resolve local write parent: {err}"),
+            )
         })?;
 
         if !canonical_parent.starts_with(&self.root) {
-            return Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "resolved local write path escaped backend root".to_owned(),
-            });
+            return Err(TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "resolved local write path escaped backend root",
+            ));
         }
 
         Ok(candidate)
     }
 
     fn metadata_for(&self, path: &Path, uri: StorageUri) -> Result<ObjectMetadata> {
-        let metadata = fs::symlink_metadata(path).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read local metadata: {err}"),
+        let metadata = fs::symlink_metadata(path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to read local metadata: {err}"),
+            )
         })?;
 
         let file_type = metadata.file_type();
@@ -133,12 +144,13 @@ impl LocalFsBackend {
     }
 
     fn uri_for_path(&self, path: &Path) -> Result<StorageUri> {
-        let relative = path
-            .strip_prefix(&self.root)
-            .map_err(|err| TaruError::Storage {
-                uri: path.display().to_string(),
-                message: format!("failed to build local uri: {err}"),
-            })?;
+        let relative = path.strip_prefix(&self.root).map_err(|err| {
+            TaruError::storage(
+                path.display().to_string(),
+                StorageErrorKind::SecurityViolation,
+                format!("failed to build local uri: {err}"),
+            )
+        })?;
 
         let relative = relative.to_string_lossy().replace('\\', "/");
         StorageUri::from_parts("local", &relative)
@@ -182,13 +194,17 @@ impl StorageBackend for LocalFsBackend {
 
         let mut entries = Vec::new();
 
-        for entry in fs::read_dir(&path).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to list local directory: {err}"),
+        for entry in fs::read_dir(&path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to list local directory: {err}"),
+            )
         })? {
-            let entry = entry.map_err(|err| TaruError::Storage {
-                uri: uri.to_string(),
-                message: format!("failed to read local directory entry: {err}"),
+            let entry = entry.map_err(|err| {
+                TaruError::storage_io(
+                    uri.to_string(),
+                    format!("failed to read local directory entry: {err}"),
+                )
             })?;
             let entry_uri = self.uri_for_path(&entry.path())?;
             entries.push(self.metadata_for(&entry.path(), entry_uri)?);
@@ -200,9 +216,11 @@ impl StorageBackend for LocalFsBackend {
 
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
         let path = self.path_for(uri)?;
-        let metadata = fs::metadata(&path).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read local file metadata: {err}"),
+        let metadata = fs::metadata(&path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to read local file metadata: {err}"),
+            )
         })?;
 
         if !metadata.is_file() {
@@ -224,9 +242,11 @@ impl StorageBackend for LocalFsBackend {
 
     async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
         let path = self.path_for(uri)?;
-        let metadata = fs::metadata(&path).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read local file metadata: {err}"),
+        let metadata = fs::metadata(&path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to read local file metadata: {err}"),
+            )
         })?;
         if !metadata.is_file() {
             return Err(TaruError::InvalidInput {
@@ -234,16 +254,21 @@ impl StorageBackend for LocalFsBackend {
             });
         }
 
-        let bytes = fs::read(&path).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read local file range: {err}"),
+        let bytes = fs::read(&path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to read local file range: {err}"),
+            )
         })?;
         let bytes = match range {
             Some(range) => {
                 validate_range(uri, range, metadata.len())?;
-                let start = usize::try_from(range.offset).map_err(|err| TaruError::Storage {
-                    uri: uri.to_string(),
-                    message: format!("range offset does not fit memory index: {err}"),
+                let start = usize::try_from(range.offset).map_err(|err| {
+                    TaruError::storage(
+                        uri.to_string(),
+                        StorageErrorKind::Unknown,
+                        format!("range offset does not fit memory index: {err}"),
+                    )
                 })?;
                 let end = match range.length {
                     Some(length) => {
@@ -252,9 +277,12 @@ impl StorageBackend for LocalFsBackend {
                                 message: format!("range overflows file length: {uri}"),
                             }
                         })?;
-                        usize::try_from(end).map_err(|err| TaruError::Storage {
-                            uri: uri.to_string(),
-                            message: format!("range end does not fit memory index: {err}"),
+                        usize::try_from(end).map_err(|err| {
+                            TaruError::storage(
+                                uri.to_string(),
+                                StorageErrorKind::Unknown,
+                                format!("range end does not fit memory index: {err}"),
+                            )
                         })?
                     }
                     None => bytes.len(),
@@ -273,17 +301,21 @@ impl StorageBackend for LocalFsBackend {
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
         let path = self.path_for(uri)?;
-        fs::read_to_string(&path).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read local text file: {err}"),
+        fs::read_to_string(&path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to read local text file: {err}"),
+            )
         })
     }
 
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
         let path = self.writable_path_for(uri)?;
-        fs::write(&path, content).map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to write local text file: {err}"),
+        fs::write(&path, content).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to write local text file: {err}"),
+            )
         })
     }
 
@@ -291,10 +323,11 @@ impl StorageBackend for LocalFsBackend {
         let metadata = self.stat(&request.uri).await?;
         let file = self.open_range(&request.uri, None).await?;
         let Some(path) = file.local_path_hint else {
-            return Err(TaruError::Storage {
-                uri: request.uri.to_string(),
-                message: "local backend did not return a local path hint".to_owned(),
-            });
+            return Err(TaruError::storage(
+                request.uri.to_string(),
+                StorageErrorKind::Unknown,
+                "local backend did not return a local path hint",
+            ));
         };
 
         Ok(StagedFile {

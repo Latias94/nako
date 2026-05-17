@@ -228,9 +228,11 @@ impl LibraryStorageBackend {
             .clone()
             .acquire_owned()
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: format!("library:{}", self.library_id),
-                message: format!("remote stream resource budget was closed: {err}"),
+            .map_err(|err| {
+                TaruError::storage_resource_budget_closed(
+                    format!("library:{}", self.library_id),
+                    format!("remote stream resource budget was closed: {err}"),
+                )
             })
     }
 
@@ -706,17 +708,17 @@ mod tests {
         }
 
         async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn open_range(
@@ -724,10 +726,10 @@ mod tests {
             uri: &StorageUri,
             _range: Option<ByteRange>,
         ) -> Result<VirtualFile> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn read_range(
@@ -735,10 +737,10 @@ mod tests {
             uri: &StorageUri,
             _range: Option<ByteRange>,
         ) -> Result<ReadRange> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn stream_range(
@@ -746,31 +748,31 @@ mod tests {
             uri: &StorageUri,
             _range: Option<ByteRange>,
         ) -> Result<ReadStream> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn write_string(&self, uri: &StorageUri, _content: &str) -> Result<()> {
-            Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                uri.to_string(),
+                "intentional failure",
+            ))
         }
 
         async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
-            Err(TaruError::Storage {
-                uri: request.uri.to_string(),
-                message: "intentional failure".to_owned(),
-            })
+            Err(TaruError::storage_unknown(
+                request.uri.to_string(),
+                "intentional failure",
+            ))
         }
     }
 }

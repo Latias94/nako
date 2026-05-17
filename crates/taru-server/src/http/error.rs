@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use taru_api::{ClientErrorCode, ErrorResponse};
-use taru_core::TaruError;
+use taru_core::{StorageErrorKind, TaruError};
 use tracing::{error, warn};
 
 pub(super) type ApiResult<T> = std::result::Result<T, ApiError>;
@@ -38,15 +38,18 @@ impl IntoResponse for ApiError {
 
 fn status_for_error(error: &TaruError) -> StatusCode {
     match error {
-        TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
-            StatusCode::INSUFFICIENT_STORAGE
-        }
-        TaruError::Storage { message, .. } if is_storage_timeout(message) => {
-            StatusCode::GATEWAY_TIMEOUT
-        }
-        TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
-            StatusCode::SERVICE_UNAVAILABLE
-        }
+        TaruError::Storage {
+            kind: StorageErrorKind::StagingBudgetExhausted,
+            ..
+        } => StatusCode::INSUFFICIENT_STORAGE,
+        TaruError::Storage {
+            kind: StorageErrorKind::Timeout,
+            ..
+        } => StatusCode::GATEWAY_TIMEOUT,
+        TaruError::Storage {
+            kind: StorageErrorKind::RateLimited,
+            ..
+        } => StatusCode::SERVICE_UNAVAILABLE,
         TaruError::InvalidInput { .. } | TaruError::Unsupported(_) => StatusCode::BAD_REQUEST,
         TaruError::NotFound { .. } => StatusCode::NOT_FOUND,
         TaruError::Conflict { .. } => StatusCode::CONFLICT,
@@ -65,21 +68,26 @@ fn code_for_error(error: &TaruError) -> ClientErrorCode {
             ClientErrorCode::FfmpegError
         }
         TaruError::Provider { .. } => ClientErrorCode::ProviderError,
-        TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
-            ClientErrorCode::StagingBudgetExhausted
-        }
-        TaruError::Storage { message, .. } if is_staging_validation_mismatch(message) => {
-            ClientErrorCode::StagingValidationMismatch
-        }
-        TaruError::Storage { message, .. } if is_storage_timeout(message) => {
-            ClientErrorCode::StorageTimeout
-        }
-        TaruError::Storage { message, .. } if is_storage_unauthorized(message) => {
-            ClientErrorCode::StorageUnauthorized
-        }
-        TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
-            ClientErrorCode::StorageRateLimited
-        }
+        TaruError::Storage {
+            kind: StorageErrorKind::StagingBudgetExhausted,
+            ..
+        } => ClientErrorCode::StagingBudgetExhausted,
+        TaruError::Storage {
+            kind: StorageErrorKind::StagingValidationMismatch,
+            ..
+        } => ClientErrorCode::StagingValidationMismatch,
+        TaruError::Storage {
+            kind: StorageErrorKind::Timeout,
+            ..
+        } => ClientErrorCode::StorageTimeout,
+        TaruError::Storage {
+            kind: StorageErrorKind::Unauthorized,
+            ..
+        } => ClientErrorCode::StorageUnauthorized,
+        TaruError::Storage {
+            kind: StorageErrorKind::RateLimited,
+            ..
+        } => ClientErrorCode::StorageRateLimited,
         TaruError::Storage { .. } => ClientErrorCode::StorageError,
         TaruError::Database { .. } => ClientErrorCode::DatabaseError,
     }
@@ -94,21 +102,26 @@ fn public_message(error: &TaruError) -> String {
         TaruError::Provider { provider, .. } => {
             format!("external provider operation failed: {provider}")
         }
-        TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
-            "staging disk budget exhausted".to_owned()
-        }
-        TaruError::Storage { message, .. } if is_staging_validation_mismatch(message) => {
-            "staged input validation failed".to_owned()
-        }
-        TaruError::Storage { message, .. } if is_storage_timeout(message) => {
-            "storage backend timed out".to_owned()
-        }
-        TaruError::Storage { message, .. } if is_storage_unauthorized(message) => {
-            "storage backend rejected credentials".to_owned()
-        }
-        TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
-            "storage backend rate limited the request".to_owned()
-        }
+        TaruError::Storage {
+            kind: StorageErrorKind::StagingBudgetExhausted,
+            ..
+        } => "staging disk budget exhausted".to_owned(),
+        TaruError::Storage {
+            kind: StorageErrorKind::StagingValidationMismatch,
+            ..
+        } => "staged input validation failed".to_owned(),
+        TaruError::Storage {
+            kind: StorageErrorKind::Timeout,
+            ..
+        } => "storage backend timed out".to_owned(),
+        TaruError::Storage {
+            kind: StorageErrorKind::Unauthorized,
+            ..
+        } => "storage backend rejected credentials".to_owned(),
+        TaruError::Storage {
+            kind: StorageErrorKind::RateLimited,
+            ..
+        } => "storage backend rate limited the request".to_owned(),
         TaruError::Storage { .. } => "storage operation failed".to_owned(),
         TaruError::InvalidInput { .. }
         | TaruError::NotFound { .. }
@@ -119,37 +132,4 @@ fn public_message(error: &TaruError) -> String {
 
 fn is_ffmpeg_provider(provider: &str) -> bool {
     provider == "ffmpeg" || provider == "ffmpeg_remux" || provider == "ffmpeg_hls"
-}
-
-fn is_staging_budget_exhausted(message: &str) -> bool {
-    message.contains("staging disk budget exhausted")
-}
-
-fn is_staging_validation_mismatch(message: &str) -> bool {
-    let message = message.to_ascii_lowercase();
-    message.contains("staged") && message.contains("did not match")
-        || message.contains("staging validation")
-}
-
-fn is_storage_timeout(message: &str) -> bool {
-    let message = message.to_ascii_lowercase();
-    message.contains("timed out")
-        || message.contains("timeout")
-        || message.contains("request timeout")
-        || message.contains("408")
-}
-
-fn is_storage_unauthorized(message: &str) -> bool {
-    let message = message.to_ascii_lowercase();
-    message.contains("unauthorized")
-        || message.contains("forbidden")
-        || message.contains("401")
-        || message.contains("403")
-}
-
-fn is_storage_rate_limited(message: &str) -> bool {
-    let message = message.to_ascii_lowercase();
-    message.contains("too many requests")
-        || message.contains("rate limit")
-        || message.contains("429")
 }

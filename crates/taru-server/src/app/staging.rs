@@ -125,10 +125,10 @@ pub(super) async fn cleanup_expired_staging_inputs(
                 }
                 Err(err) if err.kind() == ErrorKind::NotFound => {}
                 Err(err) => {
-                    return Err(TaruError::Storage {
-                        uri: record.local_path,
-                        message: format!("failed to delete expired staged input: {err}"),
-                    });
+                    return Err(TaruError::storage_io(
+                        record.local_path,
+                        format!("failed to delete expired staged input: {err}"),
+                    ));
                 }
             }
             if let Err(err) = store
@@ -186,9 +186,11 @@ impl ManifestRecordingStorageBackend {
         request: &StageRequest,
         metadata: &ObjectMetadata,
     ) -> Result<StagingReservation> {
-        let incoming_bytes = metadata.len.ok_or_else(|| TaruError::Storage {
-            uri: request.uri.to_string(),
-            message: "staging disk budget requires a known source size".to_owned(),
+        let incoming_bytes = metadata.len.ok_or_else(|| {
+            TaruError::storage_staging_budget_exhausted(
+                request.uri.to_string(),
+                "staging disk budget requires a known source size",
+            )
         })?;
         let candidate_path = deterministic_stage_path(
             &request.root,
@@ -233,13 +235,13 @@ impl ManifestRecordingStorageBackend {
     ) -> Result<()> {
         let staged_path = staged.path.display().to_string();
         if staged_path != reservation.record.local_path {
-            return Err(TaruError::Storage {
-                uri: staged.uri.to_string(),
-                message: format!(
+            return Err(TaruError::storage_staging_validation_mismatch(
+                staged.uri.to_string(),
+                format!(
                     "staging backend returned a different path than the reserved manifest path: reserved={}, staged={staged_path}",
                     reservation.record.local_path
                 ),
-            });
+            ));
         }
 
         record_staged_input(
@@ -333,9 +335,11 @@ impl StorageBackend for ManifestRecordingStorageBackend {
             .clone()
             .acquire_owned()
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: "playback.remote.stage".to_owned(),
-                message: format!("remote staging resource budget was closed: {err}"),
+            .map_err(|err| {
+                TaruError::storage_resource_budget_closed(
+                    "playback.remote.stage",
+                    format!("remote staging resource budget was closed: {err}"),
+                )
             })?;
 
         let metadata = self.inner.stat(&request.uri).await?;

@@ -131,9 +131,11 @@ pub(super) async fn plan_direct_play_response_with_backend(
     range_request: DirectPlayRangeRequest,
 ) -> Result<DirectPlayResponsePlan> {
     let metadata = backend.stat(uri).await?;
-    let total_len = metadata.len.ok_or_else(|| TaruError::Storage {
-        uri: source.locator.clone(),
-        message: "direct play requires a known source length".to_owned(),
+    let total_len = metadata.len.ok_or_else(|| {
+        TaruError::storage_unknown(
+            source.locator.clone(),
+            "direct play requires a known source length",
+        )
     })?;
     let content_type = content_type_for_file_name(&source.file_name).to_owned();
 

@@ -129,9 +129,11 @@ pub(super) async fn remux_stream_source(
 
     let total_len = tokio::fs::metadata(&remux.output_path)
         .await
-        .map_err(|err| TaruError::Storage {
-            uri: remux.output_path.display().to_string(),
-            message: format!("failed to read remux output length: {err}"),
+        .map_err(|err| {
+            TaruError::storage_io(
+                remux.output_path.display().to_string(),
+                format!("failed to read remux output length: {err}"),
+            )
         })?
         .len();
     let response_plan = plan_direct_play_response(
@@ -180,9 +182,11 @@ pub(super) async fn hls_segment(
         .await?;
     let total_len = tokio::fs::metadata(&segment.path)
         .await
-        .map_err(|err| TaruError::Storage {
-            uri: segment.path.display().to_string(),
-            message: format!("failed to read hls segment length: {err}"),
+        .map_err(|err| {
+            TaruError::storage_io(
+                segment.path.display().to_string(),
+                format!("failed to read hls segment length: {err}"),
+            )
         })?
         .len();
     let response_plan = plan_direct_play_response(
@@ -260,19 +264,21 @@ pub(crate) async fn stream_local_file_response(
     uri: &str,
     plan: &DirectPlayResponsePlan,
 ) -> ApiResult<Response> {
-    let mut file = tokio::fs::File::open(path)
-        .await
-        .map_err(|err| TaruError::Storage {
-            uri: uri.to_owned(),
-            message: format!("failed to open stream source: {err}"),
-        })?;
+    let mut file = tokio::fs::File::open(path).await.map_err(|err| {
+        TaruError::storage_io(
+            uri.to_owned(),
+            format!("failed to open stream source: {err}"),
+        )
+    })?;
 
     if plan.seek_offset > 0 {
         file.seek(SeekFrom::Start(plan.seek_offset))
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: uri.to_owned(),
-                message: format!("failed to seek stream source: {err}"),
+            .map_err(|err| {
+                TaruError::storage_io(
+                    uri.to_owned(),
+                    format!("failed to seek stream source: {err}"),
+                )
             })?;
     }
 

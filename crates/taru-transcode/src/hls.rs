@@ -61,9 +61,11 @@ impl FfmpegHlsRunner {
         remove_dir_if_exists(&temp_output_dir).await?;
         tokio::fs::create_dir_all(&temp_output_dir)
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: temp_output_dir.display().to_string(),
-                message: format!("failed to create temporary hls output directory: {err}"),
+            .map_err(|err| {
+                TaruError::storage_io(
+                    temp_output_dir.display().to_string(),
+                    format!("failed to create temporary hls output directory: {err}"),
+                )
             })?;
 
         let command = command_with_hls_output_dir(

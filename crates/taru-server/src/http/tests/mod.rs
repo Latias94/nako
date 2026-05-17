@@ -38,8 +38,8 @@ use taru_core::{
     MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
     MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewIngestionFailure, NewJob,
     NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, Person, PersonId,
-    ProviderRawResponse, Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
+    ProviderRawResponse, StorageErrorKind, Tag, TagId, TaruError, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex};

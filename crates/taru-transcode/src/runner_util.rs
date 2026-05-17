@@ -87,12 +87,12 @@ pub(crate) fn command_with_hls_output_dir(
 
 pub(crate) async fn promote_temp_output(temp_output: &Path, final_output: &Path) -> Result<()> {
     if let Some(parent) = final_output.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: final_output.display().to_string(),
-                message: format!("failed to create remux output directory: {err}"),
-            })?;
+        tokio::fs::create_dir_all(parent).await.map_err(|err| {
+            TaruError::storage_io(
+                final_output.display().to_string(),
+                format!("failed to create remux output directory: {err}"),
+            )
+        })?;
     }
 
     if final_output.exists() {
@@ -101,9 +101,11 @@ pub(crate) async fn promote_temp_output(temp_output: &Path, final_output: &Path)
 
     tokio::fs::rename(temp_output, final_output)
         .await
-        .map_err(|err| TaruError::Storage {
-            uri: final_output.display().to_string(),
-            message: format!("failed to promote remux output: {err}"),
+        .map_err(|err| {
+            TaruError::storage_io(
+                final_output.display().to_string(),
+                format!("failed to promote remux output: {err}"),
+            )
         })
 }
 
@@ -112,21 +114,23 @@ pub(crate) async fn promote_temp_hls_output(
     final_output_dir: &Path,
 ) -> Result<()> {
     if let Some(parent) = final_output_dir.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: final_output_dir.display().to_string(),
-                message: format!("failed to create hls output directory: {err}"),
-            })?;
+        tokio::fs::create_dir_all(parent).await.map_err(|err| {
+            TaruError::storage_io(
+                final_output_dir.display().to_string(),
+                format!("failed to create hls output directory: {err}"),
+            )
+        })?;
     }
 
     remove_dir_if_exists(final_output_dir).await?;
 
     tokio::fs::rename(temp_output_dir, final_output_dir)
         .await
-        .map_err(|err| TaruError::Storage {
-            uri: final_output_dir.display().to_string(),
-            message: format!("failed to promote hls output directory: {err}"),
+        .map_err(|err| {
+            TaruError::storage_io(
+                final_output_dir.display().to_string(),
+                format!("failed to promote hls output directory: {err}"),
+            )
         })
 }
 
@@ -134,10 +138,10 @@ pub(crate) async fn remove_file_if_exists(path: &Path) -> Result<()> {
     match tokio::fs::remove_file(path).await {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(TaruError::Storage {
-            uri: path.display().to_string(),
-            message: format!("failed to remove temporary remux output: {err}"),
-        }),
+        Err(err) => Err(TaruError::storage_io(
+            path.display().to_string(),
+            format!("failed to remove temporary remux output: {err}"),
+        )),
     }
 }
 
@@ -145,10 +149,10 @@ pub(crate) async fn remove_dir_if_exists(path: &Path) -> Result<()> {
     match tokio::fs::remove_dir_all(path).await {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(TaruError::Storage {
-            uri: path.display().to_string(),
-            message: format!("failed to remove temporary hls output directory: {err}"),
-        }),
+        Err(err) => Err(TaruError::storage_io(
+            path.display().to_string(),
+            format!("failed to remove temporary hls output directory: {err}"),
+        )),
     }
 }
 

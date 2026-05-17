@@ -173,10 +173,10 @@ impl StorageBackend for FailingStageBackend {
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
-        Err(TaruError::Storage {
-            uri: request.uri.to_string(),
-            message: "intentional staging failure".to_owned(),
-        })
+        Err(TaruError::storage_unknown(
+            request.uri.to_string(),
+            "intentional staging failure",
+        ))
     }
 }
 
@@ -239,19 +239,19 @@ impl StorageBackend for ConcurrentStageBackend {
             Some(&format!("fingerprint-{}", request.uri.path_part())),
         )?;
         if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|err| TaruError::Storage {
-                    uri: parent.display().to_string(),
-                    message: format!("failed to create test staging directory: {err}"),
-                })?;
-        }
-        tokio::fs::write(&path, &self.bytes)
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: path.display().to_string(),
-                message: format!("failed to write test staging file: {err}"),
+            tokio::fs::create_dir_all(parent).await.map_err(|err| {
+                TaruError::storage_io(
+                    parent.display().to_string(),
+                    format!("failed to create test staging directory: {err}"),
+                )
             })?;
+        }
+        tokio::fs::write(&path, &self.bytes).await.map_err(|err| {
+            TaruError::storage_io(
+                path.display().to_string(),
+                format!("failed to write test staging file: {err}"),
+            )
+        })?;
 
         Ok(StagedFile {
             uri: request.uri,
@@ -330,19 +330,19 @@ impl StorageBackend for RemotePlaybackBackend {
             Some("remote-fingerprint"),
         )?;
         if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|err| TaruError::Storage {
-                    uri: parent.display().to_string(),
-                    message: format!("failed to create test staging directory: {err}"),
-                })?;
-        }
-        tokio::fs::write(&path, &self.bytes)
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: path.display().to_string(),
-                message: format!("failed to write test staging file: {err}"),
+            tokio::fs::create_dir_all(parent).await.map_err(|err| {
+                TaruError::storage_io(
+                    parent.display().to_string(),
+                    format!("failed to create test staging directory: {err}"),
+                )
             })?;
+        }
+        tokio::fs::write(&path, &self.bytes).await.map_err(|err| {
+            TaruError::storage_io(
+                path.display().to_string(),
+                format!("failed to write test staging file: {err}"),
+            )
+        })?;
 
         Ok(StagedFile {
             uri: request.uri,

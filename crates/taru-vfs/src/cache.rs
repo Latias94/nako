@@ -2,8 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use taru_core::{
-    NewVfsCacheFailure, Result, TaruError, VfsCacheOperation, VfsCacheRepository, VfsCachedListing,
-    VfsCachedObject, VfsCachedObjectKind,
+    NewVfsCacheFailure, Result, StorageErrorKind, TaruError, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
 };
 
 use crate::{
@@ -399,24 +399,31 @@ fn cache_lookup_uris(uri: &StorageUri) -> Vec<String> {
 }
 
 fn fresh_until_ms(now_ms: i64, ttl_ms: i64) -> Result<i64> {
-    now_ms
-        .checked_add(ttl_ms.max(0))
-        .ok_or_else(|| TaruError::Storage {
-            uri: "vfs-cache".to_owned(),
-            message: "cache freshness timestamp overflowed".to_owned(),
-        })
+    now_ms.checked_add(ttl_ms.max(0)).ok_or_else(|| {
+        TaruError::storage(
+            "vfs-cache",
+            StorageErrorKind::Unknown,
+            "cache freshness timestamp overflowed",
+        )
+    })
 }
 
 fn now_ms() -> Result<i64> {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|err| TaruError::Storage {
-            uri: "vfs-cache".to_owned(),
-            message: format!("system clock is before Unix epoch: {err}"),
+        .map_err(|err| {
+            TaruError::storage(
+                "vfs-cache",
+                StorageErrorKind::Unknown,
+                format!("system clock is before Unix epoch: {err}"),
+            )
         })?;
-    i64::try_from(duration.as_millis()).map_err(|err| TaruError::Storage {
-        uri: "vfs-cache".to_owned(),
-        message: format!("system time does not fit cache timestamp: {err}"),
+    i64::try_from(duration.as_millis()).map_err(|err| {
+        TaruError::storage(
+            "vfs-cache",
+            StorageErrorKind::Unknown,
+            format!("system time does not fit cache timestamp: {err}"),
+        )
     })
 }
 
@@ -553,10 +560,11 @@ mod tests {
         async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
             self.list_calls.fetch_add(1, Ordering::SeqCst);
             if self.fail_list.load(Ordering::SeqCst) {
-                return Err(TaruError::Storage {
-                    uri: uri.to_string(),
-                    message: "temporary list failure".to_owned(),
-                });
+                return Err(TaruError::storage(
+                    uri.to_string(),
+                    StorageErrorKind::Network,
+                    "temporary list failure",
+                ));
             }
 
             Ok(vec![self.metadata(

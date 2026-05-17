@@ -164,46 +164,51 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
 async fn api_errors_map_playback_storage_categories() {
     let cases = [
         (
-            TaruError::Storage {
-                uri: "webdav:///Movies/Demo.mkv".to_owned(),
-                message: "staging disk budget exhausted: used=10, additional=4, max=12".to_owned(),
-            },
+            TaruError::storage(
+                "webdav:///Movies/Demo.mkv",
+                StorageErrorKind::StagingBudgetExhausted,
+                "used=10, additional=4, max=12",
+            ),
             StatusCode::INSUFFICIENT_STORAGE,
             taru_api::ClientErrorCode::StagingBudgetExhausted,
             "staging disk budget exhausted",
         ),
         (
-            TaruError::Storage {
-                uri: "webdav:///Movies/Demo.mkv".to_owned(),
-                message: "staged WebDAV file did not match expected size".to_owned(),
-            },
+            TaruError::storage(
+                "webdav:///Movies/Demo.mkv",
+                StorageErrorKind::StagingValidationMismatch,
+                "staged WebDAV file did not match expected size",
+            ),
             StatusCode::BAD_GATEWAY,
             taru_api::ClientErrorCode::StagingValidationMismatch,
             "staged input validation failed",
         ),
         (
-            TaruError::Storage {
-                uri: "webdav:///Movies/Demo.mkv".to_owned(),
-                message: "WebDAV request failed: operation timed out".to_owned(),
-            },
+            TaruError::storage(
+                "webdav:///Movies/Demo.mkv",
+                StorageErrorKind::Timeout,
+                "WebDAV request failed: operation timed out",
+            ),
             StatusCode::GATEWAY_TIMEOUT,
             taru_api::ClientErrorCode::StorageTimeout,
             "storage backend timed out",
         ),
         (
-            TaruError::Storage {
-                uri: "webdav:///Movies/Demo.mkv".to_owned(),
-                message: "WebDAV GET returned 401 Unauthorized".to_owned(),
-            },
+            TaruError::storage(
+                "webdav:///Movies/Demo.mkv",
+                StorageErrorKind::Unauthorized,
+                "WebDAV GET returned 401 Unauthorized",
+            ),
             StatusCode::BAD_GATEWAY,
             taru_api::ClientErrorCode::StorageUnauthorized,
             "storage backend rejected credentials",
         ),
         (
-            TaruError::Storage {
-                uri: "webdav:///Movies/Demo.mkv".to_owned(),
-                message: "WebDAV GET returned 429 Too Many Requests".to_owned(),
-            },
+            TaruError::storage(
+                "webdav:///Movies/Demo.mkv",
+                StorageErrorKind::RateLimited,
+                "WebDAV GET returned 429 Too Many Requests",
+            ),
             StatusCode::SERVICE_UNAVAILABLE,
             taru_api::ClientErrorCode::StorageRateLimited,
             "storage backend rate limited the request",

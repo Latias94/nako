@@ -145,10 +145,10 @@ impl RemuxStagingPolicy {
             .join(format!("stream.{}", container.file_extension()));
 
         if !output.starts_with(&self.root) {
-            return Err(TaruError::Storage {
-                uri: self.root.display().to_string(),
-                message: "remux staging output escaped the staging root".to_owned(),
-            });
+            return Err(TaruError::storage_security_violation(
+                self.root.display().to_string(),
+                "remux staging output escaped the staging root",
+            ));
         }
 
         Ok(output)
@@ -196,10 +196,10 @@ impl HlsStagingPolicy {
 
         for path in [&output_dir, &playlist_path, &segment_pattern] {
             if !path.starts_with(&self.root) {
-                return Err(TaruError::Storage {
-                    uri: self.root.display().to_string(),
-                    message: "hls staging output escaped the staging root".to_owned(),
-                });
+                return Err(TaruError::storage_security_violation(
+                    self.root.display().to_string(),
+                    "hls staging output escaped the staging root",
+                ));
             }
         }
 
@@ -406,9 +406,11 @@ impl PlaybackAppService {
 
         let body = tokio::fs::read_to_string(&output.playlist_path)
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: output.playlist_path.display().to_string(),
-                message: format!("failed to read hls playlist: {err}"),
+            .map_err(|err| {
+                TaruError::storage_io(
+                    output.playlist_path.display().to_string(),
+                    format!("failed to read hls playlist: {err}"),
+                )
             })?;
 
         Ok(HlsPlaylistOutput {
@@ -442,13 +444,12 @@ impl PlaybackAppService {
             });
         }
 
-        let segment_dir = session
-            .output_path
-            .parent()
-            .ok_or_else(|| TaruError::Storage {
-                uri: session.output_path.display().to_string(),
-                message: "hls playlist path does not have a parent directory".to_owned(),
-            })?;
+        let segment_dir = session.output_path.parent().ok_or_else(|| {
+            TaruError::storage_security_violation(
+                session.output_path.display().to_string(),
+                "hls playlist path does not have a parent directory",
+            )
+        })?;
         let path = segment_dir.join(segment_name);
 
         if !path.starts_with(segment_dir) {
@@ -608,10 +609,9 @@ fn map_remux_runner_error(error: TaruError) -> TaruError {
                 message,
             }
         }
-        TaruError::Storage { uri, .. } => TaruError::Storage {
-            uri,
-            message: "remux staging operation failed".to_owned(),
-        },
+        TaruError::Storage { uri, kind, .. } => {
+            TaruError::storage(uri, kind, "remux staging operation failed")
+        }
         TaruError::InvalidInput { message } => TaruError::InvalidInput {
             message: format!("invalid remux request: {message}"),
         },
@@ -633,10 +633,9 @@ fn map_hls_runner_error(error: TaruError) -> TaruError {
                 message,
             }
         }
-        TaruError::Storage { uri, .. } => TaruError::Storage {
-            uri,
-            message: "hls staging operation failed".to_owned(),
-        },
+        TaruError::Storage { uri, kind, .. } => {
+            TaruError::storage(uri, kind, "hls staging operation failed")
+        }
         TaruError::InvalidInput { message } => TaruError::InvalidInput {
             message: format!("invalid hls request: {message}"),
         },
@@ -645,9 +644,11 @@ fn map_hls_runner_error(error: TaruError) -> TaruError {
 }
 
 fn path_exists(path: &Path) -> Result<bool> {
-    path.try_exists().map_err(|err| TaruError::Storage {
-        uri: path.display().to_string(),
-        message: format!("failed to check path: {err}"),
+    path.try_exists().map_err(|err| {
+        TaruError::storage_io(
+            path.display().to_string(),
+            format!("failed to check path: {err}"),
+        )
     })
 }
 
@@ -754,18 +755,18 @@ async fn record_playback_session_finished_event(
 
 async fn ensure_remux_output_parent(output_path: &Path) -> Result<()> {
     let Some(parent) = output_path.parent() else {
-        return Err(TaruError::Storage {
-            uri: output_path.display().to_string(),
-            message: "remux output path does not have a parent directory".to_owned(),
-        });
+        return Err(TaruError::storage_security_violation(
+            output_path.display().to_string(),
+            "remux output path does not have a parent directory",
+        ));
     };
 
-    tokio::fs::create_dir_all(parent)
-        .await
-        .map_err(|err| TaruError::Storage {
-            uri: parent.display().to_string(),
-            message: format!("failed to create remux output directory: {err}"),
-        })
+    tokio::fs::create_dir_all(parent).await.map_err(|err| {
+        TaruError::storage_io(
+            parent.display().to_string(),
+            format!("failed to create remux output directory: {err}"),
+        )
+    })
 }
 
 #[cfg(test)]

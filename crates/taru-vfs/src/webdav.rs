@@ -7,7 +7,7 @@ use reqwest::{
     header::{CONTENT_TYPE, HeaderMap, HeaderValue, RANGE},
 };
 use roxmltree::Document;
-use taru_core::{Result, TaruError};
+use taru_core::{Result, StorageErrorKind, TaruError};
 
 use crate::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
@@ -118,9 +118,12 @@ impl WebDavBackend {
     async fn propfind(&self, uri: &StorageUri, depth: &'static str) -> Result<Vec<WebDavProp>> {
         self.ensure_webdav_scheme(uri)?;
         let url = self.url_for(uri)?;
-        let method = Method::from_bytes(b"PROPFIND").map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to build WebDAV PROPFIND method: {err}"),
+        let method = Method::from_bytes(b"PROPFIND").map_err(|err| {
+            TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::Unknown,
+                format!("failed to build WebDAV PROPFIND method: {err}"),
+            )
         })?;
         let body = r#"<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:">
@@ -151,15 +154,19 @@ impl WebDavBackend {
             });
         }
         if !response.status().is_success() && response.status().as_u16() != 207 {
-            return Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: format!("WebDAV PROPFIND returned {}", response.status()),
-            });
+            return Err(TaruError::storage(
+                uri.to_string(),
+                storage_kind_for_http_status(response.status()),
+                format!("WebDAV PROPFIND returned {}", response.status()),
+            ));
         }
 
-        let text = response.text().await.map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read WebDAV PROPFIND response: {err}"),
+        let text = response.text().await.map_err(|err| {
+            TaruError::storage(
+                uri.to_string(),
+                storage_kind_for_reqwest_error(&err),
+                format!("failed to read WebDAV PROPFIND response: {err}"),
+            )
         })?;
         parse_multistatus(uri, self.base_url.path(), &text)
     }
@@ -231,10 +238,11 @@ impl WebDavBackend {
             .await?;
 
         if !response.status().is_success() {
-            return Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: format!("WebDAV GET returned {}", response.status()),
-            });
+            return Err(TaruError::storage(
+                uri.to_string(),
+                storage_kind_for_http_status(response.status()),
+                format!("WebDAV GET returned {}", response.status()),
+            ));
         }
 
         Ok(response)
@@ -261,10 +269,11 @@ impl WebDavBackend {
             None => response.status().is_success(),
         };
         if !accepted {
-            return Err(TaruError::Storage {
-                uri: uri.to_string(),
-                message: format!("WebDAV range GET returned {}", response.status()),
-            });
+            return Err(TaruError::storage(
+                uri.to_string(),
+                storage_kind_for_http_status(response.status()),
+                format!("WebDAV range GET returned {}", response.status()),
+            ));
         }
 
         Ok(response)
@@ -286,20 +295,22 @@ impl WebDavBackend {
                 }
                 Err(err) => {
                     if attempt == self.max_attempts || !err.is_timeout() && !err.is_connect() {
-                        return Err(TaruError::Storage {
-                            uri: self.base_url.to_string(),
-                            message: format!("WebDAV request failed: {err}"),
-                        });
+                        return Err(TaruError::storage(
+                            self.base_url.to_string(),
+                            storage_kind_for_reqwest_error(&err),
+                            format!("WebDAV request failed: {err}"),
+                        ));
                     }
                     last_error = Some(err.to_string());
                 }
             }
         }
 
-        Err(TaruError::Storage {
-            uri: self.base_url.to_string(),
-            message: last_error.unwrap_or_else(|| "WebDAV request failed".to_owned()),
-        })
+        Err(TaruError::storage(
+            self.base_url.to_string(),
+            StorageErrorKind::Network,
+            last_error.unwrap_or_else(|| "WebDAV request failed".to_owned()),
+        ))
     }
 }
 
@@ -361,9 +372,12 @@ impl StorageBackend for WebDavBackend {
 
         let mut response = self.get_range_response(uri, range).await?;
         let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|err| TaruError::Storage {
-            uri: uri.to_string(),
-            message: format!("failed to read WebDAV range response: {err}"),
+        while let Some(chunk) = response.chunk().await.map_err(|err| {
+            TaruError::storage(
+                uri.to_string(),
+                storage_kind_for_reqwest_error(&err),
+                format!("failed to read WebDAV range response: {err}"),
+            )
         })? {
             bytes.extend_from_slice(&chunk);
         }
@@ -393,9 +407,12 @@ impl StorageBackend for WebDavBackend {
         let body = response
             .bytes_stream()
             .map(move |chunk| {
-                chunk.map_err(|err| TaruError::Storage {
-                    uri: stream_uri.clone(),
-                    message: format!("failed to stream WebDAV range response: {err}"),
+                chunk.map_err(|err| {
+                    TaruError::storage(
+                        stream_uri.clone(),
+                        storage_kind_for_reqwest_error(&err),
+                        format!("failed to stream WebDAV range response: {err}"),
+                    )
                 })
             })
             .boxed();
@@ -404,14 +421,13 @@ impl StorageBackend for WebDavBackend {
     }
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
-        self.get_response(uri)
-            .await?
-            .text()
-            .await
-            .map_err(|err| TaruError::Storage {
-                uri: uri.to_string(),
-                message: format!("failed to read WebDAV text response: {err}"),
-            })
+        self.get_response(uri).await?.text().await.map_err(|err| {
+            TaruError::storage(
+                uri.to_string(),
+                storage_kind_for_reqwest_error(&err),
+                format!("failed to read WebDAV text response: {err}"),
+            )
+        })
     }
 
     async fn write_string(&self, uri: &StorageUri, _content: &str) -> Result<()> {
@@ -446,12 +462,12 @@ impl StorageBackend for WebDavBackend {
         }
 
         if let Some(parent) = stage_path.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|err| TaruError::Storage {
-                    uri: parent.display().to_string(),
-                    message: format!("failed to create WebDAV staging directory: {err}"),
-                })?;
+            tokio::fs::create_dir_all(parent).await.map_err(|err| {
+                TaruError::storage_io(
+                    parent.display().to_string(),
+                    format!("failed to create WebDAV staging directory: {err}"),
+                )
+            })?;
         }
         let temp_path = stage_path.with_extension(format!(
             "{}tmp",
@@ -461,44 +477,53 @@ impl StorageBackend for WebDavBackend {
                 .map(|value| format!("{value}."))
                 .unwrap_or_default()
         ));
-        let mut file =
-            tokio::fs::File::create(&temp_path)
-                .await
-                .map_err(|err| TaruError::Storage {
-                    uri: temp_path.display().to_string(),
-                    message: format!("failed to create WebDAV staging file: {err}"),
-                })?;
+        let mut file = tokio::fs::File::create(&temp_path).await.map_err(|err| {
+            TaruError::storage_io(
+                temp_path.display().to_string(),
+                format!("failed to create WebDAV staging file: {err}"),
+            )
+        })?;
         let mut response = self.get_response(&request.uri).await?;
 
-        while let Some(chunk) = response.chunk().await.map_err(|err| TaruError::Storage {
-            uri: request.uri.to_string(),
-            message: format!("failed to read WebDAV staging response: {err}"),
+        while let Some(chunk) = response.chunk().await.map_err(|err| {
+            TaruError::storage(
+                request.uri.to_string(),
+                storage_kind_for_reqwest_error(&err),
+                format!("failed to read WebDAV staging response: {err}"),
+            )
         })? {
             tokio::io::AsyncWriteExt::write_all(&mut file, &chunk)
                 .await
-                .map_err(|err| TaruError::Storage {
-                    uri: temp_path.display().to_string(),
-                    message: format!("failed to write WebDAV staging file: {err}"),
+                .map_err(|err| {
+                    TaruError::storage_io(
+                        temp_path.display().to_string(),
+                        format!("failed to write WebDAV staging file: {err}"),
+                    )
                 })?;
         }
         tokio::io::AsyncWriteExt::flush(&mut file)
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: temp_path.display().to_string(),
-                message: format!("failed to flush WebDAV staging file: {err}"),
+            .map_err(|err| {
+                TaruError::storage_io(
+                    temp_path.display().to_string(),
+                    format!("failed to flush WebDAV staging file: {err}"),
+                )
             })?;
 
         if !staged_file_matches(&temp_path, metadata.len).await? {
-            return Err(TaruError::Storage {
-                uri: request.uri.to_string(),
-                message: "staged WebDAV file did not match expected size".to_owned(),
-            });
+            return Err(TaruError::storage(
+                request.uri.to_string(),
+                StorageErrorKind::StagingValidationMismatch,
+                "staged WebDAV file did not match expected size",
+            ));
         }
         tokio::fs::rename(&temp_path, &stage_path)
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: stage_path.display().to_string(),
-                message: format!("failed to promote WebDAV staging file: {err}"),
+            .map_err(|err| {
+                TaruError::storage_io(
+                    stage_path.display().to_string(),
+                    format!("failed to promote WebDAV staging file: {err}"),
+                )
             })?;
 
         Ok(StagedFile {
@@ -551,18 +576,24 @@ fn parse_multistatus(
     base_path: &str,
     xml: &str,
 ) -> Result<Vec<WebDavProp>> {
-    let document = Document::parse(xml).map_err(|err| TaruError::Storage {
-        uri: request_uri.to_string(),
-        message: format!("failed to parse WebDAV multistatus XML: {err}"),
+    let document = Document::parse(xml).map_err(|err| {
+        TaruError::storage(
+            request_uri.to_string(),
+            StorageErrorKind::HttpStatus,
+            format!("failed to parse WebDAV multistatus XML: {err}"),
+        )
     })?;
     let mut props = Vec::new();
     for response in document
         .descendants()
         .filter(|node| node.is_element() && node.tag_name().name() == "response")
     {
-        let href = child_text(response, "href").ok_or_else(|| TaruError::Storage {
-            uri: request_uri.to_string(),
-            message: "WebDAV response missing href".to_owned(),
+        let href = child_text(response, "href").ok_or_else(|| {
+            TaruError::storage(
+                request_uri.to_string(),
+                StorageErrorKind::HttpStatus,
+                "WebDAV response missing href",
+            )
         })?;
         let uri = storage_uri_from_href(&href, base_path)?;
         let is_collection = response.descendants().any(|node| {
@@ -684,6 +715,25 @@ fn is_retryable_status(status: StatusCode) -> bool {
         || status.is_server_error()
 }
 
+fn storage_kind_for_http_status(status: StatusCode) -> StorageErrorKind {
+    match status {
+        StatusCode::REQUEST_TIMEOUT => StorageErrorKind::Timeout,
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => StorageErrorKind::Unauthorized,
+        StatusCode::TOO_MANY_REQUESTS => StorageErrorKind::RateLimited,
+        _ => StorageErrorKind::HttpStatus,
+    }
+}
+
+fn storage_kind_for_reqwest_error(err: &reqwest::Error) -> StorageErrorKind {
+    if err.is_timeout() {
+        StorageErrorKind::Timeout
+    } else if err.is_connect() {
+        StorageErrorKind::Network
+    } else {
+        StorageErrorKind::Network
+    }
+}
+
 fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
     if range.offset > len {
         return Err(TaruError::InvalidInput {
@@ -729,10 +779,10 @@ async fn staged_file_matches(path: &std::path::Path, len: Option<u64>) -> Result
         Ok(metadata) => metadata,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(err) => {
-            return Err(TaruError::Storage {
-                uri: path.display().to_string(),
-                message: format!("failed to read staged file metadata: {err}"),
-            });
+            return Err(TaruError::storage_io(
+                path.display().to_string(),
+                format!("failed to read staged file metadata: {err}"),
+            ));
         }
     };
 
@@ -959,6 +1009,30 @@ mod tests {
         assert_eq!(tokio::fs::read(&first.path).await.unwrap(), b"taru");
         assert_eq!(second.path, first.path);
         assert!(second.reused);
+    }
+
+    #[test]
+    fn webdav_http_status_failures_are_typed() {
+        assert_eq!(
+            storage_kind_for_http_status(StatusCode::REQUEST_TIMEOUT),
+            StorageErrorKind::Timeout
+        );
+        assert_eq!(
+            storage_kind_for_http_status(StatusCode::UNAUTHORIZED),
+            StorageErrorKind::Unauthorized
+        );
+        assert_eq!(
+            storage_kind_for_http_status(StatusCode::FORBIDDEN),
+            StorageErrorKind::Unauthorized
+        );
+        assert_eq!(
+            storage_kind_for_http_status(StatusCode::TOO_MANY_REQUESTS),
+            StorageErrorKind::RateLimited
+        );
+        assert_eq!(
+            storage_kind_for_http_status(StatusCode::INTERNAL_SERVER_ERROR),
+            StorageErrorKind::HttpStatus
+        );
     }
 
     #[derive(Default)]

@@ -10,7 +10,7 @@ use bytes::Bytes;
 use futures_util::{StreamExt, stream::BoxStream};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use taru_core::{Result, TaruError};
+use taru_core::{Result, StorageErrorKind, TaruError};
 
 mod cache;
 mod local;
@@ -400,10 +400,11 @@ pub fn deterministic_stage_path(
     let path = root.join(uri.scheme()).join(&digest[0..2]).join(file_name);
 
     if !path.starts_with(root) {
-        return Err(TaruError::Storage {
-            uri: root.display().to_string(),
-            message: "staging path escaped staging root".to_owned(),
-        });
+        return Err(TaruError::storage(
+            root.display().to_string(),
+            StorageErrorKind::SecurityViolation,
+            "staging path escaped staging root",
+        ));
     }
 
     Ok(path)

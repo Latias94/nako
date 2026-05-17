@@ -1158,10 +1158,10 @@ mod tests {
 
         async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
             if uri.as_str() == "fixture:///Movies/Broken/" {
-                return Err(TaruError::Storage {
-                    uri: uri.to_string(),
-                    message: "fixture directory is unreadable".to_owned(),
-                });
+                return Err(TaruError::storage_io(
+                    uri.to_string(),
+                    "fixture directory is unreadable",
+                ));
             }
 
             if uri.as_str() == "fixture:///Movies" {
@@ -1250,10 +1250,10 @@ mod tests {
 
         async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
             if self.fail_list.load(Ordering::SeqCst) {
-                return Err(TaruError::Storage {
-                    uri: uri.to_string(),
-                    message: "remote listing timed out".to_owned(),
-                });
+                return Err(TaruError::storage_timeout(
+                    uri.to_string(),
+                    "remote listing timed out",
+                ));
             }
 
             Ok(vec![Self::metadata(

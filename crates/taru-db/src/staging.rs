@@ -100,10 +100,10 @@ impl StagingManifestRepository for SqliteStore {
                 StagingState::Reserved | StagingState::Staging
             ) && !record_expired(existing, now_ms)
         }) {
-            return Err(TaruError::Storage {
-                uri: record.source_uri,
-                message: format!("staging input is already reserved: {}", record.local_path),
-            });
+            return Err(TaruError::storage_resource_budget_closed(
+                record.source_uri,
+                format!("staging input is already reserved: {}", record.local_path),
+            ));
         }
         if existing.as_ref().is_some_and(|existing| {
             existing.state == StagingState::Leased || existing.active_leases > 0
@@ -124,12 +124,12 @@ impl StagingManifestRepository for SqliteStore {
         let projected_bytes = used_bytes.saturating_add(additional_bytes);
 
         if additional_bytes > 0 && projected_bytes > max_total_bytes {
-            return Err(TaruError::Storage {
-                uri: record.source_uri,
-                message: format!(
+            return Err(TaruError::storage_staging_budget_exhausted(
+                record.source_uri,
+                format!(
                     "staging disk budget exhausted: used={used_bytes}, additional={additional_bytes}, max={max_total_bytes}",
                 ),
-            });
+            ));
         }
 
         let record = match existing {

@@ -26,11 +26,58 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M45 typed VFS/storage
-error classification, because it removes string-based HTTP error mapping before
-new S3/SMB/NAS-style storage adapters expand the storage surface.
+No active implementation goal. Recommended next goal: M46 `taru-api` module
+split, because public client DTOs, admin/internal DTOs, metadata diagnostics,
+extension/addon DTOs, and automation DTOs still share one crate root file even
+though `taru-client-protocol` now owns the stable Public Client API.
 
 ## Completed Goals
+
+### M45: Typed VFS And Storage Error Classification
+
+Status: completed.
+
+Objective:
+
+- Replace brittle string-based storage error classification with typed storage
+  error categories.
+- Let VFS/storage backends, staging, playback file IO, and HTTP adapters share
+  one storage error vocabulary.
+- Preserve current public error codes, status codes, and route behavior while
+  removing message parsing from HTTP error mapping.
+
+Deliverables:
+
+- `taru-core` storage error classification type and constructors/helpers.
+- VFS/WebDAV/local/staging/playback storage errors classified at the source.
+- `taru-server` HTTP error mapping driven by typed classification rather than
+  string matching.
+- Focused tests proving public error code compatibility and backend-specific
+  categories.
+
+Non-goals:
+
+- No new storage backends.
+- No public API, OpenAPI, SDK, or protocol expansion.
+- No database schema changes.
+- No NFO Round Trip or library file write/link policy changes.
+- No playback source-selection or transcode planning changes.
+- No retry policy or durable storage health redesign beyond classification.
+
+Evidence:
+
+- [typed-storage-errors workstream](workstreams/typed-storage-errors/README.md)
+  records design, task ledger, milestones, evidence, and handoff.
+- `taru-core` defines `StorageErrorKind` and storage error constructors.
+- `TaruError::Storage` now carries a typed storage classification.
+- `taru-server` HTTP error mapping uses `StorageErrorKind` instead of parsing
+  storage messages.
+- WebDAV/local VFS, staging, playback file IO, transcode output IO, and test
+  storage fakes classify storage errors at construction sites.
+- Public storage-related status/code/message behavior remains compatible.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  293 tests passed, and `git diff --check`.
 
 ### M44: Metadata Provider Attempt Runtime Extraction
 

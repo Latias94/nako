@@ -135,9 +135,11 @@ pub(super) async fn local_source_path_and_len(
         Some(len) => len,
         None => tokio::fs::metadata(&local_path)
             .await
-            .map_err(|err| TaruError::Storage {
-                uri: source.locator.clone(),
-                message: format!("failed to read playback source length: {err}"),
+            .map_err(|err| {
+                TaruError::storage_io(
+                    source.locator.clone(),
+                    format!("failed to read playback source length: {err}"),
+                )
             })?
             .len(),
     };

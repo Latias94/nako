@@ -15,7 +15,7 @@ pub mod webhook;
 
 pub use addon::*;
 pub use automation::*;
-pub use error::{Result, TaruError};
+pub use error::{Result, StorageErrorKind, TaruError};
 pub use event::*;
 pub use id::*;
 pub use ingestion::*;
