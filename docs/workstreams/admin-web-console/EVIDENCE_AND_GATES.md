@@ -76,7 +76,7 @@ implementation should provide:
 - `docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md`
 - `docs/adr/0027-admin-api-boundary-for-web-console.md`
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
-- future v0 prompt
+- v0 prompt captured in `HANDOFF.md`
 - future web app scaffold and verification notes
 
 ## Evidence Log
@@ -89,7 +89,7 @@ implementation should provide:
   protocol boundary verified by checking `crates/taru-client-protocol` had no
   changed files.
 - 2026-05-17: M52 opened as AWC-035 to implement the first read-only
-  `/admin/v1/*` route through `GET /admin/v1/overview`. Evidence is pending.
+  `/admin/v1/*` route through `GET /admin/v1/overview`.
 - 2026-05-17: AWC-035 / M52 completed. `GET /admin/v1/overview` is wired in
   `taru-server`, uses admin-owned DTOs in `taru-api::admin`, and returns safe
   storage, metadata-provider, runtime, and startup summaries without root URI,
@@ -99,3 +99,6 @@ implementation should provide:
   `cargo check -p taru-server --tests`, `cargo nextest run -p taru-server
   http::tests::system --no-fail-fast` with 5 tests, `git diff --check`, and
   `git diff --name-only -- crates/taru-client-protocol` with no changed files.
+- 2026-05-17: AWC-040/AWC-050 completed for M53. `V0_CONTEXT.md` records the
+  first prototype data-source split, and `HANDOFF.md` captures a concise
+  v0.dev prompt that keeps the prototype framework-neutral and admin-focused.

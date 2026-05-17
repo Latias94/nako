@@ -45,3 +45,5 @@ framework or detailed visual implementation.
   surfaces.
 - Implement the first read-only Admin API v1 overview seam before wiring any
   frontend UI.
+- Keep the captured v0 prompt framework-neutral until a stack and workspace are
+  accepted.

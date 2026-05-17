@@ -331,6 +331,24 @@ Generate a prototype with these pages first:
 It is acceptable to use realistic mock data. The prototype should make the
 information architecture and product language clear before real API wiring.
 
+Prototype data-source split:
+
+- Overview: partially live through `GET /admin/v1/overview` for compact
+  server/API version, storage, metadata-provider, runtime, and startup
+  summaries.
+- Media Libraries and Library Detail: may reference existing library list,
+  library detail, source list, scan, and NFO operation routes, but can still use
+  mock rows for layout density and recent activity.
+- Metadata Providers: may reference existing metadata-provider diagnostics and
+  maintenance planning routes.
+- Jobs/Tasks: use mock list and history data; only job detail by known ID
+  exists today.
+- Playback & Transcode: use mock dashboards for hardware, budgets, and session
+  lists; public playback decision and known-session detail routes exist but do
+  not yet cover the dashboard.
+- Settings, Network, Addons, Automation, catalog repair, event lists, and
+  drill-down histories: treat as mock or planned Admin API data.
+
 Mock-only or planned `/admin/v1/*` prototype areas should be visually marked as
 diagnostic or planned data in internal handoff notes, not as existing stable
 Public Client API coverage.

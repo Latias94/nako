@@ -26,12 +26,58 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: AWC-040 v0 Context and
-First Prototype Prompt, because M52 now provides the first code-backed
-`/admin/v1/*` overview seam and the design-generation context should distinguish
-live overview data from remaining mock-only admin pages.
+No active implementation goal. The next admin-web-console implementation task
+is AWC-060, but it is blocked until the user accepts a front-end stack and
+workspace location. Until then, the captured v0 prompt in the
+admin-web-console handoff is the recommended prototype input.
 
 ## Completed Goals
+
+### M53: Admin Web Console V0 Context and v0 Prompt Refresh
+
+Status: completed.
+
+Objective:
+
+- Finish AWC-040 and AWC-050 for the admin-web-console workstream.
+- Align the v0 context with the live `GET /admin/v1/overview` seam from M52.
+- Capture a concise v0.dev prompt for the first admin console prototype.
+- Keep the prototype context framework-neutral and explicit about mock-only
+  surfaces.
+
+Deliverables:
+
+- Updated `V0_CONTEXT.md` with a first prototype data-source split.
+- Captured v0.dev prompt in the admin-web-console handoff.
+- Updated admin-web-console task ledger, milestones, evidence, README, and
+  workstream metadata.
+
+Non-goals:
+
+- No frontend UI implementation or scaffold.
+- No front-end framework selection.
+- No Admin API route, DTO, storage, metadata, playback, NFO, or provider
+  behavior changes.
+- No Public Client API, OpenAPI, SDK, or `taru-client-protocol` changes.
+
+Exit criteria:
+
+- `V0_CONTEXT.md` distinguishes the live overview route from mock or planned
+  Admin API data.
+- The prompt covers brand, navigation, first prototype pages, data-source
+  boundaries, Taru domain language, and safety rules.
+- The prompt avoids hard-coding a framework or component implementation.
+- AWC-040 and AWC-050 are marked complete.
+- Documentation gate passes.
+
+Evidence:
+
+- `docs/workstreams/admin-web-console/V0_CONTEXT.md` records the first
+  prototype data-source split.
+- `docs/workstreams/admin-web-console/HANDOFF.md` captures the v0.dev prompt.
+- `docs/workstreams/admin-web-console/TODO.md` marks AWC-040 and AWC-050
+  complete.
+- Close-out validation: `git diff --check`.
 
 ### M52: Admin API v1 Overview Read-Only Seam
 

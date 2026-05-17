@@ -115,6 +115,14 @@ Exit criteria:
 - The prompt avoids hard-coding a front-end framework unless separately chosen.
 - Generated UI can be evaluated against Taru's product language.
 
+Status: completed for AWC-040/AWC-050 / M53. `V0_CONTEXT.md` now records which
+first prototype pages can reference live API data and which remain mock or
+planned Admin API data. `HANDOFF.md` captures the concise v0.dev prompt.
+
+Close-out validation:
+
+- `git diff --check`
+
 ## M-AWC.3 Real Web App Follow-On
 
 Objective:

@@ -47,25 +47,25 @@ Last updated: 2026-05-17
   Evidence: `taru_api::AdminOverviewResponse`, `crates/taru-server/src/http/admin.rs`,
   `http::tests::system::admin_v1_overview_composes_safe_read_only_diagnostics`,
   public OpenAPI/SDK leakage checks, and this workstream's evidence log.
-  Handoff: M52 is complete. Continue with AWC-040 to refine `V0_CONTEXT.md`
-  around the now-live overview seam and the remaining mock-only admin surfaces.
+  Handoff: M52 is complete. AWC-040/AWC-050 now refine the prototype context
+  and capture the v0 prompt around the live overview seam.
 
-- [ ] AWC-040 [owner=planner] [deps=AWC-030] [scope=docs/workstreams/admin-web-console/V0_CONTEXT.md]
+- [x] AWC-040 [owner=planner] [deps=AWC-030] [scope=docs/workstreams/admin-web-console/V0_CONTEXT.md]
   Goal: Refine the v0 context with the confirmed Admin API inventory and first
   prototype scope.
   Validation: v0 context has page list, route families, mock-data guidance,
   brand direction, and safety rules.
-  Evidence: updated `V0_CONTEXT.md`.
+  Evidence: updated `V0_CONTEXT.md` with the first prototype data-source split.
   Handoff: Keep framework choice open unless the user explicitly chooses one.
 
-- [ ] AWC-050 [owner=planner] [deps=AWC-040] [scope=external-v0-prompt]
+- [x] AWC-050 [owner=planner] [deps=AWC-040] [scope=external-v0-prompt]
   Goal: Produce a concise v0.dev prompt derived from `V0_CONTEXT.md` for the
   first admin console prototype.
   Validation: prompt is short enough to use directly and does not over-specify
   technology or component internals.
-  Evidence: prompt captured in this workstream or handoff.
-  Handoff: Generated UI should be treated as a prototype until API wiring and
-  accessibility/responsive checks pass.
+  Evidence: prompt captured in `HANDOFF.md`.
+  Handoff: Generated UI should be treated as a prototype until API wiring,
+  accessibility, and responsive checks pass.
 
 ## AWC.3 Implementation Follow-On
 

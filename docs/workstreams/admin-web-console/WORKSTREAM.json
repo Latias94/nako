@@ -48,6 +48,7 @@
     "docs/workstreams/admin-web-console",
     "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/workstreams/admin-web-console/HANDOFF.md",
     "docs/workstreams/README.md"
   ],
   "adr_refs": [
@@ -58,6 +59,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AWC-035 / M52 is complete. Next step is AWC-040: refine V0_CONTEXT.md with the live GET /admin/v1/overview seam, current API-backed claims, and remaining mock-only prototype scope."
+    "notes": "AWC-040/AWC-050 / M53 are complete. AWC-060 is blocked until the user accepts a front-end stack and workspace location."
   }
 }

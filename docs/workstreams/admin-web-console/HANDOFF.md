@@ -22,19 +22,48 @@ Admin API v1 seam. The route is read-only and composes existing safe storage,
 metadata-provider, runtime, and startup diagnostics through admin-owned DTOs in
 `taru-api::admin`.
 
-The key artifact for v0.dev is:
+The key context artifact for v0.dev is:
 
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
 
+AWC-040 and AWC-050 are complete for M53. `V0_CONTEXT.md` now distinguishes
+the live `GET /admin/v1/overview` seam from remaining mock or planned Admin API
+surfaces, and this handoff captures the first concise v0.dev prompt.
+
+## v0.dev Prompt
+
+```text
+Create a polished first prototype for Taru, a self-hosted media server admin
+console. Taru should feel like a quiet private media cellar: refined,
+preservation-focused, privacy-first, and operationally clear, not like a
+streaming storefront or SaaS landing page.
+
+Build an app shell with left navigation for Overview, Media Libraries, Catalog,
+Metadata, Playback & Transcode, Storage, Automation, Addons, Network, and
+Settings. Focus the prototype pages on Overview, Media Libraries, Library
+Detail, Metadata Providers, Jobs/Tasks, Playback & Transcode, and Settings.
+
+Use dense but calm admin UI patterns: tables, filters, tabs, status badges,
+detail drawers, safe error states, and concise actions. The Overview page is
+partially live via GET /admin/v1/overview for server/API version, storage,
+metadata-provider, runtime, and startup summaries. Use realistic mock data for
+job lists, session lists, event histories, hardware dashboards, settings,
+catalog repair, Addons, Automation, and Network until follow-up Admin API
+routes exist.
+
+Use Taru domain language: Media Library, Media Source, Media Item, Canonical
+Metadata, Provider Mapping, Local Inference, NFO, Playback Source Selection,
+Addon Sidecar, and Automation Provider. Do not show plaintext secrets, tokens,
+resolved provider keys, webhook secrets, addon tokens, unsafe local paths, or
+raw provider bodies. Keep hosted addon pages clearly external. Do not choose or
+describe a front-end framework; produce the UI prototype only.
+```
+
 ## Next Recommended Task
 
-Run AWC-040:
-
-- refine `V0_CONTEXT.md` with ADR 0027's `/admin/v1/*` boundary;
-- describe `GET /admin/v1/overview` as the first live Admin API data source;
-- make clear which first prototype pages are mock-only versus backed by current
-  routes;
-- keep generated UI context framework-neutral and admin-focused.
+AWC-060 is the next implementation task, but it is intentionally blocked until
+the user accepts a front-end stack and workspace location. Do not scaffold UI
+code before that decision.
 
 ## Constraints
 
