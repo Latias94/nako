@@ -1,0 +1,17 @@
+{
+  "slug": "catalog-hydration-lookup-deepening",
+  "status": "completed",
+  "goal": "M42 CatalogHydrationPort Lookup Deepening",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "workflow-level catalog hydration port",
+  "non_goals": [
+    "database schema changes",
+    "public API or SDK changes",
+    "metadata provider breadth",
+    "NFO round trip preservation",
+    "Android client implementation"
+  ]
+}

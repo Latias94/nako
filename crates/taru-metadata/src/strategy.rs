@@ -855,7 +855,7 @@ mod port_tests {
 
     use crate::{MetadataCandidate, MetadataFetchResult};
     use async_trait::async_trait;
-    use taru_catalog::{CatalogHydrationCommit, CatalogHydrationLookup, CatalogHydrationSnapshot};
+    use taru_catalog::CatalogHydrationSummary;
     use taru_core::{
         CanonicalMetadata, ExternalId, ExternalProvider, JobId, MediaItem, MediaItemId, MediaKind,
         MetadataField, MetadataFieldLock, MetadataProfile, MetadataSource, Result,
@@ -888,11 +888,10 @@ mod port_tests {
     struct FakeMetadataWorkflowPort {
         refresh_snapshot: MetadataRefreshSnapshot,
         refresh_commit: Mutex<Option<MetadataRefreshCommit>>,
-        hydration_commit: Mutex<Option<CatalogHydrationCommit>>,
+        hydration_requests: Mutex<Vec<(MediaItemId, MetadataSource)>>,
         load_refresh_calls: AtomicUsize,
         commit_refresh_calls: AtomicUsize,
-        load_hydration_calls: AtomicUsize,
-        commit_hydration_calls: AtomicUsize,
+        hydrate_catalog_calls: AtomicUsize,
     }
 
     #[async_trait]
@@ -925,56 +924,24 @@ mod port_tests {
 
     #[async_trait]
     impl CatalogHydrationPort for WorkflowPort {
-        async fn load_hydration_snapshot(
+        async fn hydrate_catalog(
             &self,
             item_id: MediaItemId,
-        ) -> Result<CatalogHydrationSnapshot> {
+            source: MetadataSource,
+        ) -> Result<CatalogHydrationSummary> {
             assert_eq!(self.0.refresh_snapshot.item.id, item_id);
-            self.0.load_hydration_calls.fetch_add(1, Ordering::SeqCst);
-            let item = self
-                .0
-                .refresh_commit
+            assert_eq!(source, MetadataSource::Provider(ExternalProvider::Tmdb));
+            self.0.hydrate_catalog_calls.fetch_add(1, Ordering::SeqCst);
+            self.0
+                .hydration_requests
                 .lock()
                 .unwrap()
-                .as_ref()
-                .map(|commit| commit.item.clone())
-                .unwrap_or_else(|| self.0.refresh_snapshot.item.clone());
-
-            Ok(CatalogHydrationSnapshot {
-                item,
-                sources: Vec::new(),
-                credits: Vec::new(),
-                genres: Vec::new(),
-                tags: Vec::new(),
-                collections: Vec::new(),
-                studios: Vec::new(),
+                .push((item_id, source));
+            Ok(CatalogHydrationSummary {
+                item_id,
+                search_indexed: true,
+                ..CatalogHydrationSummary::default()
             })
-        }
-
-        async fn load_hydration_lookup(
-            &self,
-            item: &MediaItem,
-            source: &MetadataSource,
-        ) -> Result<CatalogHydrationLookup> {
-            assert_eq!(item.id, self.0.refresh_snapshot.item.id);
-            assert_eq!(*source, MetadataSource::Provider(ExternalProvider::Tmdb));
-            Ok(CatalogHydrationLookup {
-                person_external_id_matches: Vec::new(),
-                person_name_matches: Vec::new(),
-                genre_name_source_matches: Vec::new(),
-                tag_name_source_matches: Vec::new(),
-                collection_external_id_matches: Vec::new(),
-                collection_name_source_matches: Vec::new(),
-                studio_external_id_matches: Vec::new(),
-                studio_name_source_matches: Vec::new(),
-                image_source_matches: Vec::new(),
-            })
-        }
-
-        async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()> {
-            self.0.commit_hydration_calls.fetch_add(1, Ordering::SeqCst);
-            *self.0.hydration_commit.lock().unwrap() = Some(commit);
-            Ok(())
         }
     }
 
@@ -1061,11 +1028,10 @@ mod port_tests {
                 }],
             },
             refresh_commit: Mutex::new(None),
-            hydration_commit: Mutex::new(None),
+            hydration_requests: Mutex::new(Vec::new()),
             load_refresh_calls: AtomicUsize::new(0),
             commit_refresh_calls: AtomicUsize::new(0),
-            load_hydration_calls: AtomicUsize::new(0),
-            commit_hydration_calls: AtomicUsize::new(0),
+            hydrate_catalog_calls: AtomicUsize::new(0),
         });
         let mut profile = MetadataProfile::default();
         profile.metadata_providers = vec![ExternalProvider::Tmdb];
@@ -1082,28 +1048,20 @@ mod port_tests {
             .unwrap();
 
         let refresh_commit = port.inner().refresh_commit.lock().unwrap().clone().unwrap();
-        let hydration_commit = port
-            .inner()
-            .hydration_commit
-            .lock()
-            .unwrap()
-            .clone()
-            .unwrap();
+        let hydration_requests = port.inner().hydration_requests.lock().unwrap().clone();
 
         assert_eq!(summary.item_id, item.id);
         assert_eq!(summary.provider, ExternalProvider::Tmdb);
         assert_eq!(summary.selected_provider, ExternalProvider::Tmdb);
         assert_eq!(refresh_commit.item.metadata.title, "Local Matrix");
         assert_eq!(refresh_commit.raw_response.provider_key, "603");
-        assert_eq!(hydration_commit.item_id, item.id);
-        assert_eq!(hydration_commit.search_document.item_id, item.id);
+        assert_eq!(
+            hydration_requests,
+            vec![(item.id, MetadataSource::Provider(ExternalProvider::Tmdb))]
+        );
         assert_eq!(port.inner().load_refresh_calls.load(Ordering::SeqCst), 1);
         assert_eq!(port.inner().commit_refresh_calls.load(Ordering::SeqCst), 1);
-        assert_eq!(port.inner().load_hydration_calls.load(Ordering::SeqCst), 1);
-        assert_eq!(
-            port.inner().commit_hydration_calls.load(Ordering::SeqCst),
-            1
-        );
+        assert_eq!(port.inner().hydrate_catalog_calls.load(Ordering::SeqCst), 1);
         assert_eq!(summary.attempted_providers.len(), 1);
         assert_eq!(provider_search_calls.load(Ordering::SeqCst), 0);
         assert_eq!(provider_fetch_calls.load(Ordering::SeqCst), 1);

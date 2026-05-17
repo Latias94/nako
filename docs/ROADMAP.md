@@ -723,10 +723,33 @@ Completed:
 - M41.4 validated focused gates and the workspace with 288 nextest tests
   passed.
 
-Recommended next goal after M41:
+### Catalog Hydration Lookup Deepening: M42
 
-- M42 `CatalogHydrationPort` lookup deepening, unless another correctness issue
-  is found first.
+Status: completed.
+
+This phase deepens the M39 catalog hydration seam:
+
+- `CatalogHydrationPort` should express a workflow-level hydrate operation;
+- snapshot, lookup, and commit internals should stay inside `taru-catalog`;
+- metadata and NFO workflow tests should not construct lookup match vectors;
+- existing catalog graph/search behavior remains unchanged;
+- database schema, public API, SDK, client, and provider breadth remain
+  unchanged.
+
+Completed:
+
+- M42.1 changed `CatalogHydrationPort` into a workflow-level hydrate
+  operation.
+- M42.2 narrowed metadata fake-port tests so they no longer model lookup
+  internals.
+- M42.3 validated focused catalog, metadata, and NFO gates plus the full
+  workspace.
+
+Recommended next goal after M42:
+
+- Review and either adopt or defer the proposed Android client foundation
+  workstream, or continue server-side playback/transcode seam deepening if
+  server architecture remains the priority.
 
 ## Workstream Split Direction
 

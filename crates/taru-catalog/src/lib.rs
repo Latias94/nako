@@ -25,7 +25,7 @@ pub struct CatalogHydrationSummary {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct CatalogHydrationSnapshot {
+struct CatalogHydrationSnapshot {
     pub item: MediaItem,
     pub sources: Vec<taru_core::MediaSource>,
     pub credits: Vec<(ItemCredit, Person)>,
@@ -36,7 +36,7 @@ pub struct CatalogHydrationSnapshot {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct CatalogHydrationLookup {
+struct CatalogHydrationLookup {
     pub person_external_id_matches: Vec<(ExternalId, Person)>,
     pub person_name_matches: Vec<(String, Person)>,
     pub genre_name_source_matches: Vec<(String, MetadataSource, Genre)>,
@@ -49,7 +49,7 @@ pub struct CatalogHydrationLookup {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct CatalogHydrationCommit {
+struct CatalogHydrationCommit {
     pub item_id: MediaItemId,
     pub replacement: CatalogItemGraphReplacement,
     pub search_document: SearchDocument,
@@ -57,18 +57,11 @@ pub struct CatalogHydrationCommit {
 
 #[async_trait]
 pub trait CatalogHydrationPort: Send + Sync {
-    async fn load_hydration_snapshot(
+    async fn hydrate_catalog(
         &self,
         item_id: MediaItemId,
-    ) -> Result<CatalogHydrationSnapshot>;
-
-    async fn load_hydration_lookup(
-        &self,
-        item: &MediaItem,
-        source: &MetadataSource,
-    ) -> Result<CatalogHydrationLookup>;
-
-    async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()>;
+        source: MetadataSource,
+    ) -> Result<CatalogHydrationSummary>;
 }
 
 #[async_trait]
@@ -76,197 +69,221 @@ impl<T> CatalogHydrationPort for T
 where
     T: CatalogRepository + MediaRepository + SearchIndex,
 {
-    async fn load_hydration_snapshot(
+    async fn hydrate_catalog(
         &self,
         item_id: MediaItemId,
-    ) -> Result<CatalogHydrationSnapshot> {
-        let item = self
-            .get_media_item(item_id)
+        source: MetadataSource,
+    ) -> Result<CatalogHydrationSummary> {
+        hydrate_item_catalog_with_repository(self, item_id, source).await
+    }
+}
+
+async fn load_hydration_snapshot<R>(
+    repository: &R,
+    item_id: MediaItemId,
+) -> Result<CatalogHydrationSnapshot>
+where
+    R: CatalogRepository + MediaRepository + SearchIndex,
+{
+    let item = repository
+        .get_media_item(item_id)
+        .await?
+        .ok_or_else(|| TaruError::NotFound {
+            entity: "media_item",
+            id: item_id.to_string(),
+        })?;
+    let sources = list_all_item_sources(repository, item.id).await?;
+    let mut credits = Vec::new();
+    for credit in repository.list_item_credits(item.id).await? {
+        let person = repository
+            .get_person(credit.person_id)
             .await?
             .ok_or_else(|| TaruError::NotFound {
-                entity: "media_item",
-                id: item_id.to_string(),
+                entity: "person",
+                id: credit.person_id.to_string(),
             })?;
-        let sources = list_all_item_sources(self, item.id).await?;
-        let mut credits = Vec::new();
-        for credit in self.list_item_credits(item.id).await? {
-            let person =
-                self.get_person(credit.person_id)
-                    .await?
-                    .ok_or_else(|| TaruError::NotFound {
-                        entity: "person",
-                        id: credit.person_id.to_string(),
-                    })?;
-            credits.push((credit, person));
-        }
+        credits.push((credit, person));
+    }
 
-        let mut genres = Vec::new();
-        for item_genre in self.list_item_genres(item.id).await? {
-            let genre =
-                self.get_genre(item_genre.genre_id)
-                    .await?
-                    .ok_or_else(|| TaruError::NotFound {
-                        entity: "genre",
-                        id: item_genre.genre_id.to_string(),
-                    })?;
-            genres.push((item_genre, genre));
-        }
+    let mut genres = Vec::new();
+    for item_genre in repository.list_item_genres(item.id).await? {
+        let genre = repository
+            .get_genre(item_genre.genre_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "genre",
+                id: item_genre.genre_id.to_string(),
+            })?;
+        genres.push((item_genre, genre));
+    }
 
-        let mut tags = Vec::new();
-        for item_tag in self.list_item_tags(item.id).await? {
-            let tag = self
+    let mut tags = Vec::new();
+    for item_tag in repository.list_item_tags(item.id).await? {
+        let tag =
+            repository
                 .get_tag(item_tag.tag_id)
                 .await?
                 .ok_or_else(|| TaruError::NotFound {
                     entity: "tag",
                     id: item_tag.tag_id.to_string(),
                 })?;
-            tags.push((item_tag, tag));
-        }
-
-        let mut collections = Vec::new();
-        for collection_item in self.list_item_collections(item.id).await? {
-            let collection = self
-                .get_collection(collection_item.collection_id)
-                .await?
-                .ok_or_else(|| TaruError::NotFound {
-                    entity: "collection",
-                    id: collection_item.collection_id.to_string(),
-                })?;
-            collections.push((collection_item, collection));
-        }
-
-        let mut studios = Vec::new();
-        for item_studio in self.list_item_studios(item.id).await? {
-            let studio = self
-                .get_studio(item_studio.studio_id)
-                .await?
-                .ok_or_else(|| TaruError::NotFound {
-                    entity: "studio",
-                    id: item_studio.studio_id.to_string(),
-                })?;
-            studios.push((item_studio, studio));
-        }
-
-        Ok(CatalogHydrationSnapshot {
-            item,
-            sources,
-            credits,
-            genres,
-            tags,
-            collections,
-            studios,
-        })
+        tags.push((item_tag, tag));
     }
 
-    async fn load_hydration_lookup(
-        &self,
-        item: &MediaItem,
-        source: &MetadataSource,
-    ) -> Result<CatalogHydrationLookup> {
-        let mut lookup = CatalogHydrationLookup {
-            person_external_id_matches: Vec::new(),
-            person_name_matches: Vec::new(),
-            genre_name_source_matches: Vec::new(),
-            tag_name_source_matches: Vec::new(),
-            collection_external_id_matches: Vec::new(),
-            collection_name_source_matches: Vec::new(),
-            studio_external_id_matches: Vec::new(),
-            studio_name_source_matches: Vec::new(),
-            image_source_matches: Vec::new(),
-        };
+    let mut collections = Vec::new();
+    for collection_item in repository.list_item_collections(item.id).await? {
+        let collection = repository
+            .get_collection(collection_item.collection_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "collection",
+                id: collection_item.collection_id.to_string(),
+            })?;
+        collections.push((collection_item, collection));
+    }
 
-        for credit in &item.metadata.credits {
-            if let Some(name) = normalized_label(&credit.name) {
-                if let Some(person) = self.find_person_by_name(&name).await? {
-                    lookup.person_name_matches.push((name, person));
-                }
-            }
-            for external_id in non_empty_external_ids(&credit.external_ids) {
-                if let Some(person) = self.find_person_by_external_id(external_id).await? {
-                    lookup
-                        .person_external_id_matches
-                        .push((external_id.clone(), person));
-                }
+    let mut studios = Vec::new();
+    for item_studio in repository.list_item_studios(item.id).await? {
+        let studio = repository
+            .get_studio(item_studio.studio_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "studio",
+                id: item_studio.studio_id.to_string(),
+            })?;
+        studios.push((item_studio, studio));
+    }
+
+    Ok(CatalogHydrationSnapshot {
+        item,
+        sources,
+        credits,
+        genres,
+        tags,
+        collections,
+        studios,
+    })
+}
+
+async fn load_hydration_lookup<R>(
+    repository: &R,
+    item: &MediaItem,
+    source: &MetadataSource,
+) -> Result<CatalogHydrationLookup>
+where
+    R: CatalogRepository + MediaRepository + SearchIndex,
+{
+    let mut lookup = CatalogHydrationLookup {
+        person_external_id_matches: Vec::new(),
+        person_name_matches: Vec::new(),
+        genre_name_source_matches: Vec::new(),
+        tag_name_source_matches: Vec::new(),
+        collection_external_id_matches: Vec::new(),
+        collection_name_source_matches: Vec::new(),
+        studio_external_id_matches: Vec::new(),
+        studio_name_source_matches: Vec::new(),
+        image_source_matches: Vec::new(),
+    };
+
+    for credit in &item.metadata.credits {
+        if let Some(name) = normalized_label(&credit.name) {
+            if let Some(person) = repository.find_person_by_name(&name).await? {
+                lookup.person_name_matches.push((name, person));
             }
         }
-
-        for name in normalized_unique_labels(&item.metadata.genres) {
-            if let Some(genre) = self.find_genre_by_name_source(&name, source).await? {
+        for external_id in non_empty_external_ids(&credit.external_ids) {
+            if let Some(person) = repository.find_person_by_external_id(external_id).await? {
                 lookup
-                    .genre_name_source_matches
-                    .push((name, source.clone(), genre));
+                    .person_external_id_matches
+                    .push((external_id.clone(), person));
             }
         }
-        for name in normalized_unique_labels(&item.metadata.tags) {
-            if let Some(tag) = self.find_tag_by_name_source(&name, source).await? {
-                lookup
-                    .tag_name_source_matches
-                    .push((name, source.clone(), tag));
-            }
-        }
+    }
 
-        for collection_ref in &item.metadata.collections {
-            if let Some(name) = normalized_label(&collection_ref.name) {
-                if let Some(collection) = self.find_collection_by_name_source(&name, source).await?
-                {
-                    lookup
-                        .collection_name_source_matches
-                        .push((name, source.clone(), collection));
-                }
-            }
-            for external_id in non_empty_external_ids(&collection_ref.external_ids) {
-                if let Some(collection) = self.find_collection_by_external_id(external_id).await? {
-                    lookup
-                        .collection_external_id_matches
-                        .push((external_id.clone(), collection));
-                }
-            }
+    for name in normalized_unique_labels(&item.metadata.genres) {
+        if let Some(genre) = repository.find_genre_by_name_source(&name, source).await? {
+            lookup
+                .genre_name_source_matches
+                .push((name, source.clone(), genre));
         }
-
-        for studio_ref in &item.metadata.studios {
-            if let Some(name) = normalized_label(&studio_ref.name) {
-                if let Some(studio) = self.find_studio_by_name_source(&name, source).await? {
-                    lookup
-                        .studio_name_source_matches
-                        .push((name, source.clone(), studio));
-                }
-            }
-            for external_id in non_empty_external_ids(&studio_ref.external_ids) {
-                if let Some(studio) = self.find_studio_by_external_id(external_id).await? {
-                    lookup
-                        .studio_external_id_matches
-                        .push((external_id.clone(), studio));
-                }
-            }
+    }
+    for name in normalized_unique_labels(&item.metadata.tags) {
+        if let Some(tag) = repository.find_tag_by_name_source(&name, source).await? {
+            lookup
+                .tag_name_source_matches
+                .push((name, source.clone(), tag));
         }
+    }
 
-        let owner = ImageOwner::Item(item.id);
-        for image_ref in &item.metadata.images {
-            let Some(source_uri) = normalized_label(&image_ref.uri) else {
-                continue;
-            };
-            if let Some(image) = self
-                .find_image_asset_by_source(&owner, &image_ref.kind, &source_uri)
+    for collection_ref in &item.metadata.collections {
+        if let Some(name) = normalized_label(&collection_ref.name) {
+            if let Some(collection) = repository
+                .find_collection_by_name_source(&name, source)
                 .await?
             {
-                lookup.image_source_matches.push((
-                    owner.clone(),
-                    image_ref.kind.clone(),
-                    source_uri,
-                    image,
-                ));
+                lookup
+                    .collection_name_source_matches
+                    .push((name, source.clone(), collection));
             }
         }
-
-        Ok(lookup)
+        for external_id in non_empty_external_ids(&collection_ref.external_ids) {
+            if let Some(collection) = repository
+                .find_collection_by_external_id(external_id)
+                .await?
+            {
+                lookup
+                    .collection_external_id_matches
+                    .push((external_id.clone(), collection));
+            }
+        }
     }
 
-    async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()> {
-        self.replace_item_catalog_graph(commit.item_id, &commit.replacement)
-            .await?;
-        self.upsert(commit.search_document).await
+    for studio_ref in &item.metadata.studios {
+        if let Some(name) = normalized_label(&studio_ref.name) {
+            if let Some(studio) = repository.find_studio_by_name_source(&name, source).await? {
+                lookup
+                    .studio_name_source_matches
+                    .push((name, source.clone(), studio));
+            }
+        }
+        for external_id in non_empty_external_ids(&studio_ref.external_ids) {
+            if let Some(studio) = repository.find_studio_by_external_id(external_id).await? {
+                lookup
+                    .studio_external_id_matches
+                    .push((external_id.clone(), studio));
+            }
+        }
     }
+
+    let owner = ImageOwner::Item(item.id);
+    for image_ref in &item.metadata.images {
+        let Some(source_uri) = normalized_label(&image_ref.uri) else {
+            continue;
+        };
+        if let Some(image) = repository
+            .find_image_asset_by_source(&owner, &image_ref.kind, &source_uri)
+            .await?
+        {
+            lookup.image_source_matches.push((
+                owner.clone(),
+                image_ref.kind.clone(),
+                source_uri,
+                image,
+            ));
+        }
+    }
+
+    Ok(lookup)
+}
+
+async fn commit_hydration<R>(repository: &R, commit: CatalogHydrationCommit) -> Result<()>
+where
+    R: CatalogRepository + MediaRepository + SearchIndex,
+{
+    repository
+        .replace_item_catalog_graph(commit.item_id, &commit.replacement)
+        .await?;
+    repository.upsert(commit.search_document).await
 }
 
 pub async fn hydrate_item_catalog<R>(
@@ -277,8 +294,19 @@ pub async fn hydrate_item_catalog<R>(
 where
     R: CatalogHydrationPort,
 {
-    let snapshot = port.load_hydration_snapshot(item_id).await?;
-    let lookup = port.load_hydration_lookup(&snapshot.item, &source).await?;
+    port.hydrate_catalog(item_id, source).await
+}
+
+async fn hydrate_item_catalog_with_repository<R>(
+    repository: &R,
+    item_id: MediaItemId,
+    source: MetadataSource,
+) -> Result<CatalogHydrationSummary>
+where
+    R: CatalogRepository + MediaRepository + SearchIndex,
+{
+    let snapshot = load_hydration_snapshot(repository, item_id).await?;
+    let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
     let item = &snapshot.item;
     let mut summary = CatalogHydrationSummary {
         item_id,
@@ -294,11 +322,14 @@ where
     hydrate_studios(&lookup, &item, &source, &mut summary, &mut replacement)?;
     hydrate_images(&lookup, &item, &mut summary, &mut replacement)?;
     let search_document = search_document_from_graph(item, &snapshot, &replacement);
-    port.commit_hydration(CatalogHydrationCommit {
-        item_id: item.id,
-        replacement,
-        search_document,
-    })
+    commit_hydration(
+        repository,
+        CatalogHydrationCommit {
+            item_id: item.id,
+            replacement,
+            search_document,
+        },
+    )
     .await?;
     summary.search_indexed = true;
 
@@ -838,163 +869,57 @@ mod tests {
 
     #[derive(Debug)]
     struct FakeCatalogHydrationPort {
-        snapshot: CatalogHydrationSnapshot,
-        lookup: CatalogHydrationLookup,
-        committed: std::sync::Mutex<Option<CatalogHydrationCommit>>,
+        expected_item_id: MediaItemId,
+        expected_source: MetadataSource,
+        summary: CatalogHydrationSummary,
+        requests: std::sync::Mutex<Vec<(MediaItemId, MetadataSource)>>,
     }
 
     #[async_trait]
     impl CatalogHydrationPort for FakeCatalogHydrationPort {
-        async fn load_hydration_snapshot(
+        async fn hydrate_catalog(
             &self,
             item_id: MediaItemId,
-        ) -> Result<CatalogHydrationSnapshot> {
-            assert_eq!(self.snapshot.item.id, item_id);
-            Ok(self.snapshot.clone())
-        }
-
-        async fn load_hydration_lookup(
-            &self,
-            item: &MediaItem,
-            source: &MetadataSource,
-        ) -> Result<CatalogHydrationLookup> {
-            assert_eq!(self.snapshot.item.id, item.id);
-            assert_eq!(*source, MetadataSource::Provider(ExternalProvider::Tmdb));
-            Ok(self.lookup.clone())
-        }
-
-        async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()> {
-            *self.committed.lock().unwrap() = Some(commit);
-            Ok(())
+            source: MetadataSource,
+        ) -> Result<CatalogHydrationSummary> {
+            assert_eq!(self.expected_item_id, item_id);
+            assert_eq!(self.expected_source, source);
+            self.requests.lock().unwrap().push((item_id, source));
+            Ok(self.summary.clone())
         }
     }
 
     #[tokio::test]
     async fn hydration_uses_workflow_port_without_sqlite() {
-        let item = MediaItem {
-            id: MediaItemId::new(),
-            kind: MediaKind::Movie,
-            parent_id: None,
-            metadata: CanonicalMetadata {
-                title: "The Matrix".to_owned(),
-                overview: Some("A hacker discovers reality.".to_owned()),
-                genres: vec!["Action".to_owned(), "Action".to_owned()],
-                tags: vec!["cyberpunk".to_owned()],
-                credits: vec![Credit {
-                    name: "Keanu Reeves".to_owned(),
-                    role: CreditRole::Actor,
-                    character: Some("Neo".to_owned()),
-                    order: Some(0),
-                    external_ids: vec![ExternalId {
-                        provider: ExternalProvider::Tmdb,
-                        value: "6384".to_owned(),
-                    }],
-                }],
-                images: vec![ImageRef {
-                    kind: ImageKind::Poster,
-                    uri: "https://image.example/poster.jpg".to_owned(),
-                    provider: ExternalProvider::Tmdb,
-                    width: Some(1000),
-                    height: Some(1500),
-                    language: Some("en".to_owned()),
-                }],
-                external_ids: vec![ExternalId {
-                    provider: ExternalProvider::Tmdb,
-                    value: "603".to_owned(),
-                }],
-                ..CanonicalMetadata::default()
-            },
-        };
-        let source = MediaSource {
-            id: MediaSourceId::new(),
-            library_id: LibraryId::new(),
-            item_id: item.id,
-            locator: "local:///Movies/The Matrix (1999).mkv".to_owned(),
-            file_name: "The Matrix (1999).mkv".to_owned(),
-            size_bytes: Some(1),
-            fingerprint: None,
-        };
-        let existing_person = Person {
-            id: PersonId::new(),
-            name: "Keanu Reeves".to_owned(),
-            sort_name: None,
-            overview: None,
-            external_ids: Vec::new(),
-        };
-        let existing_image = ImageAsset {
-            id: ImageAssetId::new(),
-            owner: ImageOwner::Item(item.id),
-            kind: ImageKind::Poster,
-            source_uri: "https://image.example/poster.jpg".to_owned(),
-            provider: ExternalProvider::Tmdb,
-            cache_uri: Some("local:///cache/poster.jpg".to_owned()),
-            width: Some(800),
-            height: Some(1200),
-            language: None,
-            selected: true,
-            content_hash: Some("hash".to_owned()),
-            etag: Some("etag".to_owned()),
-        };
+        let item_id = MediaItemId::new();
+        let source = MetadataSource::Provider(ExternalProvider::Tmdb);
         let port = FakeCatalogHydrationPort {
-            snapshot: CatalogHydrationSnapshot {
-                item: item.clone(),
-                sources: vec![source],
-                credits: Vec::new(),
-                genres: Vec::new(),
-                tags: Vec::new(),
-                collections: Vec::new(),
-                studios: Vec::new(),
+            expected_item_id: item_id,
+            expected_source: source.clone(),
+            summary: CatalogHydrationSummary {
+                item_id,
+                people: 1,
+                credits: 1,
+                genres: 1,
+                tags: 1,
+                collections: 0,
+                studios: 0,
+                images: 1,
+                search_indexed: true,
             },
-            lookup: CatalogHydrationLookup {
-                person_external_id_matches: vec![(
-                    ExternalId {
-                        provider: ExternalProvider::Tmdb,
-                        value: "6384".to_owned(),
-                    },
-                    existing_person.clone(),
-                )],
-                person_name_matches: Vec::new(),
-                genre_name_source_matches: Vec::new(),
-                tag_name_source_matches: Vec::new(),
-                collection_external_id_matches: Vec::new(),
-                collection_name_source_matches: Vec::new(),
-                studio_external_id_matches: Vec::new(),
-                studio_name_source_matches: Vec::new(),
-                image_source_matches: vec![(
-                    ImageOwner::Item(item.id),
-                    ImageKind::Poster,
-                    "https://image.example/poster.jpg".to_owned(),
-                    existing_image.clone(),
-                )],
-            },
-            committed: std::sync::Mutex::new(None),
+            requests: std::sync::Mutex::new(Vec::new()),
         };
 
-        let summary = hydrate_item_catalog(
-            &port,
-            item.id,
-            MetadataSource::Provider(ExternalProvider::Tmdb),
-        )
-        .await
-        .unwrap();
-        let commit = port.committed.lock().unwrap().clone().unwrap();
+        let summary = hydrate_item_catalog(&port, item_id, source.clone())
+            .await
+            .unwrap();
+        let requests = port.requests.lock().unwrap().clone();
 
+        assert_eq!(summary.item_id, item_id);
         assert_eq!(summary.credits, 1);
         assert_eq!(summary.genres, 1);
         assert_eq!(summary.images, 1);
-        assert_eq!(commit.item_id, item.id);
-        assert_eq!(commit.replacement.people[0].id, existing_person.id);
-        assert_eq!(
-            commit.replacement.images[0].cache_uri,
-            Some("local:///cache/poster.jpg".to_owned())
-        );
-        assert!(commit.search_document.body.contains("Keanu Reeves"));
-        assert!(
-            commit
-                .search_document
-                .facets
-                .contains(&"genre:Action".to_owned())
-        );
+        assert_eq!(requests, vec![(item_id, source)]);
     }
 
     #[tokio::test]

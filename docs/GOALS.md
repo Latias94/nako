@@ -26,11 +26,53 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M42
-`CatalogHydrationPort` lookup deepening, unless another correctness issue is
-found first.
+No active implementation goal. Recommended next goal: choose between reviewing
+the proposed Android client foundation workstream or continuing server-side
+playback/transcode seam deepening.
 
 ## Completed Goals
+
+### M42: CatalogHydrationPort Lookup Deepening
+
+Status: completed.
+
+Objective:
+
+- Deepen the catalog hydration seam by making callers request hydration as one
+  workflow operation.
+- Hide snapshot, lookup, and commit implementation details from non-catalog
+  adapters and fake tests.
+- Preserve existing catalog graph and search projection behavior.
+
+Deliverables:
+
+- `CatalogHydrationPort` exposes a summary-returning hydration workflow.
+- Non-catalog crates no longer import `CatalogHydrationLookup`,
+  `CatalogHydrationSnapshot`, or `CatalogHydrationCommit`.
+- Metadata fake tests prove hydration requests without constructing catalog
+  lookup vectors.
+- The M42 workstream records evidence and follow-on tasks.
+
+Non-goals:
+
+- No database schema changes.
+- No public HTTP API, SDK, CLI, or license-boundary changes.
+- No provider breadth or NFO round-trip work.
+- No Android client implementation.
+
+Evidence:
+
+- [catalog-hydration-lookup-deepening workstream]
+  (workstreams/catalog-hydration-lookup-deepening/README.md) records design,
+  task ledger, milestones, evidence, and closeout.
+- `CatalogHydrationPort` now exposes `hydrate_catalog`.
+- `CatalogHydrationSnapshot`, `CatalogHydrationLookup`, and
+  `CatalogHydrationCommit` remain internal to `taru-catalog`.
+- Metadata fake-port tests no longer construct lookup vectors.
+- Existing catalog graph/search behavior still passes.
+- Close-out validation: `cargo fmt --all -- --check`, focused
+  catalog/metadata/NFO gates, `cargo check --workspace --tests`, and
+  `cargo nextest run --workspace --no-fail-fast` with 288 tests passed.
 
 ### M41: Durable Job Recovery and Abort Semantics
 

@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [catalog-hydration-lookup-deepening](catalog-hydration-lookup-deepening/README.md):
+  completed M42 catalog hydration seam work, covering a workflow-level
+  `CatalogHydrationPort`, hidden lookup internals, and narrower metadata/NFO
+  test surfaces without public API or schema changes.
 - [durable-job-recovery](durable-job-recovery/README.md): completed M41 durable
   job recovery work, covering startup recovery for unfinished queued/running
   jobs, server startup reporting, and removal of an unused old catalog search
