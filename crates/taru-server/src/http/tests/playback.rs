@@ -826,6 +826,12 @@ async fn missing_source_probe_returns_404() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        taru_api::ClientErrorCode::from_code(&error.code),
+        Some(taru_api::ClientErrorCode::NotFound)
+    );
+    assert!(error.message.contains("not found"));
 }
 
 #[tokio::test]
@@ -853,7 +859,7 @@ async fn paginated_routes_echo_page_info_and_reject_large_limits() {
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     let error = body_json::<ErrorResponse>(response).await;
-    assert_eq!(error.code, "invalid_input");
+    assert_eq!(error.code, taru_api::ClientErrorCode::InvalidInput.as_str());
     assert!(
         error
             .message

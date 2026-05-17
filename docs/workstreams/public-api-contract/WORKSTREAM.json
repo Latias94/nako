@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "slug": "public-api-contract",
+  "title": "Public API Contract Hardening",
+  "status": "completed",
+  "updated": "2026-05-17",
+  "scope_kind": "execution",
+  "problem": "Taru has public client DTOs, but API version identity, error code vocabulary, pagination/envelope compatibility, and public vs internal route promises are not yet hardened as a stable HTTP contract.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/public-api-contract/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/public-api-contract/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/public-api-contract/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo nextest run --workspace --no-fail-fast",
+    "cargo tree -p taru-client-protocol",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/api/HTTP_API.md",
+    "crates/taru-client-protocol/src/lib.rs",
+    "crates/taru-api/src/lib.rs",
+    "crates/taru-server/src/http/error.rs",
+    "crates/taru-server/src/http/query.rs",
+    "crates/taru-server/src/http/system.rs",
+    "crates/taru-server/src/http/tests"
+  ],
+  "adr_refs": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "M30 is complete. Split OpenAPI, SDK generation, auth, and route path/header version negotiation into follow-ons unless they become necessary for the next concrete client contract goal."
+  }
+}

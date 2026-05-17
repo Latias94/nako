@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use taru_api::ErrorResponse;
+use taru_api::{ClientErrorCode, ErrorResponse};
 use taru_core::TaruError;
 use tracing::{error, warn};
 
@@ -22,7 +22,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = status_for_error(&self.0);
         let body = ErrorResponse {
-            code: code_for_error(&self.0).to_owned(),
+            code: code_for_error(&self.0).into(),
             message: public_message(&self.0),
         };
 
@@ -55,29 +55,33 @@ fn status_for_error(error: &TaruError) -> StatusCode {
     }
 }
 
-fn code_for_error(error: &TaruError) -> &'static str {
+fn code_for_error(error: &TaruError) -> ClientErrorCode {
     match error {
-        TaruError::InvalidInput { .. } => "invalid_input",
-        TaruError::NotFound { .. } => "not_found",
-        TaruError::Conflict { .. } => "conflict",
-        TaruError::Unsupported(_) => "unsupported",
-        TaruError::Provider { provider, .. } if is_ffmpeg_provider(provider) => "ffmpeg_error",
-        TaruError::Provider { .. } => "provider_error",
+        TaruError::InvalidInput { .. } => ClientErrorCode::InvalidInput,
+        TaruError::NotFound { .. } => ClientErrorCode::NotFound,
+        TaruError::Conflict { .. } => ClientErrorCode::Conflict,
+        TaruError::Unsupported(_) => ClientErrorCode::Unsupported,
+        TaruError::Provider { provider, .. } if is_ffmpeg_provider(provider) => {
+            ClientErrorCode::FfmpegError
+        }
+        TaruError::Provider { .. } => ClientErrorCode::ProviderError,
         TaruError::Storage { message, .. } if is_staging_budget_exhausted(message) => {
-            "staging_budget_exhausted"
+            ClientErrorCode::StagingBudgetExhausted
         }
         TaruError::Storage { message, .. } if is_staging_validation_mismatch(message) => {
-            "staging_validation_mismatch"
+            ClientErrorCode::StagingValidationMismatch
         }
-        TaruError::Storage { message, .. } if is_storage_timeout(message) => "storage_timeout",
+        TaruError::Storage { message, .. } if is_storage_timeout(message) => {
+            ClientErrorCode::StorageTimeout
+        }
         TaruError::Storage { message, .. } if is_storage_unauthorized(message) => {
-            "storage_unauthorized"
+            ClientErrorCode::StorageUnauthorized
         }
         TaruError::Storage { message, .. } if is_storage_rate_limited(message) => {
-            "storage_rate_limited"
+            ClientErrorCode::StorageRateLimited
         }
-        TaruError::Storage { .. } => "storage_error",
-        TaruError::Database { .. } => "database_error",
+        TaruError::Storage { .. } => ClientErrorCode::StorageError,
+        TaruError::Database { .. } => ClientErrorCode::DatabaseError,
     }
 }
 

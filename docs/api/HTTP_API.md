@@ -17,6 +17,61 @@ inspection envelopes, and error envelopes for current server routes.
 - Error responses use a stable JSON envelope.
 - Job responses include both durable input and generated summary when present.
 
+## API Version And Compatibility
+
+The public client API contract is currently `v1`. `GET /health` reports this
+version in the `version` field, and every HTTP response includes:
+
+```text
+x-taru-api-version: v1
+```
+
+The health response body is:
+
+```json
+{
+  "status": "ok",
+  "version": "v1"
+}
+```
+
+`v1` is the compatibility promise for public client routes backed by
+`taru-client-protocol`. The first public route set is:
+
+```text
+GET  /health
+GET  /libraries?limit=50&offset=0
+GET  /libraries/{library_id}/sources?limit=50&offset=0
+GET  /items?limit=50&offset=0
+GET  /items/{item_id}
+GET  /items/{item_id}/credits
+GET  /items/{item_id}/images
+GET  /people?limit=50&offset=0
+GET  /people/{person_id}
+GET  /people/{person_id}/items?limit=50&offset=0
+GET  /tags?limit=50&offset=0
+GET  /tags/{tag_id}/items?limit=50&offset=0
+GET  /genres?limit=50&offset=0
+GET  /genres/{genre_id}/items?limit=50&offset=0
+GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
+GET  /sources/{source_id}/probe
+GET  /sources/{source_id}/playback/decision
+GET  /sources/{source_id}/stream
+HEAD /sources/{source_id}/stream
+GET  /sources/{source_id}/stream/remux
+GET  /sources/{source_id}/stream/hls/playlist.m3u8
+GET  /playback/sessions/{session_id}
+POST /playback/sessions/{session_id}/cancel
+GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
+```
+
+Server-admin/internal routes may reuse the same baseline error envelope, but
+their DTOs and diagnostics are not part of this first public client
+compatibility promise. That includes storage diagnostics, jobs, metadata
+provider diagnostics, raw metadata cache inspection, webhook administration,
+automation administration, addon administration, ingestion failure inspection,
+and metadata maintenance internals.
+
 ## Pagination
 
 List routes accept:
@@ -73,8 +128,10 @@ storage_rate_limited
 database_error
 ```
 
-Database, storage, and provider errors return safe public messages. Detailed
-diagnostics belong in structured logs.
+These codes are owned by `taru-client-protocol` as the public v1 vocabulary.
+Clients should branch on `code`, not parse `message`. Database, storage, and
+provider errors return safe public messages. Detailed diagnostics belong in
+structured logs or explicit admin/internal diagnostic routes.
 
 ## Job Envelope
 

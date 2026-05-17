@@ -5,6 +5,7 @@ mod catalog;
 pub use catalog::*;
 
 pub const CLIENT_PROTOCOL_VERSION: &str = "v1";
+pub const API_VERSION_HEADER: &str = "x-taru-api-version";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HealthResponse {
@@ -16,6 +17,85 @@ pub struct HealthResponse {
 pub struct ErrorResponse {
     pub code: String,
     pub message: String,
+}
+
+impl ErrorResponse {
+    #[must_use]
+    pub fn new(code: ClientErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code: code.as_str().to_owned(),
+            message: message.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientErrorCode {
+    InvalidInput,
+    NotFound,
+    Conflict,
+    Unsupported,
+    ProviderError,
+    StorageError,
+    FfmpegError,
+    StagingBudgetExhausted,
+    StagingValidationMismatch,
+    StorageTimeout,
+    StorageUnauthorized,
+    StorageRateLimited,
+    DatabaseError,
+}
+
+impl ClientErrorCode {
+    pub const ALL: &'static [Self] = &[
+        Self::InvalidInput,
+        Self::NotFound,
+        Self::Conflict,
+        Self::Unsupported,
+        Self::ProviderError,
+        Self::StorageError,
+        Self::FfmpegError,
+        Self::StagingBudgetExhausted,
+        Self::StagingValidationMismatch,
+        Self::StorageTimeout,
+        Self::StorageUnauthorized,
+        Self::StorageRateLimited,
+        Self::DatabaseError,
+    ];
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::InvalidInput => "invalid_input",
+            Self::NotFound => "not_found",
+            Self::Conflict => "conflict",
+            Self::Unsupported => "unsupported",
+            Self::ProviderError => "provider_error",
+            Self::StorageError => "storage_error",
+            Self::FfmpegError => "ffmpeg_error",
+            Self::StagingBudgetExhausted => "staging_budget_exhausted",
+            Self::StagingValidationMismatch => "staging_validation_mismatch",
+            Self::StorageTimeout => "storage_timeout",
+            Self::StorageUnauthorized => "storage_unauthorized",
+            Self::StorageRateLimited => "storage_rate_limited",
+            Self::DatabaseError => "database_error",
+        }
+    }
+
+    #[must_use]
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|candidate| candidate.as_str() == code)
+    }
+}
+
+impl From<ClientErrorCode> for String {
+    fn from(value: ClientErrorCode) -> Self {
+        value.as_str().to_owned()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -57,10 +137,27 @@ mod tests {
         let page_json = serde_json::to_value(page).unwrap();
 
         assert_eq!(health_json["version"], "v1");
+        assert_eq!(API_VERSION_HEADER, "x-taru-api-version");
         assert_eq!(error_json["code"], "not_found");
         assert_eq!(page_json["limit"], 50);
         assert_eq!(page_json["offset"], 100);
         assert_eq!(page_json["returned"], 3);
+    }
+
+    #[test]
+    fn public_error_codes_are_stable_wire_values() {
+        let response = ErrorResponse::new(ClientErrorCode::StorageTimeout, "storage timed out");
+        let response_json = serde_json::to_value(&response).unwrap();
+        let code_json = serde_json::to_value(ClientErrorCode::StorageTimeout).unwrap();
+
+        assert_eq!(response.code, "storage_timeout");
+        assert_eq!(response_json["code"], "storage_timeout");
+        assert_eq!(code_json, "storage_timeout");
+        assert_eq!(
+            ClientErrorCode::from_code("storage_timeout"),
+            Some(ClientErrorCode::StorageTimeout)
+        );
+        assert_eq!(ClientErrorCode::from_code("server_stack_trace"), None);
     }
 
     #[test]

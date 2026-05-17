@@ -26,9 +26,36 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is selected after M29 closeout.
+No active implementation goal is selected after M30 closeout.
 
 ## Completed Goals
+
+### M30: Public API Versioning and Error Envelope Hardening
+
+Status: completed.
+
+Objective:
+
+- Stabilize the HTTP API version, error response, pagination/response
+  envelope, and compatibility rules that future Flutter, web, CLI, and SDK
+  clients will depend on.
+- Clarify Public Client API vs Server Admin/Internal API boundaries for error
+  codes, HTTP status mapping, version evolution, and deprecation policy.
+- Make catalog/library/playback/system public route success and failure
+  behavior test-visible and documentable.
+
+Evidence:
+
+- [public-api-contract workstream](workstreams/public-api-contract/README.md)
+- [ADR 0023](adr/0023-public-api-versioning-and-error-envelope-contract.md)
+- `taru-client-protocol` owns `ClientErrorCode`, `API_VERSION_HEADER`, and
+  the compatible `ErrorResponse` envelope constructor.
+- `taru-server` emits `x-taru-api-version: v1` and maps `TaruError` through
+  protocol-owned public error codes.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  254 tests passed, `cargo tree -p taru-client-protocol`, and
+  `git diff --check`.
 
 ### M29: Public Client API Contract and Catalog Browse Surface
 

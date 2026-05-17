@@ -403,8 +403,38 @@ Completed slices:
 
 Recommended next goal:
 
-- Select M30 based on the next product risk: API versioning/error envelopes,
-  client SDK generation, or a concrete client-driven contract slice.
+- M30 public API versioning and error envelope hardening.
+
+### Public API Contract Hardening: M30
+
+Status: completed.
+
+This phase hardens the HTTP compatibility contract that future Flutter, web,
+CLI, and SDK clients will depend on after M29's public DTO extraction:
+
+- define public API v1 version identity and compatibility rules;
+- move stable public error-code vocabulary into the permissive protocol
+  boundary;
+- keep the existing `code/message` error envelope compatible while making
+  codes test-visible and protocol-owned;
+- document Public Client API vs Server Admin/Internal API compatibility
+  boundaries;
+- validate catalog/library/playback/system success envelopes, pagination
+  metadata, and error status/code behavior with route-level tests.
+
+Completed slices:
+
+- M30.0 scope and contract baseline.
+- M30.1 protocol error vocabulary slice.
+- M30.2 server error mapping and version identity slice.
+- M30.3 public route contract evidence slice.
+- M30.4 closeout.
+
+Recommended next goal:
+
+- M31 should choose one concrete client-readiness risk: OpenAPI/SDK generation,
+  auth/session boundary design, or deeper public route coverage based on the
+  next client implementation need.
 
 ## Workstream Split Direction
 

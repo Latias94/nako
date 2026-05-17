@@ -14,8 +14,11 @@ async fn empty_sources_and_items_routes_work() {
     assert_eq!(sources.library.id, library_id.to_string());
     assert_eq!(sources.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
     assert_eq!(sources.page.offset, 0);
+    assert_eq!(sources.page.returned, 0);
     assert!(sources.sources.is_empty());
     assert_eq!(items.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
+    assert_eq!(items.page.offset, 0);
+    assert_eq!(items.page.returned, 0);
     assert!(items.items.is_empty());
 }
 

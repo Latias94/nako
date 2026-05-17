@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [public-api-contract](public-api-contract/README.md): completed M30 public
+  API versioning and error envelope hardening, covering public v1
+  compatibility, stable error code vocabulary, pagination/envelope rules, and
+  public route evidence for future Flutter, web, CLI, and SDK clients.
 - [public-client-api](public-client-api/README.md): completed M29 public
   client API contract work, covering the permissive protocol DTO expansion,
   browse/search/list/detail wire contracts, and playback decision response

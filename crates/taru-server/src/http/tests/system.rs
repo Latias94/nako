@@ -6,12 +6,32 @@ async fn health_and_libraries_routes_work() {
     let library_id = LibraryId::new();
     let router = test_router(temp.path().to_path_buf(), library_id).await;
 
-    let health = request_json::<HealthResponse>(&router, Method::GET, "/health").await;
+    let health_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health_response.status(), StatusCode::OK);
+    assert_eq!(
+        health_response.headers()[taru_api::API_VERSION_HEADER],
+        taru_api::API_VERSION
+    );
+    let health = body_json::<HealthResponse>(health_response).await;
     let libraries = request_json::<LibraryListResponse>(&router, Method::GET, "/libraries").await;
 
     assert_eq!(health.status, "ok");
+    assert_eq!(health.version, taru_api::API_VERSION);
     assert_eq!(libraries.libraries.len(), 1);
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
+    assert_eq!(libraries.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
+    assert_eq!(libraries.page.offset, 0);
+    assert_eq!(libraries.page.returned, 1);
 }
 
 #[tokio::test]
@@ -62,7 +82,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "staging disk budget exhausted: used=10, additional=4, max=12".to_owned(),
             },
             StatusCode::INSUFFICIENT_STORAGE,
-            "staging_budget_exhausted",
+            taru_api::ClientErrorCode::StagingBudgetExhausted,
             "staging disk budget exhausted",
         ),
         (
@@ -71,7 +91,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "staged WebDAV file did not match expected size".to_owned(),
             },
             StatusCode::BAD_GATEWAY,
-            "staging_validation_mismatch",
+            taru_api::ClientErrorCode::StagingValidationMismatch,
             "staged input validation failed",
         ),
         (
@@ -80,7 +100,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "WebDAV request failed: operation timed out".to_owned(),
             },
             StatusCode::GATEWAY_TIMEOUT,
-            "storage_timeout",
+            taru_api::ClientErrorCode::StorageTimeout,
             "storage backend timed out",
         ),
         (
@@ -89,7 +109,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "WebDAV GET returned 401 Unauthorized".to_owned(),
             },
             StatusCode::BAD_GATEWAY,
-            "storage_unauthorized",
+            taru_api::ClientErrorCode::StorageUnauthorized,
             "storage backend rejected credentials",
         ),
         (
@@ -98,7 +118,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "WebDAV GET returned 429 Too Many Requests".to_owned(),
             },
             StatusCode::SERVICE_UNAVAILABLE,
-            "storage_rate_limited",
+            taru_api::ClientErrorCode::StorageRateLimited,
             "storage backend rate limited the request",
         ),
         (
@@ -107,8 +127,16 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "hls runner failed".to_owned(),
             },
             StatusCode::BAD_GATEWAY,
-            "ffmpeg_error",
+            taru_api::ClientErrorCode::FfmpegError,
             "ffmpeg operation failed",
+        ),
+        (
+            TaruError::Database {
+                message: "raw sqlite path F:\\secret\\taru.db failed".to_owned(),
+            },
+            StatusCode::INTERNAL_SERVER_ERROR,
+            taru_api::ClientErrorCode::DatabaseError,
+            "database operation failed",
         ),
     ];
 
@@ -117,7 +145,8 @@ async fn api_errors_map_playback_storage_categories() {
 
         assert_eq!(response.status(), status);
         let body = body_json::<ErrorResponse>(response).await;
-        assert_eq!(body.code, code);
+        assert_eq!(body.code, code.as_str());
+        assert_eq!(taru_api::ClientErrorCode::from_code(&body.code), Some(code));
         assert_eq!(body.message, message);
     }
 }
