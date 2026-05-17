@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "slug": "typescript-sdk-package",
+  "title": "TypeScript SDK Package Hardening",
+  "status": "completed",
+  "updated": "2026-05-17",
+  "scope_kind": "execution",
+  "problem": "Taru can emit a TypeScript SDK scaffold but has no package skeleton or real TypeScript compile contract.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/typescript-sdk-package/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/typescript-sdk-package/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/typescript-sdk-package/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "npm run generate --prefix sdk/typescript",
+    "npm run check --prefix sdk/typescript",
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo check -p taru-api --examples",
+    "cargo nextest run -p taru-api --no-fail-fast",
+    "cargo nextest run --workspace --no-fail-fast",
+    "cargo tree -p taru-client-protocol",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-api/src/sdk.rs",
+    "crates/taru-api/examples/emit-typescript-sdk.rs",
+    "sdk/typescript/package.json",
+    "sdk/typescript/tsconfig.json",
+    "sdk/typescript/src/index.ts",
+    "docs/api/HTTP_API.md",
+    "docs/workstreams/typescript-sdk-package"
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "M34 is complete. Recommended follow-on: M35 Rust Client SDK Foundation. Split npm publishing, Dart/Flutter SDK, OpenAPI runtime serving, and concrete clients into separate goals."
+  }
+}

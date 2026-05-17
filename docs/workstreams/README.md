@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [typescript-sdk-package](typescript-sdk-package/README.md): completed M34
+  TypeScript SDK package hardening, covering the private `sdk/typescript`
+  package, local TypeScript tooling, strict compile gate, repeatable generation
+  command, and Rust generator/package sync test.
 - [sdk-client-scaffold](sdk-client-scaffold/README.md): completed M33 SDK
   generation and client integration scaffold, covering a dependency-free
   TypeScript/Web/CLI SDK generator, auth/error/version handling, public route
@@ -71,8 +75,9 @@ Split a workstream when one of these becomes true:
 
 Expected future splits:
 
-- client SDK generation or concrete Flutter/web app work after the public
-  protocol contract stabilizes.
+- npm/package publishing, Rust SDK, Dart/Flutter SDK, or concrete Flutter/web
+  app work after the public protocol and first TypeScript package contract
+  stabilize.
 
 Keep unsplit domains in `server-foundation` until a split reduces real
 coordination cost. Avoid splitting merely because a domain exists conceptually.

@@ -522,6 +522,33 @@ Recommended next goal:
 
 - M34 TypeScript SDK package hardening and contract compile check.
 
+### TypeScript SDK Package Hardening: M34
+
+Status: completed.
+
+This phase turns the M33 TypeScript SDK scaffold into a minimal compile-checked
+package:
+
+- add `sdk/typescript` as the private TypeScript SDK package location;
+- keep generated SDK source in `sdk/typescript/src/index.ts`;
+- add package-local TypeScript tooling and a committed lockfile;
+- add repeatable generation and strict compile scripts;
+- make `taru-api` test that the package entry matches the Rust generator;
+- keep npm publishing, Flutter/Dart SDK, Rust SDK, and concrete clients as
+  follow-ons.
+
+Completed slices:
+
+- M34.0 scope and boundary baseline.
+- M34.1 strict compile fix.
+- M34.2 package skeleton and generation command.
+- M34.3 contract sync checks.
+- M34.4 docs and closeout.
+
+Recommended next goal:
+
+- M35 Rust Client SDK Foundation.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split

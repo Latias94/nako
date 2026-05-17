@@ -183,7 +183,7 @@ export class TaruApiError extends Error {
 
 export class TaruClient {
   private readonly baseUrl: string;
-  private readonly bearerToken?: string;
+  private readonly bearerToken: string | undefined;
   private readonly fetchImpl: FetchLike;
 
   constructor(options: TaruClientOptions) {
@@ -324,7 +324,7 @@ export class TaruClient {
     return this.fetchImpl(this.url(path, options.query), { method, headers });
   }
 
-  private url(path: string, query?: QueryRecord): string {
+  private url(path: string, query?: QueryInput): string {
     const url = new URL(`${this.baseUrl}${path}`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value === undefined || value === null) {
@@ -369,14 +369,13 @@ export class TaruClient {
 }
 
 interface RequestOptions {
-  auth?: boolean;
-  headers?: HeadersInit;
-  query?: QueryRecord;
-  range?: string;
+  auth?: boolean | undefined;
+  headers?: HeadersInit | undefined;
+  query?: QueryInput | undefined;
+  range?: string | undefined;
 }
 
-type QueryValue = string | number | boolean | Array<string | number | boolean> | null | undefined;
-type QueryRecord = Record<string, QueryValue>;
+type QueryInput = object;
 "#;
 
 #[cfg(test)]
@@ -450,5 +449,17 @@ mod tests {
                 "SDK leaked forbidden term: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn typescript_package_entry_matches_generator_output() {
+        let generated = typescript_sdk().replace("\r\n", "\n");
+        let package_entry =
+            include_str!("../../../sdk/typescript/src/index.ts").replace("\r\n", "\n");
+
+        assert_eq!(
+            package_entry, generated,
+            "run `npm run generate --prefix sdk/typescript` to refresh the TypeScript SDK package entry"
+        );
     }
 }

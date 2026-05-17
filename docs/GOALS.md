@@ -26,13 +26,46 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M33 closeout.
+No active implementation goal is recorded in this file after M34 closeout.
 
 Next recommended implementation goal:
 
-- M34 TypeScript SDK package hardening and contract compile check.
+- M35 Rust Client SDK Foundation.
 
 ## Completed Goals
+
+### M34: TypeScript SDK Package Hardening and Contract Compile Check
+
+Status: completed.
+
+Objective:
+
+- Turn the M33 TypeScript SDK scaffold generator into a minimal package with a
+  repeatable generation command and a real TypeScript compile contract.
+- Prove the generated SDK can be consumed as a future Web/CLI client API
+  surface instead of only passing Rust-side string checks.
+- Keep package hardening separate from npm publishing, concrete UI clients,
+  Flutter/Dart SDK, and Rust SDK implementation.
+
+Evidence:
+
+- [typescript-sdk-package workstream](workstreams/typescript-sdk-package/README.md)
+- `sdk/typescript` is a private TypeScript SDK package with local TypeScript
+  tooling, strict `tsconfig.json`, committed generated `src/index.ts`, and
+  package README.
+- `npm run generate --prefix sdk/typescript` refreshes `src/index.ts` through
+  `cargo run -q --manifest-path ../../Cargo.toml -p taru-api --example
+  emit-typescript-sdk -- --output src/index.ts`.
+- `npm run check --prefix sdk/typescript` runs `tsc --noEmit` against the
+  generated SDK with strict settings.
+- `taru-api` has a sync test that compares the committed package entry with
+  `sdk::typescript_sdk()`.
+- Close-out validation: `npm run generate --prefix sdk/typescript`, `npm run
+  check --prefix sdk/typescript`, `cargo fmt --all -- --check`, `cargo check
+  --workspace --tests`, `cargo check -p taru-api --examples`, `cargo nextest
+  run -p taru-api --no-fail-fast` with 11 tests passed, `cargo nextest run
+  --workspace --no-fail-fast` with 264 tests passed, `cargo tree -p
+  taru-client-protocol`, and `git diff --check`.
 
 ### M33: SDK Generation and Client Integration Scaffold
 

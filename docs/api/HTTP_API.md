@@ -112,8 +112,21 @@ The generated scaffold includes:
 - `ErrorResponse` parsing into `TaruApiError`;
 - `limit`/`offset` pagination helpers and playback capability query helpers.
 
-The SDK scaffold is not a published npm package yet. Dart/Flutter SDK
-generation, package publishing, and UI clients are separate follow-ons.
+The generated SDK is also committed as a private TypeScript package under
+`sdk/typescript`:
+
+```bash
+npm run generate --prefix sdk/typescript
+npm run check --prefix sdk/typescript
+```
+
+The package uses a local TypeScript dev dependency and runs `tsc --noEmit`
+against the generated `src/index.ts`. `taru-api` tests compare the committed
+package entry with the Rust generator output so SDK drift is caught without
+requiring every Rust-focused test to run npm.
+
+The SDK package is not published to npm yet. Dart/Flutter SDK generation, Rust
+SDK implementation, package publishing, and UI clients are separate follow-ons.
 
 The scaffold is validated by `cargo check -p taru-api --examples` and
 `cargo nextest run -p taru-api --no-fail-fast`; full closeout also runs the
