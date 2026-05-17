@@ -107,6 +107,82 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `item detail decodes public detail response and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "item": {
+                        "id": "item 1",
+                        "kind": "movie",
+                        "parent_id": null,
+                        "metadata": {
+                          "title": "Arrival",
+                          "original_title": "Arrival",
+                          "overview": "A linguist works with alien visitors.",
+                          "release_date": "2016-11-11",
+                          "runtime_minutes": 116,
+                          "genres": ["Science Fiction"],
+                          "tags": ["first-contact"],
+                          "ratings": [{"source":"mpaa","value":"PG-13"}],
+                          "images": [{"kind":"poster","uri":"taru://artwork/poster-1","provider":"local"}]
+                        }
+                      },
+                      "sources": [
+                        {
+                          "id": "source-1",
+                          "library_id": "library-1",
+                          "item_id": "item 1",
+                          "locator": "local:///srv/media/arrival.mkv",
+                          "file_name": "arrival.mkv",
+                          "size_bytes": 42
+                        }
+                      ],
+                      "credits": [
+                        {"item_id":"item 1","person_id":"person-1","role":"director","character":null}
+                      ],
+                      "genres": [{"item_id":"item 1","genre_id":"genre-1"}],
+                      "tags": [{"item_id":"item 1","tag_id":"tag-1"}],
+                      "collections": [],
+                      "studios": [],
+                      "images": [
+                        {
+                          "id":"image-1",
+                          "owner":{"item":"item 1"},
+                          "kind":"poster",
+                          "source_uri":"https://example.test/poster.jpg",
+                          "provider":"local",
+                          "selected":true
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item 1",
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/items/item%201", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("Arrival", success.value.item.metadata.title)
+        assertEquals("A linguist works with alien visitors.", success.value.item.metadata.overview)
+        assertEquals(1, success.value.sources.size)
+        assertEquals(1, success.value.credits.size)
+        assertEquals(1, success.value.images.size)
+        assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `empty libraries response remains a successful empty state input`() = runBlocking {
         val transport = FakeTransport(
             ResponseStep(
@@ -156,6 +232,61 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `forbidden item detail maps to permission diagnostics`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 403,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    body = """{"code":"forbidden","message":"token secret-token cannot access item"}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.Forbidden, diagnostics.category)
+        assertEquals(403, diagnostics.statusCode)
+        assertEquals("forbidden", diagnostics.publicError?.code)
+        assertEquals("token <redacted> cannot access item", diagnostics.publicError?.message)
+        assertFalse(diagnostics.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `missing item detail maps to unavailable item diagnostics`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 404,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    body = """{"code":"not_found","message":"item is missing"}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.MissingItem, diagnostics.category)
+        assertEquals(404, diagnostics.statusCode)
+        assertEquals("not_found", diagnostics.publicError?.code)
+        assertEquals("item is missing", diagnostics.publicError?.message)
+    }
+
+    @Test
     fun `unreachable browse request returns sanitized diagnostics`() = runBlocking {
         val transport = FakeTransport(
             ThrowStep(IOException("failed with secret-token at C:\\media\\demo.mkv")),
@@ -174,6 +305,70 @@ class TaruBrowseClientTest {
         assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
         assertFalse(diagnostics.toString().contains("secret-token"))
         assertFalse(diagnostics.toString().contains("C:\\media"))
+    }
+
+    @Test
+    fun `unsupported api version on item detail is rejected`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    body = """{"item":{"id":"item-1","kind":"movie","metadata":{"title":"Arrival"}},"sources":[],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("v2", diagnostics.observedApiVersion)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+    }
+
+    @Test
+    fun `invalid item detail response maps to invalid response diagnostics`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok("""{"item":{"id":"item-1","kind":"movie","metadata":{}},"sources":[]}"""),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.InvalidResponse, diagnostics.category)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+        assertFalse(diagnostics.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `blank item detail request fails locally without transport`() = runBlocking {
+        val transport = FakeTransport()
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = " ",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        assertEquals(BrowseFailureCategory.MissingItem, (result as BrowseResult.Failure).diagnostics.category)
+        assertTrue(transport.requests.isEmpty())
     }
 
     @Test
@@ -201,6 +396,47 @@ class TaruBrowseClientTest {
         assertFalse(diagnostics.toString().contains("secret-token"))
         assertFalse(diagnostics.toString().contains("C:\\media"))
         assertFalse(diagnostics.toString().contains("ffmpeg.exe"))
+    }
+
+    @Test
+    fun `item detail uses active profile base url and token reference`() = runBlocking {
+        val repository = ServerProfileRepository()
+        val vault = InMemoryTokenVault()
+        val home = repository.upsertConnectedProfile(
+            displayName = "Home",
+            tokenReference = null,
+            result = successFor("http://home.example.test"),
+        )
+        vault.saveToken(home.tokenReference, "home-token")
+        val lab = repository.upsertConnectedProfile(
+            displayName = "Lab",
+            tokenReference = null,
+            result = successFor("http://lab.example.test"),
+        )
+        vault.saveToken(lab.tokenReference, "lab-token")
+        val transport = FakeTransport(
+            ResponseStep(ok(detailBody("lab-item"))),
+            ResponseStep(ok(detailBody("home-item"))),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val activeLab = repository.activeProfile() ?: error("active profile required")
+        client.itemDetail(activeLab, vault.readToken(activeLab.tokenReference).orEmpty(), "lab-item")
+        repository.switchActive(home.id)
+        val activeHome = repository.activeProfile() ?: error("active profile required")
+        client.itemDetail(activeHome, vault.readToken(activeHome.tokenReference).orEmpty(), "home-item")
+
+        assertEquals(
+            listOf(
+                "http://lab.example.test/items/lab-item",
+                "http://home.example.test/items/home-item",
+            ),
+            transport.requests.map { it.url },
+        )
+        assertEquals(
+            listOf("Bearer lab-token", "Bearer home-token"),
+            transport.requests.map { it.headers["Authorization"] },
+        )
     }
 
     @Test
@@ -272,6 +508,9 @@ class TaruBrowseClientTest {
             headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
             body = body,
         )
+
+    private fun detailBody(itemId: String): String =
+        """{"item":{"id":"$itemId","kind":"movie","metadata":{"title":"Arrival"}},"sources":[],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}"""
 }
 
 private sealed interface FakeStep

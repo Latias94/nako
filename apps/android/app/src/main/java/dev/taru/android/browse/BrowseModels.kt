@@ -4,6 +4,7 @@ import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 data class PageRequest(
     val limit: Int = 50,
@@ -49,6 +50,18 @@ data class ItemsResponse(
 )
 
 @Serializable
+data class ItemDetailResponse(
+    val item: MediaItemDto,
+    val sources: List<MediaSourceDto> = emptyList(),
+    val credits: List<ItemCreditDto> = emptyList(),
+    val genres: List<ItemGenreDto> = emptyList(),
+    val tags: List<ItemTagDto> = emptyList(),
+    val collections: List<CollectionItemDto> = emptyList(),
+    val studios: List<ItemStudioDto> = emptyList(),
+    val images: List<ImageAssetDto> = emptyList(),
+)
+
+@Serializable
 data class MediaItemDto(
     val id: String,
     val kind: String,
@@ -86,13 +99,94 @@ data class ContentRatingDto(
 data class ImageRefDto(
     val kind: String,
     val uri: String,
-    val provider: String? = null,
+    val provider: JsonElement? = null,
     val width: Int? = null,
     val height: Int? = null,
     val language: String? = null,
 )
 
+@Serializable
+data class MediaSourceDto(
+    val id: String,
+    @SerialName("library_id")
+    val libraryId: String = "",
+    @SerialName("item_id")
+    val itemId: String = "",
+    val locator: String = "",
+    @SerialName("file_name")
+    val fileName: String = "",
+    @SerialName("size_bytes")
+    val sizeBytes: Long? = null,
+    val fingerprint: String? = null,
+)
+
+@Serializable
+data class ItemCreditDto(
+    @SerialName("item_id")
+    val itemId: String = "",
+    @SerialName("person_id")
+    val personId: String = "",
+    val role: JsonElement? = null,
+    val character: String? = null,
+    @SerialName("sort_order")
+    val sortOrder: Int? = null,
+)
+
+@Serializable
+data class ItemGenreDto(
+    @SerialName("item_id")
+    val itemId: String = "",
+    @SerialName("genre_id")
+    val genreId: String = "",
+)
+
+@Serializable
+data class ItemTagDto(
+    @SerialName("item_id")
+    val itemId: String = "",
+    @SerialName("tag_id")
+    val tagId: String = "",
+)
+
+@Serializable
+data class CollectionItemDto(
+    @SerialName("collection_id")
+    val collectionId: String = "",
+    @SerialName("item_id")
+    val itemId: String = "",
+    @SerialName("sort_order")
+    val sortOrder: Int? = null,
+)
+
+@Serializable
+data class ItemStudioDto(
+    @SerialName("item_id")
+    val itemId: String = "",
+    @SerialName("studio_id")
+    val studioId: String = "",
+)
+
+@Serializable
+data class ImageAssetDto(
+    val id: String,
+    val owner: JsonElement? = null,
+    val kind: JsonElement? = null,
+    @SerialName("source_uri")
+    val sourceUri: String = "",
+    val provider: JsonElement? = null,
+    @SerialName("cache_uri")
+    val cacheUri: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val language: String? = null,
+    val selected: Boolean = false,
+    @SerialName("content_hash")
+    val contentHash: String? = null,
+    val etag: String? = null,
+)
+
 enum class BrowseFailureCategory {
+    MissingItem,
     MissingAccessToken,
     UnreachableServer,
     Unauthorized,

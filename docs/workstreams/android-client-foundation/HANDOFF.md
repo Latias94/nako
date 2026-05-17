@@ -8,7 +8,8 @@ Last updated: 2026-05-17
 The design baseline is documented. `ACF-010` created the Android scaffold
 under `apps/android` as a single Gradle `:app` module outside the Rust Cargo
 workspace. `ACF-020` added the first connection/auth slice. `ACF-030A` added
-the first minimal browse tracer.
+the first minimal browse tracer. `ACF-030B` added the first read-only Media
+Item detail tracer.
 
 Implemented scaffold:
 
@@ -46,6 +47,19 @@ Implemented browse tracer:
 - Mocked HTTP unit tests for browse pagination, empty-state input, sanitized
   diagnostics, active-server URL switching, and token-reference isolation.
 
+Implemented item detail tracer:
+
+- Direct Kotlin browse client method for public `GET /items/{item_id}`.
+- Minimal Android DTO mirrors for the Public Client API `ItemDetailResponse`
+  shape needed by the read-only detail screen.
+- Home/Libraries item rows and posters open a read-only Media Item detail
+  surface.
+- Detail surface shows client-safe Canonical Metadata, metadata chips, and
+  related response counts without Play/Resume controls.
+- Mocked HTTP unit tests cover detail decode, safe request redaction,
+  forbidden diagnostics, unsupported API version, invalid response, missing
+  item, active-server URL switching, and token-reference isolation.
+
 Resolved decisions:
 
 - Android is the first implementation target.
@@ -65,19 +79,21 @@ Resolved decisions:
 
 ## Next Task
 
-Continue with the next `ACF-030` sub-slice: Media Item detail tracer.
+Continue with the next `ACF-030` sub-slice: Search shell and result
+navigation, or Settings shell if server switching/re-authentication should be
+hardened first.
 
-Preserve the `ACF-020` and `ACF-030A` boundaries: consume Public Client API
-DTOs from the active server profile, keep token values out of diagnostics, and
-avoid Media3 playback, UniFFI, downloads, playback request construction, or
+Preserve the `ACF-020`, `ACF-030A`, and `ACF-030B` boundaries: consume Public
+Client API DTOs from the active server profile, keep token values out of
+diagnostics, and avoid Media3 playback, UniFFI, downloads, playback request
+construction, Source / Version Picker behavior, Play/Resume activation, or
 external-player work until their own tasks.
 
 Recommended next task:
 
-- `ACF-030B`: add a minimal item-detail client for `GET /items/{item_id}` and a
-  navigation path from the current item list to a read-only Media Item detail
-  surface. Keep Play/Resume buttons disabled or absent until ACF-040 playback
-  decision APIs are implemented.
+- `ACF-030C`: add a minimal Search shell using Public Client API search once
+  the exact route query contract is confirmed, then navigate results to the
+  existing read-only Media Item detail surface.
 
 ## Risks To Preserve
 
@@ -98,4 +114,6 @@ Use `EVIDENCE_AND_GATES.md` for commands. `ACF-010` validated
 validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`
 and `apps/android/gradlew.bat -p apps/android :app:assembleDebug`; final
 closeout should also keep `cargo check --workspace --tests` and
-`git diff --check` green.
+`git diff --check` green. `ACF-030B` validated
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`; final
+closeout should rerun the full Android/Rust gate set.

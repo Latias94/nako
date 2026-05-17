@@ -152,10 +152,57 @@ Explicit non-goals preserved:
 Remaining ACF-030 work:
 
 - Library detail route.
-- Media Item detail route.
 - Search shell and result navigation.
 - Settings shell beyond server switching through the setup surface.
-- Manual debug walkthrough from connection to item detail once detail exists.
+- Manual debug walkthrough from server connection to item detail against a
+  running Taru server fixture.
+
+#### ACF-030B: Minimal Media Item Detail Tracer
+
+Status: complete
+Owner: codex
+Completed: 2026-05-17
+
+This sub-slice proves active-server-scoped Media Item detail loading without
+starting playback work.
+
+Scope completed:
+
+- Direct Kotlin Public Client API browse client method for
+  `GET /items/{item_id}`.
+- Minimal Android DTO mirrors for `ItemDetailResponse`, including Media Item,
+  Media Sources, credits, genres, tags, collections, studios, and image count
+  fields needed by the read-only detail surface.
+- Home/Libraries item rows and posters navigate to a read-only Media Item
+  detail screen.
+- Detail screen shows client-safe Canonical Metadata, metadata chips, related
+  response counts, loading, missing item, missing-token, unauthorized,
+  forbidden, unreachable, unsupported-version, public error, and
+  invalid-response states.
+- Mocked API unit tests for successful detail decoding, forbidden detail
+  diagnostics, unreachable diagnostics through browse coverage,
+  unsupported-version rejection, invalid response, missing item, public error
+  redaction, active-server base URL switching, and token-reference isolation.
+
+Explicit non-goals preserved:
+
+- No Media3 playback.
+- No Play/Resume activation.
+- No playback decision or playback request construction.
+- No Source / Version Picker behavior.
+- No UniFFI implementation.
+- No downloads/offline.
+- No external-player handoff.
+- No search/facets.
+- No dependency on server/internal Rust crates from Android.
+
+Remaining ACF-030 work:
+
+- Library detail route, if needed before playback.
+- Search shell and result navigation.
+- Settings shell beyond server switching through the setup surface.
+- Manual debug walkthrough from server connection to item detail against a
+  running Taru server fixture.
 
 ### ACF-040: Playback Decision And Request Construction
 

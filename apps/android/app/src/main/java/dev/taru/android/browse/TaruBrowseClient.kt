@@ -9,6 +9,8 @@ import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.connection.TaruPublicApiContract
 import java.io.IOException
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import javax.net.ssl.SSLException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
@@ -39,6 +41,25 @@ class TaruBrowseClient(
             accessToken = accessToken,
             pathAndQuery = "/items?limit=${page.limit}&offset=${page.offset}",
         )
+
+    suspend fun itemDetail(
+        profile: ServerProfile,
+        accessToken: String,
+        itemId: String,
+    ): BrowseResult<ItemDetailResponse> {
+        if (itemId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.MissingItem,
+                userMessage = "Choose a Media Item before opening detail.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/items/${encodePathSegment(itemId)}",
+        )
+    }
 
     private suspend inline fun <reified T> executeJson(
         profile: ServerProfile,
@@ -126,9 +147,12 @@ class TaruBrowseClient(
         val category = when (response.statusCode) {
             401 -> BrowseFailureCategory.Unauthorized
             403 -> BrowseFailureCategory.Forbidden
+            404 -> BrowseFailureCategory.MissingItem
             else -> BrowseFailureCategory.PublicApiError
         }
         val userMessage = when (category) {
+            BrowseFailureCategory.MissingItem ->
+                "The requested Media Item is no longer available."
             BrowseFailureCategory.Unauthorized ->
                 "The access token is invalid or expired."
             BrowseFailureCategory.Forbidden ->
@@ -203,6 +227,11 @@ class TaruBrowseClient(
 
     private fun joinUrl(baseUrl: String, pathAndQuery: String): String =
         "${baseUrl.trimEnd('/')}$pathAndQuery"
+
+    private fun encodePathSegment(value: String): String =
+        URLEncoder
+            .encode(value, StandardCharsets.UTF_8)
+            .replace("+", "%20")
 
     private sealed interface TransportResult {
         data class Response(val response: TaruHttpResponse) : TransportResult

@@ -104,10 +104,15 @@ Progress:
   - loading, empty, unauthorized, unreachable, and public error states;
   - mocked API tests for pagination, empty input, diagnostics, active-server
     switching, and token redaction.
+- `ACF-030B` completed on 2026-05-17:
+  - active-server-scoped `GET /items/{item_id}` detail client;
+  - read-only Media Item detail surface from Home/Libraries item lists;
+  - client-safe Canonical Metadata, response counts, and detail error states;
+  - mocked API tests for detail decode, diagnostics, invalid response,
+    unsupported API version, active-server switching, and token redaction.
 
 Remaining before milestone completion:
 
-- item detail route;
 - search shell;
 - settings shell;
 - manual walkthrough from connection to item detail.

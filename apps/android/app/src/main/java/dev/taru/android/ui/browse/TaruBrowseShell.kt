@@ -1,6 +1,7 @@
 package dev.taru.android.ui.browse
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -36,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import dev.taru.android.browse.BrowseFailureCategory
 import dev.taru.android.browse.BrowseResult
 import dev.taru.android.browse.CanonicalMetadataDto
+import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemsResponse
 import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.LibraryListResponse
@@ -68,11 +70,17 @@ fun TaruBrowseShell(
 ) {
     var selectedDestination by remember { mutableIntStateOf(0) }
     var refreshKey by remember { mutableIntStateOf(0) }
+    var selectedItemId by remember(profile.id) { mutableStateOf<String?>(null) }
     var state by remember(profile.id, refreshKey) {
         mutableStateOf<BrowseUiState>(BrowseUiState.Loading)
     }
+    var detailRefreshKey by remember { mutableIntStateOf(0) }
+    var detailState by remember(profile.id, selectedItemId, detailRefreshKey) {
+        mutableStateOf<ItemDetailUiState>(ItemDetailUiState.Idle)
+    }
 
     LaunchedEffect(profile.id, refreshKey) {
+        selectedItemId = null
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isBlank()) {
             state = BrowseUiState.Failure(
@@ -110,6 +118,37 @@ fun TaruBrowseShell(
         )
     }
 
+    LaunchedEffect(profile.id, selectedItemId, detailRefreshKey) {
+        val itemId = selectedItemId
+        if (itemId == null) {
+            detailState = ItemDetailUiState.Idle
+            return@LaunchedEffect
+        }
+
+        detailState = ItemDetailUiState.Loading
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            detailState = ItemDetailUiState.Failure(
+                SafeBrowseDiagnostics(
+                    category = BrowseFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before opening detail.",
+                ),
+            )
+            return@LaunchedEffect
+        }
+
+        detailState = when (
+            val result = browseClient.itemDetail(
+                profile = profile,
+                accessToken = accessToken,
+                itemId = itemId,
+            )
+        ) {
+            is BrowseResult.Success -> ItemDetailUiState.Content(result.value)
+            is BrowseResult.Failure -> ItemDetailUiState.Failure(result.diagnostics)
+        }
+    }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -144,9 +183,25 @@ fun TaruBrowseShell(
                     onRetry = { refreshKey += 1 },
                     onChangeServer = onChangeServer,
                 )
-                is BrowseUiState.Content -> when (BrowseDestination.entries[selectedDestination]) {
-                    BrowseDestination.Home -> HomeContent(current, onOpenLibraries = { selectedDestination = 1 })
-                    BrowseDestination.Libraries -> LibrariesContent(current)
+                is BrowseUiState.Content -> if (selectedItemId != null) {
+                    ItemDetailContent(
+                        state = detailState,
+                        onBack = { selectedItemId = null },
+                        onRetry = { detailRefreshKey += 1 },
+                        onChangeServer = onChangeServer,
+                    )
+                } else {
+                    when (BrowseDestination.entries[selectedDestination]) {
+                        BrowseDestination.Home -> HomeContent(
+                            state = current,
+                            onOpenLibraries = { selectedDestination = 1 },
+                            onOpenItem = { selectedItemId = it.id },
+                        )
+                        BrowseDestination.Libraries -> LibrariesContent(
+                            state = current,
+                            onOpenItem = { selectedItemId = it.id },
+                        )
+                    }
                 }
             }
         }
@@ -267,6 +322,7 @@ private fun BrowseFailureState(
 private fun HomeContent(
     state: BrowseUiState.Content,
     onOpenLibraries: () -> Unit,
+    onOpenItem: (MediaItemDto) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.large)) {
         FlowRow(
@@ -300,7 +356,10 @@ private fun HomeContent(
                 title = "Latest visible items",
                 count = state.items.page.returned,
             )
-            MediaItemStrip(items = state.items.items.take(6))
+            MediaItemStrip(
+                items = state.items.items.take(6),
+                onOpenItem = onOpenItem,
+            )
         } else if (state.libraries.libraries.isNotEmpty()) {
             EmptyState(
                 title = "No visible items",
@@ -311,7 +370,10 @@ private fun HomeContent(
 }
 
 @Composable
-private fun LibrariesContent(state: BrowseUiState.Content) {
+private fun LibrariesContent(
+    state: BrowseUiState.Content,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.large)) {
         if (state.libraries.libraries.isEmpty()) {
             EmptyState(
@@ -339,7 +401,10 @@ private fun LibrariesContent(state: BrowseUiState.Content) {
             )
         } else {
             state.items.items.forEach { item ->
-                MediaItemRow(item = item)
+                MediaItemRow(
+                    item = item,
+                    onOpenItem = onOpenItem,
+                )
             }
         }
     }
@@ -447,23 +512,33 @@ private fun LibrarySwatch(seed: String) {
     ) {}
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MediaItemStrip(items: List<MediaItemDto>) {
+private fun MediaItemStrip(
+    items: List<MediaItemDto>,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
         verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
     ) {
         items.forEach { item ->
-            MediaItemPoster(item = item)
+            MediaItemPoster(
+                item = item,
+                onOpenItem = onOpenItem,
+            )
         }
     }
 }
 
 @Composable
-private fun MediaItemPoster(item: MediaItemDto) {
+private fun MediaItemPoster(
+    item: MediaItemDto,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
     Column(
-        modifier = Modifier.width(TaruSpacing.xxlarge * 3),
+        modifier = Modifier
+            .width(TaruSpacing.xxlarge * 3)
+            .clickable { onOpenItem(item) },
         verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
     ) {
         Surface(
@@ -496,9 +571,14 @@ private fun MediaItemPoster(item: MediaItemDto) {
 }
 
 @Composable
-private fun MediaItemRow(item: MediaItemDto) {
+private fun MediaItemRow(
+    item: MediaItemDto,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenItem(item) },
         shape = TaruShape.medium,
         color = MaterialTheme.colorScheme.surface,
     ) {
@@ -532,6 +612,147 @@ private fun MediaItemRow(item: MediaItemDto) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ItemDetailContent(
+    state: ItemDetailUiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.large)) {
+        OutlinedButton(onClick = onBack) {
+            Text("Back")
+        }
+
+        when (state) {
+            ItemDetailUiState.Idle,
+            ItemDetailUiState.Loading,
+            -> BrowseLoadingState()
+            is ItemDetailUiState.Failure -> BrowseFailureState(
+                diagnostics = state.diagnostics,
+                onRetry = onRetry,
+                onChangeServer = onChangeServer,
+            )
+            is ItemDetailUiState.Content -> ReadOnlyItemDetail(response = state.response)
+        }
+    }
+}
+
+@Composable
+private fun ReadOnlyItemDetail(response: ItemDetailResponse) {
+    val item = response.item
+    Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.large)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = TaruShape.medium,
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier.padding(TaruSpacing.large),
+                verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+            ) {
+                Text(
+                    text = item.metadata.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Text(
+                    text = itemSecondaryText(item),
+                    color = TaruTextSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                item.metadata.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                    Text(
+                        text = overview,
+                        color = TaruTextSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+
+        MetadataChips(metadata = item.metadata)
+
+        SectionHeader(title = "Detail facts", count = response.sources.size)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = TaruShape.medium,
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier.padding(TaruSpacing.large),
+                verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            ) {
+                DetailFact("Media Sources", response.sources.size.toString())
+                DetailFact("Credits", response.credits.size.toString())
+                DetailFact("Genres", response.genres.size.toString())
+                DetailFact("Tags", response.tags.size.toString())
+                DetailFact("Collections", response.collections.size.toString())
+                DetailFact("Studios", response.studios.size.toString())
+                DetailFact("Images", response.images.size.toString())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MetadataChips(metadata: CanonicalMetadataDto) {
+    val chips = buildList {
+        metadata.releaseDate?.take(4)?.let { add(it) }
+        metadata.runtimeMinutes?.let { add("$it min") }
+        metadata.ratings.firstOrNull()?.let { add("${it.source}: ${it.value}") }
+        addAll(metadata.genres.take(4))
+        addAll(metadata.tags.take(4))
+    }
+
+    if (chips.isEmpty()) {
+        return
+    }
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+        verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+    ) {
+        chips.forEach { chip ->
+            Surface(
+                shape = TaruShape.small,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                Text(
+                    modifier = Modifier.padding(
+                        horizontal = TaruSpacing.medium,
+                        vertical = TaruSpacing.small,
+                    ),
+                    text = chip,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailFact(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            color = TaruTextSecondary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -571,6 +792,7 @@ private fun itemSecondaryText(item: MediaItemDto): String =
 
 private fun browseFailureTitle(category: BrowseFailureCategory): String =
     when (category) {
+        BrowseFailureCategory.MissingItem -> "Media Item unavailable"
         BrowseFailureCategory.MissingAccessToken -> "Authentication required"
         BrowseFailureCategory.UnreachableServer -> "Server unreachable"
         BrowseFailureCategory.Unauthorized -> "Authentication failed"
@@ -597,6 +819,20 @@ private sealed interface BrowseUiState {
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
     ) : BrowseUiState
+}
+
+private sealed interface ItemDetailUiState {
+    data object Idle : ItemDetailUiState
+
+    data object Loading : ItemDetailUiState
+
+    data class Content(
+        val response: ItemDetailResponse,
+    ) : ItemDetailUiState
+
+    data class Failure(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : ItemDetailUiState
 }
 
 @Preview

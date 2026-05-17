@@ -88,6 +88,42 @@ Remaining validation before full `ACF-030` can close:
 - mocked tests for item detail and search navigation;
 - manual debug app walkthrough from server connection to item detail.
 
+## Android Item Detail Tracer Gates
+
+Validated for `ACF-030B` on 2026-05-17:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `cargo fmt --all -- --check` passed.
+- `cargo check --workspace --tests` passed.
+- `git diff --check` passed with line-ending normalization warnings only.
+- Android unit tests cover:
+  - successful `GET /items/{item_id}` detail decode;
+  - safe detail request redaction;
+  - forbidden detail diagnostics;
+  - unsupported Public Client API version rejection on detail response;
+  - invalid detail response diagnostics;
+  - missing item local validation;
+  - active profile switching changing detail request base URL and token
+    reference.
+
+Dependency boundary for `ACF-030B`:
+
+- Android detail uses direct Kotlin HTTP against Public Client API routes.
+- Android DTOs mirror only public protocol fields needed by the first read-only
+  detail shell.
+- Android still does not depend on `taru-api`, `taru-server`, `taru-core`,
+  `taru-streaming`, or `taru-transcode`.
+- No Media3, Play/Resume activation, Source / Version Picker, UniFFI,
+  Downloads, external-player, playback decision, or playback request
+  construction code is introduced.
+
+Remaining validation before full `ACF-030` can close:
+
+- mocked tests for search navigation;
+- manual debug app walkthrough from server connection to item detail against a
+  running Taru server fixture.
+
 ## Shared Rust Client-Core Gates
 
 If a mobile shared Rust crate is introduced:
