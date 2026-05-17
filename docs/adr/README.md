@@ -44,3 +44,4 @@ evidence has been reviewed.
 - [0023: Stabilize Public API Versions and Error Envelopes](0023-public-api-versioning-and-error-envelope-contract.md)
 - [0024: Add an Inbound Token Authentication Boundary](0024-inbound-token-authentication-boundary.md)
 - [0025: Generate Public Client OpenAPI From Protocol-Owned Wire Types](0025-openapi-public-client-sdk-contract.md)
+- [0026: Use Native Client Shells With a Shared Rust Client Core](0026-native-client-shells-with-shared-rust-client-core.md)
