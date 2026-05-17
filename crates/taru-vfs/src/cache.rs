@@ -428,7 +428,15 @@ fn now_ms() -> Result<i64> {
 }
 
 fn is_transient_storage_error(err: &TaruError) -> bool {
-    matches!(err, TaruError::Storage { .. })
+    matches!(
+        err,
+        TaruError::Storage {
+            kind: StorageErrorKind::Timeout
+                | StorageErrorKind::Network
+                | StorageErrorKind::RateLimited,
+            ..
+        }
+    )
 }
 
 #[cfg(test)]
@@ -437,7 +445,7 @@ mod tests {
         collections::HashMap,
         sync::{
             Arc,
-            atomic::{AtomicBool, AtomicUsize, Ordering},
+            atomic::{AtomicUsize, Ordering},
         },
     };
 
@@ -493,7 +501,7 @@ mod tests {
 
         let fresh = backend.list_with_status(&root).await.unwrap();
         cache.expire_listing().await;
-        inner.fail_list.store(true, Ordering::SeqCst);
+        inner.fail_list_with(StorageErrorKind::Network).await;
         let stale = backend.list_with_status(&root).await.unwrap();
         let failure = cache
             .get_vfs_cache_failure(root.as_str(), VfsCacheOperation::List)
@@ -508,9 +516,47 @@ mod tests {
         assert!(failure.error.contains("temporary list failure"));
     }
 
+    #[tokio::test]
+    async fn cached_backend_does_not_serve_stale_listing_after_non_transient_storage_failure() {
+        let inner = FakeBackend::new();
+        let cache = MemoryVfsCache::default();
+        let backend = CachedStorageBackend::with_options(
+            inner.clone(),
+            cache.clone(),
+            VfsCacheOptions {
+                stat_ttl_ms: 0,
+                list_ttl_ms: 0,
+                serve_stale_on_error: true,
+                cache_local: true,
+            },
+        );
+        let root = StorageUri::from_parts("mem", "Movies").unwrap();
+
+        let fresh = backend.list_with_status(&root).await.unwrap();
+        cache.expire_listing().await;
+        inner.fail_list_with(StorageErrorKind::Unauthorized).await;
+        let err = backend.list_with_status(&root).await.unwrap_err();
+        let failure = cache
+            .get_vfs_cache_failure(root.as_str(), VfsCacheOperation::List)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(fresh.cache.unwrap().state, ObjectCacheState::Fresh);
+        assert!(matches!(
+            err,
+            TaruError::Storage {
+                kind: StorageErrorKind::Unauthorized,
+                ..
+            }
+        ));
+        assert_eq!(failure.failure_count, 1);
+        assert!(failure.error.contains("temporary list failure"));
+    }
+
     #[derive(Clone)]
     struct FakeBackend {
-        fail_list: Arc<AtomicBool>,
+        fail_list_kind: Arc<tokio::sync::Mutex<Option<StorageErrorKind>>>,
         stat_calls: Arc<AtomicUsize>,
         list_calls: Arc<AtomicUsize>,
     }
@@ -518,10 +564,14 @@ mod tests {
     impl FakeBackend {
         fn new() -> Self {
             Self {
-                fail_list: Arc::new(AtomicBool::new(false)),
+                fail_list_kind: Arc::new(tokio::sync::Mutex::new(None)),
                 stat_calls: Arc::new(AtomicUsize::new(0)),
                 list_calls: Arc::new(AtomicUsize::new(0)),
             }
+        }
+
+        async fn fail_list_with(&self, kind: StorageErrorKind) {
+            *self.fail_list_kind.lock().await = Some(kind);
         }
 
         fn metadata(&self, uri: &StorageUri) -> ObjectMetadata {
@@ -559,10 +609,10 @@ mod tests {
 
         async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
             self.list_calls.fetch_add(1, Ordering::SeqCst);
-            if self.fail_list.load(Ordering::SeqCst) {
+            if let Some(kind) = *self.fail_list_kind.lock().await {
                 return Err(TaruError::storage(
                     uri.to_string(),
-                    StorageErrorKind::Network,
+                    kind,
                     "temporary list failure",
                 ));
             }
