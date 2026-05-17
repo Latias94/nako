@@ -26,11 +26,61 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M51 Admin Web Console
-Planning and API Readiness, because the server has accumulated strong admin
-diagnostics but no cohesive operator-facing surface yet.
+No active implementation goal. Recommended next goal: AWC-040 v0 Context and
+First Prototype Prompt, because ADR 0027 now fixes the admin API boundary and
+the design-generation context should be updated into a concise prompt before
+any UI code is generated.
 
 ## Completed Goals
+
+### M51: Admin API Boundary Decision for Web Console
+
+Status: completed.
+
+Objective:
+
+- Complete AWC-030 by deciding the Admin API boundary needed before generating
+  or implementing the web admin console.
+- Review ADR 0023, ADR 0025, ADR 0026, current `taru-api`/`taru-server` admin
+  surfaces, and the admin web console API matrix.
+- Document route namespace, versioning, DTO ownership, leakage/redaction rules,
+  and public-client separation.
+- Update the admin-web-console workstream with the accepted implementation
+  sequence.
+
+Deliverables:
+
+- Accepted Admin API boundary ADR.
+- Updated admin web console design, task ledger, evidence, handoff, and v0
+  context.
+- Updated ADR index and goal evidence.
+
+Non-goals:
+
+- No frontend UI implementation.
+- No `taru-client-protocol` or Public Client OpenAPI/SDK changes.
+- No storage, NFO, provider, playback, or transcode behavior expansion.
+- No auth redesign.
+
+Exit criteria:
+
+- Admin-only route namespace and versioning are decided.
+- Admin DTO ownership is decided.
+- Public Client API separation is explicit.
+- Leakage/redaction rules are explicit.
+- The next implementation sequence is documented.
+- Documentation gate passes.
+
+Evidence:
+
+- [ADR 0027](adr/0027-admin-api-boundary-for-web-console.md).
+- [admin-web-console workstream](workstreams/admin-web-console/README.md).
+- `ADMIN_API_MATRIX.md` now points to ADR 0027 instead of leaving namespace and
+  versioning undecided.
+- `V0_CONTEXT.md` marks admin-only areas as mock or planned `/admin/v1/*` data
+  rather than Public Client API coverage.
+- `taru-client-protocol` has no diff.
+- Documentation gate: `git diff --check`.
 
 ### M50: NFO Backup Retention and Admin Diagnostics
 

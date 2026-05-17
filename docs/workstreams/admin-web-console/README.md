@@ -41,5 +41,5 @@ framework or detailed visual implementation.
 - Keep playback clients separate from the admin console direction.
 - Use Taru's project language from `CONTEXT.md`.
 - Provide v0.dev with product and routing context, not implementation lock-in.
-- Preserve the distinction between Public Client API and future Admin API
+- Preserve the distinction between Public Client API and versioned Admin API
   surfaces.

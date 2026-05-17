@@ -60,6 +60,17 @@ implementation should provide:
 
 - `docs/workstreams/admin-web-console/DESIGN.md`
 - `docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md`
+- `docs/adr/0027-admin-api-boundary-for-web-console.md`
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
 - future v0 prompt
 - future web app scaffold and verification notes
+
+## Evidence Log
+
+- 2026-05-17: AWC-030 completed through ADR 0027. Admin-only routes should use
+  `/admin/v1/*`, admin DTOs stay in `taru-api`, future Admin API contracts are
+  generated separately from Public Client OpenAPI/SDK artifacts, and
+  `taru-client-protocol` remains reserved for Public Client API concepts.
+- 2026-05-17: Documentation gate passed with `git diff --check`; public
+  protocol boundary verified by checking `crates/taru-client-protocol` had no
+  changed files.

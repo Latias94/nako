@@ -13,18 +13,22 @@ AWC-020 is complete. `ADMIN_API_MATRIX.md` inventories current HTTP routes,
 current DTO ownership, page coverage, safety behavior, and missing Admin API
 surfaces.
 
+AWC-030 is complete. ADR 0027 accepts `/admin/v1/*` as the Admin API boundary,
+keeps admin DTOs in `taru-api`, keeps `taru-client-protocol` public-client-only,
+and defines redaction/leakage rules for future Admin API slices.
+
 The key artifact for v0.dev is:
 
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
 
 ## Next Recommended Task
 
-Run AWC-030:
+Run AWC-040:
 
-- decide whether the Admin API needs an ADR or a workstream design note;
-- choose a route namespace/versioning direction;
-- define Admin API DTO ownership and leakage rules;
-- keep admin-only diagnostics out of the Public Client API.
+- refine `V0_CONTEXT.md` with ADR 0027's `/admin/v1/*` boundary;
+- make clear which first prototype pages are mock-only versus backed by current
+  routes;
+- keep generated UI context framework-neutral and admin-focused.
 
 ## Constraints
 
@@ -37,7 +41,6 @@ Run AWC-030:
 
 ## Open Questions
 
-- Admin API namespace and versioning.
 - First web app workspace path.
 - Static mock prototype versus API-wired first slice.
 - Editable settings versus read-only diagnostics in the first release.

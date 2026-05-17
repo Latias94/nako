@@ -94,6 +94,26 @@ Taru backend capabilities include:
   status;
 - bearer-token admin access.
 
+## API Boundary
+
+Taru has two API surfaces:
+
+- Public Client API: stable client-facing routes described by the public
+  protocol, OpenAPI, and SDK workstreams.
+- Admin API: future web-console routes accepted by ADR 0027 under
+  `/admin/v1/*`.
+
+For a prototype, do not imply that every page already has a live route. Some
+data should be mocked until follow-up Admin API slices exist. Current public
+client routes may support read-only library, catalog, source, playback
+decision, and session-detail views. Admin-only diagnostics, overview rollups,
+job lists, event lists, hardware dashboards, catalog repair queues, settings
+editing, and extension lifecycle operations should be treated as mock or
+planned `/admin/v1/*` data unless explicitly wired later.
+
+Do not put admin-only DTOs into Public Client API language. Do not describe
+`taru-client-protocol` as the source for admin console diagnostics.
+
 ## Primary Navigation
 
 Use a left-side app shell with these primary sections:
@@ -303,3 +323,7 @@ Generate a prototype with these pages first:
 
 It is acceptable to use realistic mock data. The prototype should make the
 information architecture and product language clear before real API wiring.
+
+Mock-only or planned `/admin/v1/*` prototype areas should be visually marked as
+diagnostic or planned data in internal handoff notes, not as existing stable
+Public Client API coverage.

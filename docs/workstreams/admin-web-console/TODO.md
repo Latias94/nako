@@ -24,18 +24,19 @@ Last updated: 2026-05-17
   Handoff: Continue with AWC-030. Do not expand the Public Client API for
   admin-only diagnostics.
 
-- [ ] AWC-030 [owner=codex] [deps=AWC-020] [scope=docs/adr, docs/workstreams/admin-web-console]
+- [x] AWC-030 [owner=codex] [deps=AWC-020] [scope=docs/adr, docs/workstreams/admin-web-console]
   Goal: Decide whether the Admin API needs an ADR or a workstream design note
   for route namespace, versioning, DTO ownership, and leakage rules.
   Validation: accepted ADR or explicit note explaining why existing ADRs are
   sufficient.
-  Evidence: linked ADR/design update.
-  Handoff: Preserve separation from `taru-client-protocol` public client
+  Evidence: ADR 0027 and `DESIGN.md`.
+  Handoff: Admin-only routes should use `/admin/v1/*`; admin DTOs stay in
+  `taru-api`; preserve separation from `taru-client-protocol` public client
   contracts unless a route is genuinely client-facing.
 
 ## AWC.2 Generated Prototype Preparation
 
-- [ ] AWC-040 [owner=planner] [deps=AWC-020] [scope=docs/workstreams/admin-web-console/V0_CONTEXT.md]
+- [ ] AWC-040 [owner=planner] [deps=AWC-030] [scope=docs/workstreams/admin-web-console/V0_CONTEXT.md]
   Goal: Refine the v0 context with the confirmed Admin API inventory and first
   prototype scope.
   Validation: v0 context has page list, route families, mock-data guidance,

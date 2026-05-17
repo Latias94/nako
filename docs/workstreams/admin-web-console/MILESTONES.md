@@ -51,6 +51,11 @@ Exit criteria:
 - Secret, token, raw path, raw provider body, and addon-hosted-page rules are
   explicit.
 
+Status: completed for AWC-030. ADR 0027 accepts `/admin/v1/*` as the
+admin-only route boundary, keeps admin DTOs in `taru-api`, keeps
+`taru-client-protocol` public-client-only, and defines leakage/redaction rules
+for future Admin API slices.
+
 ## M-AWC.2 v0 Prototype Prompt
 
 Objective:

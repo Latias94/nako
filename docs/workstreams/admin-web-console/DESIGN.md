@@ -246,11 +246,23 @@ Initial route families:
 
 Routes are product intent, not a front-end framework contract.
 
-## API Direction
+## Admin API Boundary Decision
 
 The existing Public Client API is not enough for this console because it
 intentionally excludes admin/internal diagnostics. This workstream should lead
 to a distinct Admin API design.
+
+AWC-030 is accepted through [ADR 0027](../../adr/0027-admin-api-boundary-for-web-console.md):
+
+- new admin-only routes should use `/admin/v1/*`;
+- admin DTOs stay in the AGPL `taru-api` adapter boundary, not
+  `taru-client-protocol`;
+- Public Client API OpenAPI/SDK generation must continue to reject admin
+  surfaces;
+- the admin console may reuse public routes only for genuinely client-facing
+  reads;
+- admin routes can be richer than public routes but must still redact secrets,
+  tokens, unsafe local paths, raw headers, and implementation-only details.
 
 Admin API should cover:
 
@@ -274,6 +286,17 @@ Admin API must preserve these safety rules:
 - keep hosted addon pages outside the trusted admin UI boundary;
 - make error responses actionable and stable enough for UI branching.
 
+The recommended implementation sequence is:
+
+1. Keep the current route matrix as the source inventory.
+2. Add missing admin-only surfaces under `/admin/v1/*`.
+3. Wrap or migrate existing root-level admin/internal routes when touched by a
+   console slice.
+4. Generate any future Admin API contract separately from the Public Client
+   OpenAPI/SDK artifacts.
+5. Keep redaction and public-route inventory checks as required gates for API
+   implementation slices.
+
 ## Non-Goals
 
 - No front-end framework selection in this planning baseline.
@@ -286,8 +309,6 @@ Admin API must preserve these safety rules:
 
 ## Open Questions
 
-- Should the Admin API be documented as `/admin/*`, `/api/admin/*`, or a
-  versioned contract such as `/admin/v0/*`?
 - Should the first web implementation live under `apps/admin-web`,
   `web/admin`, or another workspace path?
 - Should generated UI start with static mocked data or connect immediately to

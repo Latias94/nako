@@ -7,8 +7,10 @@ This document records AWC-020: which current HTTP routes can support the Taru
 admin web console, which routes are public-client surfaces that the console can
 reuse read-only, and which Admin API gaps remain.
 
-It is an inventory, not an API compatibility promise. The route namespace and
-Admin API versioning decision belongs to AWC-030.
+It is an inventory, not an API compatibility promise. AWC-030 is accepted in
+[ADR 0027](../../adr/0027-admin-api-boundary-for-web-console.md): new
+admin-only routes should use `/admin/v1/*`, admin DTOs stay in `taru-api`, and
+Public Client API contracts remain separate.
 
 ## Source Files Reviewed
 
@@ -117,18 +119,16 @@ Known current safety boundaries useful to preserve:
 
 These are the smallest useful vertical slices after the matrix:
 
-1. **Admin API boundary decision**: choose namespace/versioning and document
-   DTO ownership/leakage rules. This is AWC-030.
-2. **Overview support slice**: add list/filter endpoints for jobs, playback
+1. **Overview support slice**: add list/filter endpoints for jobs, playback
    sessions, and outbox events, or a read-only overview summary that composes
    those facts.
-3. **Playback diagnostics slice**: expose hardware acceleration report,
+2. **Playback diagnostics slice**: expose hardware acceleration report,
    selected policy, FFmpeg availability, transcode resource budget, and
    staging budget summary without local output paths.
-4. **Catalog governance slice**: expose unknown items, provider mappings,
+3. **Catalog governance slice**: expose unknown items, provider mappings,
    local inference evidence, duplicate-source relationships, and NFO sidecar
    status before adding repair mutations.
-5. **Extension operations slice**: make Webhook, Automation, and Addon list
+4. **Extension operations slice**: make Webhook, Automation, and Addon list
    behavior complete for disabled resources and add health/token lifecycle
    operations only after the trust model is documented.
 

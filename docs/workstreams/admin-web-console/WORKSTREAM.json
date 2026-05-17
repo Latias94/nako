@@ -20,6 +20,10 @@
       "path": "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md"
     },
     {
+      "role": "admin_api_boundary_adr",
+      "path": "docs/adr/0027-admin-api-boundary-for-web-console.md"
+    },
+    {
       "role": "v0_context",
       "path": "docs/workstreams/admin-web-console/V0_CONTEXT.md"
     },
@@ -38,15 +42,17 @@
   "evidence": [
     "docs/workstreams/admin-web-console",
     "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
     "docs/workstreams/README.md"
   ],
   "adr_refs": [
     "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
-    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Next step is AWC-030: decide Admin API namespace/versioning, DTO ownership, and leakage rules before generating or implementing a front-end prototype."
+    "notes": "Next step is AWC-040: refine V0_CONTEXT.md with the accepted /admin/v1 boundary, current API-backed claims, and mock-only prototype scope before generating or implementing a front-end prototype."
   }
 }
