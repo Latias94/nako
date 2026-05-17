@@ -1,5 +1,6 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_core::{
     CatalogItemGraphReplacement, CatalogRepository, Collection, CollectionId, CollectionItem,
@@ -23,21 +24,262 @@ pub struct CatalogHydrationSummary {
     pub search_indexed: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CatalogHydrationSnapshot {
+    pub item: MediaItem,
+    pub sources: Vec<taru_core::MediaSource>,
+    pub credits: Vec<(ItemCredit, Person)>,
+    pub genres: Vec<(ItemGenre, Genre)>,
+    pub tags: Vec<(ItemTag, Tag)>,
+    pub collections: Vec<(CollectionItem, Collection)>,
+    pub studios: Vec<(ItemStudio, Studio)>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CatalogHydrationLookup {
+    pub person_external_id_matches: Vec<(ExternalId, Person)>,
+    pub person_name_matches: Vec<(String, Person)>,
+    pub genre_name_source_matches: Vec<(String, MetadataSource, Genre)>,
+    pub tag_name_source_matches: Vec<(String, MetadataSource, Tag)>,
+    pub collection_external_id_matches: Vec<(ExternalId, Collection)>,
+    pub collection_name_source_matches: Vec<(String, MetadataSource, Collection)>,
+    pub studio_external_id_matches: Vec<(ExternalId, Studio)>,
+    pub studio_name_source_matches: Vec<(String, MetadataSource, Studio)>,
+    pub image_source_matches: Vec<(ImageOwner, ImageKind, String, ImageAsset)>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CatalogHydrationCommit {
+    pub item_id: MediaItemId,
+    pub replacement: CatalogItemGraphReplacement,
+    pub search_document: SearchDocument,
+}
+
+#[async_trait]
+pub trait CatalogHydrationPort: Send + Sync {
+    async fn load_hydration_snapshot(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<CatalogHydrationSnapshot>;
+
+    async fn load_hydration_lookup(
+        &self,
+        item: &MediaItem,
+        source: &MetadataSource,
+    ) -> Result<CatalogHydrationLookup>;
+
+    async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()>;
+}
+
+#[async_trait]
+impl<T> CatalogHydrationPort for T
+where
+    T: CatalogRepository + MediaRepository + SearchIndex,
+{
+    async fn load_hydration_snapshot(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<CatalogHydrationSnapshot> {
+        let item = self
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+        let sources = list_all_item_sources(self, item.id).await?;
+        let mut credits = Vec::new();
+        for credit in self.list_item_credits(item.id).await? {
+            let person =
+                self.get_person(credit.person_id)
+                    .await?
+                    .ok_or_else(|| TaruError::NotFound {
+                        entity: "person",
+                        id: credit.person_id.to_string(),
+                    })?;
+            credits.push((credit, person));
+        }
+
+        let mut genres = Vec::new();
+        for item_genre in self.list_item_genres(item.id).await? {
+            let genre =
+                self.get_genre(item_genre.genre_id)
+                    .await?
+                    .ok_or_else(|| TaruError::NotFound {
+                        entity: "genre",
+                        id: item_genre.genre_id.to_string(),
+                    })?;
+            genres.push((item_genre, genre));
+        }
+
+        let mut tags = Vec::new();
+        for item_tag in self.list_item_tags(item.id).await? {
+            let tag = self
+                .get_tag(item_tag.tag_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "tag",
+                    id: item_tag.tag_id.to_string(),
+                })?;
+            tags.push((item_tag, tag));
+        }
+
+        let mut collections = Vec::new();
+        for collection_item in self.list_item_collections(item.id).await? {
+            let collection = self
+                .get_collection(collection_item.collection_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "collection",
+                    id: collection_item.collection_id.to_string(),
+                })?;
+            collections.push((collection_item, collection));
+        }
+
+        let mut studios = Vec::new();
+        for item_studio in self.list_item_studios(item.id).await? {
+            let studio = self
+                .get_studio(item_studio.studio_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "studio",
+                    id: item_studio.studio_id.to_string(),
+                })?;
+            studios.push((item_studio, studio));
+        }
+
+        Ok(CatalogHydrationSnapshot {
+            item,
+            sources,
+            credits,
+            genres,
+            tags,
+            collections,
+            studios,
+        })
+    }
+
+    async fn load_hydration_lookup(
+        &self,
+        item: &MediaItem,
+        source: &MetadataSource,
+    ) -> Result<CatalogHydrationLookup> {
+        let mut lookup = CatalogHydrationLookup {
+            person_external_id_matches: Vec::new(),
+            person_name_matches: Vec::new(),
+            genre_name_source_matches: Vec::new(),
+            tag_name_source_matches: Vec::new(),
+            collection_external_id_matches: Vec::new(),
+            collection_name_source_matches: Vec::new(),
+            studio_external_id_matches: Vec::new(),
+            studio_name_source_matches: Vec::new(),
+            image_source_matches: Vec::new(),
+        };
+
+        for credit in &item.metadata.credits {
+            if let Some(name) = normalized_label(&credit.name) {
+                if let Some(person) = self.find_person_by_name(&name).await? {
+                    lookup.person_name_matches.push((name, person));
+                }
+            }
+            for external_id in non_empty_external_ids(&credit.external_ids) {
+                if let Some(person) = self.find_person_by_external_id(external_id).await? {
+                    lookup
+                        .person_external_id_matches
+                        .push((external_id.clone(), person));
+                }
+            }
+        }
+
+        for name in normalized_unique_labels(&item.metadata.genres) {
+            if let Some(genre) = self.find_genre_by_name_source(&name, source).await? {
+                lookup
+                    .genre_name_source_matches
+                    .push((name, source.clone(), genre));
+            }
+        }
+        for name in normalized_unique_labels(&item.metadata.tags) {
+            if let Some(tag) = self.find_tag_by_name_source(&name, source).await? {
+                lookup
+                    .tag_name_source_matches
+                    .push((name, source.clone(), tag));
+            }
+        }
+
+        for collection_ref in &item.metadata.collections {
+            if let Some(name) = normalized_label(&collection_ref.name) {
+                if let Some(collection) = self.find_collection_by_name_source(&name, source).await?
+                {
+                    lookup
+                        .collection_name_source_matches
+                        .push((name, source.clone(), collection));
+                }
+            }
+            for external_id in non_empty_external_ids(&collection_ref.external_ids) {
+                if let Some(collection) = self.find_collection_by_external_id(external_id).await? {
+                    lookup
+                        .collection_external_id_matches
+                        .push((external_id.clone(), collection));
+                }
+            }
+        }
+
+        for studio_ref in &item.metadata.studios {
+            if let Some(name) = normalized_label(&studio_ref.name) {
+                if let Some(studio) = self.find_studio_by_name_source(&name, source).await? {
+                    lookup
+                        .studio_name_source_matches
+                        .push((name, source.clone(), studio));
+                }
+            }
+            for external_id in non_empty_external_ids(&studio_ref.external_ids) {
+                if let Some(studio) = self.find_studio_by_external_id(external_id).await? {
+                    lookup
+                        .studio_external_id_matches
+                        .push((external_id.clone(), studio));
+                }
+            }
+        }
+
+        let owner = ImageOwner::Item(item.id);
+        for image_ref in &item.metadata.images {
+            let Some(source_uri) = normalized_label(&image_ref.uri) else {
+                continue;
+            };
+            if let Some(image) = self
+                .find_image_asset_by_source(&owner, &image_ref.kind, &source_uri)
+                .await?
+            {
+                lookup.image_source_matches.push((
+                    owner.clone(),
+                    image_ref.kind.clone(),
+                    source_uri,
+                    image,
+                ));
+            }
+        }
+
+        Ok(lookup)
+    }
+
+    async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()> {
+        self.replace_item_catalog_graph(commit.item_id, &commit.replacement)
+            .await?;
+        self.upsert(commit.search_document).await
+    }
+}
+
 pub async fn hydrate_item_catalog<R>(
-    repository: &R,
+    port: &R,
     item_id: MediaItemId,
     source: MetadataSource,
 ) -> Result<CatalogHydrationSummary>
 where
-    R: CatalogRepository + MediaRepository + SearchIndex,
+    R: CatalogHydrationPort,
 {
-    let item = repository
-        .get_media_item(item_id)
-        .await?
-        .ok_or_else(|| TaruError::NotFound {
-            entity: "media_item",
-            id: item_id.to_string(),
-        })?;
+    let snapshot = port.load_hydration_snapshot(item_id).await?;
+    let lookup = port.load_hydration_lookup(&snapshot.item, &source).await?;
+    let item = &snapshot.item;
     let mut summary = CatalogHydrationSummary {
         item_id,
         ..CatalogHydrationSummary::default()
@@ -45,16 +287,19 @@ where
 
     let mut replacement = CatalogItemGraphReplacement::default();
 
-    hydrate_credits(repository, &item, &mut summary, &mut replacement).await?;
-    hydrate_genres(repository, &item, &source, &mut summary, &mut replacement).await?;
-    hydrate_tags(repository, &item, &source, &mut summary, &mut replacement).await?;
-    hydrate_collections(repository, &item, &source, &mut summary, &mut replacement).await?;
-    hydrate_studios(repository, &item, &source, &mut summary, &mut replacement).await?;
-    hydrate_images(repository, &item, &mut summary, &mut replacement).await?;
-    repository
-        .replace_item_catalog_graph(item.id, &replacement)
-        .await?;
-    rebuild_search_projection(repository, item.id).await?;
+    hydrate_credits(&lookup, &item, &mut summary, &mut replacement)?;
+    hydrate_genres(&lookup, &item, &source, &mut summary, &mut replacement)?;
+    hydrate_tags(&lookup, &item, &source, &mut summary, &mut replacement)?;
+    hydrate_collections(&lookup, &item, &source, &mut summary, &mut replacement)?;
+    hydrate_studios(&lookup, &item, &source, &mut summary, &mut replacement)?;
+    hydrate_images(&lookup, &item, &mut summary, &mut replacement)?;
+    let search_document = search_document_from_graph(item, &snapshot, &replacement);
+    port.commit_hydration(CatalogHydrationCommit {
+        item_id: item.id,
+        replacement,
+        search_document,
+    })
+    .await?;
     summary.search_indexed = true;
 
     Ok(summary)
@@ -64,109 +309,23 @@ pub async fn rebuild_search_projection<R>(repository: &R, item_id: MediaItemId) 
 where
     R: CatalogRepository + MediaRepository + SearchIndex,
 {
-    let item = repository
-        .get_media_item(item_id)
-        .await?
-        .ok_or_else(|| TaruError::NotFound {
-            entity: "media_item",
-            id: item_id.to_string(),
-        })?;
-    let sources = list_all_item_sources(repository, item.id).await?;
-    let credits = repository.list_item_credits(item.id).await?;
-    let genres = repository.list_item_genres(item.id).await?;
-    let tags = repository.list_item_tags(item.id).await?;
-    let collections = repository.list_item_collections(item.id).await?;
-    let studios = repository.list_item_studios(item.id).await?;
-    let mut body_parts = Vec::new();
-    let mut facets = BTreeSet::new();
-
-    push_body(&mut body_parts, &item.metadata.title);
-    push_optional_body(&mut body_parts, item.metadata.original_title.as_deref());
-    push_optional_body(&mut body_parts, item.metadata.sort_title.as_deref());
-    push_optional_body(&mut body_parts, item.metadata.overview.as_deref());
-    push_optional_body(&mut body_parts, item.metadata.tagline.as_deref());
-    facets.insert(format!("kind:{}", item.kind.as_str()));
-
-    if let Some(value) = item.metadata.release_date.as_deref() {
-        facets.insert(format!("release_date:{value}"));
-    }
-
-    for external_id in &item.metadata.external_ids {
-        push_body(&mut body_parts, &external_id.value);
-        facets.insert(format!(
-            "external_id:{}:{}",
-            provider_label(&external_id.provider),
-            external_id.value
-        ));
-    }
-
-    for source in sources {
-        push_body(&mut body_parts, &source.file_name);
-        facets.insert(format!("source:{}", source.file_name));
-    }
-
-    for item_genre in genres {
-        if let Some(genre) = repository.get_genre(item_genre.genre_id).await? {
-            push_body(&mut body_parts, &genre.name);
-            facets.insert(format!("genre:{}", genre.name));
-        }
-    }
-
-    for item_tag in tags {
-        if let Some(tag) = repository.get_tag(item_tag.tag_id).await? {
-            push_body(&mut body_parts, &tag.name);
-            facets.insert(format!("tag:{}", tag.name));
-        }
-    }
-
-    for membership in collections {
-        if let Some(collection) = repository.get_collection(membership.collection_id).await? {
-            push_body(&mut body_parts, &collection.name);
-            facets.insert(format!("collection:{}", collection.name));
-        }
-    }
-
-    for item_studio in studios {
-        if let Some(studio) = repository.get_studio(item_studio.studio_id).await? {
-            push_body(&mut body_parts, &studio.name);
-            facets.insert(format!("studio:{}", studio.name));
-        }
-    }
-
-    for credit in credits {
-        if let Some(person) = repository.get_person(credit.person_id).await? {
-            let role = credit_role_label(&credit.role);
-            push_body(&mut body_parts, &person.name);
-            push_optional_body(&mut body_parts, credit.character.as_deref());
-            facets.insert(format!("credit:{}", person.name));
-            facets.insert(format!("{role}:{}", person.name));
-        }
-    }
-
+    let snapshot = repository.load_hydration_snapshot(item_id).await?;
     repository
-        .upsert(SearchDocument {
-            item_id: item.id,
-            title: item.metadata.title,
-            body: body_parts.join(" "),
-            facets: facets.into_iter().collect(),
-        })
+        .upsert(search_document_from_snapshot(&snapshot))
         .await
 }
 
-async fn hydrate_credits<R>(
-    repository: &R,
+fn hydrate_credits(
+    lookup: &CatalogHydrationLookup,
     item: &MediaItem,
     summary: &mut CatalogHydrationSummary,
     replacement: &mut CatalogItemGraphReplacement,
-) -> Result<()>
-where
-    R: CatalogRepository,
-{
+) -> Result<()> {
     for credit in &item.metadata.credits {
         let Some(name) = normalized_label(&credit.name) else {
             continue;
         };
-        let person = resolve_person(repository, credit, name).await?;
+        let person = resolve_person(lookup, credit, name);
         replacement.people.push(person.clone());
         replacement.credits.push(ItemCredit {
             item_id: item.id,
@@ -182,16 +341,13 @@ where
     Ok(())
 }
 
-async fn hydrate_genres<R>(
-    repository: &R,
+fn hydrate_genres(
+    lookup: &CatalogHydrationLookup,
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
     replacement: &mut CatalogItemGraphReplacement,
-) -> Result<()>
-where
-    R: CatalogRepository,
-{
+) -> Result<()> {
     let mut seen = HashSet::new();
 
     for name in
@@ -199,14 +355,18 @@ where
             normalized_label(name).filter(|name| seen.insert(name.to_lowercase()))
         })
     {
-        let genre = match repository.find_genre_by_name_source(&name, source).await? {
-            Some(genre) => genre,
-            None => Genre {
+        let genre = lookup
+            .genre_name_source_matches
+            .iter()
+            .find(|(existing_name, existing_source, _genre)| {
+                existing_name == &name && existing_source == source
+            })
+            .map(|(_name, _source, genre)| genre.clone())
+            .unwrap_or_else(|| Genre {
                 id: GenreId::new(),
                 name,
                 source: source.clone(),
-            },
-        };
+            });
         replacement.genres.push(genre.clone());
         replacement.item_genres.push(ItemGenre {
             item_id: item.id,
@@ -218,16 +378,13 @@ where
     Ok(())
 }
 
-async fn hydrate_tags<R>(
-    repository: &R,
+fn hydrate_tags(
+    lookup: &CatalogHydrationLookup,
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
     replacement: &mut CatalogItemGraphReplacement,
-) -> Result<()>
-where
-    R: CatalogRepository,
-{
+) -> Result<()> {
     let mut seen = HashSet::new();
 
     for name in
@@ -235,14 +392,18 @@ where
             normalized_label(name).filter(|name| seen.insert(name.to_lowercase()))
         })
     {
-        let tag = match repository.find_tag_by_name_source(&name, source).await? {
-            Some(tag) => tag,
-            None => Tag {
+        let tag = lookup
+            .tag_name_source_matches
+            .iter()
+            .find(|(existing_name, existing_source, _tag)| {
+                existing_name == &name && existing_source == source
+            })
+            .map(|(_name, _source, tag)| tag.clone())
+            .unwrap_or_else(|| Tag {
                 id: TagId::new(),
                 name,
                 source: source.clone(),
-            },
-        };
+            });
         replacement.tags.push(tag.clone());
         replacement.item_tags.push(ItemTag {
             item_id: item.id,
@@ -254,21 +415,18 @@ where
     Ok(())
 }
 
-async fn hydrate_collections<R>(
-    repository: &R,
+fn hydrate_collections(
+    lookup: &CatalogHydrationLookup,
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
     replacement: &mut CatalogItemGraphReplacement,
-) -> Result<()>
-where
-    R: CatalogRepository,
-{
+) -> Result<()> {
     for collection_ref in &item.metadata.collections {
         let Some(name) = normalized_label(&collection_ref.name) else {
             continue;
         };
-        let collection = resolve_collection(repository, collection_ref, name, source).await?;
+        let collection = resolve_collection(lookup, collection_ref, name, source);
         replacement.collections.push(collection.clone());
         replacement.collection_items.push(CollectionItem {
             collection_id: collection.id,
@@ -281,16 +439,13 @@ where
     Ok(())
 }
 
-async fn hydrate_studios<R>(
-    repository: &R,
+fn hydrate_studios(
+    lookup: &CatalogHydrationLookup,
     item: &MediaItem,
     source: &MetadataSource,
     summary: &mut CatalogHydrationSummary,
     replacement: &mut CatalogItemGraphReplacement,
-) -> Result<()>
-where
-    R: CatalogRepository,
-{
+) -> Result<()> {
     let mut seen = HashSet::new();
 
     for studio_ref in item.metadata.studios.iter().filter(|studio| {
@@ -299,7 +454,7 @@ where
         let Some(name) = normalized_label(&studio_ref.name) else {
             continue;
         };
-        let studio = resolve_studio(repository, studio_ref, name, source).await?;
+        let studio = resolve_studio(lookup, studio_ref, name, source);
         replacement.studios.push(studio.clone());
         replacement.item_studios.push(ItemStudio {
             item_id: item.id,
@@ -311,15 +466,12 @@ where
     Ok(())
 }
 
-async fn hydrate_images<R>(
-    repository: &R,
+fn hydrate_images(
+    lookup: &CatalogHydrationLookup,
     item: &MediaItem,
     summary: &mut CatalogHydrationSummary,
     replacement: &mut CatalogItemGraphReplacement,
-) -> Result<()>
-where
-    R: CatalogRepository,
-{
+) -> Result<()> {
     let owner = ImageOwner::Item(item.id);
     let mut selected_kinds = HashSet::new();
 
@@ -327,9 +479,15 @@ where
         let Some(source_uri) = normalized_label(&image_ref.uri) else {
             continue;
         };
-        let existing = repository
-            .find_image_asset_by_source(&owner, &image_ref.kind, &source_uri)
-            .await?;
+        let existing = lookup
+            .image_source_matches
+            .iter()
+            .find(|(existing_owner, existing_kind, existing_source, _image)| {
+                existing_owner == &owner
+                    && existing_kind == &image_ref.kind
+                    && existing_source == &source_uri
+            })
+            .map(|(_owner, _kind, _source_uri, image)| image.clone());
         let selected = selected_kinds.insert(image_kind_key(&image_ref.kind));
         let image = ImageAsset {
             id: existing
@@ -358,112 +516,250 @@ where
     Ok(())
 }
 
-async fn resolve_person<R>(repository: &R, credit: &Credit, name: String) -> Result<Person>
-where
-    R: CatalogRepository,
-{
+fn resolve_person(lookup: &CatalogHydrationLookup, credit: &Credit, name: String) -> Person {
     for external_id in non_empty_external_ids(&credit.external_ids) {
-        if let Some(mut person) = repository.find_person_by_external_id(external_id).await? {
+        if let Some(mut person) = lookup
+            .person_external_id_matches
+            .iter()
+            .find(|(existing_external_id, _person)| existing_external_id == external_id)
+            .map(|(_external_id, person)| person.clone())
+        {
             merge_external_ids(&mut person.external_ids, &credit.external_ids);
-            repository.upsert_person(&person).await?;
-            return Ok(person);
+            return person;
         }
     }
 
-    if let Some(mut person) = repository.find_person_by_name(&name).await? {
+    if let Some(mut person) = lookup
+        .person_name_matches
+        .iter()
+        .find(|(existing_name, _person)| existing_name == &name)
+        .map(|(_name, person)| person.clone())
+    {
         merge_external_ids(&mut person.external_ids, &credit.external_ids);
-        repository.upsert_person(&person).await?;
-        return Ok(person);
+        return person;
     }
 
-    let person = Person {
+    Person {
         id: PersonId::new(),
         name,
         sort_name: None,
         overview: None,
         external_ids: credit.external_ids.clone(),
-    };
-    repository.upsert_person(&person).await?;
-    Ok(person)
+    }
 }
 
-async fn resolve_collection<R>(
-    repository: &R,
+fn resolve_collection(
+    lookup: &CatalogHydrationLookup,
     collection_ref: &CollectionRef,
     name: String,
     source: &MetadataSource,
-) -> Result<Collection>
-where
-    R: CatalogRepository,
-{
+) -> Collection {
     for external_id in non_empty_external_ids(&collection_ref.external_ids) {
-        if let Some(mut collection) = repository
-            .find_collection_by_external_id(external_id)
-            .await?
+        if let Some(mut collection) = lookup
+            .collection_external_id_matches
+            .iter()
+            .find(|(existing_external_id, _collection)| existing_external_id == external_id)
+            .map(|(_external_id, collection)| collection.clone())
         {
             if collection.overview.is_none() {
                 collection.overview = collection_ref.overview.clone();
             }
             merge_external_ids(&mut collection.external_ids, &collection_ref.external_ids);
-            repository.upsert_collection(&collection).await?;
-            return Ok(collection);
+            return collection;
         }
     }
 
-    if let Some(mut collection) = repository
-        .find_collection_by_name_source(&name, source)
-        .await?
+    if let Some(mut collection) = lookup
+        .collection_name_source_matches
+        .iter()
+        .find(|(existing_name, existing_source, _collection)| {
+            existing_name == &name && existing_source == source
+        })
+        .map(|(_name, _source, collection)| collection.clone())
     {
         if collection.overview.is_none() {
             collection.overview = collection_ref.overview.clone();
         }
         merge_external_ids(&mut collection.external_ids, &collection_ref.external_ids);
-        repository.upsert_collection(&collection).await?;
-        return Ok(collection);
+        return collection;
     }
 
-    let collection = Collection {
+    Collection {
         id: CollectionId::new(),
         name,
         overview: collection_ref.overview.clone(),
         source: source.clone(),
         external_ids: collection_ref.external_ids.clone(),
-    };
-    repository.upsert_collection(&collection).await?;
-    Ok(collection)
+    }
 }
 
-async fn resolve_studio<R>(
-    repository: &R,
+fn resolve_studio(
+    lookup: &CatalogHydrationLookup,
     studio_ref: &taru_core::StudioRef,
     name: String,
     source: &MetadataSource,
-) -> Result<Studio>
-where
-    R: CatalogRepository,
-{
+) -> Studio {
     for external_id in non_empty_external_ids(&studio_ref.external_ids) {
-        if let Some(mut studio) = repository.find_studio_by_external_id(external_id).await? {
+        if let Some(mut studio) = lookup
+            .studio_external_id_matches
+            .iter()
+            .find(|(existing_external_id, _studio)| existing_external_id == external_id)
+            .map(|(_external_id, studio)| studio.clone())
+        {
             merge_external_ids(&mut studio.external_ids, &studio_ref.external_ids);
-            repository.upsert_studio(&studio).await?;
-            return Ok(studio);
+            return studio;
         }
     }
 
-    if let Some(mut studio) = repository.find_studio_by_name_source(&name, source).await? {
+    if let Some(mut studio) = lookup
+        .studio_name_source_matches
+        .iter()
+        .find(|(existing_name, existing_source, _studio)| {
+            existing_name == &name && existing_source == source
+        })
+        .map(|(_name, _source, studio)| studio.clone())
+    {
         merge_external_ids(&mut studio.external_ids, &studio_ref.external_ids);
-        repository.upsert_studio(&studio).await?;
-        return Ok(studio);
+        return studio;
     }
 
-    let studio = Studio {
+    Studio {
         id: StudioId::new(),
         name,
         source: source.clone(),
         external_ids: studio_ref.external_ids.clone(),
-    };
-    repository.upsert_studio(&studio).await?;
-    Ok(studio)
+    }
+}
+
+fn search_document_from_graph(
+    item: &MediaItem,
+    snapshot: &CatalogHydrationSnapshot,
+    replacement: &CatalogItemGraphReplacement,
+) -> SearchDocument {
+    let mut body_parts = Vec::new();
+    let mut facets = Vec::new();
+
+    add_search_item_metadata(item, &mut body_parts, &mut facets);
+
+    for source in &snapshot.sources {
+        push_body(&mut body_parts, &source.file_name);
+        push_unique_facet(&mut facets, format!("source:{}", source.file_name));
+    }
+
+    for genre in &replacement.genres {
+        push_body(&mut body_parts, &genre.name);
+        push_unique_facet(&mut facets, format!("genre:{}", genre.name));
+    }
+
+    for tag in &replacement.tags {
+        push_body(&mut body_parts, &tag.name);
+        push_unique_facet(&mut facets, format!("tag:{}", tag.name));
+    }
+
+    for collection in &replacement.collections {
+        push_body(&mut body_parts, &collection.name);
+        push_unique_facet(&mut facets, format!("collection:{}", collection.name));
+    }
+
+    for studio in &replacement.studios {
+        push_body(&mut body_parts, &studio.name);
+        push_unique_facet(&mut facets, format!("studio:{}", studio.name));
+    }
+
+    for credit in &replacement.credits {
+        if let Some(person) = replacement
+            .people
+            .iter()
+            .find(|person| person.id == credit.person_id)
+        {
+            let role = credit_role_label(&credit.role);
+            push_body(&mut body_parts, &person.name);
+            push_optional_body(&mut body_parts, credit.character.as_deref());
+            push_unique_facet(&mut facets, format!("credit:{}", person.name));
+            push_unique_facet(&mut facets, format!("{role}:{}", person.name));
+        }
+    }
+    facets.sort();
+
+    SearchDocument {
+        item_id: item.id,
+        title: item.metadata.title.clone(),
+        body: body_parts.join(" "),
+        facets,
+    }
+}
+
+fn search_document_from_snapshot(snapshot: &CatalogHydrationSnapshot) -> SearchDocument {
+    let mut body_parts = Vec::new();
+    let mut facets = Vec::new();
+
+    add_search_item_metadata(&snapshot.item, &mut body_parts, &mut facets);
+
+    for source in &snapshot.sources {
+        push_body(&mut body_parts, &source.file_name);
+        push_unique_facet(&mut facets, format!("source:{}", source.file_name));
+    }
+
+    for (_item_genre, genre) in &snapshot.genres {
+        push_body(&mut body_parts, &genre.name);
+        push_unique_facet(&mut facets, format!("genre:{}", genre.name));
+    }
+    for (_item_tag, tag) in &snapshot.tags {
+        push_body(&mut body_parts, &tag.name);
+        push_unique_facet(&mut facets, format!("tag:{}", tag.name));
+    }
+    for (_collection_item, collection) in &snapshot.collections {
+        push_body(&mut body_parts, &collection.name);
+        push_unique_facet(&mut facets, format!("collection:{}", collection.name));
+    }
+    for (_item_studio, studio) in &snapshot.studios {
+        push_body(&mut body_parts, &studio.name);
+        push_unique_facet(&mut facets, format!("studio:{}", studio.name));
+    }
+    for (credit, person) in &snapshot.credits {
+        let role = credit_role_label(&credit.role);
+        push_body(&mut body_parts, &person.name);
+        push_optional_body(&mut body_parts, credit.character.as_deref());
+        push_unique_facet(&mut facets, format!("credit:{}", person.name));
+        push_unique_facet(&mut facets, format!("{role}:{}", person.name));
+    }
+    facets.sort();
+
+    SearchDocument {
+        item_id: snapshot.item.id,
+        title: snapshot.item.metadata.title.clone(),
+        body: body_parts.join(" "),
+        facets,
+    }
+}
+
+fn add_search_item_metadata(
+    item: &MediaItem,
+    body_parts: &mut Vec<String>,
+    facets: &mut Vec<String>,
+) {
+    push_body(body_parts, &item.metadata.title);
+    push_optional_body(body_parts, item.metadata.original_title.as_deref());
+    push_optional_body(body_parts, item.metadata.sort_title.as_deref());
+    push_optional_body(body_parts, item.metadata.overview.as_deref());
+    push_optional_body(body_parts, item.metadata.tagline.as_deref());
+    push_unique_facet(facets, format!("kind:{}", item.kind.as_str()));
+
+    if let Some(value) = item.metadata.release_date.as_deref() {
+        push_unique_facet(facets, format!("release_date:{value}"));
+    }
+
+    for external_id in &item.metadata.external_ids {
+        push_body(body_parts, &external_id.value);
+        push_unique_facet(
+            facets,
+            format!(
+                "external_id:{}:{}",
+                provider_label(&external_id.provider),
+                external_id.value
+            ),
+        );
+    }
 }
 
 async fn list_all_item_sources<R>(
@@ -511,6 +807,16 @@ fn non_empty_external_ids(external_ids: &[ExternalId]) -> impl Iterator<Item = &
         .filter(|external_id| !external_id.value.trim().is_empty())
 }
 
+fn normalized_unique_labels(values: &[String]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    values
+        .iter()
+        .filter_map(|value| {
+            normalized_label(value).filter(|value| seen.insert(value.to_lowercase()))
+        })
+        .collect()
+}
+
 fn merge_external_ids(existing: &mut Vec<ExternalId>, incoming: &[ExternalId]) {
     for external_id in incoming {
         if !external_id.value.trim().is_empty() && !existing.contains(external_id) {
@@ -528,6 +834,12 @@ fn push_body(parts: &mut Vec<String>, value: &str) {
 fn push_optional_body(parts: &mut Vec<String>, value: Option<&str>) {
     if let Some(value) = value {
         push_body(parts, value);
+    }
+}
+
+fn push_unique_facet(facets: &mut Vec<String>, value: String) {
+    if !facets.contains(&value) {
+        facets.push(value);
     }
 }
 
@@ -566,6 +878,7 @@ fn provider_label(provider: &ExternalProvider) -> String {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
     use taru_core::{
         CanonicalMetadata, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind, ImageRef,
         Library, LibraryId, LibraryOptions, LibraryPreset, MediaItem, MediaKind, MediaRepository,
@@ -576,6 +889,167 @@ mod tests {
     use taru_search::{SearchIndex, SearchQuery};
 
     use super::*;
+
+    #[derive(Debug)]
+    struct FakeCatalogHydrationPort {
+        snapshot: CatalogHydrationSnapshot,
+        lookup: CatalogHydrationLookup,
+        committed: std::sync::Mutex<Option<CatalogHydrationCommit>>,
+    }
+
+    #[async_trait]
+    impl CatalogHydrationPort for FakeCatalogHydrationPort {
+        async fn load_hydration_snapshot(
+            &self,
+            item_id: MediaItemId,
+        ) -> Result<CatalogHydrationSnapshot> {
+            assert_eq!(self.snapshot.item.id, item_id);
+            Ok(self.snapshot.clone())
+        }
+
+        async fn load_hydration_lookup(
+            &self,
+            item: &MediaItem,
+            source: &MetadataSource,
+        ) -> Result<CatalogHydrationLookup> {
+            assert_eq!(self.snapshot.item.id, item.id);
+            assert_eq!(*source, MetadataSource::Provider(ExternalProvider::Tmdb));
+            Ok(self.lookup.clone())
+        }
+
+        async fn commit_hydration(&self, commit: CatalogHydrationCommit) -> Result<()> {
+            *self.committed.lock().unwrap() = Some(commit);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn hydration_uses_workflow_port_without_sqlite() {
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "The Matrix".to_owned(),
+                overview: Some("A hacker discovers reality.".to_owned()),
+                genres: vec!["Action".to_owned(), "Action".to_owned()],
+                tags: vec!["cyberpunk".to_owned()],
+                credits: vec![Credit {
+                    name: "Keanu Reeves".to_owned(),
+                    role: CreditRole::Actor,
+                    character: Some("Neo".to_owned()),
+                    order: Some(0),
+                    external_ids: vec![ExternalId {
+                        provider: ExternalProvider::Tmdb,
+                        value: "6384".to_owned(),
+                    }],
+                }],
+                images: vec![ImageRef {
+                    kind: ImageKind::Poster,
+                    uri: "https://image.example/poster.jpg".to_owned(),
+                    provider: ExternalProvider::Tmdb,
+                    width: Some(1000),
+                    height: Some(1500),
+                    language: Some("en".to_owned()),
+                }],
+                external_ids: vec![ExternalId {
+                    provider: ExternalProvider::Tmdb,
+                    value: "603".to_owned(),
+                }],
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
+            item_id: item.id,
+            locator: "local:///Movies/The Matrix (1999).mkv".to_owned(),
+            file_name: "The Matrix (1999).mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        };
+        let existing_person = Person {
+            id: PersonId::new(),
+            name: "Keanu Reeves".to_owned(),
+            sort_name: None,
+            overview: None,
+            external_ids: Vec::new(),
+        };
+        let existing_image = ImageAsset {
+            id: ImageAssetId::new(),
+            owner: ImageOwner::Item(item.id),
+            kind: ImageKind::Poster,
+            source_uri: "https://image.example/poster.jpg".to_owned(),
+            provider: ExternalProvider::Tmdb,
+            cache_uri: Some("local:///cache/poster.jpg".to_owned()),
+            width: Some(800),
+            height: Some(1200),
+            language: None,
+            selected: true,
+            content_hash: Some("hash".to_owned()),
+            etag: Some("etag".to_owned()),
+        };
+        let port = FakeCatalogHydrationPort {
+            snapshot: CatalogHydrationSnapshot {
+                item: item.clone(),
+                sources: vec![source],
+                credits: Vec::new(),
+                genres: Vec::new(),
+                tags: Vec::new(),
+                collections: Vec::new(),
+                studios: Vec::new(),
+            },
+            lookup: CatalogHydrationLookup {
+                person_external_id_matches: vec![(
+                    ExternalId {
+                        provider: ExternalProvider::Tmdb,
+                        value: "6384".to_owned(),
+                    },
+                    existing_person.clone(),
+                )],
+                person_name_matches: Vec::new(),
+                genre_name_source_matches: Vec::new(),
+                tag_name_source_matches: Vec::new(),
+                collection_external_id_matches: Vec::new(),
+                collection_name_source_matches: Vec::new(),
+                studio_external_id_matches: Vec::new(),
+                studio_name_source_matches: Vec::new(),
+                image_source_matches: vec![(
+                    ImageOwner::Item(item.id),
+                    ImageKind::Poster,
+                    "https://image.example/poster.jpg".to_owned(),
+                    existing_image.clone(),
+                )],
+            },
+            committed: std::sync::Mutex::new(None),
+        };
+
+        let summary = hydrate_item_catalog(
+            &port,
+            item.id,
+            MetadataSource::Provider(ExternalProvider::Tmdb),
+        )
+        .await
+        .unwrap();
+        let commit = port.committed.lock().unwrap().clone().unwrap();
+
+        assert_eq!(summary.credits, 1);
+        assert_eq!(summary.genres, 1);
+        assert_eq!(summary.images, 1);
+        assert_eq!(commit.item_id, item.id);
+        assert_eq!(commit.replacement.people[0].id, existing_person.id);
+        assert_eq!(
+            commit.replacement.images[0].cache_uri,
+            Some("local:///cache/poster.jpg".to_owned())
+        );
+        assert!(commit.search_document.body.contains("Keanu Reeves"));
+        assert!(
+            commit
+                .search_document
+                .facets
+                .contains(&"genre:Action".to_owned())
+        );
+    }
 
     #[tokio::test]
     async fn hydration_populates_graph_and_search_projection() {

@@ -1,15 +1,13 @@
 use serde::{Deserialize, Serialize};
-use taru_catalog::hydrate_item_catalog;
+use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
-    CatalogRepository, ExternalProvider, JobId, LibraryItemRepository, LibraryItemState, MediaItem,
-    MediaItemId, MediaKind, MediaRepository, MetadataMatchKind, MetadataProfile,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NewMetadataProviderAttempt,
-    PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, Result, TaruError,
+    ExternalProvider, JobId, LibraryItemRepository, LibraryItemState, MediaItem, MediaItemId,
+    MediaKind, MediaRepository, MetadataMatchKind, MetadataProfile, MetadataProviderAttemptId,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, NewMetadataProviderAttempt, PageRequest, ProviderMapping,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result, TaruError,
 };
-use taru_search::SearchIndex;
 
 use crate::{
     MetadataFetchRequest, MetadataFetchResult, MetadataLookup, MetadataMergePolicy,
@@ -84,12 +82,11 @@ impl<R> MetadataStrategyExecutor<R> {
 
 impl<R> MetadataStrategyExecutor<R>
 where
-    R: CatalogRepository
+    R: CatalogHydrationPort
         + LibraryItemRepository
         + MediaRepository
         + MetadataRepository
-        + ProviderMappingRepository
-        + SearchIndex,
+        + ProviderMappingRepository,
 {
     pub async fn refresh_item(
         &self,
@@ -243,12 +240,11 @@ impl<P, R> MetadataRefreshService<P, R> {
 impl<P, R> MetadataRefreshService<P, R>
 where
     P: MetadataProvider,
-    R: CatalogRepository
+    R: CatalogHydrationPort
         + LibraryItemRepository
         + MediaRepository
         + MetadataRepository
-        + ProviderMappingRepository
-        + SearchIndex,
+        + ProviderMappingRepository,
 {
     pub async fn refresh_item(
         &self,

@@ -6,6 +6,9 @@ attention.
 
 ## Current Workstreams
 
+- [repository-seam-deepening](repository-seam-deepening/README.md): completed M39
+  repository seam work, covering `CatalogHydrationPort`, catalog hydration
+  snapshot/lookup/commit behavior, and metadata/NFO caller-bound narrowing.
 - [server-runtime-deepening](server-runtime-deepening/README.md): completed M38
   startup/runtime architecture work, covering `ServerStartupWorkflow`, startup
   reports, durable job runtime supervision, and first migration of library scan

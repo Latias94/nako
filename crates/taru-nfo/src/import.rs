@@ -1,13 +1,12 @@
-use taru_catalog::hydrate_item_catalog;
+use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
-    CanonicalMetadata, CatalogRepository, LibraryItemRepository, LocalMetadataPolicy, MediaItem,
-    MediaRepository, MediaSource, MetadataField, MetadataFieldLock, MetadataRefreshMode,
-    MetadataRepository, MetadataSource, ProviderMappingRepository, Result, TaruError,
+    CanonicalMetadata, LibraryItemRepository, LocalMetadataPolicy, MediaItem, MediaRepository,
+    MediaSource, MetadataField, MetadataFieldLock, MetadataRefreshMode, MetadataRepository,
+    MetadataSource, ProviderMappingRepository, Result, TaruError,
 };
 use taru_metadata::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
 };
-use taru_search::SearchIndex;
 use taru_vfs::StorageBackend;
 
 use super::{
@@ -18,13 +17,12 @@ use super::{
 impl<B, R, C> NfoService<B, R, C>
 where
     B: StorageBackend,
-    R: CatalogRepository
+    R: CatalogHydrationPort
         + Clone
         + LibraryItemRepository
         + MediaRepository
         + MetadataRepository
-        + ProviderMappingRepository
-        + SearchIndex,
+        + ProviderMappingRepository,
     C: NfoCodec,
 {
     pub async fn import_library(&self, request: NfoImportRequest) -> Result<NfoImportSummary> {

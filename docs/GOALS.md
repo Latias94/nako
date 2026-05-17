@@ -26,13 +26,44 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M38 closeout.
-
-Next recommended implementation goal:
-
-- M39 repository seam deepening.
+No active implementation goal. Recommended next goal: M40 Metadata Refresh
+Workflow Port and Provider Runtime Seam Deepening.
 
 ## Completed Goals
+
+### M39: Repository Seam Deepening and Workflow Port Extraction
+
+Status: completed.
+
+Objective:
+
+- Deepen repository seams after M38 by extracting workflow-shaped ports instead
+  of mechanically splitting every repository trait.
+- Reduce workflow crate exposure to SQLite and low-level repository details.
+- Start with catalog hydration because metadata refresh and NFO import both
+  depend on it today.
+
+Evidence:
+
+- [repository-seam-deepening workstream](workstreams/repository-seam-deepening/README.md)
+  records design, task ledger, milestones, evidence, and closeout.
+- `taru-catalog` exposes `CatalogHydrationPort`,
+  `CatalogHydrationSnapshot`, `CatalogHydrationLookup`, and
+  `CatalogHydrationCommit`.
+- `hydrate_item_catalog` uses the snapshot/lookup/commit workflow port and has
+  a fake-port behavior test that does not require SQLite.
+- Existing SQLite-backed catalog hydration tests still pass.
+- Metadata refresh, hierarchy confirmation, and NFO import call catalog
+  hydration through the workflow port instead of carrying the full
+  catalog/media/search trait combination.
+- Close-out validation: `cargo fmt --all -- --check`, focused catalog,
+  metadata, and NFO checks/nextest gates, `cargo check --workspace --tests`,
+  `cargo nextest run --workspace --no-fail-fast` with 285 tests passed, and
+  `git diff --check`.
+- Non-goals preserved: no playback source selection or transcode plan
+  redesign, no NFO Round Trip preservation, no public HTTP API, SDK, CLI, or
+  license-boundary change, no database schema change, and no broad mechanical
+  repository trait split.
 
 ### M38: Server Startup Workflow and Durable Job Runtime Deepening
 

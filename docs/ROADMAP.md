@@ -644,9 +644,38 @@ client or playback breadth:
 - playback source selection, NFO round-trip preservation, broad repository
   trait splitting, and public client changes remain follow-ons.
 
-Recommended next goal:
+Completed:
 
 - M39 repository seam deepening.
+
+### Repository Seam Deepening: M39
+
+Status: completed.
+
+This phase deepens repository seams by introducing workflow-shaped ports rather
+than mechanically splitting every broad repository trait:
+
+- catalog hydration becomes the first workflow port slice;
+- `CatalogHydrationPort` hides the catalog graph/search persistence details
+  behind snapshot, lookup, and commit operations;
+- metadata refresh, hierarchy confirmation, and NFO import use the catalog
+  hydration port instead of carrying the full catalog/media/search trait
+  combination;
+- SQLite schema, public API/SDK/CLI, playback decisions, and NFO Round Trip
+  remain unchanged.
+
+Completed:
+
+- M39.1 added `CatalogHydrationPort` in `taru-catalog` with snapshot, lookup,
+  and commit operations.
+- M39.2 narrowed metadata refresh, hierarchy confirmation, and NFO import
+  bounds to the workflow port.
+- M39.3 validated the focused crates and workspace with 285 nextest tests
+  passed.
+
+Recommended next goal:
+
+- M40 metadata refresh workflow port and provider runtime seam deepening.
 
 ## Workstream Split Direction
 

@@ -1,8 +1,4 @@
-use taru_core::{
-    CatalogRepository, LibraryItemRepository, MediaRepository, MediaSource, PageRequest,
-    ProviderMappingRepository, Result, TaruError,
-};
-use taru_search::SearchIndex;
+use taru_core::{MediaRepository, MediaSource, PageRequest, Result, TaruError};
 use taru_vfs::{StorageBackend, StorageUri};
 
 use super::{NfoCodec, NfoService, NfoSidecar};
@@ -20,11 +16,7 @@ impl<B, R, C> NfoService<B, R, C> {
 impl<B, R, C> NfoService<B, R, C>
 where
     B: StorageBackend,
-    R: CatalogRepository
-        + LibraryItemRepository
-        + MediaRepository
-        + ProviderMappingRepository
-        + SearchIndex,
+    R: MediaRepository,
     C: NfoCodec,
 {
     pub async fn discover_sidecars(

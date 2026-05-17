@@ -1,0 +1,17 @@
+{
+  "slug": "repository-seam-deepening",
+  "status": "completed",
+  "goal": "M39 Repository Seam Deepening and Workflow Port Extraction",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "CatalogHydrationPort",
+  "non_goals": [
+    "playback source selection redesign",
+    "NFO round trip preservation",
+    "public API or SDK changes",
+    "database schema changes",
+    "broad mechanical repository trait split"
+  ]
+}

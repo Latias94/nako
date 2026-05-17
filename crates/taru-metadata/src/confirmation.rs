@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
-use taru_catalog::hydrate_item_catalog;
+use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
-    CanonicalMetadata, CatalogRepository, ExternalProvider, LibraryId, LibraryItemRepository,
-    LibraryItemState, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataFieldLock,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, PageRequest, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, Result, TaruError,
+    CanonicalMetadata, ExternalProvider, LibraryId, LibraryItemRepository, LibraryItemState,
+    MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataFieldLock, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, PageRequest, ProviderMapping, ProviderMappingId,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, TaruError,
 };
-use taru_search::SearchIndex;
 
 use crate::MetadataMergePolicy;
 
@@ -65,12 +64,11 @@ impl<R> HierarchyConfirmationService<R> {
 
 impl<R> HierarchyConfirmationService<R>
 where
-    R: CatalogRepository
+    R: CatalogHydrationPort
         + LibraryItemRepository
         + MediaRepository
         + MetadataRepository
-        + ProviderMappingRepository
-        + SearchIndex,
+        + ProviderMappingRepository,
 {
     pub async fn confirm_hierarchy(
         &self,
