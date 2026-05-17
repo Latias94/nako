@@ -26,12 +26,78 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. The next admin-web-console implementation task
-is AWC-060, but it is blocked until the user accepts a front-end stack and
-workspace location. Until then, the captured v0 prompt in the
-admin-web-console handoff is the recommended prototype input.
+No active implementation goal is currently documented. Recommended next goal:
+playback session list/filter, event outbox list/filter, or storage
+staging/cache diagnostics.
 
 ## Completed Goals
+
+### M54: Durable Job Runtime And Admin Job List Read Model
+
+Status: completed.
+
+Objective:
+
+- Deepen Taru's server-side durable job runtime so common job lifecycle
+  behavior is owned by one Module instead of being duplicated in scan,
+  metadata, and NFO workflows.
+- Add `GET /admin/v1/jobs` as the first Admin API v1 Jobs/Tasks read model for
+  the web console.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- A durable job lifecycle Module in `taru-server`.
+- Migrated scan, metadata refresh/maintenance, and NFO import/export job
+  execution paths.
+- Job list/filter repository support in `taru-core`/`taru-db`.
+- Admin-owned job list DTOs in `taru-api::admin`.
+- `GET /admin/v1/jobs` route and focused HTTP tests.
+- Updated admin-web-console data-source notes after job list support lands.
+- Workstream evidence and closeout docs.
+
+Non-goals:
+
+- No frontend UI implementation or scaffold.
+- No generic distributed queue, retry policy, resumable execution, or worker
+  process model.
+- No Addon Task execution semantics.
+- No broad job cancellation unless a narrow read-model need proves it.
+- No playback session list/filter in this slice.
+- No Public Client API, public SDK, or `taru-client-protocol` changes.
+
+Exit criteria:
+
+- Existing scan, metadata, and NFO job behavior is preserved.
+- Common start/succeed/fail handling and summary serialization have one
+  authoritative implementation.
+- Admin Console can list/filter jobs through `/admin/v1/jobs`.
+- Existing root-level `GET /jobs/{job_id}` remains compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API, DB, and server validation gates pass.
+
+Evidence:
+
+- `taru-server::app::job_runtime` centralizes durable job lifecycle handling
+  for scan, metadata, and NFO workflows.
+- `GET /admin/v1/jobs` is backed by `JobListFilter`, SQLite list/filter
+  support, and redacted `AdminJobListItem` DTOs.
+- Summary serialization failures now persist durable jobs as failed.
+- Existing root-level `GET /jobs/{job_id}` remains compatible.
+- Public OpenAPI and TypeScript SDK tests still exclude admin/internal
+  surfaces.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 15
+  tests passed, `cargo check -p taru-db --tests`, `cargo nextest run -p
+  taru-db jobs --no-fail-fast` with 2 tests passed, `cargo check -p
+  taru-server --tests`, `cargo nextest run -p taru-server app::job_runtime
+  --no-fail-fast` with 3 tests passed, `cargo nextest run -p taru-server
+  app::tests::nfo --no-fail-fast` with 3 tests passed, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast` with 6 tests passed, public
+  OpenAPI/SDK leakage checks, `git diff --check`, and `git diff --name-only
+  -- crates/taru-client-protocol`.
 
 ### M53: Admin Web Console V0 Context and v0 Prompt Refresh
 

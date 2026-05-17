@@ -2,8 +2,18 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    DomainEventKind, EventId, Job, JobId, NewJob, NewOutboxEvent, OutboxEventRecord, Result,
+    DomainEventKind, EventId, Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId, NewJob,
+    NewOutboxEvent, OutboxEventRecord, Result,
 };
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct JobListFilter {
+    pub status: Option<JobStatus>,
+    pub kind: Option<JobKind>,
+    pub resource_class: Option<String>,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+}
 
 #[async_trait]
 pub trait JobRepository: Send + Sync {
@@ -18,6 +28,8 @@ pub trait JobRepository: Send + Sync {
     async fn fail_unfinished_jobs(&self, error: String) -> Result<u64>;
 
     async fn get_job(&self, id: JobId) -> Result<Option<Job>>;
+
+    async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>>;
 }
 
 #[async_trait]

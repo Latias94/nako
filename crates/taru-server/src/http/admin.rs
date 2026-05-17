@@ -1,15 +1,25 @@
-use axum::{Json, Router, extract::State, routing::get};
+use axum::{
+    Json, Router,
+    extract::{Query, State},
+    response::IntoResponse,
+    routing::get,
+};
 use taru_api::{
-    ADMIN_API_VERSION, API_VERSION, AdminOverviewMetadataProviderSummary,
-    AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
-    AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
-    AdminOverviewStorageSummary, MetadataProviderDiagnosticStatus, StorageBackendStatus,
+    ADMIN_API_VERSION, API_VERSION, AdminJobListItem, AdminJobListResponse,
+    AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+    AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
+    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
+    MetadataProviderDiagnosticStatus, StorageBackendStatus, page_info_from_request,
 };
 
 use crate::app::{RuntimeSupervisorDiagnostics, TaruApp};
 
+use super::{error::ApiResult, query::JobListQuery};
+
 pub(super) fn routes() -> Router<TaruApp> {
-    Router::new().route("/admin/v1/overview", get(get_admin_overview))
+    Router::new()
+        .route("/admin/v1/overview", get(get_admin_overview))
+        .route("/admin/v1/jobs", get(list_admin_jobs))
 }
 
 pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<AdminOverviewResponse> {
@@ -47,6 +57,21 @@ pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<Admin
         runtime,
         startup,
     })
+}
+
+pub(super) async fn list_admin_jobs(
+    State(app): State<TaruApp>,
+    Query(query): Query<JobListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let jobs = app.jobs().list_jobs(filter, page).await?;
+    let returned = jobs.len();
+    let jobs = jobs.into_iter().map(AdminJobListItem::from_job).collect();
+
+    Ok(Json(AdminJobListResponse {
+        jobs,
+        page: page_info_from_request(page, returned),
+    }))
 }
 
 fn storage_summary(

@@ -1573,6 +1573,132 @@ async fn sqlite_store_round_trips_job_lifecycle() {
 }
 
 #[tokio::test]
+async fn sqlite_store_lists_jobs_with_filters_and_pagination() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let other_library = Library {
+        id: LibraryId::new(),
+        name: "Anime".to_owned(),
+        roots: vec!["local:///Anime".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Anime),
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_library(&other_library).await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Demo.mkv".to_owned(),
+        file_name: "Demo.mkv".to_owned(),
+        size_bytes: Some(4),
+        fingerprint: Some("fingerprint".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let scan = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(library.id),
+            source_id: Some(source.id),
+            input_json: Some(r#"{"library_id":"movies"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    store.start_job(scan.id).await.unwrap();
+    store
+        .succeed_job(scan.id, Some(r#"{"discovered_files":1}"#.to_owned()))
+        .await
+        .unwrap();
+
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.tmdb".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let failed_scan = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(other_library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(failed_scan.id).await.unwrap();
+    store
+        .fail_job(failed_scan.id, "scan failed".to_owned())
+        .await
+        .unwrap();
+
+    let filtered = store
+        .list_jobs(
+            JobListFilter {
+                status: Some(JobStatus::Succeeded),
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                library_id: Some(library.id),
+                source_id: Some(source.id),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, scan.id);
+    assert_eq!(
+        filtered[0].summary_json.as_deref(),
+        Some(r#"{"discovered_files":1}"#)
+    );
+
+    let disk_scan_jobs = store
+        .list_jobs(
+            JobListFilter {
+                resource_class: Some("disk.scan".to_owned()),
+                ..JobListFilter::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(disk_scan_jobs.len(), 2);
+
+    let second_page = store
+        .list_jobs(JobListFilter::default(), PageRequest::new(1, 1))
+        .await
+        .unwrap();
+    assert_eq!(second_page.len(), 1);
+}
+
+#[tokio::test]
 async fn sqlite_store_marks_unfinished_jobs_failed_on_startup() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

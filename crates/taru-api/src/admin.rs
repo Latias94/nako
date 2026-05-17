@@ -51,6 +51,48 @@ impl JobResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminJobListResponse {
+    pub jobs: Vec<AdminJobListItem>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminJobListItem {
+    pub id: JobId,
+    pub kind: JobKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+    pub has_input: bool,
+    pub has_summary: bool,
+    pub has_error: bool,
+    pub queued_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl AdminJobListItem {
+    #[must_use]
+    pub fn from_job(job: Job) -> Self {
+        Self {
+            id: job.id,
+            kind: job.kind,
+            status: job.status,
+            resource_class: job.resource_class,
+            library_id: job.library_id,
+            source_id: job.source_id,
+            has_input: job.input_json.is_some(),
+            has_summary: job.summary_json.is_some(),
+            has_error: job.error.is_some(),
+            queued_at: job.queued_at,
+            started_at: job.started_at,
+            completed_at: job.completed_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminOverviewResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
@@ -328,6 +370,35 @@ mod tests {
             "local:///demo.nfo.taru-backup-1"
         );
         assert_eq!(summary["prune_failures"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn admin_job_list_item_redacts_raw_payloads_and_errors() {
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            status: JobStatus::Failed,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(LibraryId::new()),
+            source_id: Some(MediaSourceId::new()),
+            input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
+            summary_json: Some(r#"{"output_path":"C:\\media\\private.nfo"}"#.to_owned()),
+            error: Some("token admin-token failed at C:\\media\\private.nfo".to_owned()),
+            queued_at: "2026-05-17T00:00:00Z".to_owned(),
+            started_at: Some("2026-05-17T00:00:01Z".to_owned()),
+            completed_at: Some("2026-05-17T00:00:02Z".to_owned()),
+        };
+
+        let item = AdminJobListItem::from_job(job);
+        let body = serde_json::to_string(&item).unwrap();
+
+        assert!(item.has_input);
+        assert!(item.has_summary);
+        assert!(item.has_error);
+        assert!(!body.contains("admin-token"));
+        assert!(!body.contains("private.nfo"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("secret"));
     }
 
     #[test]

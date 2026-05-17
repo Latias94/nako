@@ -151,6 +151,116 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
 }
 
 #[tokio::test]
+async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let scan = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    store.start_job(scan.id).await.unwrap();
+    store
+        .succeed_job(
+            scan.id,
+            Some(format!(
+                r#"{{"output_path":"{}","discovered_files":1}}"#,
+                temp.path().join("private.nfo").display()
+            )),
+        )
+        .await
+        .unwrap();
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.tmdb".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/jobs?status=succeeded&kind=library_scan&resource_class=disk.scan&library_id={library_id}&limit=5"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let jobs: AdminJobListResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(jobs.jobs.len(), 1);
+    assert_eq!(jobs.jobs[0].id, scan.id);
+    assert_eq!(jobs.jobs[0].kind, JobKind::LibraryScan);
+    assert_eq!(jobs.jobs[0].status, JobStatus::Succeeded);
+    assert!(jobs.jobs[0].has_input);
+    assert!(jobs.jobs[0].has_summary);
+    assert!(!jobs.jobs[0].has_error);
+    assert_eq!(jobs.page.limit, 5);
+    assert_eq!(jobs.page.returned, 1);
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("private.nfo"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("secret"));
+}
+
+#[tokio::test]
 async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -244,6 +354,19 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .await
         .unwrap();
     assert_eq!(admin_missing.status(), StatusCode::UNAUTHORIZED);
+
+    let admin_jobs_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/jobs")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_jobs_missing.status(), StatusCode::UNAUTHORIZED);
 
     let admin_ok = router
         .clone()

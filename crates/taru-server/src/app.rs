@@ -12,6 +12,7 @@ use crate::config::TaruServerConfig;
 mod addons;
 mod automation;
 mod catalog;
+mod job_runtime;
 mod jobs;
 mod library;
 mod metadata;

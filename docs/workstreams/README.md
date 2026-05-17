@@ -6,6 +6,9 @@ attention.
 
 ## Current Workstreams
 
+- [durable-job-runtime-admin-read-model](durable-job-runtime-admin-read-model/README.md):
+  completed M54 server-side architecture work, covering durable job lifecycle
+  centralization and the first Admin API v1 Jobs/Tasks read model.
 - [nfo-backup-retention-diagnostics](nfo-backup-retention-diagnostics/README.md):
   completed M50 NFO backup retention and diagnostics work, covering bounded
   keep-latest pruning for local NFO sidecar backups, internal/admin backup

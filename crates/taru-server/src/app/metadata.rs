@@ -23,6 +23,7 @@ use time::OffsetDateTime;
 use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
 
+use super::job_runtime::DurableJobRuntime;
 use super::metadata_runtime::provider_resource_name;
 use super::runtime::RuntimeSupervisor;
 use crate::config::{MetadataMaintenancePolicyConfig, TaruServerConfig, libraries_from_config};
@@ -319,33 +320,25 @@ impl MetadataAppService {
                 })?;
         let _permit = permit;
 
-        self.store.start_job(job_id).await?;
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job(
+                job_id,
+                "metadata refresh job",
+                || async { self.run_metadata_refresh(job_id, item_id).await },
+                |refresh| {
+                    DurableJobRuntime::serialize_summary(refresh, "metadata refresh job summary")
+                },
+            )
+            .await?;
+        let refresh = run.output;
+        self.record_metadata_refreshed_event(job_id, item_id, &refresh)
+            .await;
 
-        match self.run_metadata_refresh(job_id, item_id).await {
-            Ok(refresh) => {
-                let summary_json =
-                    serde_json::to_string(&refresh).map_err(|err| TaruError::InvalidInput {
-                        message: format!("failed to serialize metadata refresh job summary: {err}"),
-                    })?;
-                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
-                self.record_metadata_refreshed_event(job_id, item_id, &refresh)
-                    .await;
-
-                Ok(MetadataRefreshCommandOutput { job, refresh })
-            }
-            Err(err) => {
-                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
-                    warn!(
-                        job_id = %job_id,
-                        item_id = %item_id,
-                        error = %update_err,
-                        "failed to persist failed metadata refresh job state"
-                    );
-                }
-
-                Err(err)
-            }
-        }
+        Ok(MetadataRefreshCommandOutput {
+            job: run.job,
+            refresh,
+        })
     }
 
     async fn execute_metadata_maintenance_job(
@@ -363,34 +356,28 @@ impl MetadataAppService {
                 })?;
         let _permit = permit;
 
-        self.store.start_job(job_id).await?;
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job(
+                job_id,
+                "metadata maintenance job",
+                || async { self.run_metadata_maintenance_job(job_id, request).await },
+                |summary| {
+                    DurableJobRuntime::serialize_summary(
+                        summary,
+                        "metadata maintenance job summary",
+                    )
+                },
+            )
+            .await?;
+        let summary = run.output;
+        self.record_metadata_maintenance_completed_event(&summary)
+            .await;
 
-        match self.run_metadata_maintenance_job(job_id, request).await {
-            Ok(summary) => {
-                let summary_json =
-                    serde_json::to_string(&summary).map_err(|err| TaruError::InvalidInput {
-                        message: format!(
-                            "failed to serialize metadata maintenance job summary: {err}"
-                        ),
-                    })?;
-                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
-                self.record_metadata_maintenance_completed_event(&summary)
-                    .await;
-
-                Ok(MetadataMaintenanceCommandOutput { job, summary })
-            }
-            Err(err) => {
-                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
-                    warn!(
-                        job_id = %job_id,
-                        error = %update_err,
-                        "failed to persist failed metadata maintenance job state"
-                    );
-                }
-
-                Err(err)
-            }
-        }
+        Ok(MetadataMaintenanceCommandOutput {
+            job: run.job,
+            summary,
+        })
     }
 
     pub(super) async fn record_metadata_refreshed_event(

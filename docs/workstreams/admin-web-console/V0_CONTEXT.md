@@ -113,10 +113,10 @@ planned `/admin/v1/*` data unless explicitly wired later.
 
 M52 adds the first live Admin API data source: `GET /admin/v1/overview`. It can
 back the overview page's compact server/API version, storage status, metadata
-provider status, runtime counter, and startup recovery summaries. Job lists,
-session lists, event lists, hardware dashboards, catalog repair queues,
-settings editing, and extension lifecycle details remain mock or planned
-Admin API data.
+provider status, runtime counter, and startup recovery summaries. M54 adds
+`GET /admin/v1/jobs` for redacted Jobs/Tasks list and filter data. Session
+lists, event lists, hardware dashboards, catalog repair queues, settings
+editing, and extension lifecycle details remain mock or planned Admin API data.
 
 Do not put admin-only DTOs into Public Client API language. Do not describe
 `taru-client-protocol` as the source for admin console diagnostics.
@@ -341,8 +341,8 @@ Prototype data-source split:
   mock rows for layout density and recent activity.
 - Metadata Providers: may reference existing metadata-provider diagnostics and
   maintenance planning routes.
-- Jobs/Tasks: use mock list and history data; only job detail by known ID
-  exists today.
+- Jobs/Tasks: use `GET /admin/v1/jobs` for redacted list/filter data; existing
+  `GET /jobs/{job_id}` can support detail by known ID.
 - Playback & Transcode: use mock dashboards for hardware, budgets, and session
   lists; public playback decision and known-session detail routes exist but do
   not yet cover the dashboard.
@@ -354,5 +354,6 @@ diagnostic or planned data in internal handoff notes, not as existing stable
 Public Client API coverage.
 
 The overview page may be marked as partially live because
-`GET /admin/v1/overview` exists. Its drill-down tables and history panels should
-still be treated as mock data until follow-up Admin API routes land.
+`GET /admin/v1/overview` exists. Jobs/Tasks can be marked live for list/filter
+data through `GET /admin/v1/jobs`. Other drill-down tables and history panels
+should still be treated as mock data until follow-up Admin API routes land.

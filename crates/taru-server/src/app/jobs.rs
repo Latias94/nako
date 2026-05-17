@@ -3,7 +3,8 @@ use std::sync::Arc;
 use serde::Serialize;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, Result, StagingPurpose, TaruError,
+    JobListFilter, JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, PageRequest, Result,
+    StagingPurpose, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_library::{
@@ -17,6 +18,7 @@ use tracing::{Instrument, info, info_span, warn};
 use crate::config::{TaruServerConfig, libraries_from_config};
 
 use super::{
+    job_runtime::DurableJobRuntime,
     runtime::RuntimeSupervisor,
     staging::ManifestRecordingStorageBackend,
     storage::{StorageBackendRegistry, remote_probe_staging_root},
@@ -47,6 +49,14 @@ impl JobAppService {
                 entity: "job",
                 id: job_id.to_string(),
             })
+    }
+
+    pub(crate) async fn list_jobs(
+        &self,
+        filter: JobListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<Job>> {
+        self.store.list_jobs(filter, page).await
     }
 }
 
@@ -169,37 +179,30 @@ impl LibraryScanAppService {
                 })?;
         let _permit = permit;
 
-        self.store.start_job(job_id).await?;
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job(
+                job_id,
+                "library scan job",
+                || async { self.run_library_scan(job_id, library_id).await },
+                |(index, probe)| {
+                    let summary = ScanJobSummary {
+                        index: index.clone(),
+                        probe: probe.clone(),
+                    };
+                    DurableJobRuntime::serialize_summary(&summary, "library scan job summary")
+                },
+            )
+            .await?;
+        let (index, probe) = run.output;
+        self.record_library_scanned_event(job_id, library_id, &index, &probe)
+            .await;
 
-        match self.run_library_scan(job_id, library_id).await {
-            Ok((index, probe)) => {
-                let output = ScanJobSummary {
-                    index: index.clone(),
-                    probe: probe.clone(),
-                };
-                let summary_json =
-                    serde_json::to_string(&output).map_err(|err| TaruError::InvalidInput {
-                        message: format!("failed to serialize job summary: {err}"),
-                    })?;
-                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
-                self.record_library_scanned_event(job_id, library_id, &index, &probe)
-                    .await;
-
-                Ok(ScanCommandOutput { job, index, probe })
-            }
-            Err(err) => {
-                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
-                    warn!(
-                        job_id = %job_id,
-                        library_id = %library_id,
-                        error = %update_err,
-                        "failed to persist failed job state"
-                    );
-                }
-
-                Err(err)
-            }
-        }
+        Ok(ScanCommandOutput {
+            job: run.job,
+            index,
+            probe,
+        })
     }
 
     async fn record_library_scanned_event(
