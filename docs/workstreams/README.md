@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [metadata-refresh-seam](metadata-refresh-seam/README.md): completed M40
+  metadata refresh seam work, covering refresh workflow ports, provider runtime
+  boundary review, fake-port behavior tests, and preservation of existing
+  provider behavior.
 - [repository-seam-deepening](repository-seam-deepening/README.md): completed M39
   repository seam work, covering `CatalogHydrationPort`, catalog hydration
   snapshot/lookup/commit behavior, and metadata/NFO caller-bound narrowing.

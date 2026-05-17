@@ -26,10 +26,45 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M40 Metadata Refresh
-Workflow Port and Provider Runtime Seam Deepening.
+No active implementation goal. Recommended next goal: M41 Provider Runtime Or
+Library Scan/Probe Seam Deepening.
 
 ## Completed Goals
+
+### M40: Metadata Refresh Workflow Port and Provider Runtime Seam Deepening
+
+Status: completed.
+
+Objective:
+
+- Continue repository seam deepening after M39 by narrowing metadata refresh
+  workflow boundaries.
+- Reduce `taru-metadata` exposure to broad repository trait combinations and
+  provider-runtime persistence details.
+- Start with a workflow-shaped metadata refresh port, then split provider
+  runtime or maintenance seams only if the first slice exposes a separate
+  boundary.
+
+Evidence:
+
+- [metadata-refresh-seam workstream](workstreams/metadata-refresh-seam/README.md)
+  records design, task ledger, milestones, evidence, and closeout.
+- `crates/taru-metadata/src/strategy.rs` defines `MetadataRefreshPort`,
+  `MetadataAttemptPort`, `MetadataRefreshSnapshot`, and
+  `MetadataRefreshCommit`.
+- `MetadataRefreshService` and `MetadataStrategyExecutor` depend on
+  `CatalogHydrationPort + MetadataRefreshPort + MetadataAttemptPort`.
+- Refresh calculation uses a snapshot; refresh persistence, provider subject/
+  mapping writes, and library-item confirmation sit behind `commit_refresh`.
+- A fake-port behavior test proves refresh and hydration port usage without
+  SQLite.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-metadata --tests`, `cargo nextest run -p taru-metadata
+  --no-fail-fast` with 27 tests passed, `cargo check --workspace --tests`,
+  `cargo nextest run --workspace --no-fail-fast`, and `git diff --check`.
+- Non-goals preserved: no provider breadth, no public API/SDK/CLI or license
+  boundary changes, no NFO Round Trip work, no playback/client-profile
+  redesign, and no database schema change.
 
 ### M39: Repository Seam Deepening and Workflow Port Extraction
 

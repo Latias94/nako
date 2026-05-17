@@ -673,9 +673,36 @@ Completed:
 - M39.3 validated the focused crates and workspace with 285 nextest tests
   passed.
 
-Recommended next goal:
+Completed:
 
 - M40 metadata refresh workflow port and provider runtime seam deepening.
+
+### Metadata Refresh Seam: M40
+
+Status: completed.
+
+This phase continues repository seam deepening after M39:
+
+- metadata refresh becomes the next workflow-port slice;
+- refresh strategy, hierarchy confirmation, provider mapping, raw cache, and
+  attempt records are audited as one workflow surface;
+- the first implementation slice should hide real persistence detail without
+  mechanically splitting every `MetadataRepository` method;
+- provider breadth, public API/SDK/CLI, NFO Round Trip, playback, and DB schema
+  changes remain unchanged.
+
+Completed:
+
+- M40.1 added `MetadataRefreshPort` and `MetadataAttemptPort` in
+  `taru-metadata`.
+- M40.2 moved refresh persistence, provider mapping, raw response, and
+  library-item confirmation behind `commit_refresh`.
+- M40.3 added a fake-port refresh test without SQLite while preserving
+  existing metadata behavior.
+
+Recommended next goal:
+
+- M41 provider runtime seam or library scan/probe seam deepening.
 
 ## Workstream Split Direction
 

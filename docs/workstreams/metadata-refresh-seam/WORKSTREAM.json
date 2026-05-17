@@ -1,0 +1,17 @@
+{
+  "slug": "metadata-refresh-seam",
+  "status": "completed",
+  "goal": "M40 Metadata Refresh Workflow Port and Provider Runtime Seam Deepening",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "MetadataRefreshPort",
+  "non_goals": [
+    "provider breadth",
+    "NFO round trip preservation",
+    "public API or SDK changes",
+    "playback source selection redesign",
+    "database schema changes"
+  ]
+}
