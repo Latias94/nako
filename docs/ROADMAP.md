@@ -577,6 +577,32 @@ follow-ons.
 Recommended next goal:
 
 - M36 client SDK inventory extraction and streaming request builders.
+  Completed.
+
+### Client SDK Contract Inventory And Streaming Builders: M36
+
+Status: completed.
+
+This phase removes route inventory duplication and extends the Rust SDK to
+cover streaming route construction while preserving the license boundary:
+
+- public route inventory now lives in the Apache-2.0
+  `taru-client-protocol` crate;
+- `taru-api` still owns OpenAPI rendering and TypeScript SDK generation, but it
+  consumes the protocol-owned inventory;
+- `taru-client` consumes the same inventory and distinguishes JSON methods
+  from streaming request builders;
+- Rust SDK builders cover direct stream GET, direct stream HEAD preflight,
+  remux stream GET, HLS playlist GET, and HLS segment GET;
+- builder tests cover methods, auth headers, range headers, path encoding, and
+  playback/remux query serialization;
+- full streaming body abstraction, download manager, HLS player, SDK
+  publishing, Rust CLI, and Flutter/Dart SDK remain follow-ons.
+
+Recommended next goal:
+
+- M37 choose the first concrete client entrypoint: Rust CLI, Flutter/Dart SDK,
+  or full Rust streaming body abstraction.
 
 ## Workstream Split Direction
 

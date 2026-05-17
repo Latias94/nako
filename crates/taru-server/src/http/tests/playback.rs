@@ -1,5 +1,15 @@
 use super::*;
 
+async fn wait_for_marker(marker: &std::path::Path) {
+    for _ in 0..250 {
+        if marker.exists() {
+            return;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    panic!("remux fixture did not start before timeout: {marker:?}");
+}
+
 #[tokio::test]
 async fn playback_decision_and_direct_stream_routes_work() {
     let temp = tempfile::tempdir().unwrap();
@@ -495,13 +505,7 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
             .unwrap()
     });
 
-    for _ in 0..50 {
-        if marker.exists() {
-            break;
-        }
-        sleep(Duration::from_millis(20)).await;
-    }
-    assert!(marker.exists());
+    wait_for_marker(&marker).await;
 
     let session = store
         .find_active_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
@@ -778,13 +782,7 @@ async fn remux_stream_route_maps_in_flight_duplicate_to_conflict() {
             .unwrap()
     });
 
-    for _ in 0..50 {
-        if marker.exists() {
-            break;
-        }
-        sleep(Duration::from_millis(20)).await;
-    }
-    assert!(marker.exists());
+    wait_for_marker(&marker).await;
 
     let duplicate = router
         .clone()

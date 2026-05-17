@@ -165,10 +165,23 @@ The SDK provides:
   playback decision, playback session inspection, and playback session
   cancellation.
 
-Streaming/raw byte routes remain public API routes, but M35 intentionally
-deferred Rust SDK streaming body abstractions and HLS/download helpers. A later
-SDK slice can add request builders or streaming helpers without changing the
-JSON DTO boundary.
+Public route membership is owned by the Apache-2.0 `taru-client-protocol`
+crate. `taru-api`, the TypeScript generator, and the Rust SDK consume that
+shared inventory so SDKs do not depend on the AGPL server adapter crate for
+route facts.
+
+For streaming/raw byte routes, `taru-client` provides request builders rather
+than response-body ownership:
+
+- `stream_source_request`;
+- `head_stream_source_request`;
+- `remux_stream_source_request`;
+- `hls_playlist_request`;
+- `hls_segment_request`.
+
+The builders construct method, URL, bearer auth, range headers, path encoding,
+playback capability queries, and remux output-container queries. They do not
+execute streaming bodies, manage downloads, or implement an HLS player.
 
 Validate the Rust SDK boundary with:
 

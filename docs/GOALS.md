@@ -26,13 +26,54 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M35 closeout.
+No active implementation goal is recorded in this file after M36 closeout.
 
 Next recommended implementation goal:
 
-- M36 Client SDK Inventory Extraction and Streaming Request Builders.
+- M37 concrete client entrypoint planning: choose Rust CLI, Flutter/Dart SDK,
+  or full Rust streaming body abstraction.
 
 ## Completed Goals
+
+### M36: Client SDK Contract Inventory and Streaming Request Builders
+
+Status: completed.
+
+Objective:
+
+- Remove public client route inventory duplication between `taru-api`,
+  TypeScript SDK generation, and `taru-client`.
+- Move neutral public route facts into permissive `taru-client-protocol`
+  without making clients depend on the AGPL `taru-api` crate.
+- Add future-safe Rust SDK request builders for public streaming/raw byte
+  routes without implementing body streaming, download management, or player
+  behavior.
+
+Evidence:
+
+- [client-sdk-contract workstream](workstreams/client-sdk-contract/README.md)
+- `taru-client-protocol` remains `Apache-2.0`, dependency-light, and owns
+  `PUBLIC_CLIENT_ROUTES`, `PublicClientRoute`, `PublicClientHttpMethod`,
+  `PublicClientRouteKind`, `PublicClientRustSdkExposure`,
+  `public_client_paths`, `public_client_json_routes`, and
+  `public_client_streaming_routes`.
+- `taru-api` OpenAPI tests and TypeScript SDK generation consume the shared
+  protocol inventory instead of a local path list.
+- `taru-client` consumes the shared inventory and exposes request builders for
+  direct stream GET, direct stream HEAD preflight, remux stream GET, HLS
+  playlist GET, and HLS segment GET.
+- Rust SDK builder tests cover method, path encoding, query serialization,
+  bearer auth, and `Range` header behavior.
+- Close-out validation: `cargo fmt --all -- --check`, focused check/nextest
+  gates for `taru-client-protocol`, `taru-api`, and `taru-client`, `cargo
+  nextest run -p taru-server http::tests::playback --no-fail-fast` with 16
+  tests passed, `cargo check --workspace --tests`, `cargo nextest run
+  --workspace --no-fail-fast` with 274 tests passed, `cargo tree -p
+  taru-client-protocol`, `cargo tree -p taru-client`, `npm run check --prefix
+  sdk/typescript`, and `git diff --check`.
+- Non-goals preserved: no crates.io/npm publishing, no streaming body
+  abstraction, no download manager, no HLS player, no Flutter/Dart SDK, no Rust
+  CLI product command, and no server API behavior expansion.
 
 ### M35: Rust Client SDK Foundation
 

@@ -2,33 +2,6 @@ use serde_json::{Map, Value, json};
 
 use crate::{API_VERSION, API_VERSION_HEADER, ClientErrorCode};
 
-const PUBLIC_CLIENT_PATHS: &[&str] = &[
-    "/health",
-    "/libraries",
-    "/libraries/{library_id}",
-    "/libraries/{library_id}/sources",
-    "/items",
-    "/items/{item_id}",
-    "/items/{item_id}/credits",
-    "/items/{item_id}/images",
-    "/people",
-    "/people/{person_id}",
-    "/people/{person_id}/items",
-    "/tags",
-    "/tags/{tag_id}/items",
-    "/genres",
-    "/genres/{genre_id}/items",
-    "/search",
-    "/sources/{source_id}/probe",
-    "/sources/{source_id}/playback/decision",
-    "/sources/{source_id}/stream",
-    "/sources/{source_id}/stream/remux",
-    "/sources/{source_id}/stream/hls/playlist.m3u8",
-    "/playback/sessions/{session_id}",
-    "/playback/sessions/{session_id}/cancel",
-    "/playback/sessions/{session_id}/hls/segments/{segment_name}",
-];
-
 #[must_use]
 pub fn public_openapi_v1() -> Value {
     json!({
@@ -72,11 +45,6 @@ pub fn public_openapi_v1() -> Value {
 #[must_use]
 pub fn public_openapi_v1_json() -> String {
     serde_json::to_string_pretty(&public_openapi_v1()).expect("public OpenAPI document serializes")
-}
-
-#[must_use]
-pub const fn public_client_paths() -> &'static [&'static str] {
-    PUBLIC_CLIENT_PATHS
 }
 
 fn public_paths() -> Value {
@@ -869,6 +837,7 @@ fn uuid_schema() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use taru_client_protocol::public_client_paths;
 
     #[test]
     fn public_openapi_paths_match_public_client_scope() {
@@ -877,7 +846,7 @@ mod tests {
 
         assert_eq!(paths.len(), public_client_paths().len());
         for path in public_client_paths() {
-            assert!(paths.contains_key(*path), "missing public path {path}");
+            assert!(paths.contains_key(path), "missing public path {path}");
         }
 
         for excluded in [

@@ -7,6 +7,214 @@ pub use catalog::*;
 pub const CLIENT_PROTOCOL_VERSION: &str = "v1";
 pub const API_VERSION_HEADER: &str = "x-taru-api-version";
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PublicClientRoute {
+    pub path: &'static str,
+    pub methods: &'static [PublicClientHttpMethod],
+    pub kind: PublicClientRouteKind,
+    pub rust_sdk_exposure: PublicClientRustSdkExposure,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PublicClientHttpMethod {
+    Get,
+    Head,
+    Post,
+}
+
+impl PublicClientHttpMethod {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Head => "HEAD",
+            Self::Post => "POST",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PublicClientRouteKind {
+    System,
+    Library,
+    Catalog,
+    Playback,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PublicClientRustSdkExposure {
+    JsonMethod,
+    StreamingBuilder,
+}
+
+pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
+    PublicClientRoute {
+        path: "/health",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::System,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/libraries",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Library,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/libraries/{library_id}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Library,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/libraries/{library_id}/sources",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Library,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/items",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/items/{item_id}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/items/{item_id}/credits",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/items/{item_id}/images",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/people",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/people/{person_id}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/people/{person_id}/items",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/tags",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/tags/{tag_id}/items",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/genres",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/genres/{genre_id}/items",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/search",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/sources/{source_id}/probe",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/sources/{source_id}/playback/decision",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/sources/{source_id}/stream",
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
+        path: "/sources/{source_id}/stream/remux",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
+        path: "/sources/{source_id}/stream/hls/playlist.m3u8",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
+        path: "/playback/sessions/{session_id}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/playback/sessions/{session_id}/cancel",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/playback/sessions/{session_id}/hls/segments/{segment_name}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+];
+
+#[must_use]
+pub fn public_client_paths() -> impl ExactSizeIterator<Item = &'static str> {
+    PUBLIC_CLIENT_ROUTES.iter().map(|route| route.path)
+}
+
+#[must_use]
+pub fn public_client_json_routes() -> impl Iterator<Item = PublicClientRoute> {
+    PUBLIC_CLIENT_ROUTES
+        .iter()
+        .copied()
+        .filter(|route| route.rust_sdk_exposure == PublicClientRustSdkExposure::JsonMethod)
+}
+
+#[must_use]
+pub fn public_client_streaming_routes() -> impl Iterator<Item = PublicClientRoute> {
+    PUBLIC_CLIENT_ROUTES
+        .iter()
+        .copied()
+        .filter(|route| route.rust_sdk_exposure == PublicClientRustSdkExposure::StreamingBuilder)
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HealthResponse {
     pub status: String,
@@ -148,6 +356,69 @@ mod tests {
         assert_eq!(page_json["limit"], 50);
         assert_eq!(page_json["offset"], 100);
         assert_eq!(page_json["returned"], 3);
+    }
+
+    #[test]
+    fn public_route_inventory_is_protocol_owned_and_complete() {
+        let paths = public_client_paths().collect::<Vec<_>>();
+
+        assert_eq!(paths.len(), 24);
+        assert!(paths.contains(&"/health"));
+        assert!(paths.contains(&"/sources/{source_id}/stream"));
+        assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
+
+        let direct_stream = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/sources/{source_id}/stream")
+            .expect("direct stream route exists");
+        assert_eq!(direct_stream.kind, PublicClientRouteKind::Playback);
+        assert_eq!(
+            direct_stream.rust_sdk_exposure,
+            PublicClientRustSdkExposure::StreamingBuilder
+        );
+        assert_eq!(
+            direct_stream
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "HEAD"]
+        );
+
+        let json_count = public_client_json_routes().count();
+        let streaming_count = public_client_streaming_routes().count();
+        assert_eq!(json_count, 20);
+        assert_eq!(streaming_count, 4);
+        assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
+    }
+
+    #[test]
+    fn public_route_inventory_rejects_internal_and_secret_surfaces() {
+        let serialized = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .map(|route| route.path)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .to_ascii_lowercase();
+
+        for forbidden in [
+            "/addons",
+            "/webhooks",
+            "/automation",
+            "/storage/backends",
+            "/jobs",
+            "secret_env",
+            "output_path",
+            "providerrawresponse",
+            "taru_core",
+            "taru-api",
+            "taru-server",
+        ] {
+            assert!(
+                !serialized.contains(forbidden),
+                "public route inventory leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]

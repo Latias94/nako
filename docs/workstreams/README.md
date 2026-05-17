@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [client-sdk-contract](client-sdk-contract/README.md): completed M36 client
+  SDK contract work, covering protocol-owned public route inventory,
+  TypeScript/OpenAPI/Rust SDK inventory reuse, Apache-2.0 client boundary
+  preservation, and Rust SDK streaming request builders.
 - [rust-client-sdk](rust-client-sdk/README.md): completed M35 Rust client SDK
   foundation, covering the Apache-2.0 `taru-client` crate, protocol DTO reuse,
   clean dependency boundary, async JSON client methods, mock transport tests,

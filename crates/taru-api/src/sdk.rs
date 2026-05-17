@@ -1,9 +1,7 @@
 use serde_json::Value;
+use taru_client_protocol::public_client_paths;
 
-use crate::{
-    API_VERSION, API_VERSION_HEADER,
-    openapi::{public_client_paths, public_openapi_v1},
-};
+use crate::{API_VERSION, API_VERSION_HEADER, openapi::public_openapi_v1};
 
 #[must_use]
 pub fn typescript_sdk() -> String {
@@ -381,7 +379,6 @@ type QueryInput = object;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openapi::public_client_paths;
 
     #[test]
     fn typescript_sdk_includes_public_route_methods_and_paths() {

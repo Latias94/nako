@@ -3,40 +3,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use reqwest::{
     Method, StatusCode, Url,
-    header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue},
+    header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue, RANGE},
 };
 use serde::de::DeserializeOwned;
 pub use taru_client_protocol::{
-    API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, ErrorResponse, GenreItemsResponse,
-    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, LibraryListResponse, LibraryResponse, LibrarySourcesResponse, PageInfo,
-    PeopleResponse, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, SearchResponse,
-    SourceProbeResponse, TagItemsResponse, TagsResponse, TranscodeSessionResponse,
+    API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, ClientOutputContainer,
+    ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse,
+    ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryListResponse, LibraryResponse,
+    LibrarySourcesResponse, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
+    PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse, SourceProbeResponse,
+    TagItemsResponse, TagsResponse, TranscodeSessionResponse, public_client_json_routes,
+    public_client_paths, public_client_streaming_routes,
 };
 use thiserror::Error;
-
-pub const PUBLIC_CLIENT_PATHS: &[&str] = &[
-    "/health",
-    "/libraries",
-    "/libraries/{library_id}",
-    "/libraries/{library_id}/sources",
-    "/items",
-    "/items/{item_id}",
-    "/items/{item_id}/credits",
-    "/items/{item_id}/images",
-    "/people",
-    "/people/{person_id}",
-    "/people/{person_id}/items",
-    "/tags",
-    "/tags/{tag_id}/items",
-    "/genres",
-    "/genres/{genre_id}/items",
-    "/search",
-    "/sources/{source_id}/probe",
-    "/sources/{source_id}/playback/decision",
-    "/playback/sessions/{session_id}",
-    "/playback/sessions/{session_id}/cancel",
-];
 
 #[derive(Clone)]
 pub struct TaruClient {
@@ -431,6 +410,116 @@ impl TaruClient {
         .await
     }
 
+    /// Build a direct-play byte stream request for one source.
+    ///
+    /// This only constructs the request. It does not execute or own the
+    /// response body.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn stream_source_request(
+        &self,
+        source_id: impl AsRef<str>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_streaming_request(
+            Method::GET,
+            &format!(
+                "/sources/{}/stream",
+                encode_path_segment(source_id.as_ref())
+            ),
+            Option::<&NoQuery>::None,
+            range,
+        )
+    }
+
+    /// Build a direct-play stream header preflight request for one source.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn head_stream_source_request(
+        &self,
+        source_id: impl AsRef<str>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_streaming_request(
+            Method::HEAD,
+            &format!(
+                "/sources/{}/stream",
+                encode_path_segment(source_id.as_ref())
+            ),
+            Option::<&NoQuery>::None,
+            range,
+        )
+    }
+
+    /// Build a remux byte stream request for one source.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn remux_stream_source_request(
+        &self,
+        source_id: impl AsRef<str>,
+        query: Option<RemuxPlaybackQuery<'_>>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_streaming_request(
+            Method::GET,
+            &format!(
+                "/sources/{}/stream/remux",
+                encode_path_segment(source_id.as_ref())
+            ),
+            query.as_ref(),
+            range,
+        )
+    }
+
+    /// Build an HLS playlist request for one source.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn hls_playlist_request(
+        &self,
+        source_id: impl AsRef<str>,
+        capabilities: Option<PlaybackCapabilitiesQuery<'_>>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_request(
+            Method::GET,
+            &format!(
+                "/sources/{}/stream/hls/playlist.m3u8",
+                encode_path_segment(source_id.as_ref())
+            ),
+            capabilities.as_ref(),
+            true,
+        )
+    }
+
+    /// Build an HLS segment request for one playback session.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn hls_segment_request(
+        &self,
+        session_id: impl AsRef<str>,
+        segment_name: impl AsRef<str>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_request(
+            Method::GET,
+            &format!(
+                "/playback/sessions/{}/hls/segments/{}",
+                encode_path_segment(session_id.as_ref()),
+                encode_path_segment(segment_name.as_ref())
+            ),
+            Option::<&NoQuery>::None,
+            true,
+        )
+    }
+
     async fn request_json_no_query<T>(
         &self,
         method: Method,
@@ -513,6 +602,28 @@ impl TaruClient {
             url,
             headers,
         })
+    }
+
+    fn build_streaming_request<Q>(
+        &self,
+        method: Method,
+        path: &str,
+        query: Option<&Q>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, TaruClientError>
+    where
+        Q: QueryParams + ?Sized,
+    {
+        let mut request = self.build_request(method, path, query, true)?;
+        if let Some(range) = range {
+            let value =
+                HeaderValue::from_str(range).map_err(|source| TaruClientError::InvalidHeader {
+                    name: RANGE,
+                    source,
+                })?;
+            request.headers.insert(RANGE, value);
+        }
+        Ok(request)
     }
 
     fn ensure_success(&self, response: &ClientResponse) -> Result<(), TaruClientError> {
@@ -622,6 +733,24 @@ impl QueryParams for PlaybackCapabilitiesQuery<'_> {
         }
         if let Some(audio_codec) = self.audio_codec {
             pairs.push(("audio_codec".to_owned(), audio_codec.to_owned()));
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RemuxPlaybackQuery<'a> {
+    pub capabilities: PlaybackCapabilitiesQuery<'a>,
+    pub output_container: Option<ClientOutputContainer>,
+}
+
+impl QueryParams for RemuxPlaybackQuery<'_> {
+    fn append_query(&self, pairs: &mut Vec<(String, String)>) {
+        self.capabilities.append_query(pairs);
+        if let Some(output_container) = self.output_container {
+            pairs.push((
+                "output_container".to_owned(),
+                output_container_wire_value(output_container).to_owned(),
+            ));
         }
     }
 }
@@ -742,13 +871,24 @@ fn encode_path_segment(value: &str) -> String {
     encoded
 }
 
+#[must_use]
+const fn output_container_wire_value(value: ClientOutputContainer) -> &'static str {
+    match value {
+        ClientOutputContainer::Hls => "hls",
+        ClientOutputContainer::Mp4 => "mp4",
+        ClientOutputContainer::Mkv => "mkv",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use reqwest::header::HeaderValue;
     use serde_json::json;
     use std::{collections::VecDeque, sync::Mutex};
-    use taru_client_protocol::ClientTranscodeSessionState;
+    use taru_client_protocol::{
+        ClientTranscodeSessionState, PUBLIC_CLIENT_ROUTES, PublicClientHttpMethod,
+    };
 
     #[derive(Clone, Default)]
     struct MockTransport {
@@ -979,7 +1119,100 @@ mod tests {
     }
 
     #[test]
-    fn sdk_inventory_covers_foundation_public_routes_without_streaming_methods() {
+    fn streaming_request_builders_use_stable_paths_methods_headers_and_queries() {
+        let client =
+            TaruClient::with_transport("http://localhost:3000/api", MockTransport::default())
+                .unwrap()
+                .bearer_token("secret");
+
+        let direct = client
+            .stream_source_request("source 1", Some("bytes=10-20"))
+            .unwrap();
+        let head = client.head_stream_source_request("source 1", None).unwrap();
+        let remux = client
+            .remux_stream_source_request(
+                "source 1",
+                Some(RemuxPlaybackQuery {
+                    capabilities: PlaybackCapabilitiesQuery {
+                        direct_play: Some(false),
+                        container: Some("mp4,mkv"),
+                        video_codec: Some("h264"),
+                        audio_codec: Some("aac"),
+                    },
+                    output_container: Some(ClientOutputContainer::Mkv),
+                }),
+                Some("bytes=0-"),
+            )
+            .unwrap();
+        let playlist = client
+            .hls_playlist_request(
+                "source 1",
+                Some(PlaybackCapabilitiesQuery {
+                    direct_play: None,
+                    container: Some("hls"),
+                    video_codec: Some("h264"),
+                    audio_codec: None,
+                }),
+            )
+            .unwrap();
+        let segment = client
+            .hls_segment_request("session 1", "seg 001.ts")
+            .unwrap();
+
+        assert_eq!(direct.method, Method::GET);
+        assert_eq!(head.method, Method::HEAD);
+        assert_eq!(remux.method, Method::GET);
+        assert_eq!(playlist.method, Method::GET);
+        assert_eq!(segment.method, Method::GET);
+        assert_eq!(
+            direct.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream"
+        );
+        assert_eq!(
+            head.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream"
+        );
+        assert_eq!(
+            remux.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+        );
+        assert_eq!(
+            playlist.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?container=hls&video_codec=h264"
+        );
+        assert_eq!(
+            segment.url.as_str(),
+            "http://localhost:3000/api/playback/sessions/session%201/hls/segments/seg%20001.ts"
+        );
+
+        for request in [&direct, &head, &remux, &playlist, &segment] {
+            assert_eq!(
+                request.headers.get(AUTHORIZATION).unwrap(),
+                HeaderValue::from_static("Bearer secret")
+            );
+        }
+        assert_eq!(
+            direct.headers.get(RANGE).unwrap(),
+            HeaderValue::from_static("bytes=10-20")
+        );
+        assert!(head.headers.get(RANGE).is_none());
+        assert_eq!(
+            remux.headers.get(RANGE).unwrap(),
+            HeaderValue::from_static("bytes=0-")
+        );
+    }
+
+    #[test]
+    fn sdk_inventory_uses_shared_protocol_routes_and_exposure() {
+        let all_paths = public_client_paths().collect::<Vec<_>>();
+        let json_paths = public_client_json_routes()
+            .map(|route| route.path)
+            .collect::<Vec<_>>();
+        let streaming_paths = public_client_streaming_routes()
+            .map(|route| route.path)
+            .collect::<Vec<_>>();
+
+        assert_eq!(all_paths.len(), PUBLIC_CLIENT_ROUTES.len());
         for expected in [
             "/health",
             "/libraries",
@@ -1003,27 +1236,43 @@ mod tests {
             "/playback/sessions/{session_id}/cancel",
         ] {
             assert!(
-                PUBLIC_CLIENT_PATHS.contains(&expected),
-                "missing SDK route inventory entry {expected}"
+                json_paths.contains(&expected),
+                "missing JSON SDK route inventory entry {expected}"
             );
         }
 
-        for deferred in [
+        for expected in [
             "/sources/{source_id}/stream",
             "/sources/{source_id}/stream/remux",
             "/sources/{source_id}/stream/hls/playlist.m3u8",
             "/playback/sessions/{session_id}/hls/segments/{segment_name}",
         ] {
             assert!(
-                !PUBLIC_CLIENT_PATHS.contains(&deferred),
-                "streaming route should stay deferred in M35: {deferred}"
+                streaming_paths.contains(&expected),
+                "missing streaming builder inventory entry {expected}"
             );
         }
+
+        let direct_stream = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/sources/{source_id}/stream")
+            .unwrap();
+        assert_eq!(
+            direct_stream.rust_sdk_exposure,
+            PublicClientRustSdkExposure::StreamingBuilder
+        );
+        assert_eq!(
+            direct_stream.methods,
+            &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head]
+        );
     }
 
     #[test]
     fn sdk_inventory_rejects_admin_internal_and_secret_surfaces() {
-        let joined = PUBLIC_CLIENT_PATHS.join("\n").to_ascii_lowercase();
+        let joined = public_client_paths()
+            .collect::<Vec<_>>()
+            .join("\n")
+            .to_ascii_lowercase();
 
         for forbidden in [
             "/addons",
