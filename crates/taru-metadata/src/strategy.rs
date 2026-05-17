@@ -4,17 +4,19 @@ use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
     ExternalProvider, JobId, LibraryItemRepository, LibraryItemState, MediaItem, MediaItemId,
     MediaKind, MediaRepository, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NewMetadataProviderAttempt,
-    PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, Result, TaruError,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, NewMetadataProviderAttempt, PageRequest, ProviderMapping,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result, TaruError,
 };
 
 use crate::{
-    MetadataFetchRequest, MetadataLookup, MetadataMergePolicy, MetadataProvider,
-    MetadataProviderRegistry,
-    providers::{now_utc_string, release_year},
+    MetadataProvider, MetadataProviderRegistry,
+    provider_attempt::{
+        MetadataProviderRefreshError, record_skipped_provider_attempt,
+        run_available_provider_attempt, summarize_attempts,
+    },
+    providers::release_year,
     registry::RegisteredMetadataProvider,
 };
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -125,24 +127,16 @@ where
         for provider_id in &request.profile.metadata_providers {
             match self.registry.get(provider_id) {
                 Some(RegisteredMetadataProvider::Available(provider)) => {
-                    let started_at = now_utc_string()?;
-                    let result =
-                        refresh_existing_with_provider(provider.as_ref(), &request, &snapshot)
-                            .await;
-                    let finished_at = now_utc_string()?;
-                    let attempt = attempt_from_result(provider_id.clone(), &result);
-                    record_metadata_attempt(
+                    let outcome = run_available_provider_attempt(
                         &self.repository,
-                        request.job_id,
-                        request.item_id,
-                        &attempt,
-                        started_at,
-                        finished_at,
+                        provider.as_ref(),
+                        &request,
+                        &snapshot,
                     )
                     .await?;
-                    attempts.push(attempt);
+                    attempts.push(outcome.attempt);
 
-                    match result {
+                    match outcome.result {
                         Ok(success) => {
                             self.repository
                                 .commit_refresh(success.commit.clone())
@@ -162,55 +156,37 @@ where
                     }
                 }
                 Some(RegisteredMetadataProvider::Disabled { reason }) => {
-                    let now = now_utc_string()?;
-                    let attempt = skipped_attempt(
-                        provider_id.clone(),
-                        MetadataProviderAttemptStatus::SkippedDisabled,
-                        reason.clone(),
-                    );
-                    record_metadata_attempt(
+                    let attempt = record_skipped_provider_attempt(
                         &self.repository,
                         request.job_id,
                         request.item_id,
-                        &attempt,
-                        now.clone(),
-                        now,
+                        provider_id.clone(),
+                        MetadataProviderAttemptStatus::SkippedDisabled,
+                        reason.clone(),
                     )
                     .await?;
                     attempts.push(attempt);
                 }
                 Some(RegisteredMetadataProvider::Unavailable { reason }) => {
-                    let now = now_utc_string()?;
-                    let attempt = skipped_attempt(
-                        provider_id.clone(),
-                        MetadataProviderAttemptStatus::SkippedUnavailable,
-                        reason.clone(),
-                    );
-                    record_metadata_attempt(
+                    let attempt = record_skipped_provider_attempt(
                         &self.repository,
                         request.job_id,
                         request.item_id,
-                        &attempt,
-                        now.clone(),
-                        now,
+                        provider_id.clone(),
+                        MetadataProviderAttemptStatus::SkippedUnavailable,
+                        reason.clone(),
                     )
                     .await?;
                     attempts.push(attempt);
                 }
                 None => {
-                    let now = now_utc_string()?;
-                    let attempt = skipped_attempt(
-                        provider_id.clone(),
-                        MetadataProviderAttemptStatus::NotImplemented,
-                        "metadata provider is not registered".to_owned(),
-                    );
-                    record_metadata_attempt(
+                    let attempt = record_skipped_provider_attempt(
                         &self.repository,
                         request.job_id,
                         request.item_id,
-                        &attempt,
-                        now.clone(),
-                        now,
+                        provider_id.clone(),
+                        MetadataProviderAttemptStatus::NotImplemented,
+                        "metadata provider is not registered".to_owned(),
                     )
                     .await?;
                     attempts.push(attempt);
@@ -280,20 +256,12 @@ where
             .load_refresh_snapshot(request.item_id)
             .await?;
 
-        let started_at = now_utc_string()?;
-        let result = refresh_existing_with_provider(&self.provider, &request, &snapshot).await;
-        let finished_at = now_utc_string()?;
-        let attempt = attempt_from_result(self.provider.provider(), &result);
-        record_metadata_attempt(
-            &self.repository,
-            request.job_id,
-            request.item_id,
-            &attempt,
-            started_at,
-            finished_at,
-        )
-        .await?;
-        let success = result.map_err(MetadataProviderRefreshError::into_error)?;
+        let outcome =
+            run_available_provider_attempt(&self.repository, &self.provider, &request, &snapshot)
+                .await?;
+        let success = outcome
+            .result
+            .map_err(MetadataProviderRefreshError::into_error)?;
         self.repository
             .commit_refresh(success.commit.clone())
             .await?;
@@ -304,37 +272,7 @@ where
         )
         .await?;
 
-        Ok(success.into_summary(request.job_id, vec![attempt]))
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct MetadataProviderRefreshSuccess {
-    commit: MetadataRefreshCommit,
-    provider: ExternalProvider,
-    provider_key: String,
-    matched_by: MetadataMatchKind,
-    refresh_mode: MetadataRefreshMode,
-    updated: bool,
-}
-
-impl MetadataProviderRefreshSuccess {
-    fn into_summary(
-        self,
-        job_id: JobId,
-        attempted_providers: Vec<MetadataProviderAttempt>,
-    ) -> MetadataRefreshSummary {
-        MetadataRefreshSummary {
-            job_id,
-            item_id: self.commit.item.id,
-            provider: self.provider.clone(),
-            selected_provider: self.provider,
-            provider_key: self.provider_key,
-            matched_by: self.matched_by,
-            refresh_mode: self.refresh_mode,
-            updated: self.updated,
-            attempted_providers,
-        }
+        Ok(success.into_summary(request.job_id, vec![outcome.attempt]))
     }
 }
 
@@ -371,208 +309,6 @@ where
     async fn record_metadata_attempt(&self, attempt: NewMetadataProviderAttempt) -> Result<()> {
         self.insert_metadata_provider_attempt(attempt).await
     }
-}
-
-async fn record_metadata_attempt<R>(
-    repository: &R,
-    job_id: JobId,
-    item_id: MediaItemId,
-    attempt: &MetadataProviderAttempt,
-    started_at: String,
-    finished_at: String,
-) -> Result<()>
-where
-    R: MetadataAttemptPort,
-{
-    repository
-        .record_metadata_attempt(NewMetadataProviderAttempt {
-            id: MetadataProviderAttemptId::new(),
-            job_id,
-            item_id,
-            provider: attempt.provider.clone(),
-            status: attempt.status,
-            provider_key: attempt.provider_key.clone(),
-            matched_by: attempt.matched_by,
-            started_at,
-            finished_at,
-            error_class: attempt.error_class,
-            message: attempt.message.clone(),
-        })
-        .await
-}
-
-fn attempt_from_result(
-    provider: ExternalProvider,
-    result: &std::result::Result<MetadataProviderRefreshSuccess, MetadataProviderRefreshError>,
-) -> MetadataProviderAttempt {
-    match result {
-        Ok(success) => MetadataProviderAttempt {
-            provider,
-            status: MetadataProviderAttemptStatus::Succeeded,
-            message: None,
-            provider_key: Some(success.provider_key.clone()),
-            matched_by: Some(success.matched_by),
-            error_class: None,
-        },
-        Err(MetadataProviderRefreshError::NoMatch(message)) => MetadataProviderAttempt {
-            provider,
-            status: MetadataProviderAttemptStatus::NoMatch,
-            message: Some(message.clone()),
-            provider_key: None,
-            matched_by: None,
-            error_class: Some(MetadataProviderErrorClass::NoMatch),
-        },
-        Err(MetadataProviderRefreshError::ProviderFailed(message)) => {
-            let error_class = classify_provider_failure_message(message);
-
-            MetadataProviderAttempt {
-                provider,
-                status: attempt_status_for_error_class(error_class),
-                message: Some(message.clone()),
-                provider_key: None,
-                matched_by: None,
-                error_class: Some(error_class),
-            }
-        }
-        Err(MetadataProviderRefreshError::Fatal(err)) => {
-            let error_class = classify_provider_error_class(err);
-
-            MetadataProviderAttempt {
-                provider,
-                status: attempt_status_for_error_class(error_class),
-                message: Some(err.to_string()),
-                provider_key: None,
-                matched_by: None,
-                error_class: Some(error_class),
-            }
-        }
-    }
-}
-
-fn attempt_status_for_error_class(
-    error_class: MetadataProviderErrorClass,
-) -> MetadataProviderAttemptStatus {
-    match error_class {
-        MetadataProviderErrorClass::RateLimited => MetadataProviderAttemptStatus::RateLimited,
-        _ => MetadataProviderAttemptStatus::Failed,
-    }
-}
-
-fn classify_provider_failure_message(message: &str) -> MetadataProviderErrorClass {
-    classify_provider_error_class(&TaruError::Provider {
-        provider: "metadata_provider".to_owned(),
-        message: message.to_owned(),
-    })
-}
-
-fn skipped_attempt(
-    provider: ExternalProvider,
-    status: MetadataProviderAttemptStatus,
-    message: String,
-) -> MetadataProviderAttempt {
-    let error_class = match status {
-        MetadataProviderAttemptStatus::SkippedDisabled
-        | MetadataProviderAttemptStatus::SkippedUnavailable => {
-            Some(MetadataProviderErrorClass::Unavailable)
-        }
-        MetadataProviderAttemptStatus::NotImplemented => {
-            Some(MetadataProviderErrorClass::Unsupported)
-        }
-        MetadataProviderAttemptStatus::NoMatch => Some(MetadataProviderErrorClass::NoMatch),
-        MetadataProviderAttemptStatus::RateLimited => Some(MetadataProviderErrorClass::RateLimited),
-        MetadataProviderAttemptStatus::Failed => Some(MetadataProviderErrorClass::Unknown),
-        MetadataProviderAttemptStatus::Succeeded => None,
-    };
-
-    MetadataProviderAttempt {
-        provider,
-        status,
-        message: Some(message),
-        provider_key: None,
-        matched_by: None,
-        error_class,
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum MetadataProviderRefreshError {
-    NoMatch(String),
-    ProviderFailed(String),
-    Fatal(TaruError),
-}
-
-impl MetadataProviderRefreshError {
-    fn into_error(self) -> TaruError {
-        match self {
-            Self::NoMatch(message) => TaruError::NotFound {
-                entity: "metadata_candidate",
-                id: message,
-            },
-            Self::ProviderFailed(message) => TaruError::Provider {
-                provider: "metadata_provider".to_owned(),
-                message,
-            },
-            Self::Fatal(err) => err,
-        }
-    }
-}
-
-async fn refresh_existing_with_provider<P>(
-    provider: &P,
-    request: &MetadataRefreshRequest,
-    snapshot: &MetadataRefreshSnapshot,
-) -> std::result::Result<MetadataProviderRefreshSuccess, MetadataProviderRefreshError>
-where
-    P: MetadataProvider + ?Sized,
-{
-    let existing = &snapshot.item;
-    let (provider_key, matched_by) = resolve_provider_key(provider, request, existing).await?;
-    let fetched = provider
-        .fetch(MetadataFetchRequest {
-            kind: existing.kind,
-            provider_key: provider_key.clone(),
-            language: request.profile.language.clone(),
-        })
-        .await
-        .map_err(classify_provider_error)?;
-
-    let provider_id = provider.provider();
-    if fetched.provider != provider_id {
-        return Err(MetadataProviderRefreshError::ProviderFailed(format!(
-            "provider {} returned metadata for {}",
-            provider_label(&provider_id),
-            provider_label(&fetched.provider)
-        )));
-    }
-
-    let policy = MetadataMergePolicy::from_locks_and_mode(
-        &snapshot.field_locks,
-        request.profile.refresh_mode,
-    );
-    let merged_metadata = policy.merge(&existing.metadata, &fetched.metadata);
-    let updated = merged_metadata != existing.metadata;
-    let updated_item = MediaItem {
-        metadata: merged_metadata,
-        ..existing.clone()
-    };
-
-    Ok(MetadataProviderRefreshSuccess {
-        commit: MetadataRefreshCommit {
-            item: updated_item,
-            raw_response: ProviderRawResponse {
-                item_id: existing.id,
-                provider: fetched.provider.clone(),
-                provider_key: fetched.provider_key.clone(),
-                fetched_at: now_utc_string().map_err(MetadataProviderRefreshError::Fatal)?,
-                body_json: fetched.raw_json.clone(),
-            },
-        },
-        provider: fetched.provider,
-        provider_key: fetched.provider_key,
-        matched_by,
-        refresh_mode: request.profile.refresh_mode,
-        updated,
-    })
 }
 
 async fn apply_metadata_refresh<R>(
@@ -698,50 +434,6 @@ fn provider_subject_kind_for_item(kind: MediaKind) -> ProviderSubjectKind {
     }
 }
 
-async fn resolve_provider_key<P>(
-    provider: &P,
-    request: &MetadataRefreshRequest,
-    item: &MediaItem,
-) -> std::result::Result<(String, MetadataMatchKind), MetadataProviderRefreshError>
-where
-    P: MetadataProvider + ?Sized,
-{
-    let provider_id = provider.provider();
-    if let Some(external_id) = item
-        .metadata
-        .external_ids
-        .iter()
-        .find(|external_id| external_id.provider == provider_id)
-    {
-        return Ok((external_id.value.clone(), MetadataMatchKind::ExternalId));
-    }
-
-    let lookup = MetadataLookup {
-        kind: Some(item.kind),
-        title: item.metadata.title.clone(),
-        year: release_year(item.metadata.release_date.as_deref()),
-        language: request.profile.language.clone(),
-        external_ids: item.metadata.external_ids.clone(),
-    };
-    let candidates = provider
-        .search(lookup)
-        .await
-        .map_err(classify_provider_error)?;
-    let candidate = candidates
-        .into_iter()
-        .filter(|candidate| candidate.provider == provider_id)
-        .max_by(|left, right| left.score.total_cmp(&right.score))
-        .ok_or_else(|| {
-            MetadataProviderRefreshError::NoMatch(format!(
-                "{} returned no metadata candidate for item {}",
-                provider_label(&provider_id),
-                item.id
-            ))
-        })?;
-
-    Ok((candidate.provider_key, MetadataMatchKind::Search))
-}
-
 fn validate_refresh_profile(profile: &MetadataProfile) -> Result<()> {
     if profile.refresh_mode == MetadataRefreshMode::None {
         return Err(TaruError::Unsupported(
@@ -764,88 +456,6 @@ fn validate_refresh_profile(profile: &MetadataProfile) -> Result<()> {
     Ok(())
 }
 
-fn classify_provider_error(error: TaruError) -> MetadataProviderRefreshError {
-    match error {
-        TaruError::NotFound { .. } => MetadataProviderRefreshError::NoMatch(error.to_string()),
-        TaruError::Unsupported(_)
-        | TaruError::InvalidInput { .. }
-        | TaruError::Conflict { .. }
-        | TaruError::Provider { .. } => {
-            MetadataProviderRefreshError::ProviderFailed(error.to_string())
-        }
-        TaruError::Storage { .. } | TaruError::Database { .. } => {
-            MetadataProviderRefreshError::Fatal(error)
-        }
-    }
-}
-
-fn classify_provider_error_class(error: &TaruError) -> MetadataProviderErrorClass {
-    match error {
-        TaruError::NotFound { .. } => MetadataProviderErrorClass::NoMatch,
-        TaruError::Unsupported(_) => MetadataProviderErrorClass::Unsupported,
-        TaruError::InvalidInput { .. } | TaruError::Conflict { .. } => {
-            MetadataProviderErrorClass::Unknown
-        }
-        TaruError::Provider { message, .. } => {
-            let lower = message.to_ascii_lowercase();
-            if lower.contains("timeout") || lower.contains("timed out") {
-                MetadataProviderErrorClass::Timeout
-            } else if lower.contains("429") || lower.contains("rate") {
-                MetadataProviderErrorClass::RateLimited
-            } else if lower.contains("401") || lower.contains("403") || lower.contains("auth") {
-                MetadataProviderErrorClass::Auth
-            } else if lower.contains("http") {
-                MetadataProviderErrorClass::HttpStatus
-            } else if lower.contains("parse") || lower.contains("json") {
-                MetadataProviderErrorClass::Parse
-            } else {
-                MetadataProviderErrorClass::Network
-            }
-        }
-        TaruError::Storage { .. } | TaruError::Database { .. } => {
-            MetadataProviderErrorClass::Unknown
-        }
-    }
-}
-
-fn summarize_attempts(attempts: &[MetadataProviderAttempt]) -> String {
-    if attempts.is_empty() {
-        return "no providers were attempted".to_owned();
-    }
-
-    attempts
-        .iter()
-        .map(|attempt| {
-            let detail = attempt
-                .message
-                .as_deref()
-                .filter(|message| !message.trim().is_empty())
-                .unwrap_or("no detail");
-            format!(
-                "{}={} ({detail})",
-                provider_label(&attempt.provider),
-                attempt_status_label(attempt.status)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("; ")
-}
-
-fn attempt_status_label(status: MetadataProviderAttemptStatus) -> &'static str {
-    status.as_str()
-}
-
-fn provider_label(provider: &ExternalProvider) -> String {
-    match provider {
-        ExternalProvider::Tmdb => "tmdb".to_owned(),
-        ExternalProvider::Douban => "douban".to_owned(),
-        ExternalProvider::Bangumi => "bangumi".to_owned(),
-        ExternalProvider::Imdb => "imdb".to_owned(),
-        ExternalProvider::Local => "local".to_owned(),
-        ExternalProvider::Other(value) => format!("other:{value}"),
-    }
-}
-
 #[cfg(test)]
 mod port_tests {
     use std::sync::{
@@ -853,7 +463,7 @@ mod port_tests {
         atomic::{AtomicUsize, Ordering},
     };
 
-    use crate::{MetadataCandidate, MetadataFetchResult};
+    use crate::{MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataLookup};
     use async_trait::async_trait;
     use taru_catalog::CatalogHydrationSummary;
     use taru_core::{

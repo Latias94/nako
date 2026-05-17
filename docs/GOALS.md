@@ -26,12 +26,60 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: choose between Metadata
-Provider Attempt Runtime Extraction for server architecture cleanup, `taru-api`
-module split for API/client contract clarity, or reviewing the proposed Android
-client foundation workstream.
+No active implementation goal. Recommended next goal: M45 typed VFS/storage
+error classification, because it removes string-based HTTP error mapping before
+new S3/SMB/NAS-style storage adapters expand the storage surface.
 
 ## Completed Goals
+
+### M44: Metadata Provider Attempt Runtime Extraction
+
+Status: completed.
+
+Objective:
+
+- Deepen `taru-metadata` by extracting provider attempt execution and
+  classification into an internal provider-attempt runtime Module.
+- Keep `MetadataStrategyExecutor::refresh_item` externally compatible while
+  making it read as high-level refresh orchestration.
+- Preserve current provider behavior, attempt records, raw response caching,
+  refresh commit behavior, and catalog hydration behavior.
+
+Deliverables:
+
+- Internal provider-attempt runtime Module for registered-provider handling,
+  search/fetch, success/no-match/provider-failure/fatal classification, skipped
+  attempts, and raw response construction.
+- Thinner `MetadataStrategyExecutor` workflow code.
+- Focused metadata tests proving behavior is unchanged.
+- Workstream evidence and closeout documentation.
+
+Non-goals:
+
+- No new provider breadth.
+- No public HTTP API, OpenAPI, SDK, CLI, or protocol changes.
+- No repository trait churn unless a real use case proves it necessary.
+- No database schema changes.
+- No NFO Round Trip work.
+- No playback/client-profile work.
+- No `taru-api` module split.
+
+Evidence:
+
+- [metadata-provider-attempt-runtime workstream]
+  (workstreams/metadata-provider-attempt-runtime/README.md) records design,
+  task ledger, milestones, evidence, and handoff.
+- `taru-metadata` now has an internal `provider_attempt` Module for provider
+  lookup/fetch, skipped attempts, raw response construction, attempt recording,
+  and provider error classification.
+- `MetadataStrategyExecutor::refresh_item` delegates provider-attempt details
+  while keeping refresh commit and catalog hydration orchestration explicit.
+- Public HTTP API, OpenAPI, SDK/protocol crates, repository traits, database
+  schema, NFO, and playback behavior did not change.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-metadata --tests`, `cargo nextest run -p taru-metadata
+  --no-fail-fast` with 27 tests passed, `cargo check --workspace --tests`,
+  `cargo nextest run --workspace --no-fail-fast`, and `git diff --check`.
 
 ### M43: Playback Source Selection Deepening
 

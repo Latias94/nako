@@ -1,6 +1,7 @@
 mod confirmation;
 mod mapping;
 mod merge;
+mod provider_attempt;
 mod providers;
 mod registry;
 mod runtime;

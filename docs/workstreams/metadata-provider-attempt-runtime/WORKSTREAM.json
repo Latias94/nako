@@ -1,0 +1,21 @@
+{
+  "slug": "metadata-provider-attempt-runtime",
+  "status": "completed",
+  "goal": "M44 Metadata Provider Attempt Runtime Extraction",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "internal provider attempt runtime extraction",
+  "completed_at": "2026-05-17",
+  "non_goals": [
+    "provider breadth",
+    "public API changes",
+    "OpenAPI or SDK changes",
+    "repository trait churn",
+    "database schema changes",
+    "NFO Round Trip work",
+    "playback changes",
+    "taru-api module split"
+  ]
+}
