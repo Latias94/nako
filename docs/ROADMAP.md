@@ -599,10 +599,36 @@ cover streaming route construction while preserving the license boundary:
 - full streaming body abstraction, download manager, HLS player, SDK
   publishing, Rust CLI, and Flutter/Dart SDK remain follow-ons.
 
+### Client CLI Entrypoint: M37
+
+Status: completed.
+
+This phase adds the first concrete public client program on top of the Rust SDK
+instead of expanding directly into Flutter or full streaming body ownership:
+
+- `crates/taru-client-cli` is Apache-2.0;
+- the CLI uses `taru-client` as the only Taru client API entrypoint;
+- commands cover health, library/item/search browse, source probe, playback
+  decision, playback session get/cancel, and streaming request construction;
+- streaming commands print method, URL, and safe headers without executing
+  streaming bodies or implementing downloads/playback;
+- dependency gates keep AGPL server/internal crates out of the client CLI.
+
+Completed:
+
+- M37.0 opened the `client-cli` workstream and fixed the license boundary.
+- M37.1 added `crates/taru-client-cli` as an Apache-2.0 crate.
+- M37.2 added focused tests for mocked SDK transport behavior, streaming
+  request output, bearer-token redaction, and dependency boundaries.
+- M37.3 documented usage and validated the workspace.
+
+Full streaming response abstraction, download manager, Rust SDK publishing,
+Flutter/Dart SDK, and concrete Web/mobile clients remain separate follow-ons.
+
 Recommended next goal:
 
-- M37 choose the first concrete client entrypoint: Rust CLI, Flutter/Dart SDK,
-  or full Rust streaming body abstraction.
+- M38 should choose between full Rust SDK streaming body abstraction,
+  TypeScript SDK streaming/package parity, or Flutter/Dart SDK foundation.
 
 ## Workstream Split Direction
 

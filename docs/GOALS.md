@@ -26,14 +26,52 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M36 closeout.
+No active implementation goal is recorded in this file after M37 closeout.
 
 Next recommended implementation goal:
 
-- M37 concrete client entrypoint planning: choose Rust CLI, Flutter/Dart SDK,
-  or full Rust streaming body abstraction.
+- M38 should choose the next client-runtime risk: full Rust SDK streaming body
+  abstraction, TypeScript SDK streaming/package parity, or Flutter/Dart SDK
+  foundation.
 
 ## Completed Goals
+
+### M37: Apache-2.0 Rust Client CLI Entrypoint
+
+Status: completed.
+
+Objective:
+
+- Add the first concrete Rust client entrypoint after M35/M36 validated the
+  SDK and shared public route inventory.
+- Prove an external program can consume `taru-client` without depending on
+  AGPL server/internal crates or reimplementing HTTP DTOs.
+- Keep the new CLI Apache-2.0 and narrowly scoped to Public Client API usage.
+
+Evidence:
+
+- [client-cli workstream](workstreams/client-cli/README.md)
+- `crates/taru-client-cli` is an Apache-2.0 CLI crate.
+- The CLI uses `taru-client` as its Taru API entrypoint and does not depend on
+  `taru-api`, `taru-server`, `taru-core`, `taru-streaming`, or
+  `taru-transcode`.
+- Commands cover health, libraries, items, search, source probe, playback
+  decision, playback session get/cancel, and streaming request construction.
+- Streaming commands print method, URL, and safe headers with bearer token
+  values redacted; they do not execute streaming bodies or implement
+  downloads/playback.
+- Tests cover mocked SDK transport requests, query/path behavior, unauthenticated
+  health preflight, authenticated public routes, token redaction, and manifest
+  dependency boundaries.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-client-cli --tests`, `cargo nextest run -p taru-client-cli
+  --no-fail-fast` with 5 tests passed, `cargo tree -p taru-client-cli`,
+  `cargo check --workspace --tests`, `cargo nextest run --workspace
+  --no-fail-fast` with 279 tests passed, and `git diff --check`.
+- Non-goals preserved: no crates.io publishing, installer, release automation,
+  shell completions, TUI, player, HLS playback, download manager, cache,
+  background sync, server-admin/internal CLI commands, Flutter/Dart SDK, Web UI,
+  or mobile client.
 
 ### M36: Client SDK Contract Inventory and Streaming Request Builders
 

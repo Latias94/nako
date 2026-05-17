@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [client-cli](client-cli/README.md): completed M37 client entrypoint work,
+  covering the Apache-2.0 Rust client CLI, `taru-client` consumption, public
+  API command scope, streaming request construction, token redaction, and
+  dependency boundaries that keep AGPL server/internal crates out of clients.
 - [client-sdk-contract](client-sdk-contract/README.md): completed M36 client
   SDK contract work, covering protocol-owned public route inventory,
   TypeScript/OpenAPI/Rust SDK inventory reuse, Apache-2.0 client boundary

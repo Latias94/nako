@@ -190,6 +190,35 @@ cargo nextest run -p taru-client --no-fail-fast
 cargo tree -p taru-client
 ```
 
+## Rust Client CLI
+
+The first concrete Rust client entrypoint lives in `crates/taru-client-cli`.
+It is an Apache-2.0 CLI built on top of `taru-client`, not on server internals.
+
+Example commands:
+
+```bash
+cargo run -p taru-client-cli -- --base-url http://localhost:3000 health
+cargo run -p taru-client-cli -- --base-url http://localhost:3000 --token "$TARU_ADMIN_TOKEN" libraries --limit 50 --offset 0
+cargo run -p taru-client-cli -- --base-url http://localhost:3000 --token "$TARU_ADMIN_TOKEN" search matrix --facet genre:sci-fi
+cargo run -p taru-client-cli -- --base-url http://localhost:3000 --token "$TARU_ADMIN_TOKEN" playback decision <source_id> --direct-play true --container mp4
+cargo run -p taru-client-cli -- --base-url http://localhost:3000 --token "$TARU_ADMIN_TOKEN" stream remux <source_id> --output-container mkv --range bytes=0-
+```
+
+The CLI supports `--token-env TARU_ADMIN_TOKEN` when callers do not want to put
+the token value directly on the command line.
+
+Streaming commands only print safe request facts: method, URL, and headers with
+`Authorization` redacted. They do not execute streaming responses, manage
+downloads, cache bytes, or implement an HLS player.
+
+Validate the CLI boundary with:
+
+```bash
+cargo nextest run -p taru-client-cli --no-fail-fast
+cargo tree -p taru-client-cli
+```
+
 ## Authentication
 
 Inbound HTTP authentication is controlled by server config:
