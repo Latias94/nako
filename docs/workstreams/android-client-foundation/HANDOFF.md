@@ -5,8 +5,32 @@ Last updated: 2026-05-17
 
 ## Current State
 
-The design baseline is documented. No Android project files or shared mobile
-Rust crates have been created yet.
+The design baseline is documented. `ACF-010` created the Android scaffold
+under `apps/android` as a single Gradle `:app` module outside the Rust Cargo
+workspace. `ACF-020` added the first connection/auth slice.
+
+Implemented scaffold:
+
+- Gradle Wrapper under `apps/android`.
+- Kotlin + Compose + Material 3 debug app shell.
+- Dark-first Taru theme tokens for color, spacing, type, radius, poster and
+  backdrop ratios, and touch target sizing.
+- One local debug shell screen only.
+- Local Android build README.
+
+Implemented connection/auth slice:
+
+- Compose setup shell with Server URL, Access Token, Test Connection, Save, and
+  saved server profile switching.
+- Direct Kotlin HTTP connection client for `GET /health` and a lightweight
+  authenticated `/libraries?limit=1&offset=0` probe.
+- Public Client API version inspection through `version` and
+  `x-taru-api-version`.
+- Public error-envelope parsing with sanitized diagnostics.
+- Server profile repository with one active server and profile-scoped state.
+- Android secure token vault; profiles store token references, not raw tokens.
+- Mocked HTTP unit tests for success, unreachable, unauthorized, version
+  mismatch, token redaction, and profile isolation.
 
 Resolved decisions:
 
@@ -18,20 +42,21 @@ Resolved decisions:
 - Shared Rust client core may own protocol, auth, DTO, playback-decision, and
   request-construction logic, but not player instances.
 - iOS remains a peer future native client target under ADR 0026.
+- The first scaffold starts as one `:app` module. Split Gradle modules after
+  connection, browse, and playback boundaries become real enough to justify
+  the build overhead.
+- ACF-020 starts with direct Kotlin HTTP. UniFFI is deferred until
+  browse/search/playback request construction creates enough duplicated SDK
+  logic to justify the packaging cost.
 
 ## Next Task
 
-Start with `ACF-010`: create the Android scaffold under `apps/android`.
+Continue with `ACF-030`: Minimal Media Library Browse Loop.
 
-Before implementing, decide whether the first scaffold should be:
-
-- one `:app` module only, optimized for fast iteration; or
-- `:app` plus early `core/*` and `feature/*` modules, optimized for long-term
-  separation.
-
-Recommended first answer: start with one `:app` module plus clear packages.
-Split Gradle modules after connection, browse, and playback boundaries become
-real enough to justify the build overhead.
+Preserve the `ACF-020` boundary while doing `ACF-030`: consume Public Client
+API DTOs from the active server profile, keep token values out of diagnostics,
+and avoid Media3 playback, UniFFI, downloads, or external-player work until
+their own tasks.
 
 ## Risks To Preserve
 
@@ -44,5 +69,8 @@ real enough to justify the build overhead.
 
 ## Validation Reminder
 
-Use `EVIDENCE_AND_GATES.md` for candidate commands. Android commands become
-authoritative only after the Gradle scaffold exists.
+Use `EVIDENCE_AND_GATES.md` for commands. `ACF-010` validated
+`apps/android/gradlew.bat :app:assembleDebug`. `ACF-020` validated
+`apps/android/gradlew.bat :app:assembleDebug`,
+`apps/android/gradlew.bat :app:testDebugUnitTest`,
+`cargo check --workspace --tests`, and `git diff --check`.

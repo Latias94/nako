@@ -5,7 +5,7 @@
   "owner": "codex",
   "created_at": "2026-05-17",
   "updated_at": "2026-05-17",
-  "current_task": "ACF-010",
+  "current_task": "ACF-030",
   "architecture_decisions": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],

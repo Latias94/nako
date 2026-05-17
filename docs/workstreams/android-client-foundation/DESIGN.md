@@ -225,19 +225,43 @@ Playback should remain native. Rust can construct the HLS/direct/remux request
 and interpret a playback decision; Media3 owns playback execution and
 Android-specific lifecycle behavior.
 
+## ACF-020 Client Connection Decision
+
+ACF-020 starts with direct Kotlin HTTP for the Android setup/auth slice.
+
+Rationale:
+
+- It validates Android UX, secure token-reference handling, active-server
+  scoping, and Public Client API error semantics without adding FFI packaging
+  risk to the first connection screen.
+- The slice only needs `GET /health` and a lightweight authenticated Public
+  Client API probe. Duplicated protocol surface is intentionally tiny.
+- The implementation keeps protocol facts in a small Android connection layer:
+  expected API version `v1`, `x-taru-api-version`, `ErrorResponse`, and safe
+  diagnostics. It must not import `taru-api`, `taru-server`, `taru-core`,
+  `taru-streaming`, or `taru-transcode`.
+- UniFFI remains the likely path once browse/search/playback request
+  construction grows enough that duplicating SDK logic becomes expensive.
+
+The auth check uses unauthenticated `GET /health` for reachability and API
+version preflight, then an authenticated lightweight Public Client API probe
+against `/libraries?limit=1&offset=0` because `GET /health` intentionally
+bypasses auth. The probe does not expose a browse UI or parse library data in
+ACF-020; it only verifies token acceptance and public error handling.
+
 ## Open Questions
 
-- Should the first Android slice call the Rust SDK through UniFFI immediately,
-  or start with generated/OpenAPI-derived Kotlin calls and introduce FFI when
-  protocol duplication becomes painful?
+- When should Android move from direct Kotlin HTTP to a shared Rust/UniFFI
+  client core: during browse/search request construction, playback decision
+  construction, or later cache/download work?
 - What local persistence layer should Android use for client-only state:
   DataStore, Room, or a small Rust-owned cache exposed through FFI?
 - Which playback route should be the first smoke-test target: HLS playlist,
   direct stream, or remux stream?
 - What server route is required for user playback progress once the first
   player loop exists?
-- Should `apps/android` use a single Gradle app module first or start with
-  `core/*` and `feature/*` modules?
+- After ACF-010, `apps/android` starts as one `:app` module. When should the
+  app split into `core/*` and `feature/*` Gradle modules?
 
 ## Closeout Condition
 

@@ -4,25 +4,55 @@ Status: Proposed
 Last updated: 2026-05-17
 
 This file defines validation expectations for the Android-first client lane.
-Commands are candidates until the Android project scaffold exists.
+Android scaffold commands are authoritative after `ACF-010`.
 
 ## Always-On Repository Gates
 
 - `cargo fmt --all -- --check`
-- `cargo check --workspace --tests`
+- `cargo check --workspace --tests` passed for `ACF-010` and `ACF-020` on
+  2026-05-17.
 - `cargo nextest run --workspace --no-fail-fast` when Rust/shared-client code
   changes warrant broad validation.
-- `git diff --check`
+- `git diff --check` passed for `ACF-010` and `ACF-020` on 2026-05-17.
 
 ## Android Scaffold Gates
 
-Candidate commands after `apps/android` exists:
+Validated for `ACF-010` on 2026-05-17:
 
-- `apps/android/gradlew.bat :app:assembleDebug`
-- `apps/android/gradlew.bat testDebugUnitTest`
-- Android lint command selected by the Gradle scaffold.
+- `apps/android/gradlew.bat :app:assembleDebug` passed.
+- Root `Cargo.toml` workspace membership remains `members = ["crates/*"]`;
+  `apps/android` is not a Rust workspace member.
+
+Available follow-up commands:
+
+- `apps/android/gradlew.bat :app:testDebugUnitTest` after Android unit tests
+  exist.
+- Android lint command selected when lint policy is added to the scaffold.
 
 Linux/macOS equivalents may use `./gradlew`.
+
+## Android Connection/Auth Gates
+
+Validated for `ACF-020` on 2026-05-17:
+
+- `apps/android/gradlew.bat :app:assembleDebug` passed.
+- `apps/android/gradlew.bat :app:testDebugUnitTest` passed.
+- Android unit tests cover:
+  - successful `GET /health` preflight followed by an authenticated public
+    route probe;
+  - unreachable server diagnostics;
+  - unauthorized access-token handling;
+  - unsupported Public Client API version rejection;
+  - invalid URL and missing access-token local validation;
+  - active server switching and profile-scoped state isolation;
+  - token vault reference behavior and safe request redaction.
+
+Dependency boundary for `ACF-020`:
+
+- Android uses direct Kotlin HTTP for setup/auth.
+- Android does not depend on `taru-api`, `taru-server`, `taru-core`,
+  `taru-streaming`, or `taru-transcode`.
+- No Media3, UniFFI, Downloads, or external-player code is introduced.
 
 ## Shared Rust Client-Core Gates
 

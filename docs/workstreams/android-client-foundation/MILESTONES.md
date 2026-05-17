@@ -22,7 +22,7 @@ Evidence:
 
 ## ACF-M1: Android Scaffold
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -33,14 +33,14 @@ Exit criteria:
 - Android files are not part of the Rust Cargo workspace.
 - Local build docs exist.
 
-Candidate validation:
+Validation:
 
-- `apps/android/gradlew.bat :app:assembleDebug`
-- `cargo check --workspace --tests`
+- `apps/android/gradlew.bat :app:assembleDebug` passed on 2026-05-17.
+- `cargo check --workspace --tests` passed on 2026-05-17.
 
 ## ACF-M2: Public Client Connection
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -58,8 +58,12 @@ Exit criteria:
 
 Candidate validation:
 
-- Android unit tests for connection/auth/version handling.
-- `cargo tree` or manifest checks for any shared Rust client crate.
+- `apps/android/gradlew.bat :app:assembleDebug` passed on 2026-05-17.
+- `apps/android/gradlew.bat :app:testDebugUnitTest` passed on 2026-05-17.
+- `cargo check --workspace --tests` passed on 2026-05-17.
+- `git diff --check` passed on 2026-05-17.
+- No shared Rust client crate was introduced in ACF-020; Android remains
+  outside the Rust Cargo workspace.
 
 ## ACF-M3: Browse-To-Item Loop
 

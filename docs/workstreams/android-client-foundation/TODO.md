@@ -7,8 +7,8 @@ Last updated: 2026-05-17
 
 ### ACF-010: Android Scaffold And Repository Boundary
 
-Status: pending
-Owner: unassigned
+Status: complete
+Owner: codex
 
 Create the initial Android project under `apps/android` with a minimal Kotlin
 and Compose app shell. Keep it outside the Rust Cargo workspace.
@@ -26,14 +26,17 @@ Scope:
 Validation:
 
 - Android debug build command is documented and passes on a configured Android
-  toolchain.
+  toolchain: `apps/android/gradlew.bat :app:assembleDebug`.
 - Existing Rust workspace checks still ignore Android app files unless
-  explicitly requested.
+  explicitly requested: root `Cargo.toml` workspace membership remains
+  `members = ["crates/*"]`.
+- The scaffold remains local-only: no server connection, access token,
+  Public Client API, Media3, UniFFI, Downloads, or external-player code.
 
 ### ACF-020: Public Client Connection And Auth Slice
 
-Status: pending
-Owner: unassigned
+Status: complete
+Owner: codex
 Depends on: ACF-010
 
 Add base URL and bearer-token configuration, health preflight, API-version
@@ -57,13 +60,18 @@ Scope:
 
 Validation:
 
-- Mocked HTTP tests for success, unreachable server, unauthorized, and version
-  mismatch.
+- Mocked HTTP tests cover success, unreachable server, unauthorized, and
+  version mismatch.
 - Tests prove switching active server changes request base URL and does not
-  mix cached state between profiles.
+  mix profile-scoped state.
 - Tests prove token values are hidden and never included in diagnostics or
   safe request previews.
 - Tests cover sanitized diagnostics for representative public error envelopes.
+- `apps/android` stores access-token values behind token references; server
+  profile records do not carry raw token values.
+- ACF-020 records direct Kotlin HTTP as the first Android connection strategy;
+  UniFFI remains deferred until browse/search/playback request duplication is
+  large enough to justify FFI packaging.
 - No dependency on `taru-api`, `taru-server`, `taru-core`,
   `taru-streaming`, or `taru-transcode`.
 
