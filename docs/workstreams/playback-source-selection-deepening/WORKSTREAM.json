@@ -1,0 +1,21 @@
+{
+  "slug": "playback-source-selection-deepening",
+  "status": "completed",
+  "goal": "M43 Playback Source Selection Deepening",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": null,
+  "first_slice": "workflow-shaped playback selection model",
+  "non_goals": [
+    "Android client implementation",
+    "Flutter client implementation",
+    "Source Variant schema or UI",
+    "adaptive bitrate ladder",
+    "Optimized Version workflow",
+    "full Transcode Profile policy engine",
+    "NFO Round Trip preservation",
+    "typed VFS error classification",
+    "metadata provider breadth"
+  ]
+}

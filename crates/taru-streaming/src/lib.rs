@@ -31,6 +31,11 @@ mod tests {
         );
 
         assert_eq!(decision.mode, PlaybackMode::DirectPlay);
+        assert_eq!(decision.selected_source.source_id, source.id);
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::DirectPlay(_)
+        ));
         assert_eq!(
             decision.direct_play.unwrap().content_type,
             "video/mp4".to_owned()
@@ -57,6 +62,105 @@ mod tests {
         );
 
         assert_eq!(decision.mode, PlaybackMode::Remux);
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+                output_container: taru_transcode::RemuxContainer::Mp4,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn selection_request_can_choose_requested_remux_output_container() {
+        let source = media_source("movie.mkv");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("h264")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: Some(&probe),
+            client: &ClientPlaybackCapabilities::default(),
+            context: PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    remux_output_container: Some(taru_transcode::RemuxContainer::Mkv),
+                    ..Default::default()
+                },
+            },
+        });
+
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+                output_container: taru_transcode::RemuxContainer::Mkv,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn selection_request_carries_storage_and_preference_context() {
+        let source = media_source("movie.mp4");
+        let client = ClientPlaybackCapabilities::default();
+
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: None,
+            client: &client,
+            context: PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: true,
+                    range_readable: Some(false),
+                },
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(1),
+                    requested_subtitle_stream: Some(2),
+                    max_video_bitrate: Some(4_000_000),
+                    prefer_hdr: Some(false),
+                    remux_output_container: Some(taru_transcode::RemuxContainer::Mkv),
+                    transcode_output_container: None,
+                },
+            },
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::DirectPlay);
+        assert_eq!(decision.selected_source.library_id, source.library_id);
+        assert_eq!(decision.direct_play.unwrap().supports_range_requests, false);
+    }
+
+    #[test]
+    fn selection_request_can_require_hls_transcode_output() {
+        let source = media_source("movie.mp4");
+        let client = ClientPlaybackCapabilities::default();
+
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: None,
+            client: &client,
+            context: PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    transcode_output_container: Some(taru_transcode::OutputContainer::Hls),
+                    ..Default::default()
+                },
+            },
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Transcode(taru_transcode::TranscodePlan {
+                output_container: taru_transcode::OutputContainer::Hls,
+                ..
+            })
+        ));
     }
 
     #[test]

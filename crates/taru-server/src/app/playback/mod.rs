@@ -14,10 +14,11 @@ use taru_core::{
 use taru_db::SqliteStore;
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
-    PlaybackMode, decide_playback,
+    PlaybackExecutionPlan, PlaybackSelectionContext, PlaybackSelectionRequest,
+    PlaybackStorageContext, select_playback_source,
 };
-use taru_transcode::RemuxContainer;
-use taru_vfs::StorageUri;
+use taru_transcode::{OutputContainer, RemuxContainer};
+use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tracing::{error, warn};
 
 use crate::config::TaruServerConfig;
@@ -248,7 +249,13 @@ impl PlaybackAppService {
     ) -> Result<PlaybackDecisionResponse> {
         let source = self.get_source_or_not_found(source_id).await?;
         let probe = self.store.get_media_probe(source.id).await?;
-        let decision = decide_playback(&source, probe.as_ref(), &client);
+        let context = self.playback_selection_context_for_source(&source).await?;
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: probe.as_ref(),
+            client: &client,
+            context,
+        });
 
         Ok(playback_decision_response_to_dto(source, probe, decision))
     }
@@ -298,21 +305,24 @@ impl PlaybackAppService {
     ) -> Result<RemuxSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe = self.store.get_media_probe(source.id).await?;
-        let decision = decide_playback(&source, probe.as_ref(), &request.client);
-
-        if decision.mode != PlaybackMode::Remux {
-            return Err(TaruError::Unsupported(
-                "remux app service requires a remux playback decision",
-            ));
-        }
-
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
+        let mut context = playback_selection_context(&uri, backend.as_ref()).await;
+        context.preferences.remux_output_container = Some(request.output_container);
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: probe.as_ref(),
+            client: &request.client,
+            context,
+        });
+
+        let output_container = remux_output_container(&decision)?;
+
         let input = self
             .input
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
-        let output_path = staging.output_path(source.id, request.output_container)?;
+        let output_path = staging.output_path(source.id, output_container)?;
         let result = self
             .remux
             .run(
@@ -321,7 +331,7 @@ impl PlaybackAppService {
                 decision,
                 input.path.clone(),
                 output_path,
-                request.output_container,
+                output_container,
             )
             .await;
         match result {
@@ -344,8 +354,16 @@ impl PlaybackAppService {
     pub(crate) async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe = self.store.get_media_probe(source.id).await?;
-        let decision = decide_playback(&source, probe.as_ref(), &request.client);
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
+        let mut context = playback_selection_context(&uri, backend.as_ref()).await;
+        context.preferences.transcode_output_container = Some(OutputContainer::Hls);
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: probe.as_ref(),
+            client: &request.client,
+            context,
+        });
+        ensure_hls_transcode_decision(&decision)?;
         let input = self
             .input
             .source_input_for_ffmpeg(&source, &uri, &backend)
@@ -525,6 +543,54 @@ impl PlaybackAppService {
         source: &MediaSource,
     ) -> Result<(StorageUri, Arc<super::storage::LibraryStorageBackend>)> {
         self.storage_backends.backend_for_media_source(source).await
+    }
+
+    async fn playback_selection_context_for_source(
+        &self,
+        source: &MediaSource,
+    ) -> Result<PlaybackSelectionContext> {
+        let (uri, backend) = self.storage_backend_for_media_source(source).await?;
+        Ok(playback_selection_context(&uri, backend.as_ref()).await)
+    }
+}
+
+async fn playback_selection_context(
+    uri: &StorageUri,
+    backend: &super::storage::LibraryStorageBackend,
+) -> PlaybackSelectionContext {
+    let capabilities = backend
+        .stat(uri)
+        .await
+        .ok()
+        .map(|metadata| metadata.capabilities);
+
+    PlaybackSelectionContext {
+        storage: PlaybackStorageContext {
+            remote: should_budget_remote_stream(uri),
+            range_readable: capabilities
+                .map(|capabilities| capabilities.contains(StorageCapabilities::RANGE_READABLE)),
+        },
+        preferences: Default::default(),
+    }
+}
+
+fn remux_output_container(decision: &PlaybackDecision) -> Result<RemuxContainer> {
+    match &decision.execution {
+        PlaybackExecutionPlan::Remux(plan) => Ok(plan.output_container),
+        _ => Err(TaruError::Unsupported(
+            "remux app service requires a remux playback decision",
+        )),
+    }
+}
+
+fn ensure_hls_transcode_decision(decision: &PlaybackDecision) -> Result<()> {
+    match &decision.execution {
+        PlaybackExecutionPlan::Transcode(plan) if plan.output_container == OutputContainer::Hls => {
+            Ok(())
+        }
+        _ => Err(TaruError::Unsupported(
+            "hls app service requires an hls transcode playback decision",
+        )),
     }
 }
 

@@ -26,11 +26,69 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: choose between reviewing
-the proposed Android client foundation workstream or continuing server-side
-playback/transcode seam deepening.
+No active implementation goal. Recommended next goal: choose between Metadata
+Provider Attempt Runtime Extraction for server architecture cleanup, `taru-api`
+module split for API/client contract clarity, or reviewing the proposed Android
+client foundation workstream.
 
 ## Completed Goals
+
+### M43: Playback Source Selection Deepening
+
+Status: completed.
+
+Objective:
+
+- Deepen **Playback Source Selection** before concrete native/mobile client
+  work depends on the current MVP playback decision model.
+- Make `taru-streaming` own richer source-selection reasoning and playback
+  plan intent.
+- Keep `taru-server` responsible for loading facts, enforcing access, and
+  executing returned direct-play/remux/transcode decisions.
+- Preserve existing Public Client API playback response compatibility where
+  possible.
+
+Deliverables:
+
+- A workflow-shaped playback selection request and decision model in
+  `taru-streaming`.
+- Server playback app migration so mode-choice reasoning lives in the
+  streaming selection Module instead of around HTTP/runtime orchestration.
+- Explicit public DTO compatibility mapping for playback decisions.
+- A documented follow-on list for client profiles, source variants, subtitles,
+  HDR, bitrate, remote access endpoints, API module split, NFO Round Trip,
+  typed VFS errors, and metadata provider-attempt runtime extraction.
+
+Non-goals:
+
+- No Android, Flutter, Web, or player implementation.
+- No full Source Variant schema or UI.
+- No adaptive bitrate ladder.
+- No durable Optimized Version workflow.
+- No full Transcode Profile policy engine.
+- No NFO Round Trip preservation work.
+- No typed VFS error classification work.
+- No metadata provider breadth or provider-attempt runtime extraction.
+
+Evidence:
+
+- [playback-source-selection-deepening workstream]
+  (workstreams/playback-source-selection-deepening/README.md) records design,
+  task ledger, milestones, evidence, and handoff.
+- `taru-streaming` exposes `select_playback_source` with
+  `PlaybackSelectionRequest`, `PlaybackSelectionContext`,
+  `PlaybackSelectedSource`, and `PlaybackExecutionPlan`.
+- `PlaybackDecision` separates selected-source facts from direct-play, remux,
+  and transcode execution intent while retaining compatibility fields for
+  public DTO mapping.
+- `taru-server` playback app loads source, probe, client, storage, remux-output,
+  and HLS intent facts, then executes the returned decision execution plan.
+- Public playback DTO mapping remains wire-compatible; internal
+  `selected_source` and `execution` fields do not enter
+  `taru-client-protocol`.
+- Close-out validation: `cargo fmt --all -- --check`,
+  `cargo check --workspace --tests`, `cargo nextest run --workspace
+  --no-fail-fast` with 292 tests passed, and `git diff --check`.
 
 ### M42: CatalogHydrationPort Lookup Deepening
 

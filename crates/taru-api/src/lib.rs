@@ -1120,4 +1120,35 @@ mod tests {
         assert_eq!(value["session"]["state"], "finished");
         assert!(value["session"].get("output_path").is_none());
     }
+
+    #[test]
+    fn playback_decision_dto_hides_internal_selection_plan() {
+        let source_id = MediaSourceId::new();
+        let library_id = LibraryId::new();
+        let direct_play = DirectPlayPlan {
+            source_id,
+            content_type: "video/mp4".to_owned(),
+            supports_range_requests: true,
+        };
+        let decision = PlaybackDecision {
+            mode: PlaybackMode::DirectPlay,
+            reason: "compatible".to_owned(),
+            selected_source: taru_streaming::PlaybackSelectedSource {
+                source_id,
+                library_id,
+                locator: "local:///Movies/Demo.mp4".to_owned(),
+                file_name: "Demo.mp4".to_owned(),
+            },
+            execution: taru_streaming::PlaybackExecutionPlan::DirectPlay(direct_play.clone()),
+            direct_play: Some(direct_play),
+            transcode_plan: None,
+        };
+
+        let value = serde_json::to_value(playback_decision_to_dto(decision)).unwrap();
+
+        assert_eq!(value["mode"], "direct_play");
+        assert_eq!(value["direct_play"]["source_id"], source_id.to_string());
+        assert!(value.get("selected_source").is_none());
+        assert!(value.get("execution").is_none());
+    }
 }
