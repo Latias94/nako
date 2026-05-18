@@ -28,15 +28,17 @@ Last updated: 2026-05-18
 
 ## M2 — Fixture And State Strategy
 
-- [ ] ACQ-030 [owner=codex] [deps=ACQ-020] [scope=apps/android,docs/workstreams/android-client-qa-harness]
+- [x] ACQ-030 [owner=codex] [deps=ACQ-020] [scope=apps/android,docs/workstreams/android-client-qa-harness]
   Goal: Define the repeatable fixture/state strategy for setup, Home,
   Settings, Server Profile, empty/error states, and future detail/player checks.
   Validation: JVM tests or documented manual smoke evidence prove token-safe
   and locator-safe fixture behavior.
   Review: Use review-workstream before accepting completion.
   Evidence: `EVIDENCE_AND_GATES.md`, fixture/state documentation.
-  Handoff: ACQ-020 is complete. Next task should formalize repeatable
-  fixture/state behavior for more emulator surfaces.
+  Handoff: Completed on 2026-05-18. `current-state` and `empty-setup` modes
+  are documented in `apps/android/SMOKE_FIXTURES.md`; smoke supports
+  `-ResetAppData`; empty setup evidence was generated under
+  `apps/android/build/smoke/20260518-205953-empty-setup-emulator-5554/`.
 
 ## M3 — Emulator Surface Coverage
 
@@ -48,8 +50,9 @@ Last updated: 2026-05-18
   install/launch/capture failure.
   Review: Use review-workstream before accepting completion.
   Evidence: `EVIDENCE_AND_GATES.md`, screenshot path summary.
-  Handoff: Detail/player screenshot coverage can split if it needs server
-  fixture work.
+  Handoff: ACQ-030 is complete. Start with `empty-setup` screenshot coverage,
+  then split profile-backed Home/Settings coverage if it needs seeded server
+  state.
 
 ## M4 — Closeout
 

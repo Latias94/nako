@@ -6,8 +6,8 @@
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Android client validation lacks a repeatable local emulator smoke and screenshot evidence harness for parallel development.",
-  "current_milestone": "M2",
-  "current_task": "ACQ-030",
+  "current_milestone": "M3",
+  "current_task": "ACQ-040",
   "task_prefix": "ACQ",
   "authoritative_docs": [
     {

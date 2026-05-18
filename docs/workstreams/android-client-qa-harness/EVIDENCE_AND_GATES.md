@@ -49,6 +49,7 @@ This catches whitespace errors and unresolved patch artifacts.
 ## Evidence Anchors
 
 - `apps/android/README.md`
+- `apps/android/SMOKE_FIXTURES.md`
 - `apps/android/scripts/`
 - `docs/workstreams/android-client-qa-harness/TODO.md`
 - `docs/workstreams/android-client-qa-harness/HANDOFF.md`
@@ -76,3 +77,13 @@ This catches whitespace errors and unresolved patch artifacts.
   smoke command installed the debug APK, launched `dev.taru.android/.MainActivity`,
   captured `launch.png`, and wrote `launch.txt` plus `report.md` under
   `apps/android/build/smoke/20260518-204538-emulator-5554/`.
+- 2026-05-18: `ACQ-030` completed fixture/state strategy. Added
+  `apps/android/SMOKE_FIXTURES.md` and `-ResetAppData` support to
+  `apps/android/scripts/Smoke-Emulator.ps1`. Fresh `empty-setup` smoke passed:
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -ResetAppData`
+  installed the debug APK, cleared app data, force-stopped the app, launched
+  `dev.taru.android/.MainActivity`, captured `launch.png`, and wrote evidence
+  under `apps/android/build/smoke/20260518-205953-empty-setup-emulator-5554/`.
+  Device inspection after launch showed no `taru_server_profiles.xml`; the
+  encrypted token preferences file existed with AndroidX Security keysets only,
+  not app token entries.

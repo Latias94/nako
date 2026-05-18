@@ -67,12 +67,19 @@ build:
 .\scripts\Smoke-Emulator.ps1
 .\scripts\Smoke-Emulator.ps1 -Serial emulator-5554
 .\scripts\Smoke-Emulator.ps1 -SkipBuild
+.\scripts\Smoke-Emulator.ps1 -ResetAppData
 ```
 
 The script builds `:app:assembleDebug` by default, installs the debug APK to a
 connected emulator, launches `dev.taru.android/.MainActivity`, and writes
-evidence under `apps/android/build/smoke/<timestamp>-<serial>/`.
+evidence under `apps/android/build/smoke/<timestamp>-<state>-<serial>/`.
 
 The script expects `adb devices` to show exactly one device in `device` state.
 If multiple devices are attached, pass `-Serial`. If no devices are attached,
 start an emulator first and re-run the command.
+
+Use `-ResetAppData` for a deterministic empty setup state. It clears
+`dev.taru.android` app data after installing the debug APK, which removes
+stored server profiles and encrypted access tokens before launch.
+
+Fixture and state rules live in `SMOKE_FIXTURES.md`.

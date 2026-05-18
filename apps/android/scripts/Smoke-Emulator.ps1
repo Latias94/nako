@@ -2,7 +2,8 @@
 param(
     [string]$Serial,
     [string]$OutputRoot,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$ResetAppData
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,7 +114,8 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 }
 
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$outputDir = Join-Path $OutputRoot "$timestamp-$deviceSerial"
+$stateMode = if ($ResetAppData) { 'empty-setup' } else { 'current-state' }
+$outputDir = Join-Path $OutputRoot "$timestamp-$stateMode-$deviceSerial"
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
 if (-not $SkipBuild) {
@@ -136,6 +138,10 @@ if (-not (Test-Path -LiteralPath $apkPath)) {
 Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'wait-for-device') -FailureMessage 'adb wait-for-device failed.'
 Wait-ForBootComplete -AdbPath $adb -DeviceSerial $deviceSerial
 Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'install', '-r', '-d', $apkPath) -FailureMessage 'adb install failed.'
+if ($ResetAppData) {
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'pm', 'clear', 'dev.taru.android') -FailureMessage 'adb app data reset failed.'
+}
+Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop failed.'
 
 $launchPath = Join-Path $outputDir 'launch.txt'
 $launchOutput = & $adb -s $deviceSerial shell am start -W -n 'dev.taru.android/.MainActivity' -a android.intent.action.MAIN -c android.intent.category.LAUNCHER 2>&1 | Tee-Object -FilePath $launchPath
@@ -159,6 +165,8 @@ $report = @"
 - Device: $deviceSerial
 - APK: $apkPath
 - Build step: $(if ($SkipBuild) { 'skipped' } else { 'assembleDebug' })
+- State mode: $stateMode
+- Reset app data: $([bool]$ResetAppData)
 - Launch activity: dev.taru.android/.MainActivity
 - Launch output: launch.txt
 - Screenshot: launch.png

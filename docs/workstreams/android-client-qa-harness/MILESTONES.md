@@ -50,6 +50,14 @@ Exit criteria:
 - Fixture data is token-safe and locator-safe.
 - Unsupported server-backed state remains explicit instead of faked.
 
+Status: Completed on 2026-05-18.
+
+Evidence:
+
+- `apps/android/SMOKE_FIXTURES.md`
+- `apps/android/scripts/Smoke-Emulator.ps1 -ResetAppData`
+- `apps/android/build/smoke/20260518-205953-empty-setup-emulator-5554/`
+
 ## M3 — Emulator Surface Coverage
 
 Exit criteria:

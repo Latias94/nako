@@ -13,20 +13,23 @@ The Android Client Foundation and Android Material Expressive UI lanes are
 closed. This lane should improve confidence for future parallel Android work,
 not add product features.
 
-`ACQ-020` is complete. The smoke script and Android README updates have landed
-locally, Android unit/build gates pass, and the smoke command now produces
-repeatable emulator evidence.
+`ACQ-020` and `ACQ-030` are complete. The smoke script and Android README
+updates have landed locally, Android unit/build gates pass, and the smoke
+command now produces repeatable emulator evidence. Fixture/state rules live in
+`apps/android/SMOKE_FIXTURES.md`, with `current-state` and `empty-setup` modes
+documented.
 
 ## Next Task
 
-Continue with `ACQ-030`: formalize repeatable fixture/state behavior for setup,
-Home, Settings, Server Profile, and future detail/player smoke checks.
+Continue with `ACQ-040`: cover the first repeatable emulator surfaces with
+explicit pass/fail criteria.
 
 Recommended implementation order:
 
-1. Decide what minimal seeded state the next emulator surfaces need.
-2. Add fixture helpers or test support where they improve repeatability.
-3. Keep the smoke command and evidence path documented for local reuse.
+1. Start with `empty-setup` screenshot capture because it is now deterministic.
+2. Add named screenshot outputs and clear pass/fail criteria for setup launch.
+3. Decide whether Home, Settings, and Server Profile can use Android-only
+   seeded state or need a server-backed fixture split.
 4. Record new evidence paths in `EVIDENCE_AND_GATES.md` without committing
    generated screenshots.
 
