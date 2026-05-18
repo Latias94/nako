@@ -28,15 +28,19 @@ Last updated: 2026-05-18
 
 ## M2 - Reconciliation Boundary
 
-- [ ] MLH-030 [owner=unassigned] [deps=MLH-020] [scope=crates/taru-server,crates/taru-db,crates/taru-core]
+- [x] MLH-030 [owner=codex] [deps=MLH-020] [scope=crates/taru-server,crates/taru-db,crates/taru-core]
   Goal: Implement one startup Library reconciliation boundary that persists
-  configured desired state and lets workflows use database Library authority
-  after startup.
+  configured desired state, reports reconciliation outcomes, and lets startup
+  and downstream workflows rely on database Library authority after startup.
   Validation: `cargo check -p taru-server --tests`; `cargo check -p taru-db
-  --tests`; focused `cargo nextest` filters for reconciliation behavior.
-  Review: `review-workstream` for boundary shape and multi-library correctness.
-  Evidence: reconciliation service/repository paths and focused tests.
-  Handoff: Continue with MLH-040 cleanup after callers use the new boundary.
+  --tests`; `cargo nextest run -p taru-server startup --no-fail-fast`;
+  `cargo fmt --all -- --check`; `git diff --check`.
+  Review: boundary shape reviewed against ADR 0019; no blocking findings.
+  Evidence: `crates/taru-server/src/app/library_reconciliation.rs`,
+  `crates/taru-server/src/app/startup.rs`,
+  `crates/taru-server/src/app/tests/startup.rs`.
+  Handoff: Continue with MLH-040 cleanup after callers narrow broad config
+  lookups where database Library authority is now available.
 
 ## M3 - Workflow Cleanup And Docs
 

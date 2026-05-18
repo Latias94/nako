@@ -38,7 +38,9 @@
   "evidence": [
     "docs/workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md",
     "crates/taru-server/src/config.rs",
+    "crates/taru-server/src/app/library_reconciliation.rs",
     "crates/taru-server/src/app/startup.rs",
+    "crates/taru-server/src/app/tests/startup.rs",
     "crates/taru-server/src/app/jobs.rs",
     "crates/taru-server/src/app/library.rs",
     "crates/taru-db/src/library.rs"
@@ -46,7 +48,7 @@
   "adr_refs": [
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
-  "current_task": "MLH-030",
+  "current_task": "MLH-040",
   "first_slice": "configured-library startup behavior characterization",
   "non_goals": [
     "Public Client Source Locator redaction",

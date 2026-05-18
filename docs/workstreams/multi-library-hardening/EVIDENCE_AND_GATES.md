@@ -6,11 +6,11 @@ Last updated: 2026-05-18
 ## Smallest Current Repro
 
 ```powershell
-cargo nextest run -p taru-server startup --no-fail-fast
+cargo nextest run -p taru-server app_startup_reports_configured_library_reconciliation --no-fail-fast
 ```
 
-This should capture configured-library startup behavior before reconciliation
-semantics change.
+This captures the explicit startup reconciliation report for configured
+libraries.
 
 ## Gate Set
 
@@ -88,3 +88,23 @@ blocking findings, missing gates, and residual risks here.
 
 Fresh verification is required before marking implementation tasks or the lane
 complete.
+
+2026-05-18, MLH-030:
+
+- Added `ConfiguredLibraryReconciliationService` in
+  `crates/taru-server/src/app/library_reconciliation.rs` as the named startup
+  reconciliation boundary.
+- Startup now records a reconciliation report with counts for configured,
+  added, updated, unchanged, and retained unconfigured libraries.
+- Added characterization coverage for the reconciliation report in
+  `crates/taru-server/src/app/tests/startup.rs`.
+- `cargo check -p taru-server --tests` passed.
+- `cargo check -p taru-db --tests` passed.
+- `cargo nextest run -p taru-server startup --no-fail-fast` passed: 14 passed,
+  103 skipped.
+- `cargo nextest run -p taru-server app_startup_reports_configured_library_reconciliation --no-fail-fast`
+  passed: 1 passed, 116 skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.
+
+Fresh verification is required before closing the lane.

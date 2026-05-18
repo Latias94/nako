@@ -1,20 +1,23 @@
-use std::collections::HashSet;
-
 use taru_core::{
-    JobRepository, LibraryRepository, Result, TaruError, TransactionManager,
-    TranscodeFailureCategory, TranscodeSessionRepository,
+    JobRepository, Result, TransactionManager, TranscodeFailureCategory, TranscodeSessionRepository,
 };
 use taru_db::SqliteStore;
 use tracing::warn;
 
 use super::{
-    current_time_ms, metadata::MetadataAppService, staging::cleanup_expired_staging_inputs,
+    current_time_ms,
+    library_reconciliation::{
+        ConfiguredLibraryReconciliationReport, ConfiguredLibraryReconciliationService,
+    },
+    metadata::MetadataAppService,
+    staging::cleanup_expired_staging_inputs,
 };
 use crate::config::{TaruServerConfig, libraries_from_config};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ServerStartupReport {
     pub configured_libraries: usize,
+    pub library_reconciliation: ConfiguredLibraryReconciliationReport,
     pub recovered_transcode_sessions: u64,
     pub recovered_jobs: u64,
     pub staging_cleanup: Option<ServerStartupStagingCleanupReport>,
@@ -54,7 +57,8 @@ impl<'a> ServerStartupWorkflow<'a> {
         let recovered_transcode_sessions = self.recover_stale_transcode_sessions().await?;
         let recovered_jobs = self.recover_unfinished_jobs().await?;
         let staging_cleanup = self.cleanup_staging_inputs().await?;
-        let configured_libraries = self.ensure_configured_libraries().await?;
+        let library_reconciliation = self.reconcile_configured_libraries().await?;
+        let configured_libraries = library_reconciliation.configured_libraries;
         let metadata_raw_cache_deleted = self
             .metadata
             .cleanup_metadata_raw_cache_on_startup()
@@ -63,6 +67,7 @@ impl<'a> ServerStartupWorkflow<'a> {
 
         Ok(ServerStartupReport {
             configured_libraries,
+            library_reconciliation,
             recovered_transcode_sessions,
             recovered_jobs,
             staging_cleanup,
@@ -124,28 +129,12 @@ impl<'a> ServerStartupWorkflow<'a> {
         }))
     }
 
-    async fn ensure_configured_libraries(&self) -> Result<usize> {
+    async fn reconcile_configured_libraries(
+        &self,
+    ) -> Result<ConfiguredLibraryReconciliationReport> {
         let libraries = libraries_from_config(self.config);
-        if libraries.is_empty() {
-            return Err(TaruError::InvalidInput {
-                message: "server config must include at least one library".to_owned(),
-            });
-        }
-
-        let mut seen = HashSet::new();
-        for library in &libraries {
-            if !seen.insert(library.id) {
-                return Err(TaruError::InvalidInput {
-                    message: format!("duplicate configured library id: {}", library.id),
-                });
-            }
-        }
-
-        let count = libraries.len();
-        for library in libraries {
-            self.store.upsert_library(&library).await?;
-        }
-
-        Ok(count)
+        ConfiguredLibraryReconciliationService::new(self.store)
+            .reconcile(libraries)
+            .await
     }
 }

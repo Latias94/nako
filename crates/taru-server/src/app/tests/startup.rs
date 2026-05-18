@@ -301,6 +301,96 @@ async fn app_startup_retains_persisted_library_missing_from_config() {
 }
 
 #[tokio::test]
+async fn app_startup_reports_configured_library_reconciliation() {
+    let temp = tempfile::tempdir().unwrap();
+    let unchanged_id = LibraryId::new();
+    let updated_id = LibraryId::new();
+    let added_id = LibraryId::new();
+    let retained_id = LibraryId::new();
+    let unchanged = Library {
+        id: unchanged_id,
+        name: "Unchanged Movies".to_owned(),
+        roots: vec!["local:///".to_owned()],
+        options: LibraryOptions::from_preset(taru_core::LibraryPreset::Movies),
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    store.upsert_library(&unchanged).await.unwrap();
+    store
+        .upsert_library(&Library {
+            id: updated_id,
+            name: "Old Anime".to_owned(),
+            roots: vec!["webdav:///OldAnime".to_owned()],
+            options: LibraryOptions::from_preset(taru_core::LibraryPreset::Anime),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library(&Library {
+            id: retained_id,
+            name: "Retained Historical Library".to_owned(),
+            roots: vec!["local:///Retained".to_owned()],
+            options: LibraryOptions::from_preset(taru_core::LibraryPreset::MixedVideo),
+        })
+        .await
+        .unwrap();
+
+    let config = startup_config(
+        temp.path(),
+        vec![
+            LocalLibraryConfig {
+                id: unchanged_id,
+                name: "Unchanged Movies".to_owned(),
+                root: temp.path().join("movies"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            LocalLibraryConfig {
+                id: updated_id,
+                name: "Updated Anime".to_owned(),
+                root: temp.path().join("unused-local-root"),
+                preset: taru_core::LibraryPreset::Anime,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Anime".to_owned(),
+                    base_url: "https://webdav.example.test/dav".to_owned(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 15_000,
+                    max_attempts: 4,
+                }),
+            },
+            LocalLibraryConfig {
+                id: added_id,
+                name: "Added Home Videos".to_owned(),
+                root: temp.path().join("home-videos"),
+                preset: taru_core::LibraryPreset::HomeVideo,
+                webdav: None,
+            },
+        ],
+    );
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let updated = store.get_library(updated_id).await.unwrap().unwrap();
+    let added = store.get_library(added_id).await.unwrap().unwrap();
+    let retained = store.get_library(retained_id).await.unwrap().unwrap();
+
+    let reconciliation = &app.startup_report().library_reconciliation;
+    assert_eq!(app.startup_report().configured_libraries, 3);
+    assert_eq!(reconciliation.configured_libraries, 3);
+    assert_eq!(reconciliation.added_libraries, 1);
+    assert_eq!(reconciliation.updated_libraries, 1);
+    assert_eq!(reconciliation.unchanged_libraries, 1);
+    assert_eq!(reconciliation.retained_unconfigured_libraries, 1);
+    assert_eq!(updated.name, "Updated Anime");
+    assert_eq!(updated.roots, vec!["webdav:///Anime".to_owned()]);
+    assert_eq!(added.name, "Added Home Videos");
+    assert_eq!(added.roots, vec!["local:///".to_owned()]);
+    assert_eq!(retained.name, "Retained Historical Library");
+    assert_eq!(retained.roots, vec!["local:///Retained".to_owned()]);
+}
+
+#[tokio::test]
 async fn app_startup_rejects_duplicate_configured_library_ids() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

@@ -15,6 +15,7 @@ mod catalog;
 mod job_runtime;
 mod jobs;
 mod library;
+mod library_reconciliation;
 mod metadata;
 mod metadata_runtime;
 mod nfo;
