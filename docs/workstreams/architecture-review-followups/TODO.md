@@ -62,5 +62,6 @@ Last updated: 2026-05-18
   Validation: `git diff --check`; all target workstream docs exist or deferral
   reasons are recorded.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Lane closed. Next implementation action is MLH-020 in
-  `multi-library-hardening`.
+  Handoff: Lane closed. Later status sync closed ARF-004 and ARF-005 after
+  `multi-library-hardening` and `public-client-source-locator-redaction`
+  completed.

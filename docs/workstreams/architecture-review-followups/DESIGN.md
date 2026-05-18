@@ -120,8 +120,8 @@ behavior varies. Prefer workstream-specific seams with concrete tests.
 | ARF-001 | Metadata refresh, catalog graph, and search projection atomicity | `metadata-catalog-commit-atomicity` | Closed | First execution lane was opened and closed. Catalog graph/search commits and metadata refresh persistence commits now have SQLite transaction tests. |
 | ARF-002 | NFO and provider merge policy duplication | `metadata-merge-policy-unification` | Closed | Execution lane completed. Shared `MetadataMergePolicy` now lives in `taru-core`; provider refresh, hierarchy confirmation, and NFO import use the shared boundary. |
 | ARF-003 | Broad server app persistence/config interfaces | `server-architecture-hardening` plus `repository-seam-deepening` | Assigned | Reuse existing lanes for concrete workflows only; do not open a generic app-service rewrite lane. |
-| ARF-004 | Media Library config/database source of truth | `multi-library-hardening` | Assigned | Lane promoted to standard workstream. Start with MLH-020 characterization before startup reconciliation changes. |
-| ARF-005 | Public Client Source Locator leakage | `public-client-source-locator-redaction` | Assigned | New focused lane opened. Start with PCLR-020 exposure audit and compatibility decision before wire-shape changes. |
+| ARF-004 | Media Library config/database source of truth | `multi-library-hardening` | Closed | Execution lane completed. Startup reconciliation now establishes persisted Library authority, workflows use reconciled libraries, and configured backend roots are validated at startup. |
+| ARF-005 | Public Client Source Locator leakage | `public-client-source-locator-redaction` | Closed | Execution lane completed. Public Client DTOs, OpenAPI schema, generated SDK output, route tests, and HTTP API docs now redact raw Source Locators. |
 | ARF-006 | Addon token/grant/side-effect seams | `addons-automation` | Assigned | Routed to Post-M5 follow-up for Addon Token issuance, rotation, library-scoped grants, and Taru-mediated Addon Side Effect intake. |
 | ARF-007 | HLS request identity and Transcode Profile | `transcode-runtime` plus `playback-source-selection-deepening` | Assigned | Routed to Post-M25/Post-M43 follow-ups. Avoid changing HLS reuse/cache semantics without request/profile key tests. |
 | ARF-008 | Hardware encode viability diagnostics | Reuse `transcode-runtime` follow-up | Deferred | Lower priority until users need operator diagnostics. |
@@ -131,10 +131,9 @@ behavior varies. Prefer workstream-specific seams with concrete tests.
 
 1. Closed: `metadata-catalog-commit-atomicity`.
 2. Closed: `metadata-merge-policy-unification`.
-3. Next execution lane: `multi-library-hardening` MLH-020 characterization.
-4. Then design Public Client Source Locator redaction via
-   `public-client-source-locator-redaction` PCLR-020.
-5. Continue Addon side-effect and token/grant design through the Post-M5
+3. Closed: `multi-library-hardening`.
+4. Closed: `public-client-source-locator-redaction`.
+5. Next execution lane: continue Addon side-effect and token/grant design through the Post-M5
    follow-up.
 6. Continue playback profile work through the Post-M25/Post-M43 follow-ups;
    defer hardware diagnostics until operator
@@ -155,8 +154,9 @@ This lane can close when:
 
 ARF closes after ARF-060. The first two execution lanes,
 `metadata-catalog-commit-atomicity` and `metadata-merge-policy-unification`,
-were opened and completed. Remaining assigned findings have target lanes:
-`multi-library-hardening`, `public-client-source-locator-redaction`,
+were opened and completed. `multi-library-hardening` and
+`public-client-source-locator-redaction` have also completed after this routing
+lane closed. Remaining assigned findings have target lanes:
 `addons-automation`, `transcode-runtime`, and
 `playback-source-selection-deepening`. Hardware encode viability diagnostics
 and deeper search adapter work remain deferred.

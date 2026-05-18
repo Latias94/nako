@@ -91,7 +91,17 @@ must carry their own Rust checks and `cargo nextest` gates.
 2026-05-18, ARF-060 closeout:
 
 - Every finding is closed, assigned, or deferred in the routing table.
-- `WORKSTREAM.json` points the next execution lane to
+- At closeout time, `WORKSTREAM.json` pointed the next execution lane to
   `multi-library-hardening`.
-- `HANDOFF.md` names MLH-020 as the next implementation action.
+- At closeout time, `HANDOFF.md` named MLH-020 as the next implementation
+  action.
 - No Rust code changes were made in this coordination lane.
+
+2026-05-18, post-closeout status sync:
+
+- `multi-library-hardening` and `public-client-source-locator-redaction` are
+  now completed, so ARF-004 and ARF-005 status references were updated from
+  assigned to closed.
+- `HANDOFF.md` no longer names Public Client Source Locator audit as a blocker
+  or MLH-020 as the next action.
+- No Rust code changes were made in this documentation sync.

@@ -13,9 +13,10 @@ atomicity, was implemented and closed in
 `metadata-catalog-commit-atomicity`. The second execution lane,
 `metadata-merge-policy-unification`, is now completed.
 
-ARF-050 routing is complete: `multi-library-hardening` was promoted to a
-standard workstream, `public-client-source-locator-redaction` was opened, and
-Addon/playback/transcode follow-ups were recorded in their existing lanes.
+ARF-050 routing is complete. `multi-library-hardening` and
+`public-client-source-locator-redaction` were promoted/opened and are now
+completed. Addon/playback/transcode follow-ups remain recorded in their
+existing lanes.
 
 ## Active Task
 
@@ -37,8 +38,8 @@ Addon/playback/transcode follow-ups were recorded in their existing lanes.
   `metadata-merge-policy-unification`, is closed.
 - ARF-001 is closed after `metadata-catalog-commit-atomicity`.
 - ARF-002 is closed after `metadata-merge-policy-unification`.
-- ARF-004 is assigned to `multi-library-hardening`.
-- ARF-005 is assigned to `public-client-source-locator-redaction`.
+- ARF-004 is closed after `multi-library-hardening`.
+- ARF-005 is closed after `public-client-source-locator-redaction`.
 - ARF-006 is assigned to a Post-M5 follow-up in `addons-automation`.
 - ARF-007 is assigned to Post-M25/Post-M43 follow-ups in
   `transcode-runtime` and `playback-source-selection-deepening`.
@@ -46,10 +47,11 @@ Addon/playback/transcode follow-ups were recorded in their existing lanes.
 
 ## Blockers
 
-- Public Client Source Locator redaction must complete PCLR-020 contract audit
-  before DTO field removal.
+- None known.
 
 ## Next Recommended Action
 
 Stop this lane. The next implementation action outside this routing lane is
-MLH-020 in `multi-library-hardening`.
+the ARF-006 Addon token/grant/side-effect follow-up in `addons-automation`, or
+ARF-007 playback/transcode profile work if playback is the nearer product
+priority.

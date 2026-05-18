@@ -53,8 +53,8 @@
     "ARF-001": "closed",
     "ARF-002": "closed",
     "ARF-003": "assigned",
-    "ARF-004": "assigned",
-    "ARF-005": "assigned",
+    "ARF-004": "closed",
+    "ARF-005": "closed",
     "ARF-006": "assigned",
     "ARF-007": "assigned",
     "ARF-008": "deferred",
@@ -66,10 +66,10 @@
     "multi-library-hardening",
     "public-client-source-locator-redaction"
   ],
-  "next_execution_lane": "multi-library-hardening",
+  "next_execution_lane": "addons-automation",
   "next_routing_task": null,
   "continue_policy": {
     "default_action": "stop",
-    "notes": "This coordination lane is complete. Continue implementation in multi-library-hardening with MLH-020, or open a new architecture review follow-up lane for future reviews."
+    "notes": "This coordination lane is complete. ARF-004 and ARF-005 are now closed. Continue with the ARF-006 Addon token/grant/side-effect follow-up in addons-automation, or open a new architecture review follow-up lane for future reviews."
   }
 }
