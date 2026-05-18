@@ -141,3 +141,19 @@ Fresh verification is required before closing the lane.
   skipped.
 
 Fresh review is required before closing the lane.
+
+2026-05-18, MLH-050:
+
+- Closeout review found no blocking code-quality issues.
+- Added startup validation for duplicate configured local roots and unsupported
+  WebDAV root schemes, while preserving distinct backend endpoint roots.
+- Added startup coverage for rejected duplicate local roots, rejected invalid
+  WebDAV root schemes, and allowed same WebDAV root on different endpoints.
+- `cargo check -p taru-server --tests` passed.
+- `cargo check -p taru-db --tests` passed.
+- `cargo nextest run -p taru-server startup --no-fail-fast` passed: 18 passed,
+  106 skipped.
+- `cargo nextest run -p taru-server --no-fail-fast` passed: 124 passed, 0
+  skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.

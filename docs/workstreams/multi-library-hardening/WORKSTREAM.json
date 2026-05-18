@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "multi-library-hardening",
   "title": "Multi-Library Hardening",
-  "status": "proposed",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Configured Media Library desired state and persisted Library authority need one reconciliation boundary before more multi-library workflows depend on them.",
@@ -51,7 +51,7 @@
   "adr_refs": [
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
-  "current_task": "MLH-050",
+  "current_task": null,
   "first_slice": "configured-library startup behavior characterization",
   "non_goals": [
     "Public Client Source Locator redaction",
@@ -67,7 +67,7 @@
     "task": "ARF-050"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Start with MLH-020 characterization before changing startup reconciliation or deleting one-library helpers."
+    "default_action": "stop",
+    "notes": "This lane is complete. Open a follow-up for Library Access, admin mutation, or additional backend-root policy work."
   }
 }

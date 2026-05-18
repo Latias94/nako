@@ -1,6 +1,6 @@
 # Multi-Library Hardening Handoff
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
@@ -18,15 +18,13 @@ options from the database after startup reconciliation.
 
 ## Active Task
 
-- Task ID: MLH-050
-- Owner: codex
-- Files: `docs/workstreams/multi-library-hardening`, `crates/taru-server`
-- Validation: `cargo check -p taru-server --tests`; `cargo check -p taru-db
-  --tests`; `cargo nextest run -p taru-server --no-fail-fast`; `cargo fmt
-  --all -- --check`; `git diff --check`
-- Status: READY
-- Review: run `review-workstream` before closeout
-- Evidence: `EVIDENCE_AND_GATES.md`, MLH-040 tests and journal
+- Task ID: none
+- Owner: planner
+- Files: `docs/workstreams/multi-library-hardening`
+- Validation: closeout evidence recorded in `EVIDENCE_AND_GATES.md`
+- Status: DONE
+- Review: no blocking findings
+- Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`
 
 ## Decisions Since Last Update
 
@@ -46,6 +44,8 @@ options from the database after startup reconciliation.
 - Storage diagnostics now enumerates reconciled persisted libraries. It still
   resolves backend credentials and local physical roots from config because
   those secrets and host paths are not part of the persisted Library authority.
+- Startup now rejects duplicate configured library IDs, duplicate configured
+  local roots, and unsupported WebDAV root schemes before reconciliation.
 
 ## Blockers
 
@@ -53,5 +53,5 @@ options from the database after startup reconciliation.
 
 ## Next Recommended Action
 
-Run MLH-050. Review the lane, record any residual risks, and either close this
-workstream or split follow-ons for Library Access/admin mutation work.
+Stop this lane. Follow-on work for Library Access, admin mutation, or additional
+backend-root policy belongs in a new workstream.

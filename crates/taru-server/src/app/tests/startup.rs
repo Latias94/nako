@@ -488,6 +488,122 @@ async fn app_startup_rejects_duplicate_configured_library_ids() {
 }
 
 #[tokio::test]
+async fn app_startup_rejects_duplicate_configured_library_roots() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("shared-root");
+    let config = startup_config(
+        temp.path(),
+        vec![
+            LocalLibraryConfig {
+                id: LibraryId::new(),
+                name: "Movies".to_owned(),
+                root: root.clone(),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            LocalLibraryConfig {
+                id: LibraryId::new(),
+                name: "Anime".to_owned(),
+                root: root.clone(),
+                preset: taru_core::LibraryPreset::Anime,
+                webdav: None,
+            },
+        ],
+    );
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+
+    let err = TaruApp::new_with_store(config, store).await.unwrap_err();
+
+    let TaruError::InvalidInput { message } = err else {
+        panic!("expected duplicate library root validation error");
+    };
+    assert!(message.contains("duplicate configured library root"));
+    assert!(message.contains(&root.display().to_string()));
+}
+
+#[tokio::test]
+async fn app_startup_rejects_unsupported_configured_webdav_root_scheme() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "ftp:///Movies".to_owned(),
+                base_url: "https://webdav.example.test/dav".to_owned(),
+                username: None,
+                password_env: None,
+                timeout_ms: 15_000,
+                max_attempts: 4,
+            }),
+        }],
+    );
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+
+    let err = TaruApp::new_with_store(config, store).await.unwrap_err();
+
+    let TaruError::InvalidInput { message } = err else {
+        panic!("expected unsupported WebDAV root scheme validation error");
+    };
+    assert_eq!(
+        message,
+        "configured WebDAV library root must use webdav scheme: ftp:///Movies"
+    );
+}
+
+#[tokio::test]
+async fn app_startup_allows_same_webdav_root_on_different_endpoints() {
+    let temp = tempfile::tempdir().unwrap();
+    let first_id = LibraryId::new();
+    let second_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![
+            LocalLibraryConfig {
+                id: first_id,
+                name: "Remote Movies A".to_owned(),
+                root: temp.path().join("unused-local-root-a"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: "https://a.webdav.example.test/dav".to_owned(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 15_000,
+                    max_attempts: 4,
+                }),
+            },
+            LocalLibraryConfig {
+                id: second_id,
+                name: "Remote Movies B".to_owned(),
+                root: temp.path().join("unused-local-root-b"),
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: "https://b.webdav.example.test/dav".to_owned(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 15_000,
+                    max_attempts: 4,
+                }),
+            },
+        ],
+    );
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(app.startup_report().configured_libraries, 2);
+    assert!(store.get_library(first_id).await.unwrap().is_some());
+    assert!(store.get_library(second_id).await.unwrap().is_some());
+}
+
+#[tokio::test]
 async fn app_startup_rejects_duplicate_metadata_provider_configs() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

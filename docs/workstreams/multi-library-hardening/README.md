@@ -1,6 +1,6 @@
 # Multi-Library Hardening
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 This workstream owns Taru's remaining Media Library source-of-truth hardening

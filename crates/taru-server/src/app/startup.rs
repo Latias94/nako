@@ -1,7 +1,11 @@
+use std::collections::HashSet;
+
 use taru_core::{
-    JobRepository, Result, TransactionManager, TranscodeFailureCategory, TranscodeSessionRepository,
+    JobRepository, Result, TaruError, TransactionManager, TranscodeFailureCategory,
+    TranscodeSessionRepository,
 };
 use taru_db::SqliteStore;
+use taru_vfs::StorageUri;
 use tracing::warn;
 
 use super::{
@@ -12,7 +16,7 @@ use super::{
     metadata::MetadataAppService,
     staging::cleanup_expired_staging_inputs,
 };
-use crate::config::{TaruServerConfig, libraries_from_config};
+use crate::config::{LocalLibraryConfig, TaruServerConfig, libraries_from_config};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ServerStartupReport {
@@ -132,9 +136,47 @@ impl<'a> ServerStartupWorkflow<'a> {
     async fn reconcile_configured_libraries(
         &self,
     ) -> Result<ConfiguredLibraryReconciliationReport> {
+        validate_configured_library_roots(&self.config.libraries)?;
         let libraries = libraries_from_config(self.config);
         ConfiguredLibraryReconciliationService::new(self.store)
             .reconcile(libraries)
             .await
     }
+}
+
+fn validate_configured_library_roots(libraries: &[LocalLibraryConfig]) -> Result<()> {
+    let mut seen_roots = HashSet::new();
+
+    for library in libraries {
+        let (root_key, root_display) = configured_library_backend_root(library)?;
+        if !seen_roots.insert(root_key) {
+            return Err(TaruError::InvalidInput {
+                message: format!("duplicate configured library root: {root_display}"),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn configured_library_backend_root(library: &LocalLibraryConfig) -> Result<(String, String)> {
+    let Some(webdav) = library.webdav.as_ref() else {
+        let root = library.root.display().to_string();
+        return Ok((format!("local:{root}"), root));
+    };
+    let root = StorageUri::parse(&webdav.root)?;
+    if root.scheme() != "webdav" {
+        return Err(TaruError::InvalidInput {
+            message: format!(
+                "configured WebDAV library root must use webdav scheme: {}",
+                webdav.root
+            ),
+        });
+    }
+
+    let endpoint = webdav.base_url.trim_end_matches('/');
+    Ok((
+        format!("webdav:{endpoint}:{}", root.as_str()),
+        root.as_str().to_owned(),
+    ))
 }

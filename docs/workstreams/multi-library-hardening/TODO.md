@@ -50,14 +50,15 @@ Last updated: 2026-05-18
   Validation: `cargo fmt --all -- --check`; `cargo nextest run -p taru-server
   --no-fail-fast`; `git diff --check`.
   Review: required before closeout.
-  Evidence: scan, metadata, NFO, and storage diagnostics tests now cover
-  reconciled Library authority after startup.
+  Evidence: scan, metadata, NFO, storage diagnostics, and startup root-policy
+  tests now cover reconciled Library authority after startup.
   Handoff: Continue with MLH-050 closeout review and split Library Access/admin
   mutation follow-ons only if the review finds they are necessary.
 
 ## M4 - Closeout
 
 - [ ] MLH-050 [owner=planner] [deps=MLH-040] [scope=docs/workstreams/multi-library-hardening]
+- [x] MLH-050 [owner=planner] [deps=MLH-040] [scope=docs/workstreams/multi-library-hardening]
   Goal: Close the lane or split narrower follow-ons.
   Validation: `verify-rust-workstream` records fresh final gate evidence.
   Review: no blocking review findings.
