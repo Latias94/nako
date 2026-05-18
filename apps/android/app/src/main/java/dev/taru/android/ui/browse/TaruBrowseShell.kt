@@ -30,6 +30,7 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
+import dev.taru.android.ui.screens.detail.DetailRouteContent
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
@@ -213,6 +214,12 @@ fun TaruBrowseShell(
                     state = detailState,
                     playbackState = playbackState,
                     selectedSourceId = requestedSourceId,
+                    deviceResumePositionMs = deviceResumePosition(
+                        profileId = profile.id,
+                        state = detailState,
+                        selectedSourceId = requestedSourceId,
+                        positionStore = positionStore,
+                    ),
                     onBack = { route = TaruRoute.TopLevel },
                     onRetry = { detailRefreshKey += 1 },
                     onRetryPlayback = { playbackRefreshKey += 1 },
@@ -287,6 +294,24 @@ fun TaruBrowseShell(
 
 private fun PlaybackSelectionUiState.contentOrNull(): PlaybackSelectionUiState.Content? =
     this as? PlaybackSelectionUiState.Content
+
+private fun deviceResumePosition(
+    profileId: String,
+    state: ItemDetailUiState,
+    selectedSourceId: String?,
+    positionStore: DevicePlaybackPositionStore,
+): Long? {
+    val detail = (state as? ItemDetailUiState.Content)?.response ?: return null
+    val source = detail.sources.firstOrNull { it.id == selectedSourceId } ?: detail.sources.firstOrNull()
+    val sourceId = source?.id?.takeIf { it.isNotBlank() } ?: return null
+    return positionStore.load(
+        DevicePlaybackPositionKey(
+            serverProfileId = profileId,
+            mediaItemId = detail.item.id,
+            sourceId = sourceId,
+        ),
+    )?.positionMs
+}
 
 private suspend fun loadPlaybackSelectionState(
     profile: ServerProfile,

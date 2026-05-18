@@ -5,8 +5,8 @@ Last updated: 2026-05-18
 
 ## Current State
 
-The workstream is open. `AME-010`, `AME-020`, and `AME-030` have been completed
-and validated.
+The workstream is open. `AME-010`, `AME-020`, `AME-030`, and `AME-040` have
+been completed and validated.
 
 The Android Client Foundation is complete and already provides:
 
@@ -19,15 +19,16 @@ The Android Client Foundation is complete and already provides:
 
 ## Next Task
 
-Run `AME-040`: implement the V2 Media Item Detail and Source / Version Picker
-on top of the new foundation.
+Run `AME-050`: implement the V2 Player and Settings surfaces on top of the new
+foundation.
 
 Recommended implementation order:
 
 1. Keep the new theme and shell as the only app chrome foundation.
-2. Rework Media Item Detail around clear playback decision hierarchy.
-3. Move source/version choice toward a picker-style surface without leaking
-   server-local paths.
+2. Rework Player chrome and playback error handling without changing Media3
+   launch/session boundaries.
+3. Rework Settings Home and Server Profile with restrained diagnostics and
+   token-safe copy.
 4. Run Android unit tests, Android debug assemble, and `git diff --check`.
 
 ## Constraints To Preserve
@@ -58,6 +59,21 @@ Recommended implementation order:
 - `BrowseFacetRouteContent` now has an artwork-led facet header and only treats
   API-backed Genre, Tag, and Person relationship results as real result pages.
 - Unsupported facet families remain explicit API-gap states.
+
+## AME-040 Outcome
+
+- `MediaItemDetailScreen` was replaced by `ui/screens/detail/MediaItemDetailRoute`.
+- Detail now presents an artwork-led playback decision hero, Play/Resume action
+  hierarchy, explicit device-local resume wording, overview, metadata chips,
+  Cast & Crew preview, and Related Media rows.
+- Source / Version selection now lives in
+  `ui/screens/sourcepicker/SourcePickerScreen` as a picker-style surface with
+  selected-source state, client-safe source facts, and playback-mode
+  consequences for Direct, Remux, HLS, and Transcode.
+- Source picker tests prove visible source facts do not include server-local
+  locators.
+- `TaruBrowseShell` still owns Public Client API playback decision requests and
+  Media3 playback launch construction.
 
 ## Open Risks
 

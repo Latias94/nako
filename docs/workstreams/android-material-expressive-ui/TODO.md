@@ -40,15 +40,17 @@ Last updated: 2026-05-18
 
 ## M3 — Detail And Source Picker V2
 
-- [ ] AME-040 [owner=unassigned] [deps=AME-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/detail,apps/android/app/src/main/java/dev/taru/android/ui/screens/sourcepicker]
+- [x] AME-040 [owner=codex] [deps=AME-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/detail,apps/android/app/src/main/java/dev/taru/android/ui/screens/sourcepicker]
   Goal: Implement the V2 Media Item Detail and Source / Version Picker as a
   playback decision surface with clear Play/Resume, source summary, metadata
   relationships, and playback-mode consequences.
-  Validation: Android unit tests and debug assemble.
+  Validation: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`; `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`; `git diff --check`
   Review: Use review-workstream before accepting completion.
-  Evidence: detail/source picker code and tests.
-  Handoff: Do not expose server-local paths or parse HLS playlists for session
-  handles.
+  Evidence: `apps/android/app/src/main/java/dev/taru/android/ui/screens/detail/MediaItemDetailRoute.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/screens/sourcepicker/SourcePickerScreen.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`, `apps/android/app/src/test/java/dev/taru/android/ui/screens/sourcepicker/SourcePickerDisplayModelTest.kt`
+  Handoff: The detail screen now shows an artwork-led playback decision hero,
+  device-local resume as explicitly local, metadata relationship entry points,
+  and a source/version picker surface that explains Direct, Remux, HLS, and
+  Transcode consequences without exposing locators or parsing HLS playlists.
 
 ## M4 — Player And Settings V2
 

@@ -80,3 +80,15 @@ Use `review-workstream` before accepting each AME task and
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`;
   `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
   `git diff --check`.
+- 2026-05-18: `AME-040` completed V2 Media Item Detail and Source / Version
+  Picker surfaces. Detail now routes through `ui/screens/detail` with an
+  artwork-led playback decision hero, explicit device-local resume wording,
+  metadata relationship chips, Cast & Crew preview, and API-gap relationship
+  rows. Source / Version selection now routes through `ui/screens/sourcepicker`
+  and explains source choice plus Direct, Remux, HLS, and Transcode
+  consequences without exposing Media Source locators or parsing HLS playlists.
+  Added JVM coverage for source-picker display models and client-safe source
+  facts. Validation passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`;
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
+  `git diff --check`.
