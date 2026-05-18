@@ -31,6 +31,17 @@ Exit criteria:
 - Redacted failure and job summary requirements are explicit.
 - Public image serving, thumbnails, and selection remain split.
 
+Result:
+
+- Dedicated managed artwork claim/commit methods are required because generic
+  job start does not provide a safe claim-next boundary for queued artwork
+  ingests.
+- The first artifact byte store should be a Taru-owned local internal artifact
+  root exposed to the database only as opaque `managed-artwork://...`
+  references.
+- VFS cache, staging manifests, and public `ImageAsset` are rejected as first
+  artifact authority.
+
 Primary gates:
 
 - `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`

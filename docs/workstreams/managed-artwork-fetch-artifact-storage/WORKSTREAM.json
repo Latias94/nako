@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAFA-020",
+  "current_task": "MAFA-030",
   "first_slice": "Queued managed artwork ingest fetch into internal artifact storage",
   "non_goals": [
     "Addon Manager lifecycle automation",
@@ -67,6 +67,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with MAFA-020. Do not implement the worker until the first internal artifact byte storage policy, validation boundary, and redacted failure contract are explicit."
+    "notes": "Continue with MAFA-030. Implement a dedicated managed artwork claim/commit boundary, local internal artifact storage port/config, bounded HTTP(S) fetch, and image validation without public ImageAsset, thumbnail, or selected-artwork behavior."
   }
 }

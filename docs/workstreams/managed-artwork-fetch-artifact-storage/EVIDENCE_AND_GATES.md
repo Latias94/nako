@@ -75,3 +75,51 @@ ports, public API contracts, or durable job behavior.
     passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
+
+2026-05-19, MAFA-020 seam audit and first-target decision:
+
+- Audit inventory command:
+  `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`.
+  Output was redirected to a temp file for review and contained 537 inventory
+  lines.
+- `crates/taru-server/src/app/job_runtime.rs` can run a known job ID and
+  persist success/failure, but it does not claim the next queued job or couple
+  job status with `managed_artwork_ingests.status`.
+- `crates/taru-db/src/jobs.rs` exposes generic `start_job`, `succeed_job`, and
+  `fail_job`, but `start_job` is not conditional on queued status. A
+  managed-artwork-specific claim method is needed to avoid duplicate workers
+  racing the same ingest.
+- `crates/taru-db/src/artwork.rs` can create and load managed ingests, but has
+  no artifact insert, ingest status transition, safe failure-code update, or
+  artifact commit method yet.
+- `crates/taru-db/migrations/0026_managed_artwork_ingest.sql` already has
+  `managed_artwork_artifacts` and `managed_artwork_ingests.artifact_id`, but
+  there is no worker or byte-storage implementation.
+- `crates/taru-server/src/app/staging.rs` and `crates/taru-core/src/staging.rs`
+  are probe/FFmpeg input staging with budget, leases, cleanup, and local path
+  diagnostics. They are not durable managed artwork authority.
+- `crates/taru-vfs/src/cache.rs` is a remote storage fact cache. It should not
+  become managed artwork artifact authority.
+- `crates/taru-vfs/src/local.rs` is useful reference for path safety and
+  atomic local writes, but the backend is library-root oriented and currently
+  text-write shaped. Managed artwork needs a purpose-built internal artifact
+  storage port.
+- `crates/taru-metadata/src/runtime.rs` has a good HTTP runtime pattern for
+  timeout, attempts, concurrency, proxy, and user agent, but it is JSON/provider
+  shaped. Artwork fetch should use a dedicated byte-stream fetcher port.
+- Decision:
+  - MAFA-030 should implement a dedicated managed artwork worker/runtime
+    boundary with managed-artwork-specific claim/commit repository methods.
+  - The first artifact byte store should be a Taru-owned local internal
+    artifact root, not a library root, VFS cache, or staging manifest.
+  - Persist opaque `managed-artwork://...` storage references and keep raw
+    absolute paths out of database authority and DTOs.
+  - Fetch only accepted HTTP(S) remote candidates with hard timeout, attempt,
+    concurrency, byte-length, media-type, and dimension/decodability limits.
+  - Keep public `ImageAsset`, image serving, thumbnails, and selected artwork
+    publication split to later lanes.
+- MAFA-020 validation:
+  - `Get-Content -Raw docs/workstreams/managed-artwork-fetch-artifact-storage/WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.

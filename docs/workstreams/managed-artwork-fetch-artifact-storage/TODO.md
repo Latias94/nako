@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - Fetch And Storage Seam Audit
 
-- [ ] MAFA-020 [owner=codex] [deps=MAFA-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-vfs,docs]
+- [x] MAFA-020 [owner=codex] [deps=MAFA-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-vfs,docs]
   Goal: Audit job runtime claim/update seams, HTTP fetch policy, image
   validation options, storage/VFS/cache/staging boundaries, and artifact commit
   requirements; choose the first internal artifact byte storage policy.
@@ -26,8 +26,14 @@ Last updated: 2026-05-19
   boundary instead of placing ordering in the worker body.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`; selected storage policy in
   `DESIGN.md`.
-  Handoff: Continue with MAFA-030 only after storage authority and redaction
-  policy are explicit.
+  Result: DONE. First target is a dedicated managed artwork worker/runtime
+  boundary with managed-artwork-specific claim/commit repository methods,
+  bounded HTTP(S) byte fetch, image validation, and a server-local internal
+  artifact storage port that persists opaque `managed-artwork://...`
+  references.
+  Handoff: Continue with MAFA-030 by adding the claim/commit model, artifact
+  storage port/config, fetch/validation seam, and focused success/failure tests
+  without public `ImageAsset`, thumbnail, or selection behavior.
 
 ## M2 - First Fetch/Artifact Slice
 
