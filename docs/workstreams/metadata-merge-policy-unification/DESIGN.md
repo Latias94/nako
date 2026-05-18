@@ -1,6 +1,6 @@
 # Metadata Merge Policy Unification
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -18,6 +18,11 @@ Both paths iterate over the same `CanonicalMetadata` fields. They differ in
 source semantics, but they should not duplicate field-by-field mechanics. Every
 new Canonical Metadata field currently risks being added to one path and missed
 by the other.
+
+MMP-030 moved that shared field replacement boundary to
+`crates/taru-core/src/media/merge.rs`. `taru-metadata` re-exports the policy for
+existing metadata workflow callers, and NFO import now uses the same policy
+through `MetadataMergePolicy::for_nfo_import`.
 
 ## Relevant Authority
 
@@ -54,7 +59,7 @@ should be explainable from one policy boundary.
 ## Target State
 
 - There is one shared merge-policy boundary for Canonical Metadata field
-  replacement decisions.
+  replacement decisions. MMP-030 implements this in `taru-core`.
 - Provider refresh, hierarchy confirmation, and NFO import all use that boundary
   instead of maintaining separate per-field replacement loops.
 - Source-aware lock handling is explicit: a source can protect fields written
@@ -149,4 +154,3 @@ This lane can close when:
 - docs record any sharpened authority terminology;
 - follow-ons for provider priority, diagnostics, or schema changes are split or
   explicitly deferred.
-

@@ -274,6 +274,83 @@ async fn hierarchy_confirmation_rejects_confirmed_structure_changes() {
 }
 
 #[tokio::test]
+async fn hierarchy_confirmation_allows_source_authority_to_refresh_own_locked_fields() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Provider Old Title".to_owned(),
+            overview: Some("User overview".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: item.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_field_lock(&MetadataFieldLock {
+            item_id: item.id,
+            field: MetadataField::Title,
+            locked: true,
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_field_lock(&MetadataFieldLock {
+            item_id: item.id,
+            field: MetadataField::Overview,
+            locked: true,
+            source: MetadataSource::User,
+        })
+        .await
+        .unwrap();
+
+    HierarchyConfirmationService::new(store.clone())
+        .confirm_hierarchy(HierarchyConfirmationRequest {
+            library_id: library.id,
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+            refresh_mode: MetadataRefreshMode::FullRefresh,
+            items: vec![HierarchyConfirmationItem {
+                item_id: item.id,
+                kind: MediaKind::Movie,
+                parent_id: None,
+                metadata: CanonicalMetadata {
+                    title: "Provider New Title".to_owned(),
+                    overview: Some("Provider overview".to_owned()),
+                    ..CanonicalMetadata::default()
+                },
+                provider_subject: None,
+                confidence_milli: None,
+            }],
+        })
+        .await
+        .unwrap();
+
+    let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+
+    assert_eq!(loaded.metadata.title, "Provider New Title");
+    assert_eq!(loaded.metadata.overview, Some("User overview".to_owned()));
+}
+
+#[tokio::test]
 async fn metadata_refresh_confirms_provider_state_across_all_library_memberships() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

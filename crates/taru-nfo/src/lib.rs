@@ -406,6 +406,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nfo_service_allows_nfo_authority_to_refresh_nfo_locked_fields() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("demo.mkv"), b"media").unwrap();
+        fs::write(
+            temp.path().join("Movies").join("demo.nfo"),
+            r#"<movie>
+  <title>NFO Title</title>
+  <plot>NFO overview</plot>
+</movie>
+"#,
+        )
+        .unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let item = seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
+        store
+            .upsert_field_lock(&MetadataFieldLock {
+                item_id: item.id,
+                field: MetadataField::Title,
+                locked: true,
+                source: MetadataSource::Nfo,
+            })
+            .await
+            .unwrap();
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        service
+            .import_library(NfoImportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::LocalFirst,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+        let locks = store.list_field_locks(item.id).await.unwrap();
+
+        assert_eq!(loaded.metadata.title, "NFO Title");
+        assert_eq!(loaded.metadata.overview, Some("NFO overview".to_owned()));
+        assert!(locks.iter().any(|lock| {
+            lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::Nfo
+        }));
+    }
+
+    #[tokio::test]
     async fn nfo_service_confirms_provisional_episode_hierarchy_in_place() {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp.path().join("TV").join("Firefly")).unwrap();

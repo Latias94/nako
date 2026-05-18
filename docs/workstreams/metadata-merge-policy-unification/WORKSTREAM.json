@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "metadata-merge-policy-unification",
   "title": "Metadata Merge Policy Unification",
-  "status": "proposed",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "NFO import and provider refresh duplicate Canonical Metadata field merge authority, risking drift when metadata fields or source-lock rules change.",
@@ -39,9 +39,9 @@
   ],
   "evidence": [
     "crates/taru-core/src/media/item.rs",
+    "crates/taru-core/src/media/merge.rs",
     "crates/taru-core/src/media/metadata.rs",
     "crates/taru-core/src/media/profile.rs",
-    "crates/taru-metadata/src/merge.rs",
     "crates/taru-metadata/src/confirmation.rs",
     "crates/taru-nfo/src/import.rs"
   ],
@@ -50,7 +50,7 @@
     "docs/adr/0008-nfo-as-local-metadata-boundary.md",
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
-  "current_task": "MMP-020",
+  "current_task": null,
   "first_slice": "current behavior characterization",
   "non_goals": [
     "NFO XML preservation",
@@ -66,8 +66,7 @@
     "task": "ARF-040"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Start with MMP-020 characterization tests. Do not move policy code until current NFO and provider expectations are test-visible."
+    "default_action": "stop",
+    "notes": "This lane is complete. Open a follow-up for provider priority configuration, merge diagnostics, or future Canonical Metadata field policy changes."
   }
 }
-

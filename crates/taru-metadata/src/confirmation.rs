@@ -2,13 +2,11 @@ use serde::{Deserialize, Serialize};
 use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
     CanonicalMetadata, ExternalProvider, LibraryId, LibraryItemRepository, LibraryItemState,
-    MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataFieldLock, MetadataRefreshMode,
+    MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataMergePolicy, MetadataRefreshMode,
     MetadataRepository, MetadataSource, PageRequest, ProviderMapping, ProviderMappingId,
     ProviderMappingRepository, ProviderMappingStatus, ProviderSubject, ProviderSubjectId,
     ProviderSubjectKind, Result, TaruError,
 };
-
-use crate::MetadataMergePolicy;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HierarchyConfirmationRequest {
@@ -136,8 +134,7 @@ where
         refresh_mode: MetadataRefreshMode,
     ) -> Result<MediaItem> {
         let locks = self.repository.list_field_locks(existing.id).await?;
-        let effective_locks = locks_for_other_sources(&locks, source);
-        let policy = MetadataMergePolicy::from_locks_and_mode(&effective_locks, refresh_mode);
+        let policy = MetadataMergePolicy::for_source_refresh_mode(&locks, source, refresh_mode);
 
         Ok(MediaItem {
             id: existing.id,
@@ -249,15 +246,4 @@ fn reject_confirmed_structure_change(
             existing.id
         ),
     })
-}
-
-fn locks_for_other_sources(
-    locks: &[MetadataFieldLock],
-    source: &MetadataSource,
-) -> Vec<MetadataFieldLock> {
-    locks
-        .iter()
-        .filter(|lock| lock.locked && lock.source != *source)
-        .cloned()
-        .collect()
 }

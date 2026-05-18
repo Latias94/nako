@@ -1,27 +1,26 @@
 # Metadata Merge Policy Unification Handoff
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
 
-The workstream is open from ARF-002 / ARF-040. No implementation changes have
-started.
+The workstream is open from ARF-002 / ARF-040. MMP-020, MMP-030, and MMP-040
+are complete. MMP-050 closes the lane.
 
 The concrete risk is duplicated Canonical Metadata merge authority between
-`taru-metadata` and `taru-nfo`. The first implementation step must characterize
-current behavior before moving policy code.
+`taru-metadata` and `taru-nfo`. The shared merge boundary now lives in
+`taru-core`.
 
 ## Active Task
 
-- Task ID: MMP-020
-- Owner: unassigned
-- Files: `crates/taru-metadata`, `crates/taru-nfo`
-- Validation: `cargo nextest run -p taru-metadata merge --no-fail-fast`;
-  `cargo nextest run -p taru-nfo nfo_service --no-fail-fast`
-- Status: READY
-- Review: required before accepting completion
-- Evidence: `crates/taru-metadata/src/merge.rs`, `crates/taru-nfo/src/import.rs`
+- Task ID: none
+- Owner: planner
+- Files: `docs/workstreams/metadata-merge-policy-unification`
+- Validation: closeout evidence recorded in `EVIDENCE_AND_GATES.md`
+- Status: DONE
+- Review: no blocking findings
+- Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`
 
 ## Decisions Since Last Update
 
@@ -31,6 +30,14 @@ current behavior before moving policy code.
 - Characterize behavior before moving the shared policy boundary.
 - The likely shared boundary must be usable by both NFO Import and provider
   refresh without creating a dependency cycle.
+- Source-aware field locks are part of the behavior contract: a source should
+  be able to refresh its own locked fields while respecting locks written by
+  other sources.
+- The shared policy belongs in `taru-core` because it is pure Canonical
+  Metadata authority logic and avoids making NFO depend on metadata workflow
+  implementation details.
+- Provider refresh intentionally still respects all locked fields; hierarchy
+  confirmation and NFO import use source-aware lock scopes.
 
 ## Blockers
 
@@ -38,8 +45,5 @@ current behavior before moving policy code.
 
 ## Next Recommended Action
 
-Run MMP-020: add or identify focused characterization tests for provider
-full-refresh, provider missing-only, NFO local-first, NFO remote-first, and
-cross-source field locks. Then proceed to MMP-030 only after those tests make
-the expected behavior explicit.
-
+Stop this lane. Reopen only if provider priority configuration, merge
+diagnostics, or new Canonical Metadata fields require a focused follow-up.

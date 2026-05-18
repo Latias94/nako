@@ -1,8 +1,8 @@
 use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
-    CanonicalMetadata, LibraryItemRepository, LocalMetadataPolicy, MediaItem, MediaRepository,
-    MediaSource, MetadataField, MetadataFieldLock, MetadataRefreshMode, MetadataRepository,
-    MetadataSource, ProviderMappingRepository, Result, TaruError,
+    LibraryItemRepository, LocalMetadataPolicy, MediaItem, MediaRepository, MediaSource,
+    MetadataFieldLock, MetadataMergePolicy, MetadataRefreshMode, MetadataRepository,
+    MetadataSource, ProviderMappingRepository, Result, TaruError, populated_metadata_fields,
 };
 use taru_metadata::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
@@ -112,7 +112,8 @@ where
             Ok(locks) => locks,
             Err(err) => return import_failure(&source, NfoFailureKind::Unknown, err),
         };
-        let merged = merge_nfo_metadata(&existing.metadata, &document.metadata, policy, &locks);
+        let merged = MetadataMergePolicy::for_nfo_import(policy, &locks)
+            .merge(&existing.metadata, &document.metadata);
         let changed = merged != existing.metadata;
         let confirmation_items = match self
             .nfo_hierarchy_confirmation_items(&existing, &document)
@@ -139,7 +140,7 @@ where
         }
 
         if locks_should_be_written(policy) {
-            for field in populated_fields(&document.metadata) {
+            for field in populated_metadata_fields(&document.metadata) {
                 if let Err(err) = self
                     .repository
                     .upsert_field_lock(&MetadataFieldLock {
@@ -290,146 +291,6 @@ fn ensure_import_policy(policy: LocalMetadataPolicy) -> Result<()> {
     }
 }
 
-fn merge_nfo_metadata(
-    existing: &CanonicalMetadata,
-    incoming: &CanonicalMetadata,
-    policy: LocalMetadataPolicy,
-    locks: &[MetadataFieldLock],
-) -> CanonicalMetadata {
-    match policy {
-        LocalMetadataPolicy::ReadOnly
-        | LocalMetadataPolicy::LocalFirst
-        | LocalMetadataPolicy::WriteSidecar => merge_with_mode(existing, incoming, locks, false),
-        LocalMetadataPolicy::RemoteFirst => merge_with_mode(existing, incoming, locks, true),
-        LocalMetadataPolicy::Disabled => existing.clone(),
-    }
-}
-
-fn merge_with_mode(
-    existing: &CanonicalMetadata,
-    incoming: &CanonicalMetadata,
-    locks: &[MetadataFieldLock],
-    missing_only: bool,
-) -> CanonicalMetadata {
-    let mut merged = existing.clone();
-
-    if should_replace_text(MetadataField::Title, &merged.title, locks, missing_only) {
-        merged.title = incoming.title.clone();
-    }
-    if should_replace_option(
-        MetadataField::OriginalTitle,
-        &merged.original_title,
-        locks,
-        missing_only,
-    ) {
-        merged.original_title = incoming.original_title.clone();
-    }
-    if should_replace_option(
-        MetadataField::SortTitle,
-        &merged.sort_title,
-        locks,
-        missing_only,
-    ) {
-        merged.sort_title = incoming.sort_title.clone();
-    }
-    if should_replace_option(
-        MetadataField::Overview,
-        &merged.overview,
-        locks,
-        missing_only,
-    ) {
-        merged.overview = incoming.overview.clone();
-    }
-    if should_replace_option(
-        MetadataField::ReleaseDate,
-        &merged.release_date,
-        locks,
-        missing_only,
-    ) {
-        merged.release_date = incoming.release_date.clone();
-    }
-    if should_replace_option(
-        MetadataField::RuntimeMinutes,
-        &merged.runtime_minutes,
-        locks,
-        missing_only,
-    ) {
-        merged.runtime_minutes = incoming.runtime_minutes;
-    }
-    if should_replace_option(MetadataField::Tagline, &merged.tagline, locks, missing_only) {
-        merged.tagline = incoming.tagline.clone();
-    }
-    if should_replace_list(MetadataField::Genres, &merged.genres, locks, missing_only) {
-        merged.genres = incoming.genres.clone();
-    }
-    if should_replace_list(MetadataField::Tags, &merged.tags, locks, missing_only) {
-        merged.tags = incoming.tags.clone();
-    }
-    if should_replace_list(MetadataField::Ratings, &merged.ratings, locks, missing_only) {
-        merged.ratings = incoming.ratings.clone();
-    }
-    if should_replace_list(MetadataField::Images, &merged.images, locks, missing_only) {
-        merged.images = incoming.images.clone();
-    }
-    if should_replace_list(MetadataField::Credits, &merged.credits, locks, missing_only) {
-        merged.credits = incoming.credits.clone();
-    }
-    if should_replace_list(
-        MetadataField::Collections,
-        &merged.collections,
-        locks,
-        missing_only,
-    ) {
-        merged.collections = incoming.collections.clone();
-    }
-    if should_replace_list(MetadataField::Studios, &merged.studios, locks, missing_only) {
-        merged.studios = incoming.studios.clone();
-    }
-    if should_replace_list(
-        MetadataField::ExternalIds,
-        &merged.external_ids,
-        locks,
-        missing_only,
-    ) {
-        merged.external_ids = incoming.external_ids.clone();
-    }
-
-    merged
-}
-
-fn should_replace_text(
-    field: MetadataField,
-    existing: &str,
-    locks: &[MetadataFieldLock],
-    missing_only: bool,
-) -> bool {
-    !is_protected_by_non_nfo_lock(field, locks) && (!missing_only || existing.is_empty())
-}
-
-fn should_replace_option<T>(
-    field: MetadataField,
-    existing: &Option<T>,
-    locks: &[MetadataFieldLock],
-    missing_only: bool,
-) -> bool {
-    !is_protected_by_non_nfo_lock(field, locks) && (!missing_only || existing.is_none())
-}
-
-fn should_replace_list<T>(
-    field: MetadataField,
-    existing: &[T],
-    locks: &[MetadataFieldLock],
-    missing_only: bool,
-) -> bool {
-    !is_protected_by_non_nfo_lock(field, locks) && (!missing_only || existing.is_empty())
-}
-
-fn is_protected_by_non_nfo_lock(field: MetadataField, locks: &[MetadataFieldLock]) -> bool {
-    locks.iter().any(|lock| {
-        lock.locked && lock.field == field && !matches!(lock.source, MetadataSource::Nfo)
-    })
-}
-
 fn is_missing_metadata(item: &MediaItem) -> bool {
     let metadata = &item.metadata;
     metadata.title.trim().is_empty()
@@ -445,56 +306,4 @@ fn locks_should_be_written(policy: LocalMetadataPolicy) -> bool {
         policy,
         LocalMetadataPolicy::ReadOnly | LocalMetadataPolicy::LocalFirst
     )
-}
-
-fn populated_fields(metadata: &CanonicalMetadata) -> Vec<MetadataField> {
-    let mut fields = Vec::new();
-
-    if !metadata.title.trim().is_empty() {
-        fields.push(MetadataField::Title);
-    }
-    if metadata.original_title.is_some() {
-        fields.push(MetadataField::OriginalTitle);
-    }
-    if metadata.sort_title.is_some() {
-        fields.push(MetadataField::SortTitle);
-    }
-    if metadata.overview.is_some() {
-        fields.push(MetadataField::Overview);
-    }
-    if metadata.release_date.is_some() {
-        fields.push(MetadataField::ReleaseDate);
-    }
-    if metadata.runtime_minutes.is_some() {
-        fields.push(MetadataField::RuntimeMinutes);
-    }
-    if metadata.tagline.is_some() {
-        fields.push(MetadataField::Tagline);
-    }
-    if !metadata.genres.is_empty() {
-        fields.push(MetadataField::Genres);
-    }
-    if !metadata.tags.is_empty() {
-        fields.push(MetadataField::Tags);
-    }
-    if !metadata.ratings.is_empty() {
-        fields.push(MetadataField::Ratings);
-    }
-    if !metadata.images.is_empty() {
-        fields.push(MetadataField::Images);
-    }
-    if !metadata.credits.is_empty() {
-        fields.push(MetadataField::Credits);
-    }
-    if !metadata.collections.is_empty() {
-        fields.push(MetadataField::Collections);
-    }
-    if !metadata.studios.is_empty() {
-        fields.push(MetadataField::Studios);
-    }
-    if !metadata.external_ids.is_empty() {
-        fields.push(MetadataField::ExternalIds);
-    }
-
-    fields
 }
