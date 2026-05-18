@@ -389,6 +389,7 @@ internal fun MediaPosterCard(
 internal fun MediaItemRow(
     item: MediaItemDto,
     onOpenItem: (MediaItemDto) -> Unit,
+    trailingLabel: String = "Direct",
 ) {
     PressableScale(onClick = { onOpenItem(item) }) {
         SurfaceCard {
@@ -421,7 +422,7 @@ internal fun MediaItemRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                StatusChip(text = "Direct")
+                StatusChip(text = trailingLabel)
             }
         }
     }
@@ -501,21 +502,21 @@ internal fun LibraryListCard(library: LibraryDto) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun FacetChipRow(
-    labels: List<String>,
-    selected: String? = null,
-    onSelected: (String) -> Unit,
+    targets: List<BrowseFacetTarget>,
+    selected: BrowseFacetTarget? = null,
+    onSelected: (BrowseFacetTarget) -> Unit,
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
         verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
     ) {
-        labels.forEach { label ->
+        targets.forEach { target ->
             FilterChip(
-                selected = label == selected,
-                onClick = { onSelected(label) },
+                selected = target == selected,
+                onClick = { onSelected(target) },
                 label = {
                     Text(
-                        text = label,
+                        text = target.label,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -528,14 +529,14 @@ internal fun FacetChipRow(
 @Composable
 internal fun RelationshipCard(
     rows: List<RelationshipRow>,
-    onOpenFacet: (String) -> Unit,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     SurfaceCard {
         rows.forEach { row ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenFacet(row.title) }
+                    .clickable { onOpenFacet(row.target) }
                     .padding(vertical = TaruSpacing.small),
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,

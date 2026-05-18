@@ -42,6 +42,17 @@ class TaruBrowseClient(
             pathAndQuery = "/items?limit=${page.limit}&offset=${page.offset}",
         )
 
+    suspend fun searchItems(
+        profile: ServerProfile,
+        accessToken: String,
+        query: SearchRequest,
+    ): BrowseResult<SearchResponse> =
+        executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/search${searchQuery(query)}",
+        )
+
     suspend fun itemDetail(
         profile: ServerProfile,
         accessToken: String,
@@ -59,6 +70,108 @@ class TaruBrowseClient(
             accessToken = accessToken,
             pathAndQuery = "/items/${encodePathSegment(itemId)}",
         )
+    }
+
+    suspend fun listGenreItems(
+        profile: ServerProfile,
+        accessToken: String,
+        genreId: String,
+        page: PageRequest = PageRequest(limit = 24),
+    ): BrowseResult<FacetItemsResponse> {
+        if (genreId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.InvalidResponse,
+                userMessage = "Choose a supported Genre facet before browsing related Media Items.",
+            )
+        }
+
+        return when (
+            val result = executeJson<GenreItemsResponse>(
+                profile = profile,
+                accessToken = accessToken,
+                pathAndQuery = "/genres/${encodePathSegment(genreId)}/items${pageQuery(page)}",
+            )
+        ) {
+            is BrowseResult.Success -> BrowseResult.Success(
+                value = FacetItemsResponse(
+                    family = BrowseFacetFamily.Genre,
+                    facetId = result.value.genre.id,
+                    facetLabel = result.value.genre.name,
+                    items = result.value.items,
+                    page = result.value.page,
+                ),
+                request = result.request,
+            )
+            is BrowseResult.Failure -> result
+        }
+    }
+
+    suspend fun listTagItems(
+        profile: ServerProfile,
+        accessToken: String,
+        tagId: String,
+        page: PageRequest = PageRequest(limit = 24),
+    ): BrowseResult<FacetItemsResponse> {
+        if (tagId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.InvalidResponse,
+                userMessage = "Choose a supported Tag facet before browsing related Media Items.",
+            )
+        }
+
+        return when (
+            val result = executeJson<TagItemsResponse>(
+                profile = profile,
+                accessToken = accessToken,
+                pathAndQuery = "/tags/${encodePathSegment(tagId)}/items${pageQuery(page)}",
+            )
+        ) {
+            is BrowseResult.Success -> BrowseResult.Success(
+                value = FacetItemsResponse(
+                    family = BrowseFacetFamily.Tag,
+                    facetId = result.value.tag.id,
+                    facetLabel = result.value.tag.name,
+                    items = result.value.items,
+                    page = result.value.page,
+                ),
+                request = result.request,
+            )
+            is BrowseResult.Failure -> result
+        }
+    }
+
+    suspend fun listPersonItems(
+        profile: ServerProfile,
+        accessToken: String,
+        personId: String,
+        page: PageRequest = PageRequest(limit = 24),
+    ): BrowseResult<FacetItemsResponse> {
+        if (personId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.InvalidResponse,
+                userMessage = "Choose a supported Person facet before browsing related Media Items.",
+            )
+        }
+
+        return when (
+            val result = executeJson<PersonItemsResponse>(
+                profile = profile,
+                accessToken = accessToken,
+                pathAndQuery = "/people/${encodePathSegment(personId)}/items${pageQuery(page)}",
+            )
+        ) {
+            is BrowseResult.Success -> BrowseResult.Success(
+                value = FacetItemsResponse(
+                    family = BrowseFacetFamily.Person,
+                    facetId = result.value.person.id,
+                    facetLabel = result.value.person.name,
+                    items = result.value.items,
+                    page = result.value.page,
+                ),
+                request = result.request,
+            )
+            is BrowseResult.Failure -> result
+        }
     }
 
     private suspend inline fun <reified T> executeJson(
@@ -227,6 +340,39 @@ class TaruBrowseClient(
 
     private fun joinUrl(baseUrl: String, pathAndQuery: String): String =
         "${baseUrl.trimEnd('/')}$pathAndQuery"
+
+    private fun searchQuery(query: SearchRequest): String =
+        queryString(
+            buildList {
+                if (query.query.isNotBlank()) {
+                    add("q" to query.query)
+                }
+                if (query.facets.isNotEmpty()) {
+                    add("facet" to query.facets.joinToString(","))
+                }
+                add("limit" to query.page.limit.toString())
+                add("offset" to query.page.offset.toString())
+            },
+        )
+
+    private fun pageQuery(page: PageRequest): String =
+        queryString(
+            listOf(
+                "limit" to page.limit.toString(),
+                "offset" to page.offset.toString(),
+            ),
+        )
+
+    private fun queryString(pairs: List<Pair<String, String>>): String =
+        pairs.joinToString(
+            separator = "&",
+            prefix = "?",
+        ) { (name, value) ->
+            "${encodeQueryValue(name)}=${encodeQueryValue(value)}"
+        }
+
+    private fun encodeQueryValue(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8)
 
     private fun encodePathSegment(value: String): String =
         URLEncoder

@@ -1,6 +1,6 @@
 # Android Client Foundation Handoff
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## Current State
@@ -78,6 +78,25 @@ Implemented Compose UI baseline rewrite:
   shell and persists profile switches from Server Profile.
 - Added Compose Material Icons Extended for standard Material iconography.
 
+Implemented Search, Facet, and route hardening:
+
+- Direct Kotlin browse client support for public `/search`, including query,
+  comma-separated lightweight facets, pagination, and search hit decoding.
+- Direct Kotlin browse client support for public related-item routes:
+  `/genres/{genre_id}/items`, `/tags/{tag_id}/items`, and
+  `/people/{person_id}/items`.
+- Search top-level destination now uses a submitted-query screen backed by the
+  active server profile and navigates results into Media Item Detail.
+- Browse Facet Result now loads API-backed Genre, Tag, and Person targets when
+  the UI has a stable facet id.
+- Unsupported Library, Studio, Collection, Year, Item Kind, Source Mode, and
+  missing-id relationship targets show explicit API-gap states rather than
+  local pseudo filtering.
+- Detail metadata chips map display labels to `ItemDetailResponse.genres` and
+  `ItemDetailResponse.tags` relation ids by response order when available.
+- Detail person relationships use `credits.person_id` only when present and do
+  not invent cast or crew names from incomplete detail responses.
+
 Resolved decisions:
 
 - Android is the first implementation target.
@@ -102,28 +121,36 @@ Resolved decisions:
 
 ## Next Task
 
-Continue with the next `ACF-030` sub-slice: `ACF-030D` Search, Facet, And
-Walkthrough Hardening.
+Finish `ACF-030D` manual validation, then decide whether to close ACF-030 or
+split the remaining API gaps into a Public Client API follow-up.
 
 The visual direction is documented in `CLIENT_INTERFACE_DESIGN.md` and
 reference screenshots live under
 `docs/workstreams/android-client-foundation/reference-screenshots/`. ACF-030C
-has translated that baseline into Compose code. The next step is not another
-visual rewrite; it is API-fit and route hardening.
+has translated that baseline into Compose code, and ACF-030D has hardened the
+available public routes. The next step is not another visual rewrite.
 
-Preserve the `ACF-020`, `ACF-030A`, and `ACF-030B` boundaries: consume Public
-Client API DTOs from the active server profile, keep token values out of
-diagnostics, and avoid Media3 playback, UniFFI, downloads, playback request
-construction, Source / Version Picker behavior, Play/Resume activation, or
-external-player work until their own tasks.
+Preserve the `ACF-020`, `ACF-030A`, `ACF-030B`, `ACF-030C`, and `ACF-030D`
+boundaries: consume Public Client API DTOs from the active server profile, keep
+token values out of diagnostics, and avoid Media3 playback, UniFFI, downloads,
+playback request construction, Source / Version Picker behavior, Play/Resume
+activation, or external-player work until their own tasks.
 
 Recommended next task:
 
-- `ACF-030D`: check current Public Client API support for Search, Library
-  Detail, and Browse Facet Result; wire only explicit public routes; document
-  gaps instead of inventing client-only semantics; then run the manual debug
-  walkthrough from connection to browse, item detail, Settings, Server Profile,
-  and back to browse.
+- Run and record the manual debug walkthrough against a running Taru server
+  fixture and Android device/emulator:
+  - connection/setup;
+  - Home browse;
+  - Libraries browse;
+  - Media Item Detail;
+  - Search result navigation;
+  - Browse Facet Result for a real Genre/Tag/Person id if fixture data exists;
+  - Settings;
+  - Server Profile;
+  - return to browse.
+- Record whether the remaining API gaps should become a Public Client API
+  workstream before `ACF-040`.
 
 ## Risks To Preserve
 
@@ -148,5 +175,8 @@ closeout should also keep `cargo check --workspace --tests` and
 `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`. `ACF-030C`
 validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
+`git diff --check` on 2026-05-18. `ACF-030D` validated
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
+`apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
 `git diff --check` on 2026-05-18. Manual server/device walkthrough is still
-pending and should be recorded under `ACF-030D`.
+pending and should be recorded before closing `ACF-030D`.

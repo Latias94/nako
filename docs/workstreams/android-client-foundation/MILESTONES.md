@@ -120,13 +120,24 @@ Progress:
   - Settings Home and Server Profile surfaces without token display;
   - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
   - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `ACF-030D` implementation completed pending manual walkthrough on 2026-05-18:
+  - Search top-level destination is backed by the public `/search` route;
+  - Browse Facet Result loads public Genre, Tag, and Person related-item routes
+    when a stable facet id is available;
+  - unsupported Library, Studio, Collection, Year, Item Kind, Source Mode, and
+    missing-id targets are explicit API-gap states, not client-only filters;
+  - mocked Android tests cover search encoding/decoding and genre/tag/person
+    related-item route construction;
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 
 Remaining before milestone completion:
 
-- Search and Browse Facet Result API integration or explicit API-gap follow-up;
-- Library Detail route if the public API supports library-scoped item pages;
 - manual walkthrough from connection to browse, item detail, Settings, Server
-  Profile, and back to browse.
+  Profile, Search, Browse Facet Result, and back to browse;
+- Public Client API follow-up for library-scoped item pages and the unsupported
+  Studio, Collection, Year, and Item Kind facet routes if they are required
+  before playback.
 
 ## ACF-M4: Playback Decision Loop
 

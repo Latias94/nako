@@ -168,6 +168,55 @@ Gates not run:
   `ACF-030C` because this change touched Android Kotlin/Compose, Gradle, and
   workstream documentation only; no Rust crate code or Cargo manifests changed.
 
+## Android Search, Facet, And Walkthrough Hardening Gates
+
+Validated for the implemented portion of `ACF-030D` on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `git diff --check` passed with Windows line-ending normalization warnings
+  only.
+
+What this proves:
+
+- The Android browse client encodes and decodes the public `/search` route,
+  including query, comma-separated facet string, pagination, result hits, and
+  safe request redaction.
+- The Android browse client encodes and decodes public Genre, Tag, and Person
+  related-item routes:
+  - `GET /genres/{genre_id}/items`;
+  - `GET /tags/{tag_id}/items`;
+  - `GET /people/{person_id}/items`.
+- Search is no longer a placeholder destination; submitted searches load
+  active-server-scoped results and navigate to Media Item Detail.
+- Browse Facet Result is no longer a placeholder route for supported targets;
+  it loads API-backed Genre, Tag, and Person targets when a stable id is
+  available.
+- Unsupported facet targets remain explicit API-gap pages instead of
+  client-only pseudo filters.
+- Existing connection, token, server-profile, browse pagination, detail decode,
+  sanitized diagnostics, active-server switching, and token-reference isolation
+  tests still pass after the route hardening.
+
+API gaps intentionally not implemented in Android under `ACF-030D`:
+
+- Library-scoped item browsing and library facets.
+- Studio related-item route.
+- Collection related-item route.
+- Year related-item route.
+- Media Item kind related-item route.
+- Rich credit/person display data in `ItemDetailResponse` for cast and crew
+  names.
+
+Gates not run:
+
+- Manual debug walkthrough against a running Taru server fixture and Android
+  device/emulator was not run in this session. `ACF-030D` remains
+  implemented-pending-walkthrough until that evidence is captured.
+- Rust `cargo fmt`, `cargo check`, and `cargo nextest` were not rerun because
+  this change touched Android Kotlin/Compose and workstream documentation only;
+  no Rust crate code or Cargo manifests changed.
+
 ## Shared Rust Client-Core Gates
 
 If a mobile shared Rust crate is introduced:

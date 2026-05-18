@@ -326,8 +326,8 @@ Concern:
 
 #### ACF-030D: Search, Facet, And Walkthrough Hardening
 
-Status: pending
-Owner: unassigned
+Status: implemented_pending_manual_walkthrough
+Owner: codex
 Depends on: ACF-030C
 
 Finish the remaining non-playback browse loop before moving into playback
@@ -361,6 +361,50 @@ Validation:
   `EVIDENCE_AND_GATES.md`.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passes.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passes.
+
+Implementation completed on 2026-05-18:
+
+- Added direct Kotlin Public Client API calls and Android DTO mirrors for:
+  - `GET /search?q=&facet=&limit=&offset=`;
+  - `GET /genres/{genre_id}/items`;
+  - `GET /tags/{tag_id}/items`;
+  - `GET /people/{person_id}/items`.
+- Added mocked Android unit tests for search query/facet/pagination encoding,
+  search hit decoding, genre item result decoding, tag/person item route
+  construction, active profile use, and safe request redaction.
+- Replaced the Search top-level placeholder with a real submitted-query Search
+  screen backed by `/search`.
+- Replaced the Browse Facet placeholder with a route that loads API-backed
+  Genre, Tag, and Person targets only when a stable facet id is available.
+- Detail metadata chips now map Genre/Tag display labels to stable relation ids
+  from `ItemDetailResponse.genres` and `ItemDetailResponse.tags` by response
+  order when available.
+- Detail person relationships use `credits.person_id` only when present; they
+  do not invent cast or crew names from missing data.
+- Unsupported browse targets are explicit API-gap pages rather than
+  client-only pseudo filters.
+
+API gaps recorded:
+
+- Library-scoped item browsing and library facet result routes.
+- Studio facet item route.
+- Collection facet item route.
+- Year facet route.
+- Media Item kind facet route.
+- Rich person/credit detail data with display names and role-specific browsing.
+
+Validation completed on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `git diff --check` passed with Windows line-ending normalization warnings
+  only.
+
+Remaining before ACF-030D can close:
+
+- Manual debug walkthrough against a running Taru server fixture and Android
+  device/emulator from connection to browse, item detail, Search, Browse Facet
+  Result, Settings, Server Profile, and back to browse.
 
 ### ACF-040: Playback Decision And Request Construction
 

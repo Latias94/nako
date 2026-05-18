@@ -49,6 +49,84 @@ data class ItemsResponse(
     val page: PageInfo,
 )
 
+data class SearchRequest(
+    val query: String = "",
+    val facets: List<String> = emptyList(),
+    val page: PageRequest = PageRequest(limit = 24),
+)
+
+@Serializable
+data class SearchResponse(
+    val hits: List<SearchItemHit>,
+    val page: PageInfo,
+)
+
+@Serializable
+data class SearchItemHit(
+    val item: MediaItemDto,
+    val score: Float,
+)
+
+data class FacetItemsResponse(
+    val family: BrowseFacetFamily,
+    val facetId: String,
+    val facetLabel: String,
+    val items: List<MediaItemDto>,
+    val page: PageInfo,
+)
+
+enum class BrowseFacetFamily {
+    Genre,
+    Tag,
+    Person,
+}
+
+@Serializable
+data class GenreItemsResponse(
+    val genre: GenreDto,
+    val items: List<MediaItemDto>,
+    val page: PageInfo,
+)
+
+@Serializable
+data class TagItemsResponse(
+    val tag: TagDto,
+    val items: List<MediaItemDto>,
+    val page: PageInfo,
+)
+
+@Serializable
+data class PersonItemsResponse(
+    val person: PersonDto,
+    val items: List<MediaItemDto>,
+    val page: PageInfo,
+)
+
+@Serializable
+data class GenreDto(
+    val id: String,
+    val name: String,
+    val source: JsonElement? = null,
+)
+
+@Serializable
+data class TagDto(
+    val id: String,
+    val name: String,
+    val source: JsonElement? = null,
+)
+
+@Serializable
+data class PersonDto(
+    val id: String,
+    val name: String,
+    @SerialName("sort_name")
+    val sortName: String? = null,
+    val overview: String? = null,
+    @SerialName("external_ids")
+    val externalIds: List<JsonElement> = emptyList(),
+)
+
 @Serializable
 data class ItemDetailResponse(
     val item: MediaItemDto,

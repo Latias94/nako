@@ -183,6 +183,166 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `search items encodes query facets pagination and decodes hits`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "hits": [
+                        {
+                          "item": {
+                            "id": "item-1",
+                            "kind": "movie",
+                            "metadata": {
+                              "title": "Search Route Demo",
+                              "genres": [],
+                              "tags": [],
+                              "ratings": [],
+                              "images": []
+                            }
+                          },
+                          "score": 0.82
+                        }
+                      ],
+                      "page": {"limit": 12, "offset": 6, "returned": 1}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.searchItems(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            query = SearchRequest(
+                query = "route demo",
+                facets = listOf("genre:test", "tag:favorite"),
+                page = PageRequest(limit = 12, offset = 6),
+            ),
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals(
+            "http://home.example.test/search?q=route+demo&facet=genre%3Atest%2Ctag%3Afavorite&limit=12&offset=6",
+            transport.requests.single().url,
+        )
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("Search Route Demo", success.value.hits.single().item.metadata.title)
+        assertEquals(0.82f, success.value.hits.single().score, 0.001f)
+        assertEquals(1, success.value.page.returned)
+        assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `genre items decodes facet result with facet label`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "genre": {"id":"genre-1","name":"Mystery","source":"nfo"},
+                      "items": [
+                        {
+                          "id": "item-1",
+                          "kind": "movie",
+                          "metadata": {
+                            "title": "Night Harbor",
+                            "genres": ["Mystery"],
+                            "tags": [],
+                            "ratings": [],
+                            "images": []
+                          }
+                        }
+                      ],
+                      "page": {"limit": 24, "offset": 0, "returned": 1}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listGenreItems(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            genreId = "genre 1",
+            page = PageRequest(limit = 24, offset = 0),
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/genres/genre%201/items?limit=24&offset=0", transport.requests.single().url)
+        assertEquals("Mystery", success.value.facetLabel)
+        assertEquals("Night Harbor", success.value.items.single().metadata.title)
+        assertEquals(1, success.value.page.returned)
+    }
+
+    @Test
+    fun `tag and person item routes use active profile and safe requests`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "tag": {"id":"tag-1","name":"favorite","source":"user"},
+                      "items": [],
+                      "page": {"limit": 10, "offset": 0, "returned": 0}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "person": {"id":"person-1","name":"Demo Actor","sort_name":null,"overview":null,"external_ids":[]},
+                      "items": [],
+                      "page": {"limit": 10, "offset": 10, "returned": 0}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+        val currentProfile = profile("http://home.example.test")
+
+        val tagResult = client.listTagItems(
+            profile = currentProfile,
+            accessToken = "secret-token",
+            tagId = "tag-1",
+            page = PageRequest(limit = 10, offset = 0),
+        )
+        val personResult = client.listPersonItems(
+            profile = currentProfile,
+            accessToken = "secret-token",
+            personId = "person-1",
+            page = PageRequest(limit = 10, offset = 10),
+        )
+
+        assertTrue(tagResult is BrowseResult.Success)
+        assertTrue(personResult is BrowseResult.Success)
+        assertEquals(
+            listOf(
+                "http://home.example.test/tags/tag-1/items?limit=10&offset=0",
+                "http://home.example.test/people/person-1/items?limit=10&offset=10",
+            ),
+            transport.requests.map { it.url },
+        )
+        assertEquals(
+            listOf("Bearer secret-token", "Bearer secret-token"),
+            transport.requests.map { it.headers["Authorization"] },
+        )
+        assertEquals("favorite", (tagResult as BrowseResult.Success).value.facetLabel)
+        assertEquals("Demo Actor", (personResult as BrowseResult.Success).value.facetLabel)
+        assertFalse(tagResult.toString().contains("secret-token"))
+        assertFalse(personResult.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `empty libraries response remains a successful empty state input`() = runBlocking {
         val transport = FakeTransport(
             ResponseStep(

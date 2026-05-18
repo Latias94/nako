@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.ItemDetailResponse
+import dev.taru.android.browse.ItemCreditDto
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
@@ -43,7 +44,7 @@ internal fun DetailRouteContent(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
-    onOpenFacet: (String) -> Unit,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     TaruScrollColumn {
         IconButton(onClick = onBack) {
@@ -75,7 +76,7 @@ internal fun DetailRouteContent(
 @Composable
 private fun MediaItemDetailScreen(
     response: ItemDetailResponse,
-    onOpenFacet: (String) -> Unit,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     val item = response.item
     ElevatedCard(
@@ -143,17 +144,12 @@ private fun MediaItemDetailScreen(
         )
     }
 
-    val chipLabels = buildList {
-        addAll(item.metadata.genres.take(4))
-        addAll(item.metadata.tags.take(4))
-        item.metadata.releaseDate?.take(4)?.let(::add)
-        item.metadata.ratings.firstOrNull()?.value?.let(::add)
-    }
-    if (chipLabels.isNotEmpty()) {
+    val metadataTargets = buildMetadataTargets(response)
+    if (metadataTargets.isNotEmpty()) {
         SectionHeader(title = "Metadata")
         FacetChipRow(
-            labels = chipLabels,
-            selected = chipLabels.firstOrNull(),
+            targets = metadataTargets,
+            selected = metadataTargets.firstOrNull(),
             onSelected = onOpenFacet,
         )
     }
@@ -163,23 +159,121 @@ private fun MediaItemDetailScreen(
         action = "${response.credits.size}",
     )
     RelationshipCard(
-        rows = buildList {
-            add(RelationshipRow("Actor", "Cast preview", Icons.Rounded.Person))
-            add(RelationshipRow("Director", "Browse related Media Items", Icons.Rounded.TheaterComedy))
-            add(RelationshipRow("Writer", "Public facet pending", Icons.Rounded.Info))
-        },
+        rows = creditRelationshipRows(response),
         onOpenFacet = onOpenFacet,
     )
 
     SectionHeader(title = "Relationships")
     RelationshipCard(
         rows = listOf(
-            RelationshipRow("Franchise Collection", "${response.collections.size} collection links", Icons.AutoMirrored.Rounded.LibraryBooks),
-            RelationshipRow("Extras", "Behind the scenes, trailers, interviews", Icons.Rounded.Movie),
-            RelationshipRow("Studios", "${response.studios.size} studio links", Icons.Rounded.Storage),
+            RelationshipRow(
+                title = "Collections",
+                subtitle = "${response.collections.size} collection link(s)",
+                icon = Icons.AutoMirrored.Rounded.LibraryBooks,
+                target = BrowseFacetTarget(
+                    family = BrowseFacetUiFamily.Collection,
+                    label = "Collections",
+                    id = response.collections.firstOrNull()?.collectionId,
+                ),
+            ),
+            RelationshipRow(
+                title = "Hierarchy",
+                subtitle = "Series, season, extras, and parent navigation are not available yet.",
+                icon = Icons.Rounded.Movie,
+                target = BrowseFacetTarget(BrowseFacetUiFamily.Library, "Hierarchy"),
+            ),
+            RelationshipRow(
+                title = "Studios",
+                subtitle = "${response.studios.size} studio link(s)",
+                icon = Icons.Rounded.Storage,
+                target = BrowseFacetTarget(
+                    family = BrowseFacetUiFamily.Studio,
+                    label = "Studios",
+                    id = response.studios.firstOrNull()?.studioId,
+                ),
+            ),
         ),
         onOpenFacet = onOpenFacet,
     )
+}
+
+private fun buildMetadataTargets(response: ItemDetailResponse): List<BrowseFacetTarget> {
+    val item = response.item
+    return buildList {
+        item.metadata.genres.take(4).forEachIndexed { index, label ->
+            add(
+                BrowseFacetTarget(
+                    family = BrowseFacetUiFamily.Genre,
+                    label = label,
+                    id = response.genres.getOrNull(index)?.genreId,
+                ),
+            )
+        }
+        item.metadata.tags.take(4).forEachIndexed { index, label ->
+            add(
+                BrowseFacetTarget(
+                    family = BrowseFacetUiFamily.Tag,
+                    label = label,
+                    id = response.tags.getOrNull(index)?.tagId,
+                ),
+            )
+        }
+        item.metadata.releaseDate?.take(4)?.let { year ->
+            add(BrowseFacetTarget(BrowseFacetUiFamily.Year, year))
+        }
+        add(BrowseFacetTarget(BrowseFacetUiFamily.ItemKind, item.kind))
+    }
+}
+
+private fun creditRelationshipRows(response: ItemDetailResponse): List<RelationshipRow> {
+    val rows = response.credits.take(3).mapIndexed { index, credit ->
+        val title = creditTitle(index, credit)
+        RelationshipRow(
+            title = title,
+            subtitle = if (credit.personId.isBlank()) {
+                "Person link unavailable for this credit."
+            } else {
+                "Browse related Media Items."
+            },
+            icon = Icons.Rounded.Person,
+            target = BrowseFacetTarget(
+                family = BrowseFacetUiFamily.Person,
+                label = title,
+                id = credit.personId,
+            ),
+        )
+    }
+    return rows.ifEmpty {
+        listOf(
+            RelationshipRow(
+                title = "Cast",
+                subtitle = "Credit names are not available for this item yet.",
+                icon = Icons.Rounded.Person,
+                target = BrowseFacetTarget(BrowseFacetUiFamily.Person, "Cast"),
+            ),
+            RelationshipRow(
+                title = "Director",
+                subtitle = "Role-specific browsing is not available yet.",
+                icon = Icons.Rounded.TheaterComedy,
+                target = BrowseFacetTarget(BrowseFacetUiFamily.Person, "Director"),
+            ),
+            RelationshipRow(
+                title = "Writer",
+                subtitle = "Role-specific browsing is not available yet.",
+                icon = Icons.Rounded.Info,
+                target = BrowseFacetTarget(BrowseFacetUiFamily.Person, "Writer"),
+            ),
+        )
+    }
+}
+
+private fun creditTitle(index: Int, credit: ItemCreditDto): String {
+    val role = credit.role
+        ?.toString()
+        ?.trim('"')
+        ?.replace('_', ' ')
+        ?.takeIf { it.isNotBlank() && it != "null" }
+    return role?.replaceFirstChar { it.uppercase() } ?: "Credit ${index + 1}"
 }
 
 @Composable

@@ -11,7 +11,7 @@ internal fun LibrariesScreen(
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
-    onOpenFacet: (String) -> Unit,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     TaruScrollColumn {
         PageTitle(
@@ -32,8 +32,8 @@ internal fun LibrariesScreen(
             )
             is BrowseUiState.Content -> {
                 FacetChipRow(
-                    labels = listOf("Genre", "Tag", "Actor", "Director", "Year", "Collection"),
-                    selected = "Genre",
+                    targets = libraryFacetTargets(),
+                    selected = libraryFacetTargets().firstOrNull(),
                     onSelected = onOpenFacet,
                 )
                 if (state.libraries.libraries.isEmpty()) {
@@ -68,3 +68,13 @@ internal fun LibrariesScreen(
         }
     }
 }
+
+private fun libraryFacetTargets(): List<BrowseFacetTarget> =
+    listOf(
+        BrowseFacetTarget(BrowseFacetUiFamily.Genre, "Genres"),
+        BrowseFacetTarget(BrowseFacetUiFamily.Tag, "Tags"),
+        BrowseFacetTarget(BrowseFacetUiFamily.Person, "People"),
+        BrowseFacetTarget(BrowseFacetUiFamily.Year, "Years"),
+        BrowseFacetTarget(BrowseFacetUiFamily.Collection, "Collections"),
+        BrowseFacetTarget(BrowseFacetUiFamily.Studio, "Studios"),
+    )

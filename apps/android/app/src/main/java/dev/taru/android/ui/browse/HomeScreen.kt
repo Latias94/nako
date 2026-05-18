@@ -40,7 +40,7 @@ internal fun HomeScreen(
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenFacet: (String) -> Unit,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     TaruScrollColumn {
         HomeHeader(
@@ -64,7 +64,7 @@ internal fun HomeScreen(
             is BrowseUiState.Content -> {
                 SectionHeader(
                     title = "Continue Watching",
-                    action = "Public API pending",
+                    action = "Pending",
                 )
                 ResumePlaceholder()
 
@@ -100,14 +100,23 @@ internal fun HomeScreen(
 
                 SectionHeader(title = "Search shortcuts")
                 FacetChipRow(
-                    labels = listOf("All", "Movies", "Series", "Mystery", "Direct"),
-                    selected = "All",
+                    targets = homeShortcutTargets(),
+                    selected = homeShortcutTargets().firstOrNull(),
                     onSelected = onOpenFacet,
                 )
             }
         }
     }
 }
+
+private fun homeShortcutTargets(): List<BrowseFacetTarget> =
+    listOf(
+        BrowseFacetTarget(BrowseFacetUiFamily.Library, "All libraries"),
+        BrowseFacetTarget(BrowseFacetUiFamily.ItemKind, "Movies"),
+        BrowseFacetTarget(BrowseFacetUiFamily.ItemKind, "Series"),
+        BrowseFacetTarget(BrowseFacetUiFamily.Genre, "Genre"),
+        BrowseFacetTarget(BrowseFacetUiFamily.SourceMode, "Direct"),
+    )
 
 @Composable
 private fun HomeHeader(

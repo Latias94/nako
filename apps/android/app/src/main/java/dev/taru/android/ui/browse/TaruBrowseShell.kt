@@ -9,8 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -30,9 +28,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.BrowseFailureCategory
 import dev.taru.android.browse.BrowseResult
+import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.PageRequest
 import dev.taru.android.browse.SafeBrowseDiagnostics
+import dev.taru.android.browse.SearchRequest
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
@@ -61,6 +61,14 @@ fun TaruBrowseShell(
     var detailRefreshKey by remember { mutableIntStateOf(0) }
     var detailState by remember(profile.id, route, detailRefreshKey) {
         mutableStateOf<ItemDetailUiState>(ItemDetailUiState.Idle)
+    }
+    var searchQuery by remember(profile.id) { mutableStateOf("") }
+    var submittedSearchQuery by remember(profile.id) { mutableStateOf("") }
+    var searchRefreshKey by remember { mutableIntStateOf(0) }
+    var searchState by remember(profile.id) { mutableStateOf<SearchUiState>(SearchUiState.Idle) }
+    var facetRefreshKey by remember { mutableIntStateOf(0) }
+    var facetState by remember(profile.id, route, facetRefreshKey) {
+        mutableStateOf<FacetUiState>(FacetUiState.Idle)
     }
 
     LaunchedEffect(profile.id, refreshKey) {
@@ -102,6 +110,43 @@ fun TaruBrowseShell(
         }
     }
 
+    LaunchedEffect(profile.id, submittedSearchQuery, searchRefreshKey) {
+        if (submittedSearchQuery.isBlank()) {
+            searchState = SearchUiState.Idle
+            return@LaunchedEffect
+        }
+
+        searchState = SearchUiState.Loading
+        searchState = loadSearchState(
+            profile = profile,
+            tokenVault = tokenVault,
+            browseClient = browseClient,
+            query = submittedSearchQuery,
+        )
+    }
+
+    LaunchedEffect(profile.id, route, facetRefreshKey) {
+        val facetRoute = route as? TaruRoute.BrowseFacet
+        if (facetRoute == null) {
+            facetState = FacetUiState.Idle
+            return@LaunchedEffect
+        }
+
+        val target = facetRoute.target
+        if (!target.isPublicRouteBacked) {
+            facetState = target.apiGapState()
+            return@LaunchedEffect
+        }
+
+        facetState = FacetUiState.Loading
+        facetState = loadFacetState(
+            profile = profile,
+            tokenVault = tokenVault,
+            browseClient = browseClient,
+            target = target,
+        )
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -127,8 +172,16 @@ fun TaruBrowseShell(
                     profile = profile,
                     selectedDestination = selectedDestination,
                     browseState = browseState,
+                    searchQuery = searchQuery,
+                    searchState = searchState,
                     snapshot = snapshot,
                     onRetry = { refreshKey += 1 },
+                    onSearchQueryChange = { searchQuery = it },
+                    onSubmitSearch = {
+                        submittedSearchQuery = searchQuery.trim()
+                        searchRefreshKey += 1
+                    },
+                    onRetrySearch = { searchRefreshKey += 1 },
                     onChangeServer = onChangeServer,
                     onOpenItem = { route = TaruRoute.ItemDetail(it.id) },
                     onOpenLibrary = { selectedDestination = TaruDestination.Libraries },
@@ -143,11 +196,13 @@ fun TaruBrowseShell(
                     onChangeServer = onChangeServer,
                     onOpenFacet = { route = TaruRoute.BrowseFacet(it) },
                 )
-                is TaruRoute.BrowseFacet -> PlaceholderRoute(
-                    title = currentRoute.title,
-                    subtitle = "Browse Facet Result",
-                    body = "This route is reserved for public API backed genre, tag, person, studio, collection, year, and item-kind facets.",
+                is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
+                    target = currentRoute.target,
+                    state = facetState,
                     onBack = { route = TaruRoute.TopLevel },
+                    onRetry = { facetRefreshKey += 1 },
+                    onChangeServer = onChangeServer,
+                    onOpenItem = { route = TaruRoute.ItemDetail(it.id) },
                 )
                 TaruRoute.ServerProfile -> ServerProfileScreen(
                     activeProfile = profile,
@@ -161,6 +216,106 @@ fun TaruBrowseShell(
         }
     }
 }
+
+private suspend fun loadSearchState(
+    profile: ServerProfile,
+    tokenVault: TokenVault,
+    browseClient: TaruBrowseClient,
+    query: String,
+): SearchUiState {
+    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+    if (accessToken.isBlank()) {
+        return SearchUiState.Failure(
+            SafeBrowseDiagnostics(
+                category = BrowseFailureCategory.MissingAccessToken,
+                userMessage = "Re-authenticate this server before searching.",
+            ),
+        )
+    }
+
+    return when (
+        val result = browseClient.searchItems(
+            profile = profile,
+            accessToken = accessToken,
+            query = SearchRequest(
+                query = query,
+                page = PageRequest(limit = 24, offset = 0),
+            ),
+        )
+    ) {
+        is BrowseResult.Success -> SearchUiState.Content(result.value)
+        is BrowseResult.Failure -> SearchUiState.Failure(result.diagnostics)
+    }
+}
+
+private suspend fun loadFacetState(
+    profile: ServerProfile,
+    tokenVault: TokenVault,
+    browseClient: TaruBrowseClient,
+    target: BrowseFacetTarget,
+): FacetUiState {
+    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+    if (accessToken.isBlank()) {
+        return FacetUiState.Failure(
+            SafeBrowseDiagnostics(
+                category = BrowseFailureCategory.MissingAccessToken,
+                userMessage = "Re-authenticate this server before browsing this facet.",
+            ),
+        )
+    }
+
+    val facetId = target.id.orEmpty()
+    val result: BrowseResult<FacetItemsResponse> = when (target.family) {
+        BrowseFacetUiFamily.Genre -> browseClient.listGenreItems(
+            profile = profile,
+            accessToken = accessToken,
+            genreId = facetId,
+            page = PageRequest(limit = 24, offset = 0),
+        )
+        BrowseFacetUiFamily.Tag -> browseClient.listTagItems(
+            profile = profile,
+            accessToken = accessToken,
+            tagId = facetId,
+            page = PageRequest(limit = 24, offset = 0),
+        )
+        BrowseFacetUiFamily.Person -> browseClient.listPersonItems(
+            profile = profile,
+            accessToken = accessToken,
+            personId = facetId,
+            page = PageRequest(limit = 24, offset = 0),
+        )
+        else -> return target.apiGapState()
+    }
+
+    return when (result) {
+        is BrowseResult.Success -> FacetUiState.Content(result.value)
+        is BrowseResult.Failure -> FacetUiState.Failure(result.diagnostics)
+    }
+}
+
+private fun BrowseFacetTarget.apiGapState(): FacetUiState.ApiGap =
+    FacetUiState.ApiGap(
+        title = "${family.label} not available",
+        body = apiGapBody(),
+    )
+
+private fun BrowseFacetTarget.apiGapBody(): String =
+    when (family) {
+        BrowseFacetUiFamily.Genre,
+        BrowseFacetUiFamily.Tag,
+        BrowseFacetUiFamily.Person,
+        -> if (id.isNullOrBlank()) {
+            "This relationship is visible, but the current response does not include the stable id needed to open related Media Items."
+        } else {
+            "Related Media Items for this ${family.label} cannot be opened from the current state."
+        }
+        BrowseFacetUiFamily.Library -> "Library-scoped browsing is not available from this app version yet."
+        BrowseFacetUiFamily.Studio -> "Studio-based browsing is not available from this app version yet."
+        BrowseFacetUiFamily.Collection -> "Collection-based browsing is not available from this app version yet."
+        BrowseFacetUiFamily.Year -> "Year-based browsing is not available from this app version yet."
+        BrowseFacetUiFamily.ItemKind -> "Media Item kind browsing is not available from this app version yet."
+        BrowseFacetUiFamily.SourceMode -> "Playback-mode browsing will become available after playback selection is implemented."
+    }
 
 private suspend fun loadBrowseState(
     profile: ServerProfile,
@@ -206,14 +361,19 @@ private fun TopLevelContent(
     profile: ServerProfile,
     selectedDestination: TaruDestination,
     browseState: BrowseUiState,
+    searchQuery: String,
+    searchState: SearchUiState,
     snapshot: ServerProfileSnapshot,
     onRetry: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onSubmitSearch: () -> Unit,
+    onRetrySearch: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenServerProfile: () -> Unit,
-    onOpenFacet: (String) -> Unit,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     when (selectedDestination) {
         TaruDestination.Home -> BrowseScaffoldContent {
@@ -237,12 +397,17 @@ private fun TopLevelContent(
                 onOpenFacet = onOpenFacet,
             )
         }
-        TaruDestination.Search -> PlaceholderTopLevel(
-            title = "Search",
-            subtitle = "Find a known title",
-            body = "Search shell is ready for the public search API. Results will navigate into Media Item Detail.",
-            icon = Icons.Rounded.Search,
-        )
+        TaruDestination.Search -> BrowseScaffoldContent {
+            SearchScreen(
+                query = searchQuery,
+                state = searchState,
+                onQueryChange = onSearchQueryChange,
+                onSubmit = onSubmitSearch,
+                onRetry = onRetrySearch,
+                onChangeServer = onChangeServer,
+                onOpenItem = onOpenItem,
+            )
+        }
         TaruDestination.Settings -> BrowseScaffoldContent {
             SettingsHomeScreen(
                 profile = profile,
