@@ -337,6 +337,57 @@ If UniFFI is introduced:
   - direct/remux/HLS request construction;
   - active-server scoping for any device-local transient playback position.
 
+## Android Playback Session And Resume Boundary Gates
+
+Validated for `ACF-060` on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
+  passed.
+- `git diff --check` passed with Windows line-ending normalization warnings
+  only.
+
+What this proves:
+
+- Android mirrors the Public Client API playback session DTO shape for
+  `TranscodeSessionResponse` without exposing server output paths.
+- Android constructs and decodes public playback session inspection and
+  cancellation requests:
+  - `GET /playback/sessions/{session_id}`;
+  - `POST /playback/sessions/{session_id}/cancel`.
+- Safe session request previews redact bearer tokens.
+- `PlaybackLaunchRequest` carries active server profile id, Media Item id,
+  Media Source id, playback mode, optional session id, and device-local resume
+  position while keeping debug output token-safe.
+- Device-local transient playback position is keyed by active server profile
+  id, Media Item id, and Media Source id, and tests prove positions do not mix
+  across server profiles.
+- The Media3 player route can consume a launch-local resume position and saves
+  or clears device-local transient position on route disposal. It requests
+  session cancellation only when the launch request already carries an explicit
+  session id.
+
+API gaps intentionally not implemented in Android under `ACF-060`:
+
+- No Public Client API route currently accepts playback progress reports.
+- No Public Client API route currently returns authoritative resume state.
+- No Public Client API route currently exposes authoritative
+  **User Playback State**.
+- Current remux/HLS stream responses do not expose a session id to Android, so
+  Android cannot guarantee cancellation-on-exit for ACF-050 playback targets
+  without a new public session handle contract.
+
+Gates not run:
+
+- Rust gates were not rerun for ACF-060 because this slice changed Android
+  Kotlin/Compose and workstream documentation only; no Rust crate code or
+  Cargo manifests changed.
+
 ## Android Media3 Playback Smoke Gates
 
 Validated for `ACF-050` on 2026-05-18:

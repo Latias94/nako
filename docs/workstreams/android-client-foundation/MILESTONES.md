@@ -222,3 +222,36 @@ Evidence:
 - Deferred to ACF-060 or follow-ups: authoritative User Playback State,
   progress reporting, session cancellation/resume contract, deeper
   track/subtitle sheets, PiP, cast, downloads, and external-player handoff.
+
+## ACF-M6: Playback Session And Resume Boundary
+
+Status: complete
+
+Exit criteria:
+
+- Android can inspect and cancel playback sessions through existing Public
+  Client API routes.
+- Android records that progress reporting, resume lookup, and authoritative
+  **User Playback State** are not yet public API capabilities.
+- Device-local transient playback position is scoped by active server profile,
+  Media Item, and Media Source.
+- Device-local transient playback position is not promoted to cross-device
+  Continue Watching or authoritative **User Playback State**.
+- Exit cancellation is attempted only when the playback launch request already
+  carries an explicit public session id.
+
+Evidence:
+
+- `ACF-060` completed on 2026-05-18:
+  - Android playback client mirrors `TranscodeSessionResponse` and can call
+    `GET /playback/sessions/{session_id}` and
+    `POST /playback/sessions/{session_id}/cancel`;
+  - `PlaybackLaunchRequest` carries server/profile/source/playback-mode
+    metadata plus optional session id and device-local resume position;
+  - the Media3 route saves/clears transient local position on exit/end and can
+    seek to a launch-local resume position;
+  - tests prove token-safe session requests and active-server-scoped local
+    position behavior.
+- API gaps remain for public progress reporting, resume lookup,
+  authoritative **User Playback State**, and playback stream responses exposing
+  a client-visible session handle.

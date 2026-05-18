@@ -557,9 +557,10 @@ Validation completed on 2026-05-18:
 
 ### ACF-060: Playback Session And Resume Follow-Up
 
-Status: pending
-Owner: unassigned
+Status: complete
+Owner: codex
 Depends on: ACF-050
+Completed: 2026-05-18
 
 Define the next server/client contract needed for resume playback and playback
 state.
@@ -583,6 +584,53 @@ Validation:
   is needed.
 - Tests or design notes prove playback state does not mix across server
   profiles.
+
+Implementation completed on 2026-05-18:
+
+- Audited Public Client API coverage and confirmed the current public surface
+  includes playback session inspection and cancellation:
+  - `GET /playback/sessions/{session_id}`;
+  - `POST /playback/sessions/{session_id}/cancel`.
+- Confirmed the current Public Client API does not expose authoritative
+  progress reporting, resume lookup, or **User Playback State** routes.
+- Added Android DTO mirrors for `TranscodeSessionResponse`,
+  `TranscodeSessionDto`, transcode session kind/state, and failure category.
+- Added Android playback client methods for session inspection and
+  cancellation using the public routes above, with safe request previews and
+  token redaction.
+- Added `PlaybackLaunchRequest` metadata for active server profile, Media
+  Item, Media Source, playback mode, optional session id, and device-local
+  resume position.
+- Added a device-local transient playback position store keyed by
+  active-server profile id, Media Item id, and Media Source id.
+- Wired the Media3 player route to seek to device-local transient position on
+  launch, save final transient position on exit, clear it on ended/zero
+  position, and request playback session cancellation only when a session id
+  is explicitly known.
+
+API gaps recorded:
+
+- No public progress-reporting route exists yet.
+- No public resume lookup route exists yet.
+- No public authoritative **User Playback State** route exists yet.
+- Current remux/HLS playback stream responses do not expose a session id to
+  Android. HLS segment URLs contain session ids after playlist generation, but
+  the Android launch path should not parse playlists to invent lifecycle
+  handles. Exit cancellation is therefore implemented only for launch requests
+  that already carry an explicit session id.
+
+Validation completed on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
+  passed.
+- `git diff --check` passed with Windows line-ending normalization warnings
+  only.
 
 ## Open Follow-Ups
 

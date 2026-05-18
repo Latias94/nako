@@ -93,6 +93,13 @@ buffering, seeking, exit behavior, cancellation, and errors understandable
 before Taru adds advanced gestures, PiP, trickplay, skip controls, Cast, or
 alternate player backends.
 
+ACF-060 audits the current Public Client API boundary for playback state. The
+public API already exposes playback session inspection and cancellation, but
+does not yet expose progress reporting, resume lookup, or authoritative
+**User Playback State**. Android can keep active-server-scoped device-local
+transient position for route-local resume convenience, but this state must stay
+separate from cross-device Continue Watching.
+
 External player handoff is a deferred compatibility feature, not a
 first-version playback path. It must not expose long-lived bearer tokens and
 may require a short-lived public playback handoff API before implementation.
@@ -259,8 +266,11 @@ ACF-020; it only verifies token acceptance and public error handling.
   DataStore, Room, or a small Rust-owned cache exposed through FFI?
 - Which playback route should be the first smoke-test target: HLS playlist,
   direct stream, or remux stream?
-- What server route is required for user playback progress once the first
-  player loop exists?
+- What Public Client API contract should own progress reporting, resume lookup,
+  watched state, and other authoritative **User Playback State**?
+- Should playback stream responses expose a public session id header or
+  structured launch envelope so native clients can cancel remux/HLS sessions
+  on exit without parsing playlists?
 - After ACF-010, `apps/android` starts as one `:app` module. When should the
   app split into `core/*` and `feature/*` Gradle modules?
 

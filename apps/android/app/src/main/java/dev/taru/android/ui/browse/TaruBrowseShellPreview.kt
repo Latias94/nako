@@ -10,6 +10,7 @@ import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
 import dev.taru.android.ui.theme.TaruAndroidTheme
 
 @Preview
@@ -92,6 +93,7 @@ private fun TaruBrowseShellPreview() {
                         )
                 },
             ),
+            positionStore = InMemoryDevicePlaybackPositionStore(),
             onChangeServer = {},
         )
     }

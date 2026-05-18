@@ -40,7 +40,10 @@ import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.PlaybackResult
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.playback.PlaybackFailureCategory
+import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.player.DevicePlaybackPositionKey
+import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
 import dev.taru.android.ui.theme.TaruTextSecondary
 
@@ -50,6 +53,7 @@ fun TaruBrowseShell(
     tokenVault: TokenVault,
     browseClient: TaruBrowseClient,
     playbackClient: TaruPlaybackClient,
+    positionStore: DevicePlaybackPositionStore,
     onChangeServer: () -> Unit,
     modifier: Modifier = Modifier,
     snapshot: ServerProfileSnapshot = ServerProfileSnapshot(
@@ -230,23 +234,45 @@ fun TaruBrowseShell(
                         playbackRefreshKey += 1
                     },
                     onStartPlayback = { target ->
-                        val title = (detailState as? ItemDetailUiState.Content)
-                            ?.response
-                            ?.item
-                            ?.metadata
-                            ?.title
-                            .orEmpty()
-                            .ifBlank { "Taru Playback" }
-                        route = TaruRoute.Player(
-                            playbackLaunchRequest(
-                                title = title,
-                                target = target,
-                            ),
-                        )
+                        val detail = (detailState as? ItemDetailUiState.Content)?.response
+                        val item = detail?.item
+                        val sourceId = requestedSourceId
+                            ?: detail?.sources?.firstOrNull()?.id
+                            ?: playbackState.contentOrNull()?.response?.source?.id
+                        if (item != null && !sourceId.isNullOrBlank()) {
+                            val title = item.metadata.title.ifBlank { "Taru Playback" }
+                            val positionKey = DevicePlaybackPositionKey(
+                                serverProfileId = profile.id,
+                                mediaItemId = item.id,
+                                sourceId = sourceId,
+                            )
+                            route = TaruRoute.Player(
+                                playbackLaunchRequest(
+                                    title = title,
+                                    target = target,
+                                    serverProfileId = profile.id,
+                                    mediaItemId = item.id,
+                                    sourceId = sourceId,
+                                    playbackMode = playbackState.contentOrNull()
+                                        ?.response
+                                        ?.decision
+                                        ?.mode
+                                        ?: ClientPlaybackMode.DirectPlay,
+                                    sessionId = null,
+                                    resumePositionMs = positionKey
+                                        .let(positionStore::load)
+                                        ?.positionMs,
+                                ),
+                            )
+                        }
                     },
                 )
                 is TaruRoute.Player -> PlaybackPlayerRoute(
                     launch = currentRoute.launch,
+                    profile = profile,
+                    tokenVault = tokenVault,
+                    playbackClient = playbackClient,
+                    positionStore = positionStore,
                     onBack = { route = TaruRoute.TopLevel },
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
@@ -269,6 +295,9 @@ fun TaruBrowseShell(
         }
     }
 }
+
+private fun PlaybackSelectionUiState.contentOrNull(): PlaybackSelectionUiState.Content? =
+    this as? PlaybackSelectionUiState.Content
 
 private suspend fun loadPlaybackSelectionState(
     profile: ServerProfile,

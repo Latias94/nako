@@ -121,6 +121,22 @@ Implemented ACF-050 Media3 playback smoke slice:
   only safe redacted request previews.
 - Player lifecycle is route-scoped and ExoPlayer is released on exit.
 
+Implemented ACF-060 playback session/resume boundary slice:
+
+- Audited Public Client API coverage and confirmed session inspection and
+  cancellation are public, while progress reporting, resume lookup, and
+  authoritative **User Playback State** routes are not public yet.
+- Added Android playback session DTO mirrors and client methods for
+  `GET /playback/sessions/{session_id}` and
+  `POST /playback/sessions/{session_id}/cancel`.
+- Added playback launch metadata for active server profile, Media Item, Media
+  Source, playback mode, optional session id, and device-local resume position.
+- Added a device-local transient playback position store scoped by server
+  profile id, Media Item id, and Media Source id.
+- Media3 launches can seek to device-local transient position and save/clear
+  transient position on exit/end. Exit cancellation is only attempted when an
+  explicit session id is already available.
+
 Resolved decisions:
 
 - Android is the first implementation target.
@@ -142,13 +158,19 @@ Resolved decisions:
 - The initial implementation baseline is v2 regular layout: Compose-friendly,
   Material 3 based, and expressive through restrained motion and artwork-muted
   accents rather than v3 irregular geometry.
+- Android device-local transient playback position is not authoritative
+  **User Playback State** and must not appear as cross-device Continue
+  Watching.
+- Current remux/HLS playback stream responses do not expose a session id to
+  Android. HLS segment URLs include a session id after playlist generation, but
+  Android must not parse playlists to invent lifecycle handles.
 
 ## Next Task
 
-Start `ACF-060` playback session and resume follow-up. `ACF-050` is complete:
-Media3 dependencies, player route, ACF-040 prepared target launch, debug
-build, Android unit tests, and real emulator/server playback smoke are
-validated.
+`ACF-060` is complete as a client foundation slice. The Android client now
+understands public playback sessions and device-local transient playback
+position boundaries, but it does not claim server-authoritative resume or
+cross-device Continue Watching.
 
 The visual direction is documented in `CLIENT_INTERFACE_DESIGN.md` and
 reference screenshots live under
@@ -156,22 +178,23 @@ reference screenshots live under
 has translated that baseline into Compose code, and ACF-030D has hardened the
 available public routes. The next step is not another visual rewrite.
 
-Preserve the `ACF-020`, `ACF-030A`, `ACF-030B`, `ACF-030C`, `ACF-030D`, `ACF-040`, and `ACF-050`
-boundaries: consume Public Client API DTOs from the active server profile, keep
-token values out of diagnostics, use only the prepared public playback targets
-from the playback client, release Media3 on route exit, and avoid UniFFI,
-downloads, cross-device resume-state claims, or external-player work until
-their own tasks.
+Preserve the `ACF-020`, `ACF-030A`, `ACF-030B`, `ACF-030C`, `ACF-030D`,
+`ACF-040`, `ACF-050`, and `ACF-060` boundaries: consume Public Client API DTOs
+from the active server profile, keep token values out of diagnostics, use only
+the prepared public playback targets from the playback client, release Media3
+on route exit, and avoid UniFFI, downloads, cross-device resume-state claims,
+or external-player work until their own tasks.
 
 Recommended next task:
 
-- Audit Public Client API coverage for playback session inspection,
-  cancellation, progress reporting, and authoritative User Playback State.
-- Decide whether ACF-050's remux route needs explicit cancellation-on-exit or
-  whether only session-backed HLS/transcode routes are cancellable.
-- Define device-local transient position rules, but do not present them as
-  cross-device Continue Watching.
-- Record any hard API gap before implementing resume/progress UI.
+- Open a follow-up Public Client API workstream for authoritative
+  **User Playback State** if cross-device resume, watched state, or Continue
+  Watching becomes the next product slice.
+- Decide whether playback stream responses should return a public session id
+  header or structured launch envelope so Android can cancel remux/HLS sessions
+  on exit without playlist parsing.
+- Add durable Android persistence for device-local transient position only
+  after choosing the local client state store.
 
 ## Risks To Preserve
 
@@ -220,3 +243,11 @@ command text in the UI dump.
 and a real emulator/server playback smoke on 2026-05-18. The smoke used a
 2 second local H.264/AAC `Night Harbor.mkv`, played through the server-selected
 remux route, reached `Media3: Ended`, and showed no raw token in the player UI.
+`ACF-060` validated
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+and
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+on 2026-05-18. Full
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`,
+`apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`,
+and `git diff --check` also passed.

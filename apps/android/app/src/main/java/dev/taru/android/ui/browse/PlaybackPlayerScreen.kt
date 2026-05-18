@@ -35,14 +35,27 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import dev.taru.android.connection.ServerProfile
+import dev.taru.android.connection.TokenVault
+import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.player.DevicePlaybackPosition
+import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.PlaybackLaunchRequest
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @Composable
 @OptIn(UnstableApi::class)
 internal fun PlaybackPlayerRoute(
     launch: PlaybackLaunchRequest,
+    profile: ServerProfile,
+    tokenVault: TokenVault,
+    playbackClient: TaruPlaybackClient,
+    positionStore: DevicePlaybackPositionStore,
     onBack: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -71,6 +84,9 @@ internal fun PlaybackPlayerRoute(
         } else {
             player.setMediaItem(mediaItem)
         }
+        launch.resumePositionMs
+            ?.takeIf { it > 0L }
+            ?.let(player::seekTo)
         player.prepare()
         player.playWhenReady = true
     }
@@ -100,6 +116,33 @@ internal fun PlaybackPlayerRoute(
         }
         player.addListener(listener)
         onDispose {
+            val isEnded = player.playbackState == Player.STATE_ENDED
+            val positionMs = player.currentPosition
+            if (isEnded || positionMs <= 0L) {
+                positionStore.clear(launch.positionKey)
+            } else {
+                positionStore.save(
+                    DevicePlaybackPosition(
+                        key = launch.positionKey,
+                        positionMs = positionMs,
+                        durationMs = player.duration.takeIf { it > 0L },
+                        updatedAtMillis = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            val sessionId = launch.sessionId?.takeIf { it.isNotBlank() }
+            if (!isEnded && sessionId != null) {
+                val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+                if (accessToken.isNotBlank()) {
+                    CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+                        playbackClient.cancelPlaybackSession(
+                            profile = profile,
+                            accessToken = accessToken,
+                            sessionId = sessionId,
+                        )
+                    }
+                }
+            }
             player.removeListener(listener)
             player.release()
         }
@@ -155,4 +198,3 @@ internal fun PlaybackPlayerRoute(
         }
     }
 }
-

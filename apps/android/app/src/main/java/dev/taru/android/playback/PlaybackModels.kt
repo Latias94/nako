@@ -161,8 +161,94 @@ data class PlaybackRequestTarget(
     val safeRequest: SafeRequestPreview,
 )
 
+@Serializable
+data class TranscodeSessionResponse(
+    val session: TranscodeSessionDto,
+)
+
+@Serializable
+data class TranscodeSessionDto(
+    val id: String,
+    @SerialName("source_id")
+    val sourceId: String,
+    val kind: ClientTranscodeSessionKind,
+    @SerialName("request_key")
+    val requestKey: String,
+    val state: ClientTranscodeSessionState,
+    @SerialName("failure_category")
+    val failureCategory: ClientTranscodeFailureCategory? = null,
+    @SerialName("failure_message")
+    val failureMessage: String? = null,
+    @SerialName("created_at")
+    val createdAt: String,
+    @SerialName("updated_at")
+    val updatedAt: String,
+    @SerialName("started_at")
+    val startedAt: String? = null,
+    @SerialName("completed_at")
+    val completedAt: String? = null,
+)
+
+@Serializable
+enum class ClientTranscodeSessionKind {
+    @SerialName("remux")
+    Remux,
+
+    @SerialName("hls_transcode")
+    HlsTranscode,
+}
+
+@Serializable
+enum class ClientTranscodeSessionState {
+    @SerialName("planned")
+    Planned,
+
+    @SerialName("starting")
+    Starting,
+
+    @SerialName("running")
+    Running,
+
+    @SerialName("cancel_requested")
+    CancelRequested,
+
+    @SerialName("cancelled")
+    Cancelled,
+
+    @SerialName("failed")
+    Failed,
+
+    @SerialName("finished")
+    Finished,
+}
+
+@Serializable
+enum class ClientTranscodeFailureCategory {
+    @SerialName("invalid_request")
+    InvalidRequest,
+
+    @SerialName("runner")
+    Runner,
+
+    @SerialName("timeout")
+    Timeout,
+
+    @SerialName("storage")
+    Storage,
+
+    @SerialName("stale")
+    Stale,
+
+    @SerialName("cancelled")
+    Cancelled,
+
+    @SerialName("unknown")
+    Unknown,
+}
+
 enum class PlaybackFailureCategory {
     MissingSource,
+    MissingSession,
     MissingAccessToken,
     UnreachableServer,
     Unauthorized,

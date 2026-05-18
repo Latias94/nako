@@ -173,6 +173,112 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `playback session inspection and cancellation use public routes and redacted previews`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "session": {
+                        "id": "session 1",
+                        "source_id": "source 1",
+                        "kind": "remux",
+                        "request_key": "remux:mp4",
+                        "state": "running",
+                        "failure_category": null,
+                        "failure_message": null,
+                        "created_at": "2026-05-18T06:00:00Z",
+                        "updated_at": "2026-05-18T06:00:01Z",
+                        "started_at": "2026-05-18T06:00:01Z",
+                        "completed_at": null,
+                        "output_path": "G:/server/staging/session-1/out.mp4"
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "session": {
+                        "id": "session 1",
+                        "source_id": "source 1",
+                        "kind": "remux",
+                        "request_key": "remux:mp4",
+                        "state": "cancel_requested",
+                        "failure_category": "cancelled",
+                        "failure_message": "playback session cancellation requested",
+                        "created_at": "2026-05-18T06:00:00Z",
+                        "updated_at": "2026-05-18T06:00:02Z",
+                        "started_at": "2026-05-18T06:00:01Z",
+                        "completed_at": null
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+        val profile = profile("http://home.example.test/api")
+
+        val inspected = client.getPlaybackSession(
+            profile = profile,
+            accessToken = "secret-token",
+            sessionId = "session 1",
+        )
+        val cancelled = client.cancelPlaybackSession(
+            profile = profile,
+            accessToken = "secret-token",
+            sessionId = "session 1",
+        )
+
+        assertTrue(inspected is PlaybackResult.Success)
+        assertTrue(cancelled is PlaybackResult.Success)
+        val inspectedSuccess = inspected as PlaybackResult.Success
+        val cancelledSuccess = cancelled as PlaybackResult.Success
+        assertEquals(ClientTranscodeSessionKind.Remux, inspectedSuccess.value.session.kind)
+        assertEquals(ClientTranscodeSessionState.Running, inspectedSuccess.value.session.state)
+        assertEquals(ClientTranscodeSessionState.CancelRequested, cancelledSuccess.value.session.state)
+        assertEquals(ClientTranscodeFailureCategory.Cancelled, cancelledSuccess.value.session.failureCategory)
+        assertEquals("GET", transport.requests[0].method)
+        assertEquals("POST", transport.requests[1].method)
+        assertEquals(
+            "http://home.example.test/api/playback/sessions/session%201",
+            transport.requests[0].url,
+        )
+        assertEquals(
+            "http://home.example.test/api/playback/sessions/session%201/cancel",
+            transport.requests[1].url,
+        )
+        assertEquals("Bearer secret-token", transport.requests[1].headers["Authorization"])
+        assertEquals("Bearer <redacted>", inspectedSuccess.request.headers["Authorization"])
+        assertEquals("Bearer <redacted>", cancelledSuccess.request.headers["Authorization"])
+        assertFalse(inspectedSuccess.toString().contains("secret-token"))
+        assertFalse(cancelledSuccess.toString().contains("secret-token"))
+        assertFalse(inspectedSuccess.toString().contains("G:/server"))
+    }
+
+    @Test
+    fun `blank playback session fails locally without transport`() = runBlocking {
+        val transport = FakePlaybackTransport()
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.cancelPlaybackSession(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            sessionId = " ",
+        )
+
+        assertTrue(result is PlaybackResult.Failure)
+        assertEquals(
+            PlaybackFailureCategory.MissingSession,
+            (result as PlaybackResult.Failure).diagnostics.category,
+        )
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
     fun `recommended playback target follows decision mode without exposing local locators`() = runBlocking {
         val client = TaruPlaybackClient(FakePlaybackTransport())
         val profile = profile("http://home.example.test")

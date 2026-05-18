@@ -35,6 +35,7 @@ internal fun browseFailureTitle(category: BrowseFailureCategory): String =
 internal fun playbackFailureTitle(category: PlaybackFailureCategory): String =
     when (category) {
         PlaybackFailureCategory.MissingSource -> "Media Source unavailable"
+        PlaybackFailureCategory.MissingSession -> "Playback session unavailable"
         PlaybackFailureCategory.MissingAccessToken -> "Authentication required"
         PlaybackFailureCategory.UnreachableServer -> "Server unreachable"
         PlaybackFailureCategory.Unauthorized -> "Authentication failed"

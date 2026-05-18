@@ -17,6 +17,8 @@ import dev.taru.android.connection.SharedPreferencesServerProfileStore
 import dev.taru.android.connection.TaruConnectionClient
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.player.DevicePlaybackPositionStore
+import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
 
@@ -31,6 +33,7 @@ fun TaruAndroidApp(
     val connectionClient = remember { TaruConnectionClient(transport) }
     val browseClient = remember { TaruBrowseClient(transport) }
     val playbackClient = remember { TaruPlaybackClient(transport) }
+    val positionStore = remember { InMemoryDevicePlaybackPositionStore() }
 
     TaruAndroidAppContent(
         modifier = modifier,
@@ -39,6 +42,7 @@ fun TaruAndroidApp(
         connectionClient = connectionClient,
         browseClient = browseClient,
         playbackClient = playbackClient,
+        positionStore = positionStore,
     )
 }
 
@@ -49,6 +53,7 @@ fun TaruAndroidAppContent(
     connectionClient: TaruConnectionClient,
     browseClient: TaruBrowseClient,
     playbackClient: TaruPlaybackClient,
+    positionStore: DevicePlaybackPositionStore,
     modifier: Modifier = Modifier,
 ) {
     var snapshot by remember { mutableStateOf(store.load()) }
@@ -79,6 +84,7 @@ fun TaruAndroidAppContent(
             tokenVault = tokenVault,
             browseClient = browseClient,
             playbackClient = playbackClient,
+            positionStore = positionStore,
             onSnapshotChanged = { next ->
                 store.save(next)
                 snapshot = next

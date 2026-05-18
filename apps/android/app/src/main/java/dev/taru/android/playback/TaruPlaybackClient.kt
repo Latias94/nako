@@ -116,6 +116,45 @@ class TaruPlaybackClient(
             }",
         )
 
+    suspend fun getPlaybackSession(
+        profile: ServerProfile,
+        accessToken: String,
+        sessionId: String,
+    ): PlaybackResult<TranscodeSessionResponse> {
+        if (sessionId.isBlank()) {
+            return failure(
+                category = PlaybackFailureCategory.MissingSession,
+                userMessage = "Choose an active playback session before requesting status.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}",
+        )
+    }
+
+    suspend fun cancelPlaybackSession(
+        profile: ServerProfile,
+        accessToken: String,
+        sessionId: String,
+    ): PlaybackResult<TranscodeSessionResponse> {
+        if (sessionId.isBlank()) {
+            return failure(
+                category = PlaybackFailureCategory.MissingSession,
+                userMessage = "Choose an active playback session before requesting cancellation.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            method = "POST",
+            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/cancel",
+        )
+    }
+
     fun recommendedPlaybackTarget(
         profile: ServerProfile,
         accessToken: String,
@@ -143,6 +182,7 @@ class TaruPlaybackClient(
     private suspend inline fun <reified T> executeJson(
         profile: ServerProfile,
         accessToken: String,
+        method: String = "GET",
         pathAndQuery: String,
     ): PlaybackResult<T> {
         if (accessToken.isBlank()) {
@@ -155,7 +195,7 @@ class TaruPlaybackClient(
         val request = authenticatedRequest(
             profile = profile,
             accessToken = accessToken,
-            method = "GET",
+            method = method,
             pathAndQuery = pathAndQuery,
         )
         val response = when (val result = executeOrFailure(request, accessToken)) {

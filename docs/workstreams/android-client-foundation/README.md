@@ -33,6 +33,9 @@ media-library browsing loop:
 - request Playback Source Selection through playback decision APIs;
 - play direct, remux, or HLS outputs through Media3 ExoPlayer;
 - expose basic playback/session errors in user-facing language.
+- keep device-local transient playback position scoped to the active server
+  profile while authoritative User Playback State remains a Public Client API
+  follow-up.
 
 Server administration, metadata editing, NFO workflows, addon management,
 webhook/automation configuration, and advanced transcode policy management are
