@@ -1,6 +1,6 @@
 # Android Client QA Harness
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -106,3 +106,21 @@ This lane can close when:
   explicitly deferred with rationale;
 - Android unit tests, debug assemble, and diff hygiene pass fresh;
 - follow-ons for instrumentation, CI, or golden visual diffing are explicit.
+
+## Closeout Result
+
+Closed on 2026-05-18 after `ACQ-050`.
+
+The local Android QA harness now documents and verifies:
+
+- Android JVM tests and debug APK assembly;
+- emulator install, launch, and report generation;
+- deterministic `empty-setup` evidence for the setup surface;
+- deterministic `profile-missing-token` evidence for Home, Settings, and
+  Server Profile shell surfaces;
+- named screenshots, UI hierarchy dumps, and pass/fail criteria files;
+- untracked generated evidence under `apps/android/build/smoke/`.
+
+Deferred follow-ons remain outside this lane: CI device execution, golden
+visual diffing, server-backed demo data, detail/player smoke coverage, and
+instrumentation test migration.

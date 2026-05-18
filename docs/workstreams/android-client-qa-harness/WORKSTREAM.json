@@ -2,12 +2,13 @@
   "schema_version": 1,
   "slug": "android-client-qa-harness",
   "title": "Android Client QA Harness",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Android client validation lacks a repeatable local emulator smoke and screenshot evidence harness for parallel development.",
+  "summary": "Completed local Android QA harness with documented emulator smoke fixtures, named screenshot evidence, UI hierarchy dumps, and pass/fail criteria for setup, Home, Settings, and Server Profile shell surfaces.",
   "current_milestone": "M4",
-  "current_task": "ACQ-050",
+  "current_task": null,
   "task_prefix": "ACQ",
   "authoritative_docs": [
     {
@@ -37,7 +38,7 @@
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue while the harness improves local Android validation without becoming product-feature work. Split CI, golden visual diffing, or server-backed demo fixtures if they expand."
+    "default_action": "closed",
+    "notes": "Lane closed after ACQ-050. Split CI device execution, golden visual diffing, server-backed demo fixtures, instrumentation migration, or detail/player smoke coverage into follow-on workstreams."
   }
 }

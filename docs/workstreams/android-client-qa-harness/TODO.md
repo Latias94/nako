@@ -1,6 +1,6 @@
 # Android Client QA Harness — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 — Scope And Evidence Freeze
@@ -59,11 +59,14 @@ Last updated: 2026-05-18
 
 ## M4 — Closeout
 
-- [ ] ACQ-050 [owner=planner] [deps=ACQ-040] [scope=docs/workstreams/android-client-qa-harness]
+- [x] ACQ-050 [owner=planner] [deps=ACQ-040] [scope=docs/workstreams/android-client-qa-harness]
   Goal: Verify the harness, update evidence, and close or split CI/golden
   follow-ons.
   Validation: Android unit tests, debug assemble, smoke command on emulator,
   and `git diff --check`.
   Review: Use review-workstream and verify-rust-workstream before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
-  Handoff: Record manual-only gaps and CI/golden screenshot follow-ons.
+  Handoff: Completed on 2026-05-18. Fresh Android unit tests, debug assemble,
+  `empty-setup` smoke, `profile-missing-token` smoke, and diff hygiene passed.
+  The lane is closed with CI, golden visual diffing, server-backed demo data,
+  instrumentation, and detail/player smoke coverage recorded as follow-ons.

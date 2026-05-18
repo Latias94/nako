@@ -1,11 +1,16 @@
 # Android Client QA Harness
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 This workstream owns the Android client testing and emulator smoke harness that
 lets parallel UI, playback, and Public Client API work prove basic client
 health without relying on manual ad hoc commands.
+
+Closed on 2026-05-18 after the local harness gained deterministic
+`empty-setup` and `profile-missing-token` emulator smoke states with named
+screenshots, UI hierarchy dumps, pass/fail criteria, and documented evidence
+paths.
 
 Authoritative docs:
 

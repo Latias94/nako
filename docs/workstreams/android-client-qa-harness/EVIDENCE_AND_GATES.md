@@ -1,6 +1,6 @@
 # Android Client QA Harness — Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -101,3 +101,19 @@ This catches whitespace errors and unresolved patch artifacts.
   required setup, Home, Settings, and Server Profile text/content descriptions.
   Evidence reports and criteria files were checked for token-reference values,
   bearer tokens, localhost, and `10.0.2.2`; none were present.
+- 2026-05-18: `ACQ-050` closeout completed. Fresh gates passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`,
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`,
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup`,
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token`,
+  and `git diff --check`. The final `empty-setup` smoke wrote
+  `setup.png`, `setup.uiautomator.xml`, and `setup.criteria.txt` under
+  `apps/android/build/smoke/20260518-215542-empty-setup-emulator-5554/`.
+  The final `profile-missing-token` smoke wrote `home.png`, `settings.png`,
+  `server-profile.png`, matching UI hierarchy dumps, and matching criteria
+  files under
+  `apps/android/build/smoke/20260518-215751-profile-missing-token-emulator-5554/`.
+  All criteria files reported `Result: PASS`. A first closeout attempt for
+  `profile-missing-token` hit a transient ADB daemon reconnect failure during
+  `wm dismiss-keyguard`; after `adb start-server`, the same smoke command
+  passed.

@@ -1,6 +1,6 @@
 # Android Client QA Harness — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 — Scope And Evidence Freeze
@@ -83,3 +83,15 @@ Exit criteria:
 - Workstream docs reflect shipped harness behavior.
 - CI, instrumentation, golden screenshots, server-backed demo data, and
   detail/player coverage follow-ons are split or explicitly deferred.
+
+Status: Completed on 2026-05-18.
+
+Evidence:
+
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`
+- `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup`
+- `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token`
+- `git diff --check`
+- `apps/android/build/smoke/20260518-215542-empty-setup-emulator-5554/`
+- `apps/android/build/smoke/20260518-215751-profile-missing-token-emulator-5554/`
