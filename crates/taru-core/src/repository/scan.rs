@@ -2,8 +2,9 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    DirectorySnapshot, LibraryId, MediaItem, MediaSource, Result, ScanSnapshot, ScanSnapshotId,
-    ScanStatus, SourceState,
+    DirectorySnapshot, LibraryId, LibraryScanSourcePersistenceCommit,
+    LibraryScanSourcePersistenceSummary, Result, ScanSnapshot, ScanSnapshotId, ScanStatus,
+    SourceState,
 };
 
 #[async_trait]
@@ -33,12 +34,10 @@ pub trait ScanRepository: Send + Sync {
 
     async fn upsert_source_state(&self, state: &SourceState) -> Result<()>;
 
-    async fn record_scanned_media_source(
+    async fn commit_library_scan_source(
         &self,
-        item: &MediaItem,
-        source: &MediaSource,
-        state: &SourceState,
-    ) -> Result<()>;
+        commit: &LibraryScanSourcePersistenceCommit,
+    ) -> Result<LibraryScanSourcePersistenceSummary>;
 
     async fn get_source_state(
         &self,

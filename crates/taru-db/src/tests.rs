@@ -349,7 +349,7 @@ async fn sqlite_store_round_trips_transcode_sessions() {
         fingerprint: None,
     };
     let session_id = TranscodeSessionId::new();
-    let request_key = "remux:mp4".to_owned();
+    let request_key = "test-transcode-profile:remux-active".to_owned();
 
     store.upsert_library(&library).await.unwrap();
     store.upsert_media_item(&item).await.unwrap();
@@ -467,7 +467,7 @@ async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
             id: remux_id,
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: "test-transcode-profile:remux-primary".to_owned(),
             output_path: "cache/remux/stream.mp4".into(),
             state: TranscodeSessionState::Running,
         })
@@ -478,7 +478,7 @@ async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
             id: hls_id,
             source_id: source.id,
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: "hls:single".to_owned(),
+            request_key: "test-transcode-profile:hls-primary".to_owned(),
             output_path: "cache/hls/playlist.m3u8".into(),
             state: TranscodeSessionState::Planned,
         })
@@ -489,7 +489,7 @@ async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
             id: other_id,
             source_id: other_source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mkv".to_owned(),
+            request_key: "test-transcode-profile:remux-other".to_owned(),
             output_path: "cache/remux/other.mkv".into(),
             state: TranscodeSessionState::Planned,
         })
@@ -585,7 +585,7 @@ async fn sqlite_store_marks_stale_transcode_sessions_failed() {
             id: stale_id,
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: "test-transcode-profile:remux-stale".to_owned(),
             output_path: "cache/remux/stale.mp4".into(),
             state: TranscodeSessionState::Running,
         })
@@ -596,7 +596,7 @@ async fn sqlite_store_marks_stale_transcode_sessions_failed() {
             id: finished_id,
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mkv".to_owned(),
+            request_key: "test-transcode-profile:remux-finished".to_owned(),
             output_path: "cache/remux/finished.mkv".into(),
             state: TranscodeSessionState::Planned,
         })

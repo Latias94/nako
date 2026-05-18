@@ -31,3 +31,7 @@ before accepting `artwork_write`.
 - Run AMAA-020. Do not implement `artwork_write` until external fetch ownership,
   artifact storage, cache/thumbnail policy, resource budgets, and redacted
   diagnostics are explicit.
+- CAD-070 alignment: if artwork application needs catalog-visible multi-row
+  persistence, reuse or introduce a first-party artwork/catalog commit boundary.
+  Do not put ordering logic in the Addon handler, and route sidecar-file export
+  to `addon-library-file-write-policy`.

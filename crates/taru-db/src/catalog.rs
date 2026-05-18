@@ -872,7 +872,7 @@ impl CatalogRepository for SqliteStore {
     }
 }
 
-async fn replace_item_catalog_graph_tx(
+pub(crate) async fn replace_item_catalog_graph_tx(
     transaction: &mut sqlx::Transaction<'_, Sqlite>,
     item_id: MediaItemId,
     replacement: &CatalogItemGraphReplacement,

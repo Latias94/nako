@@ -84,8 +84,11 @@ than mapping addon writes to fake provider provenance.
 ## Residual Risks
 
 - Media item update plus catalog/search refresh is still not one database
-  transaction. This follows the existing metadata/NFO workflow shape; a future
-  prepared-catalog unit of work remains separate architecture scope.
+  transaction. After `core-architecture-deepening` CAD-020, NFO import no
+  longer has this gap; future Addon metadata-write expansion should either stay
+  within the current bounded metadata/catalog seams or introduce a dedicated
+  Addon metadata commit unit. Do not use NFO import or Library scan commit
+  units as a shortcut for ordinary Addon metadata writes.
 - Addon-specific domain events and field-level metadata provenance are not
   implemented. Add them only if a product workflow needs queryable provenance
   beyond side-effect audit records.

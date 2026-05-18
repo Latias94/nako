@@ -2202,7 +2202,6 @@ dependencies = [
  "taru-catalog",
  "taru-core",
  "taru-db",
- "taru-metadata",
  "taru-search",
  "taru-vfs",
  "tempfile",
@@ -2277,6 +2276,7 @@ name = "taru-transcode"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "sha2",
  "taru-core",
  "tempfile",
  "tokio",

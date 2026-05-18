@@ -58,7 +58,12 @@ use taru_core::{
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};
-use taru_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
+use taru_streaming::{
+    ClientPlaybackCapabilities, DirectPlayRangeRequest, PlaybackPreferenceContext, PlaybackProfile,
+    PlaybackSelectionContext, PlaybackStorageContext, RequestedByteRange,
+    plan_direct_play_response,
+};
+use taru_transcode::{HardwareAcceleration, OutputContainer, RemuxContainer, TranscodePlan};
 use taru_vfs::{ByteRange, ReadStream, StorageUri};
 use tokio::{net::TcpListener, task::yield_now, time::sleep};
 use tower::ServiceExt;
@@ -325,6 +330,57 @@ fn compatible_probe() -> MediaProbeResult {
             },
         ],
     }
+}
+
+fn local_remux_request_key(container: RemuxContainer) -> String {
+    let profile = PlaybackProfile::from_context(
+        &ClientPlaybackCapabilities::default(),
+        PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: false,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext {
+                remux_output_container: Some(container),
+                ..Default::default()
+            },
+        },
+    );
+
+    profile
+        .remux_transcode_profile(container)
+        .identity()
+        .persisted_request_key()
+        .to_owned()
+}
+
+fn local_hls_request_key(acceleration: HardwareAcceleration) -> String {
+    let profile = PlaybackProfile::from_context(
+        &ClientPlaybackCapabilities::default(),
+        PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: false,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext {
+                transcode_output_container: Some(OutputContainer::Hls),
+                ..Default::default()
+            },
+        },
+    );
+    let plan = TranscodePlan {
+        input_locator: "local:///demo.mkv".to_owned(),
+        output_container: OutputContainer::Hls,
+        video_codec: Some("h264".to_owned()),
+        audio_codec: Some("aac".to_owned()),
+        hardware_acceleration: HardwareAcceleration::None,
+    };
+
+    profile
+        .hls_transcode_profile(&plan, acceleration)
+        .identity()
+        .persisted_request_key()
+        .to_owned()
 }
 
 fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) -> PathBuf {

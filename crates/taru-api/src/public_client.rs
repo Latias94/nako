@@ -666,7 +666,7 @@ mod tests {
             id: TranscodeSessionId::new(),
             source_id: MediaSourceId::new(),
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: "transcode-profile:v1;kind=remux;container=mp4".to_owned(),
             output_path: PathBuf::from("cache/remux/output.mp4"),
             state: TranscodeSessionState::Finished,
             failure_category: None,

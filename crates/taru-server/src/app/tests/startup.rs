@@ -677,6 +677,7 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
     let config = app.config().clone();
     let staging = RemuxStagingPolicy::new(&config.remux_staging_root).unwrap();
     let stale_id = TranscodeSessionId::new();
+    let profile_identity = local_remux_profile_identity(RemuxContainer::Mp4);
 
     store
         .create_transcode_session(NewTranscodeSession {
@@ -685,10 +686,12 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
             kind: TranscodeSessionKind::Remux,
             request_key: RemuxRequestKey {
                 source_id: source.id,
-                output_container: RemuxContainer::Mp4,
+                profile_identity: profile_identity.clone(),
             }
             .persisted_request_key(),
-            output_path: staging.output_path(source.id, RemuxContainer::Mp4).unwrap(),
+            output_path: staging
+                .output_path(source.id, &profile_identity, RemuxContainer::Mp4)
+                .unwrap(),
             state: TranscodeSessionState::Running,
         })
         .await

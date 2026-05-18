@@ -3,29 +3,11 @@ use super::*;
 #[async_trait::async_trait]
 impl MetadataRepository for SqliteStore {
     async fn upsert_field_lock(&self, lock: &MetadataFieldLock) -> Result<()> {
-        let (source, source_key) = metadata_source_to_parts(&lock.source);
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO metadata_field_locks (item_id, field, locked, source, source_key)
-            VALUES (?1, ?2, ?3, ?4, ?5)
-            ON CONFLICT(item_id, field) DO UPDATE SET
-                locked = excluded.locked,
-                source = excluded.source,
-                source_key = excluded.source_key,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(lock.item_id.to_string())
-        .bind(lock.field.as_str())
-        .bind(bool_to_i64(lock.locked))
-        .bind(source)
-        .bind(source_key)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        upsert_field_lock_tx(&mut transaction, lock).await?;
 
-        Ok(())
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn list_field_locks(&self, item_id: MediaItemId) -> Result<Vec<MetadataFieldLock>> {
@@ -110,6 +92,42 @@ impl MetadataRepository for SqliteStore {
             provider_subject_id: commit.provider_mapping.subject.id,
             provider_mapping_id: mapping_id,
             confirmed_libraries,
+        })
+    }
+
+    async fn commit_nfo_import(
+        &self,
+        commit: &NfoImportPersistenceCommit,
+    ) -> Result<NfoImportPersistenceSummary> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        for item in &commit.items {
+            crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
+        }
+        for lock in &commit.field_locks {
+            upsert_field_lock_tx(&mut transaction, lock).await?;
+        }
+        for state in &commit.library_item_states {
+            crate::library_item::upsert_library_item_state_tx(&mut transaction, state).await?;
+        }
+        for projection in &commit.catalog_projections {
+            crate::catalog::replace_item_catalog_graph_tx(
+                &mut transaction,
+                projection.search.item_id,
+                &projection.graph,
+            )
+            .await?;
+            crate::catalog::upsert_search_projection_tx(&mut transaction, &projection.search)
+                .await?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(NfoImportPersistenceSummary {
+            item_ids: commit.items.iter().map(|item| item.id).collect(),
+            locked_fields: commit.field_locks.len() as u64,
+            confirmed_items: commit.library_item_states.len() as u64,
+            projected_items: commit.catalog_projections.len() as u64,
         })
     }
 
@@ -332,6 +350,35 @@ impl MetadataRepository for SqliteStore {
     }
 }
 
+async fn upsert_field_lock_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    lock: &MetadataFieldLock,
+) -> Result<()> {
+    let (source, source_key) = metadata_source_to_parts(&lock.source);
+
+    sqlx::query(
+        r#"
+            INSERT INTO metadata_field_locks (item_id, field, locked, source, source_key)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(item_id, field) DO UPDATE SET
+                locked = excluded.locked,
+                source = excluded.source,
+                source_key = excluded.source_key,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(lock.item_id.to_string())
+    .bind(lock.field.as_str())
+    .bind(bool_to_i64(lock.locked))
+    .bind(source)
+    .bind(source_key)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
 async fn upsert_provider_raw_response_in_transaction(
     transaction: &mut sqlx::Transaction<'_, Sqlite>,
     response: &ProviderRawResponse,
@@ -396,12 +443,14 @@ async fn library_ids_for_item_tx(
 #[cfg(test)]
 mod tests {
     use taru_core::{
-        CanonicalMetadata, ExternalProvider, Library, LibraryId, LibraryItemRepository,
-        LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository, MediaItem, MediaItemId,
-        MediaKind, MediaRepository, MetadataRefreshPersistenceCommit,
-        MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource,
-        ProviderMappingRepository, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
-        ProviderSubjectKind, TransactionManager,
+        CanonicalMetadata, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
+        CatalogRepository, CatalogSearchProjection, ExternalProvider, Genre, GenreId, ItemGenre,
+        Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+        LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataField,
+        MetadataFieldLock, MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit,
+        MetadataRepository, MetadataSource, NfoImportPersistenceCommit, ProviderMappingRepository,
+        ProviderRawResponse, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
+        TransactionManager,
     };
 
     use crate::SqliteStore;
@@ -599,6 +648,161 @@ mod tests {
                 item_id,
                 provisional: true,
             })
+        );
+    }
+
+    #[tokio::test]
+    async fn commit_nfo_import_persists_item_locks_library_state_and_projection() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item_id = MediaItemId::new();
+        let library = library(LibraryId::new());
+        let original = media_item(item_id, "Original");
+        let updated = media_item(item_id, "NFO Title");
+        let genre = Genre {
+            id: GenreId::new(),
+            name: "Action".to_owned(),
+            source: MetadataSource::Nfo,
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&original).await.unwrap();
+
+        let summary = store
+            .commit_nfo_import(&NfoImportPersistenceCommit {
+                items: vec![updated.clone()],
+                field_locks: vec![MetadataFieldLock {
+                    item_id,
+                    field: MetadataField::Title,
+                    locked: true,
+                    source: MetadataSource::Nfo,
+                }],
+                library_item_states: vec![LibraryItemState {
+                    library_id: library.id,
+                    item_id,
+                    provisional: false,
+                }],
+                catalog_projections: vec![CatalogItemProjectionCommit {
+                    graph: CatalogItemGraphReplacement {
+                        genres: vec![genre.clone()],
+                        item_genres: vec![ItemGenre {
+                            item_id,
+                            genre_id: genre.id,
+                        }],
+                        ..CatalogItemGraphReplacement::default()
+                    },
+                    search: CatalogSearchProjection {
+                        item_id,
+                        title: "NFO Title".to_owned(),
+                        body: "NFO Title Action".to_owned(),
+                        facets: vec!["genre:Action".to_owned(), "kind:movie".to_owned()],
+                    },
+                }],
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.item_ids, vec![item_id]);
+        assert_eq!(summary.locked_fields, 1);
+        assert_eq!(summary.confirmed_items, 1);
+        assert_eq!(summary.projected_items, 1);
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(updated));
+        assert_eq!(
+            store.list_field_locks(item_id).await.unwrap(),
+            vec![MetadataFieldLock {
+                item_id,
+                field: MetadataField::Title,
+                locked: true,
+                source: MetadataSource::Nfo,
+            }]
+        );
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, item_id)
+                .await
+                .unwrap(),
+            Some(LibraryItemState {
+                library_id: library.id,
+                item_id,
+                provisional: false,
+            })
+        );
+        assert_eq!(
+            store
+                .list_genres(taru_core::PageRequest::first_page())
+                .await
+                .unwrap(),
+            vec![genre]
+        );
+    }
+
+    #[tokio::test]
+    async fn commit_nfo_import_rolls_back_item_and_locks_when_projection_fails() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item_id = MediaItemId::new();
+        let missing_item_id = MediaItemId::new();
+        let library = library(LibraryId::new());
+        let original = media_item(item_id, "Original");
+        let updated = media_item(item_id, "NFO Title");
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&original).await.unwrap();
+
+        let err = store
+            .commit_nfo_import(&NfoImportPersistenceCommit {
+                items: vec![updated],
+                field_locks: vec![MetadataFieldLock {
+                    item_id,
+                    field: MetadataField::Title,
+                    locked: true,
+                    source: MetadataSource::Nfo,
+                }],
+                library_item_states: vec![LibraryItemState {
+                    library_id: library.id,
+                    item_id,
+                    provisional: false,
+                }],
+                catalog_projections: vec![CatalogItemProjectionCommit {
+                    graph: CatalogItemGraphReplacement {
+                        genres: vec![Genre {
+                            id: GenreId::new(),
+                            name: "Broken".to_owned(),
+                            source: MetadataSource::Nfo,
+                        }],
+                        item_genres: vec![ItemGenre {
+                            item_id: missing_item_id,
+                            genre_id: GenreId::new(),
+                        }],
+                        ..CatalogItemGraphReplacement::default()
+                    },
+                    search: CatalogSearchProjection {
+                        item_id: missing_item_id,
+                        title: "Broken".to_owned(),
+                        body: String::new(),
+                        facets: Vec::new(),
+                    },
+                }],
+            })
+            .await
+            .unwrap_err();
+
+        assert!(!err.to_string().is_empty());
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(original));
+        assert_eq!(store.list_field_locks(item_id).await.unwrap(), Vec::new());
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, item_id)
+                .await
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            store
+                .list_genres(taru_core::PageRequest::first_page())
+                .await
+                .unwrap(),
+            Vec::new()
         );
     }
 

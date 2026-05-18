@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use taru_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamKind};
-use taru_transcode::{HardwareAcceleration, OutputContainer, RemuxContainer, TranscodePlan};
+use taru_transcode::{
+    HardwareAcceleration, HlsTranscodeProfile, OutputContainer, RemuxContainer,
+    RemuxTranscodeProfile, TranscodePlan, TranscodeProfile, TranscodeTrackSelection,
+};
 
 use super::direct::content_type_for_file_name;
 
@@ -57,6 +60,92 @@ pub struct PlaybackPreferenceContext {
     pub prefer_hdr: Option<bool>,
     pub remux_output_container: Option<RemuxContainer>,
     pub transcode_output_container: Option<OutputContainer>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackProfile {
+    pub direct_play: bool,
+    pub containers: Vec<String>,
+    pub video_codecs: Vec<String>,
+    pub audio_codecs: Vec<String>,
+    pub storage: PlaybackStorageContext,
+    pub preferences: PlaybackPreferenceContext,
+}
+
+impl PlaybackProfile {
+    #[must_use]
+    pub fn from_context(
+        client: &ClientPlaybackCapabilities,
+        context: PlaybackSelectionContext,
+    ) -> Self {
+        Self {
+            direct_play: client.direct_play,
+            containers: normalized_values(&client.containers),
+            video_codecs: normalized_values(&client.video_codecs),
+            audio_codecs: normalized_values(&client.audio_codecs),
+            storage: context.storage,
+            preferences: context.preferences,
+        }
+    }
+
+    #[must_use]
+    pub fn identity_key(&self) -> String {
+        format!(
+            "playback-profile:v1;direct={};containers={};vcodecs={};acodecs={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux={};transcode={}",
+            self.direct_play,
+            list_key(&self.containers),
+            list_key(&self.video_codecs),
+            list_key(&self.audio_codecs),
+            self.storage.remote,
+            optional_bool(self.storage.range_readable),
+            optional_u32(self.preferences.requested_audio_stream),
+            optional_u32(self.preferences.requested_subtitle_stream),
+            optional_u64(self.preferences.max_video_bitrate),
+            optional_bool(self.preferences.prefer_hdr),
+            self.preferences
+                .remux_output_container
+                .map_or("auto", RemuxContainer::file_extension),
+            self.preferences
+                .transcode_output_container
+                .map_or("auto", OutputContainer::as_str),
+        )
+    }
+
+    #[must_use]
+    pub fn track_selection(&self) -> TranscodeTrackSelection {
+        TranscodeTrackSelection {
+            audio_stream: self.preferences.requested_audio_stream,
+            subtitle_stream: self.preferences.requested_subtitle_stream,
+        }
+    }
+
+    #[must_use]
+    pub fn remux_transcode_profile(&self, output_container: RemuxContainer) -> TranscodeProfile {
+        TranscodeProfile::remux(RemuxTranscodeProfile {
+            output_container,
+            track_selection: self.track_selection(),
+            remote_input: self.storage.remote,
+            playback_profile_key: self.identity_key(),
+        })
+    }
+
+    #[must_use]
+    pub fn hls_transcode_profile(
+        &self,
+        plan: &TranscodePlan,
+        hardware_acceleration: HardwareAcceleration,
+    ) -> TranscodeProfile {
+        TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: plan.video_codec.clone(),
+            audio_codec: plan.audio_codec.clone(),
+            hardware_acceleration,
+            track_selection: self.track_selection(),
+            max_video_bitrate: self.preferences.max_video_bitrate,
+            prefer_hdr: self.preferences.prefer_hdr,
+            remote_input: self.storage.remote,
+            playback_profile_key: self.identity_key(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -301,4 +390,35 @@ fn container_for_file_name(file_name: &str) -> Option<&str> {
         "ts" | "m2ts" | "mts" => Some("mpegts"),
         _ => None,
     }
+}
+
+fn normalized_values(values: &[String]) -> Vec<String> {
+    let mut values = values
+        .iter()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn list_key(values: &[String]) -> String {
+    if values.is_empty() {
+        "any".to_owned()
+    } else {
+        values.join("|")
+    }
+}
+
+fn optional_u32(value: Option<u32>) -> String {
+    value.map_or_else(|| "default".to_owned(), |value| value.to_string())
+}
+
+fn optional_u64(value: Option<u64>) -> String {
+    value.map_or_else(|| "auto".to_owned(), |value| value.to_string())
+}
+
+fn optional_bool(value: Option<bool>) -> String {
+    value.map_or_else(|| "auto".to_owned(), |value| value.to_string())
 }

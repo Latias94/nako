@@ -1012,7 +1012,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: "hls:single".to_owned(),
+            request_key: local_hls_request_key(taru_transcode::HardwareAcceleration::None),
             output_path: temp
                 .path()
                 .join("taru-cache")
@@ -1040,7 +1040,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
             output_path: temp
                 .path()
                 .join("taru-cache")
@@ -1185,6 +1185,26 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         taru_transcode::HardwareAcceleration::Nvenc
     );
     assert!(!diagnostics.hardware.selection.fallback_used);
+    let nvenc_capability = diagnostics
+        .hardware
+        .capabilities
+        .iter()
+        .find(|capability| capability.accelerator == taru_transcode::HardwareAcceleration::Nvenc)
+        .unwrap();
+    assert_eq!(
+        nvenc_capability.evidence,
+        taru_api::AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
+    );
+    assert_eq!(
+        nvenc_capability.smoke_probe.status,
+        taru_api::AdminPlaybackHardwareSmokeProbeStatus::NotRun
+    );
+    assert!(
+        nvenc_capability
+            .smoke_probe
+            .operator_check
+            .contains("NVENC")
+    );
     assert_eq!(diagnostics.transcode.configured_cpu_slots, 2);
     assert_eq!(diagnostics.transcode.configured_gpu_slots, 4);
     assert_eq!(diagnostics.transcode.effective_cpu_slots, 2);

@@ -66,3 +66,15 @@ NFO, API, or repository boundaries.
 - This is a planning split only; no file-write runtime behavior changed.
 - Fresh validation remains required before marking ALFW-020 or later tasks
   complete.
+
+2026-05-18, core-architecture-deepening CAD-070 alignment:
+
+- ALFW remains proposed; no subtitle, NFO, or sidecar file-write runtime
+  behavior exists yet.
+- Added explicit guidance that NFO-derived metadata apply must reuse
+  `MetadataRepository::commit_nfo_import` /
+  `NfoImportPersistenceCommit`.
+- Added explicit guidance that file-write paths which affect discoverable
+  source state must reuse `ScanRepository::commit_library_scan_source`,
+  `LibraryIndexRepository`, or a new first-party commit unit instead of
+  Addon-specific source/state/search write ordering.

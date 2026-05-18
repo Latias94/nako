@@ -68,6 +68,30 @@ Reuse the APW three-stage model:
 If the write can block on remote storage, backup pruning, or large payloads,
 prefer a queued Addon Task or durable job over a synchronous runtime request.
 
+### Core Architecture Alignment
+
+Addon-initiated NFO behavior must reuse the first-party NFO boundaries. If an
+accepted addon request imports or applies NFO-derived canonical metadata, it
+should route through `taru-nfo` planning and
+`MetadataRepository::commit_nfo_import` /
+`NfoImportPersistenceCommit`; it must not reintroduce ordered calls to media
+item upsert, field-lock upsert, hierarchy confirmation, catalog hydration, or
+search refresh from the Addon handler.
+
+Addon-initiated file writes that create, replace, or reclassify discoverable
+library files must reuse first-party scan/indexing boundaries. If a file-write
+apply path needs to update Media Source, Source State, Local Inference
+Evidence, Library Item State, failure resolution, or search projection, it
+should route through `ScanRepository::commit_library_scan_source`,
+`LibraryIndexRepository`, or a new first-party commit unit. It must not invent a
+parallel Addon-specific sequence of source, state, evidence, and projection
+writes.
+
+NFO export remains an NFO/VFS concern: derive the sidecar target inside Taru,
+write through `StorageWriteRequest`/backup policy, and trigger any follow-on
+NFO import or catalog update through the existing NFO service path rather than
+duplicating parser or persistence logic in the Addon handler.
+
 ## Closeout Condition
 
 This lane can close when:

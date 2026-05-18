@@ -18,3 +18,14 @@ pub enum OutputContainer {
     Mp4,
     Mkv,
 }
+
+impl OutputContainer {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Hls => "hls",
+            Self::Mp4 => "mp4",
+            Self::Mkv => "mkv",
+        }
+    }
+}

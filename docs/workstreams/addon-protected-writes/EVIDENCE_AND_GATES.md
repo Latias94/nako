@@ -292,13 +292,18 @@ lane complete.
   - `Get-Content docs/workstreams/addon-protected-writes/WORKSTREAM.json | ConvertFrom-Json | Out-Null`
     exited 0.
 - Residual consistency note:
-  - APW-030 follows the existing metadata/NFO workflow shape: metadata item
+  - APW-030 follows the existing metadata workflow shape: metadata item
     persistence happens before catalog hydration, while catalog graph and
     search projection commit atomically inside `CatalogRepository`.
   - This proves catalog/search consistency for the successful apply path, not
     a single database transaction spanning media item update plus catalog
     hydration. A future prepared-catalog unit-of-work remains separate design
     scope.
+  - After `core-architecture-deepening` CAD-020, NFO import is no longer a
+    precedent for this split. Future Addon metadata-write expansion should add
+    a dedicated Addon metadata commit unit if it needs stronger atomicity,
+    instead of reusing NFO import or Library scan commit units for unrelated
+    writes.
 
 2026-05-18, APW-030 fresh resume verification:
 
@@ -365,3 +370,15 @@ lane complete.
     ConvertFrom-Json | Out-Null` exited 0.
 - APW status is now completed. Continue in AMAA-020 or ALFW-020 depending on
   the next product priority.
+
+2026-05-18, core-architecture-deepening CAD-070 alignment audit:
+
+- Existing APW runtime behavior has only one concrete Addon write path:
+  `metadata_write` in `crates/taru-server/src/app/addons.rs`.
+- No current Addon runtime path writes NFO files, subtitle files, Managed
+  Artwork, Library File Write state, Media Source scan state, or NFO import
+  field locks.
+- Follow-on documentation now points AMAA and ALFW at Taru-owned commit/service
+  boundaries so future addon writes do not recreate caller-side persistence
+  ordering replaced by `NfoImportPersistenceCommit` or
+  `LibraryScanSourcePersistenceCommit`.

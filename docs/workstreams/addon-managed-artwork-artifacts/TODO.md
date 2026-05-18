@@ -18,7 +18,9 @@ Last updated: 2026-05-18
   and Addon Side Effect seams; choose the first bounded `artwork_write` target.
   Validation: `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`; `git diff --check`.
   Review: decide whether first apply should create Artwork Candidates, import
-  Managed Artwork, or create Taru-Managed Artifacts.
+  Managed Artwork, or create Taru-Managed Artifacts. If catalog-visible artwork
+  state needs multiple durable writes, introduce or reuse a first-party artwork
+  commit boundary instead of placing write ordering in the Addon handler.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
   Handoff: Continue with AMAA-030 only after fetch/cache/storage policy is
   explicit.
@@ -31,6 +33,8 @@ Last updated: 2026-05-18
   Validation: focused artwork/addon tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no response exposes raw payload, Source Locators, filesystem
   paths, remote storage handles, or unsafe provider hotlinks as client artwork.
+  Route any sidecar-file export behavior to
+  `addon-library-file-write-policy` rather than adding a parallel writer here.
   Evidence: code/tests/API docs and AMAA notes in `EVIDENCE_AND_GATES.md`.
   Handoff: Split image processing, thumbnailing, selected-artwork workflow, or
   sidecar export if it exceeds the first apply slice.

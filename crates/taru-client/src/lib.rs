@@ -1072,7 +1072,7 @@ mod tests {
                     "id": "session-1",
                     "source_id": "source 1",
                     "kind": "remux",
-                    "request_key": "remux:source-1",
+                    "request_key": "test-transcode-profile:remux-source-1",
                     "state": "cancel_requested",
                     "failure_category": null,
                     "failure_message": null,

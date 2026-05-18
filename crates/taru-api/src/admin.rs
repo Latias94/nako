@@ -500,6 +500,8 @@ pub struct AdminPlaybackHardwareCapability {
     pub accelerator: HardwareAcceleration,
     pub available: bool,
     pub reason_code: AdminPlaybackHardwareCapabilityReason,
+    pub evidence: AdminPlaybackHardwareCapabilityEvidence,
+    pub smoke_probe: AdminPlaybackHardwareSmokeProbe,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -508,6 +510,32 @@ pub enum AdminPlaybackHardwareCapabilityReason {
     Available,
     EncoderNotListed,
     ProbeError,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHardwareCapabilityEvidence {
+    CpuAlwaysAvailable,
+    FfmpegEncoderListed,
+    FfmpegEncoderMissing,
+    FfmpegProbeError,
+    StaticDetector,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackHardwareSmokeProbe {
+    pub status: AdminPlaybackHardwareSmokeProbeStatus,
+    pub operator_check: String,
+    pub has_detail: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHardwareSmokeProbeStatus {
+    NotRequired,
+    NotRun,
+    Passed,
+    Failed,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -954,7 +982,7 @@ mod tests {
             id: TranscodeSessionId::new(),
             source_id: MediaSourceId::new(),
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: "hls:single".to_owned(),
+            request_key: "transcode-profile:v1;kind=hls_single_variant".to_owned(),
             output_path: "C:\\taru-cache\\hls\\secret\\playlist.m3u8".into(),
             state: TranscodeSessionState::Failed,
             failure_category: Some(TranscodeFailureCategory::Runner),
@@ -1010,6 +1038,13 @@ mod tests {
                     accelerator: HardwareAcceleration::Nvenc,
                     available: false,
                     reason_code: AdminPlaybackHardwareCapabilityReason::ProbeError,
+                    evidence: AdminPlaybackHardwareCapabilityEvidence::FfmpegProbeError,
+                    smoke_probe: AdminPlaybackHardwareSmokeProbe {
+                        status: AdminPlaybackHardwareSmokeProbeStatus::NotRun,
+                        operator_check: "Run an NVENC H.264 encode smoke test on the host"
+                            .to_owned(),
+                        has_detail: false,
+                    },
                 }],
             },
             transcode: AdminPlaybackTranscodeBudgetDiagnostics {
@@ -1050,6 +1085,14 @@ mod tests {
         assert_eq!(
             value["hardware"]["capabilities"][0]["reason_code"],
             "probe_error"
+        );
+        assert_eq!(
+            value["hardware"]["capabilities"][0]["evidence"],
+            "ffmpeg_probe_error"
+        );
+        assert_eq!(
+            value["hardware"]["capabilities"][0]["smoke_probe"]["status"],
+            "not_run"
         );
         assert_eq!(value["remote_playback"]["state_scope"], "process_local");
         assert!(!body.contains("ffmpeg_path"));

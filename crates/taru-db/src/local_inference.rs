@@ -6,59 +6,11 @@ impl LocalInferenceRepository for SqliteStore {
         &self,
         evidence: &LocalInferenceEvidence,
     ) -> Result<()> {
-        let (evidence_source, evidence_source_key) =
-            local_inference_evidence_source_to_parts(&evidence.evidence_source);
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO local_inference_evidence (
-                id,
-                source_id,
-                inferred_kind,
-                inferred_title,
-                inferred_year,
-                inferred_season,
-                inferred_episode,
-                confidence_milli,
-                evidence_source,
-                evidence_source_key,
-                evidence_value,
-                inference_version
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
-            ON CONFLICT(
-                source_id,
-                evidence_source,
-                evidence_source_key,
-                inference_version
-            ) DO UPDATE SET
-                inferred_kind = excluded.inferred_kind,
-                inferred_title = excluded.inferred_title,
-                inferred_year = excluded.inferred_year,
-                inferred_season = excluded.inferred_season,
-                inferred_episode = excluded.inferred_episode,
-                confidence_milli = excluded.confidence_milli,
-                evidence_value = excluded.evidence_value,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(evidence.id.to_string())
-        .bind(evidence.source_id.to_string())
-        .bind(media_kind_to_str(evidence.inferred_kind))
-        .bind(&evidence.inferred_title)
-        .bind(optional_i32_to_i64(evidence.inferred_year))
-        .bind(optional_u32_to_i64(evidence.inferred_season))
-        .bind(optional_u32_to_i64(evidence.inferred_episode))
-        .bind(optional_u16_to_i64(evidence.confidence_milli))
-        .bind(evidence_source)
-        .bind(evidence_source_key)
-        .bind(&evidence.evidence_value)
-        .bind(&evidence.inference_version)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        upsert_local_inference_evidence_tx(&mut transaction, evidence).await?;
 
-        Ok(())
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_local_inference_evidence(
@@ -130,4 +82,63 @@ impl LocalInferenceRepository for SqliteStore {
             .map(row_to_local_inference_evidence)
             .collect()
     }
+}
+
+pub(crate) async fn upsert_local_inference_evidence_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    evidence: &LocalInferenceEvidence,
+) -> Result<()> {
+    let (evidence_source, evidence_source_key) =
+        local_inference_evidence_source_to_parts(&evidence.evidence_source);
+
+    sqlx::query(
+        r#"
+            INSERT INTO local_inference_evidence (
+                id,
+                source_id,
+                inferred_kind,
+                inferred_title,
+                inferred_year,
+                inferred_season,
+                inferred_episode,
+                confidence_milli,
+                evidence_source,
+                evidence_source_key,
+                evidence_value,
+                inference_version
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            ON CONFLICT(
+                source_id,
+                evidence_source,
+                evidence_source_key,
+                inference_version
+            ) DO UPDATE SET
+                inferred_kind = excluded.inferred_kind,
+                inferred_title = excluded.inferred_title,
+                inferred_year = excluded.inferred_year,
+                inferred_season = excluded.inferred_season,
+                inferred_episode = excluded.inferred_episode,
+                confidence_milli = excluded.confidence_milli,
+                evidence_value = excluded.evidence_value,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(evidence.id.to_string())
+    .bind(evidence.source_id.to_string())
+    .bind(media_kind_to_str(evidence.inferred_kind))
+    .bind(&evidence.inferred_title)
+    .bind(optional_i32_to_i64(evidence.inferred_year))
+    .bind(optional_u32_to_i64(evidence.inferred_season))
+    .bind(optional_u32_to_i64(evidence.inferred_episode))
+    .bind(optional_u16_to_i64(evidence.confidence_milli))
+    .bind(evidence_source)
+    .bind(evidence_source_key)
+    .bind(&evidence.evidence_value)
+    .bind(&evidence.inference_version)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }

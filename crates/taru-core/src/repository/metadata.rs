@@ -5,10 +5,10 @@ use crate::{
     ArtworkTask, ArtworkTaskId, ExternalProvider, JobId, LocalInferenceEvidence,
     LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter,
     MetadataFieldLock, MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
-    MetadataRefreshPersistenceSummary, NewMetadataProviderAttempt, ProviderMapping,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, Result, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId,
+    MetadataRefreshPersistenceSummary, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
+    NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
+    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -32,6 +32,11 @@ pub trait MetadataRepository: Send + Sync {
         &self,
         commit: &MetadataRefreshPersistenceCommit,
     ) -> Result<MetadataRefreshPersistenceSummary>;
+
+    async fn commit_nfo_import(
+        &self,
+        commit: &NfoImportPersistenceCommit,
+    ) -> Result<NfoImportPersistenceSummary>;
 
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()>;
 

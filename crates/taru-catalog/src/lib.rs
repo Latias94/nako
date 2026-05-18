@@ -311,6 +311,61 @@ where
     port.hydrate_catalog(item_id, source).await
 }
 
+pub async fn plan_item_catalog_projection<R>(
+    repository: &R,
+    item: MediaItem,
+    source: MetadataSource,
+) -> Result<CatalogItemProjectionCommit>
+where
+    R: CatalogRepository + MediaRepository,
+{
+    let mut snapshot = load_hydration_snapshot(repository, item.id).await?;
+    snapshot.item = item;
+    let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
+    let mut replacement = CatalogItemGraphReplacement::default();
+    let mut summary = CatalogHydrationSummary {
+        item_id: snapshot.item.id,
+        ..CatalogHydrationSummary::default()
+    };
+
+    hydrate_credits(&lookup, &snapshot.item, &mut summary, &mut replacement)?;
+    hydrate_genres(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_tags(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_collections(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_studios(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_images(&lookup, &snapshot.item, &mut summary, &mut replacement)?;
+    let search = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
+
+    Ok(CatalogItemProjectionCommit {
+        graph: replacement,
+        search,
+    })
+}
+
 pub async fn refresh_item_search<R>(
     repository: &R,
     item_id: MediaItemId,

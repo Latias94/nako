@@ -11,7 +11,8 @@ use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
     HardwareAccelerationSelection, HlsRequest, HlsRunOutcome, RemuxRuntimeGuard,
-    RemuxRuntimeLimits, TranscodeSessionManager, select_hardware_acceleration,
+    RemuxRuntimeLimits, TranscodeProfileIdentity, TranscodeSessionManager,
+    select_hardware_acceleration,
 };
 use tokio::sync::Mutex;
 
@@ -84,9 +85,11 @@ impl HlsAppService {
         decision: PlaybackDecision,
         input_path: PathBuf,
         layout: HlsOutputLayout,
+        profile_identity: TranscodeProfileIdentity,
     ) -> Result<HlsSourceOutput> {
         let key = HlsRequestKey {
             source_id: source.id,
+            profile_identity,
         };
 
         match self.reserve(sessions, &key, &layout).await? {
@@ -153,7 +156,7 @@ impl HlsAppService {
 
         {
             let mut in_flight = self.in_flight.lock().await;
-            if !in_flight.insert(*key) {
+            if !in_flight.insert(key.clone()) {
                 return Err(TaruError::Conflict {
                     message: format!(
                         "hls request for source {} is already in progress",
@@ -279,14 +282,15 @@ impl HlsAppService {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct HlsRequestKey {
     source_id: MediaSourceId,
+    profile_identity: TranscodeProfileIdentity,
 }
 
 impl HlsRequestKey {
-    fn persisted_request_key(self) -> String {
-        "hls:single".to_owned()
+    fn persisted_request_key(&self) -> String {
+        self.profile_identity.persisted_request_key().to_owned()
     }
 }
 

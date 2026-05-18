@@ -70,6 +70,19 @@ If fetching, resizing, hashing, or exporting can exceed a short request budget,
 prefer a queued Addon Task or durable job rather than blocking the runtime
 request.
 
+### Core Architecture Alignment
+
+`artwork_write` must not become a side channel that writes catalog-visible image
+state, cache state, or search projections independently from Taru-owned artwork
+and catalog services. If the first artwork slice needs a stronger durable write
+unit than the current artwork/catalog seams provide, AMAA should add that
+first-party commit boundary instead of embedding multi-step persistence inside
+the Addon handler.
+
+Artwork export to media-library sidecar files is a **Library File Write** and
+belongs in `addon-library-file-write-policy`; AMAA may produce Managed Artwork
+or Taru-Managed Artifacts, but it should not invent a separate file-write path.
+
 ## Closeout Condition
 
 This lane can close when:

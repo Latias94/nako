@@ -65,3 +65,12 @@ or public API contracts.
 - This is a planning split only; no artwork runtime behavior changed.
 - Fresh validation remains required before marking AMAA-020 or later tasks
   complete.
+
+2026-05-18, core-architecture-deepening CAD-070 alignment:
+
+- AMAA remains proposed; no `artwork_write` runtime behavior exists yet.
+- Added explicit guidance that future artwork writes must use or introduce a
+  Taru-owned artwork/catalog commit boundary if they need multi-step durable
+  state.
+- Artwork sidecar export is classified as Library File Write work owned by
+  `addon-library-file-write-policy`, not AMAA.

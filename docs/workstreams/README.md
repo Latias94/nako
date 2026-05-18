@@ -21,6 +21,11 @@ attention.
   unification, Media Library source-of-truth, Public Client Source Locator
   redaction, Addon side-effect seams, playback request identity, and transcode
   diagnostics follow-ups.
+- [core-architecture-deepening](core-architecture-deepening/README.md):
+  completed architecture-first execution lane for the fearless refactor across
+  NFO import atomicity, Library scan source commits, workflow-port narrowing,
+  playback/transcode profile identity, hardware capability diagnostics, Addon
+  Sidecar alignment, and deletion of replaced shallow paths.
 - [metadata-catalog-commit-atomicity](metadata-catalog-commit-atomicity/README.md):
   completed execution lane for deepening metadata/catalog commit consistency,
   starting with an atomic Catalog Item Graph and Search Projection commit before

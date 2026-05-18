@@ -14,12 +14,13 @@ use taru_core::{
 use taru_db::SqliteStore;
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
-    PlaybackExecutionPlan, PlaybackSelectionContext, PlaybackSelectionRequest,
+    PlaybackExecutionPlan, PlaybackProfile, PlaybackSelectionContext, PlaybackSelectionRequest,
     PlaybackStorageContext, select_playback_source,
 };
 use taru_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
-    OutputContainer, RemuxContainer, TranscodeResourceBudget,
+    OutputContainer, RemuxContainer, TranscodePlan, TranscodeProfileIdentity,
+    TranscodeResourceBudget,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tracing::{error, warn};
@@ -156,11 +157,13 @@ impl RemuxStagingPolicy {
     pub fn output_path(
         &self,
         source_id: MediaSourceId,
+        profile_identity: &TranscodeProfileIdentity,
         container: RemuxContainer,
     ) -> Result<PathBuf> {
         let output = self
             .root
             .join(source_id.to_string())
+            .join(profile_identity.storage_slug())
             .join(format!("stream.{}", container.file_extension()));
 
         if !output.starts_with(&self.root) {
@@ -208,8 +211,15 @@ impl HlsStagingPolicy {
         Ok(Self { root })
     }
 
-    pub fn single_variant_layout(&self, source_id: MediaSourceId) -> Result<HlsOutputLayout> {
-        let output_dir = self.root.join(source_id.to_string()).join("single");
+    pub fn single_variant_layout(
+        &self,
+        source_id: MediaSourceId,
+        profile_identity: &TranscodeProfileIdentity,
+    ) -> Result<HlsOutputLayout> {
+        let output_dir = self
+            .root
+            .join(source_id.to_string())
+            .join(profile_identity.storage_slug());
         let playlist_path = output_dir.join("playlist.m3u8");
         let segment_pattern = output_dir.join("segment_%05d.ts");
 
@@ -327,6 +337,7 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.remux_output_container = Some(request.output_container);
+        let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let decision = select_playback_source(PlaybackSelectionRequest {
             source: &source,
             probe: probe.as_ref(),
@@ -335,13 +346,16 @@ impl PlaybackAppService {
         });
 
         let output_container = remux_output_container(&decision)?;
+        let profile_identity = playback_profile
+            .remux_transcode_profile(output_container)
+            .identity();
 
         let input = self
             .input
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
-        let output_path = staging.output_path(source.id, output_container)?;
+        let output_path = staging.output_path(source.id, &profile_identity, output_container)?;
         let result = self
             .remux
             .run(
@@ -351,6 +365,7 @@ impl PlaybackAppService {
                 input.path.clone(),
                 output_path,
                 output_container,
+                profile_identity,
             )
             .await;
         match result {
@@ -376,22 +391,33 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.transcode_output_container = Some(OutputContainer::Hls);
+        let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let decision = select_playback_source(PlaybackSelectionRequest {
             source: &source,
             probe: probe.as_ref(),
             client: &request.client,
             context,
         });
-        ensure_hls_transcode_decision(&decision)?;
+        let transcode_plan = hls_transcode_plan(&decision)?;
+        let profile_identity = playback_profile
+            .hls_transcode_profile(transcode_plan, self.hls.hardware_selection.acceleration)
+            .identity();
         let input = self
             .input
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.single_variant_layout(source.id)?;
+        let layout = staging.single_variant_layout(source.id, &profile_identity)?;
         let result = self
             .hls
-            .run(&self.store, source, decision, input.path.clone(), layout)
+            .run(
+                &self.store,
+                source,
+                decision,
+                input.path.clone(),
+                layout,
+                profile_identity,
+            )
             .await;
         match result {
             Ok(output) => {
@@ -633,10 +659,10 @@ fn remux_output_container(decision: &PlaybackDecision) -> Result<RemuxContainer>
     }
 }
 
-fn ensure_hls_transcode_decision(decision: &PlaybackDecision) -> Result<()> {
+fn hls_transcode_plan(decision: &PlaybackDecision) -> Result<&TranscodePlan> {
     match &decision.execution {
         PlaybackExecutionPlan::Transcode(plan) if plan.output_container == OutputContainer::Hls => {
-            Ok(())
+            Ok(plan)
         }
         _ => Err(TaruError::Unsupported(
             "hls app service requires an hls transcode playback decision",

@@ -20,7 +20,10 @@ Last updated: 2026-05-18
   seams; choose the first bounded Library File Write target.
   Validation: `rg -n "Library File Write|subtitle|NFO|nfo|StorageWriteRequest|StorageWriteReport|StorageBackupPolicy|atomic_replace|backup|sidecar" crates docs`; `git diff --check`.
   Review: decide whether first apply should be subtitle import, NFO export, or
-  narrower sidecar asset write.
+  narrower sidecar asset write. The audit must explicitly choose how any
+  NFO-derived canonical metadata uses `commit_nfo_import`, and how any
+  discoverable source/state/search changes use `commit_library_scan_source` or
+  a new first-party commit unit.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
   Handoff: Continue with ALFW-030 only after target derivation, write mode,
   backup, and redacted report semantics are explicit.
@@ -32,7 +35,9 @@ Last updated: 2026-05-18
   selected by ALFW-020.
   Validation: focused NFO/storage/addon tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no response exposes raw payload, Source Locators, filesystem
-  paths, remote storage handles, or unredacted backup/write reports.
+  paths, remote storage handles, or unredacted backup/write reports. Verify the
+  implementation does not re-create Addon-specific NFO import, scan-source, or
+  search-projection write ordering.
   Evidence: code/tests/API docs and ALFW notes in `EVIDENCE_AND_GATES.md`.
   Handoff: Split subtitle import/export, NFO export, or arbitrary sidecar asset
   writes if any dominates the first slice.

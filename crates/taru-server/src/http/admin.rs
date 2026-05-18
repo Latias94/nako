@@ -14,17 +14,20 @@ use taru_api::{
     AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
     AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
     AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-    AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDiagnostics,
-    AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-    AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+    AdminPlaybackHardwareCapabilityEvidence, AdminPlaybackHardwareCapabilityReason,
+    AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareSmokeProbe,
+    AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackRemoteBudgetDiagnostics,
+    AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
     AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
     AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
     AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord, AdminStorageStagingSummary,
     AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
-use taru_transcode::HardwareAccelerationCapability;
+use taru_transcode::{
+    HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
+};
 
 use crate::{
     app::{RuntimeSupervisorDiagnostics, TaruApp},
@@ -531,24 +534,68 @@ fn hardware_capability_diagnostic(
         accelerator: capability.accelerator,
         available: capability.available,
         reason_code: hardware_capability_reason(capability),
+        evidence: hardware_capability_evidence(capability.evidence),
+        smoke_probe: AdminPlaybackHardwareSmokeProbe {
+            status: hardware_smoke_probe_status(capability.smoke_probe.status),
+            operator_check: capability.smoke_probe.operator_check.clone(),
+            has_detail: capability.smoke_probe.detail.is_some(),
+        },
     }
 }
 
 fn hardware_capability_reason(
     capability: &HardwareAccelerationCapability,
 ) -> AdminPlaybackHardwareCapabilityReason {
-    if capability.available {
-        return AdminPlaybackHardwareCapabilityReason::Available;
+    match capability.evidence {
+        HardwareCapabilityEvidence::CpuAlwaysAvailable
+        | HardwareCapabilityEvidence::FfmpegEncoderListed
+        | HardwareCapabilityEvidence::StaticDetector
+            if capability.available =>
+        {
+            AdminPlaybackHardwareCapabilityReason::Available
+        }
+        HardwareCapabilityEvidence::FfmpegEncoderMissing => {
+            AdminPlaybackHardwareCapabilityReason::EncoderNotListed
+        }
+        HardwareCapabilityEvidence::FfmpegProbeError
+        | HardwareCapabilityEvidence::CpuAlwaysAvailable
+        | HardwareCapabilityEvidence::FfmpegEncoderListed
+        | HardwareCapabilityEvidence::StaticDetector => {
+            AdminPlaybackHardwareCapabilityReason::ProbeError
+        }
     }
+}
 
-    if capability
-        .reason
-        .as_deref()
-        .is_some_and(|reason| reason.contains("not listed"))
-    {
-        AdminPlaybackHardwareCapabilityReason::EncoderNotListed
-    } else {
-        AdminPlaybackHardwareCapabilityReason::ProbeError
+fn hardware_capability_evidence(
+    evidence: HardwareCapabilityEvidence,
+) -> AdminPlaybackHardwareCapabilityEvidence {
+    match evidence {
+        HardwareCapabilityEvidence::CpuAlwaysAvailable => {
+            AdminPlaybackHardwareCapabilityEvidence::CpuAlwaysAvailable
+        }
+        HardwareCapabilityEvidence::FfmpegEncoderListed => {
+            AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
+        }
+        HardwareCapabilityEvidence::FfmpegEncoderMissing => {
+            AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderMissing
+        }
+        HardwareCapabilityEvidence::FfmpegProbeError => {
+            AdminPlaybackHardwareCapabilityEvidence::FfmpegProbeError
+        }
+        HardwareCapabilityEvidence::StaticDetector => {
+            AdminPlaybackHardwareCapabilityEvidence::StaticDetector
+        }
+    }
+}
+
+fn hardware_smoke_probe_status(
+    status: HardwareSmokeProbeStatus,
+) -> AdminPlaybackHardwareSmokeProbeStatus {
+    match status {
+        HardwareSmokeProbeStatus::NotRequired => AdminPlaybackHardwareSmokeProbeStatus::NotRequired,
+        HardwareSmokeProbeStatus::NotRun => AdminPlaybackHardwareSmokeProbeStatus::NotRun,
+        HardwareSmokeProbeStatus::Passed => AdminPlaybackHardwareSmokeProbeStatus::Passed,
+        HardwareSmokeProbeStatus::Failed => AdminPlaybackHardwareSmokeProbeStatus::Failed,
     }
 }
 

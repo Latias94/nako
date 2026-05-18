@@ -31,3 +31,8 @@ Library File Write seams before accepting file-write payloads.
 - Run ALFW-020. Do not implement file writes until target derivation, NFO Round
   Trip behavior, backup policy, VFS write reports, idempotency, and redacted
   diagnostics are explicit.
+- CAD-070 alignment: any NFO-derived metadata apply must reuse
+  `commit_nfo_import`; any file-write path that changes discoverable source
+  state must reuse `commit_library_scan_source`, `LibraryIndexRepository`, or a
+  new first-party commit unit. Do not put those ordered durable writes inside an
+  Addon handler.
