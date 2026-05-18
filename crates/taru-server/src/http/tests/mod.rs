@@ -16,31 +16,33 @@ use taru_addon_protocol::{
 };
 use taru_api::{
     AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment, AddonGrantsResponse,
-    AddonRegistrationResponse, AddonRegistrationsResponse, AddonTokenIssuedResponse,
-    AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
-    AdminCatalogGovernanceItemListResponse, AdminJobListResponse, AdminOutboxEventListResponse,
-    AdminOverviewResponse, AdminOverviewStatus, AdminPlaybackRuntimeDiagnosticsResponse,
-    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListResponse,
-    AdminServerConfigDiagnosticsResponse, AdminStorageStagingDiagnosticsResponse,
-    AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
-    ClientTranscodeFailureCategory, ClientTranscodeSessionState, EnqueueAutomationJobRequest,
-    EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse,
-    IgnoreIngestionFailureRequest, IngestionFailuresResponse, IssueAddonTokenRequest, JobResponse,
-    LibraryListResponse, LibraryResponse, MetadataMaintenancePlanResponse,
-    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
-    MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, StorageBackendDiagnosticsResponse,
-    StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
+    AddonRegistrationResponse, AddonRegistrationsResponse, AddonSideEffectResponse,
+    AddonSideEffectTargetRequest, AddonTokenIssuedResponse, AddonTokenResponse,
+    AddonTokenRotationResponse, AddonTokensResponse, AdminCatalogGovernanceItemListResponse,
+    AdminJobListResponse, AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
+    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+    AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
+    AdminStorageStagingDiagnosticsResponse, AutomationArtifactsResponse,
+    AutomationProviderResponse, AutomationProvidersResponse, ClientTranscodeFailureCategory,
+    ClientTranscodeSessionState, EnqueueAutomationJobRequest, EnqueueMetadataMaintenanceRequest,
+    ErrorResponse, HealthResponse, IgnoreIngestionFailureRequest, IngestionFailuresResponse,
+    IssueAddonTokenRequest, JobResponse, LibraryListResponse, LibraryResponse,
+    MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
+    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
+    MetadataRawCleanupResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest, StorageBackendDiagnosticsResponse, StorageBackendKind,
+    StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
     TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
     WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
-    AddonPermission, AddonStatus, AddonTokenStatus, AutomationCapability, AutomationProviderStatus,
-    CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
+    AddonPermission, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
+    AddonTokenStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
+    CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
     ImageOwner, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRepository,
     IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository,
-    JobStatus, LibraryId, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    JobStatus, LibraryId, LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
     LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem, MediaItemId, MediaKind,
     MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
     MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
@@ -82,7 +84,7 @@ mod webhooks;
 async fn router_with_media_source(
     file_name: &str,
     content: &[u8],
-) -> (tempfile::TempDir, Router, MediaSource) {
+) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join(file_name), content).unwrap();
     let library_id = LibraryId::new();
@@ -137,7 +139,7 @@ async fn router_with_media_source(
     store.upsert_media_source(&source).await.unwrap();
     let router = build_router(app);
 
-    (temp, router, source)
+    (temp, router, source, store)
 }
 
 async fn router_with_remux_source(

@@ -298,3 +298,62 @@ missing gates, and residual risks here.
 
 Fresh verification is required before marking any later task, Codex goal, or
 lane complete.
+
+2026-05-18, ATGSE-050:
+
+- Minimal Addon Side Effect intake proof implemented under
+  `POST /addon/v1/side-effects`.
+- Added `AddonSideEffectId`, target kind, validation status, request/record
+  types, repository methods, and SQLite migration
+  `0022_addon_side_effects.sql`.
+- Intake persists addon actor, token ID, permission, concrete Media Library,
+  target summary, idempotency key, provenance JSON, payload JSON, validation
+  status, safe error code, and creation time.
+- The route authenticates Addon Tokens through the existing Addon principal
+  seam. It authorizes accepted Addon Permissions against the concrete library,
+  validates `media_source` and `media_item` targets, and records rejected
+  intake before returning safe errors when the caller is a trustworthy addon
+  principal.
+- Idempotency uses `(addon_id, idempotency_key)`. Duplicate submissions return
+  the existing intake record with `idempotent_replay: true`.
+- Responses intentionally omit raw Addon Token material, token hashes,
+  persisted payload/provenance JSON, source locators, filesystem paths, and raw
+  provider bodies.
+- Public OpenAPI and TypeScript SDK exclusion tests now explicitly cover the
+  `/addon/v1/*` route family.
+- Validation passed during implementation:
+  - `cargo check -p taru-core --tests`
+  - `cargo check -p taru-api --tests`
+  - `cargo check -p taru-db --tests`
+  - `cargo check -p taru-server --tests`
+  - `cargo check -p taru-core -p taru-api -p taru-db -p taru-server --tests`
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `cargo nextest run -p taru-db addon --no-fail-fast`
+  - `cargo nextest run -p taru-api public_openapi --no-fail-fast`
+  - `cargo nextest run -p taru-api typescript_sdk_excludes --no-fail-fast`
+- Focused test results:
+  - `taru-server addon_side_effect`: 2 tests passed.
+  - `taru-db addon`: 4 tests passed.
+  - `taru-api public_openapi`: 3 tests passed.
+  - `taru-api typescript_sdk_excludes`: 1 test passed.
+
+2026-05-18, ATGSE-050 final verification:
+
+- `cargo check -p taru-core --tests`: passed.
+- `cargo check -p taru-db --tests`: passed.
+- `cargo check -p taru-api --tests`: passed.
+- `cargo check -p taru-server --tests`: passed.
+- `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`:
+  passed, 2 tests.
+- `cargo nextest run -p taru-db addon --no-fail-fast`: passed, 4 tests.
+- `cargo nextest run -p taru-api public_openapi --no-fail-fast`: passed, 3
+  tests.
+- `cargo nextest run -p taru-api typescript_sdk_excludes --no-fail-fast`:
+  passed, 1 test.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed.
+
+ATGSE-050 review status: no blocking workstream compliance or code-quality
+findings remained after self-review. Residual risk is limited to future
+concrete metadata/artwork/subtitle/Library File Write handlers, which remain
+outside this proof slice.

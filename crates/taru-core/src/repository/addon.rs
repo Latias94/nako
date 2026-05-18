@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
 use crate::{
-    AddonGrantRecord, AddonId, AddonRegistrationRecord, AddonStatus, AddonTokenId,
-    AddonTokenRecord, NewAddonGrant, NewAddonRegistration, NewAddonToken, Result,
+    AddonGrantRecord, AddonId, AddonRegistrationRecord, AddonSideEffectRecord, AddonStatus,
+    AddonTokenId, AddonTokenRecord, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect,
+    NewAddonToken, Result,
 };
 
 #[async_trait]
@@ -49,4 +50,15 @@ pub trait AddonRepository: Send + Sync {
     ) -> Result<Vec<AddonGrantRecord>>;
 
     async fn list_addon_grants(&self, addon_id: AddonId) -> Result<Vec<AddonGrantRecord>>;
+
+    async fn create_addon_side_effect(
+        &self,
+        side_effect: NewAddonSideEffect,
+    ) -> Result<AddonSideEffectRecord>;
+
+    async fn find_addon_side_effect_by_idempotency_key(
+        &self,
+        addon_id: AddonId,
+        idempotency_key: &str,
+    ) -> Result<Option<AddonSideEffectRecord>>;
 }

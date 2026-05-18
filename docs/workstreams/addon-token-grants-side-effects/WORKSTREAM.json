@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "ATGSE-050",
+  "current_task": "ATGSE-060",
   "first_slice": "current addon token/grant/side-effect boundary audit",
   "non_goals": [
     "OAuth-first authorization",
@@ -67,6 +67,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "ATGSE-040 runtime addon-principal enforcement is complete. Continue with ATGSE-050 Addon Side Effect intake proof. Split concrete write handlers if they exceed the proof scope."
+    "notes": "ATGSE-050 Addon Side Effect intake proof is complete. Continue with ATGSE-060 closeout or split concrete metadata/artwork/subtitle/Library File Write handlers into follow-on lanes."
   }
 }

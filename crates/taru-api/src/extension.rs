@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{AddonManifest, AddonScope};
 use taru_core::{
-    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord, AddonStatus, AddonTokenId,
-    AddonTokenRecord, AddonTokenStatus, AutomationArtifactRecord, AutomationCapability,
-    AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, EventId, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
-    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
+    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord, AddonSideEffectId,
+    AddonSideEffectRecord, AddonSideEffectTarget, AddonSideEffectTargetKind,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTokenId, AddonTokenRecord, AddonTokenStatus,
+    AutomationArtifactRecord, AutomationCapability, AutomationJobInput,
+    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, EventId,
+    LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord, WebhookDeliveryAttemptRecord,
+    WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -210,4 +212,74 @@ pub struct AddonAccessCheckResponse {
     pub permission: AddonPermission,
     pub library_id: Option<LibraryId>,
     pub allowed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SubmitAddonSideEffectRequest {
+    pub permission: AddonPermission,
+    pub library_id: LibraryId,
+    pub target: AddonSideEffectTargetRequest,
+    pub idempotency_key: String,
+    pub provenance: serde_json::Value,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectTargetRequest {
+    pub kind: AddonSideEffectTargetKind,
+    pub id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectTargetSummary {
+    pub kind: AddonSideEffectTargetKind,
+    pub id: String,
+}
+
+impl AddonSideEffectTargetSummary {
+    #[must_use]
+    pub fn from_target(target: AddonSideEffectTarget) -> Self {
+        Self {
+            kind: target.kind,
+            id: target.id,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectSummary {
+    pub id: AddonSideEffectId,
+    pub addon_id: AddonId,
+    pub token_id: AddonTokenId,
+    pub permission: AddonPermission,
+    pub library_id: LibraryId,
+    pub target: AddonSideEffectTargetSummary,
+    pub idempotency_key: String,
+    pub validation_status: AddonSideEffectValidationStatus,
+    pub safe_error_code: Option<String>,
+    pub created_at: String,
+}
+
+impl AddonSideEffectSummary {
+    #[must_use]
+    pub fn from_record(record: AddonSideEffectRecord) -> Self {
+        Self {
+            id: record.id,
+            addon_id: record.addon_id,
+            token_id: record.token_id,
+            permission: record.permission,
+            library_id: record.library_id,
+            target: AddonSideEffectTargetSummary::from_target(record.target),
+            idempotency_key: record.idempotency_key,
+            validation_status: record.validation_status,
+            safe_error_code: record.safe_error_code,
+            created_at: record.created_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectResponse {
+    pub side_effect: AddonSideEffectSummary,
+    pub idempotent_replay: bool,
 }

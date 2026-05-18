@@ -418,6 +418,7 @@ POST /admin/v1/addons/{addon_id}/tokens/{token_id}/revoke
 PUT  /admin/v1/addons/{addon_id}/grants
 GET  /admin/v1/addons/{addon_id}/grants
 POST /addon/v1/access-check
+POST /addon/v1/side-effects
 POST /automation/providers
 GET  /automation/providers
 GET  /automation/providers/{provider_id}
@@ -897,6 +898,70 @@ Disabled addons, missing permissions, and wrong-library requests return `403
 forbidden`. Addon Tokens are intentionally rejected by `/admin/v1/*` and Public
 Client routes unless a future route explicitly opts into addon-principal
 handling.
+
+`POST /addon/v1/side-effects` is the first protected Addon Side Effect intake
+route. It authenticates the Addon Token, records the addon actor, token,
+permission, Media Library, target, idempotency key, provenance snapshot,
+payload snapshot, validation result, and safe error code, but it does not yet
+apply canonical metadata or library-file writes.
+
+```json
+{
+  "permission": "metadata_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "target": {
+    "kind": "media_source",
+    "id": "018f0000-0000-7000-8000-000000000005"
+  },
+  "idempotency_key": "metadata-demo-1",
+  "provenance": {
+    "origin": "reference-addon",
+    "request_id": "request-1"
+  },
+  "payload": {
+    "title": "Demo From Addon"
+  }
+}
+```
+
+The first target kinds are `media_source` and `media_item`. A request must
+include a concrete `library_id`; global Addon Grants allow any target library,
+but the side-effect record still stores the specific library being targeted.
+
+Successful responses expose only the safe audit summary:
+
+```json
+{
+  "side_effect": {
+    "id": "018f0000-0000-7000-8000-000000000006",
+    "addon_id": "018f0000-0000-7000-8000-000000000002",
+    "token_id": "018f0000-0000-7000-8000-000000000004",
+    "permission": "metadata_write",
+    "library_id": "018f0000-0000-7000-8000-000000000003",
+    "target": {
+      "kind": "media_source",
+      "id": "018f0000-0000-7000-8000-000000000005"
+    },
+    "idempotency_key": "metadata-demo-1",
+    "validation_status": "accepted",
+    "safe_error_code": null,
+    "created_at": "2026-05-18T12:00:00.000Z"
+  },
+  "idempotent_replay": false
+}
+```
+
+Repeated requests from the same addon with the same `idempotency_key` return
+the existing record with `"idempotent_replay": true`. The response never
+returns raw token material, token hashes, `payload`, `provenance`, source
+locators, filesystem paths, or raw provider bodies.
+
+If an Addon Token resolves to a valid addon principal but the requested
+permission, library scope, or target is invalid, Taru persists a rejected
+side-effect intake record before returning the safe HTTP error. Missing,
+invalid, revoked, or rotated Addon Tokens still return `401 unauthorized`
+without creating an addon audit record because no trustworthy addon actor can
+be resolved.
 
 ## Automation Routes
 

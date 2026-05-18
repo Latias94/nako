@@ -402,6 +402,77 @@ impl AddonRepository for SqliteStore {
 
         rows.into_iter().map(row_to_addon_grant).collect()
     }
+
+    async fn create_addon_side_effect(
+        &self,
+        side_effect: NewAddonSideEffect,
+    ) -> Result<AddonSideEffectRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO addon_side_effects (
+                id,
+                addon_id,
+                token_id,
+                permission,
+                library_id,
+                target_kind,
+                target_id,
+                idempotency_key,
+                provenance_json,
+                payload_json,
+                validation_status,
+                safe_error_code
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            ON CONFLICT(addon_id, idempotency_key) DO NOTHING
+            "#,
+        )
+        .bind(side_effect.id.to_string())
+        .bind(side_effect.addon_id.to_string())
+        .bind(side_effect.token_id.to_string())
+        .bind(side_effect.permission.as_str())
+        .bind(side_effect.library_id.to_string())
+        .bind(side_effect.target.kind.as_str())
+        .bind(&side_effect.target.id)
+        .bind(&side_effect.idempotency_key)
+        .bind(&side_effect.provenance_json)
+        .bind(&side_effect.payload_json)
+        .bind(side_effect.validation_status.as_str())
+        .bind(&side_effect.safe_error_code)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.find_addon_side_effect_by_idempotency_key(
+            side_effect.addon_id,
+            &side_effect.idempotency_key,
+        )
+        .await?
+        .ok_or_else(|| TaruError::Database {
+            message: format!(
+                "addon side effect {} was not found after create",
+                side_effect.id
+            ),
+        })
+    }
+
+    async fn find_addon_side_effect_by_idempotency_key(
+        &self,
+        addon_id: AddonId,
+        idempotency_key: &str,
+    ) -> Result<Option<AddonSideEffectRecord>> {
+        let sql = addon_side_effect_select_sql(
+            "WHERE addon_id = ?1 AND idempotency_key = ?2 ORDER BY created_at ASC, id ASC LIMIT 1",
+        );
+        let row = sqlx::query(&sql)
+            .bind(addon_id.to_string())
+            .bind(idempotency_key)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_addon_side_effect).transpose()
+    }
 }
 
 fn addon_token_select_sql(where_clause: &str) -> String {
@@ -419,6 +490,29 @@ fn addon_token_select_sql(where_clause: &str) -> String {
             revoked_at,
             last_used_at
         FROM addon_tokens
+        {where_clause}
+        "#
+    )
+}
+
+fn addon_side_effect_select_sql(where_clause: &str) -> String {
+    format!(
+        r#"
+        SELECT
+            id,
+            addon_id,
+            token_id,
+            permission,
+            library_id,
+            target_kind,
+            target_id,
+            idempotency_key,
+            provenance_json,
+            payload_json,
+            validation_status,
+            safe_error_code,
+            created_at
+        FROM addon_side_effects
         {where_clause}
         "#
     )
