@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    http::StatusCode,
+    http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use taru_api::{ClientErrorCode, ErrorResponse};
@@ -32,7 +32,14 @@ impl IntoResponse for ApiError {
             warn!(error = %self.0, status = %status, "request rejected");
         }
 
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+        if status == StatusCode::UNAUTHORIZED {
+            response
+                .headers_mut()
+                .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
+        }
+
+        response
     }
 }
 
@@ -51,6 +58,8 @@ fn status_for_error(error: &TaruError) -> StatusCode {
             ..
         } => StatusCode::SERVICE_UNAVAILABLE,
         TaruError::InvalidInput { .. } | TaruError::Unsupported(_) => StatusCode::BAD_REQUEST,
+        TaruError::Unauthorized { .. } => StatusCode::UNAUTHORIZED,
+        TaruError::Forbidden { .. } => StatusCode::FORBIDDEN,
         TaruError::NotFound { .. } => StatusCode::NOT_FOUND,
         TaruError::Conflict { .. } => StatusCode::CONFLICT,
         TaruError::Provider { .. } | TaruError::Storage { .. } => StatusCode::BAD_GATEWAY,
@@ -63,6 +72,8 @@ fn code_for_error(error: &TaruError) -> ClientErrorCode {
         TaruError::InvalidInput { .. } => ClientErrorCode::InvalidInput,
         TaruError::NotFound { .. } => ClientErrorCode::NotFound,
         TaruError::Conflict { .. } => ClientErrorCode::Conflict,
+        TaruError::Unauthorized { .. } => ClientErrorCode::Unauthorized,
+        TaruError::Forbidden { .. } => ClientErrorCode::Forbidden,
         TaruError::Unsupported(_) => ClientErrorCode::Unsupported,
         TaruError::Provider { provider, .. } if is_ffmpeg_provider(provider) => {
             ClientErrorCode::FfmpegError
@@ -126,6 +137,8 @@ fn public_message(error: &TaruError) -> String {
         TaruError::InvalidInput { .. }
         | TaruError::NotFound { .. }
         | TaruError::Conflict { .. }
+        | TaruError::Unauthorized { .. }
+        | TaruError::Forbidden { .. }
         | TaruError::Unsupported(_) => error.to_string(),
     }
 }

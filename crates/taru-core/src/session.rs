@@ -128,6 +128,7 @@ impl TranscodeFailureCategory {
     pub fn from_error(error: &TaruError) -> Self {
         match error {
             TaruError::InvalidInput { .. } | TaruError::Unsupported(_) => Self::InvalidRequest,
+            TaruError::Unauthorized { .. } | TaruError::Forbidden { .. } => Self::InvalidRequest,
             TaruError::Provider { message, .. }
                 if message.to_ascii_lowercase().contains("timed out") =>
             {

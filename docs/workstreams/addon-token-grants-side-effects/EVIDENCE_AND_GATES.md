@@ -264,5 +264,37 @@ missing gates, and residual risks here.
   no remaining blocking issues. Runtime addon-principal enforcement remains
   intentionally deferred to ATGSE-040.
 
+2026-05-18, ATGSE-040:
+
+- Runtime Addon principal enforcement implemented through the addon-owned
+  `/addon/v1/access-check` route family.
+- Addon Token resolution now hashes presented bearer tokens, finds active token
+  records, marks successful token use, resolves the owning enabled addon
+  registration, and loads accepted grants.
+- Authorization checks accept global grants or matching Library-Scoped Addon
+  Grants and reject missing permission or wrong-library access.
+- Router topology now keeps `/health` public, protects existing Public/Admin/
+  internal routes with the admin bearer middleware, and mounts addon runtime
+  routes outside that admin-token path.
+- HTTP tests prove missing token, invalid token, revoked token, missing
+  permission, wrong library, valid library grant, global grant, and "Addon Token
+  cannot authenticate Admin API" behavior.
+- Validation passed during implementation:
+  - `cargo check -p taru-core --tests`
+  - `cargo check -p taru-db --tests`
+  - `cargo check -p taru-api --tests`
+  - `cargo check -p taru-server --tests`
+  - `cargo check -p taru-automation -p taru-library -p taru-metadata --tests`
+  - `cargo nextest run -p taru-server addon_runtime --no-fail-fast`
+  - `cargo nextest run -p taru-server addon --no-fail-fast`
+  - `cargo nextest run -p taru-db addon --no-fail-fast`
+  - `cargo nextest run -p taru-server http::tests::system::bearer_auth --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `git diff --check`
+- Focused test results:
+  - `taru-server addon`: 5 addon-filtered tests passed.
+  - `taru-db addon`: 3 addon-filtered tests passed.
+  - `taru-server bearer_auth`: 1 auth-boundary test passed.
+
 Fresh verification is required before marking any later task, Codex goal, or
 lane complete.

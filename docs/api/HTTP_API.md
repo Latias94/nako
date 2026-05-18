@@ -417,6 +417,7 @@ POST /admin/v1/addons/{addon_id}/tokens/{token_id}/rotate
 POST /admin/v1/addons/{addon_id}/tokens/{token_id}/revoke
 PUT  /admin/v1/addons/{addon_id}/grants
 GET  /admin/v1/addons/{addon_id}/grants
+POST /addon/v1/access-check
 POST /automation/providers
 GET  /automation/providers
 GET  /automation/providers/{provider_id}
@@ -864,6 +865,38 @@ grant set:
 `library_id` is a Library-Scoped Addon Grant. `GET
 /admin/v1/addons/{addon_id}/grants` returns the accepted grant records that will
 be consumed by the runtime addon-principal checks added in a later slice.
+
+Addon runtime routes live under `/addon/v1/*` and authenticate with Addon
+Tokens, not the admin bearer token. `POST /addon/v1/access-check` is the first
+runtime proof route. It validates that the caller is an enabled Addon principal
+with an active token and an accepted permission grant for the requested library
+scope:
+
+```json
+{
+  "permission": "metadata_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003"
+}
+```
+
+Successful responses identify the resolved addon and token without exposing raw
+token material or token hashes:
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000002",
+  "token_id": "018f0000-0000-7000-8000-000000000004",
+  "permission": "metadata_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "allowed": true
+}
+```
+
+Missing, invalid, revoked, or rotated Addon Tokens return `401 unauthorized`.
+Disabled addons, missing permissions, and wrong-library requests return `403
+forbidden`. Addon Tokens are intentionally rejected by `/admin/v1/*` and Public
+Client routes unless a future route explicitly opts into addon-principal
+handling.
 
 ## Automation Routes
 

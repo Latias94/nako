@@ -27,6 +27,12 @@ pub enum TaruError {
     #[error("conflict: {message}")]
     Conflict { message: String },
 
+    #[error("unauthorized: {message}")]
+    Unauthorized { message: String },
+
+    #[error("forbidden: {message}")]
+    Forbidden { message: String },
+
     #[error("operation is not supported: {0}")]
     Unsupported(&'static str),
 

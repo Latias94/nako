@@ -28,7 +28,11 @@ pub trait AddonRepository: Send + Sync {
 
     async fn get_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>>;
 
+    async fn find_addon_token_by_hash(&self, token_hash: &str) -> Result<Option<AddonTokenRecord>>;
+
     async fn list_addon_tokens(&self, addon_id: AddonId) -> Result<Vec<AddonTokenRecord>>;
+
+    async fn mark_addon_token_used(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>>;
 
     async fn rotate_addon_token(
         &self,

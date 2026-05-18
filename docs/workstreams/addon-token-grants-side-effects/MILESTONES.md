@@ -92,6 +92,20 @@ Primary gates:
 - focused `cargo nextest run -p taru-server addon --no-fail-fast`
 - `cargo check -p taru-api --tests`
 
+Evidence anchors:
+
+- `crates/taru-core/src/addon.rs`
+- `crates/taru-core/src/error.rs`
+- `crates/taru-core/src/repository/addon.rs`
+- `crates/taru-db/src/addons.rs`
+- `crates/taru-server/src/app/addons.rs`
+- `crates/taru-server/src/http.rs`
+- `crates/taru-server/src/http/addons.rs`
+- `crates/taru-server/src/http/auth.rs`
+- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/taru-api/src/extension.rs`
+- `docs/api/HTTP_API.md`
+
 ## M4 - Addon Side Effect Intake Proof
 
 Outcome: one protected Addon Side Effect path proves the intake seam without

@@ -209,6 +209,17 @@ impl AddonRepository for SqliteStore {
         row.map(row_to_addon_token).transpose()
     }
 
+    async fn find_addon_token_by_hash(&self, token_hash: &str) -> Result<Option<AddonTokenRecord>> {
+        let sql = addon_token_select_sql("WHERE token_hash = ?1");
+        let row = sqlx::query(&sql)
+            .bind(token_hash)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_addon_token).transpose()
+    }
+
     async fn list_addon_tokens(&self, addon_id: AddonId) -> Result<Vec<AddonTokenRecord>> {
         let sql = addon_token_select_sql("WHERE addon_id = ?1 ORDER BY created_at ASC, id ASC");
         let rows = sqlx::query(&sql)
@@ -218,6 +229,23 @@ impl AddonRepository for SqliteStore {
             .map_err(database_error)?;
 
         rows.into_iter().map(row_to_addon_token).collect()
+    }
+
+    async fn mark_addon_token_used(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE addon_tokens
+            SET last_used_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1 AND status = ?2
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_addon_token(id).await
     }
 
     async fn rotate_addon_token(

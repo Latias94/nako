@@ -5,27 +5,29 @@ Last updated: 2026-05-18
 
 ## Current State
 
-ATGSE-030 is complete. Taru now has first-class Addon Token issuance,
-rotation, revocation, redacted inspection, and accepted Addon Permission /
-Library-Scoped Addon Grant storage and API surfaces.
+ATGSE-040 is complete. Taru now has first-class Addon Token issuance,
+rotation, revocation, redacted inspection, accepted Addon Permission /
+Library-Scoped Addon Grant storage, and an addon-owned runtime principal
+authorization seam.
 
-The lane still does not have addon-principal runtime enforcement or Addon Side
-Effect intake. Those remain the next slices.
+The lane still does not have Addon Side Effect intake. That remains the next
+slice.
 
 ## Active Task
 
-- Task ID: ATGSE-040
+- Task ID: ATGSE-050
 - Owner: unassigned
 - Files: `crates/taru-core`, `crates/taru-db`,
   `crates/taru-server/src/app/addons.rs`,
   `crates/taru-server/src/http/addons.rs`, `crates/taru-api/src/extension.rs`,
   `docs/api`
-- Validation: `cargo nextest run -p taru-server addon --no-fail-fast`; `cargo
-  check -p taru-api --tests`
+- Validation: focused `cargo nextest run -p taru-server addon_side_effect
+  --no-fail-fast`; relevant `taru-db` tests; `git diff --check`
 - Status: NEEDS_CONTEXT
-- Review: run review-workstream before accepting runtime auth changes
-- Evidence: runtime addon-principal auth tests proving missing/invalid/revoked
-  token handling, accepted permission checks, and library-scoped enforcement
+- Review: run review-workstream for side-effect semantics and leakage risk
+- Evidence: tests for accepted intake, denied permission, wrong library,
+  revoked token, duplicate idempotency key, malformed target, and redacted
+  response
 
 ## Decisions Since Last Update
 
@@ -52,6 +54,10 @@ Effect intake. Those remain the next slices.
   the owning addon in the DB layer.
 - Accepted grants are stored separately from registration scope strings and may
   be global or Library-Scoped.
+- Addon runtime route families are separate from the admin bearer middleware.
+  `/addon/v1/access-check` resolves an Addon Token into an Addon principal and
+  enforces accepted permission plus library scope.
+- Addon Tokens cannot authenticate `/admin/v1/*` routes.
 
 ## Blockers
 
@@ -59,5 +65,7 @@ Effect intake. Those remain the next slices.
 
 ## Next Recommended Action
 
-- Run ATGSE-040: add addon-principal runtime enforcement for token-authenticated
-  addon-to-Taru calls, including accepted-permission and library-scope checks.
+- Run ATGSE-050: implement the smallest Addon Side Effect intake proof on top
+  of the Addon principal seam. Persist actor, target, permission, library scope,
+  idempotency key, provenance, validation result, and safe response state before
+  adding concrete metadata/artwork/subtitle/Library File Write handlers.

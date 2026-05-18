@@ -12,7 +12,10 @@ pub(crate) fn ingestion_failure_class(err: &TaruError) -> IngestionFailureClass 
         TaruError::Database { .. } => IngestionFailureClass::Database,
         TaruError::InvalidInput { .. } => IngestionFailureClass::InvalidInput,
         TaruError::Unsupported(_) => IngestionFailureClass::Unsupported,
-        TaruError::NotFound { .. } | TaruError::Conflict { .. } => IngestionFailureClass::Unknown,
+        TaruError::NotFound { .. }
+        | TaruError::Conflict { .. }
+        | TaruError::Unauthorized { .. }
+        | TaruError::Forbidden { .. } => IngestionFailureClass::Unknown,
     }
 }
 

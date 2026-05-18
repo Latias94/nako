@@ -195,3 +195,19 @@ pub struct AddonGrantAssignment {
 pub struct AddonGrantsResponse {
     pub grants: Vec<AddonGrantRecord>,
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAccessCheckRequest {
+    pub permission: AddonPermission,
+    #[serde(default)]
+    pub library_id: Option<LibraryId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAccessCheckResponse {
+    pub addon_id: AddonId,
+    pub token_id: AddonTokenId,
+    pub permission: AddonPermission,
+    pub library_id: Option<LibraryId>,
+    pub allowed: bool,
+}

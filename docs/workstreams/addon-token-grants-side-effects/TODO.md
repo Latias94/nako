@@ -41,14 +41,13 @@ Last updated: 2026-05-18
 
 ## M3 - Runtime Addon Principal Enforcement
 
-- [ ] ATGSE-040 [owner=unassigned] [deps=ATGSE-030] [scope=crates/taru-server,crates/taru-api,crates/taru-core]
+- [x] ATGSE-040 [owner=codex] [deps=ATGSE-030] [scope=crates/taru-server,crates/taru-api,crates/taru-core,crates/taru-db,docs/api]
   Goal: Add an Addon principal authentication path for addon-to-Taru calls that
   resolves a token into addon registration identity, accepted permissions, and
   optional Media Library grant set.
-  Validation: focused `cargo nextest run -p taru-server addon --no-fail-fast`;
-  `cargo check -p taru-api --tests`.
-  Review: ensure addon tokens cannot access Public Client or Admin API behavior
-  outside their explicit route family.
+  Validation: `cargo check -p taru-core --tests`; `cargo check -p taru-db --tests`; `cargo check -p taru-api --tests`; `cargo check -p taru-server --tests`; focused `cargo nextest run -p taru-server addon --no-fail-fast`; `cargo nextest run -p taru-db addon --no-fail-fast`; `cargo nextest run -p taru-server http::tests::system::bearer_auth --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
+  Review: addon tokens are accepted only by the addon-owned runtime route family
+  and are rejected by Admin API bearer auth.
   Evidence: HTTP tests for missing token, invalid token, revoked token,
   missing permission, wrong library, and valid library-scoped grant.
   Handoff: Continue with ATGSE-050 once protected routes can depend on addon

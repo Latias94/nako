@@ -166,6 +166,23 @@ pub struct AddonGrantRecord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonPrincipal {
+    pub addon: AddonRegistrationRecord,
+    pub token: AddonTokenRecord,
+    pub grants: Vec<AddonGrantRecord>,
+}
+
+impl AddonPrincipal {
+    #[must_use]
+    pub fn allows(&self, permission: AddonPermission, library_id: Option<LibraryId>) -> bool {
+        self.grants.iter().any(|grant| {
+            grant.permission == permission
+                && (grant.library_id.is_none() || grant.library_id == library_id)
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddonIssuedToken {
     pub raw_token: SecretString,
     pub token_prefix: String,
@@ -237,5 +254,61 @@ mod tests {
         assert!(token.token_hash.starts_with("sha256:"));
         assert_ne!(token.token_hash, raw);
         assert_eq!(format!("{:?}", token.raw_token), "<redacted>");
+    }
+
+    #[test]
+    fn addon_principal_allows_global_or_matching_library_grants() {
+        let addon_id = AddonId::new();
+        let library_id = LibraryId::new();
+        let other_library_id = LibraryId::new();
+        let principal = AddonPrincipal {
+            addon: AddonRegistrationRecord {
+                id: addon_id,
+                manifest_id: "example.metadata".to_owned(),
+                name: "Example Metadata".to_owned(),
+                version: "0.1.0".to_owned(),
+                protocol_version: "2026-05-15".to_owned(),
+                base_url: "https://example.test/addon".to_owned(),
+                manifest_json: "{}".to_owned(),
+                granted_scopes: Vec::new(),
+                status: AddonStatus::Enabled,
+                created_at: "2026-05-18T00:00:00.000Z".to_owned(),
+                updated_at: "2026-05-18T00:00:00.000Z".to_owned(),
+            },
+            token: AddonTokenRecord {
+                id: AddonTokenId::new(),
+                addon_id,
+                label: "default".to_owned(),
+                token_prefix: "taru_at_prefix".to_owned(),
+                token_hash: "sha256:token".to_owned(),
+                status: AddonTokenStatus::Active,
+                created_at: "2026-05-18T00:00:00.000Z".to_owned(),
+                rotated_at: None,
+                revoked_at: None,
+                last_used_at: None,
+            },
+            grants: vec![
+                AddonGrantRecord {
+                    id: AddonGrantId::new(),
+                    addon_id,
+                    permission: AddonPermission::MetadataWrite,
+                    library_id: Some(library_id),
+                    created_at: "2026-05-18T00:00:00.000Z".to_owned(),
+                },
+                AddonGrantRecord {
+                    id: AddonGrantId::new(),
+                    addon_id,
+                    permission: AddonPermission::ArtworkWrite,
+                    library_id: None,
+                    created_at: "2026-05-18T00:00:00.000Z".to_owned(),
+                },
+            ],
+        };
+
+        assert!(principal.allows(AddonPermission::MetadataWrite, Some(library_id)));
+        assert!(!principal.allows(AddonPermission::MetadataWrite, Some(other_library_id)));
+        assert!(!principal.allows(AddonPermission::MetadataWrite, None));
+        assert!(principal.allows(AddonPermission::ArtworkWrite, Some(library_id)));
+        assert!(principal.allows(AddonPermission::ArtworkWrite, None));
     }
 }

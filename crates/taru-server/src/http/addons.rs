@@ -1,16 +1,20 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
+    http::HeaderMap,
     response::IntoResponse,
     routing::{get, post},
 };
-use taru_api::{IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest};
+use taru_api::{
+    AddonAccessCheckRequest, IssueAddonTokenRequest, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest,
+};
 use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
 
 use crate::app::TaruApp;
 
-use super::{error::ApiResult, query::AddonListQuery};
+use super::{auth, error::ApiResult, query::AddonListQuery};
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
@@ -32,6 +36,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             "/admin/v1/addons/{addon_id}/grants",
             get(list_addon_grants).put(replace_addon_grants),
         )
+}
+
+pub(super) fn runtime_routes() -> Router<TaruApp> {
+    Router::new().route("/addon/v1/access-check", post(check_addon_access))
 }
 
 #[instrument(skip(app))]
@@ -119,4 +127,20 @@ pub(super) async fn list_addon_grants(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().list_addon_grants(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn check_addon_access(
+    State(app): State<TaruApp>,
+    headers: HeaderMap,
+    Json(request): Json<AddonAccessCheckRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| taru_core::TaruError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons().check_addon_access(raw_token, request).await?,
+    ))
 }

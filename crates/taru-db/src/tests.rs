@@ -2687,6 +2687,23 @@ async fn sqlite_store_round_trips_addon_tokens_and_grants() {
     assert_eq!(replacement.status, AddonTokenStatus::Active);
     assert_eq!(replacement.token_hash, "sha256:second");
 
+    assert_eq!(
+        store
+            .find_addon_token_by_hash("sha256:second")
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        replacement_id
+    );
+
+    let used = store
+        .mark_addon_token_used(replacement_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(used.last_used_at.is_some());
+
     let revoked = store
         .revoke_addon_token(replacement_id)
         .await
