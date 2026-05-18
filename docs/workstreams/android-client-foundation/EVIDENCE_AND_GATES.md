@@ -1,6 +1,6 @@
 # Android Client Foundation Evidence And Gates
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 This file defines validation expectations for the Android-first client lane.

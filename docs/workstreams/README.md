@@ -6,10 +6,11 @@ attention.
 
 ## Current Workstreams
 
-- [android-client-foundation](android-client-foundation/README.md): proposed
-  Android-first client work, covering native Android implementation order,
-  playback-first mobile scope, shared Rust client-core boundaries, and Media3
-  playback validation planning under ADR 0026.
+- [android-client-foundation](android-client-foundation/README.md): completed
+  Android-first client foundation work, covering native Android implementation
+  order, playback-first mobile scope, Public Client API connection/browse/search
+  loops, playback decision/request construction, Media3 playback smoke,
+  playback session boundary, and follow-on API gaps under ADR 0026.
 - [catalog-hydration-lookup-deepening](catalog-hydration-lookup-deepening/README.md):
   completed M42 catalog hydration seam work, covering a workflow-level
   `CatalogHydrationPort`, hidden lookup internals, and narrower metadata/NFO

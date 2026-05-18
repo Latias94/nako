@@ -1,11 +1,11 @@
 # Android Client Foundation Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
 
-The design baseline is documented. `ACF-010` created the Android scaffold
+The Android client foundation lane is closed. `ACF-010` created the Android scaffold
 under `apps/android` as a single Gradle `:app` module outside the Rust Cargo
 workspace. `ACF-020` added the first connection/auth slice. `ACF-030A` added
 the first minimal browse tracer. `ACF-030B` added the first read-only Media
@@ -167,10 +167,10 @@ Resolved decisions:
 
 ## Next Task
 
-`ACF-060` is complete as a client foundation slice. The Android client now
-understands public playback sessions and device-local transient playback
-position boundaries, but it does not claim server-authoritative resume or
-cross-device Continue Watching.
+None in this workstream. `ACF-060` completed the client foundation slice. The
+Android client now understands public playback sessions and device-local
+transient playback position boundaries, but it does not claim
+server-authoritative resume or cross-device Continue Watching.
 
 The visual direction is documented in `CLIENT_INTERFACE_DESIGN.md` and
 reference screenshots live under

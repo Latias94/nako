@@ -1,6 +1,6 @@
 # Android Client Foundation Milestones
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## ACF-M0: Scope And Architecture Baseline

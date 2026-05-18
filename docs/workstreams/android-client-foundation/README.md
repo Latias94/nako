@@ -1,6 +1,6 @@
 # Android Client Foundation
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 This workstream tracks the Android-first implementation lane for Taru's native
@@ -32,7 +32,7 @@ media-library browsing loop:
 - show Managed Artwork when the public route exists;
 - request Playback Source Selection through playback decision APIs;
 - play direct, remux, or HLS outputs through Media3 ExoPlayer;
-- expose basic playback/session errors in user-facing language.
+- expose basic playback/session errors in user-facing language;
 - keep device-local transient playback position scoped to the active server
   profile while authoritative User Playback State remains a Public Client API
   follow-up.
@@ -40,3 +40,17 @@ media-library browsing loop:
 Server administration, metadata editing, NFO workflows, addon management,
 webhook/automation configuration, and advanced transcode policy management are
 out of the first Android client slice.
+
+## Closeout
+
+The foundation lane is complete as of `ACF-060`. Android can connect to Taru,
+authenticate through the Public Client API, browse the minimal library loop,
+request playback decisions, play a public playback route through Media3, and
+consume public playback session inspection/cancellation without depending on
+server/internal crates.
+
+Remaining work belongs in follow-on lanes rather than this foundation lane:
+authoritative **User Playback State**, cross-device Continue Watching, a public
+playback stream session handle, durable Android local state, downloads,
+track/subtitle depth, PiP, Cast, external player handoff, Android TV, iOS, and
+shared Rust/UniFFI mobile-core packaging.
