@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "slug": "addon-protected-writes",
+  "title": "Addon Protected Writes",
+  "status": "active",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Accepted Addon Side Effect intake records need a Taru-owned apply boundary before addons can perform concrete metadata, artwork, subtitle, NFO, or Library File Write changes.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/addon-protected-writes/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-protected-writes/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-protected-writes/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-protected-writes/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-protected-writes/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"side_effect|Addon Side Effect|metadata_write|artwork_write|subtitle_write|Canonical Metadata|Managed Artwork|Library File Write|NFO|subtitle|Source Locator\" crates docs",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo nextest run -p taru-server addon_side_effect --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-protected-writes/DESIGN.md",
+    "docs/workstreams/addon-protected-writes/TODO.md",
+    "docs/workstreams/addon-token-grants-side-effects/EVIDENCE_AND_GATES.md",
+    "crates/taru-core/src/addon.rs",
+    "crates/taru-core/src/repository/addon.rs",
+    "crates/taru-db/src/addons.rs",
+    "crates/taru-server/src/app/addons.rs",
+    "crates/taru-server/src/http/addons.rs",
+    "crates/taru-api/src/extension.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": "APW-020",
+  "first_slice": "protected write seam audit and first apply target selection",
+  "non_goals": [
+    "Addon Token lifecycle redesign",
+    "OAuth-first authorization",
+    "Addon Manager lifecycle automation",
+    "Native Plugin ABI",
+    "Jellyfin Plugin Compatibility",
+    "direct addon database or filesystem access",
+    "Public Client API write routes",
+    "field-level permission matrix"
+  ],
+  "routed_from": {
+    "workstream": "addon-token-grants-side-effects",
+    "task": "ATGSE-060",
+    "source": "concrete metadata/artwork/subtitle/NFO/Library File Write handlers split from intake proof"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with APW-020 seam audit before changing protected-write apply code. Split narrower lanes if metadata, artwork, subtitle, or Library File Write breadth dominates the apply model."
+  }
+}

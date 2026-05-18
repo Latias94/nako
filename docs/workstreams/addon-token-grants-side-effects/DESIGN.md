@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -117,17 +117,18 @@ and idempotency seam before adding richer write handlers.
 
 ## Closeout Condition
 
-This lane can close when:
+This lane closed on 2026-05-18. The closeout condition was met as follows:
 
-- Addon Token lifecycle and secret storage policy are implemented or explicitly
-  deferred with an ADR-backed reason;
-- accepted Addon Permissions and Library-Scoped Addon Grants are enforced by a
-  runtime access check;
-- at least one Addon Side Effect intake path is implemented with tests for
-  allowed, denied, revoked, wrong-library, duplicate-idempotency, and redacted
-  response cases;
-- docs describe how addons perform protected writes without receiving admin
-  tokens or raw storage authority;
-- targeted Rust gates and `git diff --check` pass;
-- and broader metadata/artwork/subtitle write feature breadth is completed or
-  split into follow-on lanes.
+- Addon Token lifecycle and secret storage policy are implemented.
+- Accepted Addon Permissions and Library-Scoped Addon Grants are enforced by
+  addon-principal runtime checks.
+- `POST /addon/v1/side-effects` proves Addon Side Effect intake with tests for
+  allowed, denied, revoked-token, wrong-library, duplicate-idempotency,
+  malformed-target, and redacted response behavior.
+- `docs/api/HTTP_API.md` describes protected Addon runtime routes without
+  admin tokens or raw storage authority.
+- Targeted Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
+  passed for ATGSE-050 and ATGSE-060.
+- Broader metadata, Managed Artwork, subtitle, NFO, and Library File Write
+  application breadth is split to
+  `docs/workstreams/addon-protected-writes/`.

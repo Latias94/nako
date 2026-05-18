@@ -2,11 +2,17 @@
 
 ## Status
 
-Active.
+Completed.
 
 This workstream owns the follow-up needed before Addons can perform protected
 writes through Taru. It turns the Post-M5 Addon Token, Library-Scoped Addon
 Grant, and Addon Side Effect concerns into an executable architecture lane.
+
+This lane closed on 2026-05-18 after the Addon Token lifecycle, accepted grant
+model, addon-principal runtime checks, and first Addon Side Effect intake proof
+were implemented and verified. Concrete metadata, artwork, subtitle, NFO, and
+Library File Write application behavior is split to
+`../addon-protected-writes/`.
 
 Top-level tracking:
 
@@ -39,5 +45,5 @@ Top-level tracking:
   process supervision, or marketplace behavior.
 - No direct Addon access to database credentials, admin tokens, raw Source
   Locators, or library filesystem paths.
-- No implementation of concrete metadata/artwork/subtitle write APIs until the
-  token, grant, and side-effect contracts are designed and gated.
+- No implementation of concrete metadata/artwork/subtitle write APIs in this
+  lane; those apply handlers now belong to `../addon-protected-writes/`.

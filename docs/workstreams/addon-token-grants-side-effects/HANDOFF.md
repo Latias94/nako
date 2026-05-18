@@ -1,28 +1,30 @@
 # Addon Token Grants Side Effects Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
 
-ATGSE-050 is implemented and awaiting final verification/commit. Taru now has
-first-class Addon Token issuance, rotation, revocation, redacted inspection,
-accepted Addon Permission / Library-Scoped Addon Grant storage, an addon-owned
-runtime principal authorization seam, and the first Addon Side Effect intake
-proof.
+This lane is closed. Taru now has first-class Addon Token issuance, rotation,
+revocation, redacted inspection, accepted Addon Permission /
+Library-Scoped Addon Grant storage, an addon-owned runtime principal
+authorization seam, and the first Addon Side Effect intake proof.
+
+Concrete Canonical Metadata, Managed Artwork, subtitle, NFO, and Library File
+Write application behavior is split to
+`docs/workstreams/addon-protected-writes/`.
 
 ## Active Task
 
 - Task ID: ATGSE-060
 - Owner: planner
-- Files: `docs/workstreams/addon-token-grants-side-effects`, `docs/api`,
-  optional follow-on workstreams for concrete metadata/artwork/subtitle/
-  Library File Write handlers
-- Validation: final `verify-rust-workstream` gates,
-  `cargo fmt --all -- --check`, `git diff --check`
-- Status: READY_AFTER_ATGSE_050_COMMIT
-- Review: run review-workstream if the lane is closed rather than split
-- Evidence: ATGSE-050 code/tests/docs plus final gate evidence
+- Files: `docs/workstreams/addon-token-grants-side-effects`,
+  `docs/workstreams/addon-protected-writes`, `docs/workstreams/README.md`
+- Validation: `cargo fmt --all -- --check`; `git diff --check`
+- Status: DONE
+- Review: closeout self-review found no blocking findings
+- Evidence: ATGSE-050 code/tests/docs, ATGSE-060 closeout evidence, and
+  `docs/workstreams/addon-protected-writes/`
 
 ## Decisions Since Last Update
 
@@ -69,6 +71,5 @@ proof.
 
 ## Next Recommended Action
 
-- Finish ATGSE-050 verification and commit.
-- Then run ATGSE-060 to close the lane or split follow-ons for concrete
-  metadata, Managed Artwork, subtitle, and Library File Write handlers.
+- Continue with APW-020 in `docs/workstreams/addon-protected-writes/` to audit
+  concrete protected-write seams and choose the first apply target.
