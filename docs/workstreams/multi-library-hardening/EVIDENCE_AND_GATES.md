@@ -1,6 +1,6 @@
 # Multi-Library Hardening Evidence And Gates
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro

@@ -1,6 +1,6 @@
 # Multi-Library Hardening TODO
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
