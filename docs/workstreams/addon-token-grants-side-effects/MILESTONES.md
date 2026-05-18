@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -131,11 +131,15 @@ Primary gates:
 Outcome: the lane is either closed with evidence or split into narrower
 protected-write follow-ons.
 
+Result: completed on 2026-05-18. The lane is closed, and concrete
+protected-write application behavior is split to
+`docs/workstreams/addon-protected-writes/`.
+
 Exit criteria:
 
 - `EVIDENCE_AND_GATES.md` records fresh command evidence.
 - User-facing and addon-author docs reflect shipped token/grant/intake
   behavior.
-- Remaining metadata/artwork/subtitle/Library File Write breadth is completed,
-  deferred, or split.
+- Remaining metadata/artwork/subtitle/Library File Write breadth is split to
+  `docs/workstreams/addon-protected-writes/`.
 - `WORKSTREAM.json` status and `HANDOFF.md` match reality.

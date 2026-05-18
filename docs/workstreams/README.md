@@ -39,9 +39,14 @@ attention.
   raw Source Locator exposure from protocol DTOs, OpenAPI, SDKs, and HTTP docs
   while preserving internal storage/playback locators.
 - [addon-token-grants-side-effects](addon-token-grants-side-effects/README.md):
-  proposed ARF-006 follow-up for Addon Token issuance, rotation,
+  completed ARF-006 follow-up for Addon Token issuance, rotation,
   Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake before
   metadata, artwork, subtitle, or Library File Write behavior is enabled.
+- [addon-protected-writes](addon-protected-writes/README.md):
+  active follow-on split from the Addon Token Grants Side Effects closeout,
+  covering concrete Taru-owned Canonical Metadata, Managed Artwork, subtitle,
+  NFO, and Library File Write application after accepted Addon Side Effect
+  intake.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing

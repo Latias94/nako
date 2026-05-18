@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "addon-token-grants-side-effects",
   "title": "Addon Token Grants Side Effects",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Taru can register and call Addon Sidecars, but Addon Token lifecycle, accepted Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake are not defined before protected writes.",
@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "ATGSE-060",
+  "current_task": null,
   "first_slice": "current addon token/grant/side-effect boundary audit",
   "non_goals": [
     "OAuth-first authorization",
@@ -66,7 +66,7 @@
     "source": "docs/workstreams/addons-automation/TODO.md Post-M5 follow-up"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "ATGSE-050 Addon Side Effect intake proof is complete. Continue with ATGSE-060 closeout or split concrete metadata/artwork/subtitle/Library File Write handlers into follow-on lanes."
+    "default_action": "close",
+    "notes": "ATGSE-060 closeout is complete. Concrete metadata, Managed Artwork, subtitle, NFO, and Library File Write application behavior is split to docs/workstreams/addon-protected-writes/."
   }
 }

@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -357,3 +357,30 @@ ATGSE-050 review status: no blocking workstream compliance or code-quality
 findings remained after self-review. Residual risk is limited to future
 concrete metadata/artwork/subtitle/Library File Write handlers, which remain
 outside this proof slice.
+
+2026-05-18, ATGSE-060 closeout and follow-on split:
+
+- Closeout review:
+  - ATGSE target state is satisfied by Addon Token lifecycle, accepted grants,
+    addon-principal runtime checks, and Addon Side Effect intake proof.
+  - Concrete Canonical Metadata, Managed Artwork, subtitle, NFO, and Library
+    File Write application behavior is a new scope boundary, not unfinished
+    token/grant/intake work.
+  - No ADR amendment is required for the split because ADR 0020 already
+    requires Taru-owned APIs, Addon Tokens, accepted permissions, library
+    grants, audit, and resource boundaries.
+- Workstream updates:
+  - `docs/workstreams/addon-token-grants-side-effects/WORKSTREAM.json` marked
+    completed.
+  - `docs/workstreams/addon-token-grants-side-effects/TODO.md` marked
+    ATGSE-060 complete.
+  - `docs/workstreams/addon-token-grants-side-effects/HANDOFF.md` points to
+    the follow-on lane.
+  - `docs/workstreams/addon-protected-writes/` opened for concrete protected
+    writes.
+- Fresh validation:
+  - `cargo fmt --all -- --check`: passed.
+  - `git diff --check`: passed.
+  - `docs/workstreams/addon-token-grants-side-effects/WORKSTREAM.json`
+    parses as JSON.
+  - `docs/workstreams/addon-protected-writes/WORKSTREAM.json` parses as JSON.

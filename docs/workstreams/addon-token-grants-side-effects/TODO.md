@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -72,11 +72,14 @@ Last updated: 2026-05-18
 
 ## M5 - Docs, Gates, And Closeout
 
-- [ ] ATGSE-060 [owner=planner] [deps=ATGSE-050] [scope=docs/workstreams/addon-token-grants-side-effects,docs/api,docs/adr]
+- [x] ATGSE-060 [owner=planner] [deps=ATGSE-050] [scope=docs/workstreams/addon-token-grants-side-effects,docs/workstreams/addon-protected-writes,docs/workstreams/README.md]
   Goal: Close the lane or split follow-ons for concrete Addon Side Effect
   handlers.
-  Validation: verify-rust-workstream records fresh final gate evidence.
-  Review: review-workstream has no blocking findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Recommend the next lane from metadata/artwork/subtitle/library-file
-  writes only after token/grant/intake evidence is stable.
+  Validation: `cargo fmt --all -- --check`; `git diff --check`.
+  Review: closeout self-review found no blocking workstream compliance issues;
+  concrete apply behavior is intentionally split.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`,
+  `docs/workstreams/addon-protected-writes/`.
+  Handoff: Lane is closed. Continue with APW-020 in
+  `docs/workstreams/addon-protected-writes/` before applying concrete
+  metadata, artwork, subtitle, NFO, or Library File Write behavior.
