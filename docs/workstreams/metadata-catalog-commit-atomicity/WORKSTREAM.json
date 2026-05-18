@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "metadata-catalog-commit-atomicity",
   "title": "Metadata Catalog Commit Atomicity",
-  "status": "proposed",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Metadata and catalog workflows currently expose multi-record commit ordering, including a graph/search projection partial-write window.",
@@ -49,9 +49,9 @@
     "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
-  "current_task": "MCC-040",
+  "current_task": null,
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue while changes stay focused on metadata/catalog commit consistency. Split NFO merge policy and public API work into separate lanes."
+    "default_action": "stop",
+    "notes": "This lane is complete. Open a follow-up lane for any larger metadata-refresh-plus-catalog or projection-pipeline design."
   }
 }

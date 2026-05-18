@@ -1,6 +1,6 @@
 # Metadata Catalog Commit Atomicity Handoff
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
@@ -19,15 +19,12 @@ adapter owns the transaction and reads current Library Item State rows inside
 that transaction before confirming them. The old shallow
 `apply_metadata_refresh` interface was removed.
 
-## Active Task
+## Closeout
 
 - Task ID: MCC-040
-- Owner: planner
-- Files:
-  - `docs/workstreams/metadata-catalog-commit-atomicity/`
-- Validation: Fresh closeout gate set in `EVIDENCE_AND_GATES.md`.
-- Status: READY
-- Review: pending
+- Owner: codex
+- Status: COMPLETE
+- Validation: Fresh closeout gate recorded in `EVIDENCE_AND_GATES.md`.
 - Evidence: `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -52,7 +49,6 @@ that transaction before confirming them. The old shallow
 
 ## Next Recommended Action
 
-Run MCC-040 closeout. Decide whether this lane can close with catalog hydration
-as a separate atomic projection step, or whether to open a follow-up for a
-larger metadata-refresh-plus-prepared-catalog unit of work or event-driven
-projection pipeline.
+If a larger metadata-refresh-plus-prepared-catalog or event-driven projection
+design is still desired, open a new architecture or execution lane. Keep this
+lane closed.

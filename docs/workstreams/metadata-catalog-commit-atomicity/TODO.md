@@ -47,8 +47,11 @@ Last updated: 2026-05-18
 
 ## M3 - Closeout
 
-- [ ] MCC-040 [owner=planner] [deps=MCC-030] [scope=docs/workstreams/metadata-catalog-commit-atomicity]
-  Goal: Close or split remaining metadata unit-of-work work.
+- [x] MCC-040 [owner=codex] [deps=MCC-030] [scope=docs/workstreams/metadata-catalog-commit-atomicity]
+  Goal: Close the lane after recording fresh closeout evidence and splitting
+  any larger prepared-catalog or projection-pipeline follow-up out of scope.
   Validation: Fresh gate evidence recorded in `EVIDENCE_AND_GATES.md`.
   Evidence: `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Route NFO merge policy work to `metadata-merge-policy-unification`.
+  Handoff: Route NFO merge policy work to `metadata-merge-policy-unification`
+  and any larger metadata-refresh-plus-prepared-catalog design to the
+  architecture review follow-up lane.

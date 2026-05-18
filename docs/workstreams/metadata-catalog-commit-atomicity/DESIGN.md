@@ -1,6 +1,6 @@
 # Metadata Catalog Commit Atomicity
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -126,3 +126,21 @@ This lane can close when:
 - targeted and workspace-appropriate Rust gates pass;
 - `EVIDENCE_AND_GATES.md` records fresh validation;
 - `WORKSTREAM.json` and `HANDOFF.md` reflect the final status.
+
+## Closeout Decision
+
+This lane closes after MCC-040.
+
+The remaining question of whether metadata refresh and prepared catalog
+hydration should be one larger commit unit is intentionally not continued here.
+The current implementation removed the two concrete partial-write windows this
+lane targeted:
+
+- Catalog Item Graph replacement and Search Projection upsert commit together.
+- Metadata refresh persistence commits Canonical Metadata, Provider Raw
+  Response, Provider Subject, accepted Provider Mapping, and Library Item State
+  confirmation together.
+
+Crossing into metadata-refresh-plus-catalog-hydration would require a separate
+projection pipeline or prepared projection design. That work should be routed
+through `architecture-review-followups` rather than extending this lane.

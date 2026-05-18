@@ -100,6 +100,26 @@ Behavior proven:
   raw response cache, provider mapping creation, and library confirmation.
 - A mismatched Provider Raw Response item ID is rejected before persistence.
 
+2026-05-18, MCC-040 closeout:
+
+- `cargo check -p taru-catalog --tests` passed.
+- `cargo check -p taru-db --tests` passed.
+- `cargo check -p taru-metadata --tests` passed.
+- `cargo check -p taru-server --tests` passed.
+- `cargo nextest run -p taru-db commit_metadata_refresh --no-fail-fast`
+  passed: 3 tests.
+- `cargo nextest run -p taru-db sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails --no-fail-fast`
+  passed: 1 test.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.
+
+Closeout decision:
+
+- This lane is complete.
+- The remaining larger question, if needed, is a follow-up about metadata
+  refresh plus prepared catalog hydration or an event-driven projection
+  pipeline. That is intentionally out of scope for this lane.
+
 ## Notes
 
 Record fresh command output after each task. Do not mark a task complete based
