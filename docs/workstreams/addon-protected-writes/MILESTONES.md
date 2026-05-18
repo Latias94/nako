@@ -26,6 +26,10 @@ Primary evidence:
 Outcome: existing write seams are classified before adding effect-specific
 apply behavior.
 
+Result: completed on 2026-05-18. Canonical Metadata was selected as the first
+concrete apply target, with explicit side-effect apply outcome state and Addon
+metadata source attribution required before APW-030 writes domain state.
+
 Exit criteria:
 
 - Addon Side Effect intake, metadata merge, catalog commit, artwork, subtitle,

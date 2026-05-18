@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "APW-020",
+  "current_task": "APW-030",
   "first_slice": "protected write seam audit and first apply target selection",
   "non_goals": [
     "Addon Token lifecycle redesign",
@@ -69,6 +69,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with APW-020 seam audit before changing protected-write apply code. Split narrower lanes if metadata, artwork, subtitle, or Library File Write breadth dominates the apply model."
+    "notes": "APW-020 selected Canonical Metadata as the first concrete apply target. Continue with APW-030, starting with explicit side-effect apply outcome state and Addon metadata source attribution before applying writes."
   }
 }

@@ -16,17 +16,21 @@ Last updated: 2026-05-18
 
 ## M1 - Protected Write Seam Audit
 
-- [ ] APW-020 [owner=codex] [deps=APW-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-metadata,crates/taru-catalog,crates/taru-nfo,crates/taru-vfs,docs]
+- [x] APW-020 [owner=codex] [deps=APW-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-metadata,crates/taru-catalog,crates/taru-nfo,crates/taru-vfs,docs]
   Goal: Audit current Addon Side Effect intake, Canonical Metadata merge,
   catalog commit, Managed Artwork, subtitle, NFO, and storage/VFS write seams;
   choose the first concrete protected-write apply target.
   Validation: `rg -n "side_effect|Addon Side Effect|metadata_write|artwork_write|subtitle_write|Canonical Metadata|Managed Artwork|Library File Write|NFO|subtitle|Source Locator" crates docs`; `git diff --check`.
-  Review: no ADR amendment is required if the next slice preserves ADR 0020
-  and Taru-owned write boundaries; split an ADR only for direct storage
-  authority, Public Client write APIs, or OAuth-first authorization.
+  Review: no ADR amendment is required for APW-030 if it preserves ADR 0020,
+  adds explicit apply outcome state, keeps Addon metadata attribution
+  first-class, and routes writes through Taru-owned metadata/catalog seams.
+  Split an ADR only for direct storage authority, Public Client write APIs,
+  Admin API reuse, or OAuth-first authorization.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue with APW-030 if Canonical Metadata is still the safest
-  first apply slice; otherwise update this ledger with the narrower target.
+  Handoff: Continue with APW-030. Canonical Metadata remains the first concrete
+  apply target, but APW-030 must first add explicit side-effect apply outcome
+  state and Addon metadata source attribution; do not treat
+  `validation_status = accepted` as "domain write applied".
 
 ## M2 - Canonical Metadata Apply Slice
 
@@ -35,12 +39,13 @@ Last updated: 2026-05-18
   apply path that turns an accepted intake record into a Taru-owned Canonical
   Metadata update while preserving merge policy, idempotency, audit, redaction,
   and catalog/search consistency.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-metadata -p taru-catalog --tests`; focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`; relevant metadata/catalog tests; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-metadata -p taru-catalog --tests`; focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`; `cargo nextest run -p taru-db addon --no-fail-fast`; relevant metadata/catalog tests; `cargo fmt --all -- --check`; `git diff --check`.
   Review: review-workstream must check that HTTP handlers do not own metadata
   merge logic and that responses do not leak raw payloads, provenance, Source
   Locators, filesystem paths, or provider bodies.
-  Evidence: code/tests/docs proving allowed apply, denied apply, duplicate
-  idempotency, failed validation, redacted response, and catalog/search update.
+  Evidence: code/tests/docs proving apply outcome persistence, allowed apply,
+  denied apply, duplicate idempotency after apply, failed validation, redacted
+  response, Addon metadata source attribution, and catalog/search update.
   Handoff: Split field breadth if the payload schema grows beyond a minimal
   video-first Canonical Metadata slice.
 
