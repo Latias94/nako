@@ -46,7 +46,7 @@
   "adr_refs": [
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
-  "current_task": "MLH-020",
+  "current_task": "MLH-030",
   "first_slice": "configured-library startup behavior characterization",
   "non_goals": [
     "Public Client Source Locator redaction",

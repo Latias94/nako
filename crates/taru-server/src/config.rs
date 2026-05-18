@@ -799,6 +799,34 @@ mod tests {
     }
 
     #[test]
+    fn default_library_from_multi_library_config_returns_first_configured_library() {
+        let config = toml::from_str::<TaruServerConfig>(
+            r#"
+            database_url = "sqlite://taru.db"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            preset = "movies"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000002"
+            name = "Anime"
+            root = "F:/Media/Anime"
+            preset = "anime"
+            "#,
+        )
+        .unwrap();
+
+        let library = default_library_from_config(&config).unwrap();
+
+        assert_eq!(library.id, config.libraries[0].id);
+        assert_eq!(library.name, "Movies");
+        assert_eq!(library.options.preset, LibraryPreset::Movies);
+    }
+
+    #[test]
     fn config_uses_default_runtime_settings() {
         let config = toml::from_str::<TaruServerConfig>(
             r#"

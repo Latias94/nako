@@ -70,5 +70,21 @@ blocking findings, missing gates, and residual risks here.
 - Public Client Source Locator redaction and Library Access are explicit
   non-goals for this lane.
 
+2026-05-18, MLH-020:
+
+- Added startup characterization for persisting multiple configured libraries
+  with library-scoped roots and presets.
+- Added startup characterization showing configured desired state currently
+  overwrites an existing persisted Library row with the same ID.
+- Added startup characterization showing persisted Library rows missing from
+  configuration are currently retained.
+- Added config characterization showing `default_library_from_config` returns
+  the first configured library when several libraries are configured.
+- `cargo check -p taru-server --tests` passed.
+- `cargo nextest run -p taru-server startup --no-fail-fast` passed: 13 passed,
+  103 skipped.
+- `cargo nextest run -p taru-server default_library_from_multi_library_config_returns_first_configured_library --no-fail-fast`
+  passed: 1 passed, 115 skipped.
+
 Fresh verification is required before marking implementation tasks or the lane
 complete.

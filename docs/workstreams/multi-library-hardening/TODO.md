@@ -15,7 +15,7 @@ Last updated: 2026-05-18
 
 ## M1 - Current Behavior Characterization
 
-- [ ] MLH-020 [owner=unassigned] [deps=MLH-010] [scope=crates/taru-server/src/config.rs,crates/taru-server/src/app/startup.rs,crates/taru-server/src/app/tests/startup.rs]
+- [x] MLH-020 [owner=codex] [deps=MLH-010] [scope=crates/taru-server/src/config.rs,crates/taru-server/src/app/startup.rs,crates/taru-server/src/app/tests/startup.rs]
   Goal: Characterize current configured-library startup behavior, duplicate ID
   rejection, root updates, missing persisted libraries, and one-library
   fallback helpers.
@@ -23,8 +23,8 @@ Last updated: 2026-05-18
   `cargo nextest run -p taru-server startup --no-fail-fast`.
   Review: `review-workstream` before accepting completion.
   Evidence: startup/config tests and this workstream's evidence file.
-  Handoff: Continue with MLH-030 only after the expected reconciliation
-  behavior is test-visible.
+  Handoff: Startup/config behavior is now test-visible. Continue with MLH-030
+  to introduce an explicit reconciliation boundary.
 
 ## M2 - Reconciliation Boundary
 
