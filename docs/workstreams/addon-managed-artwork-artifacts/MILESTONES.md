@@ -1,6 +1,6 @@
 # Addon Managed Artwork Artifacts Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -77,3 +77,10 @@ Exit criteria:
 - HTTP/API docs reflect shipped `artwork_write` behavior.
 - Residual image-processing, thumbnail, or sidecar export work is completed,
   deferred, or split.
+
+Result: completed in AMAA-040. This lane closes after proving safe
+MediaItem-targeted Addon Artwork Candidate proposals. Remaining Managed Artwork
+ingest, cache/artifact storage, selected artwork, thumbnail, public
+`ImageAsset`, and diagnostics work is split to
+`docs/workstreams/managed-artwork-ingest-selection/`. Artwork sidecar export
+remains Library File Write scope, not AMAA scope.

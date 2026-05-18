@@ -1,6 +1,6 @@
 # Addon Managed Artwork Artifacts TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -46,11 +46,16 @@ Last updated: 2026-05-19
 
 ## M3 - Closeout Or Split
 
-- [ ] AMAA-040 [owner=planner] [deps=AMAA-030] [scope=docs/workstreams/addon-managed-artwork-artifacts,docs/api]
+- [x] AMAA-040 [owner=planner] [deps=AMAA-030] [scope=docs/workstreams/addon-managed-artwork-artifacts,docs/api,docs/workstreams/managed-artwork-ingest-selection]
   Goal: Close the artwork/artifact lane or split remaining cache/export
   breadth into narrower follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
-  Review: review-workstream has no blocking findings.
+  Review: no blocking findings. AMAA-030 satisfies the selected first-slice
+  contract without exposing raw payloads, Source Locators, filesystem paths,
+  remote handles, cache URIs, or unverified addon URLs as public client
+  artwork. The Addon handler records an internal candidate and does not own
+  fetch/cache/thumbnail/selection ordering.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Recommend the next lane only after artwork/artifact authority and
-  redaction guarantees are stable.
+  Handoff: Lane is closed. Continue with
+  `managed-artwork-ingest-selection` when the next product priority is
+  accepting candidates into Taru-managed cached/selected public artwork.

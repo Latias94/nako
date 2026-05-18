@@ -1,6 +1,6 @@
 # Addon Managed Artwork Artifacts
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -137,3 +137,15 @@ This lane can close when:
   guarantees are documented and tested;
 - targeted Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
   pass.
+
+## Closeout Decision
+
+AMAA-040 closes this lane after AMAA-030 proved the first safe
+`artwork_write` behavior: MediaItem-targeted Addon Artwork Candidate proposals
+with redacted apply outcome and no public `ImageAsset` writes.
+
+Remaining managed artwork fetch/cache, image validation, thumbnailing,
+selected artwork, Taru-managed artifact intake, public `ImageAsset`
+publication, resource budgets, and diagnostics are split to
+`docs/workstreams/managed-artwork-ingest-selection/`. Artwork sidecar export
+remains Library File Write scope.

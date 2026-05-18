@@ -1,6 +1,6 @@
 # Addon Managed Artwork Artifacts Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -198,3 +198,34 @@ or public API contracts.
     edited files.
   - `Get-Content -Raw docs\workstreams\addon-managed-artwork-artifacts\WORKSTREAM.json | ConvertFrom-Json | Out-Null`
     passed.
+
+2026-05-19, AMAA-040 closeout review and split:
+
+- AMAA-030 was committed as `8c2e74d feat(addons): propose artwork candidates
+  from side effects`.
+- Review result:
+  - Workstream compliance has no blocking findings. The shipped behavior
+    matches the selected first target: MediaItem-targeted Addon Artwork
+    Candidate proposals through `artwork_write`.
+  - Code-quality review has no blocking findings. The Addon handler
+    authenticates, validates, records, normalizes a small candidate command,
+    and delegates candidate persistence to repository seams; it does not own
+    remote fetch, image validation, cache/artifact storage, thumbnailing,
+    selected artwork, or public catalog-image publication.
+  - Redaction review has no blocking findings. Responses and stored
+    `apply_report` values expose only safe IDs/statuses/counters, not raw
+    payloads, provenance, Source Locators, filesystem paths, remote handles,
+    cache URIs, `source_uri`, or `cache_uri` public DTO fields.
+- Closeout decision:
+  - Close this lane after proving one safe `artwork_write` path.
+  - Split Candidate acceptance, remote fetch, image validation, cache URI
+    assignment, thumbnail generation, selected artwork, and public `ImageAsset`
+    publication to `docs/workstreams/managed-artwork-ingest-selection/`.
+  - Keep artwork sidecar export in `addon-library-file-write-policy` because it
+    is Library File Write behavior, not Managed Artwork behavior.
+- Final closeout gates after AMAA-040 documentation edits:
+  - `Get-Content -Raw docs\workstreams\addon-managed-artwork-artifacts\WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.

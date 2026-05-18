@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "slug": "managed-artwork-ingest-selection",
+  "title": "Managed Artwork Ingest Selection",
+  "status": "proposed",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Internal Addon Artwork Candidates need a Taru-owned acceptance, fetch, validation, cache/artifact, selection, and public artwork boundary before candidate sources can become client-visible artwork.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/managed-artwork-ingest-selection/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/managed-artwork-ingest-selection/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/managed-artwork-ingest-selection/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/managed-artwork-ingest-selection/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/managed-artwork-ingest-selection/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"ArtworkCandidate|ImageAsset|ArtworkTask|cache_uri|source_uri|thumbnail|staging|managed artwork|selected\" crates docs",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/managed-artwork-ingest-selection/DESIGN.md",
+    "docs/workstreams/managed-artwork-ingest-selection/TODO.md",
+    "docs/workstreams/addon-managed-artwork-artifacts/HANDOFF.md",
+    "crates/taru-core/src/media/artwork.rs",
+    "crates/taru-core/src/media/catalog.rs",
+    "crates/taru-db/src/artwork.rs",
+    "crates/taru-db/src/catalog.rs",
+    "crates/taru-api/src/public_client.rs",
+    "crates/taru-server/src/app/addons.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": "MAIS-020",
+  "first_slice": "Audit and select first Candidate acceptance target",
+  "non_goals": [
+    "Addon Manager lifecycle automation",
+    "direct addon database or filesystem access",
+    "artwork sidecar file export",
+    "arbitrary image generation or editing",
+    "Public Client write routes"
+  ],
+  "routed_from": {
+    "workstream": "addon-managed-artwork-artifacts",
+    "task": "AMAA-040",
+    "source": "managed artwork fetch/cache/selection breadth split from candidate proposal proof"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with MAIS-020 before accepting candidates into public artwork. Audit candidate, ArtworkTask, VFS/cache, staging, catalog image, and API seams; choose whether first acceptance creates an unselected managed artifact, selected public ImageAsset, or queued candidate ingest job."
+  }
+}

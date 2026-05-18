@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "addon-managed-artwork-artifacts",
   "title": "Addon Managed Artwork Artifacts",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Addon artwork outputs need a Taru-owned artwork/artifact apply boundary before artwork_write can create Managed Artwork, Artwork Candidates, or Taru-Managed Artifacts safely.",
@@ -47,7 +47,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "AMAA-040",
+  "current_task": null,
   "first_slice": "MediaItem-targeted Addon Artwork Candidate proposal",
   "non_goals": [
     "Addon Manager lifecycle automation",
@@ -62,7 +62,7 @@
     "source": "artwork_write and Managed Artwork breadth split from Canonical Metadata protected-write proof"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with AMAA-040: close this lane or split follow-ons for managed artwork fetch/cache, selected artwork, thumbnails, Taru-managed artifact intake, or artwork sidecar export. AMAA-030 implemented the MediaItem-targeted Addon Artwork Candidate proposal boundary without writing public ImageAsset rows."
+    "default_action": "close",
+    "notes": "AMAA-040 closeout is complete. The first safe artwork_write path is shipped for MediaItem-targeted Addon Artwork Candidate proposals. Managed artwork fetch/cache, selected artwork, thumbnails, Taru-managed artifact intake, and public ImageAsset publication are split to docs/workstreams/managed-artwork-ingest-selection/. Artwork sidecar export remains Library File Write scope."
   }
 }
