@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Selection Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -152,3 +152,32 @@ search, public API contracts, or durable job behavior.
 - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 3 tests.
 - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
   passed: 10 tests.
+
+2026-05-19, MAIS-040 closeout review and split:
+
+- MAIS-030 was committed as
+  `de72467 feat(artwork): queue managed candidate ingest`.
+- Review result:
+  - Workstream compliance has no blocking findings. The shipped behavior
+    matches the selected first target: Admin candidate acceptance into internal
+    managed artwork ingest state.
+  - Code-quality review has no blocking findings. The service validates the
+    candidate, target item, and library state before delegating the atomic
+    candidate/ingest/job commit to the repository boundary.
+  - Redaction review has no blocking findings. The Admin response and durable
+    job input expose Taru IDs, image kind, status, and job lifecycle only; they
+    do not expose candidate `source_uri`, Source Locators, filesystem paths,
+    remote storage handles, cache URIs, or unvalidated addon hotlinks.
+- Closeout decision:
+  - Close this lane after proving the queued candidate-ingest boundary.
+  - Split remote fetch/content validation and managed artifact byte storage to
+    the next follow-on.
+  - Split public image-serving/redacted references, thumbnails, and selected
+    artwork publication until a managed artifact exists.
+  - Keep artwork sidecar export in `addon-library-file-write-policy`.
+- Final closeout gates after MAIS-040 documentation edits:
+  - `Get-Content -Raw docs/workstreams/managed-artwork-ingest-selection/WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.

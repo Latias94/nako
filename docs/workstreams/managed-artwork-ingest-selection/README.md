@@ -1,14 +1,14 @@
 # Managed Artwork Ingest Selection
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
-This workstream owns the follow-on after
+This workstream owned the follow-on after
 `addon-managed-artwork-artifacts`. AMAA shipped the safe Addon Artwork
-Candidate proposal boundary. This lane decides how a candidate becomes
-Taru-managed artwork: fetched by Taru, validated as an image, stored under a
-Taru-owned cache/artifact URI, optionally thumbnailed, selected, and finally
-published as safe Public Client artwork.
+Candidate proposal boundary. This lane selected and shipped the first
+candidate acceptance boundary: an Admin API command queues Taru-owned managed
+artwork ingest state without fetching remote bytes or publishing public
+artwork.
 
 Authoritative docs:
 
@@ -24,14 +24,13 @@ Authoritative docs:
 
 ## Goals
 
-- Define the first Taru-owned candidate acceptance path.
-- Fetch remote artwork through bounded Taru-owned runtime policy, not through
-  Addon handler hotlinks.
-- Validate image content, size, type, dimensions, and failure diagnostics
-  before public publication.
-- Store managed artwork under Taru-owned cache/artifact URIs.
-- Publish selected public artwork without exposing raw candidate source URLs or
-  future cache internals.
+- Define and ship the first Taru-owned candidate acceptance path.
+- Keep remote artwork fetches out of Addon Side Effect handling.
+- Record a durable managed artwork ingest row and job with redacted input.
+- Prevent candidate source URLs, cache URIs, paths, and unvalidated hotlinks
+  from becoming Public Client artwork.
+- Split remote fetch, content validation, artifact bytes, image serving,
+  thumbnailing, and selected artwork publication into narrower follow-ons.
 
 ## Non-Goals
 

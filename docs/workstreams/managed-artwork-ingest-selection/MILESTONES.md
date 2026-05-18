@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Selection Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -66,3 +66,10 @@ Exit criteria:
 - HTTP/API docs reflect shipped behavior.
 - Residual thumbnail, admin review, or sidecar export work is completed,
   deferred, or split.
+
+Result:
+
+- Closed after MAIS-030 shipped the queued candidate-ingest boundary.
+- Remote fetch/content validation, managed artifact byte storage, public image
+  serving/redacted references, thumbnails, and selected artwork publication are
+  split to follow-on work.

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "managed-artwork-ingest-selection",
   "title": "Managed Artwork Ingest Selection",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Internal Addon Artwork Candidates need a Taru-owned acceptance, fetch, validation, cache/artifact, selection, and public artwork boundary before candidate sources can become client-visible artwork.",
@@ -55,7 +55,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAIS-040",
+  "current_task": null,
   "first_slice": "Queued candidate ingest into internal Managed Artwork state",
   "non_goals": [
     "Addon Manager lifecycle automation",
@@ -70,7 +70,7 @@
     "source": "managed artwork fetch/cache/selection breadth split from candidate proposal proof"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with MAIS-040. The queued candidate-ingest boundary is implemented; decide whether to close this lane or split remote fetch/content validation, managed artifact byte storage, thumbnails, selected artwork publication, and image-serving redaction into follow-ons."
+    "default_action": "close",
+    "notes": "MAIS-040 closeout is complete. The queued candidate-ingest boundary is shipped. Continue with a focused follow-on for managed artwork remote fetch/content validation and artifact byte storage before image-serving redaction, thumbnails, or selected artwork publication."
   }
 }

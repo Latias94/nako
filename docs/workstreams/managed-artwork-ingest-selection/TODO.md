@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Selection TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -53,11 +53,17 @@ Last updated: 2026-05-19
 
 ## M3 - Closeout Or Split
 
-- [ ] MAIS-040 [owner=planner] [deps=MAIS-030] [scope=docs/workstreams/managed-artwork-ingest-selection,docs/api]
+- [x] MAIS-040 [owner=planner] [deps=MAIS-030] [scope=docs/workstreams/managed-artwork-ingest-selection,docs/api]
   Goal: Close the managed artwork ingest lane or split remaining
   thumbnail/admin/artifact breadth into narrower follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
-  Review: review-workstream has no blocking findings.
+  Review: no blocking findings. MAIS-030 satisfies the selected first-slice
+  contract: candidate acceptance is first-party, creates internal managed
+  ingest state and a durable redacted job, and does not fetch remote bytes,
+  write public `ImageAsset` rows, select artwork, or expose source/cache
+  internals.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Recommend the next lane only after managed artwork authority and
-  redaction guarantees are stable.
+  Handoff: Lane is closed as the queued candidate-ingest boundary. Continue
+  with a follow-on for managed artwork fetch/content validation and artifact
+  byte storage before public image serving, thumbnails, or selected artwork
+  publication.
