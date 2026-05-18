@@ -1178,6 +1178,185 @@ async fn sqlite_store_round_trips_local_inference_evidence_without_confirming_me
 }
 
 #[tokio::test]
+async fn sqlite_store_lists_catalog_governance_items_for_unknown_and_low_confidence() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let unknown = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Unknown,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Unmatched Local File".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let low_confidence = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Weak Match".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let high_confidence = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Confident Match".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let unknown_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: unknown.id,
+        locator: "local:///Movies/Private/Unknown.Local.File.mkv".to_owned(),
+        file_name: "Unknown.Local.File.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let low_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: low_confidence.id,
+        locator: "local:///Movies/Weak.Match.mkv".to_owned(),
+        file_name: "Weak.Match.mkv".to_owned(),
+        size_bytes: Some(84),
+        fingerprint: Some("sha256:weak".to_owned()),
+    };
+    let high_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: high_confidence.id,
+        locator: "local:///Movies/Confident.Match.mkv".to_owned(),
+        file_name: "Confident.Match.mkv".to_owned(),
+        size_bytes: Some(168),
+        fingerprint: Some("sha256:confident".to_owned()),
+    };
+    let low_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "100".to_owned(),
+        title: Some("Weak Match".to_owned()),
+        release_year: None,
+        locale: Some("en-US".to_owned()),
+    };
+    let low_mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: low_confidence.id,
+        subject_id: low_subject.id,
+        status: ProviderMappingStatus::Accepted,
+        confidence_milli: Some(900),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+    let duplicate = SourceDuplicateRelationship {
+        id: SourceDuplicateRelationshipId::new(),
+        source_id: low_source.id,
+        duplicate_source_id: unknown_source.id,
+        evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
+        evidence_value: Some("sha256:weak".to_owned()),
+        status: SourceDuplicateRelationshipStatus::Suggested,
+        confidence_milli: Some(880),
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    for item in [&unknown, &low_confidence, &high_confidence] {
+        store.upsert_media_item(item).await.unwrap();
+    }
+    for source in [&unknown_source, &low_source, &high_source] {
+        store.upsert_media_source(source).await.unwrap();
+    }
+    store.upsert_provider_subject(&low_subject).await.unwrap();
+    store.upsert_provider_mapping(&low_mapping).await.unwrap();
+    store
+        .upsert_source_duplicate_relationship(&duplicate)
+        .await
+        .unwrap();
+    for (source, confidence) in [
+        (&unknown_source, 350),
+        (&low_source, 640),
+        (&high_source, 920),
+    ] {
+        store
+            .upsert_local_inference_evidence(&LocalInferenceEvidence {
+                id: LocalInferenceEvidenceId::new(),
+                source_id: source.id,
+                inferred_kind: if source.id == unknown_source.id {
+                    MediaKind::Unknown
+                } else {
+                    MediaKind::Movie
+                },
+                inferred_title: Some(source.file_name.trim_end_matches(".mkv").replace('.', " ")),
+                inferred_year: None,
+                inferred_season: None,
+                inferred_episode: None,
+                confidence_milli: Some(confidence),
+                evidence_source: LocalInferenceEvidenceSource::Path,
+                evidence_value: source.locator.clone(),
+                inference_version: "taru-naming:1".to_owned(),
+            })
+            .await
+            .unwrap();
+    }
+
+    let records = store
+        .list_catalog_governance_items(
+            CatalogGovernanceItemListFilter {
+                library_id: Some(library.id),
+                max_confidence_milli: 700,
+            },
+            PageRequest::new(10, 0),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0].item.id, unknown.id);
+    assert_eq!(records[0].item.kind, MediaKind::Unknown);
+    assert_eq!(records[0].source_count, 1);
+    assert_eq!(records[0].representative_source_id, Some(unknown_source.id));
+    assert_eq!(
+        records[0]
+            .best_local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(350)
+    );
+    assert_eq!(records[0].provider_mapping_count, 0);
+    assert_eq!(records[0].duplicate_relationship_count, 1);
+
+    assert_eq!(records[1].item.id, low_confidence.id);
+    assert_eq!(records[1].item.kind, MediaKind::Movie);
+    assert_eq!(
+        records[1]
+            .best_local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(640)
+    );
+    assert_eq!(records[1].provider_mapping_count, 1);
+    assert_eq!(records[1].accepted_provider_mapping_count, 1);
+    assert_eq!(records[1].duplicate_relationship_count, 1);
+    assert!(
+        !records
+            .iter()
+            .any(|record| record.item.id == high_confidence.id)
+    );
+}
+
+#[tokio::test]
 async fn sqlite_store_round_trips_media_probe_results() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

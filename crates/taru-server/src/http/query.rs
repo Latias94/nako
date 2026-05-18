@@ -1,9 +1,10 @@
 use serde::Deserialize;
 use taru_core::{
-    AddonStatus, DomainEventKind, IngestionFailurePhase, IngestionFailureStatus, JobKind,
-    JobListFilter, JobStatus, LibraryId, MediaSourceId, OutboxEventListFilter, OutboxEventStatus,
-    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionState,
+    AddonStatus, CatalogGovernanceItemListFilter,
+    DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
+    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId, MediaSourceId,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, StagingPurpose, StagingState, TaruError,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionState,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -228,6 +229,53 @@ impl StorageStagingQuery {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct CatalogGovernanceItemsQuery {
+    pub(super) library_id: Option<String>,
+    pub(super) max_confidence_milli: Option<String>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl CatalogGovernanceItemsQuery {
+    pub(super) fn into_filter_and_page(
+        self,
+    ) -> Result<(CatalogGovernanceItemListFilter, PageRequest), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+        let max_confidence_milli = self
+            .max_confidence_milli
+            .map(parse_confidence_milli_filter)
+            .transpose()?
+            .unwrap_or(DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI);
+
+        Ok((
+            CatalogGovernanceItemListFilter {
+                library_id: self
+                    .library_id
+                    .map(|value| {
+                        value
+                            .parse::<LibraryId>()
+                            .map_err(|err| TaruError::InvalidInput {
+                                message: format!("invalid library_id filter: {err}"),
+                            })
+                    })
+                    .transpose()?,
+                max_confidence_milli,
+            },
+            page.try_into()?,
+        ))
+    }
+}
+
 fn parse_job_status_filter(value: String) -> Result<JobStatus, TaruError> {
     JobStatus::parse(&value).map_err(|_err| TaruError::InvalidInput {
         message: format!("invalid status filter: {value}"),
@@ -286,6 +334,22 @@ fn parse_u64_filter(name: &str, value: String) -> Result<u64, TaruError> {
     value.parse::<u64>().map_err(|err| TaruError::InvalidInput {
         message: format!("invalid {name} filter: {err}"),
     })
+}
+
+fn parse_confidence_milli_filter(value: String) -> Result<u16, TaruError> {
+    let confidence = value
+        .parse::<u16>()
+        .map_err(|err| TaruError::InvalidInput {
+            message: format!("invalid max_confidence_milli filter: {err}"),
+        })?;
+
+    if confidence > 1_000 {
+        return Err(TaruError::InvalidInput {
+            message: "max_confidence_milli must be less than or equal to 1000".to_owned(),
+        });
+    }
+
+    Ok(confidence)
 }
 
 impl TryFrom<PageQuery> for PageRequest {

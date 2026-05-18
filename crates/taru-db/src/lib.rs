@@ -6,8 +6,10 @@ use taru_core::{
     ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactId, AutomationArtifactKind,
     AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability,
     AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus,
-    AutomationRepository, CanonicalMetadata, CatalogItemGraphReplacement, CatalogRepository,
-    Collection, CollectionId, CollectionItem, CreditRole, DirectorySnapshot, DomainEventKind,
+    AutomationRepository, CanonicalMetadata, CatalogGovernanceItemListFilter,
+    CatalogGovernanceItemRecord, CatalogGovernanceRepository, CatalogItemGraphReplacement,
+    CatalogRepository, Collection, CollectionId, CollectionItem, CreditRole, DirectorySnapshot,
+    DomainEventKind,
     DomainEventSubject, EventId, EventOutboxRepository, ExternalId, ExternalProvider, Genre,
     GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass,
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRecord,
@@ -46,6 +48,7 @@ mod addons;
 mod artwork;
 mod automation;
 mod catalog;
+mod catalog_governance;
 mod codec;
 mod event_outbox;
 mod ingestion;

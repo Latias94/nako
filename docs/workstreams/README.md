@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
+  completed M60 Admin API read-model work, covering a redacted catalog
+  governance queue for unknown and low-confidence Media Items without changing
+  the Public Client API.
 - [admin-operations-read-models](admin-operations-read-models/README.md):
   completed M57-M59 Admin API read-model batch, covering redacted event outbox
   list/filter, storage staging/cache diagnostics, and sanitized server config

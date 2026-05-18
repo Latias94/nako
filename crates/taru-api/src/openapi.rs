@@ -850,6 +850,7 @@ mod tests {
         }
 
         for excluded in [
+            "/admin/v1/catalog/governance/items",
             "/admin/v1/overview",
             "/admin/v1/events",
             "/admin/v1/jobs",

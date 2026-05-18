@@ -1,6 +1,7 @@
 mod addon;
 mod automation;
 mod catalog;
+mod catalog_governance;
 mod ingestion;
 mod jobs;
 mod library;
@@ -16,6 +17,7 @@ mod webhook;
 pub use addon::*;
 pub use automation::*;
 pub use catalog::*;
+pub use catalog_governance::*;
 pub use ingestion::*;
 pub use jobs::*;
 pub use library::*;

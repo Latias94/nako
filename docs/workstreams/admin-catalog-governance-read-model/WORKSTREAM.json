@@ -1,0 +1,15 @@
+{
+  "slug": "admin-catalog-governance-read-model",
+  "status": "completed",
+  "milestones": ["M60"],
+  "current_goal": null,
+  "public_client_api_changes": false,
+  "admin_api_routes": ["/admin/v1/catalog/governance/items"],
+  "non_goals": [
+    "catalog repair mutations",
+    "provider rematch mutations",
+    "NFO import/export behavior changes",
+    "Source Variant or Edition UI",
+    "taru-client-protocol changes"
+  ]
+}

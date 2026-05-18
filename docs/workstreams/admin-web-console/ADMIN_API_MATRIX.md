@@ -39,7 +39,7 @@ Public Client API contracts remain separate.
 | Libraries | `GET /libraries`, `GET /libraries/{library_id}`, `GET /libraries/{library_id}/sources` | Public Client API | Directly supports library list/detail and source list, but uses client-facing DTOs. |
 | Library operations | `POST /libraries/{library_id}/scan`, `POST /libraries/{library_id}/nfo/import`, `POST /libraries/{library_id}/nfo/export` | Admin/internal | Supports scan and NFO job actions. |
 | Ingestion failures | `GET/POST /libraries/{library_id}/ingestion/failures` | Admin/internal | Supports failure list and ignore action. Missing retry/resolution actions. |
-| Catalog browse | `GET /items`, `GET /items/{item_id}`, `GET /items/{item_id}/credits`, `GET /items/{item_id}/images`, people/tags/genres/search routes | Public Client API | Supports read-only catalog review and item detail. Not enough for repair workflows. |
+| Catalog browse/governance | `GET /items`, `GET /items/{item_id}`, `GET /items/{item_id}/credits`, `GET /items/{item_id}/images`, people/tags/genres/search routes, `GET /admin/v1/catalog/governance/items` | Public Client API plus Admin API v1 | Supports read-only catalog review, item detail, and a redacted unknown/low-confidence governance queue. Not enough for repair workflows. |
 | Source probe | `GET /sources/{source_id}/probe` | Public Client API | Supports source technical-facts panel. |
 | Metadata jobs | `POST /items/{item_id}/metadata/refresh`, `POST /metadata/maintenance/jobs`, `POST /metadata/maintenance/plan` | Admin/internal | Supports item refresh, batch maintenance enqueue, and dry-run planning. |
 | Metadata diagnostics | `GET /items/{item_id}/metadata/attempts`, `GET /items/{item_id}/metadata/raw`, `GET /metadata/providers`, `POST /metadata/raw/cleanup` | Admin/internal | Supports provider status, item attempts, raw cache view, and cleanup. |
@@ -59,7 +59,7 @@ Public Client API contracts remain separate.
 | Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. `GET /admin/v1/jobs`, `GET /admin/v1/playback/sessions`, and `GET /admin/v1/events` support drill-down tables. | Still needs recent failures and warning list/filter endpoints if the console needs more drill-down data. |
 | Media Libraries | Good for read and actions: library list/detail/sources, scan, NFO import/export, ingestion failure list/ignore. | Needs create/edit/delete library only if Taru supports runtime-configurable libraries. Needs failure retry/resolve semantics if desired. |
 | Library Detail | Good for core read-only detail and operations. | Needs latest scan summary, configured backend detail without unsafe local paths, and per-library job history. |
-| Catalog | Partial: public browse/search/item/credits/images/source probe. | Needs unknown-item filter, duplicate-source list, provider mapping list, local inference evidence route, hierarchy repair routes, and source variant/edition governance. |
+| Catalog | Partial but improved: public browse/search/item/credits/images/source probe plus `GET /admin/v1/catalog/governance/items` for a redacted unknown/low-confidence queue with source counts, Local Inference summary, Provider Mapping counts, and duplicate relationship counts. | Needs duplicate-source list, provider mapping list/detail, local inference evidence detail route, NFO sidecar status, hierarchy repair routes, and source variant/edition governance. |
 | Item Detail | Partial: item, sources through library source list, credits, images, source probe, metadata attempts/raw, automation artifacts. | Needs direct item-to-sources route, provider mappings, local inference evidence, NFO sidecar status, field provenance/field locks, duplicate relationships, and admin-only source diagnostics. |
 | Metadata Providers | Good: provider diagnostics and runtime budgets exist. | Needs configuration edit if provider config becomes runtime editable. Current diagnostics are process-local. |
 | Metadata Maintenance | Good: dry-run plan, enqueue job, item refresh, raw cache cleanup. | Needs maintenance schedule read/edit routes if schedules become UI-managed. |
@@ -97,8 +97,9 @@ Likely new Admin DTO groups:
 - `AdminServerConfigDiagnosticsResponse`
 - `AdminStorageStagingDiagnosticsResponse`
 - `StartupReportResponse`
-- `CatalogGovernanceResponse` or narrower DTOs for unknown items, duplicate
-  relationships, local inference evidence, provider mappings, and NFO status
+- `AdminCatalogGovernanceItemListResponse` and narrower follow-up DTOs for
+  duplicate relationships, local inference evidence detail, provider mappings,
+  and NFO status
 - `AddonHealthResponse` and `AddonTokenRotationResponse`
 
 ## Existing Safety Behavior
@@ -133,9 +134,11 @@ These are the smallest useful vertical slices after the matrix:
    playback budgets, and staging cleanup summary without local output paths.
    Follow with safe request preview or richer session detail only when the
    console needs them.
-3. **Catalog governance slice**: expose unknown items, provider mappings,
-   local inference evidence, duplicate-source relationships, and NFO sidecar
-   status before adding repair mutations.
+3. **Catalog governance slice**: M60 added
+   `GET /admin/v1/catalog/governance/items` for unknown and low-confidence
+   Media Items. Follow with provider mapping list/detail, duplicate-source
+   review, local inference evidence detail, and NFO sidecar status before
+   adding repair mutations.
 4. **Extension operations slice**: make Webhook, Automation, and Addon list
    behavior complete for disabled resources and add health/token lifecycle
    operations only after the trust model is documented.
@@ -149,6 +152,7 @@ data. For the first prototype, API-backed claims should be limited to:
 - library list/detail/sources and scan/NFO actions;
 - metadata provider diagnostics and maintenance planning;
 - storage backend diagnostics;
+- catalog governance queue through `GET /admin/v1/catalog/governance/items`;
 - webhook/automation/addon registration views;
 - job list/filter through `GET /admin/v1/jobs`;
 - event outbox list/filter through `GET /admin/v1/events`;
@@ -171,5 +175,7 @@ diagnostics. After M57-M59, Automation/Webhooks can use `GET /admin/v1/events`
 for redacted event outbox history, Storage can use
 `GET /admin/v1/storage/staging` for redacted staging/cache diagnostics, and
 Settings can use `GET /admin/v1/system/config` for sanitized configuration
-diagnostics. Other drill-down tables and operational histories remain mock or
+diagnostics. After M60, Catalog can use
+`GET /admin/v1/catalog/governance/items` for unknown and low-confidence queue
+data. Other drill-down tables and operational histories remain mock or
 follow-up Admin API work.

@@ -151,6 +151,224 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
 }
 
 #[tokio::test]
+async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_evidence() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let unknown = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Unknown,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Unmatched Local File".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let weak = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Weak Match".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let confident = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Confident Match".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let unknown_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: unknown.id,
+        locator: "local:///Movies/Private/Unmatched.Local.File.mkv".to_owned(),
+        file_name: "Unmatched.Local.File.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let weak_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: weak.id,
+        locator: "local:///Movies/Weak.Match.mkv".to_owned(),
+        file_name: "Weak.Match.mkv".to_owned(),
+        size_bytes: Some(84),
+        fingerprint: None,
+    };
+    let confident_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: confident.id,
+        locator: "local:///Movies/Confident.Match.mkv".to_owned(),
+        file_name: "Confident.Match.mkv".to_owned(),
+        size_bytes: Some(168),
+        fingerprint: None,
+    };
+    let weak_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "100".to_owned(),
+        title: Some("Weak Match".to_owned()),
+        release_year: None,
+        locale: Some("en-US".to_owned()),
+    };
+
+    for item in [&unknown, &weak, &confident] {
+        store.upsert_media_item(item).await.unwrap();
+    }
+    for source in [&unknown_source, &weak_source, &confident_source] {
+        store.upsert_media_source(source).await.unwrap();
+    }
+    store.upsert_provider_subject(&weak_subject).await.unwrap();
+    store
+        .upsert_provider_mapping(&ProviderMapping {
+            id: ProviderMappingId::new(),
+            item_id: weak.id,
+            subject_id: weak_subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: Some(900),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+        })
+        .await
+        .unwrap();
+    for (source, kind, confidence, evidence_value) in [
+        (
+            &unknown_source,
+            MediaKind::Unknown,
+            350,
+            "local:///Movies/Private/secret-evidence.mkv",
+        ),
+        (
+            &weak_source,
+            MediaKind::Movie,
+            640,
+            "local:///Movies/Weak.Match.mkv",
+        ),
+        (
+            &confident_source,
+            MediaKind::Movie,
+            920,
+            "local:///Movies/Confident.Match.mkv",
+        ),
+    ] {
+        store
+            .upsert_local_inference_evidence(&LocalInferenceEvidence {
+                id: LocalInferenceEvidenceId::new(),
+                source_id: source.id,
+                inferred_kind: kind,
+                inferred_title: Some(source.file_name.trim_end_matches(".mkv").replace('.', " ")),
+                inferred_year: None,
+                inferred_season: None,
+                inferred_episode: None,
+                confidence_milli: Some(confidence),
+                evidence_source: LocalInferenceEvidenceSource::Path,
+                evidence_value: evidence_value.to_owned(),
+                inference_version: "taru-naming:1".to_owned(),
+            })
+            .await
+            .unwrap();
+    }
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/catalog/governance/items?library_id={library_id}&max_confidence_milli=700&limit=10"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let response: AdminCatalogGovernanceItemListResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(response.items.len(), 2);
+    assert_eq!(response.items[0].item_id, unknown.id);
+    assert_eq!(response.items[0].kind, MediaKind::Unknown);
+    assert_eq!(response.items[0].source_count, 1);
+    assert_eq!(
+        response.items[0]
+            .local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(350)
+    );
+    assert_eq!(response.items[0].provider_mapping_count, 0);
+    assert_eq!(response.items[1].item_id, weak.id);
+    assert_eq!(response.items[1].kind, MediaKind::Movie);
+    assert_eq!(
+        response.items[1]
+            .local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(640)
+    );
+    assert_eq!(response.items[1].provider_mapping_count, 1);
+    assert_eq!(response.items[1].accepted_provider_mapping_count, 1);
+    assert_eq!(response.page.limit, 10);
+    assert_eq!(response.page.returned, 2);
+    assert!(
+        !response
+            .items
+            .iter()
+            .any(|item| item.item_id == confident.id)
+    );
+    assert!(!body.contains("evidence_value"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("secret-evidence"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+}
+
+#[tokio::test]
 async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -1097,6 +1315,22 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .await
         .unwrap();
     assert_eq!(admin_jobs_missing.status(), StatusCode::UNAUTHORIZED);
+
+    let admin_catalog_governance_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/catalog/governance/items")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_catalog_governance_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
 
     let admin_events_missing = router
         .clone()

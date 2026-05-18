@@ -419,6 +419,7 @@ GET  /automation/jobs/{job_id}/artifacts
 GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
 GET  /admin/v1/overview
+GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/events
 GET  /admin/v1/jobs
 GET  /admin/v1/playback/sessions
@@ -513,6 +514,19 @@ returns the media item plus sources, graph relation IDs, and item image assets.
 `/credits` returns item credits with the referenced people. People, tags, and
 genres list routes are paginated, and their `/items` routes return linked media
 items.
+
+`GET /admin/v1/catalog/governance/items` returns a redacted Admin API queue for
+unknown and low-confidence Media Items. It accepts optional `library_id`,
+`max_confidence_milli`, `limit`, and `offset` query parameters. Rows include
+the Media Item ID, Media Library ID, kind, parent ID, title, release date,
+source count, representative Media Source ID and file name, redacted Local
+Inference summary, Provider Mapping counts, duplicate relationship count, and
+computed governance issue codes.
+
+The catalog governance route never returns source locators, local filesystem
+paths, raw Local Inference `evidence_value`, provider raw response bodies, NFO
+sidecar paths, tokens, or secret values. It is an Admin API route and is not
+part of Public Client OpenAPI or generated SDK artifacts.
 
 `GET /search` reads the SQLite search projection behind `taru-search`. `facet`
 is optional and comma-separated for the current lightweight route shape. Search

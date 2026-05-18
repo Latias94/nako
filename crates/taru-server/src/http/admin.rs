@@ -5,7 +5,8 @@ use axum::{
     routing::get,
 };
 use taru_api::{
-    ADMIN_API_VERSION, API_VERSION, AdminAuthConfigDiagnostics, AdminConfigPlaybackDiagnostics,
+    ADMIN_API_VERSION, API_VERSION, AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
+    AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
     AdminConfigStagingDiagnostics, AdminJobListItem, AdminJobListResponse,
     AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
     AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
@@ -32,12 +33,19 @@ use crate::{
 
 use super::{
     error::ApiResult,
-    query::{JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery},
+    query::{
+        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
+        StorageStagingQuery,
+    },
 };
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
+        .route(
+            "/admin/v1/catalog/governance/items",
+            get(list_admin_catalog_governance_items),
+        )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
@@ -50,6 +58,28 @@ pub(super) fn routes() -> Router<TaruApp> {
             "/admin/v1/playback/sessions",
             get(list_admin_playback_sessions),
         )
+}
+
+pub(super) async fn list_admin_catalog_governance_items(
+    State(app): State<TaruApp>,
+    Query(query): Query<CatalogGovernanceItemsQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let max_confidence_milli = filter.max_confidence_milli;
+    let items = app
+        .catalog()
+        .list_catalog_governance_items(filter, page)
+        .await?;
+    let returned = items.len();
+    let items = items
+        .into_iter()
+        .map(|item| AdminCatalogGovernanceItem::from_record(item, max_confidence_milli))
+        .collect();
+
+    Ok(Json(AdminCatalogGovernanceItemListResponse {
+        items,
+        page: page_info_from_request(page, returned),
+    }))
 }
 
 pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<AdminOverviewResponse> {

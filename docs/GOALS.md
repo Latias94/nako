@@ -27,10 +27,78 @@ proposed milestone.
 ## Current Goal
 
 No active implementation goal is currently documented. Recommended next goal:
-catalog governance read models, deeper extension operations, or admin warning
-list diagnostics.
+provider mapping list/detail read model, duplicate Source review queue, NFO
+sidecar status read model, deeper extension operations, or admin warning list
+diagnostics.
 
 ## Completed Goals
+
+### M60: Admin Catalog Governance Item Queue
+
+Status: completed.
+
+Objective:
+
+- Add the first Admin API v1 catalog governance read model for unknown and
+  low-confidence Media Items.
+- Keep Local Inference, Provider Mapping, and duplicate Source relationship
+  query shape behind a narrow repository port.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- `CatalogGovernanceRepository` and SQLite read-model adapter.
+- `GET /admin/v1/catalog/governance/items` with optional `library_id`,
+  `max_confidence_milli`, `limit`, and `offset` filters.
+- Redacted admin-owned DTOs for governance item rows and Local Inference
+  summaries.
+- Focused repository, DTO, route, redaction, auth, and public-boundary tests.
+- Updated HTTP API, admin-web-console, and workstream docs.
+
+Non-goals:
+
+- No catalog repair mutation.
+- No provider rematch mutation.
+- No NFO import/export behavior changes.
+- No Source Variant, Edition, or Duplicate UI workflow.
+- No Public Client API route or DTO changes.
+- No `taru-client-protocol` changes.
+
+Exit criteria:
+
+- Unknown Media Items are listed.
+- Non-unknown Media Items with best Local Inference confidence at or below the
+  requested threshold are listed.
+- High-confidence items are excluded from the queue.
+- Rows include source count, representative source identity/file name,
+  Local Inference confidence/inferred fields, Provider Mapping counts, and
+  duplicate relationship count.
+- Responses do not expose source locators, local paths, raw Local Inference
+  `evidence_value`, raw provider responses, NFO sidecar paths, tokens, or
+  secret values.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+
+Evidence:
+
+- `CatalogGovernanceRepository` keeps the governance SQL joins inside
+  `taru-db`.
+- `AdminCatalogGovernanceItemListResponse` and related DTOs expose only
+  redacted admin fields.
+- `GET /admin/v1/catalog/governance/items` returns unknown and low-confidence
+  queue rows through Admin API v1.
+- Tests cover SQLite filtering/exclusion, DTO redaction, route filtering,
+  route redaction, auth protection, and public OpenAPI/SDK exclusion.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-core --tests`, `cargo check -p taru-db --tests`, `cargo nextest run -p
+  taru-db catalog_governance --no-fail-fast` with 1 test passed, `cargo check
+  -p taru-api --tests`, `cargo nextest run -p taru-api
+  admin_catalog_governance --no-fail-fast` with 1 test passed, `cargo check -p
+  taru-server --tests`, `cargo nextest run -p taru-server http::tests::system
+  --no-fail-fast` with 12 tests passed, public OpenAPI/SDK leakage checks,
+  `git diff --check`, and `git diff --name-only --
+  crates/taru-client-protocol`.
 
 ### M57-M59: Admin Operations Read Models Batch
 
