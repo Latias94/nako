@@ -1,7 +1,7 @@
 # Android Client Foundation Milestones
 
-Status: Proposed
-Last updated: 2026-05-17
+Status: Completed
+Last updated: 2026-05-18
 
 ## ACF-M0: Scope And Architecture Baseline
 
@@ -22,25 +22,26 @@ Evidence:
 
 ## ACF-M1: Android Scaffold
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
 - `apps/android` exists.
 - The app builds a minimal debug shell.
-- The first theme follows Design Language v0: quiet, artwork-led, dark-first,
-  playback-confident, source-clear, and Material 3 based.
+- The first theme follows the playback client visual baseline: immersive, artwork-led,
+  dark-first, playback-confident, source-clear, expressive-leaning, and
+  Material 3 based.
 - Android files are not part of the Rust Cargo workspace.
 - Local build docs exist.
 
-Candidate validation:
+Validation:
 
-- `apps/android/gradlew.bat :app:assembleDebug`
-- `cargo check --workspace --tests`
+- `apps/android/gradlew.bat :app:assembleDebug` passed on 2026-05-17.
+- `cargo check --workspace --tests` passed on 2026-05-17.
 
 ## ACF-M2: Public Client Connection
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -58,12 +59,16 @@ Exit criteria:
 
 Candidate validation:
 
-- Android unit tests for connection/auth/version handling.
-- `cargo tree` or manifest checks for any shared Rust client crate.
+- `apps/android/gradlew.bat :app:assembleDebug` passed on 2026-05-17.
+- `apps/android/gradlew.bat :app:testDebugUnitTest` passed on 2026-05-17.
+- `cargo check --workspace --tests` passed on 2026-05-17.
+- `git diff --check` passed on 2026-05-17.
+- No shared Rust client crate was introduced in ACF-020; Android remains
+  outside the Rust Cargo workspace.
 
 ## ACF-M3: Browse-To-Item Loop
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -91,9 +96,59 @@ Candidate validation:
 - Android unit tests with mocked public API responses.
 - Manual local debug app walkthrough.
 
+Progress:
+
+- `ACF-030A` completed on 2026-05-17:
+  - active-server-scoped `GET /libraries` browse client;
+  - minimal `GET /items?limit=&offset=` tracer;
+  - Home/Libraries Compose shell;
+  - loading, empty, unauthorized, unreachable, and public error states;
+  - mocked API tests for pagination, empty input, diagnostics, active-server
+    switching, and token redaction.
+- `ACF-030B` completed on 2026-05-17:
+  - active-server-scoped `GET /items/{item_id}` detail client;
+  - read-only Media Item detail surface from Home/Libraries item lists;
+  - client-safe Canonical Metadata, response counts, and detail error states;
+  - mocked API tests for detail decode, diagnostics, invalid response,
+    unsupported API version, active-server switching, and token redaction.
+- `ACF-030C` implementation completed with concerns on 2026-05-18:
+  - Material 3 bottom navigation shell with Home, Libraries, Search, and
+    Settings destinations;
+  - split Compose screen/component structure for browse, detail, Settings,
+    placeholders, formatters, and preview;
+  - Media Item Detail playback-decision skeleton without activating playback;
+  - Settings Home and Server Profile surfaces without token display;
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `ACF-030D` completed on 2026-05-18:
+  - Search top-level destination is backed by the public `/search` route;
+  - Browse Facet Result loads public Genre, Tag, and Person related-item routes
+    when a stable facet id is available;
+  - unsupported Library, Studio, Collection, Year, Item Kind, Source Mode, and
+    missing-id targets are explicit API-gap states, not client-only filters;
+  - mocked Android tests cover search encoding/decoding and genre/tag/person
+    related-item route construction;
+  - real-server walkthrough covered connection/setup, Home, Libraries, Media
+    Item Detail, Search, Genre Browse Facet Result, Settings, Server Profile,
+    and return to Home;
+  - server-side `/search` pagination query parsing was fixed and covered by
+    `taru-server` catalog HTTP tests;
+  - `cargo fmt --all -- --check` passed;
+  - `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+    passed;
+  - `cargo build -p taru-server` passed;
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+
+Follow-ups after milestone completion:
+
+- Public Client API follow-up for library-scoped item pages and the unsupported
+  Studio, Collection, Year, and Item Kind facet routes if they are required
+  before playback.
+
 ## ACF-M4: Playback Decision Loop
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -113,9 +168,24 @@ Candidate validation:
 - Request-construction tests.
 - Local server smoke test for at least one source.
 
+Evidence:
+
+- `ACF-040` completed on 2026-05-18:
+  - Android playback client can request Public Client API playback decisions;
+  - Android can construct direct, direct HEAD preflight, remux, HLS playlist,
+    and HLS segment request targets;
+  - Media Item Detail exposes a first Source / Version Picker surface and a
+    client-safe prepared route preview;
+  - Media3 playback activation remains deferred to `ACF-050`;
+  - playback unit tests, Android full unit tests, debug build, `git diff
+    --check`, and real-server/device walkthrough passed.
+- Walkthrough verified `Night Harbor.mkv` source decision against the local
+  `taru-server` fixture and rendered an HLS playlist route preview without
+  exposing token values, local paths, or FFmpeg command text.
+
 ## ACF-M5: Media3 Playback Smoke
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -139,3 +209,49 @@ Candidate validation:
 
 - Manual device or emulator playback smoke test.
 - Instrumented test plan if automated playback is not practical in CI.
+
+Evidence:
+
+- `ACF-050` completed on 2026-05-18:
+  - Android uses Media3 ExoPlayer with a PlayerView-backed Compose route;
+  - the player consumes the ACF-040 prepared target and passes bearer headers
+    to Media3 without exposing token values in UI/debug launch output;
+  - debug build and Android unit tests pass with Media3 dependencies;
+  - real emulator/server smoke played the local `Night Harbor.mkv` source
+    through the server-selected remux route and reached `Media3: Ended`.
+- Deferred to ACF-060 or follow-ups: authoritative User Playback State,
+  progress reporting, session cancellation/resume contract, deeper
+  track/subtitle sheets, PiP, cast, downloads, and external-player handoff.
+
+## ACF-M6: Playback Session And Resume Boundary
+
+Status: complete
+
+Exit criteria:
+
+- Android can inspect and cancel playback sessions through existing Public
+  Client API routes.
+- Android records that progress reporting, resume lookup, and authoritative
+  **User Playback State** are not yet public API capabilities.
+- Device-local transient playback position is scoped by active server profile,
+  Media Item, and Media Source.
+- Device-local transient playback position is not promoted to cross-device
+  Continue Watching or authoritative **User Playback State**.
+- Exit cancellation is attempted only when the playback launch request already
+  carries an explicit public session id.
+
+Evidence:
+
+- `ACF-060` completed on 2026-05-18:
+  - Android playback client mirrors `TranscodeSessionResponse` and can call
+    `GET /playback/sessions/{session_id}` and
+    `POST /playback/sessions/{session_id}/cancel`;
+  - `PlaybackLaunchRequest` carries server/profile/source/playback-mode
+    metadata plus optional session id and device-local resume position;
+  - the Media3 route saves/clears transient local position on exit/end and can
+    seek to a launch-local resume position;
+  - tests prove token-safe session requests and active-server-scoped local
+    position behavior.
+- API gaps remain for public progress reporting, resume lookup,
+  authoritative **User Playback State**, and playback stream responses exposing
+  a client-visible session handle.

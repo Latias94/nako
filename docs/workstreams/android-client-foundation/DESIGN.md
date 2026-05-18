@@ -78,10 +78,10 @@ Phone and tablet share one touch-first navigation model. Tablet layouts may use
 extra width for grids and detail context, but they must not fork the product
 model or become Android TV.
 
-The visual direction follows Design Language v0: quiet, artwork-led,
-dark-first, playback-confident, and source-clear. It uses Material 3 as the
-interaction foundation and defines principles, component semantics, and a small
-token set rather than a full brand manual.
+The visual direction is Findroid-inspired and expressive-leaning: immersive,
+artwork-led, dark-first, playback-confident, and source-clear. It uses
+Material 3 as the interaction foundation and defines principles, component
+semantics, and a small token set rather than a full brand manual.
 
 Source / Version Picker is part of the first playback loop whenever multiple
 playable Media Sources or Source Variants exist. It should show client-safe
@@ -92,6 +92,13 @@ The first Player is a reliability surface. It must make playback state,
 buffering, seeking, exit behavior, cancellation, and errors understandable
 before Taru adds advanced gestures, PiP, trickplay, skip controls, Cast, or
 alternate player backends.
+
+ACF-060 audits the current Public Client API boundary for playback state. The
+public API already exposes playback session inspection and cancellation, but
+does not yet expose progress reporting, resume lookup, or authoritative
+**User Playback State**. Android can keep active-server-scoped device-local
+transient position for route-local resume convenience, but this state must stay
+separate from cross-device Continue Watching.
 
 External player handoff is a deferred compatibility feature, not a
 first-version playback path. It must not expose long-lived bearer tokens and
@@ -131,7 +138,8 @@ portable enough for a later iOS shell.
 
 - Android project scaffold under `apps/android`.
 - A minimal Android app shell for connecting to a Taru server.
-- A basic dark-first Material 3 theme aligned with Design Language v0.
+- A basic dark-first Material 3 theme aligned with the visual baseline in
+  `UX_CONTEXT.md`.
 - Public Client API connection and bearer-token handling.
 - Server URL plus access-token setup flow with secure storage, connection
   preflight, and token-redaction behavior.
@@ -225,19 +233,46 @@ Playback should remain native. Rust can construct the HLS/direct/remux request
 and interpret a playback decision; Media3 owns playback execution and
 Android-specific lifecycle behavior.
 
+## ACF-020 Client Connection Decision
+
+ACF-020 starts with direct Kotlin HTTP for the Android setup/auth slice.
+
+Rationale:
+
+- It validates Android UX, secure token-reference handling, active-server
+  scoping, and Public Client API error semantics without adding FFI packaging
+  risk to the first connection screen.
+- The slice only needs `GET /health` and a lightweight authenticated Public
+  Client API probe. Duplicated protocol surface is intentionally tiny.
+- The implementation keeps protocol facts in a small Android connection layer:
+  expected API version `v1`, `x-taru-api-version`, `ErrorResponse`, and safe
+  diagnostics. It must not import `taru-api`, `taru-server`, `taru-core`,
+  `taru-streaming`, or `taru-transcode`.
+- UniFFI remains the likely path once browse/search/playback request
+  construction grows enough that duplicating SDK logic becomes expensive.
+
+The auth check uses unauthenticated `GET /health` for reachability and API
+version preflight, then an authenticated lightweight Public Client API probe
+against `/libraries?limit=1&offset=0` because `GET /health` intentionally
+bypasses auth. The probe does not expose a browse UI or parse library data in
+ACF-020; it only verifies token acceptance and public error handling.
+
 ## Open Questions
 
-- Should the first Android slice call the Rust SDK through UniFFI immediately,
-  or start with generated/OpenAPI-derived Kotlin calls and introduce FFI when
-  protocol duplication becomes painful?
+- When should Android move from direct Kotlin HTTP to a shared Rust/UniFFI
+  client core: during browse/search request construction, playback decision
+  construction, or later cache/download work?
 - What local persistence layer should Android use for client-only state:
   DataStore, Room, or a small Rust-owned cache exposed through FFI?
 - Which playback route should be the first smoke-test target: HLS playlist,
   direct stream, or remux stream?
-- What server route is required for user playback progress once the first
-  player loop exists?
-- Should `apps/android` use a single Gradle app module first or start with
-  `core/*` and `feature/*` modules?
+- What Public Client API contract should own progress reporting, resume lookup,
+  watched state, and other authoritative **User Playback State**?
+- Should playback stream responses expose a public session id header or
+  structured launch envelope so native clients can cancel remux/HLS sessions
+  on exit without parsing playlists?
+- After ACF-010, `apps/android` starts as one `:app` module. When should the
+  app split into `core/*` and `feature/*` Gradle modules?
 
 ## Closeout Condition
 
