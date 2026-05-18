@@ -1,8 +1,9 @@
 use taru_core::{
-    AddonGrantId, AddonSideEffectId, AddonSideEffectTarget, AddonSideEffectValidationStatus,
-    AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection, ContentRating,
-    Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions, LibraryPreset,
-    MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
+    AddonGrantId, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
+    AddonSideEffectTarget, AddonSideEffectValidationStatus, AutomationJobInput,
+    CatalogItemProjectionCommit, CatalogSearchProjection, ContentRating, Credit, CreditRole,
+    ImageKind, ImageOwner, ImageRef, LibraryOptions, LibraryPreset, MediaSourceId,
+    MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
     TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
 };
 
@@ -658,7 +659,7 @@ async fn sqlite_store_round_trips_metadata_policy_records() {
         item_id: item.id,
         field: MetadataField::Title,
         locked: true,
-        source: MetadataSource::User,
+        source: MetadataSource::Addon(AddonId::new()),
     };
     let raw = ProviderRawResponse {
         item_id: item.id,
@@ -2847,6 +2848,14 @@ async fn sqlite_store_round_trips_addon_side_effects_idempotently() {
         AddonSideEffectValidationStatus::Accepted
     );
     assert_eq!(
+        side_effect.apply_status,
+        AddonSideEffectApplyStatus::Pending
+    );
+    assert_eq!(side_effect.apply_error_code, None);
+    assert_eq!(side_effect.applied_item_id, None);
+    assert_eq!(side_effect.applied_source, None);
+    assert_eq!(side_effect.applied_at, None);
+    assert_eq!(
         side_effect.provenance_json,
         r#"{"origin":"reference-addon"}"#
     );
@@ -2876,6 +2885,97 @@ async fn sqlite_store_round_trips_addon_side_effects_idempotently() {
             .await
             .unwrap(),
         Some(side_effect)
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_records_addon_side_effect_apply_outcome() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.metadata".to_owned(),
+            name: "Example Metadata".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["item_metadata_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "runtime".to_owned(),
+            token_prefix: "taru_at_runtime".to_owned(),
+            token_hash: "sha256:runtime".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let item_id = MediaItemId::new();
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::MetadataWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: "metadata-apply-demo".to_owned(),
+            provenance_json: r#"{"origin":"reference-addon"}"#.to_owned(),
+            payload_json: r#"{"title":"Demo"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+
+    let applied = store
+        .set_addon_side_effect_apply_outcome(
+            side_effect.id,
+            AddonSideEffectApplyOutcome {
+                status: AddonSideEffectApplyStatus::Applied,
+                error_code: None,
+                item_id: Some(item_id),
+                source: Some(format!("addon:{addon_id}")),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(applied.apply_status, AddonSideEffectApplyStatus::Applied);
+    assert_eq!(applied.apply_error_code, None);
+    assert_eq!(applied.applied_item_id, Some(item_id));
+    assert_eq!(applied.applied_source, Some(format!("addon:{addon_id}")));
+    assert!(applied.applied_at.is_some());
+    assert_eq!(
+        store
+            .find_addon_side_effect_by_idempotency_key(addon_id, "metadata-apply-demo")
+            .await
+            .unwrap()
+            .unwrap()
+            .apply_status,
+        AddonSideEffectApplyStatus::Applied
     );
 }
 

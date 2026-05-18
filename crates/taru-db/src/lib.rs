@@ -3,6 +3,7 @@ use std::{fmt::Display, path::PathBuf, str::FromStr};
 use sqlx::{Decode, Row, Sqlite, SqlitePool, Type, sqlite::SqliteRow};
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord, AddonRepository,
+    AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
     AddonSideEffectRecord, AddonSideEffectTarget, AddonSideEffectTargetKind,
     AddonSideEffectValidationStatus, AddonStatus, AddonTokenId, AddonTokenRecord, AddonTokenStatus,
     ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactId,

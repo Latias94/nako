@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LibraryId, MediaItem, MediaItemId, MetadataProviderAttemptId, ProviderMappingId,
+    AddonId, LibraryId, MediaItem, MediaItemId, MetadataProviderAttemptId, ProviderMappingId,
     ProviderSubjectId,
 };
 
@@ -65,6 +65,7 @@ pub enum MetadataSource {
     Nfo,
     Provider(ExternalProvider),
     User,
+    Addon(AddonId),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

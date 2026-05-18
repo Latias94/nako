@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "addon-protected-writes",
   "title": "Addon Protected Writes",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Accepted Addon Side Effect intake records need a Taru-owned apply boundary before addons can perform concrete metadata, artwork, subtitle, NFO, or Library File Write changes.",
@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "APW-030",
+  "current_task": null,
   "first_slice": "protected write seam audit and first apply target selection",
   "non_goals": [
     "Addon Token lifecycle redesign",
@@ -68,7 +68,7 @@
     "source": "concrete metadata/artwork/subtitle/NFO/Library File Write handlers split from intake proof"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "APW-020 selected Canonical Metadata as the first concrete apply target. Continue with APW-030, starting with explicit side-effect apply outcome state and Addon metadata source attribution before applying writes."
+    "default_action": "close",
+    "notes": "APW-060 closeout is complete. Canonical Metadata metadata_write protected writes are proven. Artwork/artifact breadth is split to docs/workstreams/addon-managed-artwork-artifacts/ and subtitle/NFO/Library File Write breadth is split to docs/workstreams/addon-library-file-write-policy/."
   }
 }

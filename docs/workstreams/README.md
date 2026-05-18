@@ -34,10 +34,18 @@ attention.
   Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake before
   metadata, artwork, subtitle, or Library File Write behavior is enabled.
 - [addon-protected-writes](addon-protected-writes/README.md):
-  active follow-on split from the Addon Token Grants Side Effects closeout,
-  covering concrete Taru-owned Canonical Metadata, Managed Artwork, subtitle,
-  NFO, and Library File Write application after accepted Addon Side Effect
-  intake.
+  completed follow-on split from the Addon Token Grants Side Effects closeout,
+  proving concrete Taru-owned Canonical Metadata `metadata_write` application
+  with explicit apply outcome, Addon metadata source attribution, idempotency,
+  redaction, and catalog/search refresh.
+- [addon-managed-artwork-artifacts](addon-managed-artwork-artifacts/README.md):
+  proposed follow-on for `artwork_write`, Artwork Candidate, Managed Artwork,
+  Taru-Managed Artifact intake, fetch/cache policy, resource budgets, and safe
+  diagnostics.
+- [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
+  proposed follow-on for addon-initiated subtitle, NFO, and sidecar-asset
+  Library File Write behavior through Taru target derivation, storage/VFS,
+  backup policy, and redacted write reports.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing

@@ -537,6 +537,7 @@ pub enum ClientMetadataSource {
     Nfo,
     Provider(ClientExternalProvider),
     User,
+    Addon(String),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

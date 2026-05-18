@@ -167,6 +167,7 @@ pub(crate) fn metadata_source_to_parts(source: &MetadataSource) -> (String, Stri
         MetadataSource::Local => ("local".to_owned(), String::new()),
         MetadataSource::Nfo => ("nfo".to_owned(), String::new()),
         MetadataSource::User => ("user".to_owned(), String::new()),
+        MetadataSource::Addon(addon_id) => ("addon".to_owned(), addon_id.to_string()),
         MetadataSource::Provider(provider) => {
             let (provider, provider_key) = provider_to_parts(provider);
             (format!("provider:{provider}"), provider_key)
@@ -179,6 +180,9 @@ pub(crate) fn metadata_source_from_parts(source: String, source_key: String) -> 
         "local" => MetadataSource::Local,
         "nfo" => MetadataSource::Nfo,
         "user" => MetadataSource::User,
+        "addon" => parse_id(source_key)
+            .map(MetadataSource::Addon)
+            .unwrap_or_else(|_| MetadataSource::Provider(ExternalProvider::Other(source))),
         value if value.starts_with("provider:") => {
             let provider = value.trim_start_matches("provider:").to_owned();
             MetadataSource::Provider(provider_from_parts(provider, source_key))
@@ -711,6 +715,11 @@ pub(crate) fn row_to_addon_side_effect(row: SqliteRow) -> Result<AddonSideEffect
             "validation_status",
         )?)?,
         safe_error_code: row_get(&row, "safe_error_code")?,
+        apply_status: AddonSideEffectApplyStatus::parse(&row_get::<String>(&row, "apply_status")?)?,
+        apply_error_code: row_get(&row, "apply_error_code")?,
+        applied_item_id: parse_optional_id(row_get::<Option<String>>(&row, "applied_item_id")?)?,
+        applied_source: row_get(&row, "applied_source")?,
+        applied_at: row_get(&row, "applied_at")?,
         created_at: row_get(&row, "created_at")?,
     })
 }

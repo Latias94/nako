@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "addon-library-file-write-policy",
+  "title": "Addon Library File Write Policy",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Addon-initiated subtitle, NFO, and sidecar writes need a Taru-owned Library File Write boundary before addons can safely change media-library files.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/addon-library-file-write-policy/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-library-file-write-policy/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-library-file-write-policy/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-library-file-write-policy/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-library-file-write-policy/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"Library File Write|subtitle|NFO|nfo|StorageWriteRequest|StorageWriteReport|StorageBackupPolicy|atomic_replace|backup|sidecar\" crates docs",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-library-file-write-policy/DESIGN.md",
+    "docs/workstreams/addon-library-file-write-policy/TODO.md",
+    "docs/workstreams/addon-protected-writes/HANDOFF.md",
+    "docs/workstreams/nfo-round-trip-preservation/",
+    "docs/workstreams/nfo-storage-write-policy/",
+    "docs/workstreams/nfo-sidecar-backup-policy/",
+    "crates/taru-nfo/src/export.rs",
+    "crates/taru-vfs/src/lib.rs",
+    "crates/taru-vfs/src/local.rs",
+    "crates/taru-server/src/app/addons.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": "ALFW-020",
+  "first_slice": "subtitle/NFO/storage seam audit and first Library File Write target selection",
+  "non_goals": [
+    "direct addon filesystem or remote storage access",
+    "Addon Manager lifecycle automation",
+    "Public Client API write routes",
+    "Managed Artwork behavior",
+    "general storage backend redesign"
+  ],
+  "routed_from": {
+    "workstream": "addon-protected-writes",
+    "task": "APW-060",
+    "source": "subtitle, NFO, and Library File Write breadth split from Canonical Metadata protected-write proof"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Start with ALFW-020 seam audit before accepting subtitle, NFO, or sidecar file-write payloads."
+  }
+}

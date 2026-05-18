@@ -1,6 +1,6 @@
 # Addon Protected Writes TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -34,7 +34,7 @@ Last updated: 2026-05-18
 
 ## M2 - Canonical Metadata Apply Slice
 
-- [ ] APW-030 [owner=codex] [deps=APW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-metadata,crates/taru-catalog,docs/api]
+- [x] APW-030 [owner=codex] [deps=APW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-metadata,crates/taru-catalog,docs/api]
   Goal: Implement the smallest concrete `metadata_write` Addon Side Effect
   apply path that turns an accepted intake record into a Taru-owned Canonical
   Metadata update while preserving merge policy, idempotency, audit, redaction,
@@ -43,48 +43,55 @@ Last updated: 2026-05-18
   Review: review-workstream must check that HTTP handlers do not own metadata
   merge logic and that responses do not leak raw payloads, provenance, Source
   Locators, filesystem paths, or provider bodies.
-  Evidence: code/tests/docs proving apply outcome persistence, allowed apply,
-  denied apply, duplicate idempotency after apply, failed validation, redacted
-  response, Addon metadata source attribution, and catalog/search update.
-  Handoff: Split field breadth if the payload schema grows beyond a minimal
-  video-first Canonical Metadata slice.
+  Evidence: `crates/taru-core/src/addon.rs`,
+  `crates/taru-core/src/media/metadata.rs`,
+  `crates/taru-db/migrations/0023_addon_side_effect_apply_outcome.sql`,
+  `crates/taru-db/src/addons.rs`, `crates/taru-db/src/codec.rs`,
+  `crates/taru-server/src/app/addons.rs`,
+  `crates/taru-server/src/http/tests/addons.rs`, `docs/api/HTTP_API.md`, and
+  APW-030 notes in `EVIDENCE_AND_GATES.md`.
+  Handoff: Minimal field breadth stayed bounded to title-like, overview,
+  runtime, genre, and tag fields. Wider Canonical Metadata fields, field-level
+  provenance tables, and addon-specific domain events should be split rather
+  than expanding this slice.
 
 ## M3 - Managed Artwork And Artifact Intake
 
-- [ ] APW-040 [owner=codex] [deps=APW-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
-  Goal: Define and, if bounded, implement the first `artwork_write` path from
-  Addon Side Effect into Artwork Candidate, Managed Artwork, or
-  Taru-Managed Artifact storage without hotlinking unsafe provider URLs or
-  exposing library paths.
+- [x] APW-040 [owner=planner] [deps=APW-030] [scope=docs/workstreams/addon-protected-writes,docs/workstreams/addon-managed-artwork-artifacts,docs/workstreams/README.md]
+  Goal: Split `artwork_write`, Artwork Candidate, Managed Artwork, and
+  Taru-Managed Artifact storage into a dedicated follow-on lane without
+  implementing artwork runtime behavior in APW.
   Validation: focused artwork/addon tests selected after APW-020; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `git diff --check`.
   Review: verify resource budgets, external fetch ownership, artifact
   provenance, and redacted response shape.
-  Evidence: artifact/artwork model notes, tests, and HTTP API docs.
-  Handoff: Split a dedicated artwork/artifact lane if image processing,
-  thumbnailing, or cache policy becomes the dominant scope.
+  Evidence: `docs/workstreams/addon-managed-artwork-artifacts/`.
+  Handoff: Continue with AMAA-010 before accepting `artwork_write` payloads or
+  Managed Artwork artifacts.
 
 ## M4 - Subtitle, NFO, And Library File Write Policy
 
-- [ ] APW-050 [owner=codex] [deps=APW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-nfo,crates/taru-vfs,docs/api]
-  Goal: Route addon-initiated subtitle, NFO, and sidecar-asset writes through
-  Library File Write policy, NFO Round Trip, backup retention, and storage/VFS
-  boundaries instead of raw path writes.
+- [x] APW-050 [owner=planner] [deps=APW-020] [scope=docs/workstreams/addon-protected-writes,docs/workstreams/addon-library-file-write-policy,docs/workstreams/README.md]
+  Goal: Split addon-initiated subtitle, NFO, and sidecar-asset Library File
+  Write behavior into a dedicated follow-on lane instead of broadening APW.
   Validation: focused NFO/storage/addon tests selected after APW-020; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no Addon response or audit summary exposes raw Source
   Locators, filesystem paths, remote storage handles, or unredacted file-write
   payloads.
-  Evidence: NFO/storage policy tests and docs.
-  Handoff: Split subtitle import/export or NFO export into separate lanes if
-  they require independent acceptance workflow or storage policy changes.
+  Evidence: `docs/workstreams/addon-library-file-write-policy/`.
+  Handoff: Continue with ALFW-010 before accepting subtitle, NFO, or sidecar
+  file-write payloads.
 
 ## M5 - Closeout Or Split
 
-- [ ] APW-060 [owner=planner] [deps=APW-030] [scope=docs/workstreams/addon-protected-writes,docs/api,docs/adr]
+- [x] APW-060 [owner=planner] [deps=APW-030] [scope=docs/workstreams/addon-protected-writes,docs/api,docs/adr]
   Goal: Close the lane after concrete protected writes are proven, or split
   remaining metadata/artwork/subtitle/NFO/Library File Write breadth into
   narrower follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
-  Review: review-workstream has no blocking findings.
+  Review: closeout review found one provenance issue in APW-030 and fixed it:
+  scalar Addon metadata patches now refresh search without rewriting catalog
+  label sources, while genre/tag patches only replace touched label sets with
+  Addon source attribution.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Recommend the next lane only after the protected-write apply model
-  and redaction guarantees are stable.
+  Handoff: Lane is closed. Continue with `addon-managed-artwork-artifacts` or
+  `addon-library-file-write-policy` depending on the next product priority.

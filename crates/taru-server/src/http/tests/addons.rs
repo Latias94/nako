@@ -510,7 +510,7 @@ async fn addon_token_cannot_authenticate_admin_routes() {
 
 #[tokio::test]
 async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echoing_payload() {
-    let (_temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
 
     let registered = request_body_json::<AddonRegistrationResponse, _>(
@@ -564,12 +564,15 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
         idempotency_key: "metadata-demo-1".to_owned(),
         provenance: serde_json::json!({
             "origin": "reference-addon",
-            "request_id": "request-1"
+            "request_id": "request-1",
+            "raw_path": "local:///Movies/demo.mkv",
+            "token": issued.raw_token
         }),
         payload: serde_json::json!({
             "title": "Demo From Addon",
-            "raw_path": "local:///Movies/demo.mkv",
-            "token": issued.raw_token
+            "overview": "A safe metadata update.",
+            "genres": ["Addon Genre", "Addon Genre"],
+            "tags": ["sidecar", "metadata"]
         }),
     };
 
@@ -591,6 +594,17 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
         body.side_effect.validation_status,
         AddonSideEffectValidationStatus::Accepted
     );
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    assert_eq!(body.side_effect.apply_error_code, None);
+    assert_eq!(body.side_effect.applied_item_id, Some(source.item_id));
+    assert_eq!(
+        body.side_effect.applied_source,
+        Some(format!("addon:{addon_id}"))
+    );
+    assert!(body.side_effect.applied_at.is_some());
     assert!(!body.idempotent_replay);
 
     let response_body = String::from_utf8_lossy(&response_body);
@@ -600,11 +614,317 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
     assert!(!response_body.contains("local:///Movies/demo.mkv"));
     assert!(!response_body.contains("Demo From Addon"));
 
+    let updated = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item was applied");
+    assert_eq!(updated.metadata.title, "Demo From Addon");
+    assert_eq!(
+        updated.metadata.overview.as_deref(),
+        Some("A safe metadata update.")
+    );
+    assert_eq!(updated.metadata.genres, vec!["Addon Genre"]);
+    assert_eq!(
+        updated.metadata.tags,
+        vec!["sidecar".to_owned(), "metadata".to_owned()]
+    );
+    let tags = store
+        .list_tags(taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(tags.len(), 2);
+    assert!(
+        tags.iter()
+            .all(|tag| tag.source == MetadataSource::Addon(addon_id))
+    );
+    let genres = store
+        .list_genres(taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(genres.len(), 1);
+    assert_eq!(genres[0].source, MetadataSource::Addon(addon_id));
+    let hits = store
+        .search(SearchQuery {
+            query: "safe metadata".to_owned(),
+            facets: vec!["tag:sidecar".to_owned()],
+            limit: 10,
+            offset: 0,
+        })
+        .await
+        .unwrap();
+    assert_eq!(hits[0].item_id, source.item_id);
+
     let duplicate = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
     assert_eq!(duplicate.status(), StatusCode::OK);
     let duplicate = body_json::<AddonSideEffectResponse>(duplicate).await;
     assert_eq!(duplicate.side_effect.id, body.side_effect.id);
     assert!(duplicate.idempotent_replay);
+    assert_eq!(
+        duplicate.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+}
+
+#[tokio::test]
+async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_sources() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let tmdb_genre = Genre {
+        id: GenreId::new(),
+        name: "Existing Genre".to_owned(),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+    let tmdb_tag = Tag {
+        id: TagId::new(),
+        name: "existing-tag".to_owned(),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+    store.upsert_genre(&tmdb_genre).await.unwrap();
+    store
+        .upsert_item_genre(&ItemGenre {
+            item_id: source.item_id,
+            genre_id: tmdb_genre.id,
+        })
+        .await
+        .unwrap();
+    store.upsert_tag(&tmdb_tag).await.unwrap();
+    store
+        .upsert_item_tag(&ItemTag {
+            item_id: source.item_id,
+            tag_id: tmdb_tag.id,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert(SearchDocument {
+            item_id: source.item_id,
+            title: "demo.mkv".to_owned(),
+            body: "demo.mkv Existing Genre existing-tag".to_owned(),
+            facets: vec![
+                "genre:Existing Genre".to_owned(),
+                "tag:existing-tag".to_owned(),
+            ],
+        })
+        .await
+        .unwrap();
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-scalar-only".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "title": "Scalar Addon Title",
+            "overview": "Scalar-only update."
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_json::<AddonSideEffectResponse>(response).await;
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+
+    let item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item was updated");
+    assert_eq!(item.metadata.title, "Scalar Addon Title");
+    let item_genres = store.list_item_genres(source.item_id).await.unwrap();
+    let item_tags = store.list_item_tags(source.item_id).await.unwrap();
+    assert_eq!(
+        item_genres,
+        vec![ItemGenre {
+            item_id: source.item_id,
+            genre_id: tmdb_genre.id,
+        }]
+    );
+    assert_eq!(
+        item_tags,
+        vec![ItemTag {
+            item_id: source.item_id,
+            tag_id: tmdb_tag.id,
+        }]
+    );
+    let genres = store
+        .list_genres(taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    let tags = store
+        .list_tags(taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(genres, vec![tmdb_genre]);
+    assert_eq!(tags, vec![tmdb_tag]);
+    let hits = store
+        .search(SearchQuery {
+            query: "Scalar-only".to_owned(),
+            facets: vec![
+                "genre:Existing Genre".to_owned(),
+                "tag:existing-tag".to_owned(),
+            ],
+            limit: 10,
+            offset: 0,
+        })
+        .await
+        .unwrap();
+    assert_eq!(hits[0].item_id, source.item_id);
+}
+
+#[tokio::test]
+async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_catalog_labels() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let tmdb_genre = Genre {
+        id: GenreId::new(),
+        name: "Existing Genre".to_owned(),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+    store.upsert_genre(&tmdb_genre).await.unwrap();
+    store
+        .upsert_item_genre(&ItemGenre {
+            item_id: source.item_id,
+            genre_id: tmdb_genre.id,
+        })
+        .await
+        .unwrap();
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-tags-only".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "tags": ["addon-tag"]
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_json::<AddonSideEffectResponse>(response).await;
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+
+    let item_genres = store.list_item_genres(source.item_id).await.unwrap();
+    assert_eq!(
+        item_genres,
+        vec![ItemGenre {
+            item_id: source.item_id,
+            genre_id: tmdb_genre.id,
+        }]
+    );
+    let genres = store
+        .list_genres(taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(genres, vec![tmdb_genre]);
+    let tags = store
+        .list_tags(taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(tags.len(), 1);
+    assert_eq!(tags[0].name, "addon-tag");
+    assert_eq!(tags[0].source, MetadataSource::Addon(addon_id));
+    let hits = store
+        .search(SearchQuery {
+            query: "addon-tag".to_owned(),
+            facets: vec!["genre:Existing Genre".to_owned()],
+            limit: 10,
+            offset: 0,
+        })
+        .await
+        .unwrap();
+    assert_eq!(hits[0].item_id, source.item_id);
 }
 
 #[tokio::test]
@@ -694,6 +1014,10 @@ async fn addon_side_effect_intake_rejects_unauthorized_scope_revoked_token_and_b
         AddonSideEffectValidationStatus::Rejected
     );
     assert_eq!(
+        wrong_library_replay.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Skipped
+    );
+    assert_eq!(
         wrong_library_replay.side_effect.safe_error_code.as_deref(),
         Some("forbidden")
     );
@@ -752,6 +1076,100 @@ async fn addon_side_effect_intake_rejects_unauthorized_scope_revoked_token_and_b
     let revoked_token =
         addon_side_effect(&router, Some(&issued.raw_token), &malformed_target).await;
     assert_eq!(revoked_token.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn addon_side_effect_metadata_write_records_apply_failure_without_leaking_payload() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-bad-payload".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "title": "Should Not Apply",
+            "raw_path": "local:///Movies/demo.mkv"
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json::<ErrorResponse>(response).await.code,
+        "invalid_input"
+    );
+
+    let replay = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay_body = to_bytes(replay.into_body(), usize::MAX).await.unwrap();
+    let replay = serde_json::from_slice::<AddonSideEffectResponse>(&replay_body).unwrap();
+    assert!(replay.idempotent_replay);
+    assert_eq!(
+        replay.side_effect.validation_status,
+        AddonSideEffectValidationStatus::Accepted
+    );
+    assert_eq!(
+        replay.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Failed
+    );
+    assert_eq!(
+        replay.side_effect.apply_error_code.as_deref(),
+        Some("invalid_payload")
+    );
+    let replay_body = String::from_utf8_lossy(&replay_body);
+    assert!(!replay_body.contains("Should Not Apply"));
+    assert!(!replay_body.contains("local:///Movies/demo.mkv"));
+
+    let item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item still exists");
+    assert_eq!(item.metadata.title, "demo.mkv");
 }
 
 async fn register_addon_with_admin_token(

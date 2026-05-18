@@ -902,8 +902,17 @@ handling.
 `POST /addon/v1/side-effects` is the first protected Addon Side Effect intake
 route. It authenticates the Addon Token, records the addon actor, token,
 permission, Media Library, target, idempotency key, provenance snapshot,
-payload snapshot, validation result, and safe error code, but it does not yet
-apply canonical metadata or library-file writes.
+payload snapshot, validation result, safe error code, and apply outcome.
+
+The first concrete protected write is `metadata_write`. Accepted
+`metadata_write` side effects synchronously normalize a minimal Canonical
+Metadata patch, merge it through Taru metadata merge policy, persist the media
+item through a Taru-owned repository boundary, and refresh catalog/search
+through Taru catalog seams. Scalar metadata updates refresh search without
+rewriting existing catalog label provenance; `genres` and `tags` updates use
+the Addon metadata source only for the touched label sets. Other
+protected-write permissions are recorded but their apply outcome remains
+`skipped` until their dedicated routes are implemented.
 
 ```json
 {
@@ -919,7 +928,10 @@ apply canonical metadata or library-file writes.
     "request_id": "request-1"
   },
   "payload": {
-    "title": "Demo From Addon"
+    "title": "Demo From Addon",
+    "overview": "A safe metadata update.",
+    "genres": ["Addon Genre"],
+    "tags": ["sidecar", "metadata"]
   }
 }
 ```
@@ -927,6 +939,10 @@ apply canonical metadata or library-file writes.
 The first target kinds are `media_source` and `media_item`. A request must
 include a concrete `library_id`; global Addon Grants allow any target library,
 but the side-effect record still stores the specific library being targeted.
+The current `metadata_write` payload accepts only these top-level fields:
+`title`, `original_title`, `sort_title`, `overview`, `release_date`,
+`runtime_minutes`, `tagline`, `genres`, and `tags`. Unknown fields are rejected
+as an apply failure and are not echoed back to the Addon Sidecar.
 
 Successful responses expose only the safe audit summary:
 
@@ -945,11 +961,24 @@ Successful responses expose only the safe audit summary:
     "idempotency_key": "metadata-demo-1",
     "validation_status": "accepted",
     "safe_error_code": null,
+    "apply_status": "applied",
+    "apply_error_code": null,
+    "applied_item_id": "018f0000-0000-7000-8000-000000000007",
+    "applied_source": "addon:018f0000-0000-7000-8000-000000000002",
+    "applied_at": "2026-05-18T12:00:00.000Z",
     "created_at": "2026-05-18T12:00:00.000Z"
   },
   "idempotent_replay": false
 }
 ```
+
+`validation_status` describes Addon principal, permission, library, and target
+validation. It is not the domain write result. `apply_status` describes the
+domain apply outcome and is one of `pending`, `applied`, `failed`, or
+`skipped`. `apply_error_code` is a safe code such as `invalid_payload`,
+`forbidden`, `not_found`, `unsupported`, `storage_error`, or `database_error`.
+Rejected intake records use `validation_status: "rejected"` and
+`apply_status: "skipped"`.
 
 Repeated requests from the same addon with the same `idempotency_key` return
 the existing record with `"idempotent_replay": true`. The response never

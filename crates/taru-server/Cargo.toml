@@ -17,6 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 taru-addon-protocol = { path = "../taru-addon-protocol" }
 taru-api = { path = "../taru-api" }
+taru-catalog = { path = "../taru-catalog" }
 taru-db = { path = "../taru-db" }
 taru-core = { path = "../taru-core" }
 taru-automation = { path = "../taru-automation" }

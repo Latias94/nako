@@ -113,6 +113,12 @@ impl MetadataRepository for SqliteStore {
         })
     }
 
+    async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
+        transaction.commit().await.map_err(database_error)
+    }
+
     async fn get_provider_raw_response(
         &self,
         item_id: MediaItemId,

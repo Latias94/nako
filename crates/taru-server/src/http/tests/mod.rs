@@ -36,16 +36,16 @@ use taru_api::{
     WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
-    AddonPermission, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
-    AddonTokenStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
-    CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
-    EventOutboxRepository, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRepository,
-    IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository,
-    JobStatus, LibraryId, LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem, MediaItemId, MediaKind,
-    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
+    AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTokenStatus, AutomationCapability,
+    AutomationProviderStatus, CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind,
+    DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Genre, GenreId,
+    ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId,
+    JobKind, JobRepository, JobStatus, LibraryId, LibraryRepository, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem,
+    MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
+    MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
     NewIngestionFailure, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
     NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, Person,
@@ -57,7 +57,7 @@ use taru_core::{
     VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
-use taru_search::{SearchDocument, SearchIndex};
+use taru_search::{SearchDocument, SearchIndex, SearchQuery};
 use taru_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
 use taru_vfs::{ByteRange, ReadStream, StorageUri};
 use tokio::{net::TcpListener, task::yield_now, time::sleep};

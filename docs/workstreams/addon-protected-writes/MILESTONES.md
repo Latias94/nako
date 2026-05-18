@@ -1,6 +1,6 @@
 # Addon Protected Writes Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -47,6 +47,11 @@ Primary gates:
 Outcome: one accepted Addon Side Effect can apply a bounded Canonical Metadata
 write through Taru-owned domain seams.
 
+Result: completed on 2026-05-18. `metadata_write` now records explicit apply
+outcome state, persists Addon metadata source attribution, applies a minimal
+Canonical Metadata patch through `MetadataMergePolicy`, and hydrates
+catalog/search after apply.
+
 Exit criteria:
 
 - The route/service converts a valid accepted side effect into a narrow domain
@@ -70,6 +75,12 @@ Primary gates:
 Outcome: addon-submitted artwork or artifact output has a Taru-owned intake and
 storage path.
 
+Result: split on 2026-05-18 to
+`docs/workstreams/addon-managed-artwork-artifacts/`. APW intentionally did not
+implement `artwork_write` because Managed Artwork import, artifact storage,
+external fetch ownership, thumbnail/cache policy, and resource budgeting need
+their own validation matrix.
+
 Exit criteria:
 
 - Artwork output is represented as an Artwork Candidate, Managed Artwork, or
@@ -88,6 +99,12 @@ Primary gates:
 
 Outcome: addon-initiated sidecar file changes use Taru Library File Write
 policy.
+
+Result: split on 2026-05-18 to
+`docs/workstreams/addon-library-file-write-policy/`. APW intentionally did not
+implement subtitle, NFO, or sidecar writes because path derivation, NFO Round
+Trip, backup retention, VFS write reports, and response redaction need their
+own lane.
 
 Exit criteria:
 
@@ -110,6 +127,10 @@ Primary gates:
 
 Outcome: the protected-write apply model is proven and remaining breadth is
 closed, deferred, or split.
+
+Result: completed on 2026-05-18. APW is closed after the Canonical Metadata
+apply slice, and remaining artwork/artifact plus Library File Write breadth is
+split into dedicated follow-ons.
 
 Exit criteria:
 

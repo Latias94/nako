@@ -493,6 +493,7 @@ fn metadata_source_to_dto(source: MetadataSource) -> ClientMetadataSource {
             ClientMetadataSource::Provider(external_provider_to_dto(provider))
         }
         MetadataSource::User => ClientMetadataSource::User,
+        MetadataSource::Addon(addon_id) => ClientMetadataSource::Addon(addon_id.to_string()),
     }
 }
 
