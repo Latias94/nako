@@ -55,13 +55,15 @@ Last updated: 2026-05-18
 
 ## M4 - Addon Side Effect Intake Proof
 
-- [ ] ATGSE-050 [owner=unassigned] [deps=ATGSE-040] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,docs/api]
+- [x] ATGSE-050 [owner=codex] [deps=ATGSE-040] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,docs/api]
   Goal: Implement the smallest Addon Side Effect intake proof that validates
   actor, target, permission, library scope, idempotency key, provenance, safe
   error mapping, and audit persistence before any canonical/library-file write
   is applied.
   Validation: focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`; relevant `taru-db` tests; `git diff --check`.
-  Review: review-workstream for side-effect semantics and leakage risk.
+  Review: self-review completed for side-effect semantics and leakage risk;
+  route persists rejected intake after a trustworthy addon principal is
+  resolved and never returns raw token/hash/payload/provenance/raw paths.
   Evidence: tests for accepted intake, denied permission, wrong library,
   revoked token, duplicate idempotency key, malformed target, and redacted
   response.

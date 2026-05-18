@@ -508,6 +508,252 @@ async fn addon_token_cannot_authenticate_admin_routes() {
     assert_eq!(addon_runtime_route.status(), StatusCode::OK);
 }
 
+#[tokio::test]
+async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echoing_payload() {
+    let (_temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+
+    let grants_path = format!("/admin/v1/addons/{addon_id}/grants");
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-demo-1".to_owned(),
+        provenance: serde_json::json!({
+            "origin": "reference-addon",
+            "request_id": "request-1"
+        }),
+        payload: serde_json::json!({
+            "title": "Demo From Addon",
+            "raw_path": "local:///Movies/demo.mkv",
+            "token": issued.raw_token
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body: AddonSideEffectResponse = serde_json::from_slice(&response_body).unwrap();
+    assert_eq!(body.side_effect.addon_id, addon_id);
+    assert_eq!(body.side_effect.token_id, issued.token.id);
+    assert_eq!(body.side_effect.permission, AddonPermission::MetadataWrite);
+    assert_eq!(body.side_effect.library_id, library_id);
+    assert_eq!(
+        body.side_effect.target.kind,
+        AddonSideEffectTargetKind::MediaSource
+    );
+    assert_eq!(body.side_effect.target.id, source.id.to_string());
+    assert_eq!(body.side_effect.idempotency_key, "metadata-demo-1");
+    assert_eq!(
+        body.side_effect.validation_status,
+        AddonSideEffectValidationStatus::Accepted
+    );
+    assert!(!body.idempotent_replay);
+
+    let response_body = String::from_utf8_lossy(&response_body);
+    assert!(!response_body.contains("token_hash"));
+    assert!(!response_body.contains("raw_token"));
+    assert!(!response_body.contains(&issued.raw_token));
+    assert!(!response_body.contains("local:///Movies/demo.mkv"));
+    assert!(!response_body.contains("Demo From Addon"));
+
+    let duplicate = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(duplicate.status(), StatusCode::OK);
+    let duplicate = body_json::<AddonSideEffectResponse>(duplicate).await;
+    assert_eq!(duplicate.side_effect.id, body.side_effect.id);
+    assert!(duplicate.idempotent_replay);
+}
+
+#[tokio::test]
+async fn addon_side_effect_intake_rejects_unauthorized_scope_revoked_token_and_bad_targets() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let ungranted_library_id = LibraryId::new();
+    store
+        .upsert_library(&taru_core::Library {
+            id: ungranted_library_id,
+            name: "Other Movies".to_owned(),
+            roots: vec!["local:///Other".to_owned()],
+            options: taru_core::LibraryOptions::from_preset(taru_core::LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+
+    let grants_path = format!("/admin/v1/addons/{addon_id}/grants");
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(ungranted_library_id),
+            }],
+        },
+    )
+    .await;
+
+    let denied = AddonSideEffectTargetRequest {
+        kind: AddonSideEffectTargetKind::MediaSource,
+        id: source.id.to_string(),
+    };
+    let wrong_library_request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: denied.clone(),
+        idempotency_key: "metadata-wrong-library".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({"title": "Denied"}),
+    };
+
+    let wrong_library =
+        addon_side_effect(&router, Some(&issued.raw_token), &wrong_library_request).await;
+    assert_eq!(wrong_library.status(), StatusCode::FORBIDDEN);
+    assert_eq!(
+        body_json::<ErrorResponse>(wrong_library).await.code,
+        "forbidden"
+    );
+
+    let wrong_library_replay =
+        addon_side_effect(&router, Some(&issued.raw_token), &wrong_library_request).await;
+    assert_eq!(wrong_library_replay.status(), StatusCode::OK);
+    let wrong_library_replay = body_json::<AddonSideEffectResponse>(wrong_library_replay).await;
+    assert!(wrong_library_replay.idempotent_replay);
+    assert_eq!(
+        wrong_library_replay.side_effect.validation_status,
+        AddonSideEffectValidationStatus::Rejected
+    );
+    assert_eq!(
+        wrong_library_replay.side_effect.safe_error_code.as_deref(),
+        Some("forbidden")
+    );
+
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let missing_permission = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::SubtitleWrite,
+        library_id,
+        target: denied.clone(),
+        idempotency_key: "metadata-missing-permission".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({"title": "Denied"}),
+    };
+    let missing_permission_response =
+        addon_side_effect(&router, Some(&issued.raw_token), &missing_permission).await;
+    assert_eq!(missing_permission_response.status(), StatusCode::FORBIDDEN);
+
+    let malformed_target = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: "not-a-uuid".to_owned(),
+        },
+        idempotency_key: "metadata-bad-target".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({"title": "Denied"}),
+    };
+    let malformed_target_response =
+        addon_side_effect(&router, Some(&issued.raw_token), &malformed_target).await;
+    assert_eq!(malformed_target_response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json::<ErrorResponse>(malformed_target_response)
+            .await
+            .code,
+        "invalid_input"
+    );
+
+    let revoked_path = format!(
+        "/admin/v1/addons/{addon_id}/tokens/{}/revoke",
+        issued.token.id
+    );
+    request_json::<AddonTokenResponse>(&router, Method::POST, &revoked_path).await;
+    let revoked_token =
+        addon_side_effect(&router, Some(&issued.raw_token), &malformed_target).await;
+    assert_eq!(revoked_token.status(), StatusCode::UNAUTHORIZED);
+}
+
 async fn register_addon_with_admin_token(
     router: &Router,
     admin_token: &str,
@@ -577,6 +823,30 @@ async fn addon_access_check(
         .oneshot(
             builder
                 .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn addon_side_effect(
+    router: &Router,
+    raw_token: Option<&str>,
+    request: &SubmitAddonSideEffectRequest,
+) -> Response {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri("/addon/v1/side-effects")
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(raw_token) = raw_token {
+        builder = builder.header(header::AUTHORIZATION, format!("Bearer {raw_token}"));
+    }
+
+    router
+        .clone()
+        .oneshot(
+            builder
+                .body(Body::from(serde_json::to_vec(request).unwrap()))
                 .unwrap(),
         )
         .await

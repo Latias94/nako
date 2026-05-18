@@ -74,6 +74,7 @@ define_id!(WebhookDeliveryAttemptId);
 define_id!(AddonId);
 define_id!(AddonTokenId);
 define_id!(AddonGrantId);
+define_id!(AddonSideEffectId);
 define_id!(PersonId);
 define_id!(GenreId);
 define_id!(TagId);

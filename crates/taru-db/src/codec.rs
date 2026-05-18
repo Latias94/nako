@@ -690,6 +690,31 @@ pub(crate) fn row_to_addon_grant(row: SqliteRow) -> Result<AddonGrantRecord> {
     })
 }
 
+pub(crate) fn row_to_addon_side_effect(row: SqliteRow) -> Result<AddonSideEffectRecord> {
+    let target = AddonSideEffectTarget {
+        kind: AddonSideEffectTargetKind::parse(&row_get::<String>(&row, "target_kind")?)?,
+        id: row_get(&row, "target_id")?,
+    };
+
+    Ok(AddonSideEffectRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        token_id: parse_id(row_get::<String>(&row, "token_id")?)?,
+        permission: AddonPermission::parse(&row_get::<String>(&row, "permission")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        target,
+        idempotency_key: row_get(&row, "idempotency_key")?,
+        provenance_json: row_get(&row, "provenance_json")?,
+        payload_json: row_get(&row, "payload_json")?,
+        validation_status: AddonSideEffectValidationStatus::parse(&row_get::<String>(
+            &row,
+            "validation_status",
+        )?)?,
+        safe_error_code: row_get(&row, "safe_error_code")?,
+        created_at: row_get(&row, "created_at")?,
+    })
+}
+
 pub(crate) fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessionRecord> {
     Ok(TranscodeSessionRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,

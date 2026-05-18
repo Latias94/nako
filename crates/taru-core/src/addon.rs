@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AddonGrantId, AddonId, AddonTokenId, LibraryId, Result, SecretString, TaruError};
+use crate::{
+    AddonGrantId, AddonId, AddonSideEffectId, AddonTokenId, LibraryId, MediaItemId, MediaSourceId,
+    Result, SecretString, TaruError,
+};
 
 pub const ADDON_TOKEN_RAW_PREFIX: &str = "taru_at_";
 pub const ADDON_TOKEN_DISPLAY_PREFIX_LEN: usize = 18;
@@ -96,6 +99,88 @@ impl AddonPermission {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonSideEffectTargetKind {
+    MediaItem,
+    MediaSource,
+}
+
+impl AddonSideEffectTargetKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MediaItem => "media_item",
+            Self::MediaSource => "media_source",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "media_item" => Ok(Self::MediaItem),
+            "media_source" => Ok(Self::MediaSource),
+            _ => Err(TaruError::Database {
+                message: format!(
+                    "unknown addon side effect target kind stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonSideEffectValidationStatus {
+    Accepted,
+    Rejected,
+}
+
+impl AddonSideEffectValidationStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "accepted" => Ok(Self::Accepted),
+            "rejected" => Ok(Self::Rejected),
+            _ => Err(TaruError::Database {
+                message: format!(
+                    "unknown addon side effect validation status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectTarget {
+    pub kind: AddonSideEffectTargetKind,
+    pub id: String,
+}
+
+impl AddonSideEffectTarget {
+    #[must_use]
+    pub fn media_item(id: MediaItemId) -> Self {
+        Self {
+            kind: AddonSideEffectTargetKind::MediaItem,
+            id: id.to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn media_source(id: MediaSourceId) -> Self {
+        Self {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: id.to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewAddonRegistration {
     pub id: AddonId,
@@ -162,6 +247,39 @@ pub struct AddonGrantRecord {
     pub addon_id: AddonId,
     pub permission: AddonPermission,
     pub library_id: Option<LibraryId>,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewAddonSideEffect {
+    pub id: AddonSideEffectId,
+    pub addon_id: AddonId,
+    pub token_id: AddonTokenId,
+    pub permission: AddonPermission,
+    pub library_id: LibraryId,
+    pub target: AddonSideEffectTarget,
+    pub idempotency_key: String,
+    pub provenance_json: String,
+    pub payload_json: String,
+    pub validation_status: AddonSideEffectValidationStatus,
+    pub safe_error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectRecord {
+    pub id: AddonSideEffectId,
+    pub addon_id: AddonId,
+    pub token_id: AddonTokenId,
+    pub permission: AddonPermission,
+    pub library_id: LibraryId,
+    pub target: AddonSideEffectTarget,
+    pub idempotency_key: String,
+    #[serde(skip_serializing)]
+    pub provenance_json: String,
+    #[serde(skip_serializing)]
+    pub payload_json: String,
+    pub validation_status: AddonSideEffectValidationStatus,
+    pub safe_error_code: Option<String>,
     pub created_at: String,
 }
 

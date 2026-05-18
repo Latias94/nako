@@ -99,6 +99,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon tokens and grants",
         include_str!("../migrations/0021_addon_tokens_and_grants.sql"),
     ),
+    (
+        22,
+        "addon side effects",
+        include_str!("../migrations/0022_addon_side_effects.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

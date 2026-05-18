@@ -433,6 +433,8 @@ mod tests {
             "/admin",
             "/admin/v1",
             "/addons",
+            "/addon",
+            "/addon/v1",
             "/webhooks",
             "/automation",
             "/storage/backends",

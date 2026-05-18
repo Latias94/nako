@@ -1,9 +1,9 @@
 use taru_core::{
-    AddonGrantId, AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection,
-    ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions,
-    LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId,
-    ProviderSubjectId, TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
-    VfsCachedObjectKind,
+    AddonGrantId, AddonSideEffectId, AddonSideEffectTarget, AddonSideEffectValidationStatus,
+    AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection, ContentRating,
+    Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions, LibraryPreset,
+    MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
+    TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
 };
 
 use super::*;
@@ -2769,6 +2769,114 @@ async fn sqlite_store_round_trips_addon_tokens_and_grants() {
 
     assert_eq!(replaced.len(), 1);
     assert_eq!(replaced[0].permission, AddonPermission::SubtitleWrite);
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_addon_side_effects_idempotently() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.metadata".to_owned(),
+            name: "Example Metadata".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["item_metadata_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "runtime".to_owned(),
+            token_prefix: "taru_at_runtime".to_owned(),
+            token_hash: "sha256:runtime".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let source_id = MediaSourceId::new();
+    let side_effect_id = AddonSideEffectId::new();
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: side_effect_id,
+            addon_id,
+            token_id,
+            permission: AddonPermission::MetadataWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_source(source_id),
+            idempotency_key: "metadata-demo".to_owned(),
+            provenance_json: r#"{"origin":"reference-addon"}"#.to_owned(),
+            payload_json: r#"{"title":"Demo"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(side_effect.id, side_effect_id);
+    assert_eq!(side_effect.addon_id, addon_id);
+    assert_eq!(side_effect.token_id, token_id);
+    assert_eq!(side_effect.library_id, library_id);
+    assert_eq!(
+        side_effect.target,
+        AddonSideEffectTarget::media_source(source_id)
+    );
+    assert_eq!(
+        side_effect.validation_status,
+        AddonSideEffectValidationStatus::Accepted
+    );
+    assert_eq!(
+        side_effect.provenance_json,
+        r#"{"origin":"reference-addon"}"#
+    );
+    assert_eq!(side_effect.payload_json, r#"{"title":"Demo"}"#);
+
+    let duplicate = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_source(MediaSourceId::new()),
+            idempotency_key: "metadata-demo".to_owned(),
+            provenance_json: r#"{"origin":"duplicate"}"#.to_owned(),
+            payload_json: r#"{"title":"Duplicate"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Rejected,
+            safe_error_code: Some("forbidden".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(duplicate, side_effect);
+    assert_eq!(
+        store
+            .find_addon_side_effect_by_idempotency_key(addon_id, "metadata-demo")
+            .await
+            .unwrap(),
+        Some(side_effect)
+    );
 }
 
 #[tokio::test]

@@ -5,29 +5,24 @@ Last updated: 2026-05-18
 
 ## Current State
 
-ATGSE-040 is complete. Taru now has first-class Addon Token issuance,
-rotation, revocation, redacted inspection, accepted Addon Permission /
-Library-Scoped Addon Grant storage, and an addon-owned runtime principal
-authorization seam.
-
-The lane still does not have Addon Side Effect intake. That remains the next
-slice.
+ATGSE-050 is implemented and awaiting final verification/commit. Taru now has
+first-class Addon Token issuance, rotation, revocation, redacted inspection,
+accepted Addon Permission / Library-Scoped Addon Grant storage, an addon-owned
+runtime principal authorization seam, and the first Addon Side Effect intake
+proof.
 
 ## Active Task
 
-- Task ID: ATGSE-050
-- Owner: unassigned
-- Files: `crates/taru-core`, `crates/taru-db`,
-  `crates/taru-server/src/app/addons.rs`,
-  `crates/taru-server/src/http/addons.rs`, `crates/taru-api/src/extension.rs`,
-  `docs/api`
-- Validation: focused `cargo nextest run -p taru-server addon_side_effect
-  --no-fail-fast`; relevant `taru-db` tests; `git diff --check`
-- Status: NEEDS_CONTEXT
-- Review: run review-workstream for side-effect semantics and leakage risk
-- Evidence: tests for accepted intake, denied permission, wrong library,
-  revoked token, duplicate idempotency key, malformed target, and redacted
-  response
+- Task ID: ATGSE-060
+- Owner: planner
+- Files: `docs/workstreams/addon-token-grants-side-effects`, `docs/api`,
+  optional follow-on workstreams for concrete metadata/artwork/subtitle/
+  Library File Write handlers
+- Validation: final `verify-rust-workstream` gates,
+  `cargo fmt --all -- --check`, `git diff --check`
+- Status: READY_AFTER_ATGSE_050_COMMIT
+- Review: run review-workstream if the lane is closed rather than split
+- Evidence: ATGSE-050 code/tests/docs plus final gate evidence
 
 ## Decisions Since Last Update
 
@@ -58,6 +53,15 @@ slice.
   `/addon/v1/access-check` resolves an Addon Token into an Addon principal and
   enforces accepted permission plus library scope.
 - Addon Tokens cannot authenticate `/admin/v1/*` routes.
+- `/addon/v1/side-effects` persists an Addon Side Effect intake record before
+  any canonical metadata or Library File Write mutation is applied.
+- Side-effect intake records accepted and rejected validation results once a
+  trustworthy Addon principal is resolved. Missing/invalid/revoked tokens return
+  `401` without creating an addon audit record.
+- Idempotency is scoped to `(addon_id, idempotency_key)` and returns the
+  existing record on replay.
+- Safe responses omit raw Addon Token material, token hashes, payload JSON,
+  provenance JSON, source locators, filesystem paths, and raw provider bodies.
 
 ## Blockers
 
@@ -65,7 +69,6 @@ slice.
 
 ## Next Recommended Action
 
-- Run ATGSE-050: implement the smallest Addon Side Effect intake proof on top
-  of the Addon principal seam. Persist actor, target, permission, library scope,
-  idempotency key, provenance, validation result, and safe response state before
-  adding concrete metadata/artwork/subtitle/Library File Write handlers.
+- Finish ATGSE-050 verification and commit.
+- Then run ATGSE-060 to close the lane or split follow-ons for concrete
+  metadata, Managed Artwork, subtitle, and Library File Write handlers.

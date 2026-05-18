@@ -151,7 +151,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
 
 #[tokio::test]
 async fn direct_stream_head_returns_headers_without_body() {
-    let (_temp, router, source) = router_with_media_source("demo.mp4", b"0123456789").await;
+    let (_temp, router, source, _store) = router_with_media_source("demo.mp4", b"0123456789").await;
 
     let response = router
         .oneshot(
@@ -192,7 +192,7 @@ async fn direct_stream_head_returns_headers_without_body() {
 
 #[tokio::test]
 async fn direct_stream_zero_byte_file_returns_empty_ok() {
-    let (_temp, router, source) = router_with_media_source("empty.mp4", b"").await;
+    let (_temp, router, source, _store) = router_with_media_source("empty.mp4", b"").await;
 
     let response = router
         .oneshot(
@@ -366,7 +366,7 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
 
 #[tokio::test]
 async fn direct_stream_rejects_unsatisfiable_and_multi_ranges() {
-    let (_temp, router, source) = router_with_media_source("demo.mp4", b"0123456789").await;
+    let (_temp, router, source, _store) = router_with_media_source("demo.mp4", b"0123456789").await;
 
     for range in ["bytes=20-30", "bytes=0-1,2-3"] {
         let response = router
