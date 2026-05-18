@@ -14,15 +14,17 @@ Last updated: 2026-05-18
 
 ## M1 - Exposure Audit And Contract Decision
 
-- [ ] PCLR-020 [owner=unassigned] [deps=PCLR-010] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-server/src/http,docs/api]
+- [x] PCLR-020 [owner=codex] [deps=PCLR-010] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-server/src/http,docs/api]
   Goal: Classify each raw locator exposure as Public Client, Admin API,
   internal execution, or test fixture, then choose the public replacement or
   redaction policy.
   Validation: `rg "locator|input_locator" crates/taru-client-protocol
   crates/taru-api crates/taru-server/src/http`; `git diff --check`.
-  Review: contract review before field removal.
+  Review: contract decision recorded; remove fields in PCLR-030.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue with PCLR-030 only after compatibility risk is explicit.
+  Handoff: Public Client DTOs must remove raw source locator fields. Internal
+  storage/playback execution keeps full locators. Admin-only diagnostics may
+  add redacted locator summaries in separate Admin API work.
 
 ## M2 - Public DTO And Server Mapping
 

@@ -41,14 +41,15 @@
     "crates/taru-api/src/public_client.rs",
     "crates/taru-api/src/openapi.rs",
     "crates/taru-server/src/http/tests",
-    "docs/api/HTTP_API.md"
+    "docs/api/HTTP_API.md",
+    "sdk/typescript/src/index.ts"
   ],
   "adr_refs": [
     "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
-  "current_task": "PCLR-020",
+  "current_task": "PCLR-030",
   "first_slice": "locator exposure audit and public contract decision",
   "non_goals": [
     "Media Library source-of-truth reconciliation",
@@ -64,6 +65,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start with PCLR-020 audit and contract decision before removing or renaming public DTO fields."
+    "notes": "PCLR-020 audit is complete. Continue with PCLR-030 to remove raw public locator fields from DTOs and route JSON while preserving internal locator use."
   }
 }
