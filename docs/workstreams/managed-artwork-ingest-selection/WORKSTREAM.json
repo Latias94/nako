@@ -38,21 +38,24 @@
     "docs/workstreams/managed-artwork-ingest-selection/DESIGN.md",
     "docs/workstreams/managed-artwork-ingest-selection/TODO.md",
     "docs/workstreams/addon-managed-artwork-artifacts/HANDOFF.md",
+    "crates/taru-core/src/id.rs",
     "crates/taru-core/src/job.rs",
     "crates/taru-core/src/media/artwork.rs",
     "crates/taru-core/src/media/catalog.rs",
+    "crates/taru-db/migrations/0026_managed_artwork_ingest.sql",
     "crates/taru-db/src/artwork.rs",
     "crates/taru-db/src/catalog.rs",
     "crates/taru-db/src/staging.rs",
     "crates/taru-api/src/admin.rs",
     "crates/taru-api/src/public_client.rs",
+    "crates/taru-server/src/app/artwork.rs",
     "crates/taru-server/src/app/addons.rs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAIS-030",
+  "current_task": "MAIS-040",
   "first_slice": "Queued candidate ingest into internal Managed Artwork state",
   "non_goals": [
     "Addon Manager lifecycle automation",
@@ -68,6 +71,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with MAIS-030. Implement a first-party queued candidate-ingest boundary that accepts an Addon Artwork Candidate into internal Managed Artwork state. Do not publish selected public ImageAsset rows until managed artifact storage and public redaction are explicit."
+    "notes": "Continue with MAIS-040. The queued candidate-ingest boundary is implemented; decide whether to close this lane or split remote fetch/content validation, managed artifact byte storage, thumbnails, selected artwork publication, and image-serving redaction into follow-ons."
   }
 }

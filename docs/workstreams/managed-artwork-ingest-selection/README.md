@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Selection
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-19
 
 This workstream owns the follow-on after

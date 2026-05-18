@@ -852,6 +852,7 @@ mod tests {
             "/admin/v1/overview",
             "/admin/v1/events",
             "/admin/v1/jobs",
+            "/admin/v1/artwork/candidates/{candidate_id}/accept",
             "/admin/v1/playback/runtime",
             "/admin/v1/playback/sessions",
             "/admin/v1/storage/staging",

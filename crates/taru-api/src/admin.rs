@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 use taru_client_protocol::PageInfo;
 use taru_core::{
-    CatalogGovernanceItemRecord, DomainEventKind, DomainEventSubject, EventId, ExternalProvider,
-    IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus,
-    Job, JobId, JobKind, JobStatus, LibraryId, LibraryPreset, LocalInferenceEvidence,
-    LocalInferenceEvidenceSource, MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord,
+    ArtworkCandidateId, ArtworkCandidateStatus, CatalogGovernanceItemRecord, DomainEventKind,
+    DomainEventSubject, EventId, ExternalProvider, ImageKind, IngestionFailureClass,
+    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind,
+    JobStatus, LibraryId, LibraryPreset, LocalInferenceEvidence, LocalInferenceEvidenceSource,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestRecord,
+    ManagedArtworkIngestStatus, MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord,
     OutboxEventStatus, ScanSnapshotId, StagingManifestId, StagingManifestRecord, StagingPurpose,
     StagingState, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
     TranscodeSessionRecord, TranscodeSessionState,
@@ -16,6 +18,60 @@ use taru_transcode::{
 use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
 
 pub const ADMIN_API_VERSION: &str = "v1";
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AcceptManagedArtworkCandidateResponse {
+    pub candidate_id: ArtworkCandidateId,
+    pub candidate_status: ArtworkCandidateStatus,
+    pub ingest: ManagedArtworkIngestSummary,
+    pub job: JobResponse,
+}
+
+impl AcceptManagedArtworkCandidateResponse {
+    #[must_use]
+    pub fn from_acceptance(acceptance: ManagedArtworkAcceptanceRecord) -> Self {
+        Self {
+            candidate_id: acceptance.candidate.id,
+            candidate_status: acceptance.candidate.status,
+            ingest: ManagedArtworkIngestSummary::from_record(acceptance.ingest),
+            job: JobResponse::from_job(acceptance.job),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestSummary {
+    pub id: ManagedArtworkIngestId,
+    pub candidate_id: ArtworkCandidateId,
+    pub job_id: JobId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub status: ManagedArtworkIngestStatus,
+    pub has_artifact: bool,
+    pub has_failure: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl ManagedArtworkIngestSummary {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkIngestRecord) -> Self {
+        Self {
+            id: record.id,
+            candidate_id: record.candidate_id,
+            job_id: record.job_id,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            kind: record.kind,
+            status: record.status,
+            has_artifact: record.artifact_id.is_some(),
+            has_failure: record.failure_code.is_some(),
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminCatalogGovernanceItemListResponse {

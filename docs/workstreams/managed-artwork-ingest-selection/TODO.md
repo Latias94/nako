@@ -34,7 +34,7 @@ Last updated: 2026-05-19
 
 ## M2 - First Managed Ingest Slice
 
-- [ ] MAIS-030 [owner=codex] [deps=MAIS-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
+- [x] MAIS-030 [owner=codex] [deps=MAIS-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
   Goal: Implement a Taru-owned queued candidate-ingest path that accepts an
   Addon Artwork Candidate into internal Managed Artwork state without
   publishing selected public artwork yet.
@@ -44,8 +44,12 @@ Last updated: 2026-05-19
   filesystem paths, internal cache paths, remote storage handles, cache URIs,
   or unvalidated addon hotlinks.
   Evidence: code/tests/API docs and MAIS notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Split thumbnails, admin review UI, or sidecar export if it exceeds
-  the first managed ingest slice.
+  Result: DONE. Admin candidate accept now marks the candidate accepted,
+  creates an internal managed artwork ingest record, and queues a redacted
+  `managed_artwork_ingest` job without writing public `ImageAsset` rows.
+  Handoff: Continue with MAIS-040 to close this lane or split remote fetch,
+  artifact byte storage, thumbnailing, and public artwork publication into
+  narrower follow-ons.
 
 ## M3 - Closeout Or Split
 

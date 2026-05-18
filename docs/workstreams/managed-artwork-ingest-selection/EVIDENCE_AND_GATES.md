@@ -100,3 +100,55 @@ search, public API contracts, or durable job behavior.
 - Decision: MAIS-030 should implement a queued candidate-ingest boundary that
   creates internal Managed Artwork state. Do not create selected public
   `ImageAsset` rows as the first acceptance target.
+
+2026-05-19, MAIS-030:
+
+- Implemented `JobKind::ManagedArtworkIngest` with resource class
+  `artwork.ingest`.
+- Added `ManagedArtworkIngestId`, `ManagedArtworkArtifactId`, internal
+  managed artwork ingest/artifact domain records, and
+  `ManagedArtworkRepository`.
+- Added migration `0026_managed_artwork_ingest.sql` for
+  `managed_artwork_ingests` and `managed_artwork_artifacts`.
+- `SqliteStore::accept_managed_artwork_candidate_ingest` commits candidate
+  status, durable job, and managed ingest state in one transaction; repeated
+  acceptance returns the existing ingest and job.
+- Added `ManagedArtworkAppService::accept_candidate` and
+  `POST /admin/v1/artwork/candidates/{candidate_id}/accept`.
+- The Admin accept response uses `AcceptManagedArtworkCandidateResponse`, which
+  returns candidate ID/status, managed ingest summary, and a redacted job
+  envelope only.
+- Added tests:
+  `sqlite_store_accepts_artwork_candidate_into_managed_ingest_atomically` and
+  `admin_accept_artwork_candidate_queues_managed_ingest_without_public_artwork_or_url_echo`.
+- The shipped slice does not fetch remote bytes, create thumbnails, write
+  public `ImageAsset` rows, set selected artwork, or expose client-visible
+  cache references.
+- API docs now describe `managed_artwork_ingest` jobs, Admin candidate accept,
+  idempotent accept replay, and redaction guarantees.
+- Fresh validation:
+  - `cargo nextest run -p taru-db accepts_artwork_candidate --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-server admin_accept_artwork_candidate --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed.
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed.
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+    passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
+
+2026-05-19, MAIS-030 pre-commit refresh:
+
+- `Get-Content -Raw docs/workstreams/managed-artwork-ingest-selection/WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+  passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only LF/CRLF working-copy warnings.
+- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  passed.
+- `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
+- `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 3 tests.
+- `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  passed: 10 tests.

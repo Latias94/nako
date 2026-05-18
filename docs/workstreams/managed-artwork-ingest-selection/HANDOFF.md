@@ -5,28 +5,31 @@ Last updated: 2026-05-19
 
 ## Current State
 
-MAIS-020 is complete. No managed artwork ingest runtime behavior has been
-implemented here yet.
+MAIS-030 is complete. The first managed artwork ingest runtime boundary is now
+implemented as a queued Admin API acceptance path.
 
 AMAA-030 shipped internal Addon Artwork Candidate proposals. Those candidates
 may contain remote source URLs, but they are not public client artwork and do
 not create `ImageAsset` rows, cache artifacts, thumbnails, or selected artwork.
 
 The selected first implementation target is a queued candidate-ingest boundary
-that creates internal Managed Artwork state. It must not create selected public
-`ImageAsset` rows during candidate acceptance.
+that creates internal Managed Artwork state. The shipped slice creates a
+durable ingest record and `managed_artwork_ingest` job, but still does not
+fetch remote bytes, cache artifacts, thumbnail, create selected public
+`ImageAsset` rows, or publish client-visible artwork.
 
 ## Active Task
 
-- Task ID: MAIS-030
+- Task ID: MAIS-040
 - Owner: codex
-- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-server`,
-  `crates/taru-api`, `crates/taru-vfs`, `docs/api`, `docs`
-- Validation: focused managed artwork tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`
+- Files: `docs/workstreams/managed-artwork-ingest-selection`, `docs/api`
+- Validation: verify-rust-workstream records fresh final gate evidence
 - Status: READY
-- Review: implement a Taru-owned queued candidate-ingest path with redacted job
-  input/summary and internal Managed Artwork state before public publication
-- Evidence: update `EVIDENCE_AND_GATES.md`, API docs, code, and tests
+- Review: decide whether this lane should close as the queued boundary, or
+  split remote fetch/artifact bytes, thumbnails, and public publication into
+  follow-ons
+- Evidence: update `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout
+  notes
 
 ## Blockers
 
@@ -34,17 +37,12 @@ that creates internal Managed Artwork state. It must not create selected public
 
 ## Next Recommended Action
 
-- Run MAIS-030. Add the internal managed artwork ingest/job/artifact boundary
-  first. A reasonable implementation shape is:
-  `ManagedArtworkService::accept_candidate(candidate_id, policy)` validates the
-  candidate and queues a managed artwork ingest job; the worker records
-  Taru-managed artifact state after fetch/content validation.
-- Add or amend `JobKind` and resource class for managed artwork ingest if the
-  generic jobs table is used. The durable job input and summary must contain
-  redacted Taru IDs and counters only, because `/jobs/{job_id}` exposes parsed
-  input and summary today.
+- Run MAIS-040 using close-workstream or split follow-on lanes. The likely
+  follow-ons are remote fetch/content validation into
+  `managed_artwork_artifacts`, image-serving/redacted public artwork
+  references, thumbnail/resize workers, and selected artwork publication.
 - Keep `ArtworkTask` for post-publication image work or later thumbnail/resize
-  tasks unless it is explicitly refactored away from `ImageAssetId`.
+  tasks unless a future lane explicitly refactors it away from `ImageAssetId`.
 - Do not publish `ImageAsset` until a managed artifact exists and the public
   image reference/redaction contract is explicit.
 - Do not put remote fetch/cache/thumbnailing in the Addon Side Effect handler.

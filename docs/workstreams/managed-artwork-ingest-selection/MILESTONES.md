@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Selection Milestones
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze

@@ -364,6 +364,11 @@ each item's effective providers, language, and refresh mode.
 NFO jobs use kinds `nfo_import` and `nfo_export`. Their input includes the
 library ID, local metadata policy, and force flag.
 
+Managed artwork candidate ingest jobs use kind `managed_artwork_ingest` and
+resource class `artwork.ingest`. Their input includes only redacted Taru IDs
+and image kind. It must not include the candidate's raw remote URL, source URI,
+cache URI, local path, storage handle, or validation internals.
+
 ## Current Routes
 
 ```text
@@ -430,6 +435,7 @@ GET  /admin/v1/overview
 GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/events
 GET  /admin/v1/jobs
+POST /admin/v1/artwork/candidates/{candidate_id}/accept
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -1084,6 +1090,62 @@ artwork state:
   "candidate_existing": 0
 }
 ```
+
+Administrators can accept an internal Artwork Candidate into Taru-managed
+artwork ingest with `POST /admin/v1/artwork/candidates/{candidate_id}/accept`.
+This is the first-party acceptance boundary; it is not an Addon Side Effect
+handler. The first slice marks the candidate accepted, creates one queued
+managed artwork ingest record, and creates one durable
+`managed_artwork_ingest` job. It does not fetch remote bytes, create
+thumbnails, write public `ImageAsset` rows, select artwork, or expose a
+client-visible cache reference yet.
+
+The response includes only safe IDs, status, image kind, artifact/failure
+presence booleans, and the redacted job envelope:
+
+```json
+{
+  "candidate_id": "018f0000-0000-7000-8000-000000000008",
+  "candidate_status": "accepted",
+  "ingest": {
+    "id": "018f0000-0000-7000-8000-000000000009",
+    "candidate_id": "018f0000-0000-7000-8000-000000000008",
+    "job_id": "018f0000-0000-7000-8000-000000000010",
+    "library_id": "018f0000-0000-7000-8000-000000000003",
+    "item_id": "018f0000-0000-7000-8000-000000000007",
+    "kind": "poster",
+    "status": "queued",
+    "has_artifact": false,
+    "has_failure": false,
+    "created_at": "2026-05-18T12:00:00.000Z",
+    "updated_at": "2026-05-18T12:00:00.000Z"
+  },
+  "job": {
+    "id": "018f0000-0000-7000-8000-000000000010",
+    "kind": "managed_artwork_ingest",
+    "status": "queued",
+    "resource_class": "artwork.ingest",
+    "library_id": "018f0000-0000-7000-8000-000000000003",
+    "source_id": null,
+    "input": {
+      "candidate_id": "018f0000-0000-7000-8000-000000000008",
+      "library_id": "018f0000-0000-7000-8000-000000000003",
+      "item_id": "018f0000-0000-7000-8000-000000000007",
+      "image_kind": "poster"
+    },
+    "summary": null,
+    "error": null,
+    "queued_at": "2026-05-18T12:00:00.000Z",
+    "started_at": null,
+    "completed_at": null
+  }
+}
+```
+
+The accept response and durable job input/summary must never include raw remote
+URLs, Source Locators, filesystem paths, storage handles, cache URIs, raw
+validation failures, addon tokens, or payload/provenance JSON. Repeating accept
+for an already accepted candidate returns the existing ingest and job.
 
 `validation_status` describes Addon principal, permission, library, and target
 validation. It is not the domain write result. `apply_status` describes the

@@ -1,8 +1,8 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
 };
 use taru_api::{
     ADMIN_API_VERSION, API_VERSION, AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
@@ -25,6 +25,7 @@ use taru_api::{
     AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
+use taru_core::ArtworkCandidateId;
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -51,6 +52,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
+        .route(
+            "/admin/v1/artwork/candidates/{candidate_id}/accept",
+            post(accept_admin_artwork_candidate),
+        )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
@@ -61,6 +66,13 @@ pub(super) fn routes() -> Router<TaruApp> {
             "/admin/v1/playback/sessions",
             get(list_admin_playback_sessions),
         )
+}
+
+pub(super) async fn accept_admin_artwork_candidate(
+    State(app): State<TaruApp>,
+    Path(candidate_id): Path<ArtworkCandidateId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().accept_candidate(candidate_id).await?))
 }
 
 pub(super) async fn list_admin_catalog_governance_items(

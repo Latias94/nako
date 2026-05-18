@@ -119,6 +119,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon artwork candidates",
         include_str!("../migrations/0025_addon_artwork_candidates.sql"),
     ),
+    (
+        26,
+        "managed artwork ingest",
+        include_str!("../migrations/0026_managed_artwork_ingest.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

@@ -1079,6 +1079,22 @@ pub(crate) fn row_to_artwork_candidate(row: SqliteRow) -> Result<ArtworkCandidat
     })
 }
 
+pub(crate) fn row_to_managed_artwork_ingest(row: SqliteRow) -> Result<ManagedArtworkIngestRecord> {
+    Ok(ManagedArtworkIngestRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        candidate_id: parse_id(row_get::<String>(&row, "candidate_id")?)?,
+        job_id: parse_id(row_get::<String>(&row, "job_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        status: ManagedArtworkIngestStatus::parse(&row_get::<String>(&row, "status")?)?,
+        artifact_id: parse_optional_id(row_get::<Option<String>>(&row, "artifact_id")?)?,
+        failure_code: row_get(&row, "failure_code")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
 pub(crate) fn serialize_metadata_json(metadata: &CanonicalMetadata) -> Result<String> {
     serde_json::to_string(metadata).map_err(database_error)
 }

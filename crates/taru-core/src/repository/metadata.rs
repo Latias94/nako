@@ -2,14 +2,16 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkTask, ArtworkTaskId,
-    ExternalProvider, ImageKind, JobId, LibraryId, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter,
-    MetadataFieldLock, MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
-    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewMetadataProviderAttempt,
-    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
-    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, Result, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkCandidateStatus,
+    ArtworkTask, ArtworkTaskId, ExternalProvider, ImageKind, JobId, LibraryId,
+    LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestRecord, MediaItem, MediaItemId, MediaSourceId,
+    MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
+    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
+    NewJob, NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
+    NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
+    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -28,6 +30,17 @@ pub trait ArtworkCandidateRepository: Send + Sync {
         candidate: NewArtworkCandidate,
     ) -> Result<ArtworkCandidateRecord>;
 
+    async fn get_artwork_candidate(
+        &self,
+        id: crate::ArtworkCandidateId,
+    ) -> Result<Option<ArtworkCandidateRecord>>;
+
+    async fn set_artwork_candidate_status(
+        &self,
+        id: crate::ArtworkCandidateId,
+        status: ArtworkCandidateStatus,
+    ) -> Result<ArtworkCandidateRecord>;
+
     async fn find_artwork_candidate_by_source(
         &self,
         addon_id: AddonId,
@@ -43,6 +56,26 @@ pub trait ArtworkCandidateRepository: Send + Sync {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<ArtworkCandidateRecord>>;
+}
+
+#[async_trait]
+pub trait ManagedArtworkRepository: Send + Sync {
+    async fn accept_managed_artwork_candidate_ingest(
+        &self,
+        candidate_id: crate::ArtworkCandidateId,
+        ingest: NewManagedArtworkIngest,
+        job: NewJob,
+    ) -> Result<ManagedArtworkAcceptanceRecord>;
+
+    async fn get_managed_artwork_ingest(
+        &self,
+        id: ManagedArtworkIngestId,
+    ) -> Result<Option<ManagedArtworkIngestRecord>>;
+
+    async fn find_managed_artwork_ingest_by_candidate(
+        &self,
+        candidate_id: crate::ArtworkCandidateId,
+    ) -> Result<Option<ManagedArtworkIngestRecord>>;
 }
 
 #[async_trait]

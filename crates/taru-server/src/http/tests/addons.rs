@@ -1230,6 +1230,158 @@ async fn addon_side_effect_artwork_write_proposes_candidate_without_public_artwo
 }
 
 #[tokio::test]
+async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_artwork_or_url_echo() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let remote_url = "https://artwork.example.test/posters/demo.jpg?token=secret";
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("artwork runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::ArtworkWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::ArtworkWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaItem,
+            id: source.item_id.to_string(),
+        },
+        idempotency_key: "artwork-candidate-ingest".to_owned(),
+        provenance: serde_json::json!({
+            "origin": "reference-addon",
+            "token": issued.raw_token
+        }),
+        payload: serde_json::json!({
+            "intent": "propose_artwork",
+            "kind": "poster",
+            "source": {
+                "kind": "remote_url",
+                "url": remote_url
+            },
+            "language": "en",
+            "width": 1000,
+            "height": 1500
+        }),
+    };
+    let proposed = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(proposed.status(), StatusCode::OK);
+    let proposed = body_json::<AddonSideEffectResponse>(proposed).await;
+    let candidate_id = proposed.side_effect.apply_report.as_ref().unwrap()["candidate_id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    let accept_path = format!("/admin/v1/artwork/candidates/{candidate_id}/accept");
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&accept_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let accepted: AcceptManagedArtworkCandidateResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert_eq!(accepted.candidate_id, candidate_id);
+    assert_eq!(accepted.candidate_status, ArtworkCandidateStatus::Accepted);
+    assert_eq!(accepted.ingest.candidate_id, candidate_id);
+    assert_eq!(accepted.ingest.library_id, library_id);
+    assert_eq!(accepted.ingest.item_id, source.item_id);
+    assert_eq!(accepted.ingest.kind, ImageKind::Poster);
+    assert_eq!(accepted.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(accepted.job.kind, JobKind::ManagedArtworkIngest);
+    assert_eq!(accepted.job.status, JobStatus::Queued);
+    assert_eq!(accepted.job.resource_class, "artwork.ingest");
+    assert_eq!(
+        accepted.job.input.as_ref().unwrap()["candidate_id"],
+        candidate_id.to_string()
+    );
+    assert_eq!(accepted.job.input.as_ref().unwrap()["image_kind"], "poster");
+
+    let response_body = String::from_utf8_lossy(&response_body);
+    assert!(!response_body.contains(remote_url));
+    assert!(!response_body.contains("token=secret"));
+    assert!(!response_body.contains(&issued.raw_token));
+    assert!(!response_body.contains("source_uri"));
+    assert!(!response_body.contains("cache_uri"));
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let candidate = store
+        .get_artwork_candidate(candidate_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(candidate.status, ArtworkCandidateStatus::Accepted);
+    assert_eq!(candidate.source_uri, remote_url);
+    let ingest = store
+        .find_managed_artwork_ingest_by_candidate(candidate_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(ingest.id, accepted.ingest.id);
+    assert_eq!(ingest.job_id, accepted.job.id);
+
+    let replay =
+        request_json::<AcceptManagedArtworkCandidateResponse>(&router, Method::POST, &accept_path)
+            .await;
+    assert_eq!(replay.ingest.id, accepted.ingest.id);
+    assert_eq!(replay.job.id, accepted.job.id);
+}
+
+#[tokio::test]
 async fn addon_side_effect_artwork_write_rejects_unsafe_payloads_and_media_source_targets() {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;

@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AddonId, AddonSideEffectId, ArtworkCandidateId, ArtworkTaskId, ImageAssetId, ImageKind,
-    JobStatus, LibraryId, MediaItemId,
+    AddonId, AddonSideEffectId, ArtworkCandidateId, ArtworkTaskId, ImageAssetId, ImageKind, Job,
+    JobId, JobStatus, LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -34,6 +34,73 @@ pub struct ArtworkCandidateRecord {
     pub height: Option<u32>,
     pub language: Option<String>,
     pub status: ArtworkCandidateStatus,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewManagedArtworkIngest {
+    pub id: ManagedArtworkIngestId,
+    pub candidate_id: ArtworkCandidateId,
+    pub job_id: JobId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub status: ManagedArtworkIngestStatus,
+    pub artifact_id: Option<ManagedArtworkArtifactId>,
+    pub failure_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestRecord {
+    pub id: ManagedArtworkIngestId,
+    pub candidate_id: ArtworkCandidateId,
+    pub job_id: JobId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub status: ManagedArtworkIngestStatus,
+    pub artifact_id: Option<ManagedArtworkArtifactId>,
+    pub failure_code: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkAcceptanceRecord {
+    pub candidate: ArtworkCandidateRecord,
+    pub ingest: ManagedArtworkIngestRecord,
+    pub job: Job,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewManagedArtworkArtifact {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub storage_uri: String,
+    pub content_hash: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkArtifactRecord {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub storage_uri: String,
+    pub content_hash: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -70,6 +137,44 @@ pub enum ArtworkCandidateStatus {
     Proposed,
     Accepted,
     Rejected,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedArtworkIngestStatus {
+    Queued,
+    Fetching,
+    Validating,
+    Stored,
+    Failed,
+}
+
+impl ManagedArtworkIngestStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Fetching => "fetching",
+            Self::Validating => "validating",
+            Self::Stored => "stored",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "queued" => Ok(Self::Queued),
+            "fetching" => Ok(Self::Fetching),
+            "validating" => Ok(Self::Validating),
+            "stored" => Ok(Self::Stored),
+            "failed" => Ok(Self::Failed),
+            _ => Err(crate::TaruError::Database {
+                message: format!(
+                    "unknown managed artwork ingest status stored in database: {value}"
+                ),
+            }),
+        }
+    }
 }
 
 impl ArtworkCandidateStatus {
