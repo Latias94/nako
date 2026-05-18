@@ -679,8 +679,7 @@ fn schemas() -> Value {
             "content_type": string_schema(),
             "supports_range_requests": boolean_schema()
         })),
-        "ClientTranscodePlan": object_schema(&["input_locator", "output_container", "video_codec", "audio_codec", "hardware_acceleration"], json!({
-            "input_locator": string_schema(),
+        "ClientTranscodePlan": object_schema(&["output_container", "video_codec", "audio_codec", "hardware_acceleration"], json!({
             "output_container": enum_schema(&["hls", "mp4", "mkv"]),
             "video_codec": nullable_string_schema(),
             "audio_codec": nullable_string_schema(),
@@ -753,11 +752,10 @@ fn schemas() -> Value {
             "external_ids": array_schema(schema_ref("ExternalIdDto"))
         })),
         "ExternalIdDto": object_schema(&["provider", "value"], json!({"provider": string_schema(), "value": string_schema()})),
-        "MediaSourceDto": object_schema(&["id", "library_id", "item_id", "locator", "file_name", "size_bytes", "fingerprint"], json!({
+        "MediaSourceDto": object_schema(&["id", "library_id", "item_id", "file_name", "size_bytes", "fingerprint"], json!({
             "id": uuid_schema(),
             "library_id": uuid_schema(),
             "item_id": uuid_schema(),
-            "locator": string_schema(),
             "file_name": string_schema(),
             "size_bytes": json!({"type": "integer", "format": "int64", "nullable": true}),
             "fingerprint": nullable_string_schema()

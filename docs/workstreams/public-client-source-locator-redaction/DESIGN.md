@@ -1,6 +1,6 @@
 # Public Client Source Locator Redaction
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -12,6 +12,9 @@ client identity, and it may reveal local paths, remote storage layout, bucket
 names, or naming conventions.
 
 This lane is routed from ARF-005 in the 2026-05-18 architecture review.
+
+The lane is complete; public client wire shapes no longer expose raw source
+locators.
 
 ## Relevant Authority
 

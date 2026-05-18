@@ -481,7 +481,6 @@ mod tests {
                 id: "source-1".to_owned(),
                 library_id: "library-1".to_owned(),
                 item_id: "item-1".to_owned(),
-                locator: "local:///Demo.mp4".to_owned(),
                 file_name: "Demo.mp4".to_owned(),
                 size_bytes: Some(42),
                 fingerprint: None,
@@ -503,6 +502,7 @@ mod tests {
 
         assert_eq!(value["decision"]["mode"], "direct_play");
         assert_eq!(value["decision"]["direct_play"]["source_id"], "source-1");
+        assert!(value["source"].get("locator").is_none());
         assert!(value["decision"].get("transcode_plan").is_some());
     }
 

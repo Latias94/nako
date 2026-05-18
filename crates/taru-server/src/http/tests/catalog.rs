@@ -208,6 +208,15 @@ async fn browse_routes_return_catalog_graph() {
         &format!("/items/{}", item.id),
     )
     .await;
+    let detail_json =
+        request_json::<serde_json::Value>(&router, Method::GET, &format!("/items/{}", item.id))
+            .await;
+    let sources_json = request_json::<serde_json::Value>(
+        &router,
+        Method::GET,
+        &format!("/libraries/{library_id}/sources"),
+    )
+    .await;
     let credits = request_json::<taru_api::ItemCreditsResponse>(
         &router,
         Method::GET,
@@ -244,6 +253,12 @@ async fn browse_routes_return_catalog_graph() {
 
     assert_eq!(detail.item.id, item.id.to_string());
     assert_eq!(detail.sources[0].id, source.id.to_string());
+    assert!(detail_json["sources"][0].get("locator").is_none());
+    assert!(
+        sources_json["sources"][0]["source"]
+            .get("locator")
+            .is_none()
+    );
     assert_eq!(detail.credits.len(), 1);
     assert_eq!(credits.people[0].name, "Demo Actor");
     assert_eq!(images.images[0].id, image.id.to_string());

@@ -1,6 +1,6 @@
 # Public Client Source Locator Redaction Milestones
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -58,6 +58,20 @@ Primary gates:
 - `git diff --check`
 
 ## M4 - Closeout
+
+Status: completed.
+
+Outcome: lane closed after fresh validation confirmed the redacted public
+client contract, generated artifacts, and HTTP docs all agree.
+
+Primary gates:
+
+- `cargo check -p taru-client-protocol --tests`
+- `cargo check -p taru-api --tests`
+- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
 
 Exit criteria:
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "public-client-source-locator-redaction",
   "title": "Public Client Source Locator Redaction",
-  "status": "proposed",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Public Client DTOs expose raw Source Locator values that can leak storage implementation details and should remain internal to Taru.",
@@ -49,7 +49,7 @@
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
-  "current_task": "PCLR-030",
+  "current_task": null,
   "first_slice": "locator exposure audit and public contract decision",
   "non_goals": [
     "Media Library source-of-truth reconciliation",
@@ -64,7 +64,7 @@
     "task": "ARF-050"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "PCLR-020 audit is complete. Continue with PCLR-030 to remove raw public locator fields from DTOs and route JSON while preserving internal locator use."
+    "default_action": "close",
+    "notes": "PCLR-050 closeout is complete. Any future Admin API locator diagnostics or compatibility changes should be split into a new follow-on lane."
   }
 }

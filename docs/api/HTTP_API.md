@@ -513,7 +513,8 @@ Browse routes expose the normalized catalog graph. `GET /items/{item_id}`
 returns the media item plus sources, graph relation IDs, and item image assets.
 `/credits` returns item credits with the referenced people. People, tags, and
 genres list routes are paginated, and their `/items` routes return linked media
-items.
+items. Public source DTOs expose stable IDs and safe display facts such as file
+name, size, and fingerprint; they do not expose raw Source Locator values.
 
 `GET /admin/v1/catalog/governance/items` returns a redacted Admin API queue for
 unknown and low-confidence Media Items. It accepts optional `library_id`,
@@ -534,8 +535,10 @@ results return projected media items and relevance scores; richer filters and
 ranking can be added behind the same search boundary.
 
 `GET /sources/{source_id}/playback/decision` returns the source, optional probe
-data, and a playback decision. Optional query parameters can narrow client
-capabilities:
+data, and a playback decision. The response does not expose raw source locators
+or transcode input locators; clients address playback through source IDs,
+stream routes, and playback session IDs. Optional query parameters can narrow
+client capabilities:
 
 ```text
 direct_play=true

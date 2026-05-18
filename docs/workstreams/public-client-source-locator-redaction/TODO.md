@@ -1,6 +1,6 @@
 # Public Client Source Locator Redaction TODO
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -28,33 +28,34 @@ Last updated: 2026-05-18
 
 ## M2 - Public DTO And Server Mapping
 
-- [ ] PCLR-030 [owner=unassigned] [deps=PCLR-020] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-server/src/http/tests]
+- [x] PCLR-030 [owner=codex] [deps=PCLR-020] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-server/src/http/tests]
   Goal: Remove, replace, or redact public locator fields in protocol DTOs and
   server mapping while preserving internal storage/playback locators.
   Validation: `cargo check -p taru-client-protocol --tests`; `cargo check -p
   taru-api --tests`; focused `cargo nextest run -p taru-server
   <public-route-filter> --no-fail-fast`.
-  Review: `review-workstream` for public contract and leakage risk.
-  Evidence: route tests proving public JSON omits raw locators.
-  Handoff: Continue with OpenAPI/SDK sync.
+  Review: no blocking public contract or leakage findings in self-review.
+  Evidence: route tests prove public JSON omits raw locators.
+  Handoff: OpenAPI/SDK sync was completed alongside DTO removal because
+  `taru-api` validates generated client consistency.
 
 ## M3 - OpenAPI, SDK, And Docs Sync
 
-- [ ] PCLR-040 [owner=unassigned] [deps=PCLR-030] [scope=crates/taru-api,sdk,docs/api]
+- [x] PCLR-040 [owner=codex] [deps=PCLR-030] [scope=crates/taru-api,sdk,docs/api]
   Goal: Update OpenAPI, SDK inventory/generation checks, and HTTP API docs to
   match the redacted Public Client contract.
   Validation: existing OpenAPI/SDK checks from client contract lanes; `cargo
   fmt --all -- --check`; `git diff --check`.
-  Review: `review-workstream` before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`, OpenAPI/SDK diffs.
-  Handoff: Split Admin API diagnostics or compatibility follow-ons if needed.
+  Review: no blocking public contract or leakage findings in self-review.
+  Evidence: `EVIDENCE_AND_GATES.md`, OpenAPI/SDK diffs, HTTP API docs.
+  Handoff: Continue with PCLR-050 closeout.
 
 ## M4 - Closeout
 
-- [ ] PCLR-050 [owner=planner] [deps=PCLR-040] [scope=docs/workstreams/public-client-source-locator-redaction]
+- [x] PCLR-050 [owner=planner] [deps=PCLR-040] [scope=docs/workstreams/public-client-source-locator-redaction]
   Goal: Close the lane or split narrower follow-ons.
   Validation: `verify-rust-workstream` records fresh final gate evidence.
   Review: no blocking review findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Public locator exposure should not re-enter future DTOs without a
-  contract decision.
+  Handoff: Lane is closed; public locator exposure should not re-enter future
+  DTOs without a contract decision.

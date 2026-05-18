@@ -1,6 +1,6 @@
 # Public Client Source Locator Redaction Evidence And Gates
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -80,8 +80,7 @@ Record blocking findings, missing gates, and residual risks here.
 - First executable task set to exposure audit and contract decision before DTO
   field removal.
 
-Fresh verification is required before marking implementation tasks or the lane
-complete.
+Fresh verification is recorded below for the closeout claim.
 
 2026-05-18, PCLR-020:
 
@@ -129,4 +128,47 @@ complete.
   PCLR-030 may remove fields directly instead of adding a deprecation period.
 - `git diff --check` passed.
 
-Fresh PCLR-030 validation is required before marking DTO changes complete.
+2026-05-18, PCLR-030/PCLR-040:
+
+- Added RED route assertions in:
+  - `crates/taru-server/src/http/tests/catalog.rs`
+  - `crates/taru-server/src/http/tests/playback.rs`
+- RED check failed before DTO removal with public `locator` still present:
+  `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`.
+- Removed public fields:
+  - `MediaSourceDto.locator`
+  - `ClientTranscodePlan.input_locator`
+- Updated `taru-api` mapping so internal `MediaSource.locator` and
+  `TranscodePlan.input_locator` are not serialized into Public Client DTOs.
+- Kept internal locator execution paths unchanged, including direct stream in
+  `crates/taru-server/src/http/playback.rs`, streaming selection, remux, HLS,
+  and storage workflows.
+- Synchronized OpenAPI schema and generated TypeScript SDK output because
+  `taru-api` has generator consistency tests for checked-in SDK artifacts.
+- Updated `docs/api/HTTP_API.md` to state that public source and playback
+  responses do not expose raw source locators or transcode input locators.
+- Focused review result: no blocking public contract or leakage findings.
+  Remaining `rg` hits are internal execution, test fixtures, documentation
+  references, or negative assertions.
+- Validation passed:
+  - `cargo check -p taru-client-protocol --tests`
+  - `cargo check -p taru-api --tests`
+  - `cargo nextest run -p taru-api --no-fail-fast`
+  - `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `git diff --check`
+
+2026-05-18, PCLR-050:
+
+- Closeout review found no blocking public contract or leakage findings.
+- Fresh final gates rerun after lane documentation was updated:
+  - `cargo check -p taru-client-protocol --tests`
+  - `cargo check -p taru-api --tests`
+  - `cargo nextest run -p taru-api --no-fail-fast`
+  - `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `git diff --check`
+- Remaining `rg "locator|input_locator"` hits are internal execution paths,
+  test fixtures, negative assertions, or documentation references.
+- Workstream status updated to completed; no split follow-on is required for
+  the redacted public client contract.

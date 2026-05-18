@@ -1,29 +1,14 @@
 # Public Client Source Locator Redaction Handoff
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
 
-The workstream is open from ARF-005. PCLR-020 has completed the exposure audit
-and public contract decision.
-
-Public Client locator leakage is real and concentrated in
-`MediaSourceDto.locator`, `ClientTranscodePlan.input_locator`,
-`taru-api::public_client` mapping, public OpenAPI schemas, and generated
-TypeScript SDK types.
-
-## Active Task
-
-- Task ID: PCLR-030
-- Owner: codex
-- Files: `crates/taru-client-protocol`, `crates/taru-api`,
-  `crates/taru-server/src/http/tests`
-- Validation: `cargo check -p taru-client-protocol --tests`; `cargo check -p
-  taru-api --tests`; focused public route tests
-- Status: READY
-- Review: public contract and leakage review required
-- Evidence: `EVIDENCE_AND_GATES.md`
+The workstream is closed. PCLR-020, PCLR-030, PCLR-040, and PCLR-050 are
+complete. Public Client DTOs, OpenAPI schema, generated TypeScript SDK output,
+route tests, and HTTP API docs all reflect the redacted Source Locator
+contract.
 
 ## Decisions Since Last Update
 
@@ -39,14 +24,15 @@ TypeScript SDK types.
   staging, must continue using full locators inside server/app/storage crates.
 - Admin-only diagnostics may introduce redacted locator summaries later, but
   that is not part of the Public Client DTO contract.
+- OpenAPI and TypeScript SDK sync landed with PCLR-030 because `taru-api`
+  enforces checked-in SDK consistency.
+- No follow-on was split for the public locator redaction lane.
 
 ## Blockers
 
-- None known. Compatibility posture: Taru has no stable external public
-  locator contract yet, so PCLR-030 may remove these fields rather than
-  deprecate them first.
+- None known.
 
-## Next Recommended Action
+## Follow-Ons
 
-Run PCLR-030. Remove raw public locator fields from protocol DTOs, API mapping,
-and route JSON tests while preserving internal locator use.
+- Open a separate Admin API diagnostics lane only if redacted locator
+  summaries are actually required later.
