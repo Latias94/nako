@@ -1,6 +1,6 @@
 # Architecture Review Follow-Ups Milestones
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Capture And Routing
@@ -63,3 +63,9 @@ Exit criteria:
 - Every finding is assigned, deferred, rejected, or closed.
 - `WORKSTREAM.json` status is updated.
 - `HANDOFF.md` names the next recommended action or states that none remains.
+
+Primary evidence:
+
+- `docs/workstreams/architecture-review-followups/WORKSTREAM.json`
+- `docs/workstreams/architecture-review-followups/HANDOFF.md`
+- target workstream docs named in the routing table

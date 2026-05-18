@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "slug": "multi-library-hardening",
+  "title": "Multi-Library Hardening",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Configured Media Library desired state and persisted Library authority need one reconciliation boundary before more multi-library workflows depend on them.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/multi-library-hardening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/multi-library-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/multi-library-hardening/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/multi-library-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/multi-library-hardening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo check -p taru-server --tests",
+    "cargo check -p taru-db --tests",
+    "cargo nextest run -p taru-server startup --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md",
+    "crates/taru-server/src/config.rs",
+    "crates/taru-server/src/app/startup.rs",
+    "crates/taru-server/src/app/jobs.rs",
+    "crates/taru-server/src/app/library.rs",
+    "crates/taru-db/src/library.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0019-server-architecture-hardening-boundaries.md"
+  ],
+  "current_task": "MLH-020",
+  "first_slice": "configured-library startup behavior characterization",
+  "non_goals": [
+    "Public Client Source Locator redaction",
+    "Addon permission grants",
+    "Library Access and RBAC",
+    "admin library mutation APIs",
+    "new storage backends",
+    "source duplicate or variant merging"
+  ],
+  "routed_from": {
+    "workstream": "architecture-review-followups",
+    "finding": "ARF-004",
+    "task": "ARF-050"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Start with MLH-020 characterization before changing startup reconciliation or deleting one-library helpers."
+  }
+}

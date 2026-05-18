@@ -1,6 +1,6 @@
 # Architecture Review Follow-Ups Evidence And Gates
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -74,3 +74,24 @@ must carry their own Rust checks and `cargo nextest` gates.
   non-goals.
 - First executable task is MMP-020 characterization before shared policy
   movement.
+
+2026-05-18, ARF-050:
+
+- `metadata-merge-policy-unification` is now closed, so ARF-002 is closed.
+- `multi-library-hardening` was promoted into standard workstream docs with
+  MLH-020 as the first executable characterization task.
+- `public-client-source-locator-redaction` was opened with PCLR-020 as the
+  first executable exposure audit and contract decision task.
+- Addon Token / grant / side-effect routing was recorded as a Post-M5 follow-up
+  in `addons-automation`.
+- HLS request identity / Transcode Profile routing was recorded as Post-M25 and
+  Post-M43 follow-ups in `transcode-runtime` and
+  `playback-source-selection-deepening`.
+
+2026-05-18, ARF-060 closeout:
+
+- Every finding is closed, assigned, or deferred in the routing table.
+- `WORKSTREAM.json` points the next execution lane to
+  `multi-library-hardening`.
+- `HANDOFF.md` names MLH-020 as the next implementation action.
+- No Rust code changes were made in this coordination lane.

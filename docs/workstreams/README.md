@@ -13,14 +13,22 @@ attention.
   redaction, Addon side-effect seams, playback request identity, and transcode
   diagnostics follow-ups.
 - [metadata-catalog-commit-atomicity](metadata-catalog-commit-atomicity/README.md):
-  proposed execution lane for deepening metadata/catalog commit consistency,
+  completed execution lane for deepening metadata/catalog commit consistency,
   starting with an atomic Catalog Item Graph and Search Projection commit before
   deciding whether to fold the broader metadata refresh unit of work into the
   same lane.
 - [metadata-merge-policy-unification](metadata-merge-policy-unification/README.md):
-  proposed execution lane for unifying Canonical Metadata merge authority across
+  completed execution lane for unifying Canonical Metadata merge authority across
   NFO import, provider refresh, and hierarchy confirmation while keeping NFO XML
   preservation and provider breadth out of scope.
+- [multi-library-hardening](multi-library-hardening/README.md): proposed
+  execution lane for hardening Media Library config/database source of truth,
+  startup reconciliation, and removal of remaining one-library authority
+  shortcuts after the M8 correctness baseline.
+- [public-client-source-locator-redaction](public-client-source-locator-redaction/README.md):
+  proposed Public Client API follow-up for auditing and removing or redacting
+  raw Source Locator exposure from protocol DTOs, OpenAPI, SDKs, and HTTP docs
+  while preserving internal storage/playback locators.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing

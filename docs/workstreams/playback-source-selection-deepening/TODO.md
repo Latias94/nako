@@ -67,3 +67,9 @@ Last updated: 2026-05-17
   Handoff: M43 is closed. Recommended next goal is Metadata Provider Attempt
   Runtime Extraction if continuing server architecture cleanup, or `taru-api`
   module split if client/API contract clarity is more urgent.
+
+## Post-M43 Follow-Ups
+
+- [ ] Define how Playback Source Selection request identity feeds future HLS
+  request keys and Transcode Profile cache semantics before adding multi-profile
+  HLS reuse.

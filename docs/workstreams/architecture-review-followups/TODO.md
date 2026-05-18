@@ -1,6 +1,6 @@
 # Architecture Review Follow-Ups TODO
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 - Capture And Routing
@@ -38,26 +38,29 @@ Last updated: 2026-05-18
   Validation: Target lane names non-goals for NFO XML preservation and provider
   breadth.
   Evidence: Target lane DESIGN and TODO.
-  Handoff: `metadata-merge-policy-unification` is open. Continue with MMP-020
-  characterization before moving merge policy code.
+  Handoff: `metadata-merge-policy-unification` was opened and later closed
+  after unifying the merge policy boundary in `taru-core`.
 
 ## M3 - Remaining Routing
 
-- [ ] ARF-050 [owner=planner] [deps=ARF-040] [scope=docs/workstreams]
+- [x] ARF-050 [owner=codex] [deps=ARF-040] [scope=docs/workstreams]
   Goal: Route Media Library source-of-truth, Public Client Source Locator
   redaction, Addon side effects, HLS request identity, and hardware diagnostics
   to existing or new lanes.
   Validation: Every finding in the routing table has status Assigned,
   Deferred, Closed, or Rejected.
   Evidence: DESIGN finding routing table.
-  Handoff: Split follow-ons only when the execution lane has its own gate set.
+  Handoff: `multi-library-hardening` and
+  `public-client-source-locator-redaction` are opened/promoted as focused
+  lanes. Addon and playback/transcode follow-ups are recorded in existing
+  lanes. Continue with ARF-060 closeout after review and verification.
 
 ## M4 - Closeout
 
-- [ ] ARF-060 [owner=planner] [deps=ARF-050] [scope=docs/workstreams/architecture-review-followups]
+- [x] ARF-060 [owner=codex] [deps=ARF-050] [scope=docs/workstreams/architecture-review-followups]
   Goal: Close the tracking lane once all findings are routed.
   Validation: `git diff --check`; all target workstream docs exist or deferral
   reasons are recorded.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Future architecture reviews should open a new review follow-up lane
-  or update the assigned execution lanes directly.
+  Handoff: Lane closed. Next implementation action is MLH-020 in
+  `multi-library-hardening`.

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "architecture-review-followups",
   "title": "Architecture Review Follow-Ups",
-  "status": "proposed",
+  "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "planning_and_routing",
   "problem": "The 2026-05-18 architecture review produced cross-cutting findings that need durable routing before focused implementation workstreams begin.",
@@ -51,7 +51,7 @@
   "recommended_first_execution_lane": "metadata-catalog-commit-atomicity",
   "finding_status": {
     "ARF-001": "closed",
-    "ARF-002": "assigned",
+    "ARF-002": "closed",
     "ARF-003": "assigned",
     "ARF-004": "assigned",
     "ARF-005": "assigned",
@@ -62,12 +62,14 @@
   },
   "opened_execution_lanes": [
     "metadata-catalog-commit-atomicity",
-    "metadata-merge-policy-unification"
+    "metadata-merge-policy-unification",
+    "multi-library-hardening",
+    "public-client-source-locator-redaction"
   ],
-  "next_execution_lane": "metadata-merge-policy-unification",
-  "next_routing_task": "ARF-050",
+  "next_execution_lane": "multi-library-hardening",
+  "next_routing_task": null,
   "continue_policy": {
-    "default_action": "route_then_split",
-    "notes": "Use this lane to assign findings. Do not implement code here. Open or update focused execution lanes before behavior changes."
+    "default_action": "stop",
+    "notes": "This coordination lane is complete. Continue implementation in multi-library-hardening with MLH-020, or open a new architecture review follow-up lane for future reviews."
   }
 }

@@ -1,14 +1,13 @@
 # Architecture Review Follow-Ups
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
-This lane tracks architecture review findings that are too broad to leave in a
-chat transcript but not yet ready to become one implementation workstream.
+This lane tracked architecture review findings that were too broad to leave in
+a chat transcript but not yet ready to become one implementation workstream.
 
-It is a coordination lane, not an implementation lane. Each finding should
-either be assigned to an existing workstream, split into a focused follow-up
-workstream, deferred with a reason, or closed as no longer relevant.
+It is closed after routing each finding to an existing workstream, a focused
+follow-up workstream, an explicit deferral, or a completed lane.
 
 ## Current Finding Queue
 
@@ -32,5 +31,6 @@ workstream, deferred with a reason, or closed as no longer relevant.
 
 ## Operating Rule
 
-Do not implement code directly in this lane. Open or reuse a focused execution
-lane before making behavior changes.
+Future architecture reviews should open a new review follow-up lane or update
+the assigned execution lanes directly. Do not implement code directly in this
+coordination lane.

@@ -1,6 +1,6 @@
 # Architecture Review Follow-Ups Handoff
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
@@ -11,18 +11,21 @@ tracking lane. Routing has been confirmed for all findings.
 The highest-priority follow-up, metadata refresh/catalog/search commit
 atomicity, was implemented and closed in
 `metadata-catalog-commit-atomicity`. The second execution lane,
-`metadata-merge-policy-unification`, is now open.
+`metadata-merge-policy-unification`, is now completed.
+
+ARF-050 routing is complete: `multi-library-hardening` was promoted to a
+standard workstream, `public-client-source-locator-redaction` was opened, and
+Addon/playback/transcode follow-ups were recorded in their existing lanes.
 
 ## Active Task
 
-- Task ID: ARF-050
+- Task ID: none
 - Owner: planner
 - Files: `docs/workstreams/architecture-review-followups/*`
-- Validation: Remaining assigned/deferred findings have clear target lanes or
-  documented split decisions.
-- Status: READY
-- Review: pending
-- Evidence: `docs/workstreams/architecture-review-followups/DESIGN.md`
+- Validation: closeout evidence recorded in `EVIDENCE_AND_GATES.md`
+- Status: DONE
+- Review: no blocking findings
+- Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`
 
 ## Decisions Since Last Update
 
@@ -30,21 +33,23 @@ atomicity, was implemented and closed in
 - Direct code changes are out of scope for this lane.
 - The first recommended execution lane is
   `metadata-catalog-commit-atomicity`.
-- The second recommended execution lane is
-  `metadata-merge-policy-unification`.
+- The second recommended execution lane,
+  `metadata-merge-policy-unification`, is closed.
 - ARF-001 is closed after `metadata-catalog-commit-atomicity`.
-- ARF-002 is open as `metadata-merge-policy-unification`.
-- ARF-003 through ARF-007 are assigned to focused existing or new lanes.
+- ARF-002 is closed after `metadata-merge-policy-unification`.
+- ARF-004 is assigned to `multi-library-hardening`.
+- ARF-005 is assigned to `public-client-source-locator-redaction`.
+- ARF-006 is assigned to a Post-M5 follow-up in `addons-automation`.
+- ARF-007 is assigned to Post-M25/Post-M43 follow-ups in
+  `transcode-runtime` and `playback-source-selection-deepening`.
 - ARF-008 and ARF-009 remain deferred.
 
 ## Blockers
 
-- Public Client Source Locator redaction may need an ADR or public contract
-  design step before implementation.
+- Public Client Source Locator redaction must complete PCLR-020 contract audit
+  before DTO field removal.
 
 ## Next Recommended Action
 
-Continue ARF-050: check whether the remaining assigned findings need new
-follow-up lanes or only updates to existing workstreams. The next implementation
-action outside this routing lane is MMP-020 in
-`metadata-merge-policy-unification`.
+Stop this lane. The next implementation action outside this routing lane is
+MLH-020 in `multi-library-hardening`.

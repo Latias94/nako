@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "slug": "public-client-source-locator-redaction",
+  "title": "Public Client Source Locator Redaction",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Public Client DTOs expose raw Source Locator values that can leak storage implementation details and should remain internal to Taru.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/public-client-source-locator-redaction/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/public-client-source-locator-redaction/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/public-client-source-locator-redaction/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/public-client-source-locator-redaction/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/public-client-source-locator-redaction/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg \"locator|input_locator\" crates/taru-client-protocol crates/taru-api crates/taru-server/src/http",
+    "cargo check -p taru-client-protocol --tests",
+    "cargo check -p taru-api --tests",
+    "cargo nextest run -p taru-api --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-client-protocol/src/catalog.rs",
+    "crates/taru-api/src/public_client.rs",
+    "crates/taru-api/src/openapi.rs",
+    "crates/taru-server/src/http/tests",
+    "docs/api/HTTP_API.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "current_task": "PCLR-020",
+  "first_slice": "locator exposure audit and public contract decision",
+  "non_goals": [
+    "Media Library source-of-truth reconciliation",
+    "RBAC or Library Access",
+    "storage backend redesign",
+    "playback source selection algorithm changes",
+    "full API path-version migration"
+  ],
+  "routed_from": {
+    "workstream": "architecture-review-followups",
+    "finding": "ARF-005",
+    "task": "ARF-050"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Start with PCLR-020 audit and contract decision before removing or renaming public DTO fields."
+  }
+}
