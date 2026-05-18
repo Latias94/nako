@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -131,4 +131,3 @@ This lane can close when:
 - targeted Rust gates and `git diff --check` pass;
 - and broader metadata/artwork/subtitle write feature breadth is completed or
   split into follow-on lanes.
-

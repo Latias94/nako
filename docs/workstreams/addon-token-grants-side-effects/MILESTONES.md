@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects Milestones
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -55,8 +55,25 @@ Primary gates:
 
 - `cargo check -p taru-core --tests`
 - `cargo check -p taru-db --tests`
+- `cargo check -p taru-api --tests`
+- `cargo check -p taru-server --tests`
 - `cargo nextest run -p taru-db addon --no-fail-fast`
-- focused server addon route tests
+- `cargo nextest run -p taru-server addon --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+Evidence anchors:
+
+- `crates/taru-core/src/addon.rs`
+- `crates/taru-core/src/repository/addon.rs`
+- `crates/taru-db/migrations/0021_addon_tokens_and_grants.sql`
+- `crates/taru-db/src/addons.rs`
+- `crates/taru-db/src/tests.rs`
+- `crates/taru-server/src/app/addons.rs`
+- `crates/taru-server/src/http/addons.rs`
+- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/taru-api/src/extension.rs`
+- `docs/api/HTTP_API.md`
 
 ## M3 - Runtime Addon Principal Enforcement
 
@@ -108,4 +125,3 @@ Exit criteria:
 - Remaining metadata/artwork/subtitle/Library File Write breadth is completed,
   deferred, or split.
 - `WORKSTREAM.json` status and `HANDOFF.md` match reality.
-

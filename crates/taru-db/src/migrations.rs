@@ -94,6 +94,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "local inference evidence snapshot key",
         include_str!("../migrations/0020_local_inference_evidence_snapshot_key.sql"),
     ),
+    (
+        21,
+        "addon tokens and grants",
+        include_str!("../migrations/0021_addon_tokens_and_grants.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

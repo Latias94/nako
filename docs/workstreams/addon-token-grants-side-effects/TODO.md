@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects TODO
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## M0 - Scope And Evidence Freeze
@@ -28,12 +28,13 @@ Last updated: 2026-05-18
 
 ## M2 - Token And Grant Contract
 
-- [ ] ATGSE-030 [owner=unassigned] [deps=ATGSE-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-api/src/extension.rs,docs/api]
+- [x] ATGSE-030 [owner=codex] [deps=ATGSE-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-api/src/extension.rs,docs/api]
   Goal: Implement or design-to-code the Addon Token issuance, revocation,
   rotation, redacted response, secret hash storage, accepted Addon Permission,
   and Library-Scoped Addon Grant contract.
-  Validation: `cargo check -p taru-core --tests`; `cargo check -p taru-db --tests`; `cargo nextest run -p taru-db addon --no-fail-fast`; focused server addon route tests.
-  Review: review-workstream before accepting schema/API changes.
+  Validation: `cargo check -p taru-core --tests`; `cargo check -p taru-db --tests`; `cargo check -p taru-api --tests`; `cargo check -p taru-server --tests`; `cargo nextest run -p taru-db addon --no-fail-fast`; `cargo nextest run -p taru-server addon --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
+  Review: self-review completed against the workstream and ADR 0020 before
+  verification; no blocking findings remained.
   Evidence: migration, repository, app-service, API docs, and tests proving
   issued tokens are only shown once and persisted secrets are not plaintext.
   Handoff: Continue with ATGSE-040 after runtime access checks are enforceable.

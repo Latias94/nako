@@ -1,33 +1,31 @@
 # Addon Token Grants Side Effects Handoff
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## Current State
 
-ATGSE-020 is complete. The audit found that current addon support covers
-manifest registration, outbound Taru-to-Addon resource calls, and coarse
-registration `granted_scopes`, but has no addon-to-Taru token principal,
-accepted grant model, Library-Scoped Addon Grant storage, or Addon Side Effect
-intake.
+ATGSE-030 is complete. Taru now has first-class Addon Token issuance,
+rotation, revocation, redacted inspection, and accepted Addon Permission /
+Library-Scoped Addon Grant storage and API surfaces.
 
-No token, grant, schema, API, or runtime behavior has been changed yet.
+The lane still does not have addon-principal runtime enforcement or Addon Side
+Effect intake. Those remain the next slices.
 
 ## Active Task
 
-- Task ID: ATGSE-030
+- Task ID: ATGSE-040
 - Owner: unassigned
 - Files: `crates/taru-core`, `crates/taru-db`,
   `crates/taru-server/src/app/addons.rs`,
-  `crates/taru-server/src/http/addons.rs`,
-  `crates/taru-api/src/extension.rs`, `docs/api`
-- Validation: `cargo check -p taru-core --tests`; `cargo check -p taru-db
-  --tests`; `cargo nextest run -p taru-db addon --no-fail-fast`; focused server
-  addon route tests
+  `crates/taru-server/src/http/addons.rs`, `crates/taru-api/src/extension.rs`,
+  `docs/api`
+- Validation: `cargo nextest run -p taru-server addon --no-fail-fast`; `cargo
+  check -p taru-api --tests`
 - Status: NEEDS_CONTEXT
-- Review: run review-workstream before accepting schema/API changes
-- Evidence: migration, repository, app-service, API docs, and tests proving
-  issued tokens are only shown once and persisted secrets are not plaintext
+- Review: run review-workstream before accepting runtime auth changes
+- Evidence: runtime addon-principal auth tests proving missing/invalid/revoked
+  token handling, accepted permission checks, and library-scoped enforcement
 
 ## Decisions Since Last Update
 
@@ -47,13 +45,19 @@ No token, grant, schema, API, or runtime behavior has been changed yet.
 - Do not overload `AddonRegistrationRecord.granted_scopes` for token-bound
   accepted permissions. Add first-class token and accepted-grant records.
 
+- Addon Token issuance, rotation, and revocation are admin-only management
+  operations under `/admin/v1/addons/{addon_id}`.
+- Raw tokens are returned only on issue and rotate.
+- Persisted token verifier material is hashed, and token rotation is bound to
+  the owning addon in the DB layer.
+- Accepted grants are stored separately from registration scope strings and may
+  be global or Library-Scoped.
+
 ## Blockers
 
 - None known.
 
 ## Next Recommended Action
 
-- Run ATGSE-030: design-to-code the Addon Token and accepted-grant contract.
-  Start with core records, DB migrations/repository methods, and admin/API
-  shapes for issue/rotate/revoke/redacted inspection. Keep addon-principal
-  runtime route enforcement for ATGSE-040.
+- Run ATGSE-040: add addon-principal runtime enforcement for token-authenticated
+  addon-to-Taru calls, including accepted-permission and library-scope checks.

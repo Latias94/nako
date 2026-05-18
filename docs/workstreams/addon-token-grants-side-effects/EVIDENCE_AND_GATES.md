@@ -1,6 +1,6 @@
 # Addon Token Grants Side Effects Evidence And Gates
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -39,7 +39,12 @@ runtime auth changes.
 ```powershell
 cargo check -p taru-core --tests
 cargo check -p taru-db --tests
+cargo check -p taru-api --tests
+cargo check -p taru-server --tests
 cargo nextest run -p taru-db addon --no-fail-fast
+cargo nextest run -p taru-server addon --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
 ```
 
 Add focused `taru-server` addon route tests when token issuance, revocation, or
@@ -232,6 +237,32 @@ missing gates, and residual risks here.
 - Validation passed:
   - `rg "Addon|addon|scope|token|grant|manifest" crates/taru-addon-protocol crates/taru-core crates/taru-db crates/taru-server crates/taru-api docs`
   - `git diff --check`
+
+2026-05-18, ATGSE-030:
+
+- Addon Token lifecycle and accepted grant contract implemented across core,
+  DB, app service, HTTP routes, API DTOs, docs, and tests.
+- Token issue/rotate responses return the raw token only once, while list and
+  revoke responses stay redacted.
+- Persisted token verifier material uses `token_hash`; token rotation is gated
+  by addon ownership in the DB layer and rolls back on cross-addon mismatch.
+- Accepted Addon Permissions are stored separately from manifest
+  `granted_scopes`, with optional Library-Scoped Addon Grants.
+- Validation passed:
+  - `cargo check -p taru-core --tests`
+  - `cargo check -p taru-db --tests`
+  - `cargo check -p taru-api --tests`
+  - `cargo check -p taru-server --tests`
+  - `cargo nextest run -p taru-db addon --no-fail-fast`
+  - `cargo nextest run -p taru-server addon --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `git diff --check`
+- Focused test results:
+  - `taru-db`: 3 addon-filtered tests passed.
+  - `taru-server`: 3 addon-filtered tests passed.
+- Review status: self-review against the workstream contract and ADR 0020 found
+  no remaining blocking issues. Runtime addon-principal enforcement remains
+  intentionally deferred to ATGSE-040.
 
 Fresh verification is required before marking any later task, Codex goal, or
 lane complete.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Active.
 
 This workstream owns the follow-up needed before Addons can perform protected
 writes through Taru. It turns the Post-M5 Addon Token, Library-Scoped Addon
@@ -41,4 +41,3 @@ Top-level tracking:
   Locators, or library filesystem paths.
 - No implementation of concrete metadata/artwork/subtitle write APIs until the
   token, grant, and side-effect contracts are designed and gated.
-

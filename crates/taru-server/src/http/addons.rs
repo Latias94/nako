@@ -2,10 +2,10 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
 };
-use taru_api::RegisterAddonRequest;
-use taru_core::AddonId;
+use taru_api::{IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest};
+use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
 
 use crate::app::TaruApp;
@@ -16,6 +16,22 @@ pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/addons", get(list_addons).post(register_addon))
         .route("/addons/{addon_id}", get(get_addon))
+        .route(
+            "/admin/v1/addons/{addon_id}/tokens",
+            get(list_addon_tokens).post(issue_addon_token),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/tokens/{token_id}/rotate",
+            post(rotate_addon_token),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/tokens/{token_id}/revoke",
+            post(revoke_addon_token),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/grants",
+            get(list_addon_grants).put(replace_addon_grants),
+        )
 }
 
 #[instrument(skip(app))]
@@ -42,4 +58,65 @@ pub(super) async fn get_addon(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().get_addon_registration(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn issue_addon_token(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<IssueAddonTokenRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().issue_addon_token(addon_id, request).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_tokens(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().list_addon_tokens(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn rotate_addon_token(
+    State(app): State<TaruApp>,
+    Path((addon_id, token_id)): Path<(AddonId, AddonTokenId)>,
+    Json(request): Json<IssueAddonTokenRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .rotate_addon_token(addon_id, token_id, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn revoke_addon_token(
+    State(app): State<TaruApp>,
+    Path((addon_id, token_id)): Path<(AddonId, AddonTokenId)>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().revoke_addon_token(addon_id, token_id).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn replace_addon_grants(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<ReplaceAddonGrantsRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().replace_addon_grants(addon_id, request).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_grants(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().list_addon_grants(addon_id).await?))
 }

@@ -411,6 +411,12 @@ POST /events/{event_id}/webhooks/deliver
 POST /addons
 GET  /addons
 GET  /addons/{addon_id}
+POST /admin/v1/addons/{addon_id}/tokens
+GET  /admin/v1/addons/{addon_id}/tokens
+POST /admin/v1/addons/{addon_id}/tokens/{token_id}/rotate
+POST /admin/v1/addons/{addon_id}/tokens/{token_id}/revoke
+PUT  /admin/v1/addons/{addon_id}/grants
+GET  /admin/v1/addons/{addon_id}/grants
 POST /automation/providers
 GET  /automation/providers
 GET  /automation/providers/{provider_id}
@@ -802,6 +808,62 @@ not call addon resource endpoints inline.
 The workspace includes `taru-reference-addon`, a minimal metadata addon fixture
 used by the M5.5 end-to-end test. It proves that a local addon can be
 registered, queried, and called through the protocol transport.
+
+Admin-only addon token routes live under `/admin/v1/addons/{addon_id}`. They
+are for issuing credentials to a registered Addon Sidecar; they do not make an
+addon an admin client, and they are separate from the manifest `auth` value used
+when Taru calls the addon.
+
+`POST /admin/v1/addons/{addon_id}/tokens` issues a new Addon Token. The response
+contains the raw token exactly once:
+
+```json
+{
+  "token": {
+    "id": "018f0000-0000-7000-8000-000000000001",
+    "addon_id": "018f0000-0000-7000-8000-000000000002",
+    "label": "metadata sidecar",
+    "token_prefix": "taru_at_0123456789",
+    "status": "active",
+    "created_at": "2026-05-18T12:00:00.000Z",
+    "rotated_at": null,
+    "revoked_at": null,
+    "last_used_at": null
+  },
+  "raw_token": "taru_at_<secret>"
+}
+```
+
+`GET /admin/v1/addons/{addon_id}/tokens` returns only redacted token summaries.
+`POST /admin/v1/addons/{addon_id}/tokens/{token_id}/rotate` marks the previous
+token as `rotated` and returns one replacement raw token. `POST
+/admin/v1/addons/{addon_id}/tokens/{token_id}/revoke` marks an active token as
+`revoked`. List and revoke responses never include the raw token or
+`token_hash`; persisted token verification material is stored as a hash.
+
+Accepted Addon Permissions are managed separately from manifest
+`granted_scopes`. `PUT /admin/v1/addons/{addon_id}/grants` replaces the accepted
+grant set:
+
+```json
+{
+  "grants": [
+    {
+      "permission": "metadata_write",
+      "library_id": "018f0000-0000-7000-8000-000000000003"
+    },
+    {
+      "permission": "artwork_write",
+      "library_id": null
+    }
+  ]
+}
+```
+
+`library_id: null` means a global grant for that permission. A concrete
+`library_id` is a Library-Scoped Addon Grant. `GET
+/admin/v1/addons/{addon_id}/grants` returns the accepted grant records that will
+be consumed by the runtime addon-principal checks added in a later slice.
 
 ## Automation Routes
 

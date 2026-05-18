@@ -1,8 +1,9 @@
 use taru_core::{
-    AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection, ContentRating,
-    Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions, LibraryPreset,
-    MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
-    TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    AddonGrantId, AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection,
+    ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions,
+    LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId,
+    ProviderSubjectId, TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+    VfsCachedObjectKind,
 };
 
 use super::*;
@@ -2618,6 +2619,208 @@ async fn sqlite_store_round_trips_addon_registration() {
     assert!(
         store
             .list_addon_registrations(Some(AddonStatus::Enabled))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_addon_tokens_and_grants() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.metadata".to_owned(),
+            name: "Example Metadata".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["item_metadata_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let first_id = AddonTokenId::new();
+    let first = store
+        .create_addon_token(NewAddonToken {
+            id: first_id,
+            addon_id,
+            label: "initial".to_owned(),
+            token_prefix: "taru_at_initial".to_owned(),
+            token_hash: "sha256:first".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.id, first_id);
+    assert_eq!(first.addon_id, addon_id);
+    assert_eq!(first.status, AddonTokenStatus::Active);
+    assert_eq!(first.token_hash, "sha256:first");
+    assert_eq!(
+        store.list_addon_tokens(addon_id).await.unwrap(),
+        vec![first.clone()]
+    );
+
+    let replacement_id = AddonTokenId::new();
+    let (rotated, replacement) = store
+        .rotate_addon_token(
+            first_id,
+            NewAddonToken {
+                id: replacement_id,
+                addon_id,
+                label: "rotated".to_owned(),
+                token_prefix: "taru_at_rotated".to_owned(),
+                token_hash: "sha256:second".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(rotated.status, AddonTokenStatus::Rotated);
+    assert!(rotated.rotated_at.is_some());
+    assert_eq!(replacement.status, AddonTokenStatus::Active);
+    assert_eq!(replacement.token_hash, "sha256:second");
+
+    let revoked = store
+        .revoke_addon_token(replacement_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(revoked.status, AddonTokenStatus::Revoked);
+    assert!(revoked.revoked_at.is_some());
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let grants = store
+        .replace_addon_grants(
+            addon_id,
+            vec![
+                NewAddonGrant {
+                    id: AddonGrantId::new(),
+                    addon_id,
+                    permission: AddonPermission::MetadataWrite,
+                    library_id: Some(library_id),
+                },
+                NewAddonGrant {
+                    id: AddonGrantId::new(),
+                    addon_id,
+                    permission: AddonPermission::ArtworkWrite,
+                    library_id: None,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(grants.len(), 2);
+    assert!(
+        grants
+            .iter()
+            .any(|grant| grant.permission == AddonPermission::MetadataWrite
+                && grant.library_id == Some(library_id))
+    );
+    assert!(grants.iter().any(
+        |grant| grant.permission == AddonPermission::ArtworkWrite && grant.library_id.is_none()
+    ));
+
+    let replaced = store
+        .replace_addon_grants(
+            addon_id,
+            vec![NewAddonGrant {
+                id: AddonGrantId::new(),
+                addon_id,
+                permission: AddonPermission::SubtitleWrite,
+                library_id: Some(library_id),
+            }],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(replaced.len(), 1);
+    assert_eq!(replaced[0].permission, AddonPermission::SubtitleWrite);
+}
+
+#[tokio::test]
+async fn sqlite_store_rejects_addon_token_rotation_across_addons() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let first_addon_id = AddonId::new();
+    let second_addon_id = AddonId::new();
+
+    for (addon_id, manifest_id) in [
+        (first_addon_id, "example.first"),
+        (second_addon_id, "example.second"),
+    ] {
+        store
+            .upsert_addon_registration(NewAddonRegistration {
+                id: addon_id,
+                manifest_id: manifest_id.to_owned(),
+                name: manifest_id.to_owned(),
+                version: "0.1.0".to_owned(),
+                protocol_version: "2026-05-15".to_owned(),
+                base_url: "https://example.test/addon".to_owned(),
+                manifest_json: "{}".to_owned(),
+                granted_scopes: vec!["item_metadata_read".to_owned()],
+                status: AddonStatus::Enabled,
+            })
+            .await
+            .unwrap();
+    }
+
+    let first_token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: first_token_id,
+            addon_id: first_addon_id,
+            label: "first".to_owned(),
+            token_prefix: "taru_at_first".to_owned(),
+            token_hash: "sha256:first-addon".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let error = store
+        .rotate_addon_token(
+            first_token_id,
+            NewAddonToken {
+                id: AddonTokenId::new(),
+                addon_id: second_addon_id,
+                label: "wrong aggregate".to_owned(),
+                token_prefix: "taru_at_wrong".to_owned(),
+                token_hash: "sha256:wrong-addon".to_owned(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, TaruError::Conflict { .. }));
+    assert_eq!(
+        store
+            .get_addon_token(first_token_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        AddonTokenStatus::Active
+    );
+    assert!(
+        store
+            .list_addon_tokens(second_addon_id)
             .await
             .unwrap()
             .is_empty()
