@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "ATGSE-020",
+  "current_task": "ATGSE-030",
   "first_slice": "current addon token/grant/side-effect boundary audit",
   "non_goals": [
     "OAuth-first authorization",
@@ -67,7 +67,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with ATGSE-020 audit before implementing token, grant, or side-effect code. Split concrete write handlers if they exceed the proof scope."
+    "notes": "ATGSE-020 audit is complete. Continue with ATGSE-030 token and accepted-grant contract. Split concrete write handlers if they exceed the proof scope."
   }
 }
-

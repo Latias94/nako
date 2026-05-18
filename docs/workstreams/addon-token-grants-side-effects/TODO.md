@@ -14,16 +14,17 @@ Last updated: 2026-05-18
 
 ## M1 - Current Boundary Audit
 
-- [ ] ATGSE-020 [owner=codex] [deps=ATGSE-010] [scope=crates/taru-addon-protocol,crates/taru-core/src/addon.rs,crates/taru-core/src/repository/addon.rs,crates/taru-db/src/addons.rs,crates/taru-db/migrations,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-api/src/extension.rs,docs]
+- [x] ATGSE-020 [owner=codex] [deps=ATGSE-010] [scope=crates/taru-addon-protocol,crates/taru-core/src/addon.rs,crates/taru-core/src/repository/addon.rs,crates/taru-db/src/addons.rs,crates/taru-db/migrations,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-api/src/extension.rs,docs]
   Goal: Audit current addon manifest auth, registration persistence, granted
   scope semantics, route/API behavior, and tests; classify gaps for Addon
   Token lifecycle, accepted grants, library scope, and Addon Side Effect
   intake.
   Validation: `rg "Addon|addon|scope|token|grant|manifest" crates/taru-addon-protocol crates/taru-core crates/taru-db crates/taru-server crates/taru-api docs`; `git diff --check`.
-  Review: audit must decide whether ADR 0020 needs a narrow amendment before
-  code changes.
+  Review: no ADR amendment is required if ATGSE-030 follows ADR 0020; split an
+  ADR only for OAuth-first, broad Admin API reuse, or direct storage authority.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue with ATGSE-030 once token/grant record ownership is chosen.
+  Handoff: Continue with ATGSE-030. Use first-class token and accepted-grant
+  records; do not overload registration `granted_scopes`.
 
 ## M2 - Token And Grant Contract
 
@@ -77,4 +78,3 @@ Last updated: 2026-05-18
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
   Handoff: Recommend the next lane from metadata/artwork/subtitle/library-file
   writes only after token/grant/intake evidence is stable.
-
