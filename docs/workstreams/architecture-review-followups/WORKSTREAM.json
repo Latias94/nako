@@ -60,7 +60,12 @@
     "ARF-008": "deferred",
     "ARF-009": "deferred"
   },
+  "opened_execution_lanes": [
+    "metadata-catalog-commit-atomicity",
+    "metadata-merge-policy-unification"
+  ],
   "next_execution_lane": "metadata-merge-policy-unification",
+  "next_routing_task": "ARF-050",
   "continue_policy": {
     "default_action": "route_then_split",
     "notes": "Use this lane to assign findings. Do not implement code here. Open or update focused execution lanes before behavior changes."

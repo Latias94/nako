@@ -10,16 +10,16 @@ tracking lane. Routing has been confirmed for all findings.
 
 The highest-priority follow-up, metadata refresh/catalog/search commit
 atomicity, was implemented and closed in
-`metadata-catalog-commit-atomicity`. The next execution lane is metadata merge
-policy unification across NFO import and provider refresh.
+`metadata-catalog-commit-atomicity`. The second execution lane,
+`metadata-merge-policy-unification`, is now open.
 
 ## Active Task
 
-- Task ID: ARF-040
+- Task ID: ARF-050
 - Owner: planner
 - Files: `docs/workstreams/architecture-review-followups/*`
-- Validation: Open `metadata-merge-policy-unification` or document why it is
-  merged into an existing lane.
+- Validation: Remaining assigned/deferred findings have clear target lanes or
+  documented split decisions.
 - Status: READY
 - Review: pending
 - Evidence: `docs/workstreams/architecture-review-followups/DESIGN.md`
@@ -33,7 +33,8 @@ policy unification across NFO import and provider refresh.
 - The second recommended execution lane is
   `metadata-merge-policy-unification`.
 - ARF-001 is closed after `metadata-catalog-commit-atomicity`.
-- ARF-002 through ARF-007 are assigned to focused existing or new lanes.
+- ARF-002 is open as `metadata-merge-policy-unification`.
+- ARF-003 through ARF-007 are assigned to focused existing or new lanes.
 - ARF-008 and ARF-009 remain deferred.
 
 ## Blockers
@@ -43,5 +44,7 @@ policy unification across NFO import and provider refresh.
 
 ## Next Recommended Action
 
-Open `metadata-merge-policy-unification` as the next execution lane. Keep NFO
-XML preservation and provider breadth out of that first slice.
+Continue ARF-050: check whether the remaining assigned findings need new
+follow-up lanes or only updates to existing workstreams. The next implementation
+action outside this routing lane is MMP-020 in
+`metadata-merge-policy-unification`.

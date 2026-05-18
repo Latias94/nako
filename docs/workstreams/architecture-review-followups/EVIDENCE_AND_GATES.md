@@ -65,3 +65,12 @@ must carry their own Rust checks and `cargo nextest` gates.
 - `WORKSTREAM.json` finding status map now agrees with the routing table.
 - `HANDOFF.md` points to ARF-040 and `metadata-merge-policy-unification` as
   the next execution action.
+
+2026-05-18, ARF-040:
+
+- `metadata-merge-policy-unification` opened with complete durable workstream
+  docs.
+- New lane explicitly names NFO XML preservation and provider breadth as
+  non-goals.
+- First executable task is MMP-020 characterization before shared policy
+  movement.

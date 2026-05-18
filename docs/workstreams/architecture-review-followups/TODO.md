@@ -32,14 +32,14 @@ Last updated: 2026-05-18
 
 ## M2 - Second Execution Lane
 
-- [ ] ARF-040 [owner=planner] [deps=ARF-030] [scope=docs/workstreams]
+- [x] ARF-040 [owner=codex] [deps=ARF-030] [scope=docs/workstreams]
   Goal: Open `metadata-merge-policy-unification` or explicitly merge it into
   another active metadata/NFO lane.
   Validation: Target lane names non-goals for NFO XML preservation and provider
   breadth.
   Evidence: Target lane DESIGN and TODO.
-  Handoff: First implementation task should prove one shared merge authority
-  path for NFO and provider refresh behavior.
+  Handoff: `metadata-merge-policy-unification` is open. Continue with MMP-020
+  characterization before moving merge policy code.
 
 ## M3 - Remaining Routing
 

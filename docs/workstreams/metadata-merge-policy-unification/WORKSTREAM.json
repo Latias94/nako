@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "slug": "metadata-merge-policy-unification",
+  "title": "Metadata Merge Policy Unification",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "NFO import and provider refresh duplicate Canonical Metadata field merge authority, risking drift when metadata fields or source-lock rules change.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/metadata-merge-policy-unification/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/metadata-merge-policy-unification/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/metadata-merge-policy-unification/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/metadata-merge-policy-unification/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/metadata-merge-policy-unification/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-metadata merge --no-fail-fast",
+    "cargo nextest run -p taru-nfo nfo_service --no-fail-fast",
+    "cargo check -p taru-core --tests",
+    "cargo check -p taru-metadata --tests",
+    "cargo check -p taru-nfo --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-core/src/media/item.rs",
+    "crates/taru-core/src/media/metadata.rs",
+    "crates/taru-core/src/media/profile.rs",
+    "crates/taru-metadata/src/merge.rs",
+    "crates/taru-metadata/src/confirmation.rs",
+    "crates/taru-nfo/src/import.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md"
+  ],
+  "current_task": "MMP-020",
+  "first_slice": "current behavior characterization",
+  "non_goals": [
+    "NFO XML preservation",
+    "provider breadth",
+    "public API changes",
+    "database schema changes",
+    "catalog hydration or search projection changes",
+    "soft or hard link management"
+  ],
+  "routed_from": {
+    "workstream": "architecture-review-followups",
+    "finding": "ARF-002",
+    "task": "ARF-040"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Start with MMP-020 characterization tests. Do not move policy code until current NFO and provider expectations are test-visible."
+  }
+}
+

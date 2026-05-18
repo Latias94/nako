@@ -17,6 +17,10 @@ attention.
   starting with an atomic Catalog Item Graph and Search Projection commit before
   deciding whether to fold the broader metadata refresh unit of work into the
   same lane.
+- [metadata-merge-policy-unification](metadata-merge-policy-unification/README.md):
+  proposed execution lane for unifying Canonical Metadata merge authority across
+  NFO import, provider refresh, and hierarchy confirmation while keeping NFO XML
+  preservation and provider breadth out of scope.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing
