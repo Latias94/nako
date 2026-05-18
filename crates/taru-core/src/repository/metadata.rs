@@ -2,13 +2,14 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    ArtworkTask, ArtworkTaskId, ExternalProvider, JobId, LocalInferenceEvidence,
+    AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkTask, ArtworkTaskId,
+    ExternalProvider, ImageKind, JobId, LibraryId, LocalInferenceEvidence,
     LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter,
     MetadataFieldLock, MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
-    MetadataRefreshPersistenceSummary, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
-    NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
-    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewMetadataProviderAttempt,
+    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -18,6 +19,30 @@ pub trait ArtworkTaskRepository: Send + Sync {
     async fn get_artwork_task(&self, id: ArtworkTaskId) -> Result<Option<ArtworkTask>>;
 
     async fn list_artwork_tasks(&self, page: PageRequest) -> Result<Vec<ArtworkTask>>;
+}
+
+#[async_trait]
+pub trait ArtworkCandidateRepository: Send + Sync {
+    async fn create_artwork_candidate(
+        &self,
+        candidate: NewArtworkCandidate,
+    ) -> Result<ArtworkCandidateRecord>;
+
+    async fn find_artwork_candidate_by_source(
+        &self,
+        addon_id: AddonId,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        kind: &ImageKind,
+        source_kind: ArtworkCandidateSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ArtworkCandidateRecord>>;
+
+    async fn list_artwork_candidates_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ArtworkCandidateRecord>>;
 }
 
 #[async_trait]

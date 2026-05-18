@@ -1060,6 +1060,25 @@ pub(crate) fn row_to_artwork_task(row: SqliteRow) -> Result<ArtworkTask> {
     })
 }
 
+pub(crate) fn row_to_artwork_candidate(row: SqliteRow) -> Result<ArtworkCandidateRecord> {
+    Ok(ArtworkCandidateRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        side_effect_id: parse_id(row_get::<String>(&row, "side_effect_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        source_kind: ArtworkCandidateSourceKind::parse(&row_get::<String>(&row, "source_kind")?)?,
+        source_uri: row_get(&row, "source_uri")?,
+        width: optional_i64_to_u32(row_get(&row, "width")?)?,
+        height: optional_i64_to_u32(row_get(&row, "height")?)?,
+        language: row_get(&row, "language")?,
+        status: ArtworkCandidateStatus::parse(&row_get::<String>(&row, "status")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
 pub(crate) fn serialize_metadata_json(metadata: &CanonicalMetadata) -> Result<String> {
     serde_json::to_string(metadata).map_err(database_error)
 }

@@ -17,10 +17,11 @@ use taru_core::{
     AddonRegistrationRecord, AddonRepository, AddonSideEffectApplyOutcome,
     AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
     AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
-    AddonTokenStatus, CanonicalMetadata, LibraryId, LibraryItemRepository, LibraryRepository,
-    MediaItem, MediaItemId, MediaRepository, MediaSourceId, MetadataMergePolicy,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NewAddonGrant, NewAddonRegistration,
-    NewAddonSideEffect, NewAddonToken, Result, StorageErrorKind, TaruError, hash_addon_token,
+    AddonTokenStatus, ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
+    CanonicalMetadata, ImageKind, LibraryId, LibraryItemRepository, LibraryRepository, MediaItem,
+    MediaItemId, MediaRepository, MediaSourceId, MetadataMergePolicy, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect,
+    NewAddonToken, NewArtworkCandidate, Result, StorageErrorKind, TaruError, hash_addon_token,
 };
 use taru_db::SqliteStore;
 use taru_nfo::{MovieNfoCodec, NfoExportSourceRequest, NfoExportSourceSummary, NfoFailureKind};
@@ -472,6 +473,13 @@ impl AddonAppService {
 
         match target.kind {
             AddonSideEffectTargetKind::MediaItem => {
+                if matches!(permission, AddonPermission::LibraryFileWrite) {
+                    return Err(TaruError::InvalidInput {
+                        message:
+                            "addon library_file_write side effects require a media_source target"
+                                .to_owned(),
+                    });
+                }
                 let item_id = target.id.parse().map_err(|err| TaruError::InvalidInput {
                     message: format!("invalid addon side effect media item target id: {err}"),
                 })?;
@@ -485,6 +493,12 @@ impl AddonAppService {
                     })?;
             }
             AddonSideEffectTargetKind::MediaSource => {
+                if matches!(permission, AddonPermission::ArtworkWrite) {
+                    return Err(TaruError::InvalidInput {
+                        message: "addon artwork_write side effects require a media_item target"
+                            .to_owned(),
+                    });
+                }
                 let source_id = target.id.parse().map_err(|err| TaruError::InvalidInput {
                     message: format!("invalid addon side effect media source target id: {err}"),
                 })?;
@@ -570,6 +584,40 @@ impl AddonAppService {
                     .apply_library_file_write_side_effect(&side_effect)
                     .await
                 {
+                    Ok(applied) => {
+                        self.store
+                            .set_addon_side_effect_apply_outcome(
+                                side_effect.id,
+                                AddonSideEffectApplyOutcome {
+                                    status: AddonSideEffectApplyStatus::Applied,
+                                    error_code: None,
+                                    item_id: Some(applied.item_id),
+                                    source: Some(applied.source),
+                                    report_json: Some(applied.report_json),
+                                },
+                            )
+                            .await
+                    }
+                    Err(error) => {
+                        let error_code = side_effect_apply_error_code(&error).to_owned();
+                        self.store
+                            .set_addon_side_effect_apply_outcome(
+                                side_effect.id,
+                                AddonSideEffectApplyOutcome {
+                                    status: AddonSideEffectApplyStatus::Failed,
+                                    error_code: Some(error_code),
+                                    item_id: None,
+                                    source: None,
+                                    report_json: None,
+                                },
+                            )
+                            .await?;
+                        Err(error)
+                    }
+                }
+            }
+            AddonPermission::ArtworkWrite => {
+                match self.apply_artwork_write_side_effect(&side_effect).await {
                     Ok(applied) => {
                         self.store
                             .set_addon_side_effect_apply_outcome(
@@ -731,6 +779,62 @@ impl AddonAppService {
         })
     }
 
+    async fn apply_artwork_write_side_effect(
+        &self,
+        side_effect: &AddonSideEffectRecord,
+    ) -> Result<AppliedArtworkCandidate> {
+        let payload = parse_addon_artwork_write_payload(&side_effect.payload_json)?;
+        if side_effect.target.kind != AddonSideEffectTargetKind::MediaItem {
+            return Err(TaruError::InvalidInput {
+                message: "addon artwork_write candidate proposal requires a media_item target"
+                    .to_owned(),
+            });
+        }
+        let item = self.resolve_side_effect_media_item(side_effect).await?;
+        let source_uri = normalize_remote_artwork_url(&payload.source.url)?;
+        let language = normalize_artwork_language(payload.language.as_deref())?;
+        let kind = payload.kind.into_image_kind();
+
+        let existing = self
+            .store
+            .find_artwork_candidate_by_source(
+                side_effect.addon_id,
+                side_effect.library_id,
+                item.id,
+                &kind,
+                ArtworkCandidateSourceKind::RemoteUrl,
+                &source_uri,
+            )
+            .await?;
+        let (candidate_id, created) = if let Some(existing) = existing {
+            (existing.id, false)
+        } else {
+            let candidate = self
+                .store
+                .create_artwork_candidate(NewArtworkCandidate {
+                    id: ArtworkCandidateId::new(),
+                    addon_id: side_effect.addon_id,
+                    side_effect_id: side_effect.id,
+                    library_id: side_effect.library_id,
+                    item_id: item.id,
+                    kind: kind.clone(),
+                    source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+                    source_uri,
+                    width: payload.width,
+                    height: payload.height,
+                    language,
+                })
+                .await?;
+            (candidate.id, true)
+        };
+
+        Ok(AppliedArtworkCandidate {
+            item_id: item.id,
+            source: "artwork_candidate".to_owned(),
+            report_json: artwork_candidate_apply_report(candidate_id, &kind, created)?,
+        })
+    }
+
     async fn resolve_side_effect_media_item(
         &self,
         side_effect: &AddonSideEffectRecord,
@@ -787,6 +891,12 @@ impl AddonAppService {
 }
 
 struct AppliedLibraryFileWrite {
+    item_id: MediaItemId,
+    source: String,
+    report_json: String,
+}
+
+struct AppliedArtworkCandidate {
     item_id: MediaItemId,
     source: String,
     report_json: String,
@@ -899,6 +1009,146 @@ fn nfo_export_failure_error(kind: NfoFailureKind) -> TaruError {
             message: format!("NFO export failed: {kind:?}"),
         },
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum AddonArtworkIntent {
+    ProposeArtwork,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum AddonArtworkKind {
+    Poster,
+    Backdrop,
+    Logo,
+    Banner,
+    Thumbnail,
+}
+
+impl AddonArtworkKind {
+    fn into_image_kind(self) -> ImageKind {
+        match self {
+            Self::Poster => ImageKind::Poster,
+            Self::Backdrop => ImageKind::Backdrop,
+            Self::Logo => ImageKind::Logo,
+            Self::Banner => ImageKind::Banner,
+            Self::Thumbnail => ImageKind::Thumbnail,
+        }
+    }
+}
+
+fn image_kind_report_value(kind: &ImageKind) -> &'static str {
+    match kind {
+        ImageKind::Poster => "poster",
+        ImageKind::Backdrop => "backdrop",
+        ImageKind::Logo => "logo",
+        ImageKind::Banner => "banner",
+        ImageKind::Thumbnail => "thumbnail",
+        ImageKind::Other(_) => "other",
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AddonArtworkSourcePayload {
+    kind: ArtworkCandidateSourceKind,
+    url: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AddonArtworkWritePayload {
+    intent: AddonArtworkIntent,
+    kind: AddonArtworkKind,
+    source: AddonArtworkSourcePayload,
+    #[serde(default)]
+    language: Option<String>,
+    #[serde(default)]
+    width: Option<u32>,
+    #[serde(default)]
+    height: Option<u32>,
+}
+
+fn parse_addon_artwork_write_payload(payload_json: &str) -> Result<AddonArtworkWritePayload> {
+    let payload = serde_json::from_str::<AddonArtworkWritePayload>(payload_json).map_err(|_| {
+        TaruError::InvalidInput {
+            message: "invalid addon artwork_write payload".to_owned(),
+        }
+    })?;
+    match payload.intent {
+        AddonArtworkIntent::ProposeArtwork => {}
+    }
+    match payload.source.kind {
+        ArtworkCandidateSourceKind::RemoteUrl => {}
+    }
+    validate_artwork_dimension("width", payload.width)?;
+    validate_artwork_dimension("height", payload.height)?;
+    Ok(payload)
+}
+
+fn validate_artwork_dimension(field: &str, value: Option<u32>) -> Result<()> {
+    if matches!(value, Some(0 | 20001..)) {
+        return Err(TaruError::InvalidInput {
+            message: format!("addon artwork_write {field} must be between 1 and 20000"),
+        });
+    }
+    Ok(())
+}
+
+fn normalize_remote_artwork_url(value: &str) -> Result<String> {
+    let value = value.trim();
+    if value.len() > 2048 {
+        return Err(TaruError::InvalidInput {
+            message: "addon artwork_write remote URL must be at most 2048 bytes".to_owned(),
+        });
+    }
+    let url = reqwest::Url::parse(value).map_err(|_| TaruError::InvalidInput {
+        message: "invalid addon artwork_write remote URL".to_owned(),
+    })?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(TaruError::InvalidInput {
+            message: "addon artwork_write remote URL must use http or https".to_owned(),
+        });
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(TaruError::InvalidInput {
+            message: "addon artwork_write remote URL must not contain credentials".to_owned(),
+        });
+    }
+    Ok(url.to_string())
+}
+
+fn normalize_artwork_language(value: Option<&str>) -> Result<Option<String>> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    if value.len() > 32 {
+        return Err(TaruError::InvalidInput {
+            message: "addon artwork_write language must be at most 32 bytes".to_owned(),
+        });
+    }
+    Ok(Some(value.to_ascii_lowercase()))
+}
+
+fn artwork_candidate_apply_report(
+    candidate_id: ArtworkCandidateId,
+    kind: &ImageKind,
+    created: bool,
+) -> Result<String> {
+    let report = serde_json::json!({
+        "kind": "artwork_candidate",
+        "candidate_id": candidate_id.to_string(),
+        "image_kind": image_kind_report_value(kind),
+        "status": "proposed",
+        "candidate_created": u8::from(created),
+        "candidate_existing": u8::from(!created),
+    });
+
+    serde_json::to_string(&report).map_err(|err| TaruError::InvalidInput {
+        message: format!("failed to serialize addon artwork candidate report: {err}"),
+    })
 }
 
 #[derive(Debug, Default, serde::Deserialize)]

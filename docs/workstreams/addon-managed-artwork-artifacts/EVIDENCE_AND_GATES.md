@@ -26,6 +26,7 @@ git diff --check
 
 ```powershell
 cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests
+cargo nextest run -p taru-server addon_side_effect --no-fail-fast
 cargo nextest run -p taru-server artwork --no-fail-fast
 cargo nextest run -p taru-db artwork --no-fail-fast
 cargo fmt --all -- --check
@@ -140,3 +141,60 @@ or public API contracts.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     the edited workstream docs.
+
+2026-05-19, AMAA-030 MediaItem-targeted Addon Artwork Candidate proposal:
+
+- Implementation:
+  - Added `ArtworkCandidateId`, `NewArtworkCandidate`,
+    `ArtworkCandidateRecord`, `ArtworkCandidateSourceKind`, and
+    `ArtworkCandidateStatus` in `taru-core`.
+  - Added `ArtworkCandidateRepository` and a SQLite-backed
+    `addon_artwork_candidates` table. The table stores internal source details
+    with constraints for remote URL source kind, dimensions, language length,
+    and candidate status.
+  - Added `artwork_write` apply handling in the Addon Side Effect service. The
+    first slice accepts only MediaItem-targeted `propose_artwork` payloads with
+    `poster`, `backdrop`, `logo`, `banner`, or `thumbnail` kinds and HTTP(S)
+    remote URL sources.
+  - `artwork_write` MediaSource targets are rejected during intake validation
+    as invalid targets. `library_file_write` MediaItem targets are also
+    rejected during target validation so permission-specific target authority is
+    explicit.
+  - Apply reports use `applied_source: "artwork_candidate"` and include only
+    candidate ID, image kind, status, and candidate-created/existing counters.
+- Redaction and boundary guarantees:
+  - The response and replay response do not include raw payloads, provenance,
+    remote URLs, Source Locators, filesystem paths, cache URIs, raw token
+    material, or `source_uri`/`cache_uri` DTO fields.
+  - The apply path does not write public `ImageAsset` rows, selected artwork,
+    managed cache artifacts, thumbnails, or sidecar files.
+  - Unsafe payloads with `cache_uri`, `selected`, non-HTTP(S) URLs, `file:`,
+    `local:`, and data URI sources are rejected as `invalid_payload` without
+    echoing unsafe details.
+- API/docs:
+  - `docs/api/HTTP_API.md` now documents the `artwork_write` candidate payload,
+    target kind, source restrictions, and redacted apply report.
+  - Workstream docs advance AMAA to AMAA-040 for closeout or follow-on split.
+- Validation during implementation:
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+    passed.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 2 tests run,
+    2 passed.
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 2 tests
+    run, 2 passed.
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast` passed:
+    10 tests run, 10 passed.
+- Final validation before commit:
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+    passed.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 2 tests run,
+    2 passed.
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 2 tests
+    run, 2 passed.
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast` passed:
+    10 tests run, 10 passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.
+  - `Get-Content -Raw docs\workstreams\addon-managed-artwork-artifacts\WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    passed.

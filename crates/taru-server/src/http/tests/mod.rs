@@ -37,24 +37,26 @@ use taru_api::{
 };
 use taru_core::{
     AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTokenStatus, AutomationCapability,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTokenStatus, ArtworkCandidateRepository,
+    ArtworkCandidateSourceKind, ArtworkCandidateStatus, AutomationCapability,
     AutomationProviderStatus, CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind,
     DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Genre, GenreId,
     ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailurePhase,
     IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId,
-    JobKind, JobRepository, JobStatus, LibraryId, LibraryRepository, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult,
-    MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
-    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
-    MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewIngestionFailure, NewJob,
-    NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
-    NewVfsCacheFailure, OutboxEventStatus, Person, PersonId, ProviderMapping, ProviderMappingId,
-    ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TaruError, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
+    JobKind, JobRepository, JobStatus, LibraryId, LibraryItemRepository, LibraryItemState,
+    LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, LocalMetadataPolicy, MediaItem,
+    MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
+    MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
+    NewIngestionFailure, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
+    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, Person,
+    PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
+    ProviderRawResponse, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, StorageErrorKind,
+    Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
+    TranscodeSessionState, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
+    VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};
@@ -141,6 +143,14 @@ async fn router_with_media_source(
         fingerprint: None,
     };
     store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
     store.upsert_media_source(&source).await.unwrap();
     let router = build_router(app);
 

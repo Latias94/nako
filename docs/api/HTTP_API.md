@@ -904,8 +904,9 @@ route. It authenticates the Addon Token, records the addon actor, token,
 permission, Media Library, target, idempotency key, provenance snapshot,
 payload snapshot, validation result, safe error code, and apply outcome.
 
-The first concrete protected writes are `metadata_write` and the NFO-export
-slice of `library_file_write`. Accepted
+The first concrete protected writes are `metadata_write`, the NFO-export
+slice of `library_file_write`, and the candidate-proposal slice of
+`artwork_write`. Accepted
 `metadata_write` side effects synchronously normalize a minimal Canonical
 Metadata patch, merge it through Taru metadata merge policy, persist the media
 item through a Taru-owned repository boundary, and refresh catalog/search
@@ -944,6 +945,46 @@ diagnostics. Unknown payload fields are rejected; raw NFO XML, Source Locators,
 filesystem paths, remote handles, and backup URIs are never accepted as addon
 payload fields.
 
+Accepted `artwork_write` side effects currently support only MediaItem-targeted
+Addon Artwork Candidate proposals. The addon supplies candidate intent and an
+HTTP(S) remote image URL. Taru records an internal candidate and does not write
+public `ImageAsset` rows, selected artwork, managed cache objects, thumbnails,
+or sidecar files in this slice:
+
+```json
+{
+  "permission": "artwork_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "target": {
+    "kind": "media_item",
+    "id": "018f0000-0000-7000-8000-000000000007"
+  },
+  "idempotency_key": "artwork-candidate-demo-1",
+  "provenance": {
+    "origin": "reference-addon"
+  },
+  "payload": {
+    "intent": "propose_artwork",
+    "kind": "poster",
+    "source": {
+      "kind": "remote_url",
+      "url": "https://addon.example/poster.jpg"
+    },
+    "language": "en",
+    "width": 1000,
+    "height": 1500
+  }
+}
+```
+
+For artwork candidates, `intent` must be `propose_artwork`, `kind` must be one
+of `poster`, `backdrop`, `logo`, `banner`, or `thumbnail`, and `source.kind`
+must be `remote_url`. The URL must use `http` or `https`, must not contain
+credentials, and is stored only as internal candidate source data. Unknown
+payload fields are rejected; filesystem paths, Source Locators, remote storage
+handles, data URIs, raw image bytes, `cache_uri`, `selected`, and sidecar
+export fields are not accepted.
+
 ```json
 {
   "permission": "metadata_write",
@@ -975,7 +1016,9 @@ The current `metadata_write` payload accepts only these top-level fields:
 as an apply failure and are not echoed back to the Addon Sidecar. The current
 `library_file_write` NFO export slice accepts only `media_source` targets;
 `media_item` targets are rejected until multi-source and Source Variant
-behavior is explicit.
+behavior is explicit. The current `artwork_write` candidate slice accepts only
+`media_item` targets; `media_source` targets are rejected until source-derived
+thumbnail ownership is explicit.
 
 Successful responses expose only the safe audit summary:
 
@@ -1022,6 +1065,23 @@ For an applied NFO export, `applied_source` is `nfo_export` and
   "pruned_backup_items": 0,
   "pruned_backups": 0,
   "prune_failures": 0
+}
+```
+
+For an applied Artwork Candidate proposal, `applied_source` is
+`artwork_candidate` and `apply_report` contains only the candidate ID, image
+kind, proposal status, and idempotency counters. It does not include the raw
+remote URL, payload, Source Locator, filesystem path, cache URI, or selected
+artwork state:
+
+```json
+{
+  "kind": "artwork_candidate",
+  "candidate_id": "018f0000-0000-7000-8000-000000000008",
+  "image_kind": "poster",
+  "status": "proposed",
+  "candidate_created": 1,
+  "candidate_existing": 0
 }
 ```
 

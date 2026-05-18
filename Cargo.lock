@@ -2234,6 +2234,7 @@ dependencies = [
  "axum",
  "clap",
  "futures-util",
+ "reqwest",
  "serde",
  "serde_json",
  "taru-addon-protocol",

@@ -1059,6 +1059,390 @@ async fn addon_side_effect_library_file_write_rejects_raw_payload_and_media_item
 }
 
 #[tokio::test]
+async fn addon_side_effect_artwork_write_proposes_candidate_without_public_artwork_or_url_echo() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let remote_url = "https://artwork.example.test/posters/demo.jpg?token=secret";
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("artwork runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::ArtworkWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::ArtworkWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaItem,
+            id: source.item_id.to_string(),
+        },
+        idempotency_key: "artwork-candidate-poster".to_owned(),
+        provenance: serde_json::json!({
+            "origin": "reference-addon",
+            "raw_path": "local:///Movies/demo.mkv",
+            "token": issued.raw_token
+        }),
+        payload: serde_json::json!({
+            "intent": "propose_artwork",
+            "kind": "poster",
+            "source": {
+                "kind": "remote_url",
+                "url": remote_url
+            },
+            "language": "EN",
+            "width": 1000,
+            "height": 1500
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let body: AddonSideEffectResponse = serde_json::from_slice(&response_body).unwrap();
+
+    assert_eq!(body.side_effect.permission, AddonPermission::ArtworkWrite);
+    assert_eq!(
+        body.side_effect.target.kind,
+        AddonSideEffectTargetKind::MediaItem
+    );
+    assert_eq!(body.side_effect.target.id, source.item_id.to_string());
+    assert_eq!(
+        body.side_effect.validation_status,
+        AddonSideEffectValidationStatus::Accepted
+    );
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    assert_eq!(body.side_effect.apply_error_code, None);
+    assert_eq!(body.side_effect.applied_item_id, Some(source.item_id));
+    assert_eq!(
+        body.side_effect.applied_source.as_deref(),
+        Some("artwork_candidate")
+    );
+
+    let report = body
+        .side_effect
+        .apply_report
+        .as_ref()
+        .expect("artwork candidate report");
+    let candidate_id = report["candidate_id"]
+        .as_str()
+        .expect("redacted candidate id");
+    assert_eq!(report["kind"], "artwork_candidate");
+    assert_eq!(report["image_kind"], "poster");
+    assert_eq!(report["status"], "proposed");
+    assert_eq!(report["candidate_created"], 1);
+    assert_eq!(report["candidate_existing"], 0);
+
+    let response_body = String::from_utf8_lossy(&response_body);
+    assert!(!response_body.contains(remote_url));
+    assert!(!response_body.contains("token=secret"));
+    assert!(!response_body.contains("local:///Movies/demo.mkv"));
+    assert!(!response_body.contains(&issued.raw_token));
+    assert!(!response_body.contains("source_uri"));
+    assert!(!response_body.contains("cache_uri"));
+
+    let candidates = store
+        .list_artwork_candidates_for_item(source.item_id, taru_core::PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(candidates.len(), 1);
+    let candidate = &candidates[0];
+    assert_eq!(candidate.id.to_string(), candidate_id);
+    assert_eq!(candidate.addon_id, addon_id);
+    assert_eq!(candidate.side_effect_id, body.side_effect.id);
+    assert_eq!(candidate.library_id, library_id);
+    assert_eq!(candidate.item_id, source.item_id);
+    assert_eq!(candidate.kind, ImageKind::Poster);
+    assert_eq!(candidate.source_kind, ArtworkCandidateSourceKind::RemoteUrl);
+    assert_eq!(candidate.source_uri, remote_url);
+    assert_eq!(candidate.width, Some(1000));
+    assert_eq!(candidate.height, Some(1500));
+    assert_eq!(candidate.language.as_deref(), Some("en"));
+    assert_eq!(candidate.status, ArtworkCandidateStatus::Proposed);
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let duplicate = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(duplicate.status(), StatusCode::OK);
+    let duplicate_body = to_bytes(duplicate.into_body(), usize::MAX).await.unwrap();
+    let duplicate = serde_json::from_slice::<AddonSideEffectResponse>(&duplicate_body).unwrap();
+    assert!(duplicate.idempotent_replay);
+    assert_eq!(duplicate.side_effect.id, body.side_effect.id);
+    assert_eq!(
+        duplicate.side_effect.apply_report.as_ref(),
+        body.side_effect.apply_report.as_ref()
+    );
+    assert_eq!(
+        store
+            .list_artwork_candidates_for_item(source.item_id, taru_core::PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(!String::from_utf8_lossy(&duplicate_body).contains(remote_url));
+}
+
+#[tokio::test]
+async fn addon_side_effect_artwork_write_rejects_unsafe_payloads_and_media_source_targets() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("artwork runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::ArtworkWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    for (idempotency_key, payload, leaked) in [
+        (
+            "artwork-cache-uri-denied",
+            serde_json::json!({
+                "intent": "propose_artwork",
+                "kind": "poster",
+                "source": {
+                    "kind": "remote_url",
+                    "url": "https://artwork.example.test/poster.jpg"
+                },
+                "cache_uri": "local:///cache/poster.webp"
+            }),
+            "local:///cache/poster.webp",
+        ),
+        (
+            "artwork-public-flag-denied",
+            serde_json::json!({
+                "intent": "propose_artwork",
+                "kind": "poster",
+                "source": {
+                    "kind": "remote_url",
+                    "url": "https://artwork.example.test/poster.jpg"
+                },
+                "selected": true
+            }),
+            "selected",
+        ),
+        (
+            "artwork-file-url-denied",
+            serde_json::json!({
+                "intent": "propose_artwork",
+                "kind": "poster",
+                "source": {
+                    "kind": "remote_url",
+                    "url": "file:///Movies/poster.jpg"
+                }
+            }),
+            "file:///Movies/poster.jpg",
+        ),
+        (
+            "artwork-data-uri-denied",
+            serde_json::json!({
+                "intent": "propose_artwork",
+                "kind": "poster",
+                "source": {
+                    "kind": "remote_url",
+                    "url": "data:image/png;base64,AAAA"
+                }
+            }),
+            "data:image/png",
+        ),
+        (
+            "artwork-source-locator-denied",
+            serde_json::json!({
+                "intent": "propose_artwork",
+                "kind": "poster",
+                "source": {
+                    "kind": "remote_url",
+                    "url": "local:///Movies/poster.jpg"
+                }
+            }),
+            "local:///Movies/poster.jpg",
+        ),
+    ] {
+        let request = SubmitAddonSideEffectRequest {
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTargetRequest {
+                kind: AddonSideEffectTargetKind::MediaItem,
+                id: source.item_id.to_string(),
+            },
+            idempotency_key: idempotency_key.to_owned(),
+            provenance: serde_json::json!({"origin": "reference-addon"}),
+            payload,
+        };
+
+        let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(
+            serde_json::from_slice::<ErrorResponse>(&response_body)
+                .unwrap()
+                .code,
+            "invalid_input"
+        );
+        assert!(
+            !String::from_utf8_lossy(&response_body).contains(leaked),
+            "unsafe payload detail leaked for {idempotency_key}"
+        );
+
+        let replay = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+        assert_eq!(replay.status(), StatusCode::OK);
+        let replay_body = to_bytes(replay.into_body(), usize::MAX).await.unwrap();
+        let replay = serde_json::from_slice::<AddonSideEffectResponse>(&replay_body).unwrap();
+        assert!(replay.idempotent_replay);
+        assert_eq!(
+            replay.side_effect.validation_status,
+            AddonSideEffectValidationStatus::Accepted
+        );
+        assert_eq!(
+            replay.side_effect.apply_status,
+            AddonSideEffectApplyStatus::Failed
+        );
+        assert_eq!(
+            replay.side_effect.apply_error_code.as_deref(),
+            Some("invalid_payload")
+        );
+        assert!(
+            !String::from_utf8_lossy(&replay_body).contains(leaked),
+            "unsafe replay detail leaked for {idempotency_key}"
+        );
+    }
+
+    let media_source_request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::ArtworkWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "artwork-media-source-denied".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "intent": "propose_artwork",
+            "kind": "poster",
+            "source": {
+                "kind": "remote_url",
+                "url": "https://artwork.example.test/poster.jpg"
+            }
+        }),
+    };
+    let media_source =
+        addon_side_effect(&router, Some(&issued.raw_token), &media_source_request).await;
+    assert_eq!(media_source.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(media_source).await;
+    assert_eq!(error.code, "invalid_input");
+
+    let replay = addon_side_effect(&router, Some(&issued.raw_token), &media_source_request).await;
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay = body_json::<AddonSideEffectResponse>(replay).await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(
+        replay.side_effect.validation_status,
+        AddonSideEffectValidationStatus::Rejected
+    );
+    assert_eq!(
+        replay.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Skipped
+    );
+    assert_eq!(
+        replay.side_effect.safe_error_code.as_deref(),
+        Some("invalid_target")
+    );
+
+    assert!(
+        store
+            .list_artwork_candidates_for_item(source.item_id, taru_core::PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_sources() {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;

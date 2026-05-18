@@ -60,6 +60,12 @@ Primary gates:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+Result: completed in AMAA-030. The shipped slice records MediaItem-targeted
+Addon Artwork Candidate proposals from HTTP(S) remote URL sources. It rejects
+unsafe payload fields and source schemes, returns only redacted candidate
+reports, and does not write public `ImageAsset` rows, selected artwork,
+managed cache artifacts, thumbnails, or sidecar files.
+
 ## M3 - Closeout Or Split
 
 Outcome: artwork/artifact behavior is complete enough to close, or image

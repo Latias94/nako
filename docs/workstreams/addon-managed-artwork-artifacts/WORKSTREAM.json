@@ -47,7 +47,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "AMAA-030",
+  "current_task": "AMAA-040",
   "first_slice": "MediaItem-targeted Addon Artwork Candidate proposal",
   "non_goals": [
     "Addon Manager lifecycle automation",
@@ -63,6 +63,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with AMAA-030: implement a typed MediaItem-targeted Addon Artwork Candidate proposal boundary. Do not write public ImageAsset rows, selected artwork, managed cache artifacts, or sidecar files until fetch/cache/storage policy is explicit."
+    "notes": "Continue with AMAA-040: close this lane or split follow-ons for managed artwork fetch/cache, selected artwork, thumbnails, Taru-managed artifact intake, or artwork sidecar export. AMAA-030 implemented the MediaItem-targeted Addon Artwork Candidate proposal boundary without writing public ImageAsset rows."
   }
 }

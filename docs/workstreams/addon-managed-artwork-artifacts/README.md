@@ -9,11 +9,11 @@ with Canonical Metadata. This lane decides how addon-submitted artwork enters
 Taru as Artwork Candidates, Managed Artwork, or Taru-Managed Artifacts without
 hotlinking unsafe provider URLs or exposing library paths.
 
-Current selection after AMAA-020: the first implementation slice should be an
-Addon Artwork Candidate proposal, not immediate Managed Artwork selection and
-not direct public `ImageAsset` insertion. Taru must first capture addon artwork
-intent in a first-party candidate boundary so raw addon URLs, paths, payloads,
-and future cache internals do not become public client artwork.
+Current state after AMAA-030: the first implementation slice is an Addon
+Artwork Candidate proposal, not immediate Managed Artwork selection and not
+direct public `ImageAsset` insertion. Taru captures addon artwork intent in a
+first-party candidate boundary so raw addon URLs, paths, payloads, and future
+cache internals do not become public client artwork.
 
 Authoritative docs:
 

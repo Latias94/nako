@@ -1,6 +1,98 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ArtworkTaskId, ImageAssetId, JobStatus};
+use crate::{
+    AddonId, AddonSideEffectId, ArtworkCandidateId, ArtworkTaskId, ImageAssetId, ImageKind,
+    JobStatus, LibraryId, MediaItemId,
+};
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewArtworkCandidate {
+    pub id: ArtworkCandidateId,
+    pub addon_id: AddonId,
+    pub side_effect_id: AddonSideEffectId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub source_kind: ArtworkCandidateSourceKind,
+    pub source_uri: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ArtworkCandidateRecord {
+    pub id: ArtworkCandidateId,
+    pub addon_id: AddonId,
+    pub side_effect_id: AddonSideEffectId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub source_kind: ArtworkCandidateSourceKind,
+    pub source_uri: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+    pub status: ArtworkCandidateStatus,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtworkCandidateSourceKind {
+    RemoteUrl,
+}
+
+impl ArtworkCandidateSourceKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::RemoteUrl => "remote_url",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "remote_url" => Ok(Self::RemoteUrl),
+            _ => Err(crate::TaruError::Database {
+                message: format!(
+                    "unknown artwork candidate source kind stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtworkCandidateStatus {
+    Proposed,
+    Accepted,
+    Rejected,
+}
+
+impl ArtworkCandidateStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Proposed => "proposed",
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+        }
+    }
+
+    pub fn parse(value: &str) -> crate::Result<Self> {
+        match value {
+            "proposed" => Ok(Self::Proposed),
+            "accepted" => Ok(Self::Accepted),
+            "rejected" => Ok(Self::Rejected),
+            _ => Err(crate::TaruError::Database {
+                message: format!("unknown artwork candidate status stored in database: {value}"),
+            }),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ArtworkTask {

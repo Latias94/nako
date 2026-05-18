@@ -29,7 +29,7 @@ Last updated: 2026-05-19
 
 ## M2 - First Artwork Apply Slice
 
-- [ ] AMAA-030 [owner=codex] [deps=AMAA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
+- [x] AMAA-030 [owner=codex] [deps=AMAA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
   Goal: Implement the smallest safe `artwork_write` apply path selected by
   AMAA-020: a MediaItem-targeted Addon Artwork Candidate proposal that records
   addon artwork intent without exposing raw source details as public client
@@ -40,8 +40,9 @@ Last updated: 2026-05-19
   Route any sidecar-file export behavior to
   `addon-library-file-write-policy` rather than adding a parallel writer here.
   Evidence: code/tests/API docs and AMAA notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Split image processing, thumbnailing, selected-artwork workflow, or
-  sidecar export if it exceeds the first apply slice.
+  Handoff: Candidate proposal is implemented. Continue with AMAA-040 to close
+  or split image processing, thumbnailing, selected-artwork workflow, managed
+  cache/artifact import, and sidecar export into narrower follow-ons.
 
 ## M3 - Closeout Or Split
 

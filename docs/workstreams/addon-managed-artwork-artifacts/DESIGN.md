@@ -87,9 +87,10 @@ or Taru-Managed Artifacts, but it should not invent a separate file-write path.
 
 The first AMAA-030 apply target should be an addon-initiated Artwork Candidate
 proposal for an existing Media Item. The addon may request that Taru consider a
-poster, backdrop, logo, banner, thumbnail, or other artwork candidate, but it
-must not directly create selected artwork, public client artwork references, or
-library sidecar files.
+poster, backdrop, logo, banner, or thumbnail candidate, but it must not
+directly create selected artwork, public client artwork references, or library
+sidecar files. Arbitrary `other` artwork kinds are deferred until key naming,
+display, and selection semantics are explicit.
 
 The first payload should be typed around candidate intent, for example:
 

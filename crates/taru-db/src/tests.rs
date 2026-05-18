@@ -1,9 +1,10 @@
 use taru_core::{
     AddonGrantId, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
-    AddonSideEffectTarget, AddonSideEffectValidationStatus, AutomationJobInput,
+    AddonSideEffectTarget, AddonSideEffectValidationStatus, ArtworkCandidateId,
+    ArtworkCandidateSourceKind, ArtworkCandidateStatus, AutomationJobInput,
     CatalogItemProjectionCommit, CatalogSearchProjection, ContentRating, Credit, CreditRole,
-    ImageKind, ImageOwner, ImageRef, LibraryOptions, LibraryPreset, MediaSourceId,
-    MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
+    ImageKind, ImageOwner, ImageRef, LibraryItemState, LibraryOptions, LibraryPreset,
+    MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
     TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
 };
 
@@ -2982,6 +2983,159 @@ async fn sqlite_store_records_addon_side_effect_apply_outcome() {
             .unwrap()
             .apply_status,
         AddonSideEffectApplyStatus::Applied
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_addon_artwork_candidates_idempotently() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Artwork Candidate Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.artwork".to_owned(),
+            name: "Example Artwork".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["item_artwork_suggest".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "artwork runtime".to_owned(),
+            token_prefix: "taru_at_artwork".to_owned(),
+            token_hash: "sha256:artwork".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item.id),
+            idempotency_key: "artwork-candidate-demo".to_owned(),
+            provenance_json: r#"{"origin":"reference-addon"}"#.to_owned(),
+            payload_json: r#"{"intent":"propose_artwork"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+
+    let source_uri = "https://cdn.example.test/poster.jpg";
+    let candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: side_effect.id,
+            library_id,
+            item_id: item.id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: source_uri.to_owned(),
+            width: Some(1000),
+            height: Some(1500),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(candidate.addon_id, addon_id);
+    assert_eq!(candidate.side_effect_id, side_effect.id);
+    assert_eq!(candidate.library_id, library_id);
+    assert_eq!(candidate.item_id, item.id);
+    assert_eq!(candidate.kind, ImageKind::Poster);
+    assert_eq!(candidate.source_kind, ArtworkCandidateSourceKind::RemoteUrl);
+    assert_eq!(candidate.source_uri, source_uri);
+    assert_eq!(candidate.width, Some(1000));
+    assert_eq!(candidate.height, Some(1500));
+    assert_eq!(candidate.language.as_deref(), Some("en"));
+    assert_eq!(candidate.status, ArtworkCandidateStatus::Proposed);
+    assert!(!candidate.created_at.is_empty());
+    assert!(!candidate.updated_at.is_empty());
+
+    let duplicate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: side_effect.id,
+            library_id,
+            item_id: item.id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: source_uri.to_owned(),
+            width: Some(999),
+            height: Some(1499),
+            language: Some("fr".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(duplicate, candidate);
+    assert_eq!(
+        store
+            .find_artwork_candidate_by_source(
+                addon_id,
+                library_id,
+                item.id,
+                &ImageKind::Poster,
+                ArtworkCandidateSourceKind::RemoteUrl,
+                source_uri,
+            )
+            .await
+            .unwrap(),
+        Some(candidate.clone())
+    );
+    assert_eq!(
+        store
+            .list_artwork_candidates_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![candidate]
     );
 }
 
