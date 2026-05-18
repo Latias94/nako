@@ -57,9 +57,13 @@ attention.
   MediaItem-targeted Addon Artwork Candidate proposals without exposing raw
   source URLs as public client artwork.
 - [managed-artwork-ingest-selection](managed-artwork-ingest-selection/README.md):
-  proposed follow-on for accepting Artwork Candidates into Taru-managed
-  artwork through fetch/cache/validation, selected artwork, public `ImageAsset`
-  publication, resource budgets, and safe diagnostics.
+  completed follow-on for accepting Artwork Candidates into internal
+  Taru-managed ingest state through a redacted Admin API command and durable
+  `managed_artwork_ingest` job, without public artwork publication.
+- [managed-artwork-fetch-artifact-storage](managed-artwork-fetch-artifact-storage/README.md):
+  active follow-on for processing queued managed artwork ingest jobs through
+  Taru-owned fetch/content validation and internal artifact byte storage before
+  public image serving, thumbnails, or selected artwork publication.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target
