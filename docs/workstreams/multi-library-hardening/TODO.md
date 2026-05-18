@@ -44,15 +44,16 @@ Last updated: 2026-05-18
 
 ## M3 - Workflow Cleanup And Docs
 
-- [ ] MLH-040 [owner=unassigned] [deps=MLH-030] [scope=crates/taru-server,docs]
+- [x] MLH-040 [owner=codex] [deps=MLH-030] [scope=crates/taru-server,docs]
   Goal: Remove or narrow obsolete one-library config helpers and update docs so
   scan, NFO, metadata, jobs, and diagnostics share the same Library authority.
   Validation: `cargo fmt --all -- --check`; `cargo nextest run -p taru-server
   --no-fail-fast`; `git diff --check`.
-  Review: `review-workstream` before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`, updated docs.
-  Handoff: Split Library Access/admin mutation follow-ons if they become
-  necessary.
+  Review: required before closeout.
+  Evidence: scan, metadata, NFO, and storage diagnostics tests now cover
+  reconciled Library authority after startup.
+  Handoff: Continue with MLH-050 closeout review and split Library Access/admin
+  mutation follow-ons only if the review finds they are necessary.
 
 ## M4 - Closeout
 

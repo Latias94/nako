@@ -114,7 +114,6 @@ impl TaruApp {
             runtime.clone(),
         );
         let nfo = NfoAppService::new(
-            config.clone(),
             store.clone(),
             metadata_permits,
             storage_backends.clone(),

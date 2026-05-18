@@ -3,7 +3,8 @@ use std::sync::Arc;
 use serde::Serialize;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, Result, TaruError,
+    JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent, Result,
+    TaruError,
 };
 use taru_db::SqliteStore;
 use taru_nfo::{
@@ -13,8 +14,6 @@ use taru_nfo::{
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
-
-use crate::config::{TaruServerConfig, libraries_from_config};
 
 use super::{
     job_runtime::DurableJobRuntime, runtime::RuntimeSupervisor, storage::StorageBackendRegistry,
@@ -34,7 +33,6 @@ pub struct NfoExportCommandOutput {
 
 #[derive(Clone, Debug)]
 pub(crate) struct NfoAppService {
-    config: TaruServerConfig,
     store: SqliteStore,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
@@ -43,14 +41,12 @@ pub(crate) struct NfoAppService {
 
 impl NfoAppService {
     pub(super) fn new(
-        config: TaruServerConfig,
         store: SqliteStore,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
     ) -> Self {
         Self {
-            config,
             store,
             permits,
             storage_backends,
@@ -123,7 +119,7 @@ impl NfoAppService {
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         let input = NfoJobInput {
             library_id,
             policy: library.options.metadata_profile.local_metadata_policy,
@@ -146,7 +142,7 @@ impl NfoAppService {
     }
 
     async fn create_nfo_export_job(&self, library_id: LibraryId) -> Result<Job> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         let input = NfoJobInput {
             library_id,
             policy: library.options.metadata_profile.local_metadata_policy,
@@ -322,7 +318,7 @@ impl NfoAppService {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<NfoImportSummary> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         info!(
             job_id = %job_id,
             library_id = %library_id,
@@ -351,7 +347,7 @@ impl NfoAppService {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<NfoExportSummary> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         info!(
             job_id = %job_id,
             library_id = %library_id,
@@ -389,10 +385,10 @@ impl NfoAppService {
         }
     }
 
-    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
-        libraries_from_config(&self.config)
-            .into_iter()
-            .find(|library| library.id == library_id)
+    async fn library_for_nfo(&self, library_id: LibraryId) -> Result<Library> {
+        self.store
+            .get_library(library_id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "library",
                 id: library_id.to_string(),

@@ -43,12 +43,15 @@
     "crates/taru-server/src/app/tests/startup.rs",
     "crates/taru-server/src/app/jobs.rs",
     "crates/taru-server/src/app/library.rs",
+    "crates/taru-server/src/app/metadata.rs",
+    "crates/taru-server/src/app/nfo.rs",
+    "crates/taru-server/src/app/storage.rs",
     "crates/taru-db/src/library.rs"
   ],
   "adr_refs": [
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
-  "current_task": "MLH-040",
+  "current_task": "MLH-050",
   "first_slice": "configured-library startup behavior characterization",
   "non_goals": [
     "Public Client Source Locator redaction",

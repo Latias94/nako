@@ -6,24 +6,27 @@ Last updated: 2026-05-18
 ## Current State
 
 The historical M8 correctness note has been promoted into a standard execution
-workstream. MLH-020 characterization is complete. MLH-030 has now introduced a
-named startup reconciliation boundary and explicit reconciliation reporting.
+workstream. MLH-020 characterization is complete. MLH-030 introduced a named
+startup reconciliation boundary and explicit reconciliation reporting. MLH-040
+has now narrowed scan, metadata, NFO, and storage diagnostics to use the
+reconciled persisted Library view where Library fields are authoritative.
 
 The concrete risk is Library authority drift: configuration is still the
-desired-state input, but workflows need a reconciled persisted Library view
-after startup.
+desired-state input and still owns backend credentials/local physical roots,
+but workflows now load Library names, roots, profiles, and scan/local metadata
+options from the database after startup reconciliation.
 
 ## Active Task
 
-- Task ID: MLH-030
+- Task ID: MLH-050
 - Owner: codex
-- Files: `crates/taru-server`, `crates/taru-db`, `crates/taru-core`
+- Files: `docs/workstreams/multi-library-hardening`, `crates/taru-server`
 - Validation: `cargo check -p taru-server --tests`; `cargo check -p taru-db
-  --tests`; `cargo nextest run -p taru-server startup --no-fail-fast`;
-  `cargo fmt --all -- --check`; `git diff --check`
-- Status: DONE
-- Review: required before accepting completion
-- Evidence: `EVIDENCE_AND_GATES.md`, `crates/taru-server/src/app/library_reconciliation.rs`
+  --tests`; `cargo nextest run -p taru-server --no-fail-fast`; `cargo fmt
+  --all -- --check`; `git diff --check`
+- Status: READY
+- Review: run `review-workstream` before closeout
+- Evidence: `EVIDENCE_AND_GATES.md`, MLH-040 tests and journal
 
 ## Decisions Since Last Update
 
@@ -37,6 +40,12 @@ after startup.
 - The new startup reconciliation boundary is named and test-visible. It reports
   added, updated, unchanged, and retained unconfigured libraries without
   changing the persistence semantics already characterized in MLH-020.
+- Scan jobs, metadata maintenance, metadata refresh, and NFO import now load
+  persisted Library records through `LibraryRepository` instead of rebuilding
+  Library options from broad server config.
+- Storage diagnostics now enumerates reconciled persisted libraries. It still
+  resolves backend credentials and local physical roots from config because
+  those secrets and host paths are not part of the persisted Library authority.
 
 ## Blockers
 
@@ -44,5 +53,5 @@ after startup.
 
 ## Next Recommended Action
 
-Run MLH-040. Narrow remaining config-driven library lookups where the
-reconciled Library rows are now authoritative.
+Run MLH-050. Review the lane, record any residual risks, and either close this
+workstream or split follow-ons for Library Access/admin mutation work.

@@ -391,6 +391,54 @@ async fn app_startup_reports_configured_library_reconciliation() {
 }
 
 #[tokio::test]
+async fn scan_library_uses_reconciled_library_row_after_startup() {
+    let temp = tempfile::tempdir().unwrap();
+    let configured_root = temp.path().join("configured");
+    let persisted_root = temp.path().join("persisted");
+    fs::create_dir_all(&configured_root).unwrap();
+    fs::create_dir_all(&persisted_root).unwrap();
+    fs::write(configured_root.join("configured.mkv"), b"media").unwrap();
+    fs::write(persisted_root.join("persisted.mkv"), b"media").unwrap();
+    let library_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: configured_root,
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Persisted Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options: LibraryOptions {
+                scan: taru_core::LibraryScanOptions {
+                    max_depth: Some(0),
+                    ..taru_core::LibraryScanOptions::default()
+                },
+                ..LibraryOptions::from_preset(taru_core::LibraryPreset::Movies)
+            },
+        })
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let loaded = store.get_library(library_id).await.unwrap().unwrap();
+
+    assert_eq!(loaded.name, "Persisted Movies");
+    assert_eq!(output.index.discovered_files, 0);
+    assert_eq!(output.index.inserted_sources, 0);
+}
+
+#[tokio::test]
 async fn app_startup_rejects_duplicate_configured_library_ids() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

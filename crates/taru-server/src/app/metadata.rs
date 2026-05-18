@@ -9,8 +9,8 @@ use taru_api::{
 };
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Job,
-    JobId, JobKind, JobRepository, Library, LibraryId, MediaItem, MediaItemId, MediaRepository,
-    MetadataAttemptFilter, MetadataProfile, MetadataProviderAttemptRecord,
+    JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
+    MediaRepository, MetadataAttemptFilter, MetadataProfile, MetadataProviderAttemptRecord,
     MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NewJob, NewOutboxEvent,
     PageRequest, ProviderRawResponseFilter, Result, TaruError,
 };
@@ -26,7 +26,7 @@ use tracing::{Instrument, info, info_span, warn};
 use super::job_runtime::DurableJobRuntime;
 use super::metadata_runtime::provider_resource_name;
 use super::runtime::RuntimeSupervisor;
-use crate::config::{MetadataMaintenancePolicyConfig, TaruServerConfig, libraries_from_config};
+use crate::config::{MetadataMaintenancePolicyConfig, TaruServerConfig};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MetadataRefreshCommandOutput {
@@ -785,7 +785,7 @@ impl MetadataAppService {
         }
 
         if let Some(library_id) = request.library_id {
-            self.configured_library_for(library_id)?;
+            self.library_for_metadata(library_id).await?;
         }
 
         if let Some(providers) = request.providers.as_ref() {
@@ -882,7 +882,7 @@ impl MetadataAppService {
             profile
         } else {
             let library = if let Some(library_id) = request.library_id {
-                self.configured_library_for(library_id)?
+                self.library_for_metadata(library_id).await?
             } else {
                 self.library_for_item(item.id).await?
             };
@@ -987,13 +987,13 @@ impl MetadataAppService {
                 message: format!("media item {item_id} has no persisted media source"),
             })?;
 
-        self.configured_library_for(source.library_id)
+        self.library_for_metadata(source.library_id).await
     }
 
-    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
-        libraries_from_config(&self.config)
-            .into_iter()
-            .find(|library| library.id == library_id)
+    async fn library_for_metadata(&self, library_id: LibraryId) -> Result<Library> {
+        self.store
+            .get_library(library_id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "library",
                 id: library_id.to_string(),

@@ -3,13 +3,13 @@ use std::sync::Arc;
 use serde::Serialize;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobListFilter, JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, PageRequest, Result,
-    StagingPurpose, TaruError,
+    JobListFilter, JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent,
+    PageRequest, Result, StagingPurpose, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_library::{
     LibraryIndexRequest, LibraryIndexService, LibraryIndexSummary, LibraryProbeOptions,
-    LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary,
+    LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary, LibraryScannerOptions,
 };
 use taru_media_probe::FfprobeMediaProbe;
 use tokio::sync::Semaphore;
@@ -132,7 +132,7 @@ impl LibraryScanAppService {
     }
 
     async fn create_library_scan_job(&self, library_id: LibraryId) -> Result<Job> {
-        self.configured_library_for(library_id)?;
+        self.library_for_scan(library_id).await?;
         let input = LibraryScanJobInput {
             library_id,
             force: false,
@@ -241,7 +241,7 @@ impl LibraryScanAppService {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<(LibraryIndexSummary, LibraryProbeSummary)> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_scan(library_id).await?;
         info!(
             job_id = %job_id,
             library_id = %library_id,
@@ -253,7 +253,10 @@ impl LibraryScanAppService {
             .storage_backends
             .backend_for_library_root(&library)
             .await?;
-        let scanner = taru_library::VfsLibraryScanner::new(index_backend);
+        let scanner = taru_library::VfsLibraryScanner::with_options(
+            index_backend,
+            library_scanner_options(&library),
+        );
         let index_service = LibraryIndexService::new(scanner, self.store.clone());
         let index = index_service
             .index_library(LibraryIndexRequest {
@@ -309,14 +312,23 @@ impl LibraryScanAppService {
         }
     }
 
-    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
-        libraries_from_config(&self.config)
-            .into_iter()
-            .find(|library| library.id == library_id)
+    async fn library_for_scan(&self, library_id: LibraryId) -> Result<Library> {
+        self.store
+            .get_library(library_id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "library",
                 id: library_id.to_string(),
             })
+    }
+}
+
+fn library_scanner_options(library: &Library) -> LibraryScannerOptions {
+    let defaults = LibraryScannerOptions::default();
+
+    LibraryScannerOptions {
+        media_extensions: defaults.media_extensions,
+        max_depth: library.options.scan.max_depth.unwrap_or(defaults.max_depth),
     }
 }
 
