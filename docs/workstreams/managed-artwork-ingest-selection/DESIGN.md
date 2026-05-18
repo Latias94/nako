@@ -92,6 +92,62 @@ The recommended first executable slice is an audit and design pass:
 Do not implement remote fetch/cache in an Addon handler. Do not publish raw
 candidate `source_uri` as public artwork.
 
+### MAIS-020 Audit Decision
+
+The first implementation target is a queued candidate-ingest boundary that
+creates internal Managed Artwork state. It must not create selected public
+`ImageAsset` rows during candidate acceptance.
+
+The service shape should be:
+
+1. `ManagedArtworkService::accept_candidate(candidate_id, policy)` or an
+   equivalent first-party command validates the candidate, target item,
+   library scope, status, and acceptance policy.
+2. The command updates candidate acceptance state and creates a durable managed
+   ingest record plus a durable job. The job input may include safe Taru IDs
+   such as candidate, item, library, and image kind, but not the candidate's raw
+   remote URL.
+3. A worker loads the candidate source internally, fetches with artwork fetch
+   resource budgets, validates content type, byte size, dimensions, and
+   decodability, then writes a Taru-owned managed artifact record.
+4. Public artwork publication is a later commit boundary. It may create or
+   update `ImageAsset` only after the managed artifact exists and the public DTO
+   redaction strategy is explicit.
+
+Rejected first targets:
+
+- Direct selected public `ImageAsset`: rejected because current Public Client
+  DTOs expose `source_uri` and `cache_uri`, and catalog hydration can already
+  auto-select provider image references. Candidate acceptance must not turn an
+  unvalidated addon URL into a selected client-visible hotlink.
+- Reusing `ArtworkTask` directly: rejected because `ArtworkTask` is keyed by
+  `ImageAssetId`. Candidate fetch happens before a safe public asset should
+  exist, so using it would force premature public row creation.
+- Reusing staging manifest or VFS cache as Managed Artwork storage: rejected
+  because staging is cleanup-oriented probe/FFmpeg input state, and VFS cache is
+  remote storage fact cache. Neither is durable library artwork authority.
+
+Boundaries for the next implementation slice:
+
+- Add a dedicated managed artwork ingest/entity model rather than overloading
+  public catalog image rows.
+- Add a `JobKind` and resource class for managed artwork ingest if the existing
+  generic job table is used. Persist only redacted job input and summaries,
+  because `GET /jobs/{job_id}` exposes parsed job input and summary today.
+- Keep raw candidate source URL, internal cache path, artifact storage URI,
+  provider response details, and validation internals out of public and addon
+  responses.
+- Treat `cache_uri` as internal until a safe managed reference or image-serving
+  route contract exists.
+- Keep selected artwork mutation separate from ingest unless the same
+  transaction can update managed artifact, public image, selected flags, and
+  catalog/search projections without divergence.
+
+ADR impact: ADR 0013 remains valid as the resource-class foundation for image
+work, but it is not the right queue identity for candidate ingest. A future ADR
+or ADR amendment is needed when Public Client artwork DTOs move from raw
+`source_uri`/`cache_uri` exposure to managed image references.
+
 ## Closeout Condition
 
 This lane can close when:
