@@ -31,6 +31,9 @@ import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
 import dev.taru.android.ui.screens.detail.DetailRouteContent
+import dev.taru.android.ui.screens.player.PlaybackPlayerRoute
+import dev.taru.android.ui.screens.settings.ServerProfileScreen
+import dev.taru.android.ui.screens.settings.SettingsHomeScreen
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination

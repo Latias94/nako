@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
-import dev.taru.android.connection.ServerProfile
 import dev.taru.android.ui.components.TaruArtworkBackdrop as DesignArtworkBackdrop
 import dev.taru.android.ui.components.TaruIconBadge as DesignIconBadge
 import dev.taru.android.ui.components.TaruPressableScale as DesignPressableScale
@@ -73,7 +72,6 @@ import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
-import dev.taru.android.ui.theme.TaruTouchTarget
 
 @Composable
 internal fun TaruScrollColumn(content: @Composable ColumnScope.() -> Unit) {
@@ -513,109 +511,6 @@ internal fun RelationshipCard(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun SettingsGroup(
-    title: String,
-    rows: List<SettingsRow>,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
-        SectionLabel(title)
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = TaruShape.medium,
-            color = MaterialTheme.colorScheme.surface,
-        ) {
-            Column {
-                rows.forEach { row ->
-                    SettingsListRow(row)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun SettingsListRow(row: SettingsRow) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = TaruTouchTarget.minimum)
-            .clickable(enabled = row.onClick != null) { row.onClick?.invoke() }
-            .padding(TaruSpacing.medium),
-        horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = row.icon,
-            contentDescription = null,
-            tint = TaruTextSecondary,
-        )
-        Text(
-            text = row.label,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        row.value?.let {
-            Text(
-                text = it,
-                color = if (it.equals("None", ignoreCase = true) || it.equals("Connected", ignoreCase = true)) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    TaruTextSecondary
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun ServerSummaryCard(
-    profile: ServerProfile,
-    onClick: (() -> Unit)? = null,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = onClick != null) { onClick?.invoke() },
-        shape = TaruShape.medium,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)),
-    ) {
-        Row(
-            modifier = Modifier.padding(TaruSpacing.large),
-            horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconBadge(icon = Icons.Rounded.Storage)
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
-            ) {
-                Text(
-                    text = profile.displayName,
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text = "Connected${profile.lastObservedApiVersion?.let { " / API $it" }.orEmpty()}",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = profile.lastSuccessfulConnectionAtMillis?.let { "Last successful connection saved" }
-                        ?: "No successful connection timestamp",
-                    color = TaruTextSecondary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
             }
         }
     }

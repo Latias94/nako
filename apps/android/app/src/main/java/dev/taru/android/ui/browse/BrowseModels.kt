@@ -140,10 +140,3 @@ internal data class RelationshipRow(
     val icon: ImageVector,
     val target: BrowseFacetTarget,
 )
-
-internal data class SettingsRow(
-    val label: String,
-    val value: String?,
-    val icon: ImageVector,
-    val onClick: (() -> Unit)? = null,
-)

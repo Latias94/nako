@@ -5,8 +5,8 @@ Last updated: 2026-05-18
 
 ## Current State
 
-The workstream is open. `AME-010`, `AME-020`, `AME-030`, and `AME-040` have
-been completed and validated.
+The workstream is open. `AME-010`, `AME-020`, `AME-030`, `AME-040`, and
+`AME-050` have been completed and validated.
 
 The Android Client Foundation is complete and already provides:
 
@@ -19,17 +19,16 @@ The Android Client Foundation is complete and already provides:
 
 ## Next Task
 
-Run `AME-050`: implement the V2 Player and Settings surfaces on top of the new
-foundation.
+Run `AME-060`: verify the completed V2 UI rewrite, update final evidence, and
+close or split follow-on work.
 
 Recommended implementation order:
 
-1. Keep the new theme and shell as the only app chrome foundation.
-2. Rework Player chrome and playback error handling without changing Media3
-   launch/session boundaries.
-3. Rework Settings Home and Server Profile with restrained diagnostics and
-   token-safe copy.
-4. Run Android unit tests, Android debug assemble, and `git diff --check`.
+1. Run fresh Android unit tests, debug assemble, and diff hygiene checks.
+2. Run broader Rust gates if closeout touches shared/public API files.
+3. Review remaining API gaps and split follow-ons instead of hiding them in
+   Android-only behavior.
+4. Close the workstream or record explicit deferred V3 exploration.
 
 ## Constraints To Preserve
 
@@ -74,6 +73,22 @@ Recommended implementation order:
   locators.
 - `TaruBrowseShell` still owns Public Client API playback decision requests and
   Media3 playback launch construction.
+
+## AME-050 Outcome
+
+- `PlaybackPlayerScreen` was replaced by
+  `ui/screens/player/PlaybackPlayerRoute`.
+- Player now presents an immersive overlay with title, playback mode, loading
+  status, selected source context, local resume wording, and session state.
+- Playback errors now use a sheet-style recovery surface with Retry, Back to
+  detail, and copy-safe diagnostics built from `SafeRequestPreview`.
+- Media3 PlayerView setup, device-local position persistence, and playback
+  session cancellation behavior remain in place.
+- Settings and Server Profile now live in `ui/screens/settings`, with grouped
+  surfaces for active server, account access, playback, tracks/subtitles,
+  diagnostics, profiles, and sign-out.
+- JVM presentation tests cover player diagnostics redaction, local resume
+  wording, and settings diagnostics safety.
 
 ## Open Risks
 

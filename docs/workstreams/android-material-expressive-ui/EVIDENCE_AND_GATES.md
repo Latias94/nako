@@ -92,3 +92,16 @@ Use `review-workstream` before accepting each AME task and
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`;
   `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
   `git diff --check`.
+- 2026-05-18: `AME-050` completed V2 Player, Playback Error Sheet, Settings
+  Home, and Server Profile surfaces. Player now routes through
+  `ui/screens/player` with immersive overlay chrome, loading status, sanitized
+  playback error recovery, Media3 PlayerView preservation, device-local
+  position persistence, and existing playback-session cancellation behavior.
+  Settings now routes through `ui/screens/settings` with restrained grouped
+  surfaces, token-safe access copy, server profile switching, and sanitized
+  diagnostics. Added JVM presentation tests for player error diagnostics,
+  local resume wording, and settings diagnostics safety. Validation passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`;
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
+  `git diff --check`; emulator install/launch screenshot sanity check for
+  Home, Settings, and Server Profile surfaces.

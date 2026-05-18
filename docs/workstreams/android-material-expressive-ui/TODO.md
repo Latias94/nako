@@ -54,15 +54,18 @@ Last updated: 2026-05-18
 
 ## M4 — Player And Settings V2
 
-- [ ] AME-050 [owner=unassigned] [deps=AME-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/main/java/dev/taru/android/ui/screens/settings]
+- [x] AME-050 [owner=codex] [deps=AME-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/main/java/dev/taru/android/ui/screens/settings]
   Goal: Implement V2 Player, playback error sheet, Settings Home, and Server
   Profile with restrained settings chrome, safe diagnostics, and reliable
   player exit behavior.
-  Validation: Android unit tests and debug assemble.
+  Validation: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`; `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`; `git diff --check`; emulator install/launch screenshot sanity check.
   Review: Use review-workstream before accepting completion.
-  Evidence: player/settings code and tests.
-  Handoff: Keep advanced playback gestures, PiP, downloads, and external player
-  out of this lane unless explicitly split.
+  Evidence: `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlaybackPlayerRoute.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlayerPresentation.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/screens/settings/SettingsScreens.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/screens/settings/SettingsPresentation.kt`, `apps/android/app/src/test/java/dev/taru/android/ui/screens/player/PlayerPresentationTest.kt`, `apps/android/app/src/test/java/dev/taru/android/ui/screens/settings/SettingsPresentationTest.kt`
+  Handoff: Player now has V2 overlay chrome, loading status, sanitized playback
+  error sheet, and preserved Media3/session cleanup behavior. Settings and
+  Server Profile now live under `ui/screens/settings` with restrained grouped
+  surfaces and sanitized diagnostics. Advanced gestures, PiP, downloads, and
+  external player remain out of scope.
 
 ## M5 — Verification And Closeout
 
