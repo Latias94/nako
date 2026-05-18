@@ -77,7 +77,7 @@ Validation:
 
 ### ACF-030: Minimal Media Library Browse Loop
 
-Status: in_progress
+Status: complete
 Owner: codex
 Depends on: ACF-020
 
@@ -417,8 +417,8 @@ Validation completed on 2026-05-18:
 
 ### ACF-040: Playback Decision And Request Construction
 
-Status: pending
-Owner: unassigned
+Status: complete
+Owner: codex
 Depends on: ACF-030
 
 Connect item/source selection to Taru playback decision APIs and construct
@@ -444,10 +444,51 @@ Validation:
 - Tests prove bearer token values are never logged or shown in diagnostic
   output.
 
+Implementation completed on 2026-05-18:
+
+- Added a direct Kotlin Public Client API playback client for
+  `GET /sources/{source_id}/playback/decision`.
+- Added Android DTO mirrors for `PlaybackDecisionResponse`,
+  `ClientPlaybackDecision`, direct-play plans, transcode plans, media probe
+  facts, stream facts, and the small enum set needed by ACF-040.
+- Added playback request target builders for direct stream, direct HEAD
+  preflight, remux stream, HLS playlist, and HLS segment routes.
+- Added recommended target selection from playback decision mode:
+  direct play -> `/stream`, remux -> `/stream/remux`, transcode -> HLS
+  playlist.
+- Wired Media Item Detail source selection to request playback decisions and
+  display client-safe route previews without starting Media3 playback.
+- Added a first Source / Version Picker surface by listing candidate Media
+  Sources and letting the user request a decision for any candidate.
+- Kept access-token values, source locators, server-local paths, FFmpeg
+  commands, and raw provider payloads out of diagnostics and safe request
+  previews.
+
+Validation completed on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `git diff --check` passed with Windows line-ending normalization warnings
+  only.
+- Manual real-server/device walkthrough passed on
+  `Pixel_3a_API_34_extension_level_7_x86_64` against a real local
+  `taru-server` fixture on `127.0.0.1:3018` with
+  `adb reverse tcp:3018 tcp:3018`. The flow covered setup save, Home,
+  `Night Harbor` Media Item Detail, `Playback Source Selection`, source
+  candidate `Night Harbor.mkv`, `Request decision`, `HLS route prepared`, a
+  safe HLS playlist route preview, and the explicit handoff copy
+  `Playback starts in ACF-050.`
+- The walkthrough UI dump contained expected playback decision text and did
+  not contain the raw walkthrough token, `file:///`, `G:/`, or `ffmpeg`.
+- Direct HEAD preflight remains covered by request-construction tests; visible
+  preflight/player behavior is deferred to `ACF-050`.
+
 ### ACF-050: Media3 Playback Smoke Slice
 
 Status: pending
-Owner: unassigned
+Owner: codex
 Depends on: ACF-040
 
 Play one Taru public playback route through Media3 ExoPlayer.

@@ -12,6 +12,9 @@ import dev.taru.android.browse.ItemsResponse
 import dev.taru.android.browse.LibraryListResponse
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
+import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.playback.PlaybackRequestTarget
+import dev.taru.android.playback.SafePlaybackDiagnostics
 
 internal enum class TaruDestination(
     val label: String,
@@ -54,6 +57,20 @@ internal sealed interface ItemDetailUiState {
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
     ) : ItemDetailUiState
+}
+
+internal sealed interface PlaybackSelectionUiState {
+    data object Idle : PlaybackSelectionUiState
+    data object Loading : PlaybackSelectionUiState
+
+    data class Content(
+        val response: PlaybackDecisionResponse,
+        val target: PlaybackRequestTarget?,
+    ) : PlaybackSelectionUiState
+
+    data class Failure(
+        val diagnostics: SafePlaybackDiagnostics,
+    ) : PlaybackSelectionUiState
 }
 
 internal sealed interface SearchUiState {

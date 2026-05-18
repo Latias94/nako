@@ -248,6 +248,61 @@ Gates not run:
   catalog route test. The targeted `taru-server` catalog HTTP suite plus
   `cargo build -p taru-server` cover the changed server behavior.
 
+## Android Playback Decision And Request Construction Gates
+
+Validated for `ACF-040` on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `git diff --check` passed with Windows line-ending normalization warnings
+  only.
+
+What this proves:
+
+- The Android playback client encodes and decodes the public
+  `/sources/{source_id}/playback/decision` route, including client capability
+  query parameters and Public Client API version checks.
+- Android constructs direct stream, direct HEAD preflight, remux stream, HLS
+  playlist, and HLS segment request targets using stable Public Client API
+  paths, methods, query strings, range headers, and bearer auth headers.
+- Safe request previews redact bearer tokens and do not expose access-token
+  values.
+- Playback diagnostics sanitize bearer tokens, local filesystem paths, file
+  URLs, and FFmpeg command text from public error envelopes and transport
+  errors.
+- Media Item Detail now lets the user choose a Media Source, request a playback
+  decision, and inspect a client-safe prepared route summary without starting
+  Media3 playback.
+- The real app can request a playback decision from a real local Taru server
+  fixture and render the server-selected HLS route as a client-safe preview.
+
+Manual real-server walkthrough evidence on 2026-05-18:
+
+- Device/emulator: `Pixel_3a_API_34_extension_level_7_x86_64`
+  (`emulator-5554`).
+- Server: local `target\debug\taru-server.exe --config
+  tmp/android_real_server_fixture\taru.toml serve` on `127.0.0.1:3018`, reached
+  by Android through `adb reverse tcp:3018 tcp:3018`.
+- Fixture: one Movies library item, `Night Harbor`, with one media source
+  candidate `Night Harbor.mkv`.
+- Verified UI flow: setup save, Home, `Night Harbor` Media Item Detail,
+  `Playback Source Selection`, source candidate `Night Harbor.mkv`,
+  `Request decision`, `HLS route prepared`, decision reason
+  `client does not advertise support for mkv container`, safe route preview
+  `GET http://127.0.0.1:3018/sources/.../stream/hls/playlist.m3u8`, and
+  `Playback starts in ACF-050.`
+- Verified token and local-path safety: UI dump checks found the expected
+  playback decision text and did not find `walkthrough-token`, `file:///`,
+  `G:/`, or `ffmpeg`.
+
+Gates not run:
+
+- Rust gates were not rerun for ACF-040 because this slice changed Android
+  Kotlin/Compose and workstream documentation only; no Rust crate code or
+  Cargo manifests changed.
+
 ## Shared Rust Client-Core Gates
 
 If a mobile shared Rust crate is introduced:

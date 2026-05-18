@@ -34,17 +34,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemCreditDto
+import dev.taru.android.browse.MediaSourceDto
+import dev.taru.android.playback.ClientHardwareAcceleration
+import dev.taru.android.playback.ClientOutputContainer
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
+import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
 
 @Composable
 internal fun DetailRouteContent(
     state: ItemDetailUiState,
+    playbackState: PlaybackSelectionUiState,
+    selectedSourceId: String?,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onRequestPlayback: (String) -> Unit,
 ) {
     TaruScrollColumn {
         IconButton(onClick = onBack) {
@@ -67,7 +75,12 @@ internal fun DetailRouteContent(
             )
             is ItemDetailUiState.Content -> MediaItemDetailScreen(
                 response = state.response,
+                playbackState = playbackState,
+                selectedSourceId = selectedSourceId,
                 onOpenFacet = onOpenFacet,
+                onRequestPlayback = onRequestPlayback,
+                onRetryPlayback = onRetryPlayback,
+                onChangeServer = onChangeServer,
             )
         }
     }
@@ -76,9 +89,17 @@ internal fun DetailRouteContent(
 @Composable
 private fun MediaItemDetailScreen(
     response: ItemDetailResponse,
+    playbackState: PlaybackSelectionUiState,
+    selectedSourceId: String?,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onRequestPlayback: (String) -> Unit,
+    onRetryPlayback: () -> Unit,
+    onChangeServer: () -> Unit,
 ) {
     val item = response.item
+    val primarySource = response.sources.firstOrNull()
+    val selectedSource = response.sources.firstOrNull { it.id == selectedSourceId } ?: primarySource
+    val playbackEnabled = selectedSource != null && playbackState !is PlaybackSelectionUiState.Loading
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = TaruShape.medium,
@@ -114,8 +135,8 @@ private fun MediaItemDetailScreen(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
                     Button(
-                        onClick = {},
-                        enabled = false,
+                        onClick = { selectedSource?.id?.let(onRequestPlayback) },
+                        enabled = playbackEnabled,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
@@ -125,8 +146,8 @@ private fun MediaItemDetailScreen(
                         Text("Play")
                     }
                     OutlinedButton(
-                        onClick = {},
-                        enabled = false,
+                        onClick = { selectedSource?.id?.let(onRequestPlayback) },
+                        enabled = playbackEnabled,
                     ) {
                         Text("Source")
                     }
@@ -135,7 +156,14 @@ private fun MediaItemDetailScreen(
         }
     }
 
-    SourceSummaryCard(sourceCount = response.sources.size)
+    SourceSummaryCard(
+        sources = response.sources,
+        playbackState = playbackState,
+        selectedSourceId = selectedSource?.id,
+        onRequestPlayback = onRequestPlayback,
+        onRetryPlayback = onRetryPlayback,
+        onChangeServer = onChangeServer,
+    )
 
     item.metadata.overview?.takeIf { it.isNotBlank() }?.let { overview ->
         InfoCard(
@@ -277,7 +305,15 @@ private fun creditTitle(index: Int, credit: ItemCreditDto): String {
 }
 
 @Composable
-private fun SourceSummaryCard(sourceCount: Int) {
+private fun SourceSummaryCard(
+    sources: List<MediaSourceDto>,
+    playbackState: PlaybackSelectionUiState,
+    selectedSourceId: String?,
+    onRequestPlayback: (String) -> Unit,
+    onRetryPlayback: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
+    val source = sources.firstOrNull { it.id == selectedSourceId } ?: sources.firstOrNull()
     SurfaceCard {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
@@ -293,8 +329,8 @@ private fun SourceSummaryCard(sourceCount: Int) {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = if (sourceCount > 0) {
-                        "$sourceCount Media Source candidate(s). Playback decision arrives in ACF-040."
+                    text = if (source != null) {
+                        "${sources.size} Media Source candidate(s). ${source.fileName.ifBlank { "Selected source" }} / ${byteSizeLabel(source.sizeBytes)}"
                     } else {
                         "No playable Media Source is available yet."
                     },
@@ -302,7 +338,191 @@ private fun SourceSummaryCard(sourceCount: Int) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            StatusChip(text = if (sourceCount > 0) "ACF-040" else "Unavailable")
+            StatusChip(
+                text = when (playbackState) {
+                    PlaybackSelectionUiState.Idle -> if (source == null) "Unavailable" else "Ready"
+                    PlaybackSelectionUiState.Loading -> "Checking"
+                    is PlaybackSelectionUiState.Content -> playbackModeLabel(playbackState.response.decision.mode)
+                    is PlaybackSelectionUiState.Failure -> "Failed"
+                },
+            )
+        }
+
+        if (source != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
+                Button(
+                    onClick = { onRequestPlayback(source.id) },
+                    enabled = playbackState !is PlaybackSelectionUiState.Loading,
+                ) {
+                    Text("Request decision")
+                }
+                OutlinedButton(
+                    onClick = onRetryPlayback,
+                    enabled = playbackState !is PlaybackSelectionUiState.Idle &&
+                        playbackState !is PlaybackSelectionUiState.Loading,
+                ) {
+                    Text("Refresh")
+                }
+            }
+        }
+
+        sources.take(4).forEach { candidate ->
+            SourceCandidateRow(
+                source = candidate,
+                selected = candidate.id == source?.id,
+                enabled = playbackState !is PlaybackSelectionUiState.Loading,
+                onSelect = { onRequestPlayback(candidate.id) },
+            )
+        }
+
+        when (playbackState) {
+            PlaybackSelectionUiState.Idle -> Unit
+            PlaybackSelectionUiState.Loading -> Text(
+                text = "Checking Public Client API playback decision.",
+                color = TaruTextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            is PlaybackSelectionUiState.Content -> PlaybackDecisionSummary(playbackState)
+            is PlaybackSelectionUiState.Failure -> PlaybackFailureSummary(
+                state = playbackState,
+                onRetry = onRetryPlayback,
+                onChangeServer = onChangeServer,
+            )
         }
     }
 }
+
+@Composable
+private fun SourceCandidateRow(
+    source: MediaSourceDto,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    OutlinedButton(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onSelect,
+        enabled = enabled,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
+        ) {
+            Text(
+                text = source.fileName.ifBlank { "Media Source" },
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = listOf(
+                    source.libraryId.ifBlank { "library unknown" },
+                    byteSizeLabel(source.sizeBytes),
+                ).joinToString(" / "),
+                color = TaruTextSecondary,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        StatusChip(text = if (selected) "Selected" else "Choose")
+    }
+}
+
+@Composable
+private fun PlaybackDecisionSummary(state: PlaybackSelectionUiState.Content) {
+    val decision = state.response.decision
+    Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
+        Text(
+            text = "${playbackModeLabel(decision.mode)} route prepared",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = decision.reason,
+            color = TaruTextSecondary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        decision.directPlay?.let { direct ->
+            Text(
+                text = "${direct.contentType} / ranges ${if (direct.supportsRangeRequests) "supported" else "not supported"}",
+                color = TaruTextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        decision.transcodePlan?.let { plan ->
+            Text(
+                text = listOfNotNull(
+                    outputContainerLabel(plan.outputContainer),
+                    plan.videoCodec?.let { "video $it" },
+                    plan.audioCodec?.let { "audio $it" },
+                    hardwareLabel(plan.hardwareAcceleration),
+                ).joinToString(" / "),
+                color = TaruTextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        state.target?.safeRequest?.let { request ->
+            Text(
+                text = "${request.method} ${request.url}",
+                color = TaruTextMuted,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = "Playback starts in ACF-050.",
+            color = TaruTextMuted,
+            style = MaterialTheme.typography.labelMedium,
+        )
+    }
+}
+
+@Composable
+private fun PlaybackFailureSummary(
+    state: PlaybackSelectionUiState.Failure,
+    onRetry: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
+        Text(
+            text = playbackFailureTitle(state.diagnostics.category),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = state.diagnostics.userMessage,
+            color = TaruTextSecondary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        state.diagnostics.publicError?.let { publicError ->
+            Text(
+                text = "${publicError.code}: ${publicError.message}",
+                color = TaruTextMuted,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
+            Button(onClick = onRetry) {
+                Text("Retry")
+            }
+            OutlinedButton(onClick = onChangeServer) {
+                Text("Change server")
+            }
+        }
+    }
+}
+
+private fun outputContainerLabel(container: ClientOutputContainer): String =
+    when (container) {
+        ClientOutputContainer.Hls -> "HLS"
+        ClientOutputContainer.Mp4 -> "MP4"
+        ClientOutputContainer.Mkv -> "MKV"
+    }
+
+private fun hardwareLabel(hardware: ClientHardwareAcceleration): String =
+    when (hardware) {
+        ClientHardwareAcceleration.None -> "CPU"
+        ClientHardwareAcceleration.Vaapi -> "VAAPI"
+        ClientHardwareAcceleration.Nvenc -> "NVENC"
+        ClientHardwareAcceleration.QuickSync -> "Quick Sync"
+    }

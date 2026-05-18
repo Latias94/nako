@@ -148,7 +148,7 @@ Follow-ups after milestone completion:
 
 ## ACF-M4: Playback Decision Loop
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -167,6 +167,21 @@ Candidate validation:
 
 - Request-construction tests.
 - Local server smoke test for at least one source.
+
+Evidence:
+
+- `ACF-040` completed on 2026-05-18:
+  - Android playback client can request Public Client API playback decisions;
+  - Android can construct direct, direct HEAD preflight, remux, HLS playlist,
+    and HLS segment request targets;
+  - Media Item Detail exposes a first Source / Version Picker surface and a
+    client-safe prepared route preview;
+  - Media3 playback activation remains deferred to `ACF-050`;
+  - playback unit tests, Android full unit tests, debug build, `git diff
+    --check`, and real-server/device walkthrough passed.
+- Walkthrough verified `Night Harbor.mkv` source decision against the local
+  `taru-server` fixture and rendered an HLS playlist route preview without
+  exposing token values, local paths, or FFmpeg command text.
 
 ## ACF-M5: Media3 Playback Smoke
 
