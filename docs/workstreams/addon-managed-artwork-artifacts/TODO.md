@@ -1,7 +1,7 @@
 # Addon Managed Artwork Artifacts TODO
 
-Status: Proposed
-Last updated: 2026-05-18
+Status: Active
+Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
 
@@ -13,7 +13,7 @@ Last updated: 2026-05-18
 
 ## M1 - Artwork Seam Audit
 
-- [ ] AMAA-020 [owner=codex] [deps=AMAA-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs]
+- [x] AMAA-020 [owner=codex] [deps=AMAA-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs]
   Goal: Audit current artwork, artifact, storage/VFS, catalog image hydration,
   and Addon Side Effect seams; choose the first bounded `artwork_write` target.
   Validation: `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`; `git diff --check`.
@@ -21,15 +21,19 @@ Last updated: 2026-05-18
   Managed Artwork, or create Taru-Managed Artifacts. If catalog-visible artwork
   state needs multiple durable writes, introduce or reuse a first-party artwork
   commit boundary instead of placing write ordering in the Addon handler.
-  Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue with AMAA-030 only after fetch/cache/storage policy is
-  explicit.
+  Evidence: audit notes in `EVIDENCE_AND_GATES.md`; `DESIGN.md` selected
+  Addon Artwork Candidate proposal as the first bounded apply target.
+  Handoff: Continue with AMAA-030 by introducing a typed candidate proposal
+  boundary. Do not directly create selected public `ImageAsset` rows, managed
+  cache artifacts, or sidecar files in the first slice.
 
 ## M2 - First Artwork Apply Slice
 
 - [ ] AMAA-030 [owner=codex] [deps=AMAA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
   Goal: Implement the smallest safe `artwork_write` apply path selected by
-  AMAA-020.
+  AMAA-020: a MediaItem-targeted Addon Artwork Candidate proposal that records
+  addon artwork intent without exposing raw source details as public client
+  artwork.
   Validation: focused artwork/addon tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no response exposes raw payload, Source Locators, filesystem
   paths, remote storage handles, or unsafe provider hotlinks as client artwork.

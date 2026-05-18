@@ -1,13 +1,19 @@
 # Addon Managed Artwork Artifacts
 
-Status: Proposed
-Last updated: 2026-05-18
+Status: Active
+Last updated: 2026-05-19
 
 This workstream owns the `artwork_write` follow-on split from
 `addon-protected-writes`. APW proved Addon Side Effect intake plus apply outcome
 with Canonical Metadata. This lane decides how addon-submitted artwork enters
 Taru as Artwork Candidates, Managed Artwork, or Taru-Managed Artifacts without
 hotlinking unsafe provider URLs or exposing library paths.
+
+Current selection after AMAA-020: the first implementation slice should be an
+Addon Artwork Candidate proposal, not immediate Managed Artwork selection and
+not direct public `ImageAsset` insertion. Taru must first capture addon artwork
+intent in a first-party candidate boundary so raw addon URLs, paths, payloads,
+and future cache internals do not become public client artwork.
 
 Authoritative docs:
 

@@ -1,7 +1,7 @@
 # Addon Managed Artwork Artifacts Milestones
 
-Status: Proposed
-Last updated: 2026-05-18
+Status: Active
+Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
 
@@ -35,6 +35,10 @@ Primary gates:
 
 - `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`
 - `git diff --check`
+
+Result: completed in AMAA-020. The first apply target is an Addon Artwork
+Candidate proposal, deliberately before Managed Artwork fetch/cache, selected
+artwork updates, or sidecar export.
 
 ## M2 - First Artwork Apply Slice
 

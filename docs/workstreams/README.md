@@ -53,9 +53,9 @@ attention.
   with explicit apply outcome, Addon metadata source attribution, idempotency,
   redaction, and catalog/search refresh.
 - [addon-managed-artwork-artifacts](addon-managed-artwork-artifacts/README.md):
-  proposed follow-on for `artwork_write`, Artwork Candidate, Managed Artwork,
-  Taru-Managed Artifact intake, fetch/cache policy, resource budgets, and safe
-  diagnostics.
+  active follow-on for `artwork_write`, starting with a MediaItem-targeted
+  Addon Artwork Candidate proposal before Managed Artwork fetch/cache, selected
+  artwork, Taru-Managed Artifact intake, resource budgets, and safe diagnostics.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

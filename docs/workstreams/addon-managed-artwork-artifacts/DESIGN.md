@@ -1,7 +1,7 @@
 # Addon Managed Artwork Artifacts
 
-Status: Proposed
-Last updated: 2026-05-18
+Status: Active
+Last updated: 2026-05-19
 
 ## Why This Lane Exists
 
@@ -82,6 +82,48 @@ the Addon handler.
 Artwork export to media-library sidecar files is a **Library File Write** and
 belongs in `addon-library-file-write-policy`; AMAA may produce Managed Artwork
 or Taru-Managed Artifacts, but it should not invent a separate file-write path.
+
+### AMAA-020 Selected First Target
+
+The first AMAA-030 apply target should be an addon-initiated Artwork Candidate
+proposal for an existing Media Item. The addon may request that Taru consider a
+poster, backdrop, logo, banner, thumbnail, or other artwork candidate, but it
+must not directly create selected artwork, public client artwork references, or
+library sidecar files.
+
+The first payload should be typed around candidate intent, for example:
+
+```json
+{
+  "intent": "propose_artwork",
+  "kind": "poster",
+  "source": {
+    "kind": "remote_url",
+    "url": "https://addon.example/poster.jpg"
+  },
+  "language": "en",
+  "width": 1000,
+  "height": 1500
+}
+```
+
+The first slice should accept only HTTP(S) remote URL sources. It should reject
+filesystem paths, Source Locators, remote storage handles, raw image bytes,
+data URIs, `cache_uri`, `selected`, and sidecar export fields. Candidate source
+details may be stored internally, but the Addon response/report must expose
+only redacted aggregate facts and stable IDs.
+
+Do not write the current public `ImageAsset` table directly for this first
+slice. Existing Public Client DTOs expose `source_uri` and `cache_uri`; writing
+addon-provided URLs there would turn unverified addon output into
+client-visible artwork and risk unstable hotlinks. AMAA-030 should introduce
+or reuse a first-party candidate boundary that is not treated as selected
+public artwork.
+
+Managed Artwork fetch/cache, thumbnail generation, selected-artwork changes,
+and sidecar export remain follow-on work. If a later slice makes candidates
+public or selected, it must add artifact fetching/storage, content validation,
+resource budgets, cache URI assignment, and redacted diagnostics first.
 
 ## Closeout Condition
 

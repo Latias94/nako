@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "addon-managed-artwork-artifacts",
   "title": "Addon Managed Artwork Artifacts",
-  "status": "proposed",
-  "updated": "2026-05-18",
+  "status": "active",
+  "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Addon artwork outputs need a Taru-owned artwork/artifact apply boundary before artwork_write can create Managed Artwork, Artwork Candidates, or Taru-Managed Artifacts safely.",
   "authoritative_docs": [
@@ -47,8 +47,8 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "AMAA-020",
-  "first_slice": "artwork/artifact seam audit and first apply target selection",
+  "current_task": "AMAA-030",
+  "first_slice": "MediaItem-targeted Addon Artwork Candidate proposal",
   "non_goals": [
     "Addon Manager lifecycle automation",
     "direct addon database or filesystem access",
@@ -63,6 +63,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start with AMAA-020 seam audit before accepting artwork_write payloads or implementing artifact storage behavior."
+    "notes": "Continue with AMAA-030: implement a typed MediaItem-targeted Addon Artwork Candidate proposal boundary. Do not write public ImageAsset rows, selected artwork, managed cache artifacts, or sidecar files until fetch/cache/storage policy is explicit."
   }
 }
