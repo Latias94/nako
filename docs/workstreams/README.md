@@ -11,6 +11,10 @@ attention.
   order, playback-first mobile scope, Public Client API connection/browse/search
   loops, playback decision/request construction, Media3 playback smoke,
   playback session boundary, and follow-on API gaps under ADR 0026.
+- [android-material-expressive-ui](android-material-expressive-ui/README.md):
+  active Android UI rewrite lane for the V2 Material 3 Expressive direction,
+  covering dark-first dynamic color, artwork-led media surfaces, restrained
+  motion, adaptive phone/tablet chrome, and clean Compose UI boundaries.
 - [architecture-review-followups](architecture-review-followups/README.md):
   proposed planning and routing lane for the 2026-05-18 architecture review
   findings, covering metadata/catalog atomicity, metadata merge-policy
