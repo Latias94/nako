@@ -8,7 +8,8 @@ Last updated: 2026-05-18
 ```powershell
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
 apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon
-pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1
+pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
+pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token
 git diff --check
 ```
 
@@ -87,3 +88,16 @@ This catches whitespace errors and unresolved patch artifacts.
   Device inspection after launch showed no `taru_server_profiles.xml`; the
   encrypted token preferences file existed with AndroidX Security keysets only,
   not app token entries.
+- 2026-05-18: `ACQ-040` completed first emulator surface coverage. The smoke
+  script now captures named screenshots, UI hierarchy dumps, and criteria files
+  for `empty-setup` and `profile-missing-token`. Fresh `empty-setup` smoke
+  passed at
+  `apps/android/build/smoke/20260518-214452-empty-setup-emulator-5554/` with
+  `setup.png`, `setup.uiautomator.xml`, and `setup.criteria.txt`. Fresh
+  `profile-missing-token` smoke passed at
+  `apps/android/build/smoke/20260518-214533-profile-missing-token-emulator-5554/`
+  with `home.png`, `settings.png`, `server-profile.png`, matching UI hierarchy
+  dumps, and matching criteria files. Criteria results were PASS for all
+  required setup, Home, Settings, and Server Profile text/content descriptions.
+  Evidence reports and criteria files were checked for token-reference values,
+  bearer tokens, localhost, and `10.0.2.2`; none were present.

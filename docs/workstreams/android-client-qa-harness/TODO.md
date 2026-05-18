@@ -42,7 +42,7 @@ Last updated: 2026-05-18
 
 ## M3 — Emulator Surface Coverage
 
-- [ ] ACQ-040 [owner=codex] [deps=ACQ-030] [scope=apps/android/scripts,apps/android/app/src]
+- [x] ACQ-040 [owner=codex] [deps=ACQ-030] [scope=apps/android/scripts,apps/android/app/src]
   Goal: Cover the first repeatable emulator surfaces: setup or existing
   profile launch, Home, Settings, and Server Profile screenshots with explicit
   pass/fail criteria.
@@ -50,9 +50,12 @@ Last updated: 2026-05-18
   install/launch/capture failure.
   Review: Use review-workstream before accepting completion.
   Evidence: `EVIDENCE_AND_GATES.md`, screenshot path summary.
-  Handoff: ACQ-030 is complete. Start with `empty-setup` screenshot coverage,
-  then split profile-backed Home/Settings coverage if it needs seeded server
-  state.
+  Handoff: Completed on 2026-05-18. `empty-setup` captures setup evidence, and
+  `profile-missing-token` captures Home, Settings, and Server Profile shell
+  evidence with named screenshots, UI hierarchy dumps, and criteria files.
+  Latest evidence:
+  `apps/android/build/smoke/20260518-214452-empty-setup-emulator-5554/` and
+  `apps/android/build/smoke/20260518-214533-profile-missing-token-emulator-5554/`.
 
 ## M4 — Closeout
 

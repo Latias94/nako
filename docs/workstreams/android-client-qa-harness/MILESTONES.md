@@ -66,6 +66,15 @@ Exit criteria:
 - Home, Settings, and Server Profile screenshots are captured with stable names.
 - Failure modes are visible enough for another agent to continue.
 
+Status: Completed on 2026-05-18.
+
+Evidence:
+
+- `apps/android/scripts/Smoke-Emulator.ps1 -FixtureState empty-setup`
+- `apps/android/scripts/Smoke-Emulator.ps1 -FixtureState profile-missing-token`
+- `apps/android/build/smoke/20260518-214452-empty-setup-emulator-5554/`
+- `apps/android/build/smoke/20260518-214533-profile-missing-token-emulator-5554/`
+
 ## M4 — Closeout
 
 Exit criteria:

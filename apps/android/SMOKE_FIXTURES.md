@@ -23,6 +23,7 @@ Command:
 
 ```powershell
 .\scripts\Smoke-Emulator.ps1 -ResetAppData
+.\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
 ```
 
 Use this when evidence must start from a deterministic setup state. The script
@@ -36,6 +37,42 @@ Expected result:
 - the app starts at the connection/setup surface;
 - generated evidence is written under
   `apps/android/build/smoke/<timestamp>-empty-setup-<serial>/`.
+
+Captured surfaces:
+
+- `setup.png`
+- `setup.uiautomator.xml`
+- `setup.criteria.txt`
+
+### profile-missing-token
+
+Command:
+
+```powershell
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token
+```
+
+Use this when evidence needs repeatable Home, Settings, and Server Profile
+screens without depending on a live Taru server. The script installs the debug
+APK, clears app data, seeds a local Server Profile named `Smoke Server`, and
+does not seed an access token.
+
+Expected result:
+
+- exactly one local Server Profile is present;
+- no access-token value is stored;
+- Home opens in the safe `Authentication required` state;
+- Settings and Server Profile are reachable from the shell;
+- generated evidence is written under
+  `apps/android/build/smoke/<timestamp>-profile-missing-token-<serial>/`.
+
+Captured surfaces:
+
+- `home.png`
+- `settings.png`
+- `server-profile.png`
+- matching `*.uiautomator.xml` files
+- matching `*.criteria.txt` pass/fail files
 
 ## Safety Rules
 

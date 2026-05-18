@@ -68,11 +68,16 @@ build:
 .\scripts\Smoke-Emulator.ps1 -Serial emulator-5554
 .\scripts\Smoke-Emulator.ps1 -SkipBuild
 .\scripts\Smoke-Emulator.ps1 -ResetAppData
+.\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token -SkipBuild
 ```
 
 The script builds `:app:assembleDebug` by default, installs the debug APK to a
 connected emulator, launches `dev.taru.android/.MainActivity`, and writes
 evidence under `apps/android/build/smoke/<timestamp>-<state>-<serial>/`.
+Surface checks write named screenshots, UI hierarchy dumps, and criteria files
+such as `setup.png`, `home.png`, `settings.png`, and
+`server-profile.criteria.txt`.
 
 The script expects `adb devices` to show exactly one device in `device` state.
 If multiple devices are attached, pass `-Serial`. If no devices are attached,
@@ -81,5 +86,10 @@ start an emulator first and re-run the command.
 Use `-ResetAppData` for a deterministic empty setup state. It clears
 `dev.taru.android` app data after installing the debug APK, which removes
 stored server profiles and encrypted access tokens before launch.
+
+Use `-FixtureState profile-missing-token` when you need repeatable Home,
+Settings, and Server Profile shell screenshots without a real server. It seeds
+one local Server Profile with no token value, so Home intentionally shows the
+safe re-authentication state instead of fake media data.
 
 Fixture and state rules live in `SMOKE_FIXTURES.md`.

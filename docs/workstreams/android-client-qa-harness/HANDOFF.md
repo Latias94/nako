@@ -13,25 +13,27 @@ The Android Client Foundation and Android Material Expressive UI lanes are
 closed. This lane should improve confidence for future parallel Android work,
 not add product features.
 
-`ACQ-020` and `ACQ-030` are complete. The smoke script and Android README
+`ACQ-020`, `ACQ-030`, and `ACQ-040` are complete. The smoke script and Android README
 updates have landed locally, Android unit/build gates pass, and the smoke
 command now produces repeatable emulator evidence. Fixture/state rules live in
-`apps/android/SMOKE_FIXTURES.md`, with `current-state` and `empty-setup` modes
-documented.
+`apps/android/SMOKE_FIXTURES.md`, with `current-state`, `empty-setup`, and
+`profile-missing-token` modes documented.
+
+`empty-setup` captures setup evidence. `profile-missing-token` seeds one local
+Server Profile with no token value, then captures Home, Settings, and Server
+Profile shell evidence without fake media or server-backed state.
 
 ## Next Task
 
-Continue with `ACQ-040`: cover the first repeatable emulator surfaces with
-explicit pass/fail criteria.
+Continue with `ACQ-050`: verify the harness and close or split follow-ons.
 
 Recommended implementation order:
 
-1. Start with `empty-setup` screenshot capture because it is now deterministic.
-2. Add named screenshot outputs and clear pass/fail criteria for setup launch.
-3. Decide whether Home, Settings, and Server Profile can use Android-only
-   seeded state or need a server-backed fixture split.
-4. Record new evidence paths in `EVIDENCE_AND_GATES.md` without committing
-   generated screenshots.
+1. Run Android unit tests and debug assemble fresh.
+2. Run both documented smoke fixture states on an emulator.
+3. Run `git diff --check`.
+4. Decide whether to close the lane or split CI/golden/server-backed demo
+   fixture follow-ons.
 
 ## Constraints To Preserve
 
