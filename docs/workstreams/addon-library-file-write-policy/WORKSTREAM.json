@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "addon-library-file-write-policy",
   "title": "Addon Library File Write Policy",
-  "status": "proposed",
+  "status": "active",
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Addon-initiated subtitle, NFO, and sidecar writes need a Taru-owned Library File Write boundary before addons can safely change media-library files.",
@@ -41,17 +41,19 @@
     "docs/workstreams/nfo-round-trip-preservation/",
     "docs/workstreams/nfo-storage-write-policy/",
     "docs/workstreams/nfo-sidecar-backup-policy/",
+    "docs/workstreams/nfo-backup-retention-diagnostics/",
     "crates/taru-nfo/src/export.rs",
     "crates/taru-vfs/src/lib.rs",
     "crates/taru-vfs/src/local.rs",
+    "crates/taru-server/src/app/nfo.rs",
     "crates/taru-server/src/app/addons.rs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "ALFW-020",
-  "first_slice": "subtitle/NFO/storage seam audit and first Library File Write target selection",
+  "current_task": "ALFW-030",
+  "first_slice": "MediaSource-targeted addon-initiated Taru-owned NFO export apply path",
   "non_goals": [
     "direct addon filesystem or remote storage access",
     "Addon Manager lifecycle automation",
@@ -66,6 +68,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start with ALFW-020 seam audit before accepting subtitle, NFO, or sidecar file-write payloads."
+    "notes": "Continue with ALFW-030: implement the MediaSource-targeted Taru-owned NFO export apply path before accepting broader subtitle or sidecar file-write payloads."
   }
 }

@@ -1,6 +1,6 @@
 # Addon Library File Write Policy
 
-Status: Proposed
+Status: Active
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -91,6 +91,38 @@ NFO export remains an NFO/VFS concern: derive the sidecar target inside Taru,
 write through `StorageWriteRequest`/backup policy, and trigger any follow-on
 NFO import or catalog update through the existing NFO service path rather than
 duplicating parser or persistence logic in the Addon handler.
+
+### ALFW-020 Selected First Target
+
+The first ALFW-030 apply target is an addon-initiated, MediaSource-targeted
+Taru-owned NFO Export. An accepted `library_file_write` side effect may request
+an NFO export for an existing Media Source, but the addon may not provide a
+filesystem path, Source Locator, remote storage handle, or raw NFO content.
+Taru derives the sidecar URI from the Media Source, library, file role, and
+write policy, then delegates the write to first-party NFO/VFS code.
+
+The first payload shape should be typed around intent, for example NFO export
+with create-missing or replace-existing-preserving policy. Create-missing skips
+existing sidecars. Replace-existing-preserving must use NFO Round Trip rendering,
+`StorageWriteRequest::atomic_replace`, existing-file backup, and backup
+retention diagnostics.
+
+Do not mark a side effect `applied` merely because a durable job was queued. If
+ALFW-030 uses the existing NFO export job path, it must add truthful queued/job
+association semantics or a redacted apply-report boundary before reporting the
+write as applied. If it stays synchronous, it must only mark `applied` after the
+NFO/VFS write has completed.
+
+The apply response and stored report should expose only redacted facts:
+side-effect ID, target IDs, file role, policy, status, optional job ID, safe
+error code, and aggregate backup/pruning counts. It must not expose raw
+`StorageWriteReport`, `StorageUri`, Source Locator, filesystem path, remote
+handle, backup URI, or payload content.
+
+Subtitle import and arbitrary sidecar asset writes are deliberately deferred.
+Subtitle needs a first-party subtitle/track model and source semantics before
+addons can safely submit subtitle files. Arbitrary sidecar assets need a
+content-type and target-derivation matrix broader than NFO export.
 
 ## Closeout Condition
 
