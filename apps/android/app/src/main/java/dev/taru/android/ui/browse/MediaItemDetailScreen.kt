@@ -37,6 +37,7 @@ import dev.taru.android.browse.ItemCreditDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.playback.ClientHardwareAcceleration
 import dev.taru.android.playback.ClientOutputContainer
+import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
@@ -53,6 +54,7 @@ internal fun DetailRouteContent(
     onChangeServer: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onRequestPlayback: (String) -> Unit,
+    onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
     TaruScrollColumn {
         IconButton(onClick = onBack) {
@@ -81,6 +83,7 @@ internal fun DetailRouteContent(
                 onRequestPlayback = onRequestPlayback,
                 onRetryPlayback = onRetryPlayback,
                 onChangeServer = onChangeServer,
+                onStartPlayback = onStartPlayback,
             )
         }
     }
@@ -95,6 +98,7 @@ private fun MediaItemDetailScreen(
     onRequestPlayback: (String) -> Unit,
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
+    onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
     val item = response.item
     val primarySource = response.sources.firstOrNull()
@@ -163,6 +167,7 @@ private fun MediaItemDetailScreen(
         onRequestPlayback = onRequestPlayback,
         onRetryPlayback = onRetryPlayback,
         onChangeServer = onChangeServer,
+        onStartPlayback = onStartPlayback,
     )
 
     item.metadata.overview?.takeIf { it.isNotBlank() }?.let { overview ->
@@ -312,6 +317,7 @@ private fun SourceSummaryCard(
     onRequestPlayback: (String) -> Unit,
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
+    onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
     val source = sources.firstOrNull { it.id == selectedSourceId } ?: sources.firstOrNull()
     SurfaceCard {
@@ -382,7 +388,10 @@ private fun SourceSummaryCard(
                 color = TaruTextSecondary,
                 style = MaterialTheme.typography.bodyMedium,
             )
-            is PlaybackSelectionUiState.Content -> PlaybackDecisionSummary(playbackState)
+            is PlaybackSelectionUiState.Content -> PlaybackDecisionSummary(
+                state = playbackState,
+                onStartPlayback = onStartPlayback,
+            )
             is PlaybackSelectionUiState.Failure -> PlaybackFailureSummary(
                 state = playbackState,
                 onRetry = onRetryPlayback,
@@ -430,7 +439,10 @@ private fun SourceCandidateRow(
 }
 
 @Composable
-private fun PlaybackDecisionSummary(state: PlaybackSelectionUiState.Content) {
+private fun PlaybackDecisionSummary(
+    state: PlaybackSelectionUiState.Content,
+    onStartPlayback: (PlaybackRequestTarget) -> Unit,
+) {
     val decision = state.response.decision
     Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
         Text(
@@ -470,8 +482,17 @@ private fun PlaybackDecisionSummary(state: PlaybackSelectionUiState.Content) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Text(
-            text = "Playback starts in ACF-050.",
+        state.target?.let { target ->
+            Button(onClick = { onStartPlayback(target) }) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(TaruSpacing.small))
+                Text("Start playback")
+            }
+        } ?: Text(
+            text = "No playable route was prepared.",
             color = TaruTextMuted,
             style = MaterialTheme.typography.labelMedium,
         )

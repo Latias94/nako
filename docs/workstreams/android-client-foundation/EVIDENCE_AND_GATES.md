@@ -337,6 +337,57 @@ If UniFFI is introduced:
   - direct/remux/HLS request construction;
   - active-server scoping for any device-local transient playback position.
 
+## Android Media3 Playback Smoke Gates
+
+Validated for `ACF-050` on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon --rerun-tasks`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
+  passed.
+
+What this proves:
+
+- Android builds with Media3 ExoPlayer, HLS, and UI dependencies.
+- The player route can consume the `ACF-040` prepared playback target and pass
+  required HTTP headers to Media3 without exposing bearer token values through
+  launch debug output.
+- Existing Android connection, browse, search, detail, playback-decision, and
+  request-construction unit tests still pass with the Media3 smoke slice.
+
+Manual real-server playback smoke evidence on 2026-05-18:
+
+- Device/emulator: `Pixel_3a_API_34_extension_level_7_x86_64`
+  (`emulator-5554`), Android API 34.
+- Server: local `target\debug\taru-server.exe --config
+  tmp/android_real_server_fixture\taru.toml serve` on `127.0.0.1:3018`, reached
+  by Android through `adb reverse tcp:3018 tcp:3018`.
+- Fixture media: local `Night Harbor.mkv`, regenerated as a 2 second H.264/AAC
+  Matroska file and re-probed with `target\debug\taru-server.exe --config
+  tmp/android_real_server_fixture\taru.toml scan-all`.
+- Playback decision path: Media Item Detail -> `Request decision` ->
+  `Remux route prepared` for
+  `/sources/{source_id}/stream/remux?output_container=mp4` -> `Start playback`.
+- Observed Media3 UI state: PlayerView route opened; controller showed
+  `00:02 / 00:02`; app status text showed `Media3: Ended`.
+- Observed logcat state: ExoPlayer initialized as AndroidX Media3 `1.10.1`;
+  H.264 video decoder and AAC audio decoder were created; no playback error
+  appeared in the filtered logcat output.
+- Verified token safety: player UI did not show the raw walkthrough token.
+
+Gates not run:
+
+- Android instrumented tests were not added for ACF-050 because the target
+  claim is a real emulator/server playback smoke and local CI does not yet
+  have a stable Media3 instrumentation harness.
+- Rust gates were not rerun for ACF-050 because this slice changed Android
+  Kotlin/Compose, Gradle dependencies, and workstream documentation only; no
+  Rust crate code or Cargo manifests changed.
+
 ## Playback Smoke Evidence
 
 The first playback evidence should record:

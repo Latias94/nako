@@ -15,6 +15,7 @@ import dev.taru.android.browse.SearchResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.SafePlaybackDiagnostics
+import dev.taru.android.player.PlaybackLaunchRequest
 
 internal enum class TaruDestination(
     val label: String,
@@ -29,6 +30,7 @@ internal enum class TaruDestination(
 internal sealed interface TaruRoute {
     data object TopLevel : TaruRoute
     data class ItemDetail(val itemId: String) : TaruRoute
+    data class Player(val launch: PlaybackLaunchRequest) : TaruRoute
     data class BrowseFacet(val target: BrowseFacetTarget) : TaruRoute
     data object ServerProfile : TaruRoute
 }

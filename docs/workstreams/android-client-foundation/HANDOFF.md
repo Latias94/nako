@@ -111,6 +111,16 @@ Implemented ACF-040 playback decision/request construction slice:
 - Media Item Detail now lists candidate Media Sources, lets the user request a
   decision for any candidate, and displays a client-safe route preview.
 
+Implemented ACF-050 Media3 playback smoke slice:
+
+- Added Media3 ExoPlayer, HLS, and UI dependencies.
+- Added a full-screen PlayerView-backed Compose player route.
+- Media Item Detail can launch playback from the ACF-040 prepared target after
+  a successful playback decision.
+- Media3 receives real playback request headers; UI/debug launch output keeps
+  only safe redacted request previews.
+- Player lifecycle is route-scoped and ExoPlayer is released on exit.
+
 Resolved decisions:
 
 - Android is the first implementation target.
@@ -135,10 +145,10 @@ Resolved decisions:
 
 ## Next Task
 
-Start `ACF-050` Media3 playback smoke. `ACF-040` is complete: playback
-decision requests, direct/remux/HLS request construction, Source / Version
-Picker entry, safe route preview, Android tests/build, `git diff --check`, and
-real-server/device walkthrough are validated.
+Start `ACF-060` playback session and resume follow-up. `ACF-050` is complete:
+Media3 dependencies, player route, ACF-040 prepared target launch, debug
+build, Android unit tests, and real emulator/server playback smoke are
+validated.
 
 The visual direction is documented in `CLIENT_INTERFACE_DESIGN.md` and
 reference screenshots live under
@@ -146,22 +156,22 @@ reference screenshots live under
 has translated that baseline into Compose code, and ACF-030D has hardened the
 available public routes. The next step is not another visual rewrite.
 
-Preserve the `ACF-020`, `ACF-030A`, `ACF-030B`, `ACF-030C`, `ACF-030D`, and `ACF-040`
+Preserve the `ACF-020`, `ACF-030A`, `ACF-030B`, `ACF-030C`, `ACF-030D`, `ACF-040`, and `ACF-050`
 boundaries: consume Public Client API DTOs from the active server profile, keep
 token values out of diagnostics, use only the prepared public playback targets
-from the playback client, and avoid UniFFI, downloads, resume-state claims, or
-external-player work until their own tasks.
+from the playback client, release Media3 on route exit, and avoid UniFFI,
+downloads, cross-device resume-state claims, or external-player work until
+their own tasks.
 
 Recommended next task:
 
-- Add Media3 dependencies and a minimal player route that consumes the
-  `ACF-040` prepared target.
-- Start with HLS playback from the local fixture, because the real walkthrough
-  selected HLS for `Night Harbor.mkv`.
-- Keep player state local to the active server profile and record any public
-  session cancellation/resume API gaps before claiming playback state support.
-- Run a real device/emulator playback smoke test and record Media3 state
-  transitions in `EVIDENCE_AND_GATES.md`.
+- Audit Public Client API coverage for playback session inspection,
+  cancellation, progress reporting, and authoritative User Playback State.
+- Decide whether ACF-050's remux route needs explicit cancellation-on-exit or
+  whether only session-backed HLS/transcode routes are cancellable.
+- Define device-local transient position rules, but do not present them as
+  cross-device Continue Watching.
+- Record any hard API gap before implementing resume/progress UI.
 
 ## Risks To Preserve
 
@@ -203,3 +213,10 @@ fixture.
 walkthrough verified `Night Harbor.mkv` -> playback decision -> HLS route
 preview and did not expose the raw token, local file URLs/paths, or FFmpeg
 command text in the UI dump.
+`ACF-050` validated
+`apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon --rerun-tasks`,
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`,
+`apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`,
+and a real emulator/server playback smoke on 2026-05-18. The smoke used a
+2 second local H.264/AAC `Night Harbor.mkv`, played through the server-selected
+remux route, reached `Media3: Ended`, and showed no raw token in the player UI.

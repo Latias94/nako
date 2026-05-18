@@ -41,6 +41,7 @@ import dev.taru.android.playback.PlaybackResult
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.player.playbackLaunchRequest
 import dev.taru.android.ui.theme.TaruTextSecondary
 
 @Composable
@@ -228,6 +229,25 @@ fun TaruBrowseShell(
                         requestedSourceId = it
                         playbackRefreshKey += 1
                     },
+                    onStartPlayback = { target ->
+                        val title = (detailState as? ItemDetailUiState.Content)
+                            ?.response
+                            ?.item
+                            ?.metadata
+                            ?.title
+                            .orEmpty()
+                            .ifBlank { "Taru Playback" }
+                        route = TaruRoute.Player(
+                            playbackLaunchRequest(
+                                title = title,
+                                target = target,
+                            ),
+                        )
+                    },
+                )
+                is TaruRoute.Player -> PlaybackPlayerRoute(
+                    launch = currentRoute.launch,
+                    onBack = { route = TaruRoute.TopLevel },
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
                     target = currentRoute.target,

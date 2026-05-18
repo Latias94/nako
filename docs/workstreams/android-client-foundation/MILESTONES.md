@@ -185,7 +185,7 @@ Evidence:
 
 ## ACF-M5: Media3 Playback Smoke
 
-Status: pending
+Status: complete
 
 Exit criteria:
 
@@ -209,3 +209,16 @@ Candidate validation:
 
 - Manual device or emulator playback smoke test.
 - Instrumented test plan if automated playback is not practical in CI.
+
+Evidence:
+
+- `ACF-050` completed on 2026-05-18:
+  - Android uses Media3 ExoPlayer with a PlayerView-backed Compose route;
+  - the player consumes the ACF-040 prepared target and passes bearer headers
+    to Media3 without exposing token values in UI/debug launch output;
+  - debug build and Android unit tests pass with Media3 dependencies;
+  - real emulator/server smoke played the local `Night Harbor.mkv` source
+    through the server-selected remux route and reached `Media3: Ended`.
+- Deferred to ACF-060 or follow-ups: authoritative User Playback State,
+  progress reporting, session cancellation/resume contract, deeper
+  track/subtitle sheets, PiP, cast, downloads, and external-player handoff.

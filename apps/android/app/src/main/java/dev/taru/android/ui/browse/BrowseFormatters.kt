@@ -59,9 +59,14 @@ internal fun byteSizeLabel(sizeBytes: Long?): String {
     val size = sizeBytes ?: return "Size unknown"
     val gib = 1024.0 * 1024.0 * 1024.0
     val mib = 1024.0 * 1024.0
+    val kib = 1024.0
     return if (size >= gib) {
         "%.1f GiB".format(size / gib)
+    } else if (size >= mib) {
+        "%.1f MiB".format(size / mib)
+    } else if (size >= kib) {
+        "%.0f KiB".format(size / kib)
     } else {
-        "%.0f MiB".format(size / mib)
+        "$size B"
     }
 }

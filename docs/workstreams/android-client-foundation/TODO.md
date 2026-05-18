@@ -487,7 +487,7 @@ Validation completed on 2026-05-18:
 
 ### ACF-050: Media3 Playback Smoke Slice
 
-Status: pending
+Status: complete
 Owner: codex
 Depends on: ACF-040
 
@@ -513,6 +513,47 @@ Validation:
 - Manual playback smoke test against a local Taru server fixture.
 - Instrumented or integration test plan recorded if local CI cannot run
   emulator playback.
+
+Implementation completed on 2026-05-18:
+
+- Added AndroidX Media3 ExoPlayer, HLS, and UI dependencies.
+- Added a minimal full-screen Media3 player route launched from the ACF-040
+  prepared playback target.
+- The player builds a Media3 HTTP data source from the real playback request,
+  including authorization headers, while UI/debug output uses only the safe
+  redacted request preview.
+- Added a `PlayerView`-backed Compose surface with back navigation, Media3
+  controller controls, elapsed/duration UI, buffering/playing/paused/ended
+  state copy, and error code copy.
+- Player lifecycle is tied to route disposal; ExoPlayer is released when the
+  user exits the route.
+- Kept resume/progress reporting, track/subtitle sheet depth, PiP, cast,
+  downloads, and external-player handoff out of this smoke slice.
+
+Validation completed on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon --rerun-tasks`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+  passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
+  passed.
+- Manual real-server/device playback smoke passed on
+  `Pixel_3a_API_34_extension_level_7_x86_64` against a local
+  `taru-server` fixture on `127.0.0.1:3018` with
+  `adb reverse tcp:3018 tcp:3018`.
+- Smoke media: local `Night Harbor.mkv`, regenerated as a 2 second H.264/AAC
+  Matroska file and re-probed by `scan-all`.
+- Playback route selected by server: remux target
+  `/sources/{source_id}/stream/remux?output_container=mp4`.
+- Observed UI state: Media3 player route opened, PlayerView controller showed
+  `00:02 / 00:02`, and app state copy showed `Media3: Ended`.
+- Observed logcat state: ExoPlayer initialized as AndroidX Media3 `1.10.1`;
+  H.264 video decoder and AAC audio decoder were created; no playback error
+  was observed in the filtered logcat output.
+- Raw access token was not shown in the player UI.
 
 ### ACF-060: Playback Session And Resume Follow-Up
 
