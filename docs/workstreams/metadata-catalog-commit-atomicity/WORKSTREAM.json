@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "slug": "metadata-catalog-commit-atomicity",
+  "title": "Metadata Catalog Commit Atomicity",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Metadata and catalog workflows currently expose multi-record commit ordering, including a graph/search projection partial-write window.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/metadata-catalog-commit-atomicity/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/metadata-catalog-commit-atomicity/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/metadata-catalog-commit-atomicity/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/metadata-catalog-commit-atomicity/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/metadata-catalog-commit-atomicity/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo check -p taru-catalog --tests",
+    "cargo nextest run -p taru-catalog --no-fail-fast",
+    "cargo check -p taru-db --tests",
+    "targeted cargo nextest run -p taru-db <filter>",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-core/src/repository/catalog.rs",
+    "crates/taru-core/src/repository/metadata.rs",
+    "crates/taru-catalog/src/lib.rs",
+    "crates/taru-db/src/catalog.rs",
+    "crates/taru-db/src/metadata.rs",
+    "crates/taru-db/src/search.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md"
+  ],
+  "current_task": "MCC-040",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while changes stay focused on metadata/catalog commit consistency. Split NFO merge policy and public API work into separate lanes."
+  }
+}

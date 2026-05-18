@@ -1,8 +1,8 @@
 use taru_core::{
-    AutomationJobInput, ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef,
-    LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure,
-    ProviderMappingId, ProviderSubjectId, TransactionManager, VfsCacheOperation, VfsCachedListing,
-    VfsCachedObject, VfsCachedObjectKind,
+    AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection, ContentRating,
+    Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions, LibraryPreset,
+    MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId,
+    TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
 };
 
 use super::*;
@@ -1354,6 +1354,58 @@ async fn sqlite_store_lists_catalog_governance_items_for_unknown_and_low_confide
             .iter()
             .any(|record| record.item.id == high_confidence.id)
     );
+}
+
+#[tokio::test]
+async fn sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item_id = MediaItemId::new();
+    let person = Person {
+        id: PersonId::new(),
+        name: "Rollback Actor".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let commit = CatalogItemProjectionCommit {
+        graph: CatalogItemGraphReplacement {
+            people: vec![person.clone()],
+            credits: vec![ItemCredit {
+                item_id,
+                person_id: person.id,
+                role: CreditRole::Actor,
+                character: Some("Failure Path".to_owned()),
+                sort_order: Some(1),
+            }],
+            ..CatalogItemGraphReplacement::default()
+        },
+        search: CatalogSearchProjection {
+            item_id,
+            title: "Missing Item".to_owned(),
+            body: "should not be committed".to_owned(),
+            facets: vec!["genre:rollback".to_owned()],
+        },
+    };
+
+    let err = store.commit_item_projection(&commit).await.unwrap_err();
+    let people = store.list_people(PageRequest::first_page()).await.unwrap();
+    let credits = store.list_item_credits(item_id).await.unwrap();
+    let hits = store
+        .search(SearchQuery {
+            query: "missing".to_owned(),
+            facets: Vec::new(),
+            limit: 10,
+            offset: 0,
+        })
+        .await
+        .unwrap();
+
+    assert!(matches!(err, TaruError::Database { .. }));
+    assert!(people.is_empty());
+    assert!(credits.is_empty());
+    assert!(hits.is_empty());
 }
 
 #[tokio::test]

@@ -3,13 +3,13 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_core::{
-    CatalogItemGraphReplacement, CatalogRepository, Collection, CollectionId, CollectionItem,
-    CollectionRef, Credit, CreditRole, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset,
-    ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem,
-    MediaItemId, MediaRepository, MetadataSource, PageRequest, Person, PersonId, Result, Studio,
-    StudioId, Tag, TagId, TaruError,
+    CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogRepository,
+    CatalogSearchProjection, Collection, CollectionId, CollectionItem, CollectionRef, Credit,
+    CreditRole, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem, MediaItemId,
+    MediaRepository, MetadataSource, PageRequest, Person, PersonId, Result, Studio, StudioId, Tag,
+    TagId, TaruError,
 };
-use taru_search::{SearchDocument, SearchIndex};
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CatalogHydrationSummary {
@@ -50,9 +50,8 @@ struct CatalogHydrationLookup {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct CatalogHydrationCommit {
-    pub item_id: MediaItemId,
     pub replacement: CatalogItemGraphReplacement,
-    pub search_document: SearchDocument,
+    pub search_projection: CatalogSearchProjection,
 }
 
 #[async_trait]
@@ -67,7 +66,7 @@ pub trait CatalogHydrationPort: Send + Sync {
 #[async_trait]
 impl<T> CatalogHydrationPort for T
 where
-    T: CatalogRepository + MediaRepository + SearchIndex,
+    T: CatalogRepository + MediaRepository,
 {
     async fn hydrate_catalog(
         &self,
@@ -83,7 +82,7 @@ async fn load_hydration_snapshot<R>(
     item_id: MediaItemId,
 ) -> Result<CatalogHydrationSnapshot>
 where
-    R: CatalogRepository + MediaRepository + SearchIndex,
+    R: CatalogRepository + MediaRepository,
 {
     let item = repository
         .get_media_item(item_id)
@@ -171,7 +170,7 @@ async fn load_hydration_lookup<R>(
     source: &MetadataSource,
 ) -> Result<CatalogHydrationLookup>
 where
-    R: CatalogRepository + MediaRepository + SearchIndex,
+    R: CatalogRepository + MediaRepository,
 {
     let mut lookup = CatalogHydrationLookup {
         person_external_id_matches: Vec::new(),
@@ -278,12 +277,14 @@ where
 
 async fn commit_hydration<R>(repository: &R, commit: CatalogHydrationCommit) -> Result<()>
 where
-    R: CatalogRepository + MediaRepository + SearchIndex,
+    R: CatalogRepository + MediaRepository,
 {
     repository
-        .replace_item_catalog_graph(commit.item_id, &commit.replacement)
-        .await?;
-    repository.upsert(commit.search_document).await
+        .commit_item_projection(&CatalogItemProjectionCommit {
+            graph: commit.replacement,
+            search: commit.search_projection,
+        })
+        .await
 }
 
 pub async fn hydrate_item_catalog<R>(
@@ -303,7 +304,7 @@ async fn hydrate_item_catalog_with_repository<R>(
     source: MetadataSource,
 ) -> Result<CatalogHydrationSummary>
 where
-    R: CatalogRepository + MediaRepository + SearchIndex,
+    R: CatalogRepository + MediaRepository,
 {
     let snapshot = load_hydration_snapshot(repository, item_id).await?;
     let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
@@ -321,13 +322,12 @@ where
     hydrate_collections(&lookup, &item, &source, &mut summary, &mut replacement)?;
     hydrate_studios(&lookup, &item, &source, &mut summary, &mut replacement)?;
     hydrate_images(&lookup, &item, &mut summary, &mut replacement)?;
-    let search_document = search_document_from_graph(item, &snapshot, &replacement);
+    let search_projection = search_projection_from_graph(item, &snapshot, &replacement);
     commit_hydration(
         repository,
         CatalogHydrationCommit {
-            item_id: item.id,
             replacement,
-            search_document,
+            search_projection,
         },
     )
     .await?;
@@ -652,11 +652,11 @@ fn resolve_studio(
     }
 }
 
-fn search_document_from_graph(
+fn search_projection_from_graph(
     item: &MediaItem,
     snapshot: &CatalogHydrationSnapshot,
     replacement: &CatalogItemGraphReplacement,
-) -> SearchDocument {
+) -> CatalogSearchProjection {
     let mut body_parts = Vec::new();
     let mut facets = Vec::new();
 
@@ -702,7 +702,7 @@ fn search_document_from_graph(
     }
     facets.sort();
 
-    SearchDocument {
+    CatalogSearchProjection {
         item_id: item.id,
         title: item.metadata.title.clone(),
         body: body_parts.join(" "),

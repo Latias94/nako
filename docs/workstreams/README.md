@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [metadata-catalog-commit-atomicity](metadata-catalog-commit-atomicity/README.md):
+  proposed execution lane for deepening metadata/catalog commit consistency,
+  starting with an atomic Catalog Item Graph and Search Projection commit before
+  deciding whether to fold the broader metadata refresh unit of work into the
+  same lane.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing

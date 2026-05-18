@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{MediaItemId, MetadataProviderAttemptId};
+use crate::{
+    LibraryId, MediaItem, MediaItemId, MetadataProviderAttemptId, ProviderMappingId,
+    ProviderSubjectId,
+};
 
-use super::provider::ExternalProvider;
+use super::provider::{ExternalProvider, ProviderSubject};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -71,6 +74,29 @@ pub struct ProviderRawResponse {
     pub provider_key: String,
     pub fetched_at: String,
     pub body_json: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataRefreshProviderMappingCommit {
+    pub id: Option<ProviderMappingId>,
+    pub subject: ProviderSubject,
+    pub confidence_milli: Option<u16>,
+    pub source: MetadataSource,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataRefreshPersistenceCommit {
+    pub item: MediaItem,
+    pub raw_response: ProviderRawResponse,
+    pub provider_mapping: MetadataRefreshProviderMappingCommit,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataRefreshPersistenceSummary {
+    pub item_id: MediaItemId,
+    pub provider_subject_id: ProviderSubjectId,
+    pub provider_mapping_id: ProviderMappingId,
+    pub confirmed_libraries: Vec<LibraryId>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

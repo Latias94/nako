@@ -3,50 +3,9 @@ use super::*;
 #[async_trait::async_trait]
 impl ProviderMappingRepository for SqliteStore {
     async fn upsert_provider_subject(&self, subject: &ProviderSubject) -> Result<()> {
-        let (provider, provider_key) = provider_to_parts(&subject.provider);
-        let (subject_kind, subject_kind_key) =
-            provider_subject_kind_to_parts(&subject.subject_kind);
-
-        sqlx::query(
-            r#"
-            INSERT INTO provider_subjects (
-                id,
-                provider,
-                provider_key,
-                subject_kind,
-                subject_kind_key,
-                subject_key,
-                title,
-                release_year,
-                locale
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-            ON CONFLICT(id) DO UPDATE SET
-                provider = excluded.provider,
-                provider_key = excluded.provider_key,
-                subject_kind = excluded.subject_kind,
-                subject_kind_key = excluded.subject_kind_key,
-                subject_key = excluded.subject_key,
-                title = excluded.title,
-                release_year = excluded.release_year,
-                locale = excluded.locale,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(subject.id.to_string())
-        .bind(provider)
-        .bind(provider_key)
-        .bind(subject_kind)
-        .bind(subject_kind_key)
-        .bind(&subject.subject_key)
-        .bind(&subject.title)
-        .bind(optional_i32_to_i64(subject.release_year))
-        .bind(&subject.locale)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        upsert_provider_subject_tx(&mut transaction, subject).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_provider_subject(&self, id: ProviderSubjectId) -> Result<Option<ProviderSubject>> {
@@ -157,42 +116,9 @@ impl ProviderMappingRepository for SqliteStore {
     }
 
     async fn upsert_provider_mapping(&self, mapping: &ProviderMapping) -> Result<()> {
-        let (source, source_key) = metadata_source_to_parts(&mapping.source);
-
-        sqlx::query(
-            r#"
-            INSERT INTO provider_mappings (
-                id,
-                item_id,
-                subject_id,
-                status,
-                confidence_milli,
-                source,
-                source_key
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-            ON CONFLICT(id) DO UPDATE SET
-                item_id = excluded.item_id,
-                subject_id = excluded.subject_id,
-                status = excluded.status,
-                confidence_milli = excluded.confidence_milli,
-                source = excluded.source,
-                source_key = excluded.source_key,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(mapping.id.to_string())
-        .bind(mapping.item_id.to_string())
-        .bind(mapping.subject_id.to_string())
-        .bind(mapping.status.as_str())
-        .bind(optional_u16_to_i64(mapping.confidence_milli))
-        .bind(source)
-        .bind(source_key)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        upsert_provider_mapping_tx(&mut transaction, mapping).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn list_provider_mappings_for_item(
@@ -233,4 +159,95 @@ impl ProviderMappingRepository for SqliteStore {
 
         rows.into_iter().map(row_to_provider_mapping).collect()
     }
+}
+
+pub(crate) async fn upsert_provider_subject_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    subject: &ProviderSubject,
+) -> Result<()> {
+    let (provider, provider_key) = provider_to_parts(&subject.provider);
+    let (subject_kind, subject_kind_key) = provider_subject_kind_to_parts(&subject.subject_kind);
+
+    sqlx::query(
+        r#"
+        INSERT INTO provider_subjects (
+            id,
+            provider,
+            provider_key,
+            subject_kind,
+            subject_kind_key,
+            subject_key,
+            title,
+            release_year,
+            locale
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        ON CONFLICT(id) DO UPDATE SET
+            provider = excluded.provider,
+            provider_key = excluded.provider_key,
+            subject_kind = excluded.subject_kind,
+            subject_kind_key = excluded.subject_kind_key,
+            subject_key = excluded.subject_key,
+            title = excluded.title,
+            release_year = excluded.release_year,
+            locale = excluded.locale,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(subject.id.to_string())
+    .bind(provider)
+    .bind(provider_key)
+    .bind(subject_kind)
+    .bind(subject_kind_key)
+    .bind(&subject.subject_key)
+    .bind(&subject.title)
+    .bind(optional_i32_to_i64(subject.release_year))
+    .bind(&subject.locale)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
+}
+
+pub(crate) async fn upsert_provider_mapping_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    mapping: &ProviderMapping,
+) -> Result<()> {
+    let (source, source_key) = metadata_source_to_parts(&mapping.source);
+
+    sqlx::query(
+        r#"
+        INSERT INTO provider_mappings (
+            id,
+            item_id,
+            subject_id,
+            status,
+            confidence_milli,
+            source,
+            source_key
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        ON CONFLICT(id) DO UPDATE SET
+            item_id = excluded.item_id,
+            subject_id = excluded.subject_id,
+            status = excluded.status,
+            confidence_milli = excluded.confidence_milli,
+            source = excluded.source,
+            source_key = excluded.source_key,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(mapping.id.to_string())
+    .bind(mapping.item_id.to_string())
+    .bind(mapping.subject_id.to_string())
+    .bind(mapping.status.as_str())
+    .bind(optional_u16_to_i64(mapping.confidence_milli))
+    .bind(source)
+    .bind(source_key)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }

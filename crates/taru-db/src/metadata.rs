@@ -53,26 +53,64 @@ impl MetadataRepository for SqliteStore {
         transaction.commit().await.map_err(database_error)
     }
 
-    async fn apply_metadata_refresh(
+    async fn commit_metadata_refresh(
         &self,
-        item: &MediaItem,
-        raw_response: &ProviderRawResponse,
-    ) -> Result<()> {
-        if raw_response.item_id != item.id {
+        commit: &MetadataRefreshPersistenceCommit,
+    ) -> Result<MetadataRefreshPersistenceSummary> {
+        if commit.raw_response.item_id != commit.item.id {
             return Err(TaruError::InvalidInput {
                 message: format!(
                     "metadata refresh raw response item_id {} does not match item {}",
-                    raw_response.item_id, item.id
+                    commit.raw_response.item_id, commit.item.id
                 ),
             });
         }
 
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
-        upsert_provider_raw_response_in_transaction(&mut transaction, raw_response).await?;
+        crate::media::upsert_media_item_in_transaction(&mut transaction, &commit.item).await?;
+        upsert_provider_raw_response_in_transaction(&mut transaction, &commit.raw_response).await?;
+        crate::provider_mapping::upsert_provider_subject_tx(
+            &mut transaction,
+            &commit.provider_mapping.subject,
+        )
+        .await?;
 
-        transaction.commit().await.map_err(database_error)
+        let mapping_id = commit
+            .provider_mapping
+            .id
+            .unwrap_or_else(ProviderMappingId::new);
+        let mapping = ProviderMapping {
+            id: mapping_id,
+            item_id: commit.item.id,
+            subject_id: commit.provider_mapping.subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: commit.provider_mapping.confidence_milli,
+            source: commit.provider_mapping.source.clone(),
+        };
+        crate::provider_mapping::upsert_provider_mapping_tx(&mut transaction, &mapping).await?;
+
+        let confirmed_libraries = library_ids_for_item_tx(&mut transaction, commit.item.id).await?;
+        for library_id in &confirmed_libraries {
+            crate::library_item::upsert_library_item_state_tx(
+                &mut transaction,
+                &LibraryItemState {
+                    library_id: *library_id,
+                    item_id: commit.item.id,
+                    provisional: false,
+                },
+            )
+            .await?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(MetadataRefreshPersistenceSummary {
+            item_id: commit.item.id,
+            provider_subject_id: commit.provider_mapping.subject.id,
+            provider_mapping_id: mapping_id,
+            confirmed_libraries,
+        })
     }
 
     async fn get_provider_raw_response(
@@ -327,49 +365,63 @@ async fn upsert_provider_raw_response_in_transaction(
     Ok(())
 }
 
+async fn library_ids_for_item_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item_id: MediaItemId,
+) -> Result<Vec<LibraryId>> {
+    let rows = sqlx::query(
+        r#"
+            SELECT library_id
+            FROM library_item_states
+            WHERE item_id = ?1
+            ORDER BY library_id ASC
+            "#,
+    )
+    .bind(item_id.to_string())
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    rows.into_iter()
+        .map(|row| parse_id(row_get::<String>(&row, "library_id")?))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use taru_core::{
-        CanonicalMetadata, ExternalProvider, MediaItem, MediaItemId, MediaKind, MediaRepository,
-        MetadataRepository, ProviderRawResponse, TransactionManager,
+        CanonicalMetadata, ExternalProvider, Library, LibraryId, LibraryItemRepository,
+        LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository, MediaItem, MediaItemId,
+        MediaKind, MediaRepository, MetadataRefreshPersistenceCommit,
+        MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource,
+        ProviderMappingRepository, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+        ProviderSubjectKind, TransactionManager,
     };
 
     use crate::SqliteStore;
 
     #[tokio::test]
-    async fn apply_metadata_refresh_updates_item_and_raw_response() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
-        store.migrate().await.unwrap();
-        let item_id = MediaItemId::new();
-        let original = media_item(item_id, "Original");
-        let updated = media_item(item_id, "Updated");
-        let raw = raw_response(item_id, "tmdb-1");
-
-        store.upsert_media_item(&original).await.unwrap();
-        store.apply_metadata_refresh(&updated, &raw).await.unwrap();
-
-        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(updated));
-        assert_eq!(
-            store
-                .get_provider_raw_response(item_id, &ExternalProvider::Tmdb, "tmdb-1")
-                .await
-                .unwrap(),
-            Some(raw)
-        );
-    }
-
-    #[tokio::test]
-    async fn apply_metadata_refresh_rejects_mismatched_raw_response_item() {
+    async fn commit_metadata_refresh_rejects_mismatched_raw_response_item() {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let item_id = MediaItemId::new();
         let original = media_item(item_id, "Original");
         let updated = media_item(item_id, "Updated");
         let mismatched_raw = raw_response(MediaItemId::new(), "tmdb-1");
+        let subject = provider_subject(ProviderSubjectId::new(), "tmdb-1");
 
         store.upsert_media_item(&original).await.unwrap();
         let err = store
-            .apply_metadata_refresh(&updated, &mismatched_raw)
+            .commit_metadata_refresh(&MetadataRefreshPersistenceCommit {
+                item: updated,
+                raw_response: mismatched_raw,
+                provider_mapping: MetadataRefreshProviderMappingCommit {
+                    id: None,
+                    subject,
+                    confidence_milli: Some(1_000),
+                    source: MetadataSource::Provider(ExternalProvider::Tmdb),
+                },
+            })
             .await
             .unwrap_err();
 
@@ -381,6 +433,166 @@ mod tests {
                 .await
                 .unwrap(),
             None
+        );
+    }
+
+    #[tokio::test]
+    async fn commit_metadata_refresh_updates_metadata_provider_mapping_and_library_state() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item_id = MediaItemId::new();
+        let library = library(LibraryId::new());
+        let original = media_item(item_id, "Original");
+        let updated = media_item(item_id, "Updated");
+        let raw = raw_response(item_id, "tmdb-1");
+        let subject = provider_subject(ProviderSubjectId::new(), "tmdb-1");
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&original).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+
+        let summary = store
+            .commit_metadata_refresh(&MetadataRefreshPersistenceCommit {
+                item: updated.clone(),
+                raw_response: raw.clone(),
+                provider_mapping: MetadataRefreshProviderMappingCommit {
+                    id: None,
+                    subject: subject.clone(),
+                    confidence_milli: Some(1_000),
+                    source: MetadataSource::Provider(ExternalProvider::Tmdb),
+                },
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.item_id, item_id);
+        assert_eq!(summary.provider_subject_id, subject.id);
+        assert_eq!(summary.confirmed_libraries, vec![library.id]);
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(updated));
+        assert_eq!(
+            store
+                .get_provider_raw_response(item_id, &ExternalProvider::Tmdb, "tmdb-1")
+                .await
+                .unwrap(),
+            Some(raw)
+        );
+        assert_eq!(
+            store
+                .find_provider_subject(
+                    &ExternalProvider::Tmdb,
+                    &ProviderSubjectKind::Movie,
+                    "tmdb-1"
+                )
+                .await
+                .unwrap(),
+            Some(subject.clone())
+        );
+        let mappings = store
+            .list_provider_mappings_for_item(item_id, taru_core::PageRequest::first_page())
+            .await
+            .unwrap();
+        assert_eq!(mappings.len(), 1);
+        assert_eq!(mappings[0].id, summary.provider_mapping_id);
+        assert_eq!(mappings[0].item_id, item_id);
+        assert_eq!(mappings[0].subject_id, subject.id);
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, item_id)
+                .await
+                .unwrap(),
+            Some(LibraryItemState {
+                library_id: library.id,
+                item_id,
+                provisional: false,
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn commit_metadata_refresh_rolls_back_when_provider_subject_write_fails() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let item_id = MediaItemId::new();
+        let library = library(LibraryId::new());
+        let original = media_item(item_id, "Original");
+        let updated = media_item(item_id, "Updated");
+        let raw = raw_response(item_id, "tmdb-1");
+        let existing_subject = provider_subject(ProviderSubjectId::new(), "tmdb-1");
+        let conflicting_subject = provider_subject(ProviderSubjectId::new(), "tmdb-1");
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&original).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+        store
+            .upsert_provider_subject(&existing_subject)
+            .await
+            .unwrap();
+
+        let err = store
+            .commit_metadata_refresh(&MetadataRefreshPersistenceCommit {
+                item: updated,
+                raw_response: raw.clone(),
+                provider_mapping: MetadataRefreshProviderMappingCommit {
+                    id: None,
+                    subject: conflicting_subject,
+                    confidence_milli: Some(1_000),
+                    source: MetadataSource::Provider(ExternalProvider::Tmdb),
+                },
+            })
+            .await
+            .unwrap_err();
+
+        assert!(!err.to_string().is_empty());
+        assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(original));
+        assert_eq!(
+            store
+                .get_provider_raw_response(item_id, &ExternalProvider::Tmdb, "tmdb-1")
+                .await
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            store
+                .find_provider_subject(
+                    &ExternalProvider::Tmdb,
+                    &ProviderSubjectKind::Movie,
+                    "tmdb-1"
+                )
+                .await
+                .unwrap(),
+            Some(existing_subject)
+        );
+        assert_eq!(
+            store
+                .list_provider_mappings_for_item(item_id, taru_core::PageRequest::first_page())
+                .await
+                .unwrap(),
+            Vec::new()
+        );
+        assert_eq!(
+            store
+                .get_library_item_state(library.id, item_id)
+                .await
+                .unwrap(),
+            Some(LibraryItemState {
+                library_id: library.id,
+                item_id,
+                provisional: true,
+            })
         );
     }
 
@@ -403,6 +615,27 @@ mod tests {
             provider_key: provider_key.to_owned(),
             fetched_at: "2026-05-16T00:00:00Z".to_owned(),
             body_json: r#"{"title":"Updated"}"#.to_owned(),
+        }
+    }
+
+    fn library(id: LibraryId) -> Library {
+        Library {
+            id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        }
+    }
+
+    fn provider_subject(id: ProviderSubjectId, subject_key: &str) -> ProviderSubject {
+        ProviderSubject {
+            id,
+            provider: ExternalProvider::Tmdb,
+            subject_kind: ProviderSubjectKind::Movie,
+            subject_key: subject_key.to_owned(),
+            title: Some("Updated".to_owned()),
+            release_year: Some(2026),
+            locale: Some("en-US".to_owned()),
         }
     }
 }

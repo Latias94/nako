@@ -2,10 +2,10 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    CatalogItemGraphReplacement, Collection, CollectionId, CollectionItem, ExternalId, Genre,
-    GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio,
-    ItemTag, MediaItem, MediaItemId, MetadataSource, Person, PersonId, Result, Studio, StudioId,
-    Tag, TagId,
+    CatalogItemGraphReplacement, CatalogItemProjectionCommit, Collection, CollectionId,
+    CollectionItem, ExternalId, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem, MediaItemId, MetadataSource, Person,
+    PersonId, Result, Studio, StudioId, Tag, TagId,
 };
 
 #[async_trait]
@@ -15,6 +15,8 @@ pub trait CatalogRepository: Send + Sync {
         item_id: MediaItemId,
         replacement: &CatalogItemGraphReplacement,
     ) -> Result<()>;
+
+    async fn commit_item_projection(&self, commit: &CatalogItemProjectionCommit) -> Result<()>;
 
     async fn upsert_person(&self, person: &Person) -> Result<()>;
 

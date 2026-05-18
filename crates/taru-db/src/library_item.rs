@@ -3,23 +3,9 @@ use super::*;
 #[async_trait::async_trait]
 impl LibraryItemRepository for SqliteStore {
     async fn upsert_library_item_state(&self, state: &LibraryItemState) -> Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO library_item_states (library_id, item_id, provisional)
-            VALUES (?1, ?2, ?3)
-            ON CONFLICT(library_id, item_id) DO UPDATE SET
-                provisional = excluded.provisional,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(state.library_id.to_string())
-        .bind(state.item_id.to_string())
-        .bind(bool_to_i64(state.provisional))
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        upsert_library_item_state_tx(&mut transaction, state).await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn get_library_item_state(
@@ -112,4 +98,27 @@ impl LibraryItemRepository for SqliteStore {
         let external_ids = self.list_external_ids(id).await?;
         row_to_media_item(row, external_ids).map(Some)
     }
+}
+
+pub(crate) async fn upsert_library_item_state_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    state: &LibraryItemState,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO library_item_states (library_id, item_id, provisional)
+        VALUES (?1, ?2, ?3)
+        ON CONFLICT(library_id, item_id) DO UPDATE SET
+            provisional = excluded.provisional,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(state.library_id.to_string())
+    .bind(state.item_id.to_string())
+    .bind(bool_to_i64(state.provisional))
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }
