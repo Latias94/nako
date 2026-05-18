@@ -34,6 +34,14 @@ Primary gates:
 - local smoke command on an emulator
 - `git diff --check`
 
+Status: Completed on 2026-05-18.
+
+Evidence:
+
+- `apps/android/scripts/Smoke-Emulator.ps1`
+- `apps/android/README.md`
+- `apps/android/build/smoke/20260518-204538-emulator-5554/`
+
 ## M2 — Fixture And State Strategy
 
 Exit criteria:

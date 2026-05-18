@@ -8,6 +8,7 @@ Last updated: 2026-05-18
 ```powershell
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
 apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon
+pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1
 git diff --check
 ```
 
@@ -57,3 +58,21 @@ This catches whitespace errors and unresolved patch artifacts.
 - 2026-05-18: Workstream opened after Android Client Foundation and Android
   Material Expressive UI closeout. `ACQ-010` completed with scope, target
   state, gate set, and first executable task recorded.
+- 2026-05-18: `ACQ-020` implementation started. Added
+  `apps/android/scripts/Smoke-Emulator.ps1` and updated `apps/android/README.md`
+  with local smoke usage. Fresh validation passed for
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+  and `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`.
+  Smoke validation is blocked until an emulator is visible to `adb`: `adb
+  devices -l` returned no connected devices; a headless start attempt for AVD
+  `Pixel_3a_API_34_extension_level_7_x86_64` did not reach `device` state within
+  five minutes and was stopped. Re-run
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1` after `adb
+  devices` shows a device in `device` state.
+- 2026-05-18: `ACQ-020` completed. Fresh validation passed for
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`,
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`,
+  and `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1`. The
+  smoke command installed the debug APK, launched `dev.taru.android/.MainActivity`,
+  captured `launch.png`, and wrote `launch.txt` plus `report.md` under
+  `apps/android/build/smoke/20260518-204538-emulator-5554/`.

@@ -13,7 +13,7 @@ Last updated: 2026-05-18
 
 ## M1 — Local Smoke Command
 
-- [ ] ACQ-020 [owner=codex] [deps=ACQ-010] [scope=apps/android/README.md,apps/android/scripts]
+- [x] ACQ-020 [owner=codex] [deps=ACQ-010] [scope=apps/android/README.md,apps/android/scripts]
   Goal: Add a documented local smoke command for build, install, launch, and
   basic evidence capture against an already running emulator.
   Validation: Run the smoke command against the available emulator, plus
@@ -21,7 +21,10 @@ Last updated: 2026-05-18
   and `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`.
   Review: Use review-workstream before accepting completion.
   Evidence: `EVIDENCE_AND_GATES.md`, generated output path summary.
-  Handoff: Script must not require committing screenshots.
+  Handoff: Completed on 2026-05-18. Script and README implementation are
+  local. Android unit tests, debug assemble, and emulator smoke validation all
+  passed. Evidence path:
+  `apps/android/build/smoke/20260518-204538-emulator-5554/`.
 
 ## M2 — Fixture And State Strategy
 
@@ -32,8 +35,8 @@ Last updated: 2026-05-18
   and locator-safe fixture behavior.
   Review: Use review-workstream before accepting completion.
   Evidence: `EVIDENCE_AND_GATES.md`, fixture/state documentation.
-  Handoff: Split server-backed demo fixture work if Android-only state is not
-  enough.
+  Handoff: ACQ-020 is complete. Next task should formalize repeatable
+  fixture/state behavior for more emulator surfaces.
 
 ## M3 — Emulator Surface Coverage
 

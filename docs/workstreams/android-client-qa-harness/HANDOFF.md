@@ -13,21 +13,22 @@ The Android Client Foundation and Android Material Expressive UI lanes are
 closed. This lane should improve confidence for future parallel Android work,
 not add product features.
 
+`ACQ-020` is complete. The smoke script and Android README updates have landed
+locally, Android unit/build gates pass, and the smoke command now produces
+repeatable emulator evidence.
+
 ## Next Task
 
-Run `ACQ-020`: add a documented local smoke command for build, install, launch,
-and basic evidence capture against an already running emulator.
+Continue with `ACQ-030`: formalize repeatable fixture/state behavior for setup,
+Home, Settings, Server Profile, and future detail/player smoke checks.
 
 Recommended implementation order:
 
-1. Inspect current `apps/android` build outputs, package name, activity, and
-   existing README guidance.
-2. Add a small PowerShell smoke script under `apps/android/scripts/`.
-3. Document prerequisites and output paths in `apps/android/README.md`.
-4. Run Android unit tests, debug assemble, the smoke command on the emulator,
-   and `git diff --check`.
-5. Record generated evidence paths in `EVIDENCE_AND_GATES.md` without
-   committing generated screenshots.
+1. Decide what minimal seeded state the next emulator surfaces need.
+2. Add fixture helpers or test support where they improve repeatability.
+3. Keep the smoke command and evidence path documented for local reuse.
+4. Record new evidence paths in `EVIDENCE_AND_GATES.md` without committing
+   generated screenshots.
 
 ## Constraints To Preserve
 

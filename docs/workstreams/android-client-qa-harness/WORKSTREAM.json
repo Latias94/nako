@@ -6,8 +6,8 @@
   "updated": "2026-05-18",
   "scope_kind": "execution",
   "problem": "Android client validation lacks a repeatable local emulator smoke and screenshot evidence harness for parallel development.",
-  "current_milestone": "M1",
-  "current_task": "ACQ-020",
+  "current_milestone": "M2",
+  "current_task": "ACQ-030",
   "task_prefix": "ACQ",
   "authoritative_docs": [
     {
@@ -26,6 +26,7 @@
   "gates": [
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
     "apps\\android\\gradlew.bat -p apps\\android :app:assembleDebug --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1",
     "git diff --check"
   ],
   "evidence": [
