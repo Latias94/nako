@@ -11,8 +11,12 @@ attention.
   order, playback-first mobile scope, Public Client API connection/browse/search
   loops, playback decision/request construction, Media3 playback smoke,
   playback session boundary, and follow-on API gaps under ADR 0026.
+- [android-client-qa-harness](android-client-qa-harness/README.md): active
+  Android client testing lane for local emulator smoke checks, screenshot
+  evidence, repeatable fixture/state assumptions, and developer-friendly QA
+  commands for parallel Android work.
 - [android-material-expressive-ui](android-material-expressive-ui/README.md):
-  active Android UI rewrite lane for the V2 Material 3 Expressive direction,
+  completed Android UI rewrite lane for the V2 Material 3 Expressive direction,
   covering dark-first dynamic color, artwork-led media surfaces, restrained
   motion, adaptive phone/tablet chrome, and clean Compose UI boundaries.
 - [architecture-review-followups](architecture-review-followups/README.md):

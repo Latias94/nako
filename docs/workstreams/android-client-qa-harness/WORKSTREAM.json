@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "slug": "android-client-qa-harness",
+  "title": "Android Client QA Harness",
+  "status": "active",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Android client validation lacks a repeatable local emulator smoke and screenshot evidence harness for parallel development.",
+  "current_milestone": "M1",
+  "current_task": "ACQ-020",
+  "task_prefix": "ACQ",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-client-qa-harness/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-client-qa-harness/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-client-qa-harness/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:assembleDebug --no-daemon",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/android-client-qa-harness/EVIDENCE_AND_GATES.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the harness improves local Android validation without becoming product-feature work. Split CI, golden visual diffing, or server-backed demo fixtures if they expand."
+  }
+}
