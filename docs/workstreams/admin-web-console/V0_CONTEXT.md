@@ -118,7 +118,10 @@ provider status, runtime counter, and startup recovery summaries. M54 adds
 `GET /admin/v1/playback/sessions` for redacted Playback & Transcode session
 list and filter data. M56 adds `GET /admin/v1/playback/runtime` for safe
 hardware acceleration, FFmpeg capability, resource budget, and staging cleanup
-diagnostics. Event lists, catalog repair queues, settings editing, and
+diagnostics. M57-M59 add `GET /admin/v1/events` for redacted event outbox
+history, `GET /admin/v1/storage/staging` for redacted staging/cache
+diagnostics, and `GET /admin/v1/system/config` for sanitized configuration
+diagnostics. Catalog repair queues, settings editing, network checks, and
 extension lifecycle details remain mock or planned Admin API data.
 
 Do not put admin-only DTOs into Public Client API language. Do not describe
@@ -246,6 +249,8 @@ Show storage diagnostics:
 - readable/writable capabilities;
 - cache state;
 - remote stream/stage budget;
+- staging manifest summary;
+- VFS cache summary counters;
 - timeout, unauthorized, rate-limited, or stale-cache indicators.
 
 ### Automation
@@ -351,8 +356,15 @@ Prototype data-source split:
   hardware, FFmpeg, budget, and staging diagnostics. Public playback decision
   and known-session detail/cancel routes exist. Safe request preview and richer
   session detail remain mock or planned Admin API data.
-- Settings, Network, Addons, Automation, catalog repair, event lists, and
-  drill-down histories: treat as mock or planned Admin API data.
+- Automation/Webhooks: use `GET /admin/v1/events` for redacted event outbox
+  list/filter data. Endpoint management and known-event attempt/detail routes
+  exist, while disabled endpoint administration remains a follow-up.
+- Storage: use `GET /storage/backends` for backend diagnostics and
+  `GET /admin/v1/storage/staging` for redacted staging/cache diagnostics.
+- Settings: use `GET /admin/v1/system/config` for sanitized configuration
+  diagnostics. Treat settings editing as mock or planned Admin API data.
+- Network, Addons, catalog repair, and deeper drill-down histories: treat as
+  mock or planned Admin API data.
 
 Mock-only or planned `/admin/v1/*` prototype areas should be visually marked as
 diagnostic or planned data in internal handoff notes, not as existing stable
@@ -363,5 +375,7 @@ The overview page may be marked as partially live because
 data through `GET /admin/v1/jobs`. Playback session tables can be marked live
 for list/filter data through `GET /admin/v1/playback/sessions`, and playback
 runtime cards can be marked live through `GET /admin/v1/playback/runtime`.
-Other drill-down tables and history panels should still be treated as mock data
-until follow-up Admin API routes land.
+Event history, storage staging/cache diagnostics, and sanitized configuration
+diagnostics can be marked live through M57-M59 Admin API routes. Other
+drill-down tables and history panels should still be treated as mock data until
+follow-up Admin API routes land.

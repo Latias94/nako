@@ -1,7 +1,8 @@
 use serde::Deserialize;
 use taru_core::{
-    AddonStatus, IngestionFailurePhase, IngestionFailureStatus, JobKind, JobListFilter, JobStatus,
-    LibraryId, MediaSourceId, PageRequest, TaruError, TranscodeSessionKind,
+    AddonStatus, DomainEventKind, IngestionFailurePhase, IngestionFailureStatus, JobKind,
+    JobListFilter, JobStatus, LibraryId, MediaSourceId, OutboxEventListFilter, OutboxEventStatus,
+    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionKind,
     TranscodeSessionListFilter, TranscodeSessionState,
 };
 
@@ -89,6 +90,64 @@ impl JobListQuery {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct OutboxEventListQuery {
+    pub(super) kind: Option<String>,
+    pub(super) status: Option<String>,
+    pub(super) library_id: Option<String>,
+    pub(super) source_id: Option<String>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl OutboxEventListQuery {
+    pub(super) fn into_filter_and_page(
+        self,
+    ) -> Result<(OutboxEventListFilter, PageRequest), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+
+        Ok((
+            OutboxEventListFilter {
+                kind: self.kind.map(parse_domain_event_kind_filter).transpose()?,
+                status: self
+                    .status
+                    .map(parse_outbox_event_status_filter)
+                    .transpose()?,
+                library_id: self
+                    .library_id
+                    .map(|value| {
+                        value
+                            .parse::<LibraryId>()
+                            .map_err(|err| TaruError::InvalidInput {
+                                message: format!("invalid library_id filter: {err}"),
+                            })
+                    })
+                    .transpose()?,
+                source_id: self
+                    .source_id
+                    .map(|value| {
+                        value
+                            .parse::<MediaSourceId>()
+                            .map_err(|err| TaruError::InvalidInput {
+                                message: format!("invalid source_id filter: {err}"),
+                            })
+                    })
+                    .transpose()?,
+            },
+            page.try_into()?,
+        ))
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct PlaybackSessionListQuery {
     pub(super) source_id: Option<String>,
     pub(super) kind: Option<String>,
@@ -138,6 +197,37 @@ impl PlaybackSessionListQuery {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct StorageStagingQuery {
+    pub(super) purpose: Option<String>,
+    pub(super) state: Option<String>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl StorageStagingQuery {
+    pub(super) fn into_filter_and_page(
+        self,
+    ) -> Result<(Option<StagingPurpose>, Option<StagingState>, PageRequest), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+
+        Ok((
+            self.purpose.map(parse_staging_purpose_filter).transpose()?,
+            self.state.map(parse_staging_state_filter).transpose()?,
+            page.try_into()?,
+        ))
+    }
+}
+
 fn parse_job_status_filter(value: String) -> Result<JobStatus, TaruError> {
     JobStatus::parse(&value).map_err(|_err| TaruError::InvalidInput {
         message: format!("invalid status filter: {value}"),
@@ -150,6 +240,18 @@ fn parse_job_kind_filter(value: String) -> Result<JobKind, TaruError> {
     })
 }
 
+fn parse_domain_event_kind_filter(value: String) -> Result<DomainEventKind, TaruError> {
+    DomainEventKind::parse(&value).map_err(|_err| TaruError::InvalidInput {
+        message: format!("invalid kind filter: {value}"),
+    })
+}
+
+fn parse_outbox_event_status_filter(value: String) -> Result<OutboxEventStatus, TaruError> {
+    OutboxEventStatus::parse(&value).map_err(|_err| TaruError::InvalidInput {
+        message: format!("invalid status filter: {value}"),
+    })
+}
+
 fn parse_transcode_session_kind_filter(value: String) -> Result<TranscodeSessionKind, TaruError> {
     TranscodeSessionKind::parse(&value).ok_or_else(|| TaruError::InvalidInput {
         message: format!("invalid kind filter: {value}"),
@@ -158,6 +260,18 @@ fn parse_transcode_session_kind_filter(value: String) -> Result<TranscodeSession
 
 fn parse_transcode_session_state_filter(value: String) -> Result<TranscodeSessionState, TaruError> {
     TranscodeSessionState::parse(&value).ok_or_else(|| TaruError::InvalidInput {
+        message: format!("invalid state filter: {value}"),
+    })
+}
+
+fn parse_staging_purpose_filter(value: String) -> Result<StagingPurpose, TaruError> {
+    StagingPurpose::parse(&value).map_err(|_err| TaruError::InvalidInput {
+        message: format!("invalid purpose filter: {value}"),
+    })
+}
+
+fn parse_staging_state_filter(value: String) -> Result<StagingState, TaruError> {
+    StagingState::parse(&value).map_err(|_err| TaruError::InvalidInput {
         message: format!("invalid state filter: {value}"),
     })
 }

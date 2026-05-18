@@ -56,7 +56,7 @@ async fn scan_library_persists_job_success() {
     let output = app.library_scan().scan_library(library_id).await.unwrap();
     let job = app.jobs().get_job(output.job.id).await.unwrap();
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
 

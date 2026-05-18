@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [admin-operations-read-models](admin-operations-read-models/README.md):
+  completed M57-M59 Admin API read-model batch, covering redacted event outbox
+  list/filter, storage staging/cache diagnostics, and sanitized server config
+  diagnostics without changing the Public Client API.
 - [admin-playback-runtime-diagnostics](admin-playback-runtime-diagnostics/README.md):
   completed M56 Admin API read-model work, covering safe playback runtime
   diagnostics for hardware acceleration policy/selection, FFmpeg capability

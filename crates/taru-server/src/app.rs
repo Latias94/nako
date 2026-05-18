@@ -223,7 +223,7 @@ impl TaruApp {
     }
 }
 
-fn current_time_ms() -> Result<i64> {
+pub(crate) fn current_time_ms() -> Result<i64> {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|err| TaruError::InvalidInput {

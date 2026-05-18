@@ -1,4 +1,44 @@
 use super::*;
+use sqlx::QueryBuilder;
+
+const OUTBOX_EVENT_SELECT: &str = r#"
+            SELECT
+                id,
+                kind,
+                subject_kind,
+                subject_id,
+                library_id,
+                source_id,
+                idempotency_key,
+                payload_json,
+                status,
+                attempts,
+                last_error,
+                occurred_at,
+                updated_at,
+                next_attempt_at
+            FROM event_outbox
+            "#;
+
+const OUTBOX_EVENT_SELECT_BY_ID: &str = r#"
+            SELECT
+                id,
+                kind,
+                subject_kind,
+                subject_id,
+                library_id,
+                source_id,
+                idempotency_key,
+                payload_json,
+                status,
+                attempts,
+                last_error,
+                occurred_at,
+                updated_at,
+                next_attempt_at
+            FROM event_outbox
+            WHERE id = ?1
+            "#;
 
 #[async_trait::async_trait]
 impl EventOutboxRepository for SqliteStore {
@@ -47,31 +87,11 @@ impl EventOutboxRepository for SqliteStore {
     }
 
     async fn get_outbox_event(&self, id: EventId) -> Result<Option<OutboxEventRecord>> {
-        let row = sqlx::query(
-            r#"
-            SELECT
-                id,
-                kind,
-                subject_kind,
-                subject_id,
-                library_id,
-                source_id,
-                idempotency_key,
-                payload_json,
-                status,
-                attempts,
-                last_error,
-                occurred_at,
-                updated_at,
-                next_attempt_at
-            FROM event_outbox
-            WHERE id = ?1
-            "#,
-        )
-        .bind(id.to_string())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let row = sqlx::query(OUTBOX_EVENT_SELECT_BY_ID)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
 
         row.map(row_to_outbox_event).transpose()
     }
@@ -111,34 +131,42 @@ impl EventOutboxRepository for SqliteStore {
         row.map(row_to_outbox_event).transpose()
     }
 
-    async fn list_outbox_events(&self, page: PageRequest) -> Result<Vec<OutboxEventRecord>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                id,
-                kind,
-                subject_kind,
-                subject_id,
-                library_id,
-                source_id,
-                idempotency_key,
-                payload_json,
-                status,
-                attempts,
-                last_error,
-                occurred_at,
-                updated_at,
-                next_attempt_at
-            FROM event_outbox
-            ORDER BY occurred_at DESC, id DESC
-            LIMIT ?1 OFFSET ?2
-            "#,
-        )
-        .bind(u32_to_i64(page.limit))
-        .bind(u64_to_i64(page.offset)?)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(database_error)?;
+    async fn list_outbox_events(
+        &self,
+        filter: OutboxEventListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<OutboxEventRecord>> {
+        let page = page.clamped();
+        let mut query = QueryBuilder::new(OUTBOX_EVENT_SELECT);
+        query.push(" WHERE 1 = 1");
+
+        if let Some(kind) = filter.kind {
+            query.push(" AND kind = ");
+            query.push_bind(kind.as_str());
+        }
+        if let Some(status) = filter.status {
+            query.push(" AND status = ");
+            query.push_bind(status.as_str());
+        }
+        if let Some(library_id) = filter.library_id {
+            query.push(" AND library_id = ");
+            query.push_bind(library_id.to_string());
+        }
+        if let Some(source_id) = filter.source_id {
+            query.push(" AND source_id = ");
+            query.push_bind(source_id.to_string());
+        }
+
+        query.push(" ORDER BY occurred_at DESC, id DESC LIMIT ");
+        query.push_bind(u32_to_i64(page.limit));
+        query.push(" OFFSET ");
+        query.push_bind(u64_to_i64(page.offset)?);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
 
         rows.into_iter().map(row_to_outbox_event).collect()
     }

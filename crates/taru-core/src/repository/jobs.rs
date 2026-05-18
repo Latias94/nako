@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     DomainEventKind, EventId, Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId, NewJob,
-    NewOutboxEvent, OutboxEventRecord, Result,
+    NewOutboxEvent, OutboxEventRecord, OutboxEventStatus, Result,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -11,6 +11,14 @@ pub struct JobListFilter {
     pub status: Option<JobStatus>,
     pub kind: Option<JobKind>,
     pub resource_class: Option<String>,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct OutboxEventListFilter {
+    pub kind: Option<DomainEventKind>,
+    pub status: Option<OutboxEventStatus>,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
 }
@@ -44,5 +52,9 @@ pub trait EventOutboxRepository: Send + Sync {
         idempotency_key: &str,
     ) -> Result<Option<OutboxEventRecord>>;
 
-    async fn list_outbox_events(&self, page: PageRequest) -> Result<Vec<OutboxEventRecord>>;
+    async fn list_outbox_events(
+        &self,
+        filter: OutboxEventListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<OutboxEventRecord>>;
 }

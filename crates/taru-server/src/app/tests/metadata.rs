@@ -500,7 +500,7 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
     assert!(input.get("api_key").is_none());
 
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
     assert!(events.iter().any(|event| {
@@ -735,7 +735,7 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
         .record_metadata_refreshed_event(job_id, item.id, &refresh)
         .await;
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
 

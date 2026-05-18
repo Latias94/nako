@@ -186,7 +186,7 @@ async fn nfo_import_job_imports_sidecar_and_persists_summary() {
     let locks = store.list_field_locks(item.id).await.unwrap();
     let job = app.jobs().get_job(output.job.id).await.unwrap();
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
 

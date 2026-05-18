@@ -18,7 +18,11 @@ use taru_api::{
     StorageBackendKind, StorageBackendRegistryDiagnostic, StorageBackendRuntimeStateScope,
     StorageBackendStatus,
 };
-use taru_core::{Library, LibraryId, MediaSource, Result, TaruError};
+use taru_core::{
+    Library, LibraryId, MediaSource, PageRequest, Result, StagingManifestRecord,
+    StagingManifestRepository, StagingPurpose, StagingState, TaruError, VfsCacheRepository,
+    VfsCacheSummary,
+};
 use taru_db::SqliteStore;
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 
@@ -38,6 +42,30 @@ impl StorageDiagnosticsAppService {
         &self,
     ) -> StorageBackendDiagnosticsResponse {
         self.registry.diagnostics().await
+    }
+
+    pub(crate) async fn list_staging_manifest_records(
+        &self,
+        purpose: Option<StagingPurpose>,
+        state: Option<StagingState>,
+        page: PageRequest,
+    ) -> Result<Vec<StagingManifestRecord>> {
+        self.registry
+            .store
+            .list_staging_manifest_records(purpose, state, page)
+            .await
+    }
+
+    pub(crate) async fn sum_staging_manifest_bytes(&self) -> Result<u64> {
+        self.registry.store.sum_staging_manifest_bytes().await
+    }
+
+    pub(crate) async fn process_cached_backend_count(&self) -> usize {
+        self.registry.backends.lock().await.len()
+    }
+
+    pub(crate) async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
+        self.registry.store.summarize_vfs_cache(now_ms).await
     }
 
     #[cfg(test)]

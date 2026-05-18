@@ -27,9 +27,82 @@ proposed milestone.
 ## Current Goal
 
 No active implementation goal is currently documented. Recommended next goal:
-event outbox list/filter or storage staging/cache diagnostics.
+catalog governance read models, deeper extension operations, or admin warning
+list diagnostics.
 
 ## Completed Goals
+
+### M57-M59: Admin Operations Read Models Batch
+
+Status: completed.
+
+Objective:
+
+- Add read-only Admin API v1 operational diagnostics for event outbox
+  list/filter, storage staging/cache diagnostics, and sanitized server
+  configuration diagnostics.
+- Use admin-owned redacted DTOs and route-level tests.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- `GET /admin/v1/events` for event outbox list/filter by kind, status, Media
+  Library, Media Source, and pagination.
+- `GET /admin/v1/storage/staging` for redacted staging manifest rows plus
+  staging budget/startup cleanup/VFS cache summary diagnostics.
+- `GET /admin/v1/system/config` for sanitized auth, library, runtime,
+  metadata, transcode, staging, and playback configuration diagnostics.
+- Admin-owned DTOs in `taru-api::admin`.
+- Focused repository, DTO, route, redaction, auth, and boundary tests.
+- Updated HTTP API, admin-web-console, and workstream docs.
+
+Non-goals:
+
+- No Public Client API route or DTO changes.
+- No `taru-client-protocol` changes.
+- No public OpenAPI or TypeScript SDK expansion.
+- No admin mutation routes for event retry, staging cleanup, or config edits.
+- No event detail route and no raw event payload exposure.
+- No frontend UI implementation.
+
+Exit criteria:
+
+- Admin Console can list/filter event outbox rows through `/admin/v1/events`
+  without seeing `payload_json`, idempotency keys, raw errors, local paths, or
+  secret values.
+- Admin Console can inspect staging/cache state through
+  `/admin/v1/storage/staging` without seeing staging local paths, full source
+  URIs, raw cache URIs, validation error text, or cache error text.
+- Admin Console can inspect sanitized server configuration through
+  `/admin/v1/system/config` without seeing database URLs, local roots, FFmpeg
+  paths, staging roots, WebDAV URLs/usernames/password references, metadata
+  proxy values, literal header values, or resolved secrets.
+- Existing Public Client API routes remain compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API, DB, and server validation gates pass.
+
+Evidence:
+
+- `AdminOutboxEventListResponse`, `AdminStorageStagingDiagnosticsResponse`,
+  and `AdminServerConfigDiagnosticsResponse` expose admin-owned redacted DTOs.
+- `OutboxEventListFilter` and SQLite filtering support event outbox
+  list/filter by kind, status, Media Library, Media Source, and pagination.
+- `VfsCacheSummary` and staging manifest reads support safe staging/cache
+  diagnostics without exposing cache URIs or raw cache errors.
+- Route tests cover event payload/idempotency/error redaction, staging
+  path/source/cache redaction, sanitized config redaction, and auth protection.
+- Public OpenAPI and TypeScript SDK leakage checks still exclude admin/internal
+  surfaces.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-db --tests`, `cargo nextest run -p taru-db outbox --no-fail-fast` with
+  2 tests passed, `cargo check -p taru-api --tests`, `cargo nextest run -p
+  taru-api --no-fail-fast` with 19 tests passed, `cargo check -p taru-server
+  --tests`, `cargo nextest run -p taru-server http::tests::system
+  --no-fail-fast` with 11 tests passed, public OpenAPI/SDK leakage checks,
+  `git diff --check`, and `git diff --name-only --
+  crates/taru-client-protocol`.
 
 ### M56: Admin Playback Runtime Diagnostics
 

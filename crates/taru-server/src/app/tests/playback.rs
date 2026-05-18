@@ -48,7 +48,7 @@ async fn remux_source_runs_runner_and_reuses_completed_output() {
         session.id
     );
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
     assert!(events.iter().any(|event| {
@@ -251,7 +251,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
             .is_err()
     );
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
     assert!(events.iter().any(|event| {

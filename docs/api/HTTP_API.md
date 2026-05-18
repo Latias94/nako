@@ -419,9 +419,12 @@ GET  /automation/jobs/{job_id}/artifacts
 GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
 GET  /admin/v1/overview
+GET  /admin/v1/events
 GET  /admin/v1/jobs
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
+GET  /admin/v1/storage/staging
+GET  /admin/v1/system/config
 ```
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
@@ -432,6 +435,21 @@ diagnostics. It reports one entry per configured library, backend kind, storage
 scheme, registry cache state, remote stream/stage permit availability, and
 health counters. The route does not perform remote I/O and never returns local
 filesystem roots, WebDAV base URLs, usernames, passwords, or secret values.
+
+`GET /admin/v1/storage/staging` returns a redacted Admin API diagnostics view
+for storage staging and cache state. It accepts optional `purpose`, `state`,
+`limit`, and `offset` query parameters. Rows include staging manifest ID,
+source scheme, purpose, state, size, etag/fingerprint presence flags, active
+lease count, validation-error presence, and lifecycle timestamps. The summary
+includes configured staging budget, current manifest byte usage, retention,
+startup cleanup counts, process-local backend cache count, and VFS cache object,
+listing, failure, stale-object, stale-listing, and last-failure counters.
+
+The staging/cache diagnostics route never returns staging `local_path`, full
+`source_uri`, staging roots, local filesystem paths, raw cache URIs, etag or
+fingerprint values, validation error text, cache error text, WebDAV
+credentials, or secret values. It is an Admin API route and is not part of
+Public Client OpenAPI or generated SDK artifacts.
 
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
 metadata refresh job. The current implementation uses the library metadata
@@ -592,6 +610,21 @@ The runtime diagnostics route does not return `ffmpeg_path`,
 errors, secrets, tokens, runner handles, or cancellation tokens. It is an Admin
 API route and is not part of Public Client OpenAPI or generated SDK artifacts.
 
+`GET /admin/v1/system/config` returns a sanitized Admin API diagnostics view of
+server configuration. It includes admin/public API versions, auth enablement
+and token environment reference, concurrency settings, remux timeout, library
+names/presets/backend kind/root scheme, metadata runtime budgets, metadata
+provider enablement and secret-reference names, transcode hardware policy and
+slot budgets, staging budget/retention/cleanup settings, and remote playback
+stream/stage budgets.
+
+The config diagnostics route never returns `database_url`, local library roots,
+`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, WebDAV base URLs, WebDAV
+usernames, WebDAV password environment names, metadata proxy values, provider
+base URLs, literal header values, header secret environment names, resolved
+tokens, or resolved secrets. It is an Admin API route and is not part of Public
+Client OpenAPI or generated SDK artifacts.
+
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.
 HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
@@ -666,6 +699,16 @@ outbox event to enabled endpoints whose subscriptions match the event kind. It
 returns the outbox event, delivery counters, created attempts, skipped endpoint
 count, and safe per-endpoint errors when dispatch fails before an attempt can
 be recorded.
+
+`GET /admin/v1/events` returns a redacted Admin API event outbox list/filter
+read model. It accepts optional `kind`, `status`, `library_id`, `source_id`,
+`limit`, and `offset` query parameters. Rows include event ID, kind, subject,
+Media Library ID, Media Source ID, status, attempt count, payload/error
+presence flags, occurrence/update timestamps, and next-attempt timestamp.
+
+The event list route never returns raw `payload_json`, `idempotency_key`, raw
+`last_error`, local filesystem paths, or secret values. Known-ID webhook
+attempt and delivery routes remain unchanged.
 
 Webhook delivery bodies use a versioned JSON envelope and include these
 headers:

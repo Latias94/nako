@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 use taru_client_protocol::PageInfo;
 use taru_core::{
-    ExternalProvider, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord,
-    IngestionFailureStatus, Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId,
-    ScanSnapshotId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState,
+    DomainEventKind, DomainEventSubject, EventId, ExternalProvider, IngestionFailureClass,
+    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind,
+    JobStatus, LibraryId, LibraryPreset, MediaSourceId, OutboxEventRecord, OutboxEventStatus,
+    ScanSnapshotId, StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState,
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
@@ -97,6 +99,48 @@ impl AdminJobListItem {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOutboxEventListResponse {
+    pub events: Vec<AdminOutboxEventListItem>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOutboxEventListItem {
+    pub id: EventId,
+    pub kind: DomainEventKind,
+    pub subject: DomainEventSubject,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+    pub status: OutboxEventStatus,
+    pub attempts: u32,
+    pub has_payload: bool,
+    pub has_error: bool,
+    pub occurred_at: String,
+    pub updated_at: String,
+    pub next_attempt_at: Option<String>,
+}
+
+impl AdminOutboxEventListItem {
+    #[must_use]
+    pub fn from_record(event: OutboxEventRecord) -> Self {
+        Self {
+            id: event.id,
+            kind: event.kind,
+            subject: event.subject,
+            library_id: event.library_id,
+            source_id: event.source_id,
+            status: event.status,
+            attempts: event.attempts,
+            has_payload: !event.payload_json.trim().is_empty(),
+            has_error: event.last_error.is_some(),
+            occurred_at: event.occurred_at,
+            updated_at: event.updated_at,
+            next_attempt_at: event.next_attempt_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackSessionListResponse {
     pub sessions: Vec<AdminPlaybackSessionListItem>,
     pub page: PageInfo,
@@ -150,6 +194,174 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageStagingDiagnosticsResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub summary: AdminStorageStagingSummary,
+    pub records: Vec<AdminStorageStagingRecord>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageStagingSummary {
+    pub configured_max_bytes: u64,
+    pub used_manifest_bytes: u64,
+    pub cleanup_on_startup: bool,
+    pub retention_ms: u64,
+    pub startup_deleted_records: u32,
+    pub startup_deleted_files: u32,
+    pub process_cached_backends: u32,
+    pub vfs_cache: AdminVfsCacheSummary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheSummary {
+    pub object_count: u64,
+    pub listing_count: u64,
+    pub failure_count: u64,
+    pub stale_object_count: u64,
+    pub stale_listing_count: u64,
+    pub last_failure_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageStagingRecord {
+    pub id: StagingManifestId,
+    pub source_scheme: String,
+    pub purpose: StagingPurpose,
+    pub state: StagingState,
+    pub size_bytes: Option<u64>,
+    pub has_etag: bool,
+    pub has_fingerprint: bool,
+    pub active_leases: u32,
+    pub has_validation_error: bool,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+    pub last_accessed_at_ms: i64,
+    pub expires_at_ms: Option<i64>,
+}
+
+impl AdminStorageStagingRecord {
+    #[must_use]
+    pub fn from_record(record: StagingManifestRecord) -> Self {
+        Self {
+            id: record.id,
+            source_scheme: record.source_scheme,
+            purpose: record.purpose,
+            state: record.state,
+            size_bytes: record.size_bytes,
+            has_etag: record.etag.is_some(),
+            has_fingerprint: record.fingerprint.is_some(),
+            active_leases: record.active_leases,
+            has_validation_error: record.validation_error.is_some(),
+            created_at_ms: record.created_at_ms,
+            updated_at_ms: record.updated_at_ms,
+            last_accessed_at_ms: record.last_accessed_at_ms,
+            expires_at_ms: record.expires_at_ms,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminServerConfigDiagnosticsResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub auth: AdminAuthConfigDiagnostics,
+    pub runtime: AdminRuntimeConfigDiagnostics,
+    pub libraries: Vec<AdminLibraryConfigDiagnostics>,
+    pub metadata: AdminMetadataConfigDiagnostics,
+    pub transcode: AdminTranscodeConfigDiagnostics,
+    pub staging: AdminConfigStagingDiagnostics,
+    pub playback: AdminConfigPlaybackDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAuthConfigDiagnostics {
+    pub enabled: bool,
+    pub token_env: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRuntimeConfigDiagnostics {
+    pub listen_addr: String,
+    pub scan_concurrency: usize,
+    pub probe_concurrency: usize,
+    pub metadata_concurrency: usize,
+    pub remux_concurrency: usize,
+    pub webhook_concurrency: usize,
+    pub remux_timeout_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminLibraryConfigDiagnostics {
+    pub id: LibraryId,
+    pub name: String,
+    pub preset: LibraryPreset,
+    pub backend_kind: StorageBackendKind,
+    pub root_scheme: String,
+    pub has_webdav_password_env: bool,
+    pub webdav_timeout_ms: Option<u64>,
+    pub webdav_max_attempts: Option<u32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataConfigDiagnostics {
+    pub raw_cache_retention_ms: u64,
+    pub raw_cache_cleanup_on_startup: bool,
+    pub raw_cache_cleanup_interval_ms: u64,
+    pub runtime: AdminMetadataRuntimeConfigDiagnostics,
+    pub maintenance_policies: u32,
+    pub providers: Vec<AdminMetadataProviderConfigDiagnostics>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataRuntimeConfigDiagnostics {
+    pub timeout_ms: u64,
+    pub max_attempts: u32,
+    pub min_interval_ms: u64,
+    pub concurrency: usize,
+    pub user_agent: String,
+    pub has_proxy: bool,
+    pub circuit_breaker_failures: u32,
+    pub circuit_breaker_backoff_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataProviderConfigDiagnostics {
+    pub provider: ExternalProvider,
+    pub enabled: bool,
+    pub token_env: Option<String>,
+    pub api_key_env: Option<String>,
+    pub has_api_base_url: bool,
+    pub has_image_base_url: bool,
+    pub language: Option<String>,
+    pub include_adult: bool,
+    pub header_count: u32,
+    pub secret_header_count: u32,
+    pub has_provider_runtime_override: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminTranscodeConfigDiagnostics {
+    pub hardware_policy: HardwareAccelerationPolicy,
+    pub cpu_concurrency: usize,
+    pub gpu_concurrency: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminConfigStagingDiagnostics {
+    pub max_bytes: u64,
+    pub retention_ms: u64,
+    pub cleanup_on_startup: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminConfigPlaybackDiagnostics {
+    pub remote_stream_concurrency: usize,
+    pub remote_stage_concurrency: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -533,6 +745,40 @@ mod tests {
     }
 
     #[test]
+    fn admin_outbox_event_list_item_redacts_payload_idempotency_key_and_error() {
+        let library_id = LibraryId::new();
+        let event = OutboxEventRecord {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library_id),
+            library_id: Some(library_id),
+            source_id: None,
+            idempotency_key: "library_scan:secret-key".to_owned(),
+            payload_json: r#"{"token":"admin-token","path":"F:\\Media\\Movies"}"#.to_owned(),
+            status: OutboxEventStatus::Failed,
+            attempts: 2,
+            last_error: Some("failed with admin-token at F:\\Media\\Movies".to_owned()),
+            occurred_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+            next_attempt_at: None,
+        };
+
+        let item = AdminOutboxEventListItem::from_record(event);
+        let body = serde_json::to_string(&item).unwrap();
+
+        assert_eq!(item.kind, DomainEventKind::LibraryScanned);
+        assert_eq!(item.status, OutboxEventStatus::Failed);
+        assert_eq!(item.attempts, 2);
+        assert!(item.has_payload);
+        assert!(item.has_error);
+        assert!(!body.contains("payload_json"));
+        assert!(!body.contains("idempotency_key"));
+        assert!(!body.contains("admin-token"));
+        assert!(!body.contains("Media"));
+        assert!(!body.contains("failed with"));
+    }
+
+    #[test]
     fn admin_playback_session_list_item_redacts_output_path_and_failure_message() {
         let session = TranscodeSessionRecord {
             id: TranscodeSessionId::new(),
@@ -642,6 +888,45 @@ mod tests {
         assert!(!body.contains("output_path"));
         assert!(!body.contains("secret"));
         assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn admin_storage_staging_record_redacts_paths_source_uri_and_errors() {
+        let record = StagingManifestRecord {
+            id: StagingManifestId::new(),
+            source_uri: "webdav:///Movies/Private/Demo.mkv".to_owned(),
+            source_scheme: "webdav".to_owned(),
+            purpose: StagingPurpose::FfmpegInput,
+            local_path: "F:\\Taru\\secret-cache\\inputs\\Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            etag: Some("etag-secret".to_owned()),
+            fingerprint: Some("fingerprint-secret".to_owned()),
+            state: StagingState::Failed,
+            created_at_ms: 1_000,
+            updated_at_ms: 1_100,
+            last_accessed_at_ms: 1_200,
+            expires_at_ms: Some(1_300),
+            active_leases: 0,
+            validation_error: Some("failed at F:\\Taru\\secret-cache".to_owned()),
+        };
+
+        let item = AdminStorageStagingRecord::from_record(record);
+        let body = serde_json::to_string(&item).unwrap();
+
+        assert_eq!(item.source_scheme, "webdav");
+        assert_eq!(item.purpose, StagingPurpose::FfmpegInput);
+        assert_eq!(item.state, StagingState::Failed);
+        assert_eq!(item.size_bytes, Some(42));
+        assert!(item.has_etag);
+        assert!(item.has_fingerprint);
+        assert!(item.has_validation_error);
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("Private"));
+        assert!(!body.contains("secret-cache"));
+        assert!(!body.contains("etag-secret"));
+        assert!(!body.contains("fingerprint-secret"));
+        assert!(!body.contains("failed at"));
     }
 
     #[test]

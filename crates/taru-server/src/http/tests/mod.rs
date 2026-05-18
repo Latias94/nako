@@ -16,8 +16,10 @@ use taru_addon_protocol::{
 };
 use taru_api::{
     AddonRegistrationResponse, AddonRegistrationsResponse, AdminJobListResponse,
-    AdminOverviewResponse, AdminOverviewStatus, AdminPlaybackRuntimeDiagnosticsResponse,
-    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListResponse, AutomationArtifactsResponse,
+    AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
+    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+    AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
+    AdminStorageStagingDiagnosticsResponse, AutomationArtifactsResponse,
     AutomationProviderResponse, AutomationProvidersResponse, ClientTranscodeFailureCategory,
     ClientTranscodeSessionState, EnqueueAutomationJobRequest, EnqueueMetadataMaintenanceRequest,
     ErrorResponse, HealthResponse, IgnoreIngestionFailureRequest, IngestionFailuresResponse,
@@ -39,9 +41,12 @@ use taru_core::{
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
     MetadataProviderErrorClass, MetadataRepository, MetadataSource, NewIngestionFailure, NewJob,
-    NewMetadataProviderAttempt, NewOutboxEvent, NewTranscodeSession, Person, PersonId,
-    ProviderRawResponse, StorageErrorKind, Tag, TagId, TaruError, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, WebhookEndpointStatus,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
+    NewVfsCacheFailure, OutboxEventStatus, Person, PersonId, ProviderRawResponse,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, StorageErrorKind,
+    Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
+    TranscodeSessionState, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
+    VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchDocument, SearchIndex};

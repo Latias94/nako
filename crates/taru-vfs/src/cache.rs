@@ -453,7 +453,7 @@ mod tests {
         },
     };
 
-    use taru_core::VfsCacheFailure;
+    use taru_core::{VfsCacheFailure, VfsCacheSummary};
 
     use super::*;
 
@@ -744,6 +744,27 @@ mod tests {
                 .as_ref()
                 .filter(|failure| failure.uri == uri && failure.operation == operation)
                 .cloned())
+        }
+
+        async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
+            let objects = self.objects.lock().await;
+            let listing = self.listing.lock().await;
+            let failure = self.failure.lock().await;
+
+            Ok(VfsCacheSummary {
+                object_count: objects.len() as u64,
+                listing_count: u64::from(listing.is_some()),
+                failure_count: u64::from(failure.is_some()),
+                stale_object_count: objects
+                    .values()
+                    .filter(|object| !object.is_fresh_at(now_ms))
+                    .count() as u64,
+                stale_listing_count: listing
+                    .as_ref()
+                    .filter(|listing| !listing.is_fresh_at(now_ms))
+                    .map_or(0, |_| 1),
+                last_failure_at_ms: failure.as_ref().map(|failure| failure.failed_at_ms),
+            })
         }
     }
 

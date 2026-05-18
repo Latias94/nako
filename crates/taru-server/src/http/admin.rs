@@ -5,32 +5,43 @@ use axum::{
     routing::get,
 };
 use taru_api::{
-    ADMIN_API_VERSION, API_VERSION, AdminJobListItem, AdminJobListResponse,
-    AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
-    AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
-    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-    AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
+    ADMIN_API_VERSION, API_VERSION, AdminAuthConfigDiagnostics, AdminConfigPlaybackDiagnostics,
+    AdminConfigStagingDiagnostics, AdminJobListItem, AdminJobListResponse,
+    AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+    AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
+    AdminOutboxEventListItem, AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
+    AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
+    AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
+    AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
     AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDiagnostics,
     AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
     AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
     AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
     AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
-    MetadataProviderDiagnosticStatus, StorageBackendRuntimeStateScope, StorageBackendStatus,
-    page_info_from_request,
+    AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
+    AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord, AdminStorageStagingSummary,
+    AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
+    StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
 use taru_transcode::HardwareAccelerationCapability;
 
-use crate::app::{RuntimeSupervisorDiagnostics, TaruApp};
+use crate::{
+    app::{RuntimeSupervisorDiagnostics, TaruApp},
+    config::{LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig},
+};
 
 use super::{
     error::ApiResult,
-    query::{JobListQuery, PlaybackSessionListQuery},
+    query::{JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery},
 };
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
+        .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
+        .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
+        .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
             "/admin/v1/playback/runtime",
             get(get_admin_playback_runtime),
@@ -76,6 +87,211 @@ pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<Admin
         runtime,
         startup,
     })
+}
+
+pub(super) async fn get_admin_system_config(
+    State(app): State<TaruApp>,
+) -> Json<AdminServerConfigDiagnosticsResponse> {
+    let config = app.config();
+
+    Json(AdminServerConfigDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        auth: AdminAuthConfigDiagnostics {
+            enabled: config.auth.enabled,
+            token_env: config.auth.token_env.clone(),
+        },
+        runtime: AdminRuntimeConfigDiagnostics {
+            listen_addr: config.listen_addr.to_string(),
+            scan_concurrency: config.scan_concurrency,
+            probe_concurrency: config.probe_concurrency,
+            metadata_concurrency: config.metadata_concurrency,
+            remux_concurrency: config.remux_concurrency,
+            webhook_concurrency: config.webhook_concurrency,
+            remux_timeout_ms: config.remux_timeout_ms,
+        },
+        libraries: config
+            .libraries
+            .iter()
+            .map(library_config_diagnostics)
+            .collect(),
+        metadata: AdminMetadataConfigDiagnostics {
+            raw_cache_retention_ms: config.metadata.raw_cache_retention_ms,
+            raw_cache_cleanup_on_startup: config.metadata.maintenance.raw_cache_cleanup_on_startup,
+            raw_cache_cleanup_interval_ms: config
+                .metadata
+                .maintenance
+                .raw_cache_cleanup_interval_ms,
+            runtime: metadata_runtime_config_diagnostics(&config.metadata.runtime),
+            maintenance_policies: usize_to_u32(config.metadata.maintenance.policies.len()),
+            providers: config
+                .metadata
+                .providers
+                .iter()
+                .map(metadata_provider_config_diagnostics)
+                .collect(),
+        },
+        transcode: taru_api::AdminTranscodeConfigDiagnostics {
+            hardware_policy: config.transcode.hardware_policy(),
+            cpu_concurrency: config.transcode.cpu_concurrency,
+            gpu_concurrency: config.transcode.gpu_concurrency,
+        },
+        staging: AdminConfigStagingDiagnostics {
+            max_bytes: config.staging.max_bytes,
+            retention_ms: config.staging.retention_ms,
+            cleanup_on_startup: config.staging.cleanup_on_startup,
+        },
+        playback: AdminConfigPlaybackDiagnostics {
+            remote_stream_concurrency: config.playback.remote_stream_concurrency,
+            remote_stage_concurrency: config.playback.remote_stage_concurrency,
+        },
+    })
+}
+
+pub(super) async fn list_admin_storage_staging(
+    State(app): State<TaruApp>,
+    Query(query): Query<StorageStagingQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (purpose, state, page) = query.into_filter_and_page()?;
+    let records = app
+        .storage()
+        .list_staging_manifest_records(purpose, state, page)
+        .await?;
+    let returned = records.len();
+    let records = records
+        .into_iter()
+        .map(AdminStorageStagingRecord::from_record)
+        .collect();
+    let startup = app.startup_report().clone();
+    let process_cached_backends = usize_to_u32(app.storage().process_cached_backend_count().await);
+    let used_manifest_bytes = app.storage().sum_staging_manifest_bytes().await?;
+    let vfs_cache = app
+        .storage()
+        .summarize_vfs_cache(crate::app::current_time_ms()?)
+        .await?;
+
+    Ok(Json(AdminStorageStagingDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        summary: AdminStorageStagingSummary {
+            configured_max_bytes: app.config().staging.max_bytes,
+            used_manifest_bytes,
+            cleanup_on_startup: app.config().staging.cleanup_on_startup,
+            retention_ms: app.config().staging.retention_ms,
+            startup_deleted_records: startup
+                .staging_cleanup
+                .as_ref()
+                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
+            startup_deleted_files: startup
+                .staging_cleanup
+                .as_ref()
+                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+            process_cached_backends,
+            vfs_cache: AdminVfsCacheSummary {
+                object_count: vfs_cache.object_count,
+                listing_count: vfs_cache.listing_count,
+                failure_count: vfs_cache.failure_count,
+                stale_object_count: vfs_cache.stale_object_count,
+                stale_listing_count: vfs_cache.stale_listing_count,
+                last_failure_at_ms: vfs_cache.last_failure_at_ms,
+            },
+        },
+        records,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+fn library_config_diagnostics(config: &LocalLibraryConfig) -> AdminLibraryConfigDiagnostics {
+    let (
+        backend_kind,
+        root_scheme,
+        has_webdav_password_env,
+        webdav_timeout_ms,
+        webdav_max_attempts,
+    ) = match config.webdav.as_ref() {
+        Some(webdav) => (
+            StorageBackendKind::WebDav,
+            "webdav".to_owned(),
+            webdav.password_env.is_some(),
+            Some(webdav.timeout_ms),
+            Some(webdav.max_attempts),
+        ),
+        None => (
+            StorageBackendKind::Local,
+            "local".to_owned(),
+            false,
+            None,
+            None,
+        ),
+    };
+
+    AdminLibraryConfigDiagnostics {
+        id: config.id,
+        name: config.name.clone(),
+        preset: config.preset,
+        backend_kind,
+        root_scheme,
+        has_webdav_password_env,
+        webdav_timeout_ms,
+        webdav_max_attempts,
+    }
+}
+
+fn metadata_runtime_config_diagnostics(
+    config: &MetadataProviderRuntimeConfig,
+) -> AdminMetadataRuntimeConfigDiagnostics {
+    AdminMetadataRuntimeConfigDiagnostics {
+        timeout_ms: config.timeout_ms,
+        max_attempts: config.max_attempts,
+        min_interval_ms: config.min_interval_ms,
+        concurrency: config.concurrency,
+        user_agent: config.user_agent.clone(),
+        has_proxy: config.proxy.is_some(),
+        circuit_breaker_failures: config.circuit_breaker_failures,
+        circuit_breaker_backoff_ms: config.circuit_breaker_backoff_ms,
+    }
+}
+
+fn metadata_provider_config_diagnostics(
+    config: &MetadataProviderConfig,
+) -> AdminMetadataProviderConfigDiagnostics {
+    AdminMetadataProviderConfigDiagnostics {
+        provider: config.provider.clone(),
+        enabled: config.enabled,
+        token_env: config.token_env.clone(),
+        api_key_env: config.api_key_env.clone(),
+        has_api_base_url: config.api_base_url.is_some(),
+        has_image_base_url: config.image_base_url.is_some(),
+        language: config.language.clone(),
+        include_adult: config.include_adult,
+        header_count: usize_to_u32(config.headers.len()),
+        secret_header_count: usize_to_u32(
+            config
+                .headers
+                .iter()
+                .filter(|header| header.value.is_some() || header.value_env.is_some())
+                .count(),
+        ),
+        has_provider_runtime_override: config.runtime.is_some(),
+    }
+}
+
+pub(super) async fn list_admin_outbox_events(
+    State(app): State<TaruApp>,
+    Query(query): Query<OutboxEventListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let events = app.webhooks().list_outbox_events(filter, page).await?;
+    let returned = events.len();
+    let events = events
+        .into_iter()
+        .map(AdminOutboxEventListItem::from_record)
+        .collect();
+
+    Ok(Json(AdminOutboxEventListResponse {
+        events,
+        page: page_info_from_request(page, returned),
+    }))
 }
 
 pub(super) async fn list_admin_jobs(

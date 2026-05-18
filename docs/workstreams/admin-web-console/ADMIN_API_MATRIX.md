@@ -47,8 +47,8 @@ Public Client API contracts remain separate.
 | Streaming playback | `GET/HEAD /sources/{source_id}/stream`, `GET /sources/{source_id}/stream/remux`, `GET /sources/{source_id}/stream/hls/playlist.m3u8`, HLS segment route | Public Client API | Not a first admin-console need except safe diagnostics and request previews. |
 | Playback sessions | `GET /admin/v1/playback/sessions`, `GET /admin/v1/playback/runtime`, `GET /playback/sessions/{session_id}`, `POST /playback/sessions/{session_id}/cancel` | Admin API v1 plus Public Client API detail/cancel | Supports redacted admin list/filter by state, kind, Media Source, and pagination. Supports safe runtime diagnostics for hardware acceleration, FFmpeg capability evidence, resource budgets, and staging cleanup configuration. Existing Public Client API supports detail/cancel only when the session ID is already known. |
 | Jobs | `GET /admin/v1/jobs`, `GET /jobs/{job_id}` | Admin API v1 plus legacy admin/internal detail | Supports redacted list/filter by status, kind, resource class, Media Library, Media Source, and pagination. Supports detail only when job ID is known. Missing cancel/retry. |
-| Storage diagnostics | `GET /storage/backends` | Admin/internal | Supports storage page read-only diagnostics. |
-| Webhooks | `POST /webhooks/endpoints`, `GET /webhooks/endpoints`, `GET /webhooks/endpoints/{endpoint_id}`, `GET /events/{event_id}/webhook-attempts`, `POST /events/{event_id}/webhooks/deliver` | Admin/internal | Supports endpoint upsert/list/detail, event attempt detail, and explicit dispatch. Missing event list and disabled endpoint listing semantics need review. |
+| Storage diagnostics | `GET /storage/backends`, `GET /admin/v1/storage/staging` | Admin/internal plus Admin API v1 | Supports storage backend diagnostics and redacted staging/cache diagnostics without exposing local staging paths, full source URIs, cache URIs, or raw cache errors. |
+| Webhooks | `POST /webhooks/endpoints`, `GET /webhooks/endpoints`, `GET /webhooks/endpoints/{endpoint_id}`, `GET /events/{event_id}/webhook-attempts`, `POST /events/{event_id}/webhooks/deliver`, `GET /admin/v1/events` | Admin/internal plus Admin API v1 | Supports endpoint upsert/list/detail, redacted event outbox list/filter, event attempt detail, and explicit dispatch. Disabled endpoint listing semantics still need review. |
 | Automation | `POST /automation/providers`, `GET /automation/providers`, `GET /automation/providers/{provider_id}`, `POST /automation/jobs`, `GET /automation/jobs/{job_id}/artifacts`, `GET /items/{item_id}/automation/artifacts` | Admin/internal | Supports provider upsert/list/detail, job enqueue, artifact inspection. Missing all-provider list semantics, job list, and artifact approval/rejection lifecycle. |
 | Addons | `POST /addons`, `GET /addons`, `GET /addons/{addon_id}` | Admin/internal | Supports registration/list/detail/status filter. Missing health check, token rotation, revoke/delete, and resource-call diagnostics. |
 
@@ -56,7 +56,7 @@ Public Client API contracts remain separate.
 
 | Console page | Current support | Missing or weak Admin API |
 | --- | --- | --- |
-| Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. `GET /admin/v1/jobs` and `GET /admin/v1/playback/sessions` support drill-down tables. | Still needs outbox events, recent failures, and warning list/filter endpoints if the console needs more drill-down data. |
+| Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. `GET /admin/v1/jobs`, `GET /admin/v1/playback/sessions`, and `GET /admin/v1/events` support drill-down tables. | Still needs recent failures and warning list/filter endpoints if the console needs more drill-down data. |
 | Media Libraries | Good for read and actions: library list/detail/sources, scan, NFO import/export, ingestion failure list/ignore. | Needs create/edit/delete library only if Taru supports runtime-configurable libraries. Needs failure retry/resolve semantics if desired. |
 | Library Detail | Good for core read-only detail and operations. | Needs latest scan summary, configured backend detail without unsafe local paths, and per-library job history. |
 | Catalog | Partial: public browse/search/item/credits/images/source probe. | Needs unknown-item filter, duplicate-source list, provider mapping list, local inference evidence route, hierarchy repair routes, and source variant/edition governance. |
@@ -65,12 +65,12 @@ Public Client API contracts remain separate.
 | Metadata Maintenance | Good: dry-run plan, enqueue job, item refresh, raw cache cleanup. | Needs maintenance schedule read/edit routes if schedules become UI-managed. |
 | Jobs/Tasks | Good for first read-only list: `GET /admin/v1/jobs` supports redacted list/filter by status/kind/library/source/resource class and pagination. Existing `GET /jobs/{job_id}` supports known-ID detail. | Needs retry/cancel only after durable runtime semantics support them. |
 | Playback & Transcode | Good for first read-only session and runtime diagnostics: `GET /admin/v1/playback/sessions` supports redacted list/filter by state/kind/source and pagination, and `GET /admin/v1/playback/runtime` supports hardware policy/selection, FFmpeg capability evidence, transcode budgets, remote playback budgets, and staging cleanup configuration. Public playback decision by source, known-session detail/cancel, and streaming routes remain available. | Needs safe request preview, richer session detail, and deeper Playback Source Selection diagnostics after subtitles/audio tracks/HDR/client profiles/Source Variants are modeled. |
-| Storage | Good for first read-only page: storage backend diagnostics. | Needs staging manifest list/cleanup diagnostics if storage page includes cache/staging operations. |
+| Storage | Good for first read-only page: storage backend diagnostics plus `GET /admin/v1/storage/staging` for redacted staging manifest rows, staging budget/startup cleanup counters, and VFS cache summary counters. | Needs staging cleanup mutation only if the console supports operator-triggered cleanup. Full VFS cache object/failure listing remains intentionally deferred. |
 | Automation | Partial: provider list/detail/upsert, job enqueue, artifact list by job/item. | Needs all-provider list including disabled if current list remains enabled-only, job list/filter, artifact approval/reject/apply lifecycle, and provider health checks. |
-| Webhooks | Partial: endpoint upsert/list/detail, delivery attempts by event, manual delivery by event. | Needs event outbox list/detail route; endpoint list currently reads as enabled-only and may not support disabled endpoint administration. |
+| Webhooks | Good for first read-only event history: endpoint upsert/list/detail, redacted event outbox list/filter through `GET /admin/v1/events`, delivery attempts by event, and manual delivery by event. | Needs event detail only if list rows are insufficient. Endpoint list currently reads as enabled-only and may not support disabled endpoint administration. |
 | Addons | Partial: register/list/detail/status-filtered list. | Needs health check, token rotation/revocation, enable/disable patch route if status update through full register is too coarse, delete/unregister, hosted-page metadata, and resource-call diagnostics. |
 | Network | Mostly missing. | Needs self-hosted access summary, external reachability probe, reverse proxy/TLS status hooks, tunnel/NAT traversal state, and remote playback bandwidth policy. |
-| Settings | Mostly missing. | Needs sanitized config summary, auth status, secret-reference diagnostics, FFmpeg path/status, maintenance schedule summary, startup report, backup/database status if exposed. |
+| Settings | Partial: `GET /admin/v1/system/config` supports sanitized auth, library, runtime, metadata, transcode, staging, and playback config diagnostics. | Needs editable settings only if Taru supports runtime config mutation. FFmpeg binary status is currently covered by playback runtime diagnostics rather than raw path exposure. |
 
 ## DTO Ownership Notes
 
@@ -93,8 +93,9 @@ Likely new Admin DTO groups:
 - `AdminPlaybackSessionListResponse` and redacted
   `AdminPlaybackSessionListItem`
 - `AdminPlaybackRuntimeDiagnosticsResponse`
-- `OutboxEventListResponse` and `OutboxEventResponse`
-- `ServerConfigDiagnosticsResponse`
+- `AdminOutboxEventListResponse`
+- `AdminServerConfigDiagnosticsResponse`
+- `AdminStorageStagingDiagnosticsResponse`
 - `StartupReportResponse`
 - `CatalogGovernanceResponse` or narrower DTOs for unknown items, duplicate
   relationships, local inference evidence, provider mappings, and NFO status
@@ -121,11 +122,11 @@ Known current safety boundaries useful to preserve:
 
 These are the smallest useful vertical slices after the matrix:
 
-1. **Overview follow-up slice**: M52 added the first read-only
-   `GET /admin/v1/overview` summary. M54 added `GET /admin/v1/jobs`. M55
-   added `GET /admin/v1/playback/sessions`. Add list/filter endpoints for
-   outbox events and recent failures when the console needs more drill-down
-   data.
+1. **Operations read-model slice**: M57-M59 added `GET /admin/v1/events`,
+   `GET /admin/v1/storage/staging`, and `GET /admin/v1/system/config` for
+   redacted event outbox history, staging/cache diagnostics, and sanitized
+   server config diagnostics. Follow with recent failure/warning list routes
+   only when the console needs more overview drill-down data.
 2. **Playback diagnostics follow-up**: M56 added
    `GET /admin/v1/playback/runtime` for hardware acceleration report, selected
    policy, FFmpeg capability evidence, transcode resource budget, remote
@@ -150,13 +151,15 @@ data. For the first prototype, API-backed claims should be limited to:
 - storage backend diagnostics;
 - webhook/automation/addon registration views;
 - job list/filter through `GET /admin/v1/jobs`;
+- event outbox list/filter through `GET /admin/v1/events`;
 - playback session list/filter through `GET /admin/v1/playback/sessions`;
 - playback runtime diagnostics through `GET /admin/v1/playback/runtime`;
+- staging/cache diagnostics through `GET /admin/v1/storage/staging`;
+- sanitized config diagnostics through `GET /admin/v1/system/config`;
 - job/session detail views only when seeded with known IDs or mocked data.
 
-Event lists, hardware capability dashboards, network checks, settings editing,
-and catalog repair should remain prototype/mock states until follow-up Admin
-API work lands.
+Network checks, settings editing, and catalog repair should remain
+prototype/mock states until follow-up Admin API work lands.
 
 After M52, the overview page can use `GET /admin/v1/overview` for its compact
 server, storage, metadata-provider, runtime, and startup summary. After M54,
@@ -164,5 +167,9 @@ Jobs/Tasks can use `GET /admin/v1/jobs` for redacted list/filter data. Other
 After M55, Playback & Transcode can use `GET /admin/v1/playback/sessions` for
 redacted session list/filter data. After M56, Playback & Transcode can use
 `GET /admin/v1/playback/runtime` for safe hardware, FFmpeg, budget, and staging
+diagnostics. After M57-M59, Automation/Webhooks can use `GET /admin/v1/events`
+for redacted event outbox history, Storage can use
+`GET /admin/v1/storage/staging` for redacted staging/cache diagnostics, and
+Settings can use `GET /admin/v1/system/config` for sanitized configuration
 diagnostics. Other drill-down tables and operational histories remain mock or
 follow-up Admin API work.

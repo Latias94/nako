@@ -1335,6 +1335,14 @@ async fn sqlite_store_round_trips_vfs_cache_records_and_failures() {
     assert_eq!(second_failure.failure_count, 2);
     assert_eq!(second_failure.failed_at_ms, 400);
     assert_eq!(second_failure.error, "rate limited");
+
+    let summary = store.summarize_vfs_cache(300).await.unwrap();
+    assert_eq!(summary.object_count, 2);
+    assert_eq!(summary.listing_count, 1);
+    assert_eq!(summary.failure_count, 1);
+    assert_eq!(summary.stale_object_count, 2);
+    assert_eq!(summary.stale_listing_count, 1);
+    assert_eq!(summary.last_failure_at_ms, Some(400));
 }
 
 #[tokio::test]
@@ -1967,12 +1975,168 @@ async fn sqlite_store_round_trips_outbox_events_idempotently() {
     assert_eq!(store.get_outbox_event(first.id).await.unwrap(), Some(first));
 
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
     assert_eq!(events.len(), 1);
     assert!(!events[0].payload_json.contains("TMDB_READ_ACCESS_TOKEN"));
     assert!(!events[0].payload_json.contains("F:/"));
+}
+
+#[tokio::test]
+async fn sqlite_store_lists_outbox_events_with_filters_and_pagination() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let source_id = MediaSourceId::new();
+    let other_source_id = MediaSourceId::new();
+    let item_id = MediaItemId::new();
+    let other_item_id = MediaItemId::new();
+
+    for (id, name) in [(library_id, "Movies"), (other_library_id, "Anime")] {
+        store
+            .upsert_library(&Library {
+                id,
+                name: name.to_owned(),
+                roots: vec!["local:///".to_owned()],
+                options: LibraryOptions::from_preset(LibraryPreset::Movies),
+            })
+            .await
+            .unwrap();
+    }
+    for (id, title) in [(item_id, "Demo"), (other_item_id, "Other")] {
+        store
+            .upsert_media_item(&MediaItem {
+                id,
+                kind: MediaKind::Movie,
+                parent_id: None,
+                metadata: CanonicalMetadata {
+                    title: title.to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            })
+            .await
+            .unwrap();
+    }
+    store
+        .upsert_media_source(&MediaSource {
+            id: source_id,
+            library_id,
+            item_id,
+            locator: "local:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: other_source_id,
+            library_id: other_library_id,
+            item_id: other_item_id,
+            locator: "local:///Anime/Other.mkv".to_owned(),
+            file_name: "Other.mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+
+    let scan = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library_id),
+            library_id: Some(library_id),
+            source_id: None,
+            idempotency_key: format!("library_scan:{library_id}"),
+            payload_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+    let metadata = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::ItemMetadataRefreshed,
+            subject: DomainEventSubject::Source(source_id),
+            library_id: Some(library_id),
+            source_id: Some(source_id),
+            idempotency_key: format!("metadata:{source_id}"),
+            payload_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+    let other = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::PlaybackSessionFinished,
+            subject: DomainEventSubject::Source(other_source_id),
+            library_id: Some(other_library_id),
+            source_id: Some(other_source_id),
+            idempotency_key: format!("playback:{other_source_id}"),
+            payload_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let by_kind = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                kind: Some(DomainEventKind::ItemMetadataRefreshed),
+                ..Default::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_kind, vec![metadata.clone()]);
+
+    let by_status = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                status: Some(OutboxEventStatus::Pending),
+                ..Default::default()
+            },
+            PageRequest::new(2, 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_status.len(), 2);
+    assert!(
+        by_status
+            .iter()
+            .all(|event| event.status == OutboxEventStatus::Pending)
+    );
+
+    let by_library = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                library_id: Some(library_id),
+                ..Default::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_library.len(), 2);
+    assert!(by_library.iter().any(|event| event.id == scan.id));
+    assert!(by_library.iter().any(|event| event.id == metadata.id));
+    assert!(!by_library.iter().any(|event| event.id == other.id));
+
+    let by_source = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                source_id: Some(source_id),
+                ..Default::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_source, vec![metadata]);
 }
 
 #[tokio::test]

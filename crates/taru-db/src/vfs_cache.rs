@@ -202,4 +202,31 @@ impl VfsCacheRepository for SqliteStore {
 
         row.map(row_to_vfs_cache_failure).transpose()
     }
+
+    async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                (SELECT COUNT(*) FROM vfs_cache_objects) AS object_count,
+                (SELECT COUNT(*) FROM vfs_cache_listings) AS listing_count,
+                (SELECT COUNT(*) FROM vfs_cache_failures) AS failure_count,
+                (SELECT COUNT(*) FROM vfs_cache_objects WHERE fresh_until_ms < ?1) AS stale_object_count,
+                (SELECT COUNT(*) FROM vfs_cache_listings WHERE fresh_until_ms < ?1) AS stale_listing_count,
+                (SELECT MAX(failed_at_ms) FROM vfs_cache_failures) AS last_failure_at_ms
+            "#,
+        )
+        .bind(now_ms)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(VfsCacheSummary {
+            object_count: i64_to_u64(row_get::<i64>(&row, "object_count")?)?,
+            listing_count: i64_to_u64(row_get::<i64>(&row, "listing_count")?)?,
+            failure_count: i64_to_u64(row_get::<i64>(&row, "failure_count")?)?,
+            stale_object_count: i64_to_u64(row_get::<i64>(&row, "stale_object_count")?)?,
+            stale_listing_count: i64_to_u64(row_get::<i64>(&row, "stale_listing_count")?)?,
+            last_failure_at_ms: row_get(&row, "last_failure_at_ms")?,
+        })
+    }
 }
