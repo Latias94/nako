@@ -1,6 +1,6 @@
 # Android Material Expressive UI — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 — Scope And Evidence Freeze
@@ -83,3 +83,16 @@ Exit criteria:
 - Workstream docs reflect shipped behavior.
 - Follow-on work is split for API gaps, downloads, authoritative User Playback
   State, external player, or V3 exploration.
+
+Status: Completed on 2026-05-18.
+
+Closeout evidence:
+
+- Android unit tests passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`.
+- Android debug assemble passed:
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`.
+- Rust formatting passed: `cargo fmt --all -- --check`.
+- Rust workspace tests passed:
+  `cargo nextest run --workspace --no-fail-fast` with 364 tests passed.
+- Diff hygiene passed: `git diff --check`.

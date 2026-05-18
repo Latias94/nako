@@ -1,6 +1,6 @@
 # Android Material Expressive UI
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 This workstream owns the first production-grade Android UI rewrite after the

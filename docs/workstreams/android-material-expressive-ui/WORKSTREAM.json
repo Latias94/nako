@@ -1,11 +1,11 @@
 {
   "slug": "android-material-expressive-ui",
   "title": "Android Material Expressive UI",
-  "status": "active",
+  "status": "completed",
   "last_updated": "2026-05-18",
-  "summary": "Production-grade V2 Android UI rewrite using Material 3, optional dynamic color, local artwork accents, restrained motion, and clean Compose UI boundaries.",
+  "summary": "Completed production-grade V2 Android UI rewrite using Material 3, optional dynamic color, local artwork accents, restrained motion, and clean Compose UI boundaries.",
   "current_milestone": "M5",
-  "current_task": "AME-060",
+  "current_task": null,
   "task_prefix": "AME",
   "owners": {
     "planner": "codex",
@@ -27,6 +27,7 @@
   "notes": [
     "V2 regular Compose-friendly layout is the initial target.",
     "V3 irregular geometry is deferred.",
-    "Compatibility with old UI implementation is not required; Public Client API and playback boundaries are required."
+    "Compatibility with old UI implementation is not required; Public Client API and playback boundaries are required.",
+    "Final closeout gates passed on 2026-05-18: Android unit tests, Android debug assemble, cargo fmt check, cargo nextest workspace, and git diff check."
   ]
 }

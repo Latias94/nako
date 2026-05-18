@@ -1,6 +1,6 @@
 # Android Material Expressive UI
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -132,3 +132,25 @@ This lane can close when:
 - final Android build/test gates are fresh;
 - remaining API gaps are split into follow-on workstreams instead of hidden in
   client-only behavior.
+
+## Closeout Result
+
+Completed on 2026-05-18.
+
+The Android UI now has the V2 Material 3 Expressive baseline across Home,
+Libraries, Browse Facets, Media Item Detail, Source / Version Picker, Player,
+Settings Home, and Server Profile. The shipped implementation keeps the V2
+regular Compose-friendly geometry, optional dynamic color, local artwork
+accents, adaptive phone/tablet chrome, safe diagnostics, and existing Public
+Client API and Media3 ownership boundaries.
+
+Deferred follow-ons are explicit:
+
+- V3 irregular/freeform geometry exploration.
+- Authoritative User Playback State and cross-device Continue Watching.
+- Richer media source technical facts, track/subtitle selection, chapters, and
+  source-level diagnostics through Public Client API support.
+- Downloads/offline playback, external player handoff, picture-in-picture, and
+  advanced player gestures.
+- Compose clipboard API migration after the replacement API is adopted in this
+  app's Compose baseline.

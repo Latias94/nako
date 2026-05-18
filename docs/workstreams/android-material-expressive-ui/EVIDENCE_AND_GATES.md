@@ -1,6 +1,6 @@
 # Android Material Expressive UI — Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -105,3 +105,29 @@ Use `review-workstream` before accepting each AME task and
   `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
   `git diff --check`; emulator install/launch screenshot sanity check for
   Home, Settings, and Server Profile surfaces.
+- 2026-05-18: `AME-060` completed final verification and closeout for the V2
+  Android UI rewrite. Review found no blocking workstream-compliance or
+  code-quality issues for closure; residual items are explicit follow-ons.
+  Fresh validation passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+  (`BUILD SUCCESSFUL`);
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`
+  (`BUILD SUCCESSFUL`);
+  `cargo fmt --all -- --check`;
+  `cargo nextest run --workspace --no-fail-fast` (364 tests passed, 0 skipped);
+  `git diff --check`.
+
+## Follow-On Work
+
+- Explore V3 irregular/freeform layouts only after the V2 Android baseline has
+  shipped and design references justify the extra implementation cost.
+- Add authoritative User Playback State and cross-device Continue Watching via
+  a Public Client API/server workstream before showing that as real client
+  state.
+- Expand Public Client API support for richer source technical facts,
+  track/subtitle selection, chapters, and source-level diagnostics before
+  surfacing those controls as first-class Android UI.
+- Plan downloads/offline playback, external player handoff, picture-in-picture,
+  and advanced player gestures as separate Android/player workstreams.
+- Replace deprecated `LocalClipboardManager` usage when the Compose clipboard
+  replacement is clear in the app's Compose baseline.

@@ -1,12 +1,12 @@
 # Android Material Expressive UI Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Current State
 
-The workstream is open. `AME-010`, `AME-020`, `AME-030`, `AME-040`, and
-`AME-050` have been completed and validated.
+The workstream is closed. `AME-010`, `AME-020`, `AME-030`, `AME-040`,
+`AME-050`, and `AME-060` have been completed and validated.
 
 The Android Client Foundation is complete and already provides:
 
@@ -17,18 +17,17 @@ The Android Client Foundation is complete and already provides:
 - playback session inspect/cancel client methods;
 - device-local transient playback position boundaries.
 
-## Next Task
+## Closeout Result
 
-Run `AME-060`: verify the completed V2 UI rewrite, update final evidence, and
-close or split follow-on work.
+`AME-060` verified the completed V2 UI rewrite and closed the lane.
 
-Recommended implementation order:
+Fresh closeout gates passed on 2026-05-18:
 
-1. Run fresh Android unit tests, debug assemble, and diff hygiene checks.
-2. Run broader Rust gates if closeout touches shared/public API files.
-3. Review remaining API gaps and split follow-ons instead of hiding them in
-   Android-only behavior.
-4. Close the workstream or record explicit deferred V3 exploration.
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`
+- `cargo fmt --all -- --check`
+- `cargo nextest run --workspace --no-fail-fast` with 364 tests passed
+- `git diff --check`
 
 ## Constraints To Preserve
 
@@ -96,6 +95,18 @@ Recommended implementation order:
   Mitigation: keep it optional and use static Taru dark roles as default.
 - Artwork-derived accents can hurt contrast. Mitigation: provide contrast-safe
   fallbacks and keep accents local.
-- Screen rewrite can accidentally change Public Client API assumptions.
-  Mitigation: preserve existing client tests and add UI-facing tests only where
-  behavior changes.
+
+## Follow-Ons
+
+- V3 irregular/freeform geometry remains deferred until the V2 baseline has
+  shipped and can be evaluated against real use.
+- Authoritative User Playback State and cross-device Continue Watching need a
+  Public Client API/server workstream before Android can present them as real
+  state.
+- Richer source technical facts, track/subtitle selection, chapters, and
+  source-level diagnostics need explicit Public Client API support before the
+  Android UI can promote them to first-class controls.
+- Downloads/offline playback, external player handoff, picture-in-picture, and
+  advanced player gestures remain separate Android/player workstreams.
+- Deprecated `LocalClipboardManager` usage should be migrated when the Compose
+  clipboard replacement is clear for this app baseline.

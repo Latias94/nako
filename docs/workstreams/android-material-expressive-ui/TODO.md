@@ -1,6 +1,6 @@
 # Android Material Expressive UI — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## M0 — Scope And Evidence Freeze
@@ -69,11 +69,13 @@ Last updated: 2026-05-18
 
 ## M5 — Verification And Closeout
 
-- [ ] AME-060 [owner=planner] [deps=AME-030,AME-040,AME-050] [scope=docs/workstreams/android-material-expressive-ui,apps/android]
+- [x] AME-060 [owner=planner] [deps=AME-030,AME-040,AME-050] [scope=docs/workstreams/android-material-expressive-ui,apps/android]
   Goal: Verify the completed V2 UI rewrite, update evidence, close or split
   follow-on work.
   Validation: Android unit tests, debug assemble, `cargo fmt --all -- --check`,
   `cargo nextest run --workspace --no-fail-fast`, and `git diff --check`.
   Review: Use review-workstream and verify-rust-workstream before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
-  Handoff: Record remaining API gaps and deferred V3 exploration.
+  Handoff: Completed. Final gates passed on 2026-05-18. Remaining API gaps,
+  player feature depth, clipboard API migration, and deferred V3 exploration
+  are recorded as follow-ons.
