@@ -1,7 +1,7 @@
 # Addon Library File Write Policy TODO
 
-Status: Active
-Last updated: 2026-05-18
+Status: Completed
+Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
 
@@ -52,11 +52,16 @@ Last updated: 2026-05-18
 
 ## M3 - Closeout Or Split
 
-- [ ] ALFW-040 [owner=planner] [deps=ALFW-030] [scope=docs/workstreams/addon-library-file-write-policy,docs/api]
+- [x] ALFW-040 [owner=planner] [deps=ALFW-030] [scope=docs/workstreams/addon-library-file-write-policy,docs/api]
   Goal: Close the file-write lane or split remaining subtitle/NFO/sidecar
   breadth into narrower follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
-  Review: review-workstream has no blocking findings.
+  Review: no blocking findings. ALFW-030 satisfies the selected first-slice
+  contract without leaking raw payloads, Source Locators, filesystem paths,
+  remote handles, backup URIs, or unredacted write reports. The Addon handler
+  delegates file persistence to first-party NFO/VFS seams and does not recreate
+  NFO import, scan-source, or search-projection persistence ordering.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Recommend the next lane only after Library File Write authority and
-  redaction guarantees are stable.
+  Handoff: Lane is closed. Continue with a focused follow-on for subtitle file
+  writes, broader NFO behavior, arbitrary sidecar asset writes, or queued
+  Library File Write execution only when that product priority is explicit.

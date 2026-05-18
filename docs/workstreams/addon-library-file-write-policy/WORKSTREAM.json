@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "addon-library-file-write-policy",
   "title": "Addon Library File Write Policy",
-  "status": "active",
-  "updated": "2026-05-18",
+  "status": "completed",
+  "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Addon-initiated subtitle, NFO, and sidecar writes need a Taru-owned Library File Write boundary before addons can safely change media-library files.",
   "authoritative_docs": [
@@ -52,8 +52,8 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "ALFW-040",
-  "first_slice": "Close out the first Library File Write slice or split remaining subtitle, NFO, and sidecar breadth into follow-ons",
+  "current_task": null,
+  "first_slice": "MediaSource-targeted addon-initiated Taru-owned NFO export apply path",
   "non_goals": [
     "direct addon filesystem or remote storage access",
     "Addon Manager lifecycle automation",
@@ -67,7 +67,7 @@
     "source": "subtitle, NFO, and Library File Write breadth split from Canonical Metadata protected-write proof"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with ALFW-040: review the verified MediaSource-targeted NFO export apply path, then close this lane or split remaining subtitle, broader NFO, and sidecar-asset write behavior into follow-ons."
+    "default_action": "close",
+    "notes": "ALFW-040 closeout is complete. The first safe Library File Write path is shipped for MediaSource-targeted NFO Export. Subtitle writes, broader NFO behavior, arbitrary sidecar asset writes, and queued Library File Write execution should be opened as narrower follow-ons when prioritized."
   }
 }

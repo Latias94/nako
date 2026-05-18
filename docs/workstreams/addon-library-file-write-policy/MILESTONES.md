@@ -1,7 +1,7 @@
 # Addon Library File Write Policy Milestones
 
-Status: Proposed
-Last updated: 2026-05-18
+Status: Completed
+Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
 
@@ -19,6 +19,8 @@ Primary evidence:
 - `docs/workstreams/addon-library-file-write-policy/DESIGN.md`
 - `docs/workstreams/addon-protected-writes/HANDOFF.md`
 
+Result: completed in ALFW-010.
+
 ## M1 - File Write Seam Audit
 
 Outcome: NFO, subtitle, VFS, backup, and Addon Side Effect seams are classified
@@ -35,6 +37,9 @@ Primary gates:
 
 - `rg -n "Library File Write|subtitle|NFO|nfo|StorageWriteRequest|StorageWriteReport|StorageBackupPolicy|atomic_replace|backup|sidecar" crates docs`
 - `git diff --check`
+
+Result: completed in ALFW-020. MediaSource-targeted Taru-owned NFO Export was
+selected as the first bounded apply target.
 
 ## M2 - First File Write Apply Slice
 
@@ -55,6 +60,10 @@ Primary gates:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+Result: completed in ALFW-030 with synchronous first-party NFO/VFS execution,
+typed payloads, redacted aggregate reports, idempotent replay, and focused
+HTTP/NFO/VFS/DB tests.
+
 ## M3 - Closeout Or Split
 
 Outcome: the first file-write path is complete enough to close, or subtitle,
@@ -65,3 +74,7 @@ Exit criteria:
 - Fresh command evidence is recorded.
 - HTTP/API docs reflect shipped behavior.
 - Remaining subtitle/NFO/sidecar breadth is completed, deferred, or split.
+
+Result: completed in ALFW-040. This lane closes after the first NFO Export
+Library File Write path; remaining subtitle, broader NFO, sidecar asset, and
+queued execution scope is deferred to future follow-ons.

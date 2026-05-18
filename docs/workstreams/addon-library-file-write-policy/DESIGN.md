@@ -1,7 +1,7 @@
 # Addon Library File Write Policy
 
-Status: Active
-Last updated: 2026-05-18
+Status: Completed
+Last updated: 2026-05-19
 
 ## Why This Lane Exists
 
@@ -134,3 +134,27 @@ This lane can close when:
   tested;
 - targeted Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
   pass.
+
+## Closeout Outcome
+
+This lane is closed after ALFW-040. ALFW-020 selected MediaSource-targeted
+Taru-owned NFO Export as the first bounded Library File Write target, and
+ALFW-030 implemented it through the existing Addon Side Effect, NFO, VFS,
+backup, and redaction seams.
+
+The shipped path is intentionally narrow:
+
+- the only accepted file role is `nfo`;
+- the only accepted target kind is `media_source`;
+- the addon supplies policy intent, never paths, Source Locators, remote
+  handles, backup URIs, or raw NFO XML;
+- `create_missing` skips existing sidecars;
+- `replace_existing_preserving` uses NFO Round Trip rendering, VFS atomic
+  replace, existing-file backup, and retention diagnostics;
+- responses expose only IDs, safe status fields, and aggregate redacted
+  counters.
+
+Remaining subtitle, broader NFO, arbitrary sidecar asset, and queued
+file-write execution behavior is deliberately deferred. Each follow-on should
+open with its own target derivation, content validation, write policy, and
+redaction matrix instead of widening this completed first-slice lane.

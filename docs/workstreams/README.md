@@ -57,9 +57,10 @@ attention.
   Taru-Managed Artifact intake, fetch/cache policy, resource budgets, and safe
   diagnostics.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
-  proposed follow-on for addon-initiated subtitle, NFO, and sidecar-asset
-  Library File Write behavior through Taru target derivation, storage/VFS,
-  backup policy, and redacted write reports.
+  completed follow-on for the first addon-initiated Library File Write path,
+  proving MediaSource-targeted Taru-owned NFO Export through Taru target
+  derivation, storage/VFS, backup policy, redacted write reports, and
+  idempotent replay.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing

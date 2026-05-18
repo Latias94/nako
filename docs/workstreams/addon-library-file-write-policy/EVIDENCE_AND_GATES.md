@@ -1,7 +1,7 @@
 # Addon Library File Write Policy Evidence And Gates
 
-Status: Active
-Last updated: 2026-05-18
+Status: Completed
+Last updated: 2026-05-19
 
 ## Smallest Current Repro
 
@@ -195,3 +195,44 @@ NFO, API, or repository boundaries.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     the edited files.
+
+2026-05-19, ALFW-040 closeout review and split:
+
+- ALFW-030 was committed as `785ffe6 feat(addons): apply media source nfo
+  library file writes`.
+- Review result:
+  - Workstream compliance has no blocking findings. The shipped behavior
+    matches the selected first target: MediaSource-targeted Taru-owned NFO
+    Export through `library_file_write`.
+  - Code-quality review has no blocking findings. The Addon handler
+    authenticates, validates, records, and delegates; it does not own NFO XML
+    rendering, storage writes, NFO import persistence, scan-source updates, or
+    search-projection ordering.
+  - Redaction review has no blocking findings. Responses and stored
+    `apply_report` values expose only safe IDs/statuses and aggregate counters,
+    not raw payloads, Source Locators, filesystem paths, remote handles, backup
+    URIs, `StorageUri`, or `StorageWriteReport`.
+- Closeout decision:
+  - Close this lane after the first Library File Write path. Do not broaden the
+    completed lane with subtitle, arbitrary sidecar, broader NFO, or queued
+    execution semantics.
+  - Future subtitle file writes need a first-party subtitle/track model,
+    language/format validation, conflict policy, and safe report shape.
+  - Future arbitrary sidecar asset writes need content-type and target
+    derivation rules before accepting addon payloads.
+  - Future queued Library File Write execution needs truthful queued/job
+    association semantics before `apply_status` can represent deferred work.
+- Final closeout gates after ALFW-040 documentation edits:
+  - `Get-Content -Raw docs\workstreams\addon-library-file-write-policy\WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    exited 0.
+  - `cargo fmt --all -- --check` exited 0.
+  - `git diff --check` exited 0. Git reported Windows LF-to-CRLF working-copy
+    warnings only; no whitespace errors were reported.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`
+    exited 0.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+    exited 0 with 8 selected tests passed.
+- ALFW status is now completed. The recommended next addon lane is
+  `addon-managed-artwork-artifacts` if poster/backdrop import is the next
+  user-visible plugin value; otherwise open a new subtitle-focused Library File
+  Write follow-on.
