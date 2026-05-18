@@ -4,8 +4,8 @@
   "status": "active",
   "last_updated": "2026-05-18",
   "summary": "Production-grade V2 Android UI rewrite using Material 3, optional dynamic color, local artwork accents, restrained motion, and clean Compose UI boundaries.",
-  "current_milestone": "M2",
-  "current_task": "AME-030",
+  "current_milestone": "M3",
+  "current_task": "AME-040",
   "task_prefix": "AME",
   "owners": {
     "planner": "codex",

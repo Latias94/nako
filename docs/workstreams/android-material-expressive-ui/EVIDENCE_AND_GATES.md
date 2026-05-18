@@ -71,3 +71,12 @@ Use `review-workstream` before accepting each AME task and
 - 2026-05-18: `AME-020` completed with a new Material 3 theme/tokens layer,
   artwork-accent hook, shared UI surfaces, adaptive shell, browse-shell
   integration, and targeted JVM test coverage.
+- 2026-05-18: `AME-030` completed V2 Home, Libraries, and Browse Facet Result
+  surfaces. `HomeScreen` no longer shows fake Continue Watching or unsupported
+  facet shortcuts; `LibrariesScreen` keeps library browsing structural and
+  visible items media-led; `BrowseFacetRouteContent` presents API-backed
+  relationship results and keeps unsupported families explicit API-gap states.
+  Validation passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`;
+  `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
+  `git diff --check`.

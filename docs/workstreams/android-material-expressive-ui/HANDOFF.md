@@ -5,8 +5,8 @@ Last updated: 2026-05-18
 
 ## Current State
 
-The workstream is open. `AME-010` froze the scope and `AME-020` has been
-completed and validated.
+The workstream is open. `AME-010`, `AME-020`, and `AME-030` have been completed
+and validated.
 
 The Android Client Foundation is complete and already provides:
 
@@ -19,15 +19,15 @@ The Android Client Foundation is complete and already provides:
 
 ## Next Task
 
-Run `AME-030`: implement the V2 Home and browse surfaces on top of the new
-foundation.
+Run `AME-040`: implement the V2 Media Item Detail and Source / Version Picker
+on top of the new foundation.
 
 Recommended implementation order:
 
 1. Keep the new theme and shell as the only app chrome foundation.
-2. Rework Home, Libraries, and Browse Facet Result around artwork-led, dense,
-   media-first composition.
-3. Preserve API-backed facets only, and keep fake Continue Watching out.
+2. Rework Media Item Detail around clear playback decision hierarchy.
+3. Move source/version choice toward a picker-style surface without leaking
+   server-local paths.
 4. Run Android unit tests, Android debug assemble, and `git diff --check`.
 
 ## Constraints To Preserve
@@ -47,6 +47,17 @@ Recommended implementation order:
 - `ui/shell` now provides the adaptive phone bottom navigation and tablet rail.
 - `ui/browse/TaruBrowseShell` now routes through the new shell.
 - JVM tests cover artwork accent determinism.
+
+## AME-030 Outcome
+
+- `HomeScreen` now acts as a playback-first launchpad with real server/library
+  context, stable library/search anchors, and visible Media Items.
+- Home no longer shows fake Continue Watching or unsupported facet shortcuts.
+- `LibrariesScreen` now keeps structural Media Libraries first and shows
+  visible Media Items as a media-led grid.
+- `BrowseFacetRouteContent` now has an artwork-led facet header and only treats
+  API-backed Genre, Tag, and Person relationship results as real result pages.
+- Unsupported facet families remain explicit API-gap states.
 
 ## Open Risks
 

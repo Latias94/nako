@@ -29,13 +29,13 @@ Last updated: 2026-05-18
 
 ## M2 — Home And Browse V2
 
-- [ ] AME-030 [owner=unassigned] [deps=AME-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/home,apps/android/app/src/main/java/dev/taru/android/ui/screens/libraries,apps/android/app/src/main/java/dev/taru/android/ui/screens/facet]
+- [x] AME-030 [owner=codex] [deps=AME-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse/HomeScreen.kt,apps/android/app/src/main/java/dev/taru/android/ui/browse/LibrariesScreen.kt,apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseFacetRouteContent.kt]
   Goal: Implement V2 Home, Libraries, Library Detail, and Browse Facet Result
   with artwork-led rails, structural library anchors, API-backed facets only,
   and no fake Continue Watching.
-  Validation: Android unit tests and debug assemble.
+  Validation: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`; `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`; `git diff --check`
   Review: Use review-workstream before accepting completion.
-  Evidence: screen code and updated handoff notes.
+  Evidence: `apps/android/app/src/main/java/dev/taru/android/ui/browse/HomeScreen.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/LibrariesScreen.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseFacetRouteContent.kt`
   Handoff: Split Public Client API gaps rather than inventing local filters.
 
 ## M3 — Detail And Source Picker V2

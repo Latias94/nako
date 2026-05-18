@@ -46,7 +46,13 @@ Exit criteria:
 - Browse Facet Result handles only Public Client API backed facets as real
   results.
 - Empty and loading states use shared components.
-- `AME-030` is the next executable slice.
+- `AME-030` is complete and validated.
+
+Primary gates:
+
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`
+- `git diff --check`
 
 ## M3 — Detail And Source Picker V2
 
