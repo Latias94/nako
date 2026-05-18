@@ -1,7 +1,7 @@
 # Android Client Foundation TODO
 
 Status: Proposed
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 ## Task Ledger
 
@@ -96,10 +96,16 @@ Scope:
   data.
 - Search entry with global title-oriented query, basic result grouping,
   empty/error states, and navigation to detail pages.
+- Browse Facet Result for supported genre, tag, person, studio, collection,
+  year, and item-kind facets exposed by the Public Client API.
+- Detail metadata relationships, including genre, tag, cast/crew preview,
+  studio, collection, and hierarchy entries, should navigate to detail or
+  Browse Facet Result routes instead of one-off pages.
 - Actionable browse/search/detail empty states for empty library, no search
   results, loading timeout, permission denied, no playable source, and source
   unavailable.
-- No advanced facets, sort controls, saved searches, search history,
+- No advanced multi-condition filter builder, arbitrary database-column
+  browsing, editable people/collection pages, saved searches, search history,
   provider-specific search, or cross-server search in the first slice.
 - Settings for server identity, re-authentication, connection diagnostics,
   theme, basic playback/subtitle preference, mobile-network behavior, About,
@@ -153,6 +159,7 @@ Remaining ACF-030 work:
 
 - Library detail route.
 - Search shell and result navigation.
+- Browse Facet Result route for public API backed detail and library facets.
 - Settings shell beyond server switching through the setup surface.
 - Manual debug walkthrough from server connection to item detail against a
   running Taru server fixture.
@@ -198,11 +205,162 @@ Explicit non-goals preserved:
 
 Remaining ACF-030 work:
 
+- Compose UI baseline rewrite before adding more browse surfaces.
 - Library detail route, if needed before playback.
 - Search shell and result navigation.
+- Browse Facet Result route for public API backed genre, tag, person, studio,
+  collection, year, and item-kind facets.
 - Settings shell beyond server switching through the setup surface.
 - Manual debug walkthrough from server connection to item detail against a
   running Taru server fixture.
+
+#### ACF-030C: Compose UI Baseline Rewrite
+
+Status: done_with_concerns
+Owner: codex
+Depends on: ACF-030B
+Implemented: 2026-05-18
+
+Replace the tracer-oriented Compose browse/detail shell with a production
+baseline aligned with `CLIENT_INTERFACE_DESIGN.md` and the reference
+screenshots.
+
+Rationale:
+
+- `ACF-030A` and `ACF-030B` intentionally proved API, active-server, token, and
+  diagnostics behavior before the final UI direction existed.
+- The connection, profile, token, Public Client API client, DTO, diagnostics,
+  and unit-test foundations are valuable and should be retained.
+- The current `TaruBrowseShell` and read-only detail surface are tracer UI.
+  Continuing to add Search, Facet, and Settings on top of that structure would
+  create avoidable UI debt.
+- The implementation may replace tracer UI files outright. Compatibility with
+  temporary tracer screen structure is not required; preserving public client
+  behavior, token safety, and test coverage is required.
+
+Scope:
+
+- Keep existing connection/auth clients, token vault, server profile storage,
+  browse client, DTOs, and tests.
+- Introduce a real app shell with top-level destinations: Home, Libraries,
+  Search, and Settings.
+- Replace tab-based Home/Libraries with Material 3 bottom navigation on phone
+  and a route model that can later support tablet navigation rail/detail panes.
+- Extract reusable Compose components for:
+  - app scaffold and destination navigation;
+  - section headers;
+  - poster cards and compact media rows;
+  - library cards;
+  - metadata and facet chips;
+  - source summary placeholders;
+  - empty, loading, and error states;
+  - settings groups and server profile cards.
+- Rebuild Home and Libraries with the initial reference screenshots as the
+  visual baseline while preserving current API-backed content.
+- Rebuild Media Item Detail as a playback decision layout skeleton using
+  current read-only detail data. Play/Resume and Source / Version Picker remain
+  visual placeholders only until `ACF-040`.
+- Add Settings Home and Server Profile screens using existing profile/token
+  state where possible, without exposing token values.
+- Add first-version-safe expressive behavior: selected-state transitions,
+  subtle press feedback, sheet transitions, inline loading/error feedback, and
+  local artwork-derived muted accents where contrast and fallback behavior are
+  explicit.
+- Keep Search and Browse Facet Result as navigable placeholder destinations
+  only if they are needed to prove shell structure; public search/facet API
+  integration remains a follow-on sub-slice.
+
+Explicit non-goals:
+
+- No Media3 playback.
+- No playback decision or request construction.
+- No Source / Version Picker behavior beyond visual placeholder entry points.
+- No search API integration unless already available and trivial.
+- No advanced facets, editable people/collection pages, or admin surfaces.
+- No complex choreography, global dynamic theme replacement, or required alpha
+  Material Expressive API dependency.
+- No new dependency on server/internal Rust crates.
+
+Validation:
+
+- Existing Android unit tests for connection, browse, and detail remain green.
+- Android debug build passes.
+- Manual debug walkthrough can still connect to a server, load browse content,
+  open a Media Item detail, switch server through Settings or server profile
+  flow, and return to browse.
+- UI never displays access-token values, raw diagnostics, local filesystem
+  paths, FFmpeg commands, provider payloads, or server-local paths.
+
+Implementation completed:
+
+- Replaced the tracer tab shell with a Material 3 `Scaffold`, bottom
+  navigation, explicit route model, animated route transitions, and
+  top-level Home, Libraries, Search, and Settings destinations.
+- Split the former monolithic browse shell into route/state, reusable
+  components, Home, Libraries, Media Item Detail, Settings, placeholders,
+  formatters, and preview files.
+- Rebuilt Home and Libraries using API-backed library and media-item data,
+  retained current loading/empty/error behavior, and added subtle press and
+  loading feedback.
+- Rebuilt Media Item Detail as a playback-decision skeleton with disabled
+  Play/Source placeholders, source summary, metadata chips, Cast & Crew, and
+  relationship rows.
+- Added Settings Home and Server Profile screens backed by the existing server
+  profile snapshot and token vault without displaying token values.
+- Added Compose Material Icons Extended for standard Material iconography.
+
+Validation completed:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed on
+  2026-05-18.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed on
+  2026-05-18.
+- `git diff --check` passed on 2026-05-18 with Windows line-ending
+  normalization warnings only.
+
+Concern:
+
+- Manual debug walkthrough against a running Taru server fixture and Android
+  device/emulator was not executed in this session. ACF-030 remains open until
+  that walkthrough and the remaining search/facet route behavior are validated.
+
+#### ACF-030D: Search, Facet, And Walkthrough Hardening
+
+Status: pending
+Owner: unassigned
+Depends on: ACF-030C
+
+Finish the remaining non-playback browse loop before moving into playback
+decision construction.
+
+Scope:
+
+- Check current Public Client API support for search, library-scoped item
+  browsing, and supported Browse Facets.
+- Wire Search and Browse Facet Result to public API routes when the contract is
+  already explicit; otherwise record the API gap as a follow-up before adding
+  client-only semantics.
+- Add or defer Library Detail based on public API support for library-scoped
+  item pages and facets.
+- Run and record a manual debug walkthrough from server connection to browse,
+  item detail, Settings, Server Profile, and back to browse.
+- Keep the UI baseline from ACF-030C intact; this task should harden routes and
+  behavior, not start a new visual redesign.
+
+Explicit non-goals:
+
+- No Media3 playback.
+- No playback decision or request construction.
+- No advanced query builder, saved searches, search history, provider-specific
+  search, metadata editing, or server administration.
+
+Validation:
+
+- Mocked Android tests cover any newly wired search/facet routes.
+- Manual debug app walkthrough evidence is recorded in
+  `EVIDENCE_AND_GATES.md`.
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passes.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passes.
 
 ### ACF-040: Playback Decision And Request Construction
 

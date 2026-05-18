@@ -1,11 +1,11 @@
 {
   "slug": "android-client-foundation",
-  "status": "proposed",
+  "status": "active",
   "goal": "Android-first client implementation foundation",
   "owner": "codex",
   "created_at": "2026-05-17",
-  "updated_at": "2026-05-17",
-  "current_task": "ACF-030C",
+  "updated_at": "2026-05-18",
+  "current_task": "ACF-030D",
   "architecture_decisions": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],

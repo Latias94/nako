@@ -1,7 +1,7 @@
 # Android Client Foundation
 
 Status: Proposed
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 This workstream tracks the Android-first implementation lane for Taru's native
 client architecture. It turns ADR 0026 into a concrete Android foundation while
@@ -11,6 +11,7 @@ Authoritative docs:
 
 - [Design](DESIGN.md)
 - [UX context](UX_CONTEXT.md)
+- [Client interface direction](CLIENT_INTERFACE_DESIGN.md)
 - [Task ledger](TODO.md)
 - [Milestones](MILESTONES.md)
 - [Evidence and gates](EVIDENCE_AND_GATES.md)

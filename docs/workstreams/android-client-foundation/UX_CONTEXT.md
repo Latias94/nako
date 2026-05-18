@@ -172,6 +172,7 @@ paths, FFmpeg commands, raw provider payloads, or server-local output paths.
 
 - Library Detail
 - Media Item Detail
+- Browse Facet Result
 - Series Detail
 - Season Detail
 - Episode Detail
@@ -252,6 +253,9 @@ First-version priorities:
 - Source / Version selection when multiple playable choices exist;
 - title, year, duration, overview, genres, tags, ratings, and content rating
   when available;
+- compact Cast & Crew preview when supported by public data;
+- tappable genre, tag, person, and collection chips that lead into supported
+  browse results;
 - basic technical facts surfaced near playback choice instead of as an
   exhaustive MediaInfo dump;
 - clear hierarchy navigation for series, seasons, and episodes;
@@ -262,10 +266,51 @@ First-version non-goals for detail pages:
 
 - metadata editing;
 - NFO state or provider mapping diagnostics;
-- full people/credits exploration;
+- full people/credits exploration or biography pages;
 - review/comment systems;
 - administrator actions;
 - raw storage or FFmpeg diagnostics.
+
+## Browse Facet Result Baseline
+
+Browse Facet Result is the reusable screen for supported metadata-driven
+exploration.
+
+It should be used when a user taps a genre, tag, person, studio, or collection
+chip from Media Item Detail, Library Detail, or any other supported browse
+surface.
+
+First-version purposes:
+
+- show a supported facet value as the active browse scope;
+- list matching Media Items across the active server profile and the allowed
+  library scope;
+- preserve the user's ability to open the matching Media Item detail or related
+  hierarchy page;
+- keep the same empty, loading, unauthorized, and unreachable behaviors as
+  other browse surfaces.
+
+First-version supported facet families:
+
+- Genre;
+- Tag;
+- Person, initially limited to role-aware entry points such as Actor,
+  Director, and Writer when the backing data supports them;
+- Studio;
+- Franchise Collection or other supported collection-like grouping;
+- Year or Release Year when backed by explicit public data;
+- Media Item kind when needed for result grouping.
+
+First-version non-goals:
+
+- arbitrary advanced filter builders;
+- saved facet searches;
+- editable people or collection pages;
+- biography, credits, or filmography products;
+- client-invented database-column browsing.
+
+Browse Facet Result must only expose facets that the Public Client API
+explicitly supports.
 
 ## Source / Version Picker Baseline
 
@@ -311,7 +356,8 @@ First-version search should include:
 - basic result grouping by item kind or hierarchy, such as movie, series,
   episode, and unknown;
 - empty, unreachable-server, and unauthorized states;
-- result navigation to the matching detail page.
+- result navigation to the matching detail page or a supported browse facet
+  result when the result itself is a facet entry.
 
 First-version search should not include:
 
@@ -516,6 +562,8 @@ Initial direction:
 - image-led browsing with clear poster/backdrop hierarchy;
 - dense enough for repeated browsing, but not admin-dashboard dense;
 - tactile motion and transitions that support mood and focus, not decoration;
+- local artwork-derived accent on browse, detail, source selection, and player
+  surfaces when contrast and fallback behavior are explicit;
 - predictable Android gestures and system back behavior;
 - tablet layouts should use additional width for grids and detail context,
   not oversized decorative hero sections.
@@ -559,7 +607,8 @@ This baseline explicitly does not define:
 - complete brand color system;
 - illustration style;
 - marketing screenshot art direction;
-- complex motion language;
+- complex choreography, global dynamic theme replacement, or alpha-only
+  expressive API dependency;
 - TV visual system.
 
 ## First-Version Non-Goals
@@ -568,5 +617,6 @@ This baseline explicitly does not define:
 - No TV ten-foot UI.
 - No full offline/download manager.
 - No cast route UI.
-- No people/collection-first exploration model.
+- No top-level people/collection-first exploration model. Detail-driven
+  Browse Facet Result routes are allowed when backed by public facets.
 - No admin console inside the mobile client.

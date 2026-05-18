@@ -1,7 +1,7 @@
 # Android Client Foundation Evidence And Gates
 
 Status: Proposed
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 This file defines validation expectations for the Android-first client lane.
 Android scaffold commands are authoritative after `ACF-010`.
@@ -123,6 +123,50 @@ Remaining validation before full `ACF-030` can close:
 - mocked tests for search navigation;
 - manual debug app walkthrough from server connection to item detail against a
   running Taru server fixture.
+
+## Android Compose UI Baseline Rewrite Gates
+
+Validated for `ACF-030C` on 2026-05-18:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
+- `git diff --check` passed with line-ending normalization warnings only.
+
+What this proves:
+
+- Existing connection, token, server-profile, browse pagination, detail decode,
+  safe request redaction, sanitized diagnostics, active-server switching, and
+  token-reference isolation tests still pass after the Compose rewrite.
+- The Android debug APK builds with the new Material 3 browse shell, split
+  screen/component structure, and Material Icons Extended dependency.
+- The rewritten UI keeps Android outside the Rust Cargo workspace and does not
+  introduce Media3, UniFFI, playback decisions, downloads, external-player
+  handoff, or server/internal Rust crate dependencies.
+
+Changed Android UI/build scope:
+
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseComponents.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseFormatters.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseModels.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/HomeScreen.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/LibrariesScreen.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/MediaItemDetailScreen.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/PlaceholderScreens.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/SettingsScreens.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt`
+- `apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt`
+- `apps/android/app/build.gradle.kts`
+- `apps/android/gradle/libs.versions.toml`
+
+Gates not run:
+
+- Manual debug walkthrough against a running Taru server fixture was not run in
+  this session because no fixture/device walkthrough was started. Track this in
+  `ACF-030D`.
+- Rust `cargo fmt`, `cargo check`, and `cargo nextest` were not rerun for
+  `ACF-030C` because this change touched Android Kotlin/Compose, Gradle, and
+  workstream documentation only; no Rust crate code or Cargo manifests changed.
 
 ## Shared Rust Client-Core Gates
 

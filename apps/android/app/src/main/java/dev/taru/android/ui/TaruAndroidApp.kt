@@ -71,8 +71,13 @@ fun TaruAndroidAppContent(
         TaruBrowseShell(
             modifier = modifier,
             profile = activeProfile,
+            snapshot = snapshot,
             tokenVault = tokenVault,
             browseClient = browseClient,
+            onSnapshotChanged = { next ->
+                store.save(next)
+                snapshot = next
+            },
             onChangeServer = { showConnection = true },
         )
     }

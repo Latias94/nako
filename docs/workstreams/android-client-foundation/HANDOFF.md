@@ -1,7 +1,7 @@
 # Android Client Foundation Handoff
 
 Status: Proposed
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 ## Current State
 
@@ -60,6 +60,24 @@ Implemented item detail tracer:
   forbidden diagnostics, unsupported API version, invalid response, missing
   item, active-server URL switching, and token-reference isolation.
 
+Implemented Compose UI baseline rewrite:
+
+- Replaced the tracer Home/Libraries tab shell with a Material 3 bottom
+  navigation app shell and explicit routes for top-level destinations, Media
+  Item Detail, Browse Facet placeholder, and Server Profile.
+- Split browse UI into route/state, reusable components, Home, Libraries,
+  Media Item Detail, Settings, placeholders, formatters, and preview files.
+- Home and Libraries still use the existing Public Client API browse client and
+  DTOs, including loading, empty, and sanitized failure states.
+- Media Item Detail is now a playback-decision skeleton with disabled
+  Play/Source placeholders, source summary, metadata chips, Cast & Crew, and
+  relationship rows.
+- Settings Home and Server Profile now use the existing server profile snapshot
+  and token vault without displaying token values.
+- `TaruAndroidAppContent` now passes the real profile snapshot into the browse
+  shell and persists profile switches from Server Profile.
+- Added Compose Material Icons Extended for standard Material iconography.
+
 Resolved decisions:
 
 - Android is the first implementation target.
@@ -78,12 +96,20 @@ Resolved decisions:
   logic to justify the packaging cost.
 - The playback client visual baseline is Findroid-inspired and expressive-leaning, not an
   admin-console shell.
+- The initial implementation baseline is v2 regular layout: Compose-friendly,
+  Material 3 based, and expressive through restrained motion and artwork-muted
+  accents rather than v3 irregular geometry.
 
 ## Next Task
 
-Continue with the next `ACF-030` sub-slice: Search shell and result
-navigation, or Settings shell if server switching/re-authentication should be
-hardened first.
+Continue with the next `ACF-030` sub-slice: `ACF-030D` Search, Facet, And
+Walkthrough Hardening.
+
+The visual direction is documented in `CLIENT_INTERFACE_DESIGN.md` and
+reference screenshots live under
+`docs/workstreams/android-client-foundation/reference-screenshots/`. ACF-030C
+has translated that baseline into Compose code. The next step is not another
+visual rewrite; it is API-fit and route hardening.
 
 Preserve the `ACF-020`, `ACF-030A`, and `ACF-030B` boundaries: consume Public
 Client API DTOs from the active server profile, keep token values out of
@@ -93,9 +119,11 @@ external-player work until their own tasks.
 
 Recommended next task:
 
-- `ACF-030C`: add a minimal Search shell using Public Client API search once
-  the exact route query contract is confirmed, then navigate results to the
-  existing read-only Media Item detail surface.
+- `ACF-030D`: check current Public Client API support for Search, Library
+  Detail, and Browse Facet Result; wire only explicit public routes; document
+  gaps instead of inventing client-only semantics; then run the manual debug
+  walkthrough from connection to browse, item detail, Settings, Server Profile,
+  and back to browse.
 
 ## Risks To Preserve
 
@@ -117,5 +145,8 @@ validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`
 and `apps/android/gradlew.bat -p apps/android :app:assembleDebug`; final
 closeout should also keep `cargo check --workspace --tests` and
 `git diff --check` green. `ACF-030B` validated
-`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`; final
-closeout should rerun the full Android/Rust gate set.
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`. `ACF-030C`
+validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
+`apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
+`git diff --check` on 2026-05-18. Manual server/device walkthrough is still
+pending and should be recorded under `ACF-030D`.

@@ -1,7 +1,7 @@
 # Android Client Foundation Milestones
 
 Status: Proposed
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 ## ACF-M0: Scope And Architecture Baseline
 
@@ -111,12 +111,22 @@ Progress:
   - client-safe Canonical Metadata, response counts, and detail error states;
   - mocked API tests for detail decode, diagnostics, invalid response,
     unsupported API version, active-server switching, and token redaction.
+- `ACF-030C` implementation completed with concerns on 2026-05-18:
+  - Material 3 bottom navigation shell with Home, Libraries, Search, and
+    Settings destinations;
+  - split Compose screen/component structure for browse, detail, Settings,
+    placeholders, formatters, and preview;
+  - Media Item Detail playback-decision skeleton without activating playback;
+  - Settings Home and Server Profile surfaces without token display;
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 
 Remaining before milestone completion:
 
-- search shell;
-- settings shell;
-- manual walkthrough from connection to item detail.
+- Search and Browse Facet Result API integration or explicit API-gap follow-up;
+- Library Detail route if the public API supports library-scoped item pages;
+- manual walkthrough from connection to browse, item detail, Settings, Server
+  Profile, and back to browse.
 
 ## ACF-M4: Playback Decision Loop
 
