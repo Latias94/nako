@@ -79,10 +79,12 @@ async fn search_route_returns_indexed_items() {
     let result = request_json::<taru_api::SearchResponse>(
         &router,
         Method::GET,
-        "/search?q=route&facet=genre:test",
+        "/search?q=route&facet=genre:test&limit=12&offset=0",
     )
     .await;
 
+    assert_eq!(result.page.limit, 12);
+    assert_eq!(result.page.offset, 0);
     assert_eq!(result.page.returned, 1);
     assert_eq!(result.hits[0].item.id, item.id.to_string());
 }

@@ -170,8 +170,14 @@ Gates not run:
 
 ## Android Search, Facet, And Walkthrough Hardening Gates
 
-Validated for the implemented portion of `ACF-030D` on 2026-05-18:
+Validated for `ACF-030D` on 2026-05-18:
 
+- `cargo fmt --all -- --check` passed.
+- `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+  passed: 3 catalog HTTP tests passed, including
+  `search_route_returns_indexed_items` with `limit=12&offset=0`.
+- `cargo build -p taru-server` passed with pre-existing unused-code warnings
+  in server runtime/config scaffolding.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 - `git diff --check` passed with Windows line-ending normalization warnings
@@ -197,6 +203,33 @@ What this proves:
 - Existing connection, token, server-profile, browse pagination, detail decode,
   sanitized diagnostics, active-server switching, and token-reference isolation
   tests still pass after the route hardening.
+- The public `/search?q=&limit=&offset=` route accepts numeric pagination
+  query values from real HTTP clients. The Android walkthrough exposed a
+  server-side query deserialization bug when `/search?q=Harbor&limit=24&offset=0`
+  returned `invalid type: string "24", expected u32`; the server fix removes
+  flattened pagination from `SearchPageQuery` and adds test coverage for the
+  route query shape.
+
+Manual real-server walkthrough evidence on 2026-05-18:
+
+- Device/emulator: `Pixel_3a_API_34_extension_level_7_x86_64`
+  (`emulator-5554`).
+- Server: local `target\debug\taru-server.exe --config
+  tmp/android_real_server_fixture\taru.toml serve` on `127.0.0.1:3018`, reached
+  by Android through `adb reverse tcp:3018 tcp:3018`.
+- Fixture: one Movies library item, `Night Harbor`, imported through scan and
+  NFO import with Genre `Mystery`, Tag `Lighthouse`, one credit, and one media
+  source candidate.
+- Verified HTTP route: `/search?q=Harbor&limit=24&offset=0` returned 200 with
+  `Night Harbor` and page `{ limit: 24, offset: 0, returned: 1 }`.
+- Verified UI flow: connection/setup to `http://127.0.0.1:3018`, Home,
+  Libraries, Media Item Detail, Search query `Harbor`, Search result
+  `Night Harbor` with `100%` score, Genre Browse Facet Result for `Mystery`
+  showing `Related Media Items` and `Night Harbor`, Settings, Server Profile,
+  and return to Home.
+- Verified token safety: Settings and Server Profile showed secure-token copy
+  such as `Stored securely on this device` and `Sanitized report`; the
+  walkthrough UI dumps did not show the raw walkthrough token.
 
 API gaps intentionally not implemented in Android under `ACF-030D`:
 
@@ -210,12 +243,10 @@ API gaps intentionally not implemented in Android under `ACF-030D`:
 
 Gates not run:
 
-- Manual debug walkthrough against a running Taru server fixture and Android
-  device/emulator was not run in this session. `ACF-030D` remains
-  implemented-pending-walkthrough until that evidence is captured.
-- Rust `cargo fmt`, `cargo check`, and `cargo nextest` were not rerun because
-  this change touched Android Kotlin/Compose and workstream documentation only;
-  no Rust crate code or Cargo manifests changed.
+- Full `cargo nextest run --workspace --no-fail-fast` was not rerun because the
+  Rust change is scoped to the `taru-server` `/search` HTTP query parser and
+  catalog route test. The targeted `taru-server` catalog HTTP suite plus
+  `cargo build -p taru-server` cover the changed server behavior.
 
 ## Shared Rust Client-Core Gates
 

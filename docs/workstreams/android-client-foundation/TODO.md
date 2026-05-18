@@ -326,9 +326,10 @@ Concern:
 
 #### ACF-030D: Search, Facet, And Walkthrough Hardening
 
-Status: implemented_pending_manual_walkthrough
+Status: complete
 Owner: codex
 Depends on: ACF-030C
+Completed: 2026-05-18
 
 Finish the remaining non-playback browse loop before moving into playback
 decision construction.
@@ -395,16 +396,24 @@ API gaps recorded:
 
 Validation completed on 2026-05-18:
 
+- `cargo fmt --all -- --check` passed.
+- `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+  passed.
+- `cargo build -p taru-server` passed with pre-existing unused-code warnings.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 - `git diff --check` passed with Windows line-ending normalization warnings
   only.
-
-Remaining before ACF-030D can close:
-
-- Manual debug walkthrough against a running Taru server fixture and Android
-  device/emulator from connection to browse, item detail, Search, Browse Facet
-  Result, Settings, Server Profile, and back to browse.
+- Manual debug walkthrough passed on
+  `Pixel_3a_API_34_extension_level_7_x86_64` against a real local
+  `taru-server` fixture on `127.0.0.1:3018` with `adb reverse tcp:3018`.
+  The flow covered connection/setup, Home, Libraries, Media Item Detail,
+  Search, Genre Browse Facet Result, Settings, Server Profile, and return to
+  Home.
+- The walkthrough exposed and verified a server-side `/search` pagination
+  query parsing fix. `SearchPageQuery` now owns explicit `limit` and `offset`
+  fields instead of relying on flattened pagination under the `/search` query
+  shape.
 
 ### ACF-040: Playback Decision And Request Construction
 

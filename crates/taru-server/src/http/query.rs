@@ -14,8 +14,17 @@ pub(super) struct SearchPageQuery {
     #[serde(default)]
     pub(super) q: String,
     pub(super) facet: Option<String>,
-    #[serde(flatten)]
-    pub(super) page: PageQuery,
+    pub(super) limit: Option<u32>,
+    pub(super) offset: Option<u64>,
+}
+
+impl SearchPageQuery {
+    pub(super) fn page(&self) -> PageQuery {
+        PageQuery {
+            limit: self.limit,
+            offset: self.offset,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]

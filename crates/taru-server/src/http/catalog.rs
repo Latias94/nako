@@ -140,7 +140,7 @@ pub(super) async fn search_items(
     State(app): State<TaruApp>,
     Query(query): Query<SearchPageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let page = query.page.try_into()?;
+    let page = query.page().try_into()?;
     let facets = query
         .facet
         .as_deref()

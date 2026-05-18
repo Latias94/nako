@@ -68,7 +68,7 @@ Candidate validation:
 
 ## ACF-M3: Browse-To-Item Loop
 
-Status: in_progress
+Status: complete
 
 Exit criteria:
 
@@ -120,7 +120,7 @@ Progress:
   - Settings Home and Server Profile surfaces without token display;
   - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
   - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
-- `ACF-030D` implementation completed pending manual walkthrough on 2026-05-18:
+- `ACF-030D` completed on 2026-05-18:
   - Search top-level destination is backed by the public `/search` route;
   - Browse Facet Result loads public Genre, Tag, and Person related-item routes
     when a stable facet id is available;
@@ -128,13 +128,20 @@ Progress:
     missing-id targets are explicit API-gap states, not client-only filters;
   - mocked Android tests cover search encoding/decoding and genre/tag/person
     related-item route construction;
+  - real-server walkthrough covered connection/setup, Home, Libraries, Media
+    Item Detail, Search, Genre Browse Facet Result, Settings, Server Profile,
+    and return to Home;
+  - server-side `/search` pagination query parsing was fixed and covered by
+    `taru-server` catalog HTTP tests;
+  - `cargo fmt --all -- --check` passed;
+  - `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+    passed;
+  - `cargo build -p taru-server` passed;
   - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
   - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 
-Remaining before milestone completion:
+Follow-ups after milestone completion:
 
-- manual walkthrough from connection to browse, item detail, Settings, Server
-  Profile, Search, Browse Facet Result, and back to browse;
 - Public Client API follow-up for library-scoped item pages and the unsupported
   Studio, Collection, Year, and Item Kind facet routes if they are required
   before playback.

@@ -121,8 +121,9 @@ Resolved decisions:
 
 ## Next Task
 
-Finish `ACF-030D` manual validation, then decide whether to close ACF-030 or
-split the remaining API gaps into a Public Client API follow-up.
+Start `ACF-040` playback decision and request construction. `ACF-030D` is
+complete: Search, supported Browse Facet Result routes, real-server
+walkthrough, and the server-side `/search` pagination parser fix are validated.
 
 The visual direction is documented in `CLIENT_INTERFACE_DESIGN.md` and
 reference screenshots live under
@@ -138,19 +139,13 @@ activation, or external-player work until their own tasks.
 
 Recommended next task:
 
-- Run and record the manual debug walkthrough against a running Taru server
-  fixture and Android device/emulator:
-  - connection/setup;
-  - Home browse;
-  - Libraries browse;
-  - Media Item Detail;
-  - Search result navigation;
-  - Browse Facet Result for a real Genre/Tag/Person id if fixture data exists;
-  - Settings;
-  - Server Profile;
-  - return to browse.
-- Record whether the remaining API gaps should become a Public Client API
-  workstream before `ACF-040`.
+- Audit the current Public Client API playback decision routes and DTOs.
+- Define the smallest Android `ACF-040` slice that keeps Play/Resume and
+  Source / Version Picker behavior client-safe.
+- Wire Android request construction only to explicit public playback routes;
+  do not activate Media3 playback until `ACF-050`.
+- Keep the remaining browse API gaps as follow-ups unless playback work proves
+  one is blocking source selection.
 
 ## Risks To Preserve
 
@@ -176,7 +171,11 @@ closeout should also keep `cargo check --workspace --tests` and
 validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
 `git diff --check` on 2026-05-18. `ACF-030D` validated
+`cargo fmt --all -- --check`,
+`cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`,
+`cargo build -p taru-server`,
 `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
-`git diff --check` on 2026-05-18. Manual server/device walkthrough is still
-pending and should be recorded before closing `ACF-030D`.
+`git diff --check` on 2026-05-18. Manual server/device walkthrough passed on
+`Pixel_3a_API_34_extension_level_7_x86_64` against a real local `taru-server`
+fixture.
