@@ -74,6 +74,41 @@ Captured surfaces:
 - matching `*.uiautomator.xml` files
 - matching `*.criteria.txt` pass/fail files
 
+### profile-with-media
+
+Command:
+
+```powershell
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
+```
+
+Use this when evidence must prove the Android media path against real Public
+Client API responses. The script installs the debug APK, clears app data,
+prepares the `Night Harbor` demo fixture through
+`scripts/Start-DemoFixtureServer.ps1`, starts a local `taru-server`, applies
+`adb reverse`, then seeds one debug-only Server Profile plus an encrypted token
+value through the app's real profile store and token vault.
+
+Expected result:
+
+- exactly one local Server Profile named `Smoke Server` is present;
+- the token value is stored only in the Android token vault and is redacted from
+  generated reports;
+- Home shows `Night Harbor` and visible Media Library facts from the server;
+- detail, source picker, and player surfaces are reached through Public Client
+  API route shapes;
+- generated evidence is written under
+  `apps/android/build/smoke/<timestamp>-profile-with-media-<serial>/`.
+
+Captured surfaces:
+
+- `home.png`
+- `detail.png`
+- `source-picker.png`
+- `player.png`
+- matching `*.uiautomator.xml` files
+- matching `*.criteria.txt` pass/fail files
+
 ## Safety Rules
 
 - Do not commit generated screenshots or smoke reports by default.
@@ -82,6 +117,8 @@ Captured surfaces:
 - Do not fake server-backed User Playback State, Continue Watching, or
   unsupported browse facets as real client data.
 - Use Public Client API responses or Android-local app state only.
+- The `profile-with-media` profile seed entry point exists only in the debug
+  APK. Release builds must not expose smoke fixture writers.
 
 ## Deferred Fixtures
 
@@ -89,9 +126,6 @@ These states need more work and should not be hand-waved into the smoke script:
 
 - `profile-empty-library`: requires a public, token-safe server/profile fixture
   that can show Home and Settings without private data.
-- `profile-with-media`: requires server-backed demo Media Libraries, Media
-  Items, detail responses, and playback decisions through the Public Client
-  API.
-- `playback-ready`: requires an explicit media source fixture and player-safe
-  stream target; split this from Android-only smoke work if it needs server
-  changes.
+- `playback-ready`: the demo fixture currently prefers direct-play MP4 for a
+  player-safe launch target. Full playback quality, HLS/remux, and session
+  cancellation smoke remain deferred until they have explicit gates.

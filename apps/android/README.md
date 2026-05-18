@@ -70,6 +70,7 @@ build:
 .\scripts\Smoke-Emulator.ps1 -ResetAppData
 .\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token -SkipBuild
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
 ```
 
 The script builds `:app:assembleDebug` by default, installs the debug APK to a
@@ -92,4 +93,27 @@ Settings, and Server Profile shell screenshots without a real server. It seeds
 one local Server Profile with no token value, so Home intentionally shows the
 safe re-authentication state instead of fake media data.
 
+Use `-FixtureState profile-with-media` when you need repeatable Home, detail,
+source picker, and player-safe launch evidence from real Public Client API
+responses. The script prepares and starts the server-backed `Night Harbor`
+fixture, applies `adb reverse`, and seeds the debug APK through its real profile
+store and encrypted token vault. Generated screenshots and reports remain local
+under `apps/android/build/smoke/`.
+
 Fixture and state rules live in `SMOKE_FIXTURES.md`.
+
+## Server-Backed Demo Fixture
+
+Use the demo fixture server directly when Android work needs real Public Client
+API media responses outside the full emulator smoke flow:
+
+```powershell
+.\scripts\Start-DemoFixtureServer.ps1 -PrepareOnly
+.\scripts\Start-DemoFixtureServer.ps1 -AdbReverse
+```
+
+The script prepares a generated local Movies library with `Night Harbor`, runs
+`taru-server scan` and `import-nfo`, and starts a loopback server at
+`http://127.0.0.1:3018` unless `-PrepareOnly` is passed. Generated fixture data
+is written under `apps/android/build/demo-fixtures/server-backed/` and should
+not be committed.

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "slug": "android-server-backed-demo-fixtures",
+  "title": "Android Server-Backed Demo Fixtures",
+  "status": "closed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Android emulator smoke can prove shell states, but not real media/detail/source/player flows because no deterministic Public Client API-backed fixture state exists.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/MILESTONES.md"
+    },
+    {
+      "role": "route-matrix",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/ROUTE_MATRIX.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:assembleDebug --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1 -FixtureState profile-with-media"
+  ],
+  "evidence": [
+    {
+      "task": "ASD-010",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/DESIGN.md",
+      "notes": "Planning and Public Client API fixture boundary freeze."
+    },
+    {
+      "task": "ASD-020",
+      "path": "docs/workstreams/android-server-backed-demo-fixtures/ROUTE_MATRIX.md",
+      "notes": "Route matrix and first fixture provider strategy."
+    },
+    {
+      "task": "ASD-030",
+      "path": "apps/android/scripts/Start-DemoFixtureServer.ps1",
+      "notes": "Seeded local taru-server fixture provider for Night Harbor direct-play media smoke."
+    },
+    {
+      "task": "ASD-040",
+      "path": "apps/android/scripts/Smoke-Emulator.ps1",
+      "notes": "Android profile-with-media smoke state for Night Harbor Home, detail, source picker, and player-safe launch evidence."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "stop",
+    "notes": "Workstream closed on 2026-05-18. Start a new follow-on lane for CI, golden visual diffing, or deeper HLS/remux/playback validation."
+  }
+}

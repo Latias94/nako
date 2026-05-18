@@ -117,8 +117,6 @@ data class ClientDirectPlayPlan(
 
 @Serializable
 data class ClientTranscodePlan(
-    @SerialName("input_locator")
-    val inputLocator: String,
     @SerialName("output_container")
     val outputContainer: ClientOutputContainer,
     @SerialName("video_codec")

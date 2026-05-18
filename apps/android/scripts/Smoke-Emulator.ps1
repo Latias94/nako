@@ -2,8 +2,10 @@
 param(
     [string]$Serial,
     [string]$OutputRoot,
-    [ValidateSet('current-state', 'empty-setup', 'profile-missing-token')]
+    [ValidateSet('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media')]
     [string]$FixtureState = 'current-state',
+    [int]$FixtureServerPort = 3018,
+    [string]$FixtureAccessToken = 'demo-fixture-token',
     [switch]$SkipBuild,
     [switch]$ResetAppData
 )
@@ -89,6 +91,148 @@ function Invoke-Adb {
     }
 }
 
+function Wait-ForHttpHealth {
+    param(
+        [string]$BaseUrl,
+        [System.Diagnostics.Process]$Process,
+        [int]$TimeoutSeconds = 20
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $healthUrl = "$BaseUrl/health"
+    $lastError = $null
+    while ((Get-Date) -lt $deadline) {
+        if ($Process -ne $null -and $Process.HasExited) {
+            throw "Fixture server exited before health check passed. Exit code: $($Process.ExitCode)"
+        }
+
+        try {
+            $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 2
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+                return
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "Fixture server health check did not pass at '$healthUrl'. Last error: $lastError"
+}
+
+function Start-SmokeFixtureServer {
+    param(
+        [string]$ServerBinary,
+        [string]$ConfigPath,
+        [string]$OutputDir
+    )
+
+    $stdoutPath = Join-Path $OutputDir 'fixture-server.stdout.log'
+    $stderrPath = Join-Path $OutputDir 'fixture-server.stderr.log'
+    return Start-Process `
+        -FilePath $ServerBinary `
+        -ArgumentList @('--config', $ConfigPath, 'serve') `
+        -PassThru `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $stdoutPath `
+        -RedirectStandardError $stderrPath
+}
+
+function Stop-SmokeFixtureServer {
+    param(
+        [System.Diagnostics.Process]$Process
+    )
+
+    if ($Process -eq $null -or $Process.HasExited) {
+        return
+    }
+
+    Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    $Process.WaitForExit(5000) | Out-Null
+}
+
+function Start-SmokeMediaFixtureProvider {
+    param(
+        [string]$ScriptDir,
+        [string]$AndroidRoot,
+        [string]$OutputDir,
+        [int]$Port,
+        [bool]$SkipServerBuild
+    )
+
+    $providerScript = Join-Path $ScriptDir 'Start-DemoFixtureServer.ps1'
+    if (-not (Test-Path -LiteralPath $providerScript)) {
+        throw "Fixture provider script was not found at '$providerScript'."
+    }
+
+    $providerArgs = @{
+        PrepareOnly = $true
+        Port = $Port
+    }
+    if ($SkipServerBuild) {
+        $providerArgs.SkipBuild = $true
+    }
+
+    & $providerScript @providerArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Demo fixture provider preparation failed.'
+    }
+
+    $summaryPath = Join-Path $AndroidRoot 'build\demo-fixtures\server-backed\summary.json'
+    if (-not (Test-Path -LiteralPath $summaryPath)) {
+        throw "Fixture provider summary was not found at '$summaryPath'."
+    }
+
+    $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+    $process = Start-SmokeFixtureServer `
+        -ServerBinary $summary.server_binary `
+        -ConfigPath $summary.config `
+        -OutputDir $OutputDir
+
+    Wait-ForHttpHealth -BaseUrl $summary.base_url -Process $process
+
+    return [pscustomobject]@{
+        Summary = $summary
+        Process = $process
+    }
+}
+
+function Install-SmokeMediaProfileFixture {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$BaseUrl,
+        [string]$AccessToken
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+        throw 'Fixture access token must be non-empty.'
+    }
+
+    $component = 'dev.taru.android/.smoke.DebugSmokeFixtureSeedActivity'
+    $startedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $output = & $AdbPath -s $DeviceSerial shell am start -W -n $component `
+        --es base_url $BaseUrl `
+        --es access_token $AccessToken `
+        --el checked_at_millis $startedAt 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb seed media profile fixture failed.`n$output"
+    }
+
+    $safeOutput = (($output | Out-String) -replace [regex]::Escape($AccessToken), '<redacted>').TrimEnd()
+    $seedPath = Join-Path $OutputDir 'profile-with-media-seed.txt'
+    Write-Utf8File -Path $seedPath -Content @"
+Seed activity: $component
+Base URL: $BaseUrl
+Display name: Smoke Server
+Access token: <redacted>
+ADB output:
+$safeOutput
+"@
+}
+
 function Wait-ForBootComplete {
     param(
         [string]$AdbPath,
@@ -129,8 +273,8 @@ function Resolve-FixtureState {
             return 'empty-setup'
         }
 
-        if ($RequestedFixtureState -ne 'empty-setup') {
-            throw '-ResetAppData can only be combined with the default fixture state or -FixtureState empty-setup.'
+        if ($RequestedFixtureState -notin @('empty-setup', 'profile-with-media')) {
+            throw '-ResetAppData can only be combined with the default fixture state, -FixtureState empty-setup, or -FixtureState profile-with-media.'
         }
     }
 
@@ -294,6 +438,53 @@ function Wait-ForUiText {
     throw "Timed out waiting for UI text '$Text'. Last UI dump error: $lastError"
 }
 
+function Test-UiText {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$Text,
+        [string]$DumpName
+    )
+
+    $dumpPath = Get-UiDump -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $DumpName
+    [xml]$hierarchy = Get-Content -LiteralPath $dumpPath -Raw
+    $values = Get-UiTextValues -Hierarchy $hierarchy
+    return $values -contains $Text
+}
+
+function Swipe-Up {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial
+    )
+
+    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'swipe', '540', '1500', '540', '520', '450') -FailureMessage 'adb swipe up failed.'
+}
+
+function Swipe-UntilUiText {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$Text,
+        [int]$MaxSwipes = 4
+    )
+
+    for ($attempt = 0; $attempt -le $MaxSwipes; $attempt += 1) {
+        if (Test-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $Text -DumpName "swipe-$Text-$attempt") {
+            return
+        }
+
+        if ($attempt -lt $MaxSwipes) {
+            Swipe-Up -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+            Start-Sleep -Milliseconds 750
+        }
+    }
+
+    throw "Could not find UI text '$Text' after $MaxSwipes swipe(s)."
+}
+
 function Tap-UiText {
     param(
         [string]$AdbPath,
@@ -374,7 +565,7 @@ $gradlew = Join-Path $androidRoot 'gradlew.bat'
 $adb = Resolve-AdbPath
 $deviceSerial = Get-ConnectedDeviceSerial -AdbPath $adb -RequestedSerial $Serial
 $stateMode = Resolve-FixtureState -RequestedFixtureState $FixtureState -RequestedResetAppData ([bool]$ResetAppData)
-$clearsAppData = $stateMode -in @('empty-setup', 'profile-missing-token')
+$clearsAppData = $stateMode -in @('empty-setup', 'profile-missing-token', 'profile-with-media')
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $androidRoot 'build\smoke'
@@ -383,6 +574,11 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $outputDir = Join-Path $OutputRoot "$timestamp-$stateMode-$deviceSerial"
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+$fixtureServerProcess = $null
+$fixtureReversePort = $null
+$fixtureBaseUrl = $null
+
+try {
 
 if (-not $SkipBuild) {
     Push-Location $androidRoot
@@ -407,10 +603,30 @@ Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'install', '-r', '-d'
 if ($clearsAppData) {
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'pm', 'clear', 'dev.taru.android') -FailureMessage 'adb app data reset failed.'
 }
+if ($stateMode -eq 'profile-with-media') {
+    $fixtureProvider = Start-SmokeMediaFixtureProvider `
+        -ScriptDir $scriptDir `
+        -AndroidRoot $androidRoot `
+        -OutputDir $outputDir `
+        -Port $FixtureServerPort `
+        -SkipServerBuild ([bool]$SkipBuild)
+    $fixtureServerProcess = $fixtureProvider.Process
+    $fixtureBaseUrl = $fixtureProvider.Summary.base_url
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'reverse', "tcp:$FixtureServerPort", "tcp:$FixtureServerPort") -FailureMessage 'adb reverse failed for profile-with-media.'
+    $fixtureReversePort = $FixtureServerPort
+    Install-SmokeMediaProfileFixture `
+        -AdbPath $adb `
+        -DeviceSerial $deviceSerial `
+        -OutputDir $outputDir `
+        -BaseUrl $fixtureBaseUrl `
+        -AccessToken $FixtureAccessToken
+}
 if ($stateMode -eq 'profile-missing-token') {
     Install-SmokeProfileFixture -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 }
-Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop failed.'
+if ($stateMode -ne 'profile-with-media') {
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop failed.'
+}
 Wake-Device -AdbPath $adb -DeviceSerial $deviceSerial
 
 $launchPath = Join-Path $outputDir 'launch.txt'
@@ -465,6 +681,42 @@ if ($stateMode -eq 'empty-setup') {
         'Server Access Token',
         'Token reference is stored locally; token value is never shown.'
     )
+} elseif ($stateMode -eq 'profile-with-media') {
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 35
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
+        'Smoke Server',
+        'Night Harbor',
+        'Media Libraries',
+        '1 visible',
+        'Open detail'
+    )
+
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Open detail'
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
+        'Night Harbor',
+        'Check source',
+        'Needs check'
+    )
+
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source'
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Direct' -TimeoutSeconds 25
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Source / Version'
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start playback'
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker' -RequiredText @(
+        'Source / Version',
+        'Night Harbor.mp4',
+        'Direct route prepared',
+        'Start playback'
+    )
+
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start playback'
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 25
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'player' -RequiredText @(
+        'Night Harbor',
+        'Direct',
+        'Tracks and subtitles use Media3 controls in this version.'
+    )
 } else {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'launch'
 }
@@ -487,6 +739,8 @@ $report = @"
 - Build step: $(if ($SkipBuild) { 'skipped' } else { 'assembleDebug' })
 - State mode: $stateMode
 - Reset app data: $clearsAppData
+- Fixture server base URL: $(if ($fixtureBaseUrl) { $fixtureBaseUrl } else { 'n/a' })
+- Fixture reverse port: $(if ($fixtureReversePort) { "tcp:$fixtureReversePort" } else { 'n/a' })
 - Launch activity: dev.taru.android/.MainActivity
 - Launch output: launch.txt
 - Surface evidence:
@@ -501,4 +755,10 @@ Write-Host "Launch output: $launchPath"
 Write-Host "Surface evidence:"
 $surfaceEvidence | ForEach-Object {
     Write-Host "- $($_.Name): $($_.Screenshot)"
+}
+} finally {
+    if ($fixtureReversePort -ne $null) {
+        & $adb -s $deviceSerial reverse --remove "tcp:$fixtureReversePort" *> $null
+    }
+    Stop-SmokeFixtureServer -Process $fixtureServerProcess
 }
