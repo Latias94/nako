@@ -43,10 +43,6 @@ impl InboundAuthState {
 }
 
 pub(super) async fn require_auth(request: Request, next: Next) -> Response {
-    if is_health_request(&request) {
-        return next.run(request).await;
-    }
-
     let Some(auth) = request.extensions().get::<InboundAuthState>().cloned() else {
         return unauthorized_response();
     };
@@ -68,8 +64,8 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
     }
 }
 
-fn is_health_request(request: &Request) -> bool {
-    request.uri().path() == "/health"
+pub(super) fn request_bearer_token(headers: &HeaderMap) -> Option<&str> {
+    bearer_token(headers)
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<&str> {

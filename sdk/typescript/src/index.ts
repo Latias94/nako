@@ -67,7 +67,6 @@ export interface ClientPlaybackDecision {
 export interface ClientTranscodePlan {
   audio_codec: string | null;
   hardware_acceleration: "none" | "vaapi" | "nvenc" | "quick_sync";
-  input_locator: string;
   output_container: "hls" | "mp4" | "mkv";
   video_codec: string | null;
 }
@@ -265,7 +264,6 @@ export interface MediaSourceDto {
   id: string;
   item_id: string;
   library_id: string;
-  locator: string;
   size_bytes: number | null;
 }
 

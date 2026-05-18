@@ -72,6 +72,8 @@ define_id!(AutomationArtifactId);
 define_id!(WebhookEndpointId);
 define_id!(WebhookDeliveryAttemptId);
 define_id!(AddonId);
+define_id!(AddonTokenId);
+define_id!(AddonGrantId);
 define_id!(PersonId);
 define_id!(GenreId);
 define_id!(TagId);

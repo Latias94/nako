@@ -116,3 +116,13 @@ pub struct VfsCacheFailure {
     pub failure_count: u32,
     pub error: String,
 }
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct VfsCacheSummary {
+    pub object_count: u64,
+    pub listing_count: u64,
+    pub failure_count: u64,
+    pub stale_object_count: u64,
+    pub stale_listing_count: u64,
+    pub last_failure_at_ms: Option<i64>,
+}

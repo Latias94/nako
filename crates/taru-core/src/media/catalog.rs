@@ -113,6 +113,20 @@ pub struct CatalogItemGraphReplacement {
     pub images: Vec<ImageAsset>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CatalogSearchProjection {
+    pub item_id: MediaItemId,
+    pub title: String,
+    pub body: String,
+    pub facets: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CatalogItemProjectionCommit {
+    pub graph: CatalogItemGraphReplacement,
+    pub search: CatalogSearchProjection,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImageOwner {

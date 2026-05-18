@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     NewStagingManifestRecord, NewVfsCacheFailure, Result, StagingManifestId, StagingManifestRecord,
-    StagingPurpose, StagingState, VfsCacheFailure, VfsCacheOperation, VfsCachedListing,
-    VfsCachedObject,
+    StagingPurpose, StagingState, VfsCacheFailure, VfsCacheOperation, VfsCacheSummary,
+    VfsCachedListing, VfsCachedObject,
 };
 
 #[async_trait]
@@ -27,6 +27,8 @@ pub trait VfsCacheRepository: Send + Sync {
         uri: &str,
         operation: VfsCacheOperation,
     ) -> Result<Option<VfsCacheFailure>>;
+
+    async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary>;
 }
 
 #[async_trait]

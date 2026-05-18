@@ -232,7 +232,6 @@ pub struct MediaSourceDto {
     pub id: String,
     pub library_id: String,
     pub item_id: String,
-    pub locator: String,
     pub file_name: String,
     pub size_bytes: Option<u64>,
     pub fingerprint: Option<String>,
@@ -278,7 +277,6 @@ pub struct ClientDirectPlayPlan {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientTranscodePlan {
-    pub input_locator: String,
     pub output_container: ClientOutputContainer,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,

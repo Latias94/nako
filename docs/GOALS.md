@@ -26,13 +26,747 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal. Recommended next goal: M47 NFO Round Trip
-preservation, because export still regenerates only Taru-known XML and can
-eventually damage existing hand-authored or other-media-server NFO fields unless
-unknown XML preservation, partial update, and conflict reporting are designed
-before library file write/link policy work.
+No active implementation goal is currently documented. Recommended next goal:
+provider mapping list/detail read model, duplicate Source review queue, NFO
+sidecar status read model, deeper extension operations, or admin warning list
+diagnostics.
 
 ## Completed Goals
+
+### M60: Admin Catalog Governance Item Queue
+
+Status: completed.
+
+Objective:
+
+- Add the first Admin API v1 catalog governance read model for unknown and
+  low-confidence Media Items.
+- Keep Local Inference, Provider Mapping, and duplicate Source relationship
+  query shape behind a narrow repository port.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- `CatalogGovernanceRepository` and SQLite read-model adapter.
+- `GET /admin/v1/catalog/governance/items` with optional `library_id`,
+  `max_confidence_milli`, `limit`, and `offset` filters.
+- Redacted admin-owned DTOs for governance item rows and Local Inference
+  summaries.
+- Focused repository, DTO, route, redaction, auth, and public-boundary tests.
+- Updated HTTP API, admin-web-console, and workstream docs.
+
+Non-goals:
+
+- No catalog repair mutation.
+- No provider rematch mutation.
+- No NFO import/export behavior changes.
+- No Source Variant, Edition, or Duplicate UI workflow.
+- No Public Client API route or DTO changes.
+- No `taru-client-protocol` changes.
+
+Exit criteria:
+
+- Unknown Media Items are listed.
+- Non-unknown Media Items with best Local Inference confidence at or below the
+  requested threshold are listed.
+- High-confidence items are excluded from the queue.
+- Rows include source count, representative source identity/file name,
+  Local Inference confidence/inferred fields, Provider Mapping counts, and
+  duplicate relationship count.
+- Responses do not expose source locators, local paths, raw Local Inference
+  `evidence_value`, raw provider responses, NFO sidecar paths, tokens, or
+  secret values.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+
+Evidence:
+
+- `CatalogGovernanceRepository` keeps the governance SQL joins inside
+  `taru-db`.
+- `AdminCatalogGovernanceItemListResponse` and related DTOs expose only
+  redacted admin fields.
+- `GET /admin/v1/catalog/governance/items` returns unknown and low-confidence
+  queue rows through Admin API v1.
+- Tests cover SQLite filtering/exclusion, DTO redaction, route filtering,
+  route redaction, auth protection, and public OpenAPI/SDK exclusion.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-core --tests`, `cargo check -p taru-db --tests`, `cargo nextest run -p
+  taru-db catalog_governance --no-fail-fast` with 1 test passed, `cargo check
+  -p taru-api --tests`, `cargo nextest run -p taru-api
+  admin_catalog_governance --no-fail-fast` with 1 test passed, `cargo check -p
+  taru-server --tests`, `cargo nextest run -p taru-server http::tests::system
+  --no-fail-fast` with 12 tests passed, public OpenAPI/SDK leakage checks,
+  `git diff --check`, and `git diff --name-only --
+  crates/taru-client-protocol`.
+
+### M57-M59: Admin Operations Read Models Batch
+
+Status: completed.
+
+Objective:
+
+- Add read-only Admin API v1 operational diagnostics for event outbox
+  list/filter, storage staging/cache diagnostics, and sanitized server
+  configuration diagnostics.
+- Use admin-owned redacted DTOs and route-level tests.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- `GET /admin/v1/events` for event outbox list/filter by kind, status, Media
+  Library, Media Source, and pagination.
+- `GET /admin/v1/storage/staging` for redacted staging manifest rows plus
+  staging budget/startup cleanup/VFS cache summary diagnostics.
+- `GET /admin/v1/system/config` for sanitized auth, library, runtime,
+  metadata, transcode, staging, and playback configuration diagnostics.
+- Admin-owned DTOs in `taru-api::admin`.
+- Focused repository, DTO, route, redaction, auth, and boundary tests.
+- Updated HTTP API, admin-web-console, and workstream docs.
+
+Non-goals:
+
+- No Public Client API route or DTO changes.
+- No `taru-client-protocol` changes.
+- No public OpenAPI or TypeScript SDK expansion.
+- No admin mutation routes for event retry, staging cleanup, or config edits.
+- No event detail route and no raw event payload exposure.
+- No frontend UI implementation.
+
+Exit criteria:
+
+- Admin Console can list/filter event outbox rows through `/admin/v1/events`
+  without seeing `payload_json`, idempotency keys, raw errors, local paths, or
+  secret values.
+- Admin Console can inspect staging/cache state through
+  `/admin/v1/storage/staging` without seeing staging local paths, full source
+  URIs, raw cache URIs, validation error text, or cache error text.
+- Admin Console can inspect sanitized server configuration through
+  `/admin/v1/system/config` without seeing database URLs, local roots, FFmpeg
+  paths, staging roots, WebDAV URLs/usernames/password references, metadata
+  proxy values, literal header values, or resolved secrets.
+- Existing Public Client API routes remain compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API, DB, and server validation gates pass.
+
+Evidence:
+
+- `AdminOutboxEventListResponse`, `AdminStorageStagingDiagnosticsResponse`,
+  and `AdminServerConfigDiagnosticsResponse` expose admin-owned redacted DTOs.
+- `OutboxEventListFilter` and SQLite filtering support event outbox
+  list/filter by kind, status, Media Library, Media Source, and pagination.
+- `VfsCacheSummary` and staging manifest reads support safe staging/cache
+  diagnostics without exposing cache URIs or raw cache errors.
+- Route tests cover event payload/idempotency/error redaction, staging
+  path/source/cache redaction, sanitized config redaction, and auth protection.
+- Public OpenAPI and TypeScript SDK leakage checks still exclude admin/internal
+  surfaces.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-db --tests`, `cargo nextest run -p taru-db outbox --no-fail-fast` with
+  2 tests passed, `cargo check -p taru-api --tests`, `cargo nextest run -p
+  taru-api --no-fail-fast` with 19 tests passed, `cargo check -p taru-server
+  --tests`, `cargo nextest run -p taru-server http::tests::system
+  --no-fail-fast` with 11 tests passed, public OpenAPI/SDK leakage checks,
+  `git diff --check`, and `git diff --name-only --
+  crates/taru-client-protocol`.
+
+### M56: Admin Playback Runtime Diagnostics
+
+Status: completed.
+
+Objective:
+
+- Add a read-only Admin API v1 playback runtime diagnostics surface for the web
+  console.
+- Explain hardware acceleration policy, selected acceleration, FFmpeg
+  capability evidence, transcode budgets, remote playback budgets, and staging
+  cleanup configuration.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- Admin-owned playback runtime diagnostics DTOs in `taru-api::admin`.
+- Playback app diagnostics snapshot support in `taru-server`.
+- `GET /admin/v1/playback/runtime`.
+- Focused API/server tests for shape, redaction, auth, and public leakage.
+- Updated admin-web-console and HTTP API data-source notes.
+- Workstream evidence and closeout docs.
+
+Non-goals:
+
+- No Public Client API route or DTO changes.
+- No `taru-client-protocol` changes.
+- No public OpenAPI or TypeScript SDK expansion.
+- No playback session mutations.
+- No playback source selection deepening.
+- No adaptive HLS ladder or FFmpeg runner behavior changes.
+- No frontend UI implementation.
+
+Exit criteria:
+
+- Admin Console can read playback runtime diagnostics through
+  `/admin/v1/playback/runtime`.
+- The response includes hardware policy, selected acceleration, FFmpeg
+  capabilities, transcode budgets, remote stream/stage budget summaries, and
+  staging cleanup summaries.
+- The response does not expose local paths, staging roots, transcode
+  `output_path`, secrets, tokens, or process-local runner handles.
+- Existing Public Client API playback routes remain compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API and server validation gates pass.
+
+Evidence:
+
+- `AdminPlaybackRuntimeDiagnosticsResponse` and related admin DTOs expose the
+  safe diagnostics shape.
+- `PlaybackRuntimeDiagnostics` captures playback runtime state without moving
+  server internals into HTTP handlers.
+- `GET /admin/v1/playback/runtime` returns hardware policy/selection, FFmpeg
+  capability summaries, transcode/remux budgets, remote playback budget
+  summaries, and staging cleanup summaries.
+- Tests cover DTO serialization, route behavior, local-path redaction, auth
+  protection, public OpenAPI exclusion, and TypeScript SDK leakage.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 17
+  tests passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast` with 8 tests passed, public
+  OpenAPI/SDK leakage checks, `git diff --check`, and `git diff --name-only
+  -- crates/taru-client-protocol`.
+
+### M55: Admin Playback Session List Read Model
+
+Status: completed.
+
+Objective:
+
+- Add a safe Admin API v1 playback session list/filter read model for the web
+  console.
+- Back it with focused repository/app support, admin-owned redacted DTOs, and
+  HTTP tests.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- Transcode session list/filter support in `taru-core`/`taru-db`.
+- Admin-owned playback session list DTOs in `taru-api::admin`.
+- `GET /admin/v1/playback/sessions` route and focused HTTP tests.
+- Updated admin-web-console data-source notes after route support lands.
+- Workstream evidence and closeout docs.
+
+Non-goals:
+
+- No Public Client API route changes.
+- No `taru-client-protocol` changes.
+- No public OpenAPI or TypeScript SDK expansion.
+- No playback session mutations beyond existing known-ID cancel route.
+- No transcode runner, hardware acceleration, FFmpeg, or resource-budget
+  behavior changes.
+- No frontend UI implementation.
+
+Exit criteria:
+
+- Admin Console can list/filter playback sessions by state, kind, Media Source,
+  and pagination through `/admin/v1/playback/sessions`.
+- Admin list responses do not expose local `output_path`, staging roots,
+  filesystem paths, or process-local runtime internals.
+- Existing Public Client API session detail/cancel routes remain compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API, DB, and server validation gates pass.
+
+Evidence:
+
+- `TranscodeSessionListFilter` and SQLite list/filter support back
+  `/admin/v1/playback/sessions`.
+- `AdminPlaybackSessionListItem` and `AdminPlaybackSessionListResponse` provide
+  redacted admin-owned DTOs without `output_path` or raw failure messages.
+- Focused tests cover source/kind/state filtering, pagination, route behavior,
+  redaction, and auth protection.
+- Existing Public Client API session detail/cancel routes remain unchanged.
+- Public OpenAPI and TypeScript SDK tests still exclude admin/internal
+  surfaces.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast`, `cargo
+  check -p taru-db --tests`, `cargo nextest run -p taru-db transcode
+  --no-fail-fast`, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast`, public OpenAPI/SDK leakage
+  checks, `git diff --check`, and `git diff --name-only --
+  crates/taru-client-protocol`.
+
+### M54: Durable Job Runtime And Admin Job List Read Model
+
+Status: completed.
+
+Objective:
+
+- Deepen Taru's server-side durable job runtime so common job lifecycle
+  behavior is owned by one Module instead of being duplicated in scan,
+  metadata, and NFO workflows.
+- Add `GET /admin/v1/jobs` as the first Admin API v1 Jobs/Tasks read model for
+  the web console.
+- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+  boundaries.
+
+Deliverables:
+
+- A durable job lifecycle Module in `taru-server`.
+- Migrated scan, metadata refresh/maintenance, and NFO import/export job
+  execution paths.
+- Job list/filter repository support in `taru-core`/`taru-db`.
+- Admin-owned job list DTOs in `taru-api::admin`.
+- `GET /admin/v1/jobs` route and focused HTTP tests.
+- Updated admin-web-console data-source notes after job list support lands.
+- Workstream evidence and closeout docs.
+
+Non-goals:
+
+- No frontend UI implementation or scaffold.
+- No generic distributed queue, retry policy, resumable execution, or worker
+  process model.
+- No Addon Task execution semantics.
+- No broad job cancellation unless a narrow read-model need proves it.
+- No playback session list/filter in this slice.
+- No Public Client API, public SDK, or `taru-client-protocol` changes.
+
+Exit criteria:
+
+- Existing scan, metadata, and NFO job behavior is preserved.
+- Common start/succeed/fail handling and summary serialization have one
+  authoritative implementation.
+- Admin Console can list/filter jobs through `/admin/v1/jobs`.
+- Existing root-level `GET /jobs/{job_id}` remains compatible.
+- Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
+- Focused API, DB, and server validation gates pass.
+
+Evidence:
+
+- `taru-server::app::job_runtime` centralizes durable job lifecycle handling
+  for scan, metadata, and NFO workflows.
+- `GET /admin/v1/jobs` is backed by `JobListFilter`, SQLite list/filter
+  support, and redacted `AdminJobListItem` DTOs.
+- Summary serialization failures now persist durable jobs as failed.
+- Existing root-level `GET /jobs/{job_id}` remains compatible.
+- Public OpenAPI and TypeScript SDK tests still exclude admin/internal
+  surfaces.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 15
+  tests passed, `cargo check -p taru-db --tests`, `cargo nextest run -p
+  taru-db jobs --no-fail-fast` with 2 tests passed, `cargo check -p
+  taru-server --tests`, `cargo nextest run -p taru-server app::job_runtime
+  --no-fail-fast` with 3 tests passed, `cargo nextest run -p taru-server
+  app::tests::nfo --no-fail-fast` with 3 tests passed, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast` with 6 tests passed, public
+  OpenAPI/SDK leakage checks, `git diff --check`, and `git diff --name-only
+  -- crates/taru-client-protocol`.
+
+### M53: Admin Web Console V0 Context and v0 Prompt Refresh
+
+Status: completed.
+
+Objective:
+
+- Finish AWC-040 and AWC-050 for the admin-web-console workstream.
+- Align the v0 context with the live `GET /admin/v1/overview` seam from M52.
+- Capture a concise v0.dev prompt for the first admin console prototype.
+- Keep the prototype context framework-neutral and explicit about mock-only
+  surfaces.
+
+Deliverables:
+
+- Updated `V0_CONTEXT.md` with a first prototype data-source split.
+- Captured v0.dev prompt in the admin-web-console handoff.
+- Updated admin-web-console task ledger, milestones, evidence, README, and
+  workstream metadata.
+
+Non-goals:
+
+- No frontend UI implementation or scaffold.
+- No front-end framework selection.
+- No Admin API route, DTO, storage, metadata, playback, NFO, or provider
+  behavior changes.
+- No Public Client API, OpenAPI, SDK, or `taru-client-protocol` changes.
+
+Exit criteria:
+
+- `V0_CONTEXT.md` distinguishes the live overview route from mock or planned
+  Admin API data.
+- The prompt covers brand, navigation, first prototype pages, data-source
+  boundaries, Taru domain language, and safety rules.
+- The prompt avoids hard-coding a framework or component implementation.
+- AWC-040 and AWC-050 are marked complete.
+- Documentation gate passes.
+
+Evidence:
+
+- `docs/workstreams/admin-web-console/V0_CONTEXT.md` records the first
+  prototype data-source split.
+- `docs/workstreams/admin-web-console/HANDOFF.md` captures the v0.dev prompt.
+- `docs/workstreams/admin-web-console/TODO.md` marks AWC-040 and AWC-050
+  complete.
+- Close-out validation: `git diff --check`.
+
+### M52: Admin API v1 Overview Read-Only Seam
+
+Status: completed.
+
+Objective:
+
+- Build the first code-backed `/admin/v1/*` seam accepted by ADR 0027.
+- Add a small read-only admin overview route for the web console.
+- Keep the Public Client API, public OpenAPI, public SDK, and
+  `taru-client-protocol` unchanged.
+
+Deliverables:
+
+- Admin-owned overview DTOs in `taru-api::admin`.
+- `taru-server` route wiring for `GET /admin/v1/overview`.
+- Focused HTTP tests proving the route composes safe existing diagnostics and
+  preserves existing root/public routes.
+- Public OpenAPI and TypeScript SDK leakage checks that keep admin routes out
+  of public client artifacts.
+- Updated admin-web-console workstream docs and validation evidence.
+
+Non-goals:
+
+- No frontend UI implementation.
+- No Admin API mutations.
+- No Public Client API or `taru-client-protocol` changes.
+- No storage, NFO, metadata provider, playback, or transcode behavior
+  expansion beyond read-only diagnostic summaries.
+- No Admin OpenAPI or generated admin SDK in this slice.
+
+Exit criteria:
+
+- `GET /admin/v1/overview` returns an admin-owned DTO with server/API version,
+  storage summary, metadata-provider summary, runtime summary, and startup
+  summary derived from existing safe diagnostics.
+- The overview response does not expose secrets, tokens, unsafe local
+  filesystem paths, raw provider responses, or local transcode output paths.
+- Existing `/health`, `/libraries`, and `/storage/backends` route behavior is
+  preserved.
+- Public OpenAPI and TypeScript SDK artifacts still exclude `/admin/*` and
+  other admin/internal route groups.
+- Focused `taru-api` and `taru-server` gates pass.
+
+Evidence:
+
+- `taru-api::admin` defines `ADMIN_API_VERSION`, `AdminOverviewResponse`, and
+  focused storage, metadata, runtime, and startup overview DTOs.
+- `taru-server` wires `GET /admin/v1/overview` through a dedicated admin HTTP
+  module.
+- The overview route composes existing storage backend diagnostics, metadata
+  provider diagnostics, runtime supervisor counters, and startup report
+  counters without returning root URIs, secrets, tokens, raw provider bodies, or
+  local output paths.
+- Public OpenAPI and TypeScript SDK tests now explicitly reject `/admin` and
+  `/admin/v1` terms.
+- `crates/taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 14
+  tests passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server http::tests::system --no-fail-fast` with 5 tests passed, `git
+  diff --check`, and `git diff --name-only -- crates/taru-client-protocol`.
+
+### M51: Admin API Boundary Decision for Web Console
+
+Status: completed.
+
+Objective:
+
+- Complete AWC-030 by deciding the Admin API boundary needed before generating
+  or implementing the web admin console.
+- Review ADR 0023, ADR 0025, ADR 0026, current `taru-api`/`taru-server` admin
+  surfaces, and the admin web console API matrix.
+- Document route namespace, versioning, DTO ownership, leakage/redaction rules,
+  and public-client separation.
+- Update the admin-web-console workstream with the accepted implementation
+  sequence.
+
+Deliverables:
+
+- Accepted Admin API boundary ADR.
+- Updated admin web console design, task ledger, evidence, handoff, and v0
+  context.
+- Updated ADR index and goal evidence.
+
+Non-goals:
+
+- No frontend UI implementation.
+- No `taru-client-protocol` or Public Client OpenAPI/SDK changes.
+- No storage, NFO, provider, playback, or transcode behavior expansion.
+- No auth redesign.
+
+Exit criteria:
+
+- Admin-only route namespace and versioning are decided.
+- Admin DTO ownership is decided.
+- Public Client API separation is explicit.
+- Leakage/redaction rules are explicit.
+- The next implementation sequence is documented.
+- Documentation gate passes.
+
+Evidence:
+
+- [ADR 0027](adr/0027-admin-api-boundary-for-web-console.md).
+- [admin-web-console workstream](workstreams/admin-web-console/README.md).
+- `ADMIN_API_MATRIX.md` now points to ADR 0027 instead of leaving namespace and
+  versioning undecided.
+- `V0_CONTEXT.md` marks admin-only areas as mock or planned `/admin/v1/*` data
+  rather than Public Client API coverage.
+- `taru-client-protocol` has no diff.
+- Documentation gate: `git diff --check`.
+
+### M50: NFO Backup Retention and Admin Diagnostics
+
+Status: completed.
+
+Objective:
+
+- Build on M49 by adding a bounded retention policy for local NFO sidecar
+  backups.
+- Make backup creation, pruning, and failure states inspectable through
+  internal/admin-facing diagnostics.
+- Keep XML codec, storage backup mechanics, and API/admin adapter
+  responsibilities separated.
+- Avoid changing public client protocol crates in this slice.
+
+Deliverables:
+
+- VFS backup retention request/report model.
+- `LocalFsBackend` keep-latest pruning for Taru-created backups of the same
+  sidecar.
+- NFO export wiring that requests retention when it requests backup.
+- Internal/admin diagnostics for created, pruned, and failed backup operations.
+- M50 workstream documentation and validation evidence.
+
+Non-goals:
+
+- No soft-link or hard-link management.
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public client protocol changes.
+- No provider breadth, playback, transcode, or new storage backend work.
+- No database schema changes unless volatile job summaries prove insufficient.
+
+Exit criteria:
+
+- Local backup writes prune older Taru backups with a bounded keep-latest
+  policy.
+- Retention pruning preserves unrelated files and non-matching backups.
+- NFO forced export records backup creation and pruning diagnostics.
+- Admin/public boundary audit proves public client protocols remain unchanged.
+- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-backup-retention-diagnostics workstream]
+  (workstreams/nfo-backup-retention-diagnostics/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `StorageBackupPolicy` and `StorageBackupRetention` express keep-latest backup
+  retention at the VFS write boundary.
+- `LocalFsBackend` prunes only same-sidecar Taru backup files matching the
+  `*.taru-backup-*` prefix and preserves unrelated backups/manual files.
+- `NfoExportSummary` reports backup creation, pruned backup counts, and prune
+  failures for forced sidecar export.
+- Existing admin `JobResponse.summary` preserves the NFO retention diagnostics
+  without public protocol changes.
+- `taru-client-protocol` has no diff.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 28
+  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
+  taru-nfo --no-fail-fast` with 19 tests passed, `cargo check -p taru-api
+  --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 13 tests
+  passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
+  taru-server nfo --no-fail-fast` with 5 selected tests passed, `cargo check
+  --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
+  315 tests passed, and `git diff --check`.
+
+### M49: NFO Sidecar Backup and Write Conflict Policy
+
+Status: completed.
+
+Objective:
+
+- Build on M47/M48 by adding an explicit backup boundary for local NFO sidecar
+  overwrites.
+- Create a same-directory backup before replacing an existing sidecar.
+- Keep XML preservation in the NFO codec and backup/write mechanics in
+  VFS/storage.
+- Make backup creation and backup failure visible in internal/test-visible
+  diagnostics.
+
+Deliverables:
+
+- VFS write request/report model for optional existing-file backup.
+- `LocalFsBackend` same-directory backup implementation before atomic replace.
+- NFO forced-export wiring that requests backup only for existing sidecar
+  overwrites.
+- Focused diagnostics for backup creation and failure categories.
+- M49 workstream documentation and validation evidence.
+
+Non-goals:
+
+- No soft-link or hard-link management.
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public HTTP API, OpenAPI, SDK, or protocol changes.
+- No database schema or repository trait changes.
+- No remote/WebDAV write support.
+- No provider breadth, metadata merge-policy redesign, playback work, or
+  transcode work.
+
+Exit criteria:
+
+- Local forced export over an existing NFO creates a backup before replacement.
+- Fresh sidecar export does not create a backup.
+- Unsupported backup requests fail explicitly.
+- Backup failure prevents final sidecar replacement.
+- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-sidecar-backup-policy workstream]
+  (workstreams/nfo-sidecar-backup-policy/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `taru-vfs` defines `StorageBackupMode` and `StorageBackupReport`, and storage
+  write reports can include backup details.
+- `LocalFsBackend` creates same-directory backups before overwriting existing
+  sidecars and skips backups for fresh sidecar creation.
+- NFO forced export requests backup only after confirming an existing sidecar
+  will be overwritten.
+- `NfoExportSummary` records backup counts and per-item backup reports.
+- Backup failures are classified as `NfoFailureKind::StorageBackup` and prevent
+  final sidecar replacement.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 25
+  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
+  taru-nfo --no-fail-fast` with 18 tests passed, `cargo check --workspace
+  --tests`, `cargo nextest run --workspace --no-fail-fast` with 310 tests
+  passed, and `git diff --check`.
+
+### M48: NFO Storage Write Policy and Persistence Diagnostics
+
+Status: completed.
+
+Objective:
+
+- Build on M47 by adding a safe NFO sidecar write boundary for local storage.
+- Use atomic temp-file-and-rename writes where supported.
+- Keep XML preservation in the NFO codec and write mechanics in VFS/storage.
+- Make parse, preservation, conflict, unsupported, and storage write failures
+  clearer in internal/test-visible diagnostics.
+
+Deliverables:
+
+- VFS write request/report model for explicit write modes.
+- `LocalFsBackend` atomic replace implementation.
+- NFO export wiring that requests the safer sidecar write path.
+- Focused diagnostics for NFO export failure categories.
+- M48 workstream documentation and validation evidence.
+
+Non-goals:
+
+- No soft-link or hard-link management.
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public HTTP API, OpenAPI, SDK, or protocol changes.
+- No database schema or repository trait changes.
+- No provider breadth, metadata merge-policy redesign, playback work, or new
+  storage backends.
+
+Exit criteria:
+
+- Local NFO sidecar writes are atomic where supported.
+- Unsupported atomic write requests fail explicitly.
+- NFO export uses the explicit write policy path.
+- NFO export failures carry test-visible diagnostic categories.
+- M47 preservation behavior remains covered.
+- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-storage-write-policy workstream]
+  (workstreams/nfo-storage-write-policy/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `taru-vfs` defines `StorageWriteMode`, `StorageWriteRequest`, and
+  `StorageWriteReport`; unsupported atomic replace requests fail explicitly by
+  default.
+- `LocalFsBackend` implements atomic replace with a same-directory temp file
+  and rename where supported.
+- NFO export requests `StorageWriteMode::AtomicReplace` for sidecar writes.
+- `NfoFailureKind` classifies parse, preservation, unsupported atomic write,
+  storage read/write, missing item, invalid sidecar path, and unknown failures
+  in internal/test-visible summaries.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 22
+  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
+  taru-nfo --no-fail-fast` with 16 tests passed, `cargo check --workspace
+  --tests`, `cargo nextest run --workspace --no-fail-fast` with 305 tests
+  passed, and `git diff --check`.
+
+### M47: NFO Round Trip Preservation Model
+
+Status: completed.
+
+Objective:
+
+- Deepen `taru-nfo` so export over an existing sidecar preserves unknown XML
+  fields instead of regenerating only Taru-known XML.
+- Update only Taru-owned NFO fields from canonical metadata.
+- Report duplicate or conflicting Taru-owned fields in a structured,
+  test-visible model.
+- Protect hand-authored and other-media-server NFO content before VFS library
+  file write, backup, soft-link, or hard-link policy work.
+
+Deliverables:
+
+- A preservation-aware movie NFO update path in `taru-nfo`.
+- A small NFO preservation report/conflict model.
+- Forced export wiring that reads an existing sidecar and applies partial
+  preservation-aware update.
+- Focused tests proving unknown XML preservation, owned-field update, conflict
+  reporting, and export workflow behavior.
+
+Non-goals:
+
+- No broad Jellyfin, Kodi, Plex, or Emby compatibility matrix.
+- No public HTTP API, OpenAPI, SDK, or protocol changes.
+- No database schema or repository trait changes.
+- No provider breadth, catalog graph change, or metadata merge-policy redesign.
+- No VFS atomic write, backup, soft-link, or hard-link management.
+
+Exit criteria:
+
+- Forced export over an existing movie NFO preserves unknown XML elements.
+- Taru-owned fields are updated deterministically from current metadata.
+- Duplicate/conflicting owned fields are reported in codec tests.
+- Current import and new-sidecar export behavior remains compatible.
+- Focused `taru-nfo` and workspace validation gates pass.
+
+Evidence:
+
+- [nfo-round-trip-preservation workstream]
+  (workstreams/nfo-round-trip-preservation/README.md) records design, task
+  ledger, milestones, evidence, and handoff.
+- `taru-nfo` defines `NfoPreservedRender`, `NfoPreservationReport`,
+  `NfoFieldConflict`, and `NfoFieldConflictReason`.
+- `MovieNfoCodec::render_preserving` updates Taru-owned movie fields while
+  preserving unknown top-level XML elements, comments, and processing
+  instructions from the existing sidecar.
+- Forced export over an existing sidecar reads old XML and writes
+  preservation-aware output; missing sidecar creation remains deterministic
+  fresh rendering.
+- Codec tests cover unknown field preservation, owned-field update, and
+  duplicate/alias owned-field conflicts.
+- Service tests cover forced export preservation and import-then-forced-export
+  round trip preservation.
+- Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
+  taru-nfo --tests`, `cargo nextest run -p taru-nfo --no-fail-fast` with 12
+  tests passed, `cargo check --workspace --tests`, `cargo nextest run
+  --workspace --no-fail-fast` with 298 tests passed, and `git diff --check`.
 
 ### M46: taru-api Module Split
 

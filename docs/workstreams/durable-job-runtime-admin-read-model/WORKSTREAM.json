@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "slug": "durable-job-runtime-admin-read-model",
+  "title": "Durable Job Runtime And Admin Read Model",
+  "status": "completed",
+  "updated": "2026-05-17",
+  "scope_kind": "server_architecture_and_admin_api",
+  "problem": "Durable job lifecycle handling is duplicated across server workflows, while the Admin Console needs a stable job list/filter read model.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/durable-job-runtime-admin-read-model/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/durable-job-runtime-admin-read-model/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/durable-job-runtime-admin-read-model/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/durable-job-runtime-admin-read-model/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/durable-job-runtime-admin-read-model/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/durable-job-runtime-admin-read-model/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-api --tests",
+    "cargo check -p taru-db --tests",
+    "cargo check -p taru-server --tests",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/durable-job-runtime-admin-read-model",
+    "crates/taru-server/src/app/runtime.rs",
+    "crates/taru-server/src/app/jobs.rs",
+    "crates/taru-server/src/http/admin.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "M54 is complete. Recommended follow-ons are playback session list/filter, event outbox list/filter, or storage staging/cache diagnostics."
+  }
+}

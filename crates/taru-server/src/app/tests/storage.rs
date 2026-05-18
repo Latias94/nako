@@ -38,11 +38,10 @@ async fn webdav_preview_config_builds_scanner_backend() {
         }],
     };
     let store = SqliteStore::connect_in_memory().await.unwrap();
-    let app = TaruApp::new_with_store(config, store).await.unwrap();
-    let library = crate::config::libraries_from_config(app.config())
-        .into_iter()
-        .find(|library| library.id == library_id)
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
         .unwrap();
+    let library = store.get_library(library_id).await.unwrap().unwrap();
     let backend = app
         .storage()
         .backend_for_library_root(&library)
@@ -169,4 +168,74 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
     let DirectPlaySourceBody::Stream(_) = &plan.body else {
         panic!("expected remote direct play to use the configured WebDAV backend");
     };
+}
+
+#[tokio::test]
+async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
+    let temp = tempfile::tempdir().unwrap();
+    let configured_root = temp.path().join("movies");
+    fs::create_dir_all(&configured_root).unwrap();
+    let configured_id = LibraryId::new();
+    let retained_id = LibraryId::new();
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    store
+        .upsert_library(&Library {
+            id: retained_id,
+            name: "Retained Historical Library".to_owned(),
+            roots: vec!["local:///Retained".to_owned()],
+            options: LibraryOptions::from_preset(taru_core::LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let app = TaruApp::new_with_store(
+        TaruServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            auth: crate::config::AuthConfig::disabled(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("taru-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            libraries: vec![LocalLibraryConfig {
+                id: configured_id,
+                name: "Configured Movies".to_owned(),
+                root: configured_root,
+                preset: taru_core::LibraryPreset::Movies,
+                webdav: None,
+            }],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+
+    let diagnostics = app.storage().list_storage_backend_diagnostics().await;
+
+    assert_eq!(diagnostics.backends.len(), 2);
+    assert!(diagnostics.backends.iter().any(|backend| {
+        backend.library_id == configured_id
+            && backend.status == taru_api::StorageBackendStatus::Ready
+    }));
+    let retained = diagnostics
+        .backends
+        .iter()
+        .find(|backend| backend.library_id == retained_id)
+        .expect("retained library diagnostic");
+    assert_eq!(retained.library_name, "Retained Historical Library");
+    assert_eq!(retained.root_uri, "local:///Retained");
+    assert_eq!(retained.status, taru_api::StorageBackendStatus::Unavailable);
+    assert_eq!(
+        retained.reason.as_deref(),
+        Some("configured library backend was not found")
+    );
 }

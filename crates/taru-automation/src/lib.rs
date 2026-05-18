@@ -317,6 +317,8 @@ fn safe_error(error: &TaruError) -> String {
         TaruError::InvalidInput { .. }
         | TaruError::NotFound { .. }
         | TaruError::Conflict { .. }
+        | TaruError::Unauthorized { .. }
+        | TaruError::Forbidden { .. }
         | TaruError::Unsupported(_) => error.to_string(),
     }
 }

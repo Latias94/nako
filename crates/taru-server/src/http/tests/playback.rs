@@ -109,6 +109,12 @@ async fn playback_decision_and_direct_stream_routes_work() {
         &format!("/sources/{}/playback/decision", source.id),
     )
     .await;
+    let decision_json = request_json::<serde_json::Value>(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/playback/decision?direct_play=false", source.id),
+    )
+    .await;
     let response = router
         .oneshot(
             Request::builder()
@@ -124,6 +130,12 @@ async fn playback_decision_and_direct_stream_routes_work() {
     assert_eq!(
         decision.decision.mode,
         taru_api::ClientPlaybackMode::DirectPlay
+    );
+    assert!(decision_json["source"].get("locator").is_none());
+    assert!(
+        decision_json["decision"]["transcode_plan"]
+            .get("input_locator")
+            .is_none()
     );
     assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
     assert_eq!(

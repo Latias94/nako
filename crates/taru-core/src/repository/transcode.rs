@@ -1,9 +1,16 @@
 use async_trait::async_trait;
 
 use crate::{
-    MediaSourceId, NewTranscodeSession, Result, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    MediaSourceId, NewTranscodeSession, PageRequest, Result, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct TranscodeSessionListFilter {
+    pub source_id: Option<MediaSourceId>,
+    pub kind: Option<TranscodeSessionKind>,
+    pub state: Option<TranscodeSessionState>,
+}
 
 #[async_trait]
 pub trait TranscodeSessionRepository: Send + Sync {
@@ -16,6 +23,12 @@ pub trait TranscodeSessionRepository: Send + Sync {
         &self,
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>>;
+
+    async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>>;
 
     async fn find_latest_transcode_session(
         &self,

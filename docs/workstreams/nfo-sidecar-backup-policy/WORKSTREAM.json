@@ -1,0 +1,20 @@
+{
+  "slug": "nfo-sidecar-backup-policy",
+  "status": "completed",
+  "goal": "M49 NFO Sidecar Backup and Write Conflict Policy",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": "closed",
+  "first_slice": "VFS local backup write boundary",
+  "non_goals": [
+    "soft or hard link management",
+    "public API changes",
+    "OpenAPI or SDK changes",
+    "database schema changes",
+    "remote write support",
+    "broad Jellyfin/Kodi/Plex compatibility",
+    "provider breadth",
+    "playback work"
+  ]
+}

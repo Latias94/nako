@@ -411,6 +411,13 @@ POST /events/{event_id}/webhooks/deliver
 POST /addons
 GET  /addons
 GET  /addons/{addon_id}
+POST /admin/v1/addons/{addon_id}/tokens
+GET  /admin/v1/addons/{addon_id}/tokens
+POST /admin/v1/addons/{addon_id}/tokens/{token_id}/rotate
+POST /admin/v1/addons/{addon_id}/tokens/{token_id}/revoke
+PUT  /admin/v1/addons/{addon_id}/grants
+GET  /admin/v1/addons/{addon_id}/grants
+POST /addon/v1/access-check
 POST /automation/providers
 GET  /automation/providers
 GET  /automation/providers/{provider_id}
@@ -418,6 +425,14 @@ POST /automation/jobs
 GET  /automation/jobs/{job_id}/artifacts
 GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
+GET  /admin/v1/overview
+GET  /admin/v1/catalog/governance/items
+GET  /admin/v1/events
+GET  /admin/v1/jobs
+GET  /admin/v1/playback/sessions
+GET  /admin/v1/playback/runtime
+GET  /admin/v1/storage/staging
+GET  /admin/v1/system/config
 ```
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
@@ -428,6 +443,21 @@ diagnostics. It reports one entry per configured library, backend kind, storage
 scheme, registry cache state, remote stream/stage permit availability, and
 health counters. The route does not perform remote I/O and never returns local
 filesystem roots, WebDAV base URLs, usernames, passwords, or secret values.
+
+`GET /admin/v1/storage/staging` returns a redacted Admin API diagnostics view
+for storage staging and cache state. It accepts optional `purpose`, `state`,
+`limit`, and `offset` query parameters. Rows include staging manifest ID,
+source scheme, purpose, state, size, etag/fingerprint presence flags, active
+lease count, validation-error presence, and lifecycle timestamps. The summary
+includes configured staging budget, current manifest byte usage, retention,
+startup cleanup counts, process-local backend cache count, and VFS cache object,
+listing, failure, stale-object, stale-listing, and last-failure counters.
+
+The staging/cache diagnostics route never returns staging `local_path`, full
+`source_uri`, staging roots, local filesystem paths, raw cache URIs, etag or
+fingerprint values, validation error text, cache error text, WebDAV
+credentials, or secret values. It is an Admin API route and is not part of
+Public Client OpenAPI or generated SDK artifacts.
 
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
 metadata refresh job. The current implementation uses the library metadata
@@ -490,7 +520,21 @@ Browse routes expose the normalized catalog graph. `GET /items/{item_id}`
 returns the media item plus sources, graph relation IDs, and item image assets.
 `/credits` returns item credits with the referenced people. People, tags, and
 genres list routes are paginated, and their `/items` routes return linked media
-items.
+items. Public source DTOs expose stable IDs and safe display facts such as file
+name, size, and fingerprint; they do not expose raw Source Locator values.
+
+`GET /admin/v1/catalog/governance/items` returns a redacted Admin API queue for
+unknown and low-confidence Media Items. It accepts optional `library_id`,
+`max_confidence_milli`, `limit`, and `offset` query parameters. Rows include
+the Media Item ID, Media Library ID, kind, parent ID, title, release date,
+source count, representative Media Source ID and file name, redacted Local
+Inference summary, Provider Mapping counts, duplicate relationship count, and
+computed governance issue codes.
+
+The catalog governance route never returns source locators, local filesystem
+paths, raw Local Inference `evidence_value`, provider raw response bodies, NFO
+sidecar paths, tokens, or secret values. It is an Admin API route and is not
+part of Public Client OpenAPI or generated SDK artifacts.
 
 `GET /search` reads the SQLite search projection behind `taru-search`. `facet`
 is optional and comma-separated for the current lightweight route shape. Search
@@ -498,8 +542,10 @@ results return projected media items and relevance scores; richer filters and
 ranking can be added behind the same search boundary.
 
 `GET /sources/{source_id}/playback/decision` returns the source, optional probe
-data, and a playback decision. Optional query parameters can narrow client
-capabilities:
+data, and a playback decision. The response does not expose raw source locators
+or transcode input locators; clients address playback through source IDs,
+stream routes, and playback session IDs. Optional query parameters can narrow
+client capabilities:
 
 ```text
 direct_play=true
@@ -545,6 +591,13 @@ kind, request key, state, failure category/message, and lifecycle timestamps.
 It does not expose the server-local staged output path. Missing sessions return
 `404 not_found`.
 
+`GET /admin/v1/playback/sessions` returns a redacted admin list/filter read
+model for playback sessions. It accepts optional `source_id`, `kind`, `state`,
+`limit`, and `offset` query parameters. Rows include IDs, kind, request key,
+state, failure category, a `has_failure_message` flag, active/terminal flags,
+and lifecycle timestamps. Rows do not expose staged output paths or raw failure
+messages.
+
 Client-visible session states are stable strings:
 
 ```text
@@ -561,6 +614,40 @@ runtime is a single-process modular monolith; an active session record left
 behind by a previous process cannot be cancelled by the new process and returns
 `409 conflict`. Missing sessions return `404 not_found`. Terminal sessions also
 return `409 conflict`.
+
+`GET /admin/v1/playback/runtime` returns a safe admin diagnostics snapshot for
+the **Playback Runtime**. It includes:
+
+- admin and public API versions;
+- FFmpeg probe status, hardware capability counts, and available GPU count;
+- configured hardware acceleration policy and selected HLS acceleration;
+- sanitized hardware capability reason codes such as `available`,
+  `encoder_not_listed`, and `probe_error`;
+- transcode CPU/GPU slot budgets and selected HLS slot budget;
+- remux concurrency and timeout;
+- aggregate remote stream/stage budget state;
+- staging disk budget, retention, cleanup-on-startup flag, and startup cleanup
+  counts.
+
+The runtime diagnostics route does not return `ffmpeg_path`,
+`remux_staging_root`, local library roots, staged output paths, raw FFmpeg probe
+errors, secrets, tokens, runner handles, or cancellation tokens. It is an Admin
+API route and is not part of Public Client OpenAPI or generated SDK artifacts.
+
+`GET /admin/v1/system/config` returns a sanitized Admin API diagnostics view of
+server configuration. It includes admin/public API versions, auth enablement
+and token environment reference, concurrency settings, remux timeout, library
+names/presets/backend kind/root scheme, metadata runtime budgets, metadata
+provider enablement and secret-reference names, transcode hardware policy and
+slot budgets, staging budget/retention/cleanup settings, and remote playback
+stream/stage budgets.
+
+The config diagnostics route never returns `database_url`, local library roots,
+`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, WebDAV base URLs, WebDAV
+usernames, WebDAV password environment names, metadata proxy values, provider
+base URLs, literal header values, header secret environment names, resolved
+tokens, or resolved secrets. It is an Admin API route and is not part of Public
+Client OpenAPI or generated SDK artifacts.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.
@@ -637,6 +724,16 @@ returns the outbox event, delivery counters, created attempts, skipped endpoint
 count, and safe per-endpoint errors when dispatch fails before an attempt can
 be recorded.
 
+`GET /admin/v1/events` returns a redacted Admin API event outbox list/filter
+read model. It accepts optional `kind`, `status`, `library_id`, `source_id`,
+`limit`, and `offset` query parameters. Rows include event ID, kind, subject,
+Media Library ID, Media Source ID, status, attempt count, payload/error
+presence flags, occurrence/update timestamps, and next-attempt timestamp.
+
+The event list route never returns raw `payload_json`, `idempotency_key`, raw
+`last_error`, local filesystem paths, or secret values. Known-ID webhook
+attempt and delivery routes remain unchanged.
+
 Webhook delivery bodies use a versioned JSON envelope and include these
 headers:
 
@@ -712,6 +809,94 @@ not call addon resource endpoints inline.
 The workspace includes `taru-reference-addon`, a minimal metadata addon fixture
 used by the M5.5 end-to-end test. It proves that a local addon can be
 registered, queried, and called through the protocol transport.
+
+Admin-only addon token routes live under `/admin/v1/addons/{addon_id}`. They
+are for issuing credentials to a registered Addon Sidecar; they do not make an
+addon an admin client, and they are separate from the manifest `auth` value used
+when Taru calls the addon.
+
+`POST /admin/v1/addons/{addon_id}/tokens` issues a new Addon Token. The response
+contains the raw token exactly once:
+
+```json
+{
+  "token": {
+    "id": "018f0000-0000-7000-8000-000000000001",
+    "addon_id": "018f0000-0000-7000-8000-000000000002",
+    "label": "metadata sidecar",
+    "token_prefix": "taru_at_0123456789",
+    "status": "active",
+    "created_at": "2026-05-18T12:00:00.000Z",
+    "rotated_at": null,
+    "revoked_at": null,
+    "last_used_at": null
+  },
+  "raw_token": "taru_at_<secret>"
+}
+```
+
+`GET /admin/v1/addons/{addon_id}/tokens` returns only redacted token summaries.
+`POST /admin/v1/addons/{addon_id}/tokens/{token_id}/rotate` marks the previous
+token as `rotated` and returns one replacement raw token. `POST
+/admin/v1/addons/{addon_id}/tokens/{token_id}/revoke` marks an active token as
+`revoked`. List and revoke responses never include the raw token or
+`token_hash`; persisted token verification material is stored as a hash.
+
+Accepted Addon Permissions are managed separately from manifest
+`granted_scopes`. `PUT /admin/v1/addons/{addon_id}/grants` replaces the accepted
+grant set:
+
+```json
+{
+  "grants": [
+    {
+      "permission": "metadata_write",
+      "library_id": "018f0000-0000-7000-8000-000000000003"
+    },
+    {
+      "permission": "artwork_write",
+      "library_id": null
+    }
+  ]
+}
+```
+
+`library_id: null` means a global grant for that permission. A concrete
+`library_id` is a Library-Scoped Addon Grant. `GET
+/admin/v1/addons/{addon_id}/grants` returns the accepted grant records that will
+be consumed by the runtime addon-principal checks added in a later slice.
+
+Addon runtime routes live under `/addon/v1/*` and authenticate with Addon
+Tokens, not the admin bearer token. `POST /addon/v1/access-check` is the first
+runtime proof route. It validates that the caller is an enabled Addon principal
+with an active token and an accepted permission grant for the requested library
+scope:
+
+```json
+{
+  "permission": "metadata_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003"
+}
+```
+
+Successful responses identify the resolved addon and token without exposing raw
+token material or token hashes:
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000002",
+  "token_id": "018f0000-0000-7000-8000-000000000004",
+  "permission": "metadata_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "allowed": true
+}
+```
+
+Missing, invalid, revoked, or rotated Addon Tokens return `401 unauthorized`.
+Disabled addons, missing permissions, and wrong-library requests return `403
+forbidden`. Addon Tokens are intentionally rejected by `/admin/v1/*` and Public
+Client routes unless a future route explicitly opts into addon-principal
+handling.
 
 ## Automation Routes
 

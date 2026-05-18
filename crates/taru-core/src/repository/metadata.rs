@@ -3,8 +3,9 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     ArtworkTask, ArtworkTaskId, ExternalProvider, JobId, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter,
-    MetadataFieldLock, MetadataProviderAttemptRecord, NewMetadataProviderAttempt, ProviderMapping,
+    LocalInferenceEvidenceId, MediaItemId, MediaSourceId, MetadataAttemptFilter, MetadataFieldLock,
+    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
+    MetadataRefreshPersistenceSummary, NewMetadataProviderAttempt, ProviderMapping,
     ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject,
     ProviderSubjectId, ProviderSubjectKind, Result, SourceDuplicateRelationship,
     SourceDuplicateRelationshipId,
@@ -27,11 +28,10 @@ pub trait MetadataRepository: Send + Sync {
 
     async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()>;
 
-    async fn apply_metadata_refresh(
+    async fn commit_metadata_refresh(
         &self,
-        item: &MediaItem,
-        raw_response: &ProviderRawResponse,
-    ) -> Result<()>;
+        commit: &MetadataRefreshPersistenceCommit,
+    ) -> Result<MetadataRefreshPersistenceSummary>;
 
     async fn get_provider_raw_response(
         &self,

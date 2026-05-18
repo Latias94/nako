@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
-    ExternalProvider, JobId, LibraryItemRepository, LibraryItemState, MediaItem, MediaItemId,
-    MediaKind, MediaRepository, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
-    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
-    MetadataRepository, MetadataSource, NewMetadataProviderAttempt, PageRequest, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
-    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result, TaruError,
+    ExternalProvider, JobId, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataFieldLock,
+    MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
+    MetadataRefreshMode, MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit,
+    MetadataRepository, MetadataSource, NewMetadataProviderAttempt, PageRequest, ProviderMappingId,
+    ProviderMappingRepository, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, TaruError,
 };
 
 use crate::{
@@ -279,7 +279,7 @@ where
 #[async_trait]
 impl<T> MetadataRefreshPort for T
 where
-    T: LibraryItemRepository + MediaRepository + MetadataRepository + ProviderMappingRepository,
+    T: MediaRepository + MetadataRepository + ProviderMappingRepository,
 {
     async fn load_refresh_snapshot(&self, item_id: MediaItemId) -> Result<MetadataRefreshSnapshot> {
         let item = self
@@ -295,9 +295,17 @@ where
     }
 
     async fn commit_refresh(&self, commit: MetadataRefreshCommit) -> Result<()> {
-        apply_metadata_refresh(self, &commit.item, &commit.raw_response).await?;
-        accept_provider_mapping(self, &commit.item, &commit.raw_response).await?;
-        confirm_item_source_libraries(self, commit.item.id).await
+        let provider_mapping =
+            accepted_provider_mapping_commit(self, &commit.item, &commit.raw_response).await?;
+
+        self.commit_metadata_refresh(&MetadataRefreshPersistenceCommit {
+            item: commit.item,
+            raw_response: commit.raw_response,
+            provider_mapping,
+        })
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -311,22 +319,11 @@ where
     }
 }
 
-async fn apply_metadata_refresh<R>(
+async fn accepted_provider_mapping_commit<R>(
     repository: &R,
     item: &MediaItem,
     raw_response: &ProviderRawResponse,
-) -> Result<()>
-where
-    R: MetadataRepository,
-{
-    repository.apply_metadata_refresh(item, raw_response).await
-}
-
-async fn accept_provider_mapping<R>(
-    repository: &R,
-    item: &MediaItem,
-    raw_response: &ProviderRawResponse,
-) -> Result<()>
+) -> Result<MetadataRefreshProviderMappingCommit>
 where
     R: ProviderMappingRepository,
 {
@@ -354,19 +351,14 @@ where
             locale: None,
         },
     };
-    repository.upsert_provider_subject(&subject).await?;
-
     let mapping_id = existing_mapping_id(repository, item.id, subject.id).await?;
-    repository
-        .upsert_provider_mapping(&ProviderMapping {
-            id: mapping_id.unwrap_or_else(ProviderMappingId::new),
-            item_id: item.id,
-            subject_id: subject.id,
-            status: ProviderMappingStatus::Accepted,
-            confidence_milli: Some(1_000),
-            source: MetadataSource::Provider(raw_response.provider.clone()),
-        })
-        .await
+
+    Ok(MetadataRefreshProviderMappingCommit {
+        id: mapping_id,
+        subject,
+        confidence_milli: Some(1_000),
+        source: MetadataSource::Provider(raw_response.provider.clone()),
+    })
 }
 
 async fn existing_mapping_id<R>(
@@ -401,26 +393,6 @@ where
         }
         offset += u64::from(PageRequest::MAX_LIMIT);
     }
-}
-
-async fn confirm_item_source_libraries<R>(repository: &R, item_id: MediaItemId) -> Result<()>
-where
-    R: LibraryItemRepository,
-{
-    for state in repository
-        .list_library_item_states_for_item(item_id)
-        .await?
-    {
-        repository
-            .upsert_library_item_state(&LibraryItemState {
-                library_id: state.library_id,
-                item_id,
-                provisional: false,
-            })
-            .await?;
-    }
-
-    Ok(())
 }
 
 fn provider_subject_kind_for_item(kind: MediaKind) -> ProviderSubjectKind {

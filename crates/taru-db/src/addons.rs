@@ -166,4 +166,260 @@ impl AddonRepository for SqliteStore {
 
         rows.into_iter().map(row_to_addon_registration).collect()
     }
+
+    async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO addon_tokens (
+                id,
+                addon_id,
+                label,
+                token_prefix,
+                token_hash,
+                status
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "#,
+        )
+        .bind(token.id.to_string())
+        .bind(token.addon_id.to_string())
+        .bind(&token.label)
+        .bind(&token.token_prefix)
+        .bind(&token.token_hash)
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_addon_token(token.id)
+            .await?
+            .ok_or_else(|| TaruError::Database {
+                message: format!("addon token {} was not found after create", token.id),
+            })
+    }
+
+    async fn get_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        let sql = addon_token_select_sql("WHERE id = ?1");
+        let row = sqlx::query(&sql)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_addon_token).transpose()
+    }
+
+    async fn find_addon_token_by_hash(&self, token_hash: &str) -> Result<Option<AddonTokenRecord>> {
+        let sql = addon_token_select_sql("WHERE token_hash = ?1");
+        let row = sqlx::query(&sql)
+            .bind(token_hash)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_addon_token).transpose()
+    }
+
+    async fn list_addon_tokens(&self, addon_id: AddonId) -> Result<Vec<AddonTokenRecord>> {
+        let sql = addon_token_select_sql("WHERE addon_id = ?1 ORDER BY created_at ASC, id ASC");
+        let rows = sqlx::query(&sql)
+            .bind(addon_id.to_string())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_addon_token).collect()
+    }
+
+    async fn mark_addon_token_used(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE addon_tokens
+            SET last_used_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1 AND status = ?2
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_addon_token(id).await
+    }
+
+    async fn rotate_addon_token(
+        &self,
+        rotated_token_id: AddonTokenId,
+        new_token: NewAddonToken,
+    ) -> Result<(AddonTokenRecord, AddonTokenRecord)> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let rotate_result = sqlx::query(
+            r#"
+            UPDATE addon_tokens
+            SET
+                status = ?2,
+                rotated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1 AND status = ?3 AND addon_id = ?4
+            "#,
+        )
+        .bind(rotated_token_id.to_string())
+        .bind(AddonTokenStatus::Rotated.as_str())
+        .bind(AddonTokenStatus::Active.as_str())
+        .bind(new_token.addon_id.to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        if rotate_result.rows_affected() == 0 {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(TaruError::Conflict {
+                message: format!("addon token {rotated_token_id} is not active"),
+            });
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO addon_tokens (
+                id,
+                addon_id,
+                label,
+                token_prefix,
+                token_hash,
+                status
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "#,
+        )
+        .bind(new_token.id.to_string())
+        .bind(new_token.addon_id.to_string())
+        .bind(&new_token.label)
+        .bind(&new_token.token_prefix)
+        .bind(&new_token.token_hash)
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        let rotated = self
+            .get_addon_token(rotated_token_id)
+            .await?
+            .ok_or_else(|| TaruError::Database {
+                message: format!("addon token {rotated_token_id} was not found after rotate"),
+            })?;
+        let created =
+            self.get_addon_token(new_token.id)
+                .await?
+                .ok_or_else(|| TaruError::Database {
+                    message: format!("addon token {} was not found after rotate", new_token.id),
+                })?;
+
+        Ok((rotated, created))
+    }
+
+    async fn revoke_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE addon_tokens
+            SET
+                status = ?2,
+                revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1 AND status = ?3
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(AddonTokenStatus::Revoked.as_str())
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return self.get_addon_token(id).await;
+        }
+
+        self.get_addon_token(id).await
+    }
+
+    async fn replace_addon_grants(
+        &self,
+        addon_id: AddonId,
+        grants: Vec<NewAddonGrant>,
+    ) -> Result<Vec<AddonGrantRecord>> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        sqlx::query("DELETE FROM addon_grants WHERE addon_id = ?1")
+            .bind(addon_id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+        for grant in grants {
+            sqlx::query(
+                r#"
+                INSERT INTO addon_grants (
+                    id,
+                    addon_id,
+                    permission,
+                    library_id
+                )
+                VALUES (?1, ?2, ?3, ?4)
+                "#,
+            )
+            .bind(grant.id.to_string())
+            .bind(grant.addon_id.to_string())
+            .bind(grant.permission.as_str())
+            .bind(grant.library_id.map(|id| id.to_string()))
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+        self.list_addon_grants(addon_id).await
+    }
+
+    async fn list_addon_grants(&self, addon_id: AddonId) -> Result<Vec<AddonGrantRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                addon_id,
+                permission,
+                library_id,
+                created_at
+            FROM addon_grants
+            WHERE addon_id = ?1
+            ORDER BY permission ASC, library_id ASC, created_at ASC, id ASC
+            "#,
+        )
+        .bind(addon_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_addon_grant).collect()
+    }
+}
+
+fn addon_token_select_sql(where_clause: &str) -> String {
+    format!(
+        r#"
+        SELECT
+            id,
+            addon_id,
+            label,
+            token_prefix,
+            token_hash,
+            status,
+            created_at,
+            rotated_at,
+            revoked_at,
+            last_used_at
+        FROM addon_tokens
+        {where_clause}
+        "#
+    )
 }

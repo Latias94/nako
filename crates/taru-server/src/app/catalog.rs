@@ -7,6 +7,7 @@ use taru_api::{
     person_to_dto, tag_to_dto,
 };
 use taru_core::{
+    CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord, CatalogGovernanceRepository,
     CatalogRepository, GenreId, MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId,
     PageRequest, PersonId, Result, TagId, TaruError,
 };
@@ -31,6 +32,14 @@ impl CatalogAppService {
             page: page_info_from_request(page, items.len()),
             items: items.into_iter().map(media_item_to_dto).collect(),
         })
+    }
+
+    pub async fn list_catalog_governance_items(
+        &self,
+        filter: CatalogGovernanceItemListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<CatalogGovernanceItemRecord>> {
+        self.store.list_catalog_governance_items(filter, page).await
     }
 
     pub async fn get_item(&self, item_id: MediaItemId) -> Result<ItemDetailResponse> {

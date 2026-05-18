@@ -166,7 +166,6 @@ pub fn media_source_to_dto(source: MediaSource) -> MediaSourceDto {
         id: source.id.to_string(),
         library_id: source.library_id.to_string(),
         item_id: source.item_id.to_string(),
-        locator: source.locator,
         file_name: source.file_name,
         size_bytes: source.size_bytes,
         fingerprint: source.fingerprint,
@@ -216,7 +215,6 @@ fn direct_play_plan_to_dto(plan: DirectPlayPlan) -> ClientDirectPlayPlan {
 
 fn transcode_plan_to_dto(plan: TranscodePlan) -> ClientTranscodePlan {
     ClientTranscodePlan {
-        input_locator: plan.input_locator,
         output_container: output_container_to_dto(plan.output_container),
         video_codec: plan.video_codec,
         audio_codec: plan.audio_codec,
@@ -604,8 +602,8 @@ mod tests {
 
     use super::*;
     use taru_core::{
-        CanonicalMetadata, LibraryId, MediaItem, MediaItemId, MediaSourceId, TranscodeSessionId,
-        TranscodeSessionKind, TranscodeSessionState,
+        CanonicalMetadata, LibraryId, MediaItem, MediaItemId, MediaSource, MediaSourceId,
+        TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState,
     };
 
     #[test]
@@ -644,6 +642,24 @@ mod tests {
     }
 
     #[test]
+    fn media_source_dto_hides_raw_locator() {
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            locator: "local:///Movies/Private/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:demo".to_owned()),
+        };
+
+        let value = serde_json::to_value(media_source_to_dto(source)).unwrap();
+
+        assert_eq!(value["file_name"], "Demo.mkv");
+        assert!(value.get("locator").is_none());
+    }
+
+    #[test]
     fn transcode_session_response_hides_server_output_path() {
         let session = TranscodeSessionRecord {
             id: TranscodeSessionId::new(),
@@ -672,29 +688,32 @@ mod tests {
     fn playback_decision_dto_hides_internal_selection_plan() {
         let source_id = MediaSourceId::new();
         let library_id = LibraryId::new();
-        let direct_play = DirectPlayPlan {
-            source_id,
-            content_type: "video/mp4".to_owned(),
-            supports_range_requests: true,
+        let transcode_plan = TranscodePlan {
+            input_locator: "local:///Movies/Demo.mkv".to_owned(),
+            output_container: OutputContainer::Hls,
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::None,
         };
         let decision = PlaybackDecision {
-            mode: PlaybackMode::DirectPlay,
-            reason: "compatible".to_owned(),
+            mode: PlaybackMode::Transcode,
+            reason: "client disabled direct play".to_owned(),
             selected_source: taru_streaming::PlaybackSelectedSource {
                 source_id,
                 library_id,
                 locator: "local:///Movies/Demo.mp4".to_owned(),
                 file_name: "Demo.mp4".to_owned(),
             },
-            execution: taru_streaming::PlaybackExecutionPlan::DirectPlay(direct_play.clone()),
-            direct_play: Some(direct_play),
-            transcode_plan: None,
+            execution: taru_streaming::PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
+            direct_play: None,
+            transcode_plan: Some(transcode_plan),
         };
 
         let value = serde_json::to_value(playback_decision_to_dto(decision)).unwrap();
 
-        assert_eq!(value["mode"], "direct_play");
-        assert_eq!(value["direct_play"]["source_id"], source_id.to_string());
+        assert_eq!(value["mode"], "transcode");
+        assert_eq!(value["transcode_plan"]["output_container"], "hls");
+        assert!(value["transcode_plan"].get("input_locator").is_none());
         assert!(value.get("selected_source").is_none());
         assert!(value.get("execution").is_none());
     }

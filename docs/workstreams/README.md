@@ -11,6 +11,75 @@ attention.
   order, playback-first mobile scope, Public Client API connection/browse/search
   loops, playback decision/request construction, Media3 playback smoke,
   playback session boundary, and follow-on API gaps under ADR 0026.
+- [architecture-review-followups](architecture-review-followups/README.md):
+  proposed planning and routing lane for the 2026-05-18 architecture review
+  findings, covering metadata/catalog atomicity, metadata merge-policy
+  unification, Media Library source-of-truth, Public Client Source Locator
+  redaction, Addon side-effect seams, playback request identity, and transcode
+  diagnostics follow-ups.
+- [metadata-catalog-commit-atomicity](metadata-catalog-commit-atomicity/README.md):
+  completed execution lane for deepening metadata/catalog commit consistency,
+  starting with an atomic Catalog Item Graph and Search Projection commit before
+  deciding whether to fold the broader metadata refresh unit of work into the
+  same lane.
+- [metadata-merge-policy-unification](metadata-merge-policy-unification/README.md):
+  completed execution lane for unifying Canonical Metadata merge authority across
+  NFO import, provider refresh, and hierarchy confirmation while keeping NFO XML
+  preservation and provider breadth out of scope.
+- [multi-library-hardening](multi-library-hardening/README.md): proposed
+  execution lane for hardening Media Library config/database source of truth,
+  startup reconciliation, and removal of remaining one-library authority
+  shortcuts after the M8 correctness baseline.
+- [public-client-source-locator-redaction](public-client-source-locator-redaction/README.md):
+  proposed Public Client API follow-up for auditing and removing or redacting
+  raw Source Locator exposure from protocol DTOs, OpenAPI, SDKs, and HTTP docs
+  while preserving internal storage/playback locators.
+- [addon-token-grants-side-effects](addon-token-grants-side-effects/README.md):
+  proposed ARF-006 follow-up for Addon Token issuance, rotation,
+  Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake before
+  metadata, artwork, subtitle, or Library File Write behavior is enabled.
+- [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
+  completed M60 Admin API read-model work, covering a redacted catalog
+  governance queue for unknown and low-confidence Media Items without changing
+  the Public Client API.
+- [admin-operations-read-models](admin-operations-read-models/README.md):
+  completed M57-M59 Admin API read-model batch, covering redacted event outbox
+  list/filter, storage staging/cache diagnostics, and sanitized server config
+  diagnostics without changing the Public Client API.
+- [admin-playback-runtime-diagnostics](admin-playback-runtime-diagnostics/README.md):
+  completed M56 Admin API read-model work, covering safe playback runtime
+  diagnostics for hardware acceleration policy/selection, FFmpeg capability
+  evidence, transcode budgets, remote playback budgets, and staging cleanup
+  configuration without changing the Public Client API.
+- [admin-playback-session-read-model](admin-playback-session-read-model/README.md):
+  completed M55 Admin API read-model work, covering safe playback session
+  list/filter support for the web console without exposing transcode output
+  paths or changing the Public Client API.
+- [durable-job-runtime-admin-read-model](durable-job-runtime-admin-read-model/README.md):
+  completed M54 server-side architecture work, covering durable job lifecycle
+  centralization and the first Admin API v1 Jobs/Tasks read model.
+- [nfo-backup-retention-diagnostics](nfo-backup-retention-diagnostics/README.md):
+  completed M50 NFO backup retention and diagnostics work, covering bounded
+  keep-latest pruning for local NFO sidecar backups, internal/admin backup
+  diagnostics, and public client protocol boundary protection.
+- [nfo-sidecar-backup-policy](nfo-sidecar-backup-policy/README.md): completed M49
+  NFO sidecar backup policy work, covering same-directory local backup before
+  forced sidecar overwrite, explicit VFS backup requests, internal backup
+  diagnostics, and separation between XML preservation and storage persistence
+  mechanics.
+- [nfo-storage-write-policy](nfo-storage-write-policy/README.md): completed M48
+  NFO storage write policy work, covering local atomic sidecar writes, explicit
+  VFS write modes, internal NFO export diagnostics, and separation between XML
+  preservation and storage persistence mechanics.
+- [admin-web-console](admin-web-console/README.md): proposed web admin console
+  planning work, covering Taru's administration-first web surface, media
+  governance page families, Admin API implications, brand direction, and a
+  v0.dev-oriented context document.
+- [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
+  completed M47 NFO Round Trip preservation work, covering preservation-aware
+  movie NFO update, unknown XML field retention, conflict reporting, forced
+  export over existing sidecars, and import/export round trip preservation
+  before VFS file write/link policy work.
 - [catalog-hydration-lookup-deepening](catalog-hydration-lookup-deepening/README.md):
   completed M42 catalog hydration seam work, covering a workflow-level
   `CatalogHydrationPort`, hidden lookup internals, and narrower metadata/NFO

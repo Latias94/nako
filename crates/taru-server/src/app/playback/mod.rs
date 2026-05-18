@@ -8,8 +8,8 @@ use taru_api::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
     MediaRepository, MediaSource, MediaSourceId, NewOutboxEvent, Result, TaruError,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
 };
 use taru_db::SqliteStore;
 use taru_streaming::{
@@ -17,7 +17,10 @@ use taru_streaming::{
     PlaybackExecutionPlan, PlaybackSelectionContext, PlaybackSelectionRequest,
     PlaybackStorageContext, select_playback_source,
 };
-use taru_transcode::{OutputContainer, RemuxContainer};
+use taru_transcode::{
+    HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
+    OutputContainer, RemuxContainer, TranscodeResourceBudget,
+};
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tracing::{error, warn};
 
@@ -105,6 +108,22 @@ pub struct HlsPlaylistOutput {
 pub struct HlsSegmentPlan {
     pub path: PathBuf,
     pub content_type: &'static str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackRuntimeDiagnostics {
+    pub hardware_policy: HardwareAccelerationPolicy,
+    pub hardware_report: HardwareAccelerationReport,
+    pub hardware_selection: HardwareAccelerationSelection,
+    pub transcode_budget: TranscodeResourceBudget,
+    pub selected_hls_slots: usize,
+    pub remux_concurrency: usize,
+    pub remux_timeout_ms: u64,
+    pub remote_stream_concurrency: usize,
+    pub remote_stage_concurrency: usize,
+    pub staging_max_bytes: u64,
+    pub staging_retention_ms: u64,
+    pub staging_cleanup_on_startup: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -482,6 +501,36 @@ impl PlaybackAppService {
                 entity: "transcode_session",
                 id: session_id.to_string(),
             })
+    }
+
+    pub(crate) async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: taru_core::PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>> {
+        self.store.list_transcode_sessions(filter, page).await
+    }
+
+    #[must_use]
+    pub(crate) fn runtime_diagnostics(&self) -> PlaybackRuntimeDiagnostics {
+        let hardware_policy = self.config.transcode.hardware_policy();
+        let transcode_budget = self.config.transcode.resource_budget();
+
+        PlaybackRuntimeDiagnostics {
+            hardware_policy,
+            hardware_report: self.hls.hardware_report.clone(),
+            hardware_selection: self.hls.hardware_selection.clone(),
+            transcode_budget,
+            selected_hls_slots: transcode_budget
+                .slots_for(self.hls.hardware_selection.acceleration),
+            remux_concurrency: self.config.remux_concurrency.max(1),
+            remux_timeout_ms: self.config.remux_timeout_ms.max(1),
+            remote_stream_concurrency: self.config.playback.remote_stream_concurrency.max(1),
+            remote_stage_concurrency: self.config.playback.remote_stage_concurrency.max(1),
+            staging_max_bytes: self.config.staging.max_bytes,
+            staging_retention_ms: self.config.staging.retention_ms,
+            staging_cleanup_on_startup: self.config.staging.cleanup_on_startup,
+        }
     }
 
     pub(crate) async fn cancel_transcode_session(

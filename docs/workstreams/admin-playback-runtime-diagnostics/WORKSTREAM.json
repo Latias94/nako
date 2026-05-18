@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "slug": "admin-playback-runtime-diagnostics",
+  "title": "Admin Playback Runtime Diagnostics",
+  "status": "completed",
+  "updated": "2026-05-18",
+  "scope_kind": "admin_api_read_model",
+  "problem": "The admin web console can list playback sessions but cannot inspect safe runtime context such as hardware selection, FFmpeg capability evidence, resource budgets, and staging cleanup configuration.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-playback-runtime-diagnostics/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-playback-runtime-diagnostics/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-playback-runtime-diagnostics/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/admin-playback-runtime-diagnostics/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-playback-runtime-diagnostics/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-playback-runtime-diagnostics/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-api --tests",
+    "cargo check -p taru-server --tests",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/admin-playback-runtime-diagnostics",
+    "crates/taru-api/src/admin.rs",
+    "crates/taru-server/src/app/playback/mod.rs",
+    "crates/taru-server/src/http/admin.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "M56 is complete. Recommended follow-on is event outbox list/filter or storage staging/cache diagnostics."
+  }
+}

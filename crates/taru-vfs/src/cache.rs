@@ -9,7 +9,7 @@ use taru_core::{
 use crate::{
     ByteRange, ObjectCacheState, ObjectCacheStatus, ObjectKind, ObjectListing, ObjectMetadata,
     ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend, StorageCapabilities,
-    StorageUri, VirtualFile,
+    StorageUri, StorageWriteReport, StorageWriteRequest, VirtualFile,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -241,6 +241,10 @@ where
         self.inner.write_string(uri, content).await
     }
 
+    async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        self.inner.write(request).await
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.inner.stage(request).await
     }
@@ -449,7 +453,7 @@ mod tests {
         },
     };
 
-    use taru_core::VfsCacheFailure;
+    use taru_core::{VfsCacheFailure, VfsCacheSummary};
 
     use super::*;
 
@@ -740,6 +744,27 @@ mod tests {
                 .as_ref()
                 .filter(|failure| failure.uri == uri && failure.operation == operation)
                 .cloned())
+        }
+
+        async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
+            let objects = self.objects.lock().await;
+            let listing = self.listing.lock().await;
+            let failure = self.failure.lock().await;
+
+            Ok(VfsCacheSummary {
+                object_count: objects.len() as u64,
+                listing_count: u64::from(listing.is_some()),
+                failure_count: u64::from(failure.is_some()),
+                stale_object_count: objects
+                    .values()
+                    .filter(|object| !object.is_fresh_at(now_ms))
+                    .count() as u64,
+                stale_listing_count: listing
+                    .as_ref()
+                    .filter(|listing| !listing.is_fresh_at(now_ms))
+                    .map_or(0, |_| 1),
+                last_failure_at_ms: failure.as_ref().map(|failure| failure.failed_at_ms),
+            })
         }
     }
 

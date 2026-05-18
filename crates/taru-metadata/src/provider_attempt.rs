@@ -346,6 +346,8 @@ fn classify_provider_error(error: TaruError) -> MetadataProviderRefreshError {
         TaruError::Unsupported(_)
         | TaruError::InvalidInput { .. }
         | TaruError::Conflict { .. }
+        | TaruError::Unauthorized { .. }
+        | TaruError::Forbidden { .. }
         | TaruError::Provider { .. } => {
             MetadataProviderRefreshError::ProviderFailed(error.to_string())
         }
@@ -361,6 +363,9 @@ fn classify_provider_error_class(error: &TaruError) -> MetadataProviderErrorClas
         TaruError::Unsupported(_) => MetadataProviderErrorClass::Unsupported,
         TaruError::InvalidInput { .. } | TaruError::Conflict { .. } => {
             MetadataProviderErrorClass::Unknown
+        }
+        TaruError::Unauthorized { .. } | TaruError::Forbidden { .. } => {
+            MetadataProviderErrorClass::Auth
         }
         TaruError::Provider { message, .. } => {
             let lower = message.to_ascii_lowercase();

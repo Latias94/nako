@@ -1,6 +1,5 @@
 mod confirmation;
 mod mapping;
-mod merge;
 mod provider_attempt;
 mod providers;
 mod registry;
@@ -12,7 +11,6 @@ pub use confirmation::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
     HierarchyConfirmationSummary, HierarchyProviderSubject,
 };
-pub use merge::MetadataMergePolicy;
 pub use providers::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
     TmdbMetadataProvider, TmdbProviderConfig,
@@ -29,6 +27,7 @@ pub use strategy::{
     MetadataProviderAttempt, MetadataRefreshJobInput, MetadataRefreshRequest,
     MetadataRefreshService, MetadataRefreshSummary, MetadataStrategyExecutor,
 };
+pub use taru_core::MetadataMergePolicy;
 pub use types::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataLookup, MetadataProvider,
 };

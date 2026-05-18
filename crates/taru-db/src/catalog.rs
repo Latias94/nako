@@ -11,65 +11,17 @@ impl CatalogRepository for SqliteStore {
     ) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        sqlx::query("DELETE FROM item_credits WHERE item_id = ?1")
-            .bind(item_id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        sqlx::query("DELETE FROM item_genres WHERE item_id = ?1")
-            .bind(item_id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        sqlx::query("DELETE FROM item_tags WHERE item_id = ?1")
-            .bind(item_id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        sqlx::query("DELETE FROM collection_items WHERE item_id = ?1")
-            .bind(item_id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        sqlx::query("DELETE FROM item_studios WHERE item_id = ?1")
-            .bind(item_id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
+        replace_item_catalog_graph_tx(&mut transaction, item_id, replacement).await?;
 
-        for person in &replacement.people {
-            upsert_person_tx(&mut transaction, person).await?;
-        }
-        for credit in &replacement.credits {
-            upsert_item_credit_tx(&mut transaction, credit).await?;
-        }
-        for genre in &replacement.genres {
-            upsert_genre_tx(&mut transaction, genre).await?;
-        }
-        for item_genre in &replacement.item_genres {
-            upsert_item_genre_tx(&mut transaction, item_genre).await?;
-        }
-        for tag in &replacement.tags {
-            upsert_tag_tx(&mut transaction, tag).await?;
-        }
-        for item_tag in &replacement.item_tags {
-            upsert_item_tag_tx(&mut transaction, item_tag).await?;
-        }
-        for collection in &replacement.collections {
-            upsert_collection_tx(&mut transaction, collection).await?;
-        }
-        for collection_item in &replacement.collection_items {
-            upsert_collection_item_tx(&mut transaction, collection_item).await?;
-        }
-        for studio in &replacement.studios {
-            upsert_studio_tx(&mut transaction, studio).await?;
-        }
-        for item_studio in &replacement.item_studios {
-            upsert_item_studio_tx(&mut transaction, item_studio).await?;
-        }
-        for image in &replacement.images {
-            upsert_image_asset_tx(&mut transaction, image).await?;
-        }
+        transaction.commit().await.map_err(database_error)
+    }
+
+    async fn commit_item_projection(&self, commit: &CatalogItemProjectionCommit) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        replace_item_catalog_graph_tx(&mut transaction, commit.search.item_id, &commit.graph)
+            .await?;
+        upsert_search_projection_tx(&mut transaction, &commit.search).await?;
 
         transaction.commit().await.map_err(database_error)
     }
@@ -910,6 +862,107 @@ impl CatalogRepository for SqliteStore {
 
         rows.into_iter().map(row_to_image_asset).collect()
     }
+}
+
+async fn replace_item_catalog_graph_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    item_id: MediaItemId,
+    replacement: &CatalogItemGraphReplacement,
+) -> Result<()> {
+    sqlx::query("DELETE FROM item_credits WHERE item_id = ?1")
+        .bind(item_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    sqlx::query("DELETE FROM item_genres WHERE item_id = ?1")
+        .bind(item_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    sqlx::query("DELETE FROM item_tags WHERE item_id = ?1")
+        .bind(item_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    sqlx::query("DELETE FROM collection_items WHERE item_id = ?1")
+        .bind(item_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+    sqlx::query("DELETE FROM item_studios WHERE item_id = ?1")
+        .bind(item_id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    for person in &replacement.people {
+        upsert_person_tx(transaction, person).await?;
+    }
+    for credit in &replacement.credits {
+        upsert_item_credit_tx(transaction, credit).await?;
+    }
+    for genre in &replacement.genres {
+        upsert_genre_tx(transaction, genre).await?;
+    }
+    for item_genre in &replacement.item_genres {
+        upsert_item_genre_tx(transaction, item_genre).await?;
+    }
+    for tag in &replacement.tags {
+        upsert_tag_tx(transaction, tag).await?;
+    }
+    for item_tag in &replacement.item_tags {
+        upsert_item_tag_tx(transaction, item_tag).await?;
+    }
+    for collection in &replacement.collections {
+        upsert_collection_tx(transaction, collection).await?;
+    }
+    for collection_item in &replacement.collection_items {
+        upsert_collection_item_tx(transaction, collection_item).await?;
+    }
+    for studio in &replacement.studios {
+        upsert_studio_tx(transaction, studio).await?;
+    }
+    for item_studio in &replacement.item_studios {
+        upsert_item_studio_tx(transaction, item_studio).await?;
+    }
+    for image in &replacement.images {
+        upsert_image_asset_tx(transaction, image).await?;
+    }
+
+    Ok(())
+}
+
+pub(crate) async fn upsert_search_projection_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    projection: &CatalogSearchProjection,
+) -> Result<()> {
+    let facets_json = serde_json::to_string(&projection.facets).map_err(database_error)?;
+    let facets_text = projection.facets.join(" ");
+
+    sqlx::query(
+        r#"
+        INSERT INTO search_documents (
+            item_id, title, body, facets_json, facets_text
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5)
+        ON CONFLICT(item_id) DO UPDATE SET
+            title = excluded.title,
+            body = excluded.body,
+            facets_json = excluded.facets_json,
+            facets_text = excluded.facets_text,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        "#,
+    )
+    .bind(projection.item_id.to_string())
+    .bind(&projection.title)
+    .bind(&projection.body)
+    .bind(facets_json)
+    .bind(facets_text)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }
 
 impl SqliteStore {

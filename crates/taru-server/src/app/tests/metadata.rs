@@ -132,6 +132,86 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
 }
 
 #[tokio::test]
+async fn metadata_refresh_uses_reconciled_library_profile() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Configured Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Anime);
+    options.metadata_profile.metadata_providers = vec![ExternalProvider::Bangumi];
+    options.metadata_profile.refresh_mode = MetadataRefreshMode::MissingOnly;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Persisted Anime".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    upsert_item_with_source(&store, library_id, &item).await;
+
+    let job = app
+        .metadata()
+        .create_metadata_refresh_job(item.id)
+        .await
+        .unwrap();
+    let input = job
+        .input_json
+        .as_ref()
+        .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+        .unwrap();
+
+    assert_eq!(job.resource_class, "metadata.bangumi");
+    assert_eq!(
+        input.get("provider").and_then(serde_json::Value::as_str),
+        Some("bangumi")
+    );
+    assert_eq!(
+        input
+            .get("refresh_mode")
+            .and_then(serde_json::Value::as_str),
+        Some("missing_only")
+    );
+}
+
+#[tokio::test]
 async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -500,7 +580,7 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
     assert!(input.get("api_key").is_none());
 
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
     assert!(events.iter().any(|event| {
@@ -735,7 +815,7 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
         .record_metadata_refreshed_event(job_id, item.id, &refresh)
         .await;
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
 

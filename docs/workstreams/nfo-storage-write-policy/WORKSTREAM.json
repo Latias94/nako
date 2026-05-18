@@ -1,0 +1,20 @@
+{
+  "slug": "nfo-storage-write-policy",
+  "status": "completed",
+  "goal": "M48 NFO Storage Write Policy and Persistence Diagnostics",
+  "owner": "codex",
+  "created_at": "2026-05-17",
+  "updated_at": "2026-05-17",
+  "current_task": "closed",
+  "first_slice": "VFS atomic local write boundary",
+  "non_goals": [
+    "soft or hard link management",
+    "broad Jellyfin/Kodi/Plex compatibility",
+    "public API changes",
+    "OpenAPI or SDK changes",
+    "database schema changes",
+    "provider breadth",
+    "playback work",
+    "new storage backends"
+  ]
+}

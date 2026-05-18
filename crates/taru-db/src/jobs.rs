@@ -1,4 +1,40 @@
 use super::*;
+use sqlx::QueryBuilder;
+
+const JOB_SELECT: &str = r#"
+            SELECT
+                id,
+                kind,
+                status,
+                resource_class,
+                library_id,
+                source_id,
+                input_json,
+                summary_json,
+                error,
+                queued_at,
+                started_at,
+                completed_at
+            FROM jobs
+            "#;
+
+const JOB_SELECT_BY_ID: &str = r#"
+            SELECT
+                id,
+                kind,
+                status,
+                resource_class,
+                library_id,
+                source_id,
+                input_json,
+                summary_json,
+                error,
+                queued_at,
+                started_at,
+                completed_at
+            FROM jobs
+            WHERE id = ?1
+            "#;
 
 #[async_trait::async_trait]
 impl JobRepository for SqliteStore {
@@ -122,31 +158,53 @@ impl JobRepository for SqliteStore {
     }
 
     async fn get_job(&self, id: JobId) -> Result<Option<Job>> {
-        let row = sqlx::query(
-            r#"
-            SELECT
-                id,
-                kind,
-                status,
-                resource_class,
-                library_id,
-                source_id,
-                input_json,
-                summary_json,
-                error,
-                queued_at,
-                started_at,
-                completed_at
-            FROM jobs
-            WHERE id = ?1
-            "#,
-        )
-        .bind(id.to_string())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let row = sqlx::query(JOB_SELECT_BY_ID)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
 
         row.map(row_to_job).transpose()
+    }
+
+    async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>> {
+        let page = page.clamped();
+        let mut query = QueryBuilder::new(JOB_SELECT);
+        query.push(" WHERE 1 = 1");
+
+        if let Some(status) = filter.status {
+            query.push(" AND status = ");
+            query.push_bind(status.as_str());
+        }
+        if let Some(kind) = filter.kind {
+            query.push(" AND kind = ");
+            query.push_bind(kind.as_str());
+        }
+        if let Some(resource_class) = filter.resource_class {
+            query.push(" AND resource_class = ");
+            query.push_bind(resource_class);
+        }
+        if let Some(library_id) = filter.library_id {
+            query.push(" AND library_id = ");
+            query.push_bind(library_id.to_string());
+        }
+        if let Some(source_id) = filter.source_id {
+            query.push(" AND source_id = ");
+            query.push_bind(source_id.to_string());
+        }
+
+        query.push(" ORDER BY queued_at DESC, id DESC LIMIT ");
+        query.push_bind(u32_to_i64(page.limit));
+        query.push(" OFFSET ");
+        query.push_bind(u64_to_i64(page.offset)?);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_job).collect()
     }
 }
 

@@ -5,8 +5,9 @@ use taru_api::{
     WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
-    DomainEventKind, EventId, EventOutboxRepository, NewWebhookEndpoint, OutboxEventRecord, Result,
-    TaruError, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord, WebhookRepository,
+    DomainEventKind, EventId, EventOutboxRepository, NewWebhookEndpoint, OutboxEventListFilter,
+    OutboxEventRecord, PageRequest, Result, TaruError, WebhookDeliveryStatus, WebhookEndpointId,
+    WebhookEndpointRecord, WebhookRepository,
 };
 use taru_db::SqliteStore;
 use taru_events::{ReqwestWebhookTransport, WebhookDeliveryService, endpoint_subscribes_to};
@@ -156,6 +157,14 @@ impl WebhookAppService {
         let attempts = self.store.list_webhook_delivery_attempts(event_id).await?;
 
         Ok(WebhookDeliveryAttemptsResponse { event_id, attempts })
+    }
+
+    pub async fn list_outbox_events(
+        &self,
+        filter: OutboxEventListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<OutboxEventRecord>> {
+        self.store.list_outbox_events(filter, page).await
     }
 
     pub async fn deliver_webhooks_for_event(

@@ -70,6 +70,87 @@ async fn nfo_import_uses_configured_webdav_backend() {
 }
 
 #[tokio::test]
+async fn nfo_import_uses_reconciled_library_policy() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie><title>NFO Title</title></movie>"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Configured Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::Disabled;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Persisted Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Original".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let err = app.nfo().import_library_nfo(library_id).await.unwrap_err();
+
+    assert_eq!(
+        err,
+        TaruError::Unsupported(
+            "NFO import requires read-only, local-first, or remote-first local metadata policy",
+        )
+    );
+}
+
+#[tokio::test]
 async fn nfo_export_rejects_read_only_webdav_backend() {
     let server = MockWebDavServer::start().await;
     let temp = tempfile::tempdir().unwrap();
@@ -186,7 +267,7 @@ async fn nfo_import_job_imports_sidecar_and_persists_summary() {
     let locks = store.list_field_locks(item.id).await.unwrap();
     let job = app.jobs().get_job(output.job.id).await.unwrap();
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
 

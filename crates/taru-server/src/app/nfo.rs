@@ -3,7 +3,8 @@ use std::sync::Arc;
 use serde::Serialize;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobRepository, Library, LibraryId, NewJob, NewOutboxEvent, Result, TaruError,
+    JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent, Result,
+    TaruError,
 };
 use taru_db::SqliteStore;
 use taru_nfo::{
@@ -12,11 +13,11 @@ use taru_nfo::{
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::Semaphore;
-use tracing::{Instrument, error, info, info_span, warn};
+use tracing::{Instrument, info, info_span, warn};
 
-use crate::config::{TaruServerConfig, libraries_from_config};
-
-use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
+use super::{
+    job_runtime::DurableJobRuntime, runtime::RuntimeSupervisor, storage::StorageBackendRegistry,
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NfoImportCommandOutput {
@@ -32,7 +33,6 @@ pub struct NfoExportCommandOutput {
 
 #[derive(Clone, Debug)]
 pub(crate) struct NfoAppService {
-    config: TaruServerConfig,
     store: SqliteStore,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
@@ -41,14 +41,12 @@ pub(crate) struct NfoAppService {
 
 impl NfoAppService {
     pub(super) fn new(
-        config: TaruServerConfig,
         store: SqliteStore,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
     ) -> Self {
         Self {
-            config,
             store,
             permits,
             storage_backends,
@@ -61,18 +59,20 @@ impl NfoAppService {
         let job_id = job.id;
         let service = self.clone();
 
-        self.runtime.spawn(
+        self.runtime.spawn_job(
             "nfo_import_background_job",
-            "metadata.nfo.import",
-            async move {
-                service.finish_nfo_import_job(job_id, library_id).await;
-            }
-            .instrument(info_span!(
-                "nfo_import_background_job",
-                job_id = %job_id,
-                library_id = %library_id,
-                resource_class = "metadata.nfo.import"
-            )),
+            job.resource_class.clone(),
+            job_id,
+            move |_context| {
+                async move { service.finish_nfo_import_job(job_id, library_id).await }.instrument(
+                    info_span!(
+                        "nfo_import_background_job",
+                        job_id = %job_id,
+                        library_id = %library_id,
+                        resource_class = "metadata.nfo.import"
+                    ),
+                )
+            },
         );
 
         Ok(job)
@@ -83,18 +83,20 @@ impl NfoAppService {
         let job_id = job.id;
         let service = self.clone();
 
-        self.runtime.spawn(
+        self.runtime.spawn_job(
             "nfo_export_background_job",
-            "metadata.nfo.export",
-            async move {
-                service.finish_nfo_export_job(job_id, library_id).await;
-            }
-            .instrument(info_span!(
-                "nfo_export_background_job",
-                job_id = %job_id,
-                library_id = %library_id,
-                resource_class = "metadata.nfo.export"
-            )),
+            job.resource_class.clone(),
+            job_id,
+            move |_context| {
+                async move { service.finish_nfo_export_job(job_id, library_id).await }.instrument(
+                    info_span!(
+                        "nfo_export_background_job",
+                        job_id = %job_id,
+                        library_id = %library_id,
+                        resource_class = "metadata.nfo.export"
+                    ),
+                )
+            },
         );
 
         Ok(job)
@@ -117,7 +119,7 @@ impl NfoAppService {
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         let input = NfoJobInput {
             library_id,
             policy: library.options.metadata_profile.local_metadata_policy,
@@ -140,7 +142,7 @@ impl NfoAppService {
     }
 
     async fn create_nfo_export_job(&self, library_id: LibraryId) -> Result<Job> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         let input = NfoJobInput {
             library_id,
             policy: library.options.metadata_profile.local_metadata_policy,
@@ -162,48 +164,28 @@ impl NfoAppService {
             .await
     }
 
-    async fn finish_nfo_import_job(&self, job_id: JobId, library_id: LibraryId) {
-        match self.execute_nfo_import_job(job_id, library_id).await {
-            Ok(output) => {
-                info!(
-                    job_id = %output.job.id,
-                    library_id = %library_id,
-                    imported_items = output.import.imported_items,
-                    status = ?output.job.status,
-                    "NFO import job completed"
-                );
-            }
-            Err(err) => {
-                error!(
-                    job_id = %job_id,
-                    library_id = %library_id,
-                    error = %err,
-                    "NFO import job failed"
-                );
-            }
-        }
+    async fn finish_nfo_import_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
+        let output = self.execute_nfo_import_job(job_id, library_id).await?;
+        info!(
+            job_id = %output.job.id,
+            library_id = %library_id,
+            imported_items = output.import.imported_items,
+            status = ?output.job.status,
+            "NFO import job completed"
+        );
+        Ok(output.job)
     }
 
-    async fn finish_nfo_export_job(&self, job_id: JobId, library_id: LibraryId) {
-        match self.execute_nfo_export_job(job_id, library_id).await {
-            Ok(output) => {
-                info!(
-                    job_id = %output.job.id,
-                    library_id = %library_id,
-                    exported_items = output.export.exported_items,
-                    status = ?output.job.status,
-                    "NFO export job completed"
-                );
-            }
-            Err(err) => {
-                error!(
-                    job_id = %job_id,
-                    library_id = %library_id,
-                    error = %err,
-                    "NFO export job failed"
-                );
-            }
-        }
+    async fn finish_nfo_export_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
+        let output = self.execute_nfo_export_job(job_id, library_id).await?;
+        info!(
+            job_id = %output.job.id,
+            library_id = %library_id,
+            exported_items = output.export.exported_items,
+            status = ?output.job.status,
+            "NFO export job completed"
+        );
+        Ok(output.job)
     }
 
     async fn execute_nfo_import_job(
@@ -221,33 +203,23 @@ impl NfoAppService {
                 })?;
         let _permit = permit;
 
-        self.store.start_job(job_id).await?;
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job(
+                job_id,
+                "NFO import job",
+                || async { self.run_nfo_import(job_id, library_id).await },
+                |import| DurableJobRuntime::serialize_summary(import, "NFO import job summary"),
+            )
+            .await?;
+        let import = run.output;
+        self.record_nfo_imported_event(job_id, library_id, &import)
+            .await;
 
-        match self.run_nfo_import(job_id, library_id).await {
-            Ok(import) => {
-                let summary_json =
-                    serde_json::to_string(&import).map_err(|err| TaruError::InvalidInput {
-                        message: format!("failed to serialize NFO import job summary: {err}"),
-                    })?;
-                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
-                self.record_nfo_imported_event(job_id, library_id, &import)
-                    .await;
-
-                Ok(NfoImportCommandOutput { job, import })
-            }
-            Err(err) => {
-                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
-                    warn!(
-                        job_id = %job_id,
-                        library_id = %library_id,
-                        error = %update_err,
-                        "failed to persist failed NFO import job state"
-                    );
-                }
-
-                Err(err)
-            }
-        }
+        Ok(NfoImportCommandOutput {
+            job: run.job,
+            import,
+        })
     }
 
     async fn execute_nfo_export_job(
@@ -265,33 +237,23 @@ impl NfoAppService {
                 })?;
         let _permit = permit;
 
-        self.store.start_job(job_id).await?;
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job(
+                job_id,
+                "NFO export job",
+                || async { self.run_nfo_export(job_id, library_id).await },
+                |export| DurableJobRuntime::serialize_summary(export, "NFO export job summary"),
+            )
+            .await?;
+        let export = run.output;
+        self.record_nfo_exported_event(job_id, library_id, &export)
+            .await;
 
-        match self.run_nfo_export(job_id, library_id).await {
-            Ok(export) => {
-                let summary_json =
-                    serde_json::to_string(&export).map_err(|err| TaruError::InvalidInput {
-                        message: format!("failed to serialize NFO export job summary: {err}"),
-                    })?;
-                let job = self.store.succeed_job(job_id, Some(summary_json)).await?;
-                self.record_nfo_exported_event(job_id, library_id, &export)
-                    .await;
-
-                Ok(NfoExportCommandOutput { job, export })
-            }
-            Err(err) => {
-                if let Err(update_err) = self.store.fail_job(job_id, err.to_string()).await {
-                    warn!(
-                        job_id = %job_id,
-                        library_id = %library_id,
-                        error = %update_err,
-                        "failed to persist failed NFO export job state"
-                    );
-                }
-
-                Err(err)
-            }
-        }
+        Ok(NfoExportCommandOutput {
+            job: run.job,
+            export,
+        })
     }
 
     async fn record_nfo_imported_event(
@@ -334,6 +296,10 @@ impl NfoAppService {
             "exported_items": export.exported_items,
             "skipped_items": export.skipped_items,
             "failed_items": export.failed_items,
+            "backed_up_items": export.backed_up_items,
+            "pruned_backup_items": export.pruned_backup_items,
+            "pruned_backups": export.pruned_backups,
+            "prune_failures": export.prune_failures.len(),
         });
         self.record_outbox_event(NewOutboxEvent {
             id: EventId::new(),
@@ -352,7 +318,7 @@ impl NfoAppService {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<NfoImportSummary> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         info!(
             job_id = %job_id,
             library_id = %library_id,
@@ -381,7 +347,7 @@ impl NfoAppService {
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<NfoExportSummary> {
-        let library = self.configured_library_for(library_id)?;
+        let library = self.library_for_nfo(library_id).await?;
         info!(
             job_id = %job_id,
             library_id = %library_id,
@@ -419,10 +385,10 @@ impl NfoAppService {
         }
     }
 
-    fn configured_library_for(&self, library_id: LibraryId) -> Result<Library> {
-        libraries_from_config(&self.config)
-            .into_iter()
-            .find(|library| library.id == library_id)
+    async fn library_for_nfo(&self, library_id: LibraryId) -> Result<Library> {
+        self.store
+            .get_library(library_id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "library",
                 id: library_id.to_string(),

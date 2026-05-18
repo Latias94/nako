@@ -665,6 +665,31 @@ pub(crate) fn row_to_addon_registration(row: SqliteRow) -> Result<AddonRegistrat
     })
 }
 
+pub(crate) fn row_to_addon_token(row: SqliteRow) -> Result<AddonTokenRecord> {
+    Ok(AddonTokenRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        label: row_get(&row, "label")?,
+        token_prefix: row_get(&row, "token_prefix")?,
+        token_hash: row_get(&row, "token_hash")?,
+        status: AddonTokenStatus::parse(&row_get::<String>(&row, "status")?)?,
+        created_at: row_get(&row, "created_at")?,
+        rotated_at: row_get(&row, "rotated_at")?,
+        revoked_at: row_get(&row, "revoked_at")?,
+        last_used_at: row_get(&row, "last_used_at")?,
+    })
+}
+
+pub(crate) fn row_to_addon_grant(row: SqliteRow) -> Result<AddonGrantRecord> {
+    Ok(AddonGrantRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        permission: AddonPermission::parse(&row_get::<String>(&row, "permission")?)?,
+        library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
+        created_at: row_get(&row, "created_at")?,
+    })
+}
+
 pub(crate) fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessionRecord> {
     Ok(TranscodeSessionRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,

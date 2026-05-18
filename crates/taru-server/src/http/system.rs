@@ -6,9 +6,11 @@ use crate::app::TaruApp;
 use super::error::ApiResult;
 
 pub(super) fn routes() -> Router<TaruApp> {
-    Router::new()
-        .route("/health", get(health))
-        .route("/storage/backends", get(list_storage_backends))
+    Router::new().route("/storage/backends", get(list_storage_backends))
+}
+
+pub(super) fn public_routes() -> Router<TaruApp> {
+    Router::new().route("/health", get(health))
 }
 
 pub(super) async fn health() -> Json<HealthResponse> {

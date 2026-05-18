@@ -13,6 +13,7 @@ pub enum StorageErrorKind {
     StagingValidationMismatch,
     ResourceBudgetClosed,
     SecurityViolation,
+    Backup,
 }
 
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
@@ -25,6 +26,12 @@ pub enum TaruError {
 
     #[error("conflict: {message}")]
     Conflict { message: String },
+
+    #[error("unauthorized: {message}")]
+    Unauthorized { message: String },
+
+    #[error("forbidden: {message}")]
+    Forbidden { message: String },
 
     #[error("operation is not supported: {0}")]
     Unsupported(&'static str),
@@ -107,6 +114,10 @@ impl TaruError {
 
     pub fn storage_security_violation(uri: impl Into<String>, message: impl Into<String>) -> Self {
         Self::storage(uri, StorageErrorKind::SecurityViolation, message)
+    }
+
+    pub fn storage_backup(uri: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::storage(uri, StorageErrorKind::Backup, message)
     }
 }
 

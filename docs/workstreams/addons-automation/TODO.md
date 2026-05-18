@@ -59,3 +59,10 @@
 - [x] Add automation provider configuration guide.
 - [x] Update HTTP API docs when M5 routes are implemented.
 - [x] Document M5 known limitations before stabilization.
+
+## Post-M5 Follow-Ups
+
+- [ ] Continue the focused `addon-token-grants-side-effects` workstream for
+      Addon Token issuance, rotation, Library-Scoped Addon Grants, and
+      Taru-mediated Addon Side Effect intake before allowing addon metadata,
+      artwork, subtitle, or Library File Write behavior.

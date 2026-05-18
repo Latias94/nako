@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "slug": "architecture-review-followups",
+  "title": "Architecture Review Follow-Ups",
+  "status": "completed",
+  "updated": "2026-05-18",
+  "scope_kind": "planning_and_routing",
+  "problem": "The 2026-05-18 architecture review produced cross-cutting findings that need durable routing before focused implementation workstreams begin.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/architecture-review-followups/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/architecture-review-followups/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/architecture-review-followups/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/architecture-review-followups/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/architecture-review-followups/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "manual routing consistency review"
+  ],
+  "evidence": [
+    "docs/workstreams/architecture-review-followups/DESIGN.md",
+    "docs/workstreams/architecture-review-followups/TODO.md",
+    "docs/workstreams/README.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "recommended_first_execution_lane": "metadata-catalog-commit-atomicity",
+  "finding_status": {
+    "ARF-001": "closed",
+    "ARF-002": "closed",
+    "ARF-003": "assigned",
+    "ARF-004": "closed",
+    "ARF-005": "closed",
+    "ARF-006": "assigned",
+    "ARF-007": "assigned",
+    "ARF-008": "deferred",
+    "ARF-009": "deferred"
+  },
+  "opened_execution_lanes": [
+    "metadata-catalog-commit-atomicity",
+    "metadata-merge-policy-unification",
+    "multi-library-hardening",
+    "public-client-source-locator-redaction"
+  ],
+  "next_execution_lane": "addons-automation",
+  "next_routing_task": null,
+  "continue_policy": {
+    "default_action": "stop",
+    "notes": "This coordination lane is complete. ARF-004 and ARF-005 are now closed. Continue with the ARF-006 Addon token/grant/side-effect follow-up in addons-automation, or open a new architecture review follow-up lane for future reviews."
+  }
+}

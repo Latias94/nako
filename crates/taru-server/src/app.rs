@@ -12,8 +12,10 @@ use crate::config::TaruServerConfig;
 mod addons;
 mod automation;
 mod catalog;
+mod job_runtime;
 mod jobs;
 mod library;
+mod library_reconciliation;
 mod metadata;
 mod metadata_runtime;
 mod nfo;
@@ -37,7 +39,8 @@ use playback::PlaybackAppService;
 pub(crate) use playback::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest,
 };
-use runtime::{RuntimeSupervisor, RuntimeSupervisorDiagnostics};
+use runtime::RuntimeSupervisor;
+pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
 use startup::{ServerStartupReport, ServerStartupWorkflow};
@@ -111,7 +114,6 @@ impl TaruApp {
             runtime.clone(),
         );
         let nfo = NfoAppService::new(
-            config.clone(),
             store.clone(),
             metadata_permits,
             storage_backends.clone(),
@@ -221,7 +223,7 @@ impl TaruApp {
     }
 }
 
-fn current_time_ms() -> Result<i64> {
+pub(crate) fn current_time_ms() -> Result<i64> {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|err| TaruError::InvalidInput {

@@ -11,14 +11,18 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 
 use crate::config::{
     LocalLibraryConfig, PlaybackConfig, TaruServerConfig, WebDavLibraryConfig,
-    configured_library_config_for, libraries_from_config,
+    configured_library_config_for,
 };
 use taru_api::{
     StorageBackendDiagnostic, StorageBackendDiagnosticsResponse, StorageBackendHealthDiagnostic,
     StorageBackendKind, StorageBackendRegistryDiagnostic, StorageBackendRuntimeStateScope,
     StorageBackendStatus,
 };
-use taru_core::{Library, LibraryId, MediaSource, Result, TaruError};
+use taru_core::{
+    Library, LibraryId, LibraryRepository, MediaSource, PageRequest, Result, StagingManifestRecord,
+    StagingManifestRepository, StagingPurpose, StagingState, TaruError, VfsCacheRepository,
+    VfsCacheSummary,
+};
 use taru_db::SqliteStore;
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 
@@ -38,6 +42,30 @@ impl StorageDiagnosticsAppService {
         &self,
     ) -> StorageBackendDiagnosticsResponse {
         self.registry.diagnostics().await
+    }
+
+    pub(crate) async fn list_staging_manifest_records(
+        &self,
+        purpose: Option<StagingPurpose>,
+        state: Option<StagingState>,
+        page: PageRequest,
+    ) -> Result<Vec<StagingManifestRecord>> {
+        self.registry
+            .store
+            .list_staging_manifest_records(purpose, state, page)
+            .await
+    }
+
+    pub(crate) async fn sum_staging_manifest_bytes(&self) -> Result<u64> {
+        self.registry.store.sum_staging_manifest_bytes().await
+    }
+
+    pub(crate) async fn process_cached_backend_count(&self) -> usize {
+        self.registry.backends.lock().await.len()
+    }
+
+    pub(crate) async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
+        self.registry.store.summarize_vfs_cache(now_ms).await
     }
 
     #[cfg(test)]
@@ -106,18 +134,26 @@ impl StorageBackendRegistry {
     }
 
     pub(super) async fn diagnostics(&self) -> StorageBackendDiagnosticsResponse {
-        let libraries = libraries_from_config(&self.config);
+        let libraries = match self.list_all_libraries().await {
+            Ok(libraries) => libraries,
+            Err(err) => {
+                return StorageBackendDiagnosticsResponse {
+                    backends: vec![unavailable_registry_diagnostic(err)],
+                };
+            }
+        };
         let mut backends = Vec::with_capacity(libraries.len());
 
         for library in libraries {
             let config = match configured_library_config_for(&self.config, library.id) {
                 Ok(config) => config,
-                Err(_) => {
+                Err(err) => {
+                    let backend_kind = library_backend_kind(&library);
                     backends.push(unavailable_backend_diagnostic(
                         &library,
                         None,
-                        None,
-                        "configured library backend is unavailable".to_owned(),
+                        Some(backend_kind),
+                        safe_unavailable_reason(&err, backend_kind),
                     ));
                     continue;
                 }
@@ -152,6 +188,30 @@ impl StorageBackendRegistry {
 
         backends.sort_by(|left, right| left.library_name.cmp(&right.library_name));
         StorageBackendDiagnosticsResponse { backends }
+    }
+
+    async fn list_all_libraries(&self) -> Result<Vec<Library>> {
+        let mut libraries = Vec::new();
+        let mut offset = 0;
+
+        loop {
+            let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
+            let mut batch = self.store.list_libraries(page).await?;
+            let returned = batch.len();
+            libraries.append(&mut batch);
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                return Ok(libraries);
+            }
+
+            offset =
+                offset
+                    .checked_add(returned as u64)
+                    .ok_or_else(|| TaruError::InvalidInput {
+                        message: "storage diagnostics library pagination offset overflowed"
+                            .to_owned(),
+                    })?;
+        }
     }
 
     fn build_backend(&self, config: &LocalLibraryConfig) -> Result<Arc<dyn StorageBackend>> {
@@ -490,6 +550,46 @@ fn unavailable_backend_diagnostic(
     }
 }
 
+fn library_backend_kind(library: &Library) -> StorageBackendKind {
+    library
+        .roots
+        .first()
+        .and_then(|root| StorageUri::parse(root).ok())
+        .map(|uri| {
+            if uri.scheme() == "webdav" {
+                StorageBackendKind::WebDav
+            } else {
+                StorageBackendKind::Local
+            }
+        })
+        .unwrap_or(StorageBackendKind::Local)
+}
+
+fn unavailable_registry_diagnostic(err: TaruError) -> StorageBackendDiagnostic {
+    StorageBackendDiagnostic {
+        library_id: LibraryId::new(),
+        library_name: "Library registry".to_owned(),
+        root_uri: "unknown:///".to_owned(),
+        backend_kind: StorageBackendKind::Local,
+        scheme: "unknown".to_owned(),
+        status: StorageBackendStatus::Unavailable,
+        reason: Some(safe_unavailable_reason(&err, StorageBackendKind::Local)),
+        registry: StorageBackendRegistryDiagnostic {
+            cached: false,
+            stream_permits_available: 0,
+            stream_permits_max: 0,
+            stage_permits_available: 0,
+            stage_permits_max: 0,
+            state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
+        },
+        health: StorageBackendHealthDiagnostic {
+            consecutive_errors: 0,
+            last_success_at_ms: None,
+            last_error_at_ms: None,
+        },
+    }
+}
+
 fn safe_unavailable_reason(err: &TaruError, backend_kind: StorageBackendKind) -> String {
     match err {
         TaruError::InvalidInput { .. } => match backend_kind {
@@ -526,7 +626,10 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use taru_core::{LibraryPreset, MediaItemId, MediaSourceId, Result, TaruError};
+    use taru_core::{
+        LibraryOptions, LibraryPreset, MediaItemId, MediaSourceId, Result, TaruError,
+        TransactionManager,
+    };
     use taru_vfs::{
         ByteRange, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend,
         StorageUri, VirtualFile,
@@ -681,9 +784,19 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
-            libraries: vec![library_config],
+            libraries: vec![library_config.clone()],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        store
+            .upsert_library(&Library {
+                id: library_config.id,
+                name: library_config.name.clone(),
+                roots: vec!["local:///".to_owned()],
+                options: LibraryOptions::from_preset(library_config.preset),
+            })
+            .await
+            .unwrap();
         let registry = StorageBackendRegistry::new(&config, store);
 
         let diagnostics = registry.diagnostics().await;

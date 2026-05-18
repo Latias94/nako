@@ -1,8 +1,9 @@
 use taru_core::{
-    AutomationJobInput, ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef,
-    LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure,
-    ProviderMappingId, ProviderSubjectId, TransactionManager, VfsCacheOperation, VfsCachedListing,
-    VfsCachedObject, VfsCachedObjectKind,
+    AddonGrantId, AutomationJobInput, CatalogItemProjectionCommit, CatalogSearchProjection,
+    ContentRating, Credit, CreditRole, ImageKind, ImageOwner, ImageRef, LibraryOptions,
+    LibraryPreset, MediaSourceId, MetadataRefreshMode, NewVfsCacheFailure, ProviderMappingId,
+    ProviderSubjectId, TransactionManager, VfsCacheOperation, VfsCachedListing, VfsCachedObject,
+    VfsCachedObjectKind,
 };
 
 use super::*;
@@ -410,6 +411,137 @@ async fn sqlite_store_round_trips_transcode_sessions() {
             .id,
         session_id
     );
+}
+
+#[tokio::test]
+async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Session List Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Session List Demo.mkv".to_owned(),
+        file_name: "Session List Demo.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let other_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Other Session List Demo.mkv".to_owned(),
+        file_name: "Other Session List Demo.mkv".to_owned(),
+        size_bytes: Some(24),
+        fingerprint: None,
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store.upsert_media_source(&other_source).await.unwrap();
+
+    let remux_id = TranscodeSessionId::new();
+    let hls_id = TranscodeSessionId::new();
+    let other_id = TranscodeSessionId::new();
+
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: remux_id,
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mp4".to_owned(),
+            output_path: "cache/remux/stream.mp4".into(),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: hls_id,
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: "hls:single".to_owned(),
+            output_path: "cache/hls/playlist.m3u8".into(),
+            state: TranscodeSessionState::Planned,
+        })
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: other_id,
+            source_id: other_source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "remux:mkv".to_owned(),
+            output_path: "cache/remux/other.mkv".into(),
+            state: TranscodeSessionState::Planned,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            hls_id,
+            TranscodeSessionState::Failed,
+            Some(TranscodeFailureCategory::Runner),
+            Some("ffmpeg failed".to_owned()),
+        )
+        .await
+        .unwrap();
+
+    let filtered = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter {
+                source_id: Some(source.id),
+                kind: Some(TranscodeSessionKind::HlsTranscode),
+                state: Some(TranscodeSessionState::Failed),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, hls_id);
+    assert_eq!(
+        filtered[0].failure_category,
+        Some(TranscodeFailureCategory::Runner)
+    );
+
+    let source_sessions = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter {
+                source_id: Some(source.id),
+                ..TranscodeSessionListFilter::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_sessions.len(), 2);
+
+    let second_page = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter::default(),
+            PageRequest::new(1, 1),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second_page.len(), 1);
 }
 
 #[tokio::test]
@@ -1047,6 +1179,237 @@ async fn sqlite_store_round_trips_local_inference_evidence_without_confirming_me
 }
 
 #[tokio::test]
+async fn sqlite_store_lists_catalog_governance_items_for_unknown_and_low_confidence() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let unknown = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Unknown,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Unmatched Local File".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let low_confidence = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Weak Match".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let high_confidence = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Confident Match".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let unknown_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: unknown.id,
+        locator: "local:///Movies/Private/Unknown.Local.File.mkv".to_owned(),
+        file_name: "Unknown.Local.File.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let low_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: low_confidence.id,
+        locator: "local:///Movies/Weak.Match.mkv".to_owned(),
+        file_name: "Weak.Match.mkv".to_owned(),
+        size_bytes: Some(84),
+        fingerprint: Some("sha256:weak".to_owned()),
+    };
+    let high_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: high_confidence.id,
+        locator: "local:///Movies/Confident.Match.mkv".to_owned(),
+        file_name: "Confident.Match.mkv".to_owned(),
+        size_bytes: Some(168),
+        fingerprint: Some("sha256:confident".to_owned()),
+    };
+    let low_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "100".to_owned(),
+        title: Some("Weak Match".to_owned()),
+        release_year: None,
+        locale: Some("en-US".to_owned()),
+    };
+    let low_mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: low_confidence.id,
+        subject_id: low_subject.id,
+        status: ProviderMappingStatus::Accepted,
+        confidence_milli: Some(900),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+    let duplicate = SourceDuplicateRelationship {
+        id: SourceDuplicateRelationshipId::new(),
+        source_id: low_source.id,
+        duplicate_source_id: unknown_source.id,
+        evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
+        evidence_value: Some("sha256:weak".to_owned()),
+        status: SourceDuplicateRelationshipStatus::Suggested,
+        confidence_milli: Some(880),
+    };
+
+    store.upsert_library(&library).await.unwrap();
+    for item in [&unknown, &low_confidence, &high_confidence] {
+        store.upsert_media_item(item).await.unwrap();
+    }
+    for source in [&unknown_source, &low_source, &high_source] {
+        store.upsert_media_source(source).await.unwrap();
+    }
+    store.upsert_provider_subject(&low_subject).await.unwrap();
+    store.upsert_provider_mapping(&low_mapping).await.unwrap();
+    store
+        .upsert_source_duplicate_relationship(&duplicate)
+        .await
+        .unwrap();
+    for (source, confidence) in [
+        (&unknown_source, 350),
+        (&low_source, 640),
+        (&high_source, 920),
+    ] {
+        store
+            .upsert_local_inference_evidence(&LocalInferenceEvidence {
+                id: LocalInferenceEvidenceId::new(),
+                source_id: source.id,
+                inferred_kind: if source.id == unknown_source.id {
+                    MediaKind::Unknown
+                } else {
+                    MediaKind::Movie
+                },
+                inferred_title: Some(source.file_name.trim_end_matches(".mkv").replace('.', " ")),
+                inferred_year: None,
+                inferred_season: None,
+                inferred_episode: None,
+                confidence_milli: Some(confidence),
+                evidence_source: LocalInferenceEvidenceSource::Path,
+                evidence_value: source.locator.clone(),
+                inference_version: "taru-naming:1".to_owned(),
+            })
+            .await
+            .unwrap();
+    }
+
+    let records = store
+        .list_catalog_governance_items(
+            CatalogGovernanceItemListFilter {
+                library_id: Some(library.id),
+                max_confidence_milli: 700,
+            },
+            PageRequest::new(10, 0),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0].item.id, unknown.id);
+    assert_eq!(records[0].item.kind, MediaKind::Unknown);
+    assert_eq!(records[0].source_count, 1);
+    assert_eq!(records[0].representative_source_id, Some(unknown_source.id));
+    assert_eq!(
+        records[0]
+            .best_local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(350)
+    );
+    assert_eq!(records[0].provider_mapping_count, 0);
+    assert_eq!(records[0].duplicate_relationship_count, 1);
+
+    assert_eq!(records[1].item.id, low_confidence.id);
+    assert_eq!(records[1].item.kind, MediaKind::Movie);
+    assert_eq!(
+        records[1]
+            .best_local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(640)
+    );
+    assert_eq!(records[1].provider_mapping_count, 1);
+    assert_eq!(records[1].accepted_provider_mapping_count, 1);
+    assert_eq!(records[1].duplicate_relationship_count, 1);
+    assert!(
+        !records
+            .iter()
+            .any(|record| record.item.id == high_confidence.id)
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item_id = MediaItemId::new();
+    let person = Person {
+        id: PersonId::new(),
+        name: "Rollback Actor".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let commit = CatalogItemProjectionCommit {
+        graph: CatalogItemGraphReplacement {
+            people: vec![person.clone()],
+            credits: vec![ItemCredit {
+                item_id,
+                person_id: person.id,
+                role: CreditRole::Actor,
+                character: Some("Failure Path".to_owned()),
+                sort_order: Some(1),
+            }],
+            ..CatalogItemGraphReplacement::default()
+        },
+        search: CatalogSearchProjection {
+            item_id,
+            title: "Missing Item".to_owned(),
+            body: "should not be committed".to_owned(),
+            facets: vec!["genre:rollback".to_owned()],
+        },
+    };
+
+    let err = store.commit_item_projection(&commit).await.unwrap_err();
+    let people = store.list_people(PageRequest::first_page()).await.unwrap();
+    let credits = store.list_item_credits(item_id).await.unwrap();
+    let hits = store
+        .search(SearchQuery {
+            query: "missing".to_owned(),
+            facets: Vec::new(),
+            limit: 10,
+            offset: 0,
+        })
+        .await
+        .unwrap();
+
+    assert!(matches!(err, TaruError::Database { .. }));
+    assert!(people.is_empty());
+    assert!(credits.is_empty());
+    assert!(hits.is_empty());
+}
+
+#[tokio::test]
 async fn sqlite_store_round_trips_media_probe_results() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -1204,6 +1567,14 @@ async fn sqlite_store_round_trips_vfs_cache_records_and_failures() {
     assert_eq!(second_failure.failure_count, 2);
     assert_eq!(second_failure.failed_at_ms, 400);
     assert_eq!(second_failure.error, "rate limited");
+
+    let summary = store.summarize_vfs_cache(300).await.unwrap();
+    assert_eq!(summary.object_count, 2);
+    assert_eq!(summary.listing_count, 1);
+    assert_eq!(summary.failure_count, 1);
+    assert_eq!(summary.stale_object_count, 2);
+    assert_eq!(summary.stale_listing_count, 1);
+    assert_eq!(summary.last_failure_at_ms, Some(400));
 }
 
 #[tokio::test]
@@ -1573,6 +1944,132 @@ async fn sqlite_store_round_trips_job_lifecycle() {
 }
 
 #[tokio::test]
+async fn sqlite_store_lists_jobs_with_filters_and_pagination() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let other_library = Library {
+        id: LibraryId::new(),
+        name: "Anime".to_owned(),
+        roots: vec!["local:///Anime".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Anime),
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_library(&other_library).await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Demo.mkv".to_owned(),
+        file_name: "Demo.mkv".to_owned(),
+        size_bytes: Some(4),
+        fingerprint: Some("fingerprint".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let scan = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(library.id),
+            source_id: Some(source.id),
+            input_json: Some(r#"{"library_id":"movies"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    store.start_job(scan.id).await.unwrap();
+    store
+        .succeed_job(scan.id, Some(r#"{"discovered_files":1}"#.to_owned()))
+        .await
+        .unwrap();
+
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.tmdb".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let failed_scan = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(other_library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(failed_scan.id).await.unwrap();
+    store
+        .fail_job(failed_scan.id, "scan failed".to_owned())
+        .await
+        .unwrap();
+
+    let filtered = store
+        .list_jobs(
+            JobListFilter {
+                status: Some(JobStatus::Succeeded),
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                library_id: Some(library.id),
+                source_id: Some(source.id),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, scan.id);
+    assert_eq!(
+        filtered[0].summary_json.as_deref(),
+        Some(r#"{"discovered_files":1}"#)
+    );
+
+    let disk_scan_jobs = store
+        .list_jobs(
+            JobListFilter {
+                resource_class: Some("disk.scan".to_owned()),
+                ..JobListFilter::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(disk_scan_jobs.len(), 2);
+
+    let second_page = store
+        .list_jobs(JobListFilter::default(), PageRequest::new(1, 1))
+        .await
+        .unwrap();
+    assert_eq!(second_page.len(), 1);
+}
+
+#[tokio::test]
 async fn sqlite_store_marks_unfinished_jobs_failed_on_startup() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -1710,12 +2207,168 @@ async fn sqlite_store_round_trips_outbox_events_idempotently() {
     assert_eq!(store.get_outbox_event(first.id).await.unwrap(), Some(first));
 
     let events = store
-        .list_outbox_events(PageRequest::first_page())
+        .list_outbox_events(Default::default(), PageRequest::first_page())
         .await
         .unwrap();
     assert_eq!(events.len(), 1);
     assert!(!events[0].payload_json.contains("TMDB_READ_ACCESS_TOKEN"));
     assert!(!events[0].payload_json.contains("F:/"));
+}
+
+#[tokio::test]
+async fn sqlite_store_lists_outbox_events_with_filters_and_pagination() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let source_id = MediaSourceId::new();
+    let other_source_id = MediaSourceId::new();
+    let item_id = MediaItemId::new();
+    let other_item_id = MediaItemId::new();
+
+    for (id, name) in [(library_id, "Movies"), (other_library_id, "Anime")] {
+        store
+            .upsert_library(&Library {
+                id,
+                name: name.to_owned(),
+                roots: vec!["local:///".to_owned()],
+                options: LibraryOptions::from_preset(LibraryPreset::Movies),
+            })
+            .await
+            .unwrap();
+    }
+    for (id, title) in [(item_id, "Demo"), (other_item_id, "Other")] {
+        store
+            .upsert_media_item(&MediaItem {
+                id,
+                kind: MediaKind::Movie,
+                parent_id: None,
+                metadata: CanonicalMetadata {
+                    title: title.to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            })
+            .await
+            .unwrap();
+    }
+    store
+        .upsert_media_source(&MediaSource {
+            id: source_id,
+            library_id,
+            item_id,
+            locator: "local:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: other_source_id,
+            library_id: other_library_id,
+            item_id: other_item_id,
+            locator: "local:///Anime/Other.mkv".to_owned(),
+            file_name: "Other.mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+
+    let scan = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library_id),
+            library_id: Some(library_id),
+            source_id: None,
+            idempotency_key: format!("library_scan:{library_id}"),
+            payload_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+    let metadata = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::ItemMetadataRefreshed,
+            subject: DomainEventSubject::Source(source_id),
+            library_id: Some(library_id),
+            source_id: Some(source_id),
+            idempotency_key: format!("metadata:{source_id}"),
+            payload_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+    let other = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::PlaybackSessionFinished,
+            subject: DomainEventSubject::Source(other_source_id),
+            library_id: Some(other_library_id),
+            source_id: Some(other_source_id),
+            idempotency_key: format!("playback:{other_source_id}"),
+            payload_json: "{}".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let by_kind = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                kind: Some(DomainEventKind::ItemMetadataRefreshed),
+                ..Default::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_kind, vec![metadata.clone()]);
+
+    let by_status = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                status: Some(OutboxEventStatus::Pending),
+                ..Default::default()
+            },
+            PageRequest::new(2, 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_status.len(), 2);
+    assert!(
+        by_status
+            .iter()
+            .all(|event| event.status == OutboxEventStatus::Pending)
+    );
+
+    let by_library = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                library_id: Some(library_id),
+                ..Default::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_library.len(), 2);
+    assert!(by_library.iter().any(|event| event.id == scan.id));
+    assert!(by_library.iter().any(|event| event.id == metadata.id));
+    assert!(!by_library.iter().any(|event| event.id == other.id));
+
+    let by_source = store
+        .list_outbox_events(
+            OutboxEventListFilter {
+                source_id: Some(source_id),
+                ..Default::default()
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(by_source, vec![metadata]);
 }
 
 #[tokio::test]
@@ -1966,6 +2619,225 @@ async fn sqlite_store_round_trips_addon_registration() {
     assert!(
         store
             .list_addon_registrations(Some(AddonStatus::Enabled))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_round_trips_addon_tokens_and_grants() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.metadata".to_owned(),
+            name: "Example Metadata".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["item_metadata_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let first_id = AddonTokenId::new();
+    let first = store
+        .create_addon_token(NewAddonToken {
+            id: first_id,
+            addon_id,
+            label: "initial".to_owned(),
+            token_prefix: "taru_at_initial".to_owned(),
+            token_hash: "sha256:first".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.id, first_id);
+    assert_eq!(first.addon_id, addon_id);
+    assert_eq!(first.status, AddonTokenStatus::Active);
+    assert_eq!(first.token_hash, "sha256:first");
+    assert_eq!(
+        store.list_addon_tokens(addon_id).await.unwrap(),
+        vec![first.clone()]
+    );
+
+    let replacement_id = AddonTokenId::new();
+    let (rotated, replacement) = store
+        .rotate_addon_token(
+            first_id,
+            NewAddonToken {
+                id: replacement_id,
+                addon_id,
+                label: "rotated".to_owned(),
+                token_prefix: "taru_at_rotated".to_owned(),
+                token_hash: "sha256:second".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(rotated.status, AddonTokenStatus::Rotated);
+    assert!(rotated.rotated_at.is_some());
+    assert_eq!(replacement.status, AddonTokenStatus::Active);
+    assert_eq!(replacement.token_hash, "sha256:second");
+
+    assert_eq!(
+        store
+            .find_addon_token_by_hash("sha256:second")
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        replacement_id
+    );
+
+    let used = store
+        .mark_addon_token_used(replacement_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(used.last_used_at.is_some());
+
+    let revoked = store
+        .revoke_addon_token(replacement_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(revoked.status, AddonTokenStatus::Revoked);
+    assert!(revoked.revoked_at.is_some());
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let grants = store
+        .replace_addon_grants(
+            addon_id,
+            vec![
+                NewAddonGrant {
+                    id: AddonGrantId::new(),
+                    addon_id,
+                    permission: AddonPermission::MetadataWrite,
+                    library_id: Some(library_id),
+                },
+                NewAddonGrant {
+                    id: AddonGrantId::new(),
+                    addon_id,
+                    permission: AddonPermission::ArtworkWrite,
+                    library_id: None,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(grants.len(), 2);
+    assert!(
+        grants
+            .iter()
+            .any(|grant| grant.permission == AddonPermission::MetadataWrite
+                && grant.library_id == Some(library_id))
+    );
+    assert!(grants.iter().any(
+        |grant| grant.permission == AddonPermission::ArtworkWrite && grant.library_id.is_none()
+    ));
+
+    let replaced = store
+        .replace_addon_grants(
+            addon_id,
+            vec![NewAddonGrant {
+                id: AddonGrantId::new(),
+                addon_id,
+                permission: AddonPermission::SubtitleWrite,
+                library_id: Some(library_id),
+            }],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(replaced.len(), 1);
+    assert_eq!(replaced[0].permission, AddonPermission::SubtitleWrite);
+}
+
+#[tokio::test]
+async fn sqlite_store_rejects_addon_token_rotation_across_addons() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let first_addon_id = AddonId::new();
+    let second_addon_id = AddonId::new();
+
+    for (addon_id, manifest_id) in [
+        (first_addon_id, "example.first"),
+        (second_addon_id, "example.second"),
+    ] {
+        store
+            .upsert_addon_registration(NewAddonRegistration {
+                id: addon_id,
+                manifest_id: manifest_id.to_owned(),
+                name: manifest_id.to_owned(),
+                version: "0.1.0".to_owned(),
+                protocol_version: "2026-05-15".to_owned(),
+                base_url: "https://example.test/addon".to_owned(),
+                manifest_json: "{}".to_owned(),
+                granted_scopes: vec!["item_metadata_read".to_owned()],
+                status: AddonStatus::Enabled,
+            })
+            .await
+            .unwrap();
+    }
+
+    let first_token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: first_token_id,
+            addon_id: first_addon_id,
+            label: "first".to_owned(),
+            token_prefix: "taru_at_first".to_owned(),
+            token_hash: "sha256:first-addon".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let error = store
+        .rotate_addon_token(
+            first_token_id,
+            NewAddonToken {
+                id: AddonTokenId::new(),
+                addon_id: second_addon_id,
+                label: "wrong aggregate".to_owned(),
+                token_prefix: "taru_at_wrong".to_owned(),
+                token_hash: "sha256:wrong-addon".to_owned(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, TaruError::Conflict { .. }));
+    assert_eq!(
+        store
+            .get_addon_token(first_token_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        AddonTokenStatus::Active
+    );
+    assert!(
+        store
+            .list_addon_tokens(second_addon_id)
             .await
             .unwrap()
             .is_empty()

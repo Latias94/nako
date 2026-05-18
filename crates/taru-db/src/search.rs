@@ -3,33 +3,18 @@ use super::*;
 #[async_trait::async_trait]
 impl SearchIndex for SqliteStore {
     async fn upsert(&self, document: SearchDocument) -> Result<()> {
-        let facets_json = serde_json::to_string(&document.facets).map_err(database_error)?;
-        let facets_text = document.facets.join(" ");
-
-        sqlx::query(
-            r#"
-            INSERT INTO search_documents (
-                item_id, title, body, facets_json, facets_text
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5)
-            ON CONFLICT(item_id) DO UPDATE SET
-                title = excluded.title,
-                body = excluded.body,
-                facets_json = excluded.facets_json,
-                facets_text = excluded.facets_text,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        crate::catalog::upsert_search_projection_tx(
+            &mut transaction,
+            &CatalogSearchProjection {
+                item_id: document.item_id,
+                title: document.title,
+                body: document.body,
+                facets: document.facets,
+            },
         )
-        .bind(document.item_id.to_string())
-        .bind(document.title)
-        .bind(document.body)
-        .bind(facets_json)
-        .bind(facets_text)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        .await?;
+        transaction.commit().await.map_err(database_error)
     }
 
     async fn delete(&self, item_id: MediaItemId) -> Result<()> {

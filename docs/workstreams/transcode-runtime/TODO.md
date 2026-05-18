@@ -41,6 +41,8 @@
 
 - [ ] Add device-initialization hardware diagnostics if encoder-name probing is
       too weak for operators.
+- [ ] Define HLS request identity and future Transcode Profile cache keys
+      before changing HLS session reuse or cache semantics.
 
 ## M26.0 Playback API Contract and Client Readiness
 

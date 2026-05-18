@@ -27,6 +27,7 @@ use super::{
 pub(super) struct HlsAppService {
     builder: FfmpegCommandBuilder,
     runner: FfmpegHlsRunner,
+    pub(super) hardware_report: HardwareAccelerationReport,
     pub(super) hardware_selection: HardwareAccelerationSelection,
     cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
@@ -69,6 +70,7 @@ impl HlsAppService {
         Ok(Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
             runner: FfmpegHlsRunner::new(guard),
+            hardware_report,
             hardware_selection,
             cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),

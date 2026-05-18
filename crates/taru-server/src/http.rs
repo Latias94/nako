@@ -5,6 +5,7 @@ use taru_api::{API_VERSION, API_VERSION_HEADER};
 use crate::app::TaruApp;
 
 mod addons;
+mod admin;
 mod auth;
 mod automation;
 mod catalog;
@@ -23,8 +24,9 @@ pub fn build_router(app: TaruApp) -> Router {
 }
 
 fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router {
-    Router::new()
+    let protected_routes = Router::new()
         .merge(system::routes())
+        .merge(admin::routes())
         .merge(library::routes())
         .merge(catalog::routes())
         .merge(metadata::routes())
@@ -34,7 +36,12 @@ fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router 
         .merge(addons::routes())
         .merge(jobs::routes())
         .layer(middleware::from_fn(auth::require_auth))
-        .layer(Extension(auth))
+        .layer(Extension(auth));
+
+    Router::new()
+        .merge(system::public_routes())
+        .merge(protected_routes)
+        .merge(addons::runtime_routes())
         .layer(middleware::map_response(add_api_version_header))
         .with_state(app)
 }
