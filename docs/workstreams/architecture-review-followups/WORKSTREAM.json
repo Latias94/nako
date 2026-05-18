@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "slug": "architecture-review-followups",
+  "title": "Architecture Review Follow-Ups",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "planning_and_routing",
+  "problem": "The 2026-05-18 architecture review produced cross-cutting findings that need durable routing before focused implementation workstreams begin.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/architecture-review-followups/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/architecture-review-followups/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/architecture-review-followups/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/architecture-review-followups/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/architecture-review-followups/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "manual routing consistency review"
+  ],
+  "evidence": [
+    "docs/workstreams/architecture-review-followups/DESIGN.md",
+    "docs/workstreams/architecture-review-followups/TODO.md",
+    "docs/workstreams/README.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "recommended_first_execution_lane": "metadata-catalog-commit-atomicity",
+  "finding_status": {
+    "ARF-001": "proposed",
+    "ARF-002": "proposed",
+    "ARF-003": "proposed",
+    "ARF-004": "proposed",
+    "ARF-005": "proposed",
+    "ARF-006": "proposed",
+    "ARF-007": "proposed",
+    "ARF-008": "deferred",
+    "ARF-009": "deferred"
+  },
+  "continue_policy": {
+    "default_action": "route_then_split",
+    "notes": "Use this lane to assign findings. Do not implement code here. Open or update focused execution lanes before behavior changes."
+  }
+}

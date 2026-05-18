@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [architecture-review-followups](architecture-review-followups/README.md):
+  proposed planning and routing lane for the 2026-05-18 architecture review
+  findings, covering metadata/catalog atomicity, metadata merge-policy
+  unification, Media Library source-of-truth, Public Client Source Locator
+  redaction, Addon side-effect seams, playback request identity, and transcode
+  diagnostics follow-ups.
 - [metadata-catalog-commit-atomicity](metadata-catalog-commit-atomicity/README.md):
   proposed execution lane for deepening metadata/catalog commit consistency,
   starting with an atomic Catalog Item Graph and Search Projection commit before
