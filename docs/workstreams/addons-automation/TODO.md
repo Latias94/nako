@@ -62,6 +62,7 @@
 
 ## Post-M5 Follow-Ups
 
-- [ ] Define Addon Token issuance, rotation, library-scoped grants, and
+- [ ] Continue the focused `addon-token-grants-side-effects` workstream for
+      Addon Token issuance, rotation, Library-Scoped Addon Grants, and
       Taru-mediated Addon Side Effect intake before allowing addon metadata,
-      artwork, subtitle, or library-file writes.
+      artwork, subtitle, or Library File Write behavior.

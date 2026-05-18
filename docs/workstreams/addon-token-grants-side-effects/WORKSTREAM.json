@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "slug": "addon-token-grants-side-effects",
+  "title": "Addon Token Grants Side Effects",
+  "status": "proposed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "Taru can register and call Addon Sidecars, but Addon Token lifecycle, accepted Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake are not defined before protected writes.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/addon-token-grants-side-effects/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-token-grants-side-effects/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-token-grants-side-effects/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-token-grants-side-effects/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-token-grants-side-effects/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg \"Addon|addon|scope|token|grant|manifest\" crates/taru-addon-protocol crates/taru-core crates/taru-db crates/taru-server crates/taru-api docs",
+    "cargo check -p taru-core --tests",
+    "cargo check -p taru-db --tests",
+    "cargo nextest run -p taru-db addon --no-fail-fast",
+    "cargo nextest run -p taru-server addon --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-addon-protocol/src/lib.rs",
+    "crates/taru-core/src/addon.rs",
+    "crates/taru-core/src/repository/addon.rs",
+    "crates/taru-db/src/addons.rs",
+    "crates/taru-server/src/app/addons.rs",
+    "crates/taru-server/src/http/addons.rs",
+    "crates/taru-api/src/extension.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": "ATGSE-020",
+  "first_slice": "current addon token/grant/side-effect boundary audit",
+  "non_goals": [
+    "OAuth-first authorization",
+    "Addon Manager lifecycle automation",
+    "Native Plugin ABI",
+    "Jellyfin Plugin Compatibility",
+    "direct addon database or filesystem access",
+    "full metadata, artwork, subtitle, or NFO write breadth"
+  ],
+  "routed_from": {
+    "workstream": "architecture-review-followups",
+    "finding": "ARF-006",
+    "source": "docs/workstreams/addons-automation/TODO.md Post-M5 follow-up"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with ATGSE-020 audit before implementing token, grant, or side-effect code. Split concrete write handlers if they exceed the proof scope."
+  }
+}
+
