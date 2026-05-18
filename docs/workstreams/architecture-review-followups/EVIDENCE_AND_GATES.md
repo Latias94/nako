@@ -56,3 +56,12 @@ follow-up execution lane as correctly routed.
 Fresh verification is required before marking any task or lane complete. This
 lane currently validates documentation consistency only; implementation lanes
 must carry their own Rust checks and `cargo nextest` gates.
+
+## Fresh Evidence
+
+2026-05-18, ARF-020:
+
+- Routing table updated so every finding is Closed, Assigned, or Deferred.
+- `WORKSTREAM.json` finding status map now agrees with the routing table.
+- `HANDOFF.md` points to ARF-040 and `metadata-merge-policy-unification` as
+  the next execution action.

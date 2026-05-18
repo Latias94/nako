@@ -50,16 +50,17 @@
   ],
   "recommended_first_execution_lane": "metadata-catalog-commit-atomicity",
   "finding_status": {
-    "ARF-001": "proposed",
-    "ARF-002": "proposed",
-    "ARF-003": "proposed",
-    "ARF-004": "proposed",
-    "ARF-005": "proposed",
-    "ARF-006": "proposed",
-    "ARF-007": "proposed",
+    "ARF-001": "closed",
+    "ARF-002": "assigned",
+    "ARF-003": "assigned",
+    "ARF-004": "assigned",
+    "ARF-005": "assigned",
+    "ARF-006": "assigned",
+    "ARF-007": "assigned",
     "ARF-008": "deferred",
     "ARF-009": "deferred"
   },
+  "next_execution_lane": "metadata-merge-policy-unification",
   "continue_policy": {
     "default_action": "route_then_split",
     "notes": "Use this lane to assign findings. Do not implement code here. Open or update focused execution lanes before behavior changes."

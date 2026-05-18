@@ -117,24 +117,26 @@ behavior varies. Prefer workstream-specific seams with concrete tests.
 
 | ID | Finding | Recommended lane | Status | Notes |
 | --- | --- | --- | --- | --- |
-| ARF-001 | Metadata refresh, catalog graph, and search projection atomicity | New `metadata-catalog-commit-atomicity` | Proposed | First recommended execution lane. |
-| ARF-002 | NFO and provider merge policy duplication | New `metadata-merge-policy-unification` | Proposed | Keep separate from NFO XML preservation. |
-| ARF-003 | Broad server app persistence/config interfaces | Reuse or reopen server architecture follow-up | Proposed | Only create a new lane for a concrete workflow. |
-| ARF-004 | Media Library config/database source of truth | Expand `multi-library-hardening` into full workstream | Proposed | Current directory has only an old phase note. |
-| ARF-005 | Public Client Source Locator leakage | New or reuse `public-api-contract` follow-up | Proposed | Likely needs contract/design discussion first. |
-| ARF-006 | Addon token/grant/side-effect seams | Reuse `addons-automation` if active enough, otherwise split | Proposed | Align with ADR 0020. |
-| ARF-007 | HLS request identity and Transcode Profile | Reuse `transcode-runtime` or split playback profile lane | Proposed | Avoid changing cache semantics without profile key tests. |
+| ARF-001 | Metadata refresh, catalog graph, and search projection atomicity | `metadata-catalog-commit-atomicity` | Closed | First execution lane was opened and closed. Catalog graph/search commits and metadata refresh persistence commits now have SQLite transaction tests. |
+| ARF-002 | NFO and provider merge policy duplication | New `metadata-merge-policy-unification` | Assigned | Next execution lane. Keep separate from NFO XML preservation and provider breadth. |
+| ARF-003 | Broad server app persistence/config interfaces | `server-architecture-hardening` plus `repository-seam-deepening` | Assigned | Reuse existing lanes for concrete workflows only; do not open a generic app-service rewrite lane. |
+| ARF-004 | Media Library config/database source of truth | `multi-library-hardening` | Assigned | Promote the existing lane docs before code; define startup config reconciliation and persisted Library authority. |
+| ARF-005 | Public Client Source Locator leakage | New Public Client source-locator redaction follow-up under `public-api-contract` authority | Assigned | Needs contract/design discussion before wire-shape changes because `public-api-contract` itself is closed. |
+| ARF-006 | Addon token/grant/side-effect seams | `addons-automation` | Assigned | Reuse ADR 0020 trust model and split only if Taru-mediated effects outgrow the lane. |
+| ARF-007 | HLS request identity and Transcode Profile | `transcode-runtime` plus `playback-source-selection-deepening` | Assigned | Avoid changing cache semantics without request/profile key tests. |
 | ARF-008 | Hardware encode viability diagnostics | Reuse `transcode-runtime` follow-up | Deferred | Lower priority until users need operator diagnostics. |
 | ARF-009 | Search adapter depth and CJK/pinyin/romaji support | Future search adapter lane | Deferred | Existing ADR accepts basic SQLite fallback. |
 
 ## Recommended Execution Order
 
-1. Open `metadata-catalog-commit-atomicity`.
+1. Closed: `metadata-catalog-commit-atomicity`.
 2. Open `metadata-merge-policy-unification`.
 3. Promote `multi-library-hardening` into a full workstream.
 4. Design Public Client Source Locator redaction.
 5. Continue Addon side-effect and token/grant design.
-6. Continue playback profile and hardware diagnostics work.
+6. Continue playback profile work; defer hardware diagnostics until operator
+   needs make it urgent.
+7. Defer deeper search adapter work until search requirements exceed SQLite.
 
 ## Closeout Condition
 

@@ -12,23 +12,23 @@ Last updated: 2026-05-18
   Evidence: `docs/workstreams/architecture-review-followups/DESIGN.md`.
   Handoff: Continue with ARF-020 before opening implementation lanes.
 
-- [ ] ARF-020 [owner=planner] [deps=ARF-010] [scope=docs/workstreams/architecture-review-followups]
+- [x] ARF-020 [owner=codex] [deps=ARF-010] [scope=docs/workstreams/architecture-review-followups]
   Goal: Confirm which findings should become execution workstreams and which
   should update existing lanes.
   Validation: DESIGN finding routing table and WORKSTREAM.json agree.
   Evidence: `docs/workstreams/architecture-review-followups/DESIGN.md`.
-  Handoff: Open or update the first execution lane after routing is confirmed.
+  Handoff: `metadata-catalog-commit-atomicity` was opened and closed. Continue
+  with ARF-040 to open `metadata-merge-policy-unification`.
 
 ## M1 - First Execution Lane
 
-- [ ] ARF-030 [owner=planner] [deps=ARF-020] [scope=docs/workstreams]
+- [x] ARF-030 [owner=codex] [deps=ARF-020] [scope=docs/workstreams]
   Goal: Open `metadata-catalog-commit-atomicity` or record why another lane
   should go first.
   Validation: New or updated workstream has DESIGN, TODO, MILESTONES,
   EVIDENCE_AND_GATES, WORKSTREAM, and HANDOFF docs.
   Evidence: `docs/workstreams/metadata-catalog-commit-atomicity/`.
-  Handoff: First implementation task should be a narrow proof of consistency
-  behavior, not a broad repository rewrite.
+  Handoff: Lane is completed. ARF-001 is closed.
 
 ## M2 - Second Execution Lane
 

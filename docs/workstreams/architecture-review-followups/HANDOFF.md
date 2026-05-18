@@ -6,19 +6,21 @@ Last updated: 2026-05-18
 ## Current State
 
 The 2026-05-18 architecture review findings have been captured in a durable
-tracking lane. No implementation work has started.
+tracking lane. Routing has been confirmed for all findings.
 
-The highest-priority proposed follow-up is metadata refresh, catalog graph, and
-search projection atomicity. The second proposed follow-up is metadata merge
+The highest-priority follow-up, metadata refresh/catalog/search commit
+atomicity, was implemented and closed in
+`metadata-catalog-commit-atomicity`. The next execution lane is metadata merge
 policy unification across NFO import and provider refresh.
 
 ## Active Task
 
-- Task ID: ARF-020
+- Task ID: ARF-040
 - Owner: planner
 - Files: `docs/workstreams/architecture-review-followups/*`
-- Validation: DESIGN finding routing table and WORKSTREAM.json agree.
-- Status: NEEDS_CONTEXT
+- Validation: Open `metadata-merge-policy-unification` or document why it is
+  merged into an existing lane.
+- Status: READY
 - Review: pending
 - Evidence: `docs/workstreams/architecture-review-followups/DESIGN.md`
 
@@ -30,14 +32,16 @@ policy unification across NFO import and provider refresh.
   `metadata-catalog-commit-atomicity`.
 - The second recommended execution lane is
   `metadata-merge-policy-unification`.
+- ARF-001 is closed after `metadata-catalog-commit-atomicity`.
+- ARF-002 through ARF-007 are assigned to focused existing or new lanes.
+- ARF-008 and ARF-009 remain deferred.
 
 ## Blockers
 
-- User confirmation is needed before opening the first execution lane.
 - Public Client Source Locator redaction may need an ADR or public contract
   design step before implementation.
 
 ## Next Recommended Action
 
-Confirm routing, then open `metadata-catalog-commit-atomicity` with a narrow
-first task focused on consistency behavior and validation evidence.
+Open `metadata-merge-policy-unification` as the next execution lane. Keep NFO
+XML preservation and provider breadth out of that first slice.
