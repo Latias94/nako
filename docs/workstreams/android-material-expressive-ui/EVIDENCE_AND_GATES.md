@@ -67,4 +67,7 @@ Use `review-workstream` before accepting each AME task and
 ## Evidence Log
 
 - 2026-05-18: Workstream opened after merging `main` into
-  `android-client-foundation`. No Android code changes in AME yet.
+  `android-client-foundation`.
+- 2026-05-18: `AME-020` completed with a new Material 3 theme/tokens layer,
+  artwork-accent hook, shared UI surfaces, adaptive shell, browse-shell
+  integration, and targeted JVM test coverage.

@@ -29,6 +29,7 @@ Exit criteria:
 - Adaptive app chrome supports phone bottom navigation and wider navigation
   rail behavior.
 - Existing top-level routes still compile and run through the new shell.
+- `AME-020` is complete and validated.
 
 Primary gates:
 
@@ -45,6 +46,7 @@ Exit criteria:
 - Browse Facet Result handles only Public Client API backed facets as real
   results.
 - Empty and loading states use shared components.
+- `AME-030` is the next executable slice.
 
 ## M3 — Detail And Source Picker V2
 

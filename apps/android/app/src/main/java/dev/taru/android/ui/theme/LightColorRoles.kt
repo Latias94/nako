@@ -12,4 +12,6 @@ object ColorRolesLight {
     val surfaceVariant = Color(0xFFE4ECE9)
     val onSurfaceVariant = Color(0xFF42514D)
     val outline = Color(0xFFB9C7C3)
+    val error = Color(0xFFBA1A1A)
+    val onError = Color(0xFFFFFFFF)
 }

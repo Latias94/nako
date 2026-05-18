@@ -15,14 +15,14 @@ Last updated: 2026-05-18
 
 ## M1 — UI Foundation Rewrite
 
-- [ ] AME-020 [owner=codex] [deps=AME-010] [scope=apps/android/app/src/main/java/dev/taru/android/ui/theme,apps/android/app/src/main/java/dev/taru/android/ui/components,apps/android/app/src/main/java/dev/taru/android/ui/shell]
+- [x] AME-020 [owner=codex] [deps=AME-010] [scope=apps/android/app/src/main/java/dev/taru/android/ui/theme,apps/android/app/src/main/java/dev/taru/android/ui/components,apps/android/app/src/main/java/dev/taru/android/ui/shell]
   Goal: Replace the tracer-era UI foundation with a Material 3 Expressive-ready
   design-system layer: dark-first color roles, optional dynamic color,
   artwork-accent hooks, motion tokens, adaptive phone/tablet chrome, and shared
   state surfaces.
   Validation: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`; `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`; `git diff --check`
   Review: Use review-workstream before accepting completion.
-  Evidence: theme/component/shell files and Android gates.
+  Evidence: `apps/android/app/src/main/java/dev/taru/android/ui/theme/Theme.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/theme/ArtworkAccent.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/components/TaruSurfaces.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/shell/TaruAppShell.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseComponents.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`, `apps/android/app/src/test/java/dev/taru/android/ui/theme/TaruArtworkAccentsTest.kt`
   Handoff: Preserve current Public Client API clients and Media3 player
   boundaries; do not implement screen redesigns beyond what is needed to route
   through the new shell.

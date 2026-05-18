@@ -56,7 +56,18 @@ import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.connection.ServerProfile
+import dev.taru.android.ui.components.TaruArtworkBackdrop as DesignArtworkBackdrop
+import dev.taru.android.ui.components.TaruIconBadge as DesignIconBadge
+import dev.taru.android.ui.components.TaruPressableScale as DesignPressableScale
+import dev.taru.android.ui.components.TaruScreenColumn as DesignScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader as DesignSectionHeader
+import dev.taru.android.ui.components.TaruStateCard as DesignStateCard
+import dev.taru.android.ui.components.TaruStateTone
+import dev.taru.android.ui.components.TaruStatusChip as DesignStatusChip
+import dev.taru.android.ui.components.TaruStatusPill as DesignStatusPill
+import dev.taru.android.ui.components.TaruSurfaceCard as DesignSurfaceCard
 import dev.taru.android.ui.theme.TaruAccentDim
+import dev.taru.android.ui.theme.TaruArtworkAccents
 import dev.taru.android.ui.theme.TaruAspectRatio
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
@@ -66,14 +77,7 @@ import dev.taru.android.ui.theme.TaruTouchTarget
 
 @Composable
 internal fun TaruScrollColumn(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(TaruSpacing.large),
-        verticalArrangement = Arrangement.spacedBy(TaruSpacing.large),
-        content = content,
-    )
+    DesignScreenColumn(content = content)
 }
 
 @Composable
@@ -117,25 +121,11 @@ internal fun SectionHeader(
     action: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleLarge,
-        )
-        if (action != null) {
-            TextButton(
-                onClick = { onAction?.invoke() },
-                enabled = onAction != null,
-            ) {
-                Text(action)
-            }
-        }
-    }
+    DesignSectionHeader(
+        title = title,
+        action = action,
+        onAction = onAction,
+    )
 }
 
 @Composable
@@ -178,18 +168,10 @@ internal fun SurfaceCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = TaruShape.medium,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(TaruSpacing.large),
-            verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
-            content = content,
-        )
-    }
+    DesignSurfaceCard(
+        modifier = modifier,
+        content = content,
+    )
 }
 
 @Composable
@@ -215,27 +197,11 @@ internal fun LoadingCard(
     title: String,
     body: String,
 ) {
-    val transition = rememberInfiniteTransition(label = "loading-card")
-    val alpha by transition.animateFloat(
-        initialValue = 0.42f,
-        targetValue = 0.78f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "loading-alpha",
+    DesignStateCard(
+        title = title,
+        body = body,
+        tone = TaruStateTone.Loading,
     )
-    SurfaceCard {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = body,
-            color = TaruTextSecondary.copy(alpha = alpha),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
 }
 
 @Composable
@@ -243,17 +209,11 @@ internal fun EmptyCard(
     title: String,
     body: String,
 ) {
-    SurfaceCard {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = body,
-            color = TaruTextSecondary,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
+    DesignStateCard(
+        title = title,
+        body = body,
+        tone = TaruStateTone.Neutral,
+    )
 }
 
 @Composable
@@ -667,53 +627,16 @@ internal fun StatusPill(
     icon: ImageVector,
     onClick: (() -> Unit)? = null,
 ) {
-    Surface(
-        modifier = Modifier.clickable(enabled = onClick != null) { onClick?.invoke() },
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)),
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = TaruSpacing.medium,
-                vertical = TaruSpacing.small,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
+    DesignStatusPill(
+        text = text,
+        icon = icon,
+        onClick = onClick,
+    )
 }
 
 @Composable
 internal fun StatusChip(text: String) {
-    Surface(
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-    ) {
-        Text(
-            modifier = Modifier.padding(
-                horizontal = TaruSpacing.medium,
-                vertical = TaruSpacing.xsmall,
-            ),
-            text = text,
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium,
-        )
-    }
+    DesignStatusChip(text = text)
 }
 
 @Composable
@@ -721,20 +644,10 @@ internal fun IconBadge(
     icon: ImageVector,
     compact: Boolean = false,
 ) {
-    val size = if (compact) 34.dp else 52.dp
-    Surface(
-        modifier = Modifier.size(size),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
+    DesignIconBadge(
+        icon = icon,
+        compact = compact,
+    )
 }
 
 @Composable
@@ -742,30 +655,10 @@ internal fun ArtworkBackdrop(
     title: String,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.background(
-            Brush.linearGradient(
-                colors = listOf(
-                    artworkColor(title),
-                    MaterialTheme.colorScheme.surfaceVariant,
-                    MaterialTheme.colorScheme.background,
-                ),
-            ),
-        ),
-    ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.86f),
-                        ),
-                    ),
-                ),
-        )
-    }
+    DesignArtworkBackdrop(
+        title = title,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -774,34 +667,13 @@ internal fun PressableScale(
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.98f else 1f,
-        animationSpec = tween(120),
-        label = "press-scale",
+    DesignPressableScale(
+        modifier = modifier,
+        onClick = onClick,
+        content = content,
     )
-    Box(
-        modifier = modifier
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            ),
-    ) {
-        content()
-    }
 }
 
-@Composable
 internal fun artworkColor(seed: String): Color {
-    val palette = listOf(
-        TaruAccentDim,
-        Color(0xFF28465A),
-        Color(0xFF3A3E5E),
-        Color(0xFF3E4F40),
-        Color(0xFF5A4338),
-    )
-    return palette[kotlin.math.abs(seed.hashCode()) % palette.size]
+    return TaruArtworkAccents.fromSeed(seed).container
 }

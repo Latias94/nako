@@ -1,21 +1,8 @@
 package dev.taru.android.ui.browse
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,8 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.BrowseFailureCategory
 import dev.taru.android.browse.BrowseResult
 import dev.taru.android.browse.FacetItemsResponse
@@ -45,7 +30,9 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
-import dev.taru.android.ui.theme.TaruTextSecondary
+import dev.taru.android.ui.shell.TaruAdaptiveAppShell
+import dev.taru.android.ui.shell.TaruRouteTransition
+import dev.taru.android.ui.shell.TaruShellDestination
 
 @Composable
 fun TaruBrowseShell(
@@ -84,6 +71,15 @@ fun TaruBrowseShell(
     var facetRefreshKey by remember { mutableIntStateOf(0) }
     var facetState by remember(profile.id, route, facetRefreshKey) {
         mutableStateOf<FacetUiState>(FacetUiState.Idle)
+    }
+    val shellDestinations = remember {
+        TaruDestination.entries.map { destination ->
+            TaruShellDestination(
+                value = destination,
+                label = destination.label,
+                icon = destination.icon,
+            )
+        }
     }
 
     LaunchedEffect(profile.id, refreshKey) {
@@ -178,25 +174,18 @@ fun TaruBrowseShell(
         )
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            if (route is TaruRoute.TopLevel) {
-                TaruBottomNavigation(
-                    selectedDestination = selectedDestination,
-                    onSelected = { selectedDestination = it },
-                )
-            }
-        },
+    TaruAdaptiveAppShell(
+        modifier = modifier,
+        destinations = shellDestinations,
+        selectedDestination = selectedDestination,
+        navigationVisible = route is TaruRoute.TopLevel,
+        onDestinationSelected = { selectedDestination = it },
     ) { innerPadding ->
-        AnimatedContent(
+        TaruRouteTransition(
             targetState = route,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(120)) },
-            label = "taru-route",
         ) { currentRoute ->
             when (currentRoute) {
                 TaruRoute.TopLevel -> TopLevelContent(
@@ -539,51 +528,8 @@ private fun TopLevelContent(
 @Composable
 internal fun BrowseScaffoldContent(content: @Composable () -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.52f),
-                    ),
-                ),
-            ),
+        modifier = Modifier.fillMaxSize(),
     ) {
         content()
-    }
-}
-
-@Composable
-private fun TaruBottomNavigation(
-    selectedDestination: TaruDestination,
-    onSelected: (TaruDestination) -> Unit,
-) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-    ) {
-        TaruDestination.entries.forEach { destination ->
-            val selected = destination == selectedDestination
-            NavigationBarItem(
-                selected = selected,
-                onClick = { onSelected(destination) },
-                icon = {
-                    Icon(
-                        imageVector = destination.icon,
-                        contentDescription = destination.label,
-                    )
-                },
-                label = { Text(destination.label) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = MaterialTheme.colorScheme.primary,
-                    unselectedIconColor = TaruTextSecondary,
-                    unselectedTextColor = TaruTextSecondary,
-                ),
-            )
-        }
     }
 }

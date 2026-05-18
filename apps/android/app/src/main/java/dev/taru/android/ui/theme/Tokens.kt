@@ -15,6 +15,8 @@ object TaruSpacing {
 object TaruShape {
     val small = RoundedCornerShape(6.dp)
     val medium = RoundedCornerShape(8.dp)
+    val large = RoundedCornerShape(16.dp)
+    val expressive = RoundedCornerShape(24.dp)
 }
 
 object TaruAspectRatio {
@@ -24,4 +26,18 @@ object TaruAspectRatio {
 
 object TaruTouchTarget {
     val minimum = 48.dp
+}
+
+object TaruMotion {
+    const val pressMillis = 120
+    const val routeEnterMillis = 220
+    const val routeExitMillis = 140
+    const val stateMillis = 180
+    const val loadingPulseMillis = 900
+}
+
+object TaruElevation {
+    val flat = 0.dp
+    val raised = 1.dp
+    val floating = 6.dp
 }

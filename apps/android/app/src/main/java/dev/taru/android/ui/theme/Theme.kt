@@ -1,9 +1,13 @@
 package dev.taru.android.ui.theme
 
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
     primary = TaruAccent,
@@ -17,7 +21,7 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = TaruSurfaceRaised,
     onSurfaceVariant = TaruTextSecondary,
     outline = TaruSurfaceMuted,
-    error = TaruWarning,
+    error = TaruError,
     onError = TaruBackdrop,
 )
 
@@ -31,15 +35,26 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = ColorRolesLight.surfaceVariant,
     onSurfaceVariant = ColorRolesLight.onSurfaceVariant,
     outline = ColorRolesLight.outline,
+    error = ColorRolesLight.error,
+    onError = ColorRolesLight.onError,
 )
 
 @Composable
 fun TaruAndroidTheme(
     darkTheme: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val context = LocalContext.current
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = colorScheme,
         typography = TaruTypography,
         content = content,
     )
