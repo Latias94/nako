@@ -100,7 +100,11 @@ impl TaruApp {
             storage_backends.clone(),
             runtime.clone(),
         );
-        let addons = AddonAppService::new(store.clone());
+        let addons = AddonAppService::new(
+            store.clone(),
+            metadata_permits.clone(),
+            storage_backends.clone(),
+        );
         let automation = AutomationAppService::new(store.clone());
         let webhooks = WebhookAppService::new(store.clone(), webhook_permits);
         let catalog = CatalogAppService::new(store.clone());

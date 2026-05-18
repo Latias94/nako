@@ -487,6 +487,7 @@ impl AddonRepository for SqliteStore {
                 apply_error_code = ?3,
                 applied_item_id = ?4,
                 applied_source = ?5,
+                apply_report_json = ?6,
                 applied_at = CASE
                     WHEN ?2 = 'applied' THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
                     ELSE applied_at
@@ -499,6 +500,7 @@ impl AddonRepository for SqliteStore {
         .bind(&outcome.error_code)
         .bind(outcome.item_id.map(|id| id.to_string()))
         .bind(&outcome.source)
+        .bind(&outcome.report_json)
         .execute(&self.pool)
         .await
         .map_err(database_error)?;
@@ -559,6 +561,7 @@ fn addon_side_effect_select_sql(where_clause: &str) -> String {
             apply_error_code,
             applied_item_id,
             applied_source,
+            apply_report_json,
             applied_at,
             created_at
         FROM addon_side_effects

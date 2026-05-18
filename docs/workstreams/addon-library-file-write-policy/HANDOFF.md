@@ -5,29 +5,29 @@ Last updated: 2026-05-18
 
 ## Current State
 
-ALFW-020 is complete. No subtitle, NFO, or sidecar file-write runtime behavior
-has been implemented here yet, but the first apply target is selected:
-MediaSource-targeted addon-initiated Taru-owned NFO Export.
+ALFW-030 is complete. The first Library File Write runtime behavior is now
+implemented: accepted MediaSource-targeted `library_file_write` side effects
+can request Taru-owned NFO Export without addon-supplied paths, Source
+Locators, remote handles, backup URIs, or raw NFO payloads.
 
-The audit found that NFO export already has the strongest first-party seams:
-NFO Round Trip rendering, VFS `StorageWriteRequest::atomic_replace`,
-existing-file backup, keep-latest retention diagnostics, and an NFO durable job
-service. Addon Side Effect intake already stores accepted/rejected requests and
-apply outcomes, but runtime apply currently only supports `metadata_write`;
-`library_file_write` is still unsupported until ALFW-030.
+The implementation uses a typed payload with `file_role: "nfo"` and policy
+`create_missing` or `replace_existing_preserving`. It applies synchronously via
+the first-party NFO/VFS path, marks the side effect `applied` only after the
+write completes, stores a redacted aggregate `apply_report`, and preserves
+idempotent replay behavior.
 
 ## Active Task
 
-- Task ID: ALFW-030
-- Owner: codex
-- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-server`,
-  `crates/taru-api`, `crates/taru-nfo`, `crates/taru-vfs`, `docs`
-- Validation: focused NFO/storage/addon tests, package checks, formatting, and
-  `git diff --check`
+- Task ID: ALFW-040
+- Owner: planner
+- Files: `docs/workstreams/addon-library-file-write-policy`, `docs/api`, and
+  any follow-on workstream docs created during split
+- Validation: verify-rust-workstream records fresh final gate evidence
 - Status: READY
-- Review: implement the selected NFO export apply path without leaking paths,
-  Source Locators, remote handles, backup URIs, write reports, or raw payloads
-- Evidence: update `EVIDENCE_AND_GATES.md` with code/test/API evidence
+- Review: confirm ALFW-030 has no blocking findings, then close this lane or
+  split remaining subtitle/NFO/sidecar write breadth into dedicated follow-ons
+- Evidence: `EVIDENCE_AND_GATES.md` contains the implementation and validation
+  evidence for ALFW-030
 
 ## Blockers
 
@@ -35,15 +35,10 @@ apply outcomes, but runtime apply currently only supports `metadata_write`;
 
 ## Next Recommended Action
 
-- Run ALFW-030. Add a typed `library_file_write` payload for NFO export with a
-  MediaSource target. The addon supplies intent and policy, not path/content.
-- Reuse first-party NFO/VFS boundaries: derive the sidecar inside Taru, render
-  through NFO Round Trip when replacing, write with atomic replace, request
-  existing-file backup and retention when replacing, and expose only redacted
-  outcome facts.
-- If implementation queues an NFO job, add truthful queued/job association
-  semantics before exposing completion. Do not mark a side effect `applied`
-  merely because a job was enqueued.
+- Run ALFW-040. Review the ALFW-030 diff and gate evidence, then decide whether
+  to close this lane or split follow-ons for subtitle import/export, broader NFO
+  export/import behavior, arbitrary sidecar asset writes, and any queued
+  library-file-write execution semantics.
 - CAD-070 alignment remains binding: future NFO-derived metadata apply must
   reuse `commit_nfo_import`; file-write paths that change discoverable source
   state must reuse `commit_library_scan_source`, `LibraryIndexRepository`, or a

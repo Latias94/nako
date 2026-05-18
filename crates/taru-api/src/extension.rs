@@ -261,6 +261,7 @@ pub struct AddonSideEffectSummary {
     pub apply_error_code: Option<String>,
     pub applied_item_id: Option<MediaItemId>,
     pub applied_source: Option<String>,
+    pub apply_report: Option<serde_json::Value>,
     pub applied_at: Option<String>,
     pub created_at: String,
 }
@@ -282,6 +283,9 @@ impl AddonSideEffectSummary {
             apply_error_code: record.apply_error_code,
             applied_item_id: record.applied_item_id,
             applied_source: record.applied_source,
+            apply_report: record
+                .apply_report_json
+                .and_then(|value| serde_json::from_str(&value).ok()),
             applied_at: record.applied_at,
             created_at: record.created_at,
         }

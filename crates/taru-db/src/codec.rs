@@ -719,6 +719,7 @@ pub(crate) fn row_to_addon_side_effect(row: SqliteRow) -> Result<AddonSideEffect
         apply_error_code: row_get(&row, "apply_error_code")?,
         applied_item_id: parse_optional_id(row_get::<Option<String>>(&row, "applied_item_id")?)?,
         applied_source: row_get(&row, "applied_source")?,
+        apply_report_json: row_get(&row, "apply_report_json")?,
         applied_at: row_get(&row, "applied_at")?,
         created_at: row_get(&row, "created_at")?,
     })

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use taru_addon_protocol::{ensure_scope_grant, validate_manifest};
 use taru_api::{
@@ -18,20 +18,34 @@ use taru_core::{
     AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
     AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
     AddonTokenStatus, CanonicalMetadata, LibraryId, LibraryItemRepository, LibraryRepository,
-    MediaItem, MediaItemId, MediaRepository, MetadataMergePolicy, MetadataRefreshMode,
-    MetadataRepository, MetadataSource, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect,
-    NewAddonToken, Result, TaruError, hash_addon_token,
+    MediaItem, MediaItemId, MediaRepository, MediaSourceId, MetadataMergePolicy,
+    MetadataRefreshMode, MetadataRepository, MetadataSource, NewAddonGrant, NewAddonRegistration,
+    NewAddonSideEffect, NewAddonToken, Result, StorageErrorKind, TaruError, hash_addon_token,
 };
 use taru_db::SqliteStore;
+use taru_nfo::{MovieNfoCodec, NfoExportSourceRequest, NfoExportSourceSummary, NfoFailureKind};
+use tokio::sync::Semaphore;
+
+use super::{nfo::ensure_nfo_export_writable, storage::StorageBackendRegistry};
 
 #[derive(Clone, Debug)]
 pub(crate) struct AddonAppService {
     store: SqliteStore,
+    permits: Arc<Semaphore>,
+    storage_backends: StorageBackendRegistry,
 }
 
 impl AddonAppService {
-    pub(crate) fn new(store: SqliteStore) -> Self {
-        Self { store }
+    pub(super) fn new(
+        store: SqliteStore,
+        permits: Arc<Semaphore>,
+        storage_backends: StorageBackendRegistry,
+    ) -> Self {
+        Self {
+            store,
+            permits,
+            storage_backends,
+        }
     }
 
     fn normalize_addon_registration(
@@ -332,6 +346,7 @@ impl AddonAppService {
                         error_code: safe_error_code,
                         item_id: None,
                         source: None,
+                        report_json: None,
                     },
                 )
                 .await?;
@@ -509,6 +524,7 @@ impl AddonAppService {
                         error_code: side_effect.safe_error_code.clone(),
                         item_id: None,
                         source: None,
+                        report_json: None,
                     },
                 )
                 .await;
@@ -526,6 +542,7 @@ impl AddonAppService {
                                     error_code: None,
                                     item_id: Some(item_id),
                                     source: Some(addon_metadata_source_label(side_effect.addon_id)),
+                                    report_json: None,
                                 },
                             )
                             .await
@@ -540,6 +557,44 @@ impl AddonAppService {
                                     error_code: Some(error_code),
                                     item_id: None,
                                     source: None,
+                                    report_json: None,
+                                },
+                            )
+                            .await?;
+                        Err(error)
+                    }
+                }
+            }
+            AddonPermission::LibraryFileWrite => {
+                match self
+                    .apply_library_file_write_side_effect(&side_effect)
+                    .await
+                {
+                    Ok(applied) => {
+                        self.store
+                            .set_addon_side_effect_apply_outcome(
+                                side_effect.id,
+                                AddonSideEffectApplyOutcome {
+                                    status: AddonSideEffectApplyStatus::Applied,
+                                    error_code: None,
+                                    item_id: Some(applied.item_id),
+                                    source: Some(applied.source),
+                                    report_json: Some(applied.report_json),
+                                },
+                            )
+                            .await
+                    }
+                    Err(error) => {
+                        let error_code = side_effect_apply_error_code(&error).to_owned();
+                        self.store
+                            .set_addon_side_effect_apply_outcome(
+                                side_effect.id,
+                                AddonSideEffectApplyOutcome {
+                                    status: AddonSideEffectApplyStatus::Failed,
+                                    error_code: Some(error_code),
+                                    item_id: None,
+                                    source: None,
+                                    report_json: None,
                                 },
                             )
                             .await?;
@@ -556,6 +611,7 @@ impl AddonAppService {
                             error_code: Some("unsupported".to_owned()),
                             item_id: None,
                             source: None,
+                            report_json: None,
                         },
                     )
                     .await
@@ -592,6 +648,87 @@ impl AddonAppService {
         }
 
         Ok(updated.id)
+    }
+
+    async fn apply_library_file_write_side_effect(
+        &self,
+        side_effect: &AddonSideEffectRecord,
+    ) -> Result<AppliedLibraryFileWrite> {
+        let payload = parse_addon_library_file_write_payload(&side_effect.payload_json)?;
+        match payload.file_role {
+            AddonLibraryFileRole::Nfo => {}
+        }
+        if side_effect.target.kind != AddonSideEffectTargetKind::MediaSource {
+            return Err(TaruError::InvalidInput {
+                message: "addon library_file_write NFO export requires a media_source target"
+                    .to_owned(),
+            });
+        }
+        let source_id: MediaSourceId =
+            side_effect
+                .target
+                .id
+                .parse()
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("invalid addon library_file_write media source target: {err}"),
+                })?;
+        let source = self
+            .store
+            .get_media_source(source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: source_id.to_string(),
+            })?;
+        if source.library_id != side_effect.library_id {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "addon library_file_write target media source {} is not in library {}",
+                    source.id, side_effect.library_id
+                ),
+            });
+        }
+
+        let library = self
+            .store
+            .get_library(side_effect.library_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "library",
+                id: side_effect.library_id.to_string(),
+            })?;
+        let _permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| TaruError::InvalidInput {
+                    message: format!("NFO export limiter is unavailable: {err}"),
+                })?;
+        let backend = self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await?;
+        ensure_nfo_export_writable(backend.as_ref(), &library).await?;
+        let service = taru_nfo::NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let summary = service
+            .export_media_source(NfoExportSourceRequest {
+                library_id: side_effect.library_id,
+                source_id,
+                policy: library.options.metadata_profile.local_metadata_policy,
+                force: payload.policy.force(),
+            })
+            .await?;
+
+        if let Some(failure) = summary.failures.first() {
+            return Err(nfo_export_failure_error(failure.kind));
+        }
+
+        Ok(AppliedLibraryFileWrite {
+            item_id: source.item_id,
+            source: "nfo_export".to_owned(),
+            report_json: nfo_export_apply_report(payload.policy, &summary)?,
+        })
     }
 
     async fn resolve_side_effect_media_item(
@@ -646,6 +783,121 @@ impl AddonAppService {
                     })
             }
         }
+    }
+}
+
+struct AppliedLibraryFileWrite {
+    item_id: MediaItemId,
+    source: String,
+    report_json: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum AddonLibraryFileRole {
+    Nfo,
+}
+
+impl AddonLibraryFileRole {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Nfo => "nfo",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum AddonNfoExportPolicy {
+    CreateMissing,
+    ReplaceExistingPreserving,
+}
+
+impl AddonNfoExportPolicy {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::CreateMissing => "create_missing",
+            Self::ReplaceExistingPreserving => "replace_existing_preserving",
+        }
+    }
+
+    const fn force(self) -> bool {
+        match self {
+            Self::CreateMissing => false,
+            Self::ReplaceExistingPreserving => true,
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AddonLibraryFileWritePayload {
+    file_role: AddonLibraryFileRole,
+    policy: AddonNfoExportPolicy,
+}
+
+fn parse_addon_library_file_write_payload(
+    payload_json: &str,
+) -> Result<AddonLibraryFileWritePayload> {
+    serde_json::from_str::<AddonLibraryFileWritePayload>(payload_json).map_err(|err| {
+        TaruError::InvalidInput {
+            message: format!("invalid addon library_file_write payload: {err}"),
+        }
+    })
+}
+
+fn nfo_export_apply_report(
+    policy: AddonNfoExportPolicy,
+    summary: &NfoExportSourceSummary,
+) -> Result<String> {
+    let report = serde_json::json!({
+        "kind": "nfo_export",
+        "file_role": AddonLibraryFileRole::Nfo.as_str(),
+        "policy": policy.as_str(),
+        "scanned_sources": summary.scanned_sources,
+        "exported_items": summary.exported_items,
+        "skipped_items": summary.skipped_items,
+        "failed_items": summary.failed_items,
+        "backed_up_items": summary.backed_up_items,
+        "pruned_backup_items": summary.pruned_backup_items,
+        "pruned_backups": summary.pruned_backups,
+        "prune_failures": summary.prune_failures.len(),
+    });
+
+    serde_json::to_string(&report).map_err(|err| TaruError::InvalidInput {
+        message: format!("failed to serialize addon NFO export report: {err}"),
+    })
+}
+
+fn nfo_export_failure_error(kind: NfoFailureKind) -> TaruError {
+    match kind {
+        NfoFailureKind::StorageRead | NfoFailureKind::StorageWrite => TaruError::storage(
+            "nfo_export",
+            StorageErrorKind::Unknown,
+            "NFO export storage operation failed",
+        ),
+        NfoFailureKind::StorageBackup => TaruError::storage(
+            "nfo_export",
+            StorageErrorKind::Backup,
+            "NFO export backup failed",
+        ),
+        NfoFailureKind::StorageUnsupported => {
+            TaruError::Unsupported("NFO export storage backend is unsupported")
+        }
+        NfoFailureKind::MissingMediaItem => TaruError::NotFound {
+            entity: "media_item",
+            id: "nfo_export_target".to_owned(),
+        },
+        NfoFailureKind::NfoConflict => TaruError::Conflict {
+            message: "NFO export preservation conflict".to_owned(),
+        },
+        NfoFailureKind::InvalidSidecarPath
+        | NfoFailureKind::NfoParse
+        | NfoFailureKind::NfoPreservation
+        | NfoFailureKind::NfoRender
+        | NfoFailureKind::Unknown => TaruError::InvalidInput {
+            message: format!("NFO export failed: {kind:?}"),
+        },
     }
 }
 

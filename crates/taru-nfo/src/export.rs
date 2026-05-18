@@ -8,8 +8,8 @@ use taru_vfs::{StorageBackend, StorageBackupPolicy, StorageWriteRequest};
 
 use super::{
     NfoBackupPruneFailure, NfoBackupReport, NfoCodec, NfoDocument, NfoExportRequest,
-    NfoExportSummary, NfoFailure, NfoFailureKind, NfoHierarchy, NfoService,
-    workflow::nfo_uri_for_source,
+    NfoExportSourceRequest, NfoExportSourceSummary, NfoExportSummary, NfoFailure, NfoFailureKind,
+    NfoHierarchy, NfoService, workflow::nfo_uri_for_source,
 };
 
 const DEFAULT_NFO_BACKUP_KEEP_LATEST: usize = 5;
@@ -77,6 +77,68 @@ where
         summary
             .prune_failures
             .sort_by(|left, right| left.locator.cmp(&right.locator));
+        Ok(summary)
+    }
+
+    pub async fn export_media_source(
+        &self,
+        request: NfoExportSourceRequest,
+    ) -> Result<NfoExportSourceSummary> {
+        ensure_export_policy(request.policy)?;
+        let source = self
+            .repository
+            .get_media_source(request.source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: request.source_id.to_string(),
+            })?;
+        if source.library_id != request.library_id {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "NFO export source {} is not in library {}",
+                    source.id, request.library_id
+                ),
+            });
+        }
+
+        let mut summary = NfoExportSourceSummary {
+            library_id: request.library_id,
+            source_id: request.source_id,
+            scanned_sources: 1,
+            exported_items: 0,
+            skipped_items: 0,
+            failed_items: 0,
+            backed_up_items: 0,
+            backups: Vec::new(),
+            pruned_backup_items: 0,
+            pruned_backups: 0,
+            prune_failures: Vec::new(),
+            failures: Vec::new(),
+        };
+
+        match self.export_source(source, request.force).await {
+            NfoExportOutcome::Exported { backup } => {
+                summary.exported_items = 1;
+                if let Some(backup) = backup {
+                    summary.backed_up_items = 1;
+                    if !backup.pruned_backups.is_empty() {
+                        summary.pruned_backup_items = 1;
+                        summary.pruned_backups = backup.pruned_backups.len() as u64;
+                    }
+                    summary.prune_failures.extend(backup.prune_failures.clone());
+                    summary.backups.push(backup);
+                }
+            }
+            NfoExportOutcome::Skipped => {
+                summary.skipped_items = 1;
+            }
+            NfoExportOutcome::Failed(failure) => {
+                summary.failed_items = 1;
+                summary.failures.push(failure);
+            }
+        }
+
         Ok(summary)
     }
 

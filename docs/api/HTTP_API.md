@@ -904,15 +904,45 @@ route. It authenticates the Addon Token, records the addon actor, token,
 permission, Media Library, target, idempotency key, provenance snapshot,
 payload snapshot, validation result, safe error code, and apply outcome.
 
-The first concrete protected write is `metadata_write`. Accepted
+The first concrete protected writes are `metadata_write` and the NFO-export
+slice of `library_file_write`. Accepted
 `metadata_write` side effects synchronously normalize a minimal Canonical
 Metadata patch, merge it through Taru metadata merge policy, persist the media
 item through a Taru-owned repository boundary, and refresh catalog/search
 through Taru catalog seams. Scalar metadata updates refresh search without
 rewriting existing catalog label provenance; `genres` and `tags` updates use
-the Addon metadata source only for the touched label sets. Other
-protected-write permissions are recorded but their apply outcome remains
-`skipped` until their dedicated routes are implemented.
+the Addon metadata source only for the touched label sets.
+
+Accepted `library_file_write` side effects currently support only
+MediaSource-targeted NFO Export. The addon supplies write intent, not paths or
+file contents:
+
+```json
+{
+  "permission": "library_file_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "target": {
+    "kind": "media_source",
+    "id": "018f0000-0000-7000-8000-000000000005"
+  },
+  "idempotency_key": "nfo-export-demo-1",
+  "provenance": {
+    "origin": "reference-addon"
+  },
+  "payload": {
+    "file_role": "nfo",
+    "policy": "create_missing"
+  }
+}
+```
+
+For NFO export, `file_role` must be `nfo` and `policy` must be either
+`create_missing` or `replace_existing_preserving`. `create_missing` skips an
+existing NFO sidecar. `replace_existing_preserving` uses Taru's NFO Round Trip
+renderer, VFS atomic replace, existing-file backup, and backup retention
+diagnostics. Unknown payload fields are rejected; raw NFO XML, Source Locators,
+filesystem paths, remote handles, and backup URIs are never accepted as addon
+payload fields.
 
 ```json
 {
@@ -942,7 +972,10 @@ but the side-effect record still stores the specific library being targeted.
 The current `metadata_write` payload accepts only these top-level fields:
 `title`, `original_title`, `sort_title`, `overview`, `release_date`,
 `runtime_minutes`, `tagline`, `genres`, and `tags`. Unknown fields are rejected
-as an apply failure and are not echoed back to the Addon Sidecar.
+as an apply failure and are not echoed back to the Addon Sidecar. The current
+`library_file_write` NFO export slice accepts only `media_source` targets;
+`media_item` targets are rejected until multi-source and Source Variant
+behavior is explicit.
 
 Successful responses expose only the safe audit summary:
 
@@ -965,10 +998,30 @@ Successful responses expose only the safe audit summary:
     "apply_error_code": null,
     "applied_item_id": "018f0000-0000-7000-8000-000000000007",
     "applied_source": "addon:018f0000-0000-7000-8000-000000000002",
+    "apply_report": null,
     "applied_at": "2026-05-18T12:00:00.000Z",
     "created_at": "2026-05-18T12:00:00.000Z"
   },
   "idempotent_replay": false
+}
+```
+
+For an applied NFO export, `applied_source` is `nfo_export` and
+`apply_report` contains only redacted aggregate fields:
+
+```json
+{
+  "kind": "nfo_export",
+  "file_role": "nfo",
+  "policy": "replace_existing_preserving",
+  "scanned_sources": 1,
+  "exported_items": 1,
+  "skipped_items": 0,
+  "failed_items": 0,
+  "backed_up_items": 1,
+  "pruned_backup_items": 0,
+  "pruned_backups": 0,
+  "prune_failures": 0
 }
 ```
 

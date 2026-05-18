@@ -454,6 +454,15 @@ impl StorageBackend for LibraryStorageBackend {
         result
     }
 
+    async fn write(
+        &self,
+        request: taru_vfs::StorageWriteRequest,
+    ) -> Result<taru_vfs::StorageWriteReport> {
+        let result = self.inner.write(request).await;
+        self.record_result(&result);
+        result
+    }
+
     async fn stage(&self, request: taru_vfs::StageRequest) -> Result<taru_vfs::StagedFile> {
         let result = self.inner.stage(request).await;
         self.record_result(&result);

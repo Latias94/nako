@@ -2854,6 +2854,7 @@ async fn sqlite_store_round_trips_addon_side_effects_idempotently() {
     assert_eq!(side_effect.apply_error_code, None);
     assert_eq!(side_effect.applied_item_id, None);
     assert_eq!(side_effect.applied_source, None);
+    assert_eq!(side_effect.apply_report_json, None);
     assert_eq!(side_effect.applied_at, None);
     assert_eq!(
         side_effect.provenance_json,
@@ -2958,6 +2959,7 @@ async fn sqlite_store_records_addon_side_effect_apply_outcome() {
                 error_code: None,
                 item_id: Some(item_id),
                 source: Some(format!("addon:{addon_id}")),
+                report_json: Some(r#"{"kind":"metadata_write"}"#.to_owned()),
             },
         )
         .await
@@ -2967,6 +2969,10 @@ async fn sqlite_store_records_addon_side_effect_apply_outcome() {
     assert_eq!(applied.apply_error_code, None);
     assert_eq!(applied.applied_item_id, Some(item_id));
     assert_eq!(applied.applied_source, Some(format!("addon:{addon_id}")));
+    assert_eq!(
+        applied.apply_report_json.as_deref(),
+        Some(r#"{"kind":"metadata_write"}"#)
+    );
     assert!(applied.applied_at.is_some());
     assert_eq!(
         store

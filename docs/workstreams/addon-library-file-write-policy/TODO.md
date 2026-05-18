@@ -33,7 +33,7 @@ Last updated: 2026-05-18
 
 ## M2 - First File Write Apply Slice
 
-- [ ] ALFW-030 [owner=codex] [deps=ALFW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-nfo,crates/taru-vfs,docs/api]
+- [x] ALFW-030 [owner=codex] [deps=ALFW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-nfo,crates/taru-vfs,docs/api]
   Goal: Implement the selected addon Library File Write apply path: an accepted
   `library_file_write` side effect with a MediaSource target requests
   Taru-owned NFO Export without addon-provided paths, Source Locators, remote
@@ -46,8 +46,9 @@ Last updated: 2026-05-18
   implementation does not re-create Addon-specific NFO import, scan-source, or
   search-projection write ordering.
   Evidence: code/tests/API docs and ALFW notes in `EVIDENCE_AND_GATES.md`.
-  Handoff: Split subtitle import/export, NFO export, or arbitrary sidecar asset
-  writes if any dominates the first slice.
+  Handoff: Continue with ALFW-040. The first NFO export slice is implemented
+  and verified; close the lane or split subtitle import/export, broader NFO
+  write behavior, and arbitrary sidecar asset writes into narrower follow-ons.
 
 ## M3 - Closeout Or Split
 

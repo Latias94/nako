@@ -26,7 +26,6 @@ git diff --check
 
 ```powershell
 cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests
-cargo nextest run -p taru-server nfo --no-fail-fast
 cargo nextest run -p taru-server addon_side_effect --no-fail-fast
 cargo nextest run -p taru-server nfo --no-fail-fast
 cargo nextest run -p taru-nfo --no-fail-fast
@@ -150,3 +149,49 @@ NFO, API, or repository boundaries.
     passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     the edited workstream docs.
+
+2026-05-18, ALFW-030 implementation evidence:
+
+- Implemented synchronous MediaSource-targeted `library_file_write` apply for
+  Taru-owned NFO Export. The side effect is marked `applied` only after
+  first-party NFO/VFS execution completes.
+- Added a typed NFO export payload with `file_role: "nfo"` and policy
+  `create_missing` or `replace_existing_preserving`. Unknown fields, raw NFO
+  payloads, paths, Source Locators, and remote handles are rejected instead of
+  consumed.
+- Added redacted `apply_report` persistence and API output for Addon Side
+  Effects. NFO export reports include aggregate counters only; they do not
+  expose `StorageWriteReport`, `StorageUri`, Source Locators, filesystem paths,
+  backup URIs, remote handles, or raw payload content.
+- Added `NfoService::export_media_source` so Addon apply can reuse the
+  first-party NFO sidecar derivation, NFO Round Trip rendering, VFS atomic
+  replace, existing-file backup, and retention diagnostics for a single
+  Media Source.
+- Fixed `LibraryStorageBackend` to forward typed `StorageWriteRequest` writes
+  to the underlying backend; previously only string writes were forwarded, so
+  NFO export through the wrapped backend fell back to the default unsupported
+  method.
+- Behavior covered by focused tests:
+  - create-missing MediaSource NFO export writes `demo.nfo`, records
+    `applied_source: "nfo_export"`, returns a redacted report, and replays
+    idempotently without rewriting.
+  - replace-existing-preserving updates owned NFO fields, preserves unknown XML,
+    creates a backup, and reports only aggregate backup counters.
+  - raw NFO payload fields fail safely without writing a sidecar; MediaItem
+    targets are rejected before NFO export apply.
+- Fresh validation:
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`
+    passed.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-db addon_side_effect --no-fail-fast`
+    passed with 2 tests.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+    passed with 8 selected tests.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-server nfo --no-fail-fast`
+    passed with 9 selected tests.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-nfo --no-fail-fast`
+    passed with 20 tests.
+  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-vfs --no-fail-fast`
+    passed with 28 tests.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    the edited files.

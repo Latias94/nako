@@ -52,8 +52,8 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "ALFW-030",
-  "first_slice": "MediaSource-targeted addon-initiated Taru-owned NFO export apply path",
+  "current_task": "ALFW-040",
+  "first_slice": "Close out the first Library File Write slice or split remaining subtitle, NFO, and sidecar breadth into follow-ons",
   "non_goals": [
     "direct addon filesystem or remote storage access",
     "Addon Manager lifecycle automation",
@@ -68,6 +68,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with ALFW-030: implement the MediaSource-targeted Taru-owned NFO export apply path before accepting broader subtitle or sidecar file-write payloads."
+    "notes": "Continue with ALFW-040: review the verified MediaSource-targeted NFO export apply path, then close this lane or split remaining subtitle, broader NFO, and sidecar-asset write behavior into follow-ons."
   }
 }

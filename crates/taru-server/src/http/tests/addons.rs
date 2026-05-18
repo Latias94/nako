@@ -577,8 +577,14 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
     };
 
     let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
     let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
     let body: AddonSideEffectResponse = serde_json::from_slice(&response_body).unwrap();
     assert_eq!(body.side_effect.addon_id, addon_id);
     assert_eq!(body.side_effect.token_id, issued.token.id);
@@ -663,6 +669,392 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
     assert_eq!(
         duplicate.side_effect.apply_status,
         AddonSideEffectApplyStatus::Applied
+    );
+}
+
+#[tokio::test]
+async fn addon_side_effect_library_file_write_exports_missing_nfo_without_echoing_paths() {
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut library = store
+        .get_library(library_id)
+        .await
+        .unwrap()
+        .expect("library exists");
+    library.options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
+    store.upsert_library(&library).await.unwrap();
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("nfo runtime".to_owned()),
+        },
+    )
+    .await;
+
+    let grants_path = format!("/admin/v1/addons/{addon_id}/grants");
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::LibraryFileWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::LibraryFileWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "nfo-create-missing-demo".to_owned(),
+        provenance: serde_json::json!({
+            "origin": "reference-addon",
+            "raw_path": "local:///demo.mkv",
+            "token": issued.raw_token
+        }),
+        payload: serde_json::json!({
+            "file_role": "nfo",
+            "policy": "create_missing"
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let body: AddonSideEffectResponse = serde_json::from_slice(&response_body).unwrap();
+
+    assert_eq!(
+        body.side_effect.permission,
+        AddonPermission::LibraryFileWrite
+    );
+    assert_eq!(
+        body.side_effect.target.kind,
+        AddonSideEffectTargetKind::MediaSource
+    );
+    assert_eq!(body.side_effect.target.id, source.id.to_string());
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    assert_eq!(body.side_effect.apply_error_code, None);
+    assert_eq!(body.side_effect.applied_item_id, Some(source.item_id));
+    assert_eq!(
+        body.side_effect.applied_source,
+        Some("nfo_export".to_owned())
+    );
+
+    let report = body
+        .side_effect
+        .apply_report
+        .as_ref()
+        .expect("NFO export side effect report");
+    assert_eq!(report["kind"], "nfo_export");
+    assert_eq!(report["file_role"], "nfo");
+    assert_eq!(report["policy"], "create_missing");
+    assert_eq!(report["exported_items"], 1);
+    assert_eq!(report["skipped_items"], 0);
+    assert_eq!(report["failed_items"], 0);
+    assert_eq!(report["backed_up_items"], 0);
+
+    let response_body = String::from_utf8_lossy(&response_body);
+    assert!(!response_body.contains("local:///demo.mkv"));
+    assert!(!response_body.contains(temp.path().to_string_lossy().as_ref()));
+
+    let nfo = fs::read_to_string(temp.path().join("demo.nfo")).unwrap();
+    assert!(nfo.contains("<title>demo.mkv</title>"));
+
+    let duplicate = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(duplicate.status(), StatusCode::OK);
+    let duplicate = body_json::<AddonSideEffectResponse>(duplicate).await;
+    assert_eq!(duplicate.side_effect.id, body.side_effect.id);
+    assert!(duplicate.idempotent_replay);
+    assert_eq!(
+        duplicate.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    assert_eq!(
+        duplicate.side_effect.apply_report.as_ref(),
+        body.side_effect.apply_report.as_ref()
+    );
+}
+
+#[tokio::test]
+async fn addon_side_effect_library_file_write_replaces_existing_nfo_with_backup_report() {
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut library = store
+        .get_library(library_id)
+        .await
+        .unwrap()
+        .expect("library exists");
+    library.options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
+    store.upsert_library(&library).await.unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie>
+  <title>Old Sidecar Title</title>
+  <customrating system="local">five stars</customrating>
+</movie>"#,
+    )
+    .unwrap();
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("nfo runtime".to_owned()),
+        },
+    )
+    .await;
+
+    let grants_path = format!("/admin/v1/addons/{addon_id}/grants");
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::LibraryFileWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::LibraryFileWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "nfo-replace-existing-demo".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "file_role": "nfo",
+            "policy": "replace_existing_preserving"
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let body: AddonSideEffectResponse = serde_json::from_slice(&response_body).unwrap();
+
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    let report = body
+        .side_effect
+        .apply_report
+        .as_ref()
+        .expect("NFO export side effect report");
+    assert_eq!(report["kind"], "nfo_export");
+    assert_eq!(report["policy"], "replace_existing_preserving");
+    assert_eq!(report["exported_items"], 1);
+    assert_eq!(report["backed_up_items"], 1);
+    assert_eq!(report["failed_items"], 0);
+
+    let response_body = String::from_utf8_lossy(&response_body);
+    assert!(!response_body.contains("local:///demo.nfo"));
+    assert!(!response_body.contains("taru-backup"));
+    assert!(!response_body.contains(temp.path().to_string_lossy().as_ref()));
+
+    let nfo = fs::read_to_string(temp.path().join("demo.nfo")).unwrap();
+    assert!(nfo.contains("<title>demo.mkv</title>"));
+    assert!(nfo.contains(r#"<customrating system="local">five stars</customrating>"#));
+    assert!(!nfo.contains("<title>Old Sidecar Title</title>"));
+
+    let backups = fs::read_dir(temp.path())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_name().to_string_lossy().contains("taru-backup"))
+        .collect::<Vec<_>>();
+    assert_eq!(backups.len(), 1);
+}
+
+#[tokio::test]
+async fn addon_side_effect_library_file_write_rejects_raw_payload_and_media_item_target() {
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut library = store
+        .get_library(library_id)
+        .await
+        .unwrap()
+        .expect("library exists");
+    library.options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
+    store.upsert_library(&library).await.unwrap();
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("nfo runtime".to_owned()),
+        },
+    )
+    .await;
+
+    let grants_path = format!("/admin/v1/addons/{addon_id}/grants");
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::LibraryFileWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let raw_payload_request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::LibraryFileWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "nfo-raw-payload-denied".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "file_role": "nfo",
+            "policy": "create_missing",
+            "raw_nfo": "<movie><title>Should Not Apply</title></movie>"
+        }),
+    };
+    let raw_payload =
+        addon_side_effect(&router, Some(&issued.raw_token), &raw_payload_request).await;
+    assert_eq!(raw_payload.status(), StatusCode::BAD_REQUEST);
+    let raw_payload_body = to_bytes(raw_payload.into_body(), usize::MAX).await.unwrap();
+    let error: ErrorResponse = serde_json::from_slice(&raw_payload_body).unwrap();
+    assert_eq!(error.code, "invalid_input");
+    let raw_payload_body = String::from_utf8_lossy(&raw_payload_body);
+    assert!(!raw_payload_body.contains("Should Not Apply"));
+    assert!(!temp.path().join("demo.nfo").exists());
+    let replay = addon_side_effect(&router, Some(&issued.raw_token), &raw_payload_request).await;
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay = body_json::<AddonSideEffectResponse>(replay).await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(
+        replay.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Failed
+    );
+    assert_eq!(
+        replay.side_effect.apply_error_code.as_deref(),
+        Some("invalid_payload")
+    );
+
+    let media_item_request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::LibraryFileWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaItem,
+            id: source.item_id.to_string(),
+        },
+        idempotency_key: "nfo-media-item-denied".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "file_role": "nfo",
+            "policy": "create_missing"
+        }),
+    };
+    let media_item = addon_side_effect(&router, Some(&issued.raw_token), &media_item_request).await;
+    assert_eq!(media_item.status(), StatusCode::BAD_REQUEST);
+    let media_item_body = to_bytes(media_item.into_body(), usize::MAX).await.unwrap();
+    let error: ErrorResponse = serde_json::from_slice(&media_item_body).unwrap();
+    assert_eq!(error.code, "invalid_input");
+    assert!(!temp.path().join("demo.nfo").exists());
+    let replay = addon_side_effect(&router, Some(&issued.raw_token), &media_item_request).await;
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay = body_json::<AddonSideEffectResponse>(replay).await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(
+        replay.side_effect.validation_status,
+        AddonSideEffectValidationStatus::Rejected
+    );
+    assert_eq!(
+        replay.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Skipped
+    );
+    assert_eq!(
+        replay.side_effect.safe_error_code.as_deref(),
+        Some("invalid_target")
     );
 }
 

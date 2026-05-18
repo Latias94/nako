@@ -319,6 +319,7 @@ pub struct AddonSideEffectRecord {
     pub apply_error_code: Option<String>,
     pub applied_item_id: Option<MediaItemId>,
     pub applied_source: Option<String>,
+    pub apply_report_json: Option<String>,
     pub applied_at: Option<String>,
     pub created_at: String,
 }
@@ -329,6 +330,7 @@ pub struct AddonSideEffectApplyOutcome {
     pub error_code: Option<String>,
     pub item_id: Option<MediaItemId>,
     pub source: Option<String>,
+    pub report_json: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

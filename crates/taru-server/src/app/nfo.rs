@@ -396,7 +396,7 @@ impl NfoAppService {
     }
 }
 
-async fn ensure_nfo_export_writable(
+pub(crate) async fn ensure_nfo_export_writable(
     backend: &dyn StorageBackend,
     library: &taru_core::Library,
 ) -> Result<()> {
