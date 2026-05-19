@@ -16,7 +16,7 @@ Exit criteria:
 
 ## M1 - Managed Artwork Worker Tracer Bullet
 
-Status: In progress
+Status: Done
 
 Exit criteria:
 
@@ -29,9 +29,12 @@ Exit criteria:
 Progress:
 
 - `JRWCP-020` adds an opt-in process-local worker for Managed Artwork ingest.
-- Failure/recovery semantics remain assigned to `JRWCP-030`.
+- `JRWCP-030` adds typed startup recovery for claimed Managed Artwork ingests
+  and preserves queued artwork work across restart.
 
 ## M2 - Recovery And Cancellation Semantics
+
+Status: In progress
 
 Exit criteria:
 
@@ -39,6 +42,11 @@ Exit criteria:
 - Stale running jobs have an explicit recovery policy.
 - Cancellation is implemented only if a runner can observe it, or split as a
   separate follow-on with the missing state-machine decisions named.
+
+Progress:
+
+- Recovery policy is explicit for Managed Artwork ingest.
+- Cancellation remains undecided and belongs to `JRWCP-040` or a split follow-on.
 
 ## M3 - Closeout
 

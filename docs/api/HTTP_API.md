@@ -1214,6 +1214,14 @@ safe IDs, `"status": "failed"`, and `failure_code`. In-process fetch retry is
 limited to the configured fetch attempts; durable retry is exposed separately
 as an Admin requeue command.
 
+Startup recovery is explicit for Managed Artwork ingest. Queued
+`managed_artwork_ingest` jobs remain queued across restart so an enabled worker
+or manual `process-next` can drain them later. Ingests already claimed by a
+previous process (`fetching` or `validating` with a running
+`managed_artwork_ingest` job) are marked failed with safe failure code
+`startup_recovery`, no artifact, and a redacted job summary. Those failed
+ingests are requeueable through the Admin requeue command.
+
 Administrators can requeue a failed Managed Artwork ingest with:
 
 ```text
@@ -1243,9 +1251,9 @@ tokens, `storage_uri`, `managed-artwork://...`, local artifact paths,
 artifact root paths, cache URIs, Source Locators, raw validation/fetch error
 messages, file contents, or content hash values.
 
-Active cancellation, automatic retry scheduling/background workers, missing
-artifact repair, thumbnails, and artifact cleanup/deletion policy remain
-separate runtime-control or lifecycle follow-ons.
+Active cancellation, automatic retry scheduling, missing artifact repair,
+thumbnails, and artifact cleanup/deletion policy remain separate
+runtime-control or lifecycle follow-ons.
 
 Administrators can publish a stored Managed Artwork Artifact as the current
 Selected Artwork with:

@@ -102,6 +102,13 @@ pub trait ManagedArtworkRepository: Send + Sync {
         job_summary_json: Option<String>,
     ) -> Result<ManagedArtworkIngestProcessingRecord>;
 
+    async fn fail_unfinished_managed_artwork_ingests(
+        &self,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<u64>;
+
     async fn requeue_managed_artwork_ingest(
         &self,
         ingest_id: ManagedArtworkIngestId,

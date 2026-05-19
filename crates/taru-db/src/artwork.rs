@@ -513,7 +513,7 @@ impl ManagedArtworkRepository for SqliteStore {
         )
         .bind(ingest.id.to_string())
         .bind(ManagedArtworkIngestStatus::Failed.as_str())
-        .bind(failure_code)
+        .bind(&failure_code)
         .bind(ManagedArtworkIngestStatus::Fetching.as_str())
         .bind(ManagedArtworkIngestStatus::Validating.as_str())
         .execute(&mut *transaction)
@@ -568,6 +568,82 @@ impl ManagedArtworkRepository for SqliteStore {
             artifact,
             job,
         })
+    }
+
+    async fn fail_unfinished_managed_artwork_ingests(
+        &self,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<u64> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let result = sqlx::query(
+            r#"
+            UPDATE managed_artwork_ingests
+            SET status = ?1,
+                failure_code = ?2,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE status IN (?3, ?4)
+                AND artifact_id IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM jobs j
+                    WHERE j.id = managed_artwork_ingests.job_id
+                        AND j.kind = ?5
+                        AND j.resource_class = ?6
+                        AND j.status = ?7
+                )
+            "#,
+        )
+        .bind(ManagedArtworkIngestStatus::Failed.as_str())
+        .bind(&failure_code)
+        .bind(ManagedArtworkIngestStatus::Fetching.as_str())
+        .bind(ManagedArtworkIngestStatus::Validating.as_str())
+        .bind(JobKind::ManagedArtworkIngest.as_str())
+        .bind("artwork.ingest")
+        .bind(JobStatus::Running.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+        let recovered = result.rows_affected();
+
+        if recovered > 0 {
+            sqlx::query(
+                r#"
+                UPDATE jobs
+                SET status = ?1,
+                    error = ?2,
+                    summary_json = ?3,
+                    completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                WHERE kind = ?4
+                    AND resource_class = ?5
+                    AND status = ?6
+                    AND EXISTS (
+                        SELECT 1
+                        FROM managed_artwork_ingests i
+                        WHERE i.job_id = jobs.id
+                            AND i.status = ?7
+                            AND i.failure_code = ?8
+                    )
+                "#,
+            )
+            .bind(JobStatus::Failed.as_str())
+            .bind(job_error)
+            .bind(job_summary_json)
+            .bind(JobKind::ManagedArtworkIngest.as_str())
+            .bind("artwork.ingest")
+            .bind(JobStatus::Running.as_str())
+            .bind(ManagedArtworkIngestStatus::Failed.as_str())
+            .bind(&failure_code)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(recovered)
     }
 
     async fn requeue_managed_artwork_ingest(

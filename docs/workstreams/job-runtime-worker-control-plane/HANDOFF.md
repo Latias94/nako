@@ -6,8 +6,8 @@ Last updated: 2026-05-19
 ## Current State
 
 This lane now has a first runtime implementation slice for Managed Artwork
-ingest. The lane remains active because worker failure/recovery and
-cancellation semantics are not yet proven.
+ingest plus typed startup recovery for claimed Managed Artwork work. The lane
+remains active because cancellation semantics are not yet decided.
 
 ## Completed In `JRWCP-010`
 
@@ -25,15 +25,14 @@ Inventory result:
 
 ## Next Task
 
-Continue with `JRWCP-030`:
+Continue with `JRWCP-040` or split it:
 
-- prove worker failure handling keeps safe summaries and redacted Admin
-  responses;
-- make restart recovery behavior explicit for Managed Artwork ingests that are
-  already `fetching`/running;
-- preserve requeueability for failed ingests;
-- do not add broad generic lease schema unless the failure/recovery test proves
-  the typed Managed Artwork state machine is insufficient.
+- decide whether Managed Artwork ingest cancellation is worth implementing
+  before a generic ownership/lease model exists;
+- if cancellation is implemented, add only a safe requested-state transition
+  that the worker can observe at a checkpoint;
+- otherwise close this lane and split cancellation into a later durable job
+  control-plane lane.
 
 ## Completed In `JRWCP-020`
 
@@ -49,6 +48,17 @@ Continue with `JRWCP-030`:
   `process-next`.
 - Public Client image shape is unchanged and worker ingest does not publish
   Selected Artwork.
+
+## Completed In `JRWCP-030`
+
+- Generic `fail_unfinished_jobs` now skips `managed_artwork_ingest` jobs.
+- Managed Artwork startup recovery is typed:
+  - queued ingests stay queued;
+  - claimed `fetching`/`validating` ingests with running jobs fail with
+    `startup_recovery`;
+  - recovered failures remain requeueable;
+  - no artifact is created or duplicated.
+- Added DB and server startup tests for the recovery policy.
 
 ## Files To Inspect First
 

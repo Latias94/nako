@@ -5,7 +5,7 @@
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "JRWCP-030",
+  "current_task": "JRWCP-040",
   "first_slice": "Opt-in Managed Artwork ingest worker registered through RuntimeSupervisor and sharing the safe artifact pipeline with Admin process-next",
   "non_goals": [
     "distributed multi-process scheduling",
@@ -19,6 +19,8 @@
     "git diff --check",
     "cargo nextest run -p taru-server job_runtime_worker --no-fail-fast",
     "cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast",
+    "cargo nextest run -p taru-server queued_artwork_ingests --no-fail-fast",
+    "cargo nextest run -p taru-db managed_artwork_startup_recovery --no-fail-fast",
     "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
     "cargo fmt --all -- --check"
   ],

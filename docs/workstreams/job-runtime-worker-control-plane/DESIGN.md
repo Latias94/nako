@@ -120,8 +120,8 @@ workers need it.
 
 Updated decision for the first implementation slice: postpone generic lease
 schema until a second queued worker needs it. Managed Artwork already has a
-typed claim transition from queued to fetching/running and a startup recovery
-path that fails unfinished jobs. The first worker uses that existing claim
+typed claim transition from queued to fetching/running and a typed startup
+recovery path for claimed work. The first worker uses that existing claim
 boundary and keeps the design open for later generic job leases.
 
 ## `JRWCP-020` Implementation Shape
@@ -141,8 +141,24 @@ The first worker slice is intentionally concrete:
 - Public Client image shape is unchanged; successful ingest still stores a
   Managed Artwork Artifact and does not publish Selected Artwork.
 
-This is not a full durable lease model. `JRWCP-030` still owns failure/recovery
-semantics for worker failures, stale running ingests, and restart behavior.
+This is not a full durable lease model. `JRWCP-030` owns the first concrete
+restart recovery policy and keeps generic ownership leases as a follow-on.
+
+## `JRWCP-030` Recovery Shape
+
+Managed Artwork ingest uses typed recovery rather than the generic durable job
+startup cleanup:
+
+- queued Managed Artwork ingests remain queued across restart;
+- already claimed ingests (`fetching` or `validating`) whose durable job is
+  still `running` are failed with `startup_recovery`;
+- recovered rows keep `artifact_id = NULL` and can be requeued by the existing
+  Admin requeue command;
+- the generic `fail_unfinished_jobs` path skips `managed_artwork_ingest` jobs so
+  it cannot mark queued artwork work failed before the worker has a chance to
+  drain it;
+- no raw candidate source URI, job input, job error, storage URI, or local path
+  is exposed through startup summaries.
 
 ## Redaction Policy
 

@@ -2147,6 +2147,20 @@ async fn sqlite_store_marks_unfinished_jobs_failed_on_startup() {
         .await
         .unwrap();
 
+    let managed_artwork_id = JobId::new();
+    store
+        .enqueue_job(NewJob {
+            id: managed_artwork_id,
+            kind: JobKind::ManagedArtworkIngest,
+            resource_class: "artwork.ingest".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(managed_artwork_id).await.unwrap();
+
     let error = "job was unfinished during server startup".to_owned();
     let recovered = store.fail_unfinished_jobs(error.clone()).await.unwrap();
 
@@ -2154,6 +2168,7 @@ async fn sqlite_store_marks_unfinished_jobs_failed_on_startup() {
     let running = store.get_job(running_id).await.unwrap().unwrap();
     let succeeded = store.get_job(succeeded_id).await.unwrap().unwrap();
     let failed = store.get_job(failed_id).await.unwrap().unwrap();
+    let managed_artwork = store.get_job(managed_artwork_id).await.unwrap().unwrap();
 
     assert_eq!(recovered, 2);
     assert_eq!(queued.status, JobStatus::Failed);
@@ -2166,6 +2181,8 @@ async fn sqlite_store_marks_unfinished_jobs_failed_on_startup() {
     assert_eq!(succeeded.summary_json, Some(r#"{"imported":1}"#.to_owned()));
     assert_eq!(failed.status, JobStatus::Failed);
     assert_eq!(failed.error, Some("probe failed".to_owned()));
+    assert_eq!(managed_artwork.status, JobStatus::Running);
+    assert_eq!(managed_artwork.error, None);
 }
 
 #[tokio::test]
@@ -3595,6 +3612,209 @@ async fn sqlite_store_managed_artwork_ingest_requeue_resets_failed_ingest_and_jo
         .await
         .unwrap_err();
     assert!(matches!(stored_requeue, TaruError::Conflict { .. }));
+}
+
+#[tokio::test]
+async fn sqlite_store_managed_artwork_startup_recovery_fails_only_claimed_ingests() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Managed Artwork Startup Recovery".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.artwork.startup-recovery".to_owned(),
+            name: "Example Artwork Startup Recovery".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "artwork startup recovery".to_owned(),
+            token_prefix: "taru_at_recovery".to_owned(),
+            token_hash: "sha256:artwork-startup-recovery".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    async fn accepted_ingest(
+        store: &SqliteStore,
+        addon_id: AddonId,
+        token_id: AddonTokenId,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        key: &str,
+    ) -> ManagedArtworkAcceptanceRecord {
+        let side_effect = store
+            .create_addon_side_effect(NewAddonSideEffect {
+                id: AddonSideEffectId::new(),
+                addon_id,
+                token_id,
+                permission: AddonPermission::ArtworkWrite,
+                library_id,
+                target: AddonSideEffectTarget::media_item(item_id),
+                idempotency_key: key.to_owned(),
+                provenance_json: r#"{"origin":"reference-addon","token":"private"}"#.to_owned(),
+                payload_json: r#"{"intent":"propose_artwork","url":"https://private.test"}"#
+                    .to_owned(),
+                validation_status: AddonSideEffectValidationStatus::Accepted,
+                safe_error_code: None,
+            })
+            .await
+            .unwrap();
+        let candidate = store
+            .create_artwork_candidate(NewArtworkCandidate {
+                id: ArtworkCandidateId::new(),
+                addon_id,
+                side_effect_id: side_effect.id,
+                library_id,
+                item_id,
+                kind: ImageKind::Poster,
+                source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+                source_uri: format!("https://cdn.example.test/{key}.png?token=secret"),
+                width: Some(1),
+                height: Some(1),
+                language: Some("en".to_owned()),
+            })
+            .await
+            .unwrap();
+        let job_id = JobId::new();
+        store
+            .accept_managed_artwork_candidate_ingest(
+                candidate.id,
+                NewManagedArtworkIngest {
+                    id: ManagedArtworkIngestId::new(),
+                    candidate_id: candidate.id,
+                    job_id,
+                    library_id,
+                    item_id,
+                    kind: ImageKind::Poster,
+                    status: ManagedArtworkIngestStatus::Queued,
+                    artifact_id: None,
+                    failure_code: None,
+                },
+                NewJob {
+                    id: job_id,
+                    kind: JobKind::ManagedArtworkIngest,
+                    resource_class: "artwork.ingest".to_owned(),
+                    library_id: Some(library_id),
+                    source_id: None,
+                    input_json: Some(r#"{"candidate_id":"redacted"}"#.to_owned()),
+                },
+            )
+            .await
+            .unwrap()
+    }
+
+    let fetching = accepted_ingest(
+        &store,
+        addon_id,
+        token_id,
+        library_id,
+        item.id,
+        "startup-fetching",
+    )
+    .await;
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(claim.ingest.id, fetching.ingest.id);
+    let queued = accepted_ingest(
+        &store,
+        addon_id,
+        token_id,
+        library_id,
+        item.id,
+        "startup-queued",
+    )
+    .await;
+
+    let recovered = store
+        .fail_unfinished_managed_artwork_ingests(
+            "startup_recovery".to_owned(),
+            "managed artwork ingest was unfinished during server startup".to_owned(),
+            Some(r#"{"status":"failed","failure_code":"startup_recovery"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+
+    let fetching_ingest = store
+        .get_managed_artwork_ingest(fetching.ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let fetching_job = store.get_job(fetching.job.id).await.unwrap().unwrap();
+    let queued_ingest = store
+        .get_managed_artwork_ingest(queued.ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let queued_job = store.get_job(queued.job.id).await.unwrap().unwrap();
+
+    assert_eq!(recovered, 1);
+    assert_eq!(fetching_ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert_eq!(
+        fetching_ingest.failure_code.as_deref(),
+        Some("startup_recovery")
+    );
+    assert_eq!(fetching_job.status, JobStatus::Failed);
+    assert_eq!(
+        fetching_job.error.as_deref(),
+        Some("managed artwork ingest was unfinished during server startup")
+    );
+    assert!(fetching_job.summary_json.is_some());
+    assert_eq!(queued_ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(queued_ingest.failure_code, None);
+    assert_eq!(queued_job.status, JobStatus::Queued);
+    assert_eq!(queued_job.error, None);
+
+    let requeued = store
+        .requeue_managed_artwork_ingest(fetching.ingest.id)
+        .await
+        .unwrap();
+    assert!(requeued.requeued);
+    assert_eq!(requeued.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(requeued.job.status, JobStatus::Queued);
 }
 
 #[tokio::test]

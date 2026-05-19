@@ -18,6 +18,8 @@ Expected implementation gates once code changes begin:
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 cargo nextest run -p taru-server job_runtime_worker --no-fail-fast
 cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast
+cargo nextest run -p taru-server queued_artwork_ingests --no-fail-fast
+cargo nextest run -p taru-db managed_artwork_startup_recovery --no-fail-fast
 cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
 cargo fmt --all -- --check
 git diff --check
@@ -55,6 +57,14 @@ Expected result:
 | 2026-05-19 | `cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast` | Pass | Existing DB state-machine gate proves failed Managed Artwork ingest requeue/claim semantics remain intact. |
 | 2026-05-19 | `git diff --check` | Pass | Diff is whitespace-clean; Git reports only line-ending normalization warnings. |
 | 2026-05-19 | Redaction inventory command | Reviewed | Output is large; new worker hits are config/docs/test assertions. Raw locator/storage terms remain internal code, docs, or redaction fixtures. |
+| 2026-05-19 | `cargo nextest run -p taru-db managed_artwork_startup_recovery --no-fail-fast` | Pass | DB typed recovery fails only claimed Managed Artwork ingests and leaves queued artwork jobs queued. |
+| 2026-05-19 | `cargo nextest run -p taru-server queued_artwork_ingests --no-fail-fast` | Pass | Startup recovery preserves queued Managed Artwork ingests, fails claimed ingests with `startup_recovery`, and recovered failures remain requeueable. |
+| 2026-05-19 | `cargo nextest run -p taru-server job_runtime_worker --no-fail-fast` | Pass | Worker success path still stores queued Managed Artwork artifacts after recovery changes. |
+| 2026-05-19 | `cargo nextest run -p taru-db managed_artwork --no-fail-fast` | Pass | Managed Artwork DB state-machine suite, including requeue, lifecycle, gallery redaction, cleanup, and startup recovery, passed. |
+| 2026-05-19 | `Get-Content ... WORKSTREAM.json \| ConvertFrom-Json` | Pass | Workstream JSON parses after moving current task to `JRWCP-040`. |
+| 2026-05-19 | `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests` | Pass | Cross-crate test builds pass after adding the Managed Artwork recovery repository method. |
+| 2026-05-19 | `cargo fmt --all -- --check` | Pass | Workspace formatting remains clean after `JRWCP-030`. |
+| 2026-05-19 | `git diff --check` | Pass | Diff is whitespace-clean; Git reports only line-ending normalization warnings. |
 
 ## Review Checklist
 

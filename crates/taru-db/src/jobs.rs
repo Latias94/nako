@@ -144,12 +144,14 @@ impl JobRepository for SqliteStore {
                 completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
             WHERE status IN (?3, ?4)
+                AND kind <> ?5
             "#,
         )
         .bind(JobStatus::Failed.as_str())
         .bind(error)
         .bind(JobStatus::Queued.as_str())
         .bind(JobStatus::Running.as_str())
+        .bind(JobKind::ManagedArtworkIngest.as_str())
         .execute(&self.pool)
         .await
         .map_err(database_error)?;

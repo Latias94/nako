@@ -40,7 +40,7 @@ Last updated: 2026-05-19
   artwork publication or locator leaks.
   Handoff: Continue with `JRWCP-030` failure/recovery semantics.
 
-- [ ] JRWCP-030 [owner=codex] [deps=JRWCP-020] [scope=crates/taru-db,crates/taru-server]
+- [x] JRWCP-030 [owner=codex] [deps=JRWCP-020] [scope=crates/taru-db,crates/taru-server]
   Goal: Prove worker failure handling and restart recovery for Managed Artwork
   ingest.
   Validation: focused tests for safe failed summary and stale running recovery
@@ -48,7 +48,12 @@ Last updated: 2026-05-19
   Review: recovery must not duplicate artifacts or claim running jobs that are
   still owned.
   Evidence: failed job remains requeueable; stale claim policy is explicit.
-  Handoff: Continue with cancellation or split it.
+  Result: DONE. Added typed Managed Artwork startup recovery that leaves queued
+  ingests queued, marks already claimed `fetching`/`validating` ingests failed
+  with safe `startup_recovery`, skips Managed Artwork in generic
+  `fail_unfinished_jobs`, and proves recovered failures remain requeueable.
+  Handoff: Continue with cancellation decision in `JRWCP-040` or close/split if
+  cancellation should wait for broader durable job leases.
 
 ## M2 - Control Plane Semantics
 
