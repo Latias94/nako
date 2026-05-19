@@ -504,6 +504,13 @@ fingerprint values, validation error text, cache error text, WebDAV
 credentials, or secret values. It is an Admin API route and is not part of
 Public Client OpenAPI or generated SDK artifacts.
 
+`GET /admin/v1/overview` includes a redacted runtime summary with active and
+completed task counts plus supervised job outcome counters:
+`succeeded_jobs`, `cancelled_jobs`, and `failed_jobs`. Operator-acknowledged
+job cancellation is counted separately from success and failure. Failed runtime
+tasks or failed supervised jobs degrade the overview status; cancelled jobs do
+not.
+
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
 metadata refresh job. The current implementation uses the library metadata
 profile provider order and records provider attempts for the item diagnostics

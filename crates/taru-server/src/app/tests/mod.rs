@@ -10,11 +10,13 @@ use std::{
 
 use async_trait::async_trait;
 use axum::{
-    Router,
-    http::{Method, StatusCode as AxumStatusCode, header},
+    Json, Router,
+    extract::State,
+    http::{Method, StatusCode as AxumStatusCode, Uri, header},
     response::{IntoResponse, Response},
     routing::any,
 };
+use serde_json::json;
 use taru_api::EnqueueMetadataMaintenanceRequest;
 use taru_core::{
     CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId, JobKind,
@@ -410,6 +412,63 @@ struct MockWebDavServer {
     addr: std::net::SocketAddr,
 }
 
+#[derive(Clone)]
+struct BlockingBangumiControl {
+    request_count: Arc<AtomicUsize>,
+    first_search_entered: Arc<Notify>,
+    release_first_search: Arc<Notify>,
+}
+
+impl BlockingBangumiControl {
+    fn new() -> Self {
+        Self {
+            request_count: Arc::new(AtomicUsize::new(0)),
+            first_search_entered: Arc::new(Notify::new()),
+            release_first_search: Arc::new(Notify::new()),
+        }
+    }
+
+    async fn wait_for_first_search(&self) {
+        self.first_search_entered.notified().await;
+    }
+
+    fn release_first_search(&self) {
+        self.release_first_search.notify_waiters();
+    }
+
+    fn requests(&self) -> usize {
+        self.request_count.load(Ordering::SeqCst)
+    }
+}
+
+struct BlockingBangumiServer {
+    addr: std::net::SocketAddr,
+    control: BlockingBangumiControl,
+}
+
+impl BlockingBangumiServer {
+    async fn start(control: BlockingBangumiControl) -> Self {
+        let router = Router::new()
+            .route("/{*path}", any(mock_blocking_bangumi_handler))
+            .with_state(control.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        Self { addr, control }
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://{}", self.addr)
+    }
+
+    fn control(&self) -> BlockingBangumiControl {
+        self.control.clone()
+    }
+}
+
 impl MockWebDavServer {
     async fn start() -> Self {
         let router = Router::new().route("/{*path}", any(mock_webdav_handler));
@@ -497,6 +556,51 @@ async fn mock_webdav_handler(method: Method, uri: axum::http::Uri) -> Response {
             "<movie><title>Remote NFO</title></movie>",
         )
             .into_response();
+    }
+
+    AxumStatusCode::NOT_FOUND.into_response()
+}
+
+async fn mock_blocking_bangumi_handler(
+    State(control): State<BlockingBangumiControl>,
+    method: Method,
+    uri: Uri,
+) -> Response {
+    let count = control.request_count.fetch_add(1, Ordering::SeqCst) + 1;
+    let path = uri.path();
+    if method == Method::POST && path.ends_with("/v0/search/subjects") {
+        if count == 1 {
+            control.first_search_entered.notify_waiters();
+            control.release_first_search.notified().await;
+        }
+        return Json(json!({
+            "data": [{
+                "id": 8,
+                "name": "Cowboy Bebop",
+                "name_cn": "Cowboy Bebop",
+                "summary": "Whatever happens, happens.",
+                "date": "1998-04-03",
+                "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+                "tags": [{"name": "sci-fi"}],
+                "rating": {"score": 9.1}
+            }]
+        }))
+        .into_response();
+    }
+
+    if method == Method::GET && path.ends_with("/v0/subjects/8") {
+        return Json(json!({
+            "id": 8,
+            "name": "Cowboy Bebop",
+            "name_cn": "Cowboy Bebop",
+            "summary": "Whatever happens, happens.",
+            "date": "1998-04-03",
+            "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+            "tags": [{"name": "sci-fi"}],
+            "rating": {"score": 9.1},
+            "infobox": []
+        }))
+        .into_response();
     }
 
     AxumStatusCode::NOT_FOUND.into_response()

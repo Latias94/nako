@@ -731,6 +731,7 @@ fn runtime_summary(diagnostics: RuntimeSupervisorDiagnostics) -> AdminOverviewRu
         completed_tasks: diagnostics.completed_tasks,
         failed_tasks: diagnostics.failed_tasks,
         succeeded_jobs: diagnostics.succeeded_jobs,
+        cancelled_jobs: diagnostics.cancelled_jobs,
         failed_jobs: diagnostics.failed_jobs,
         shutdown_requested: diagnostics.shutdown_requested,
     }

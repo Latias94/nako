@@ -34,11 +34,15 @@ fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> TaruServer
 async fn wait_for_runtime_jobs(
     app: &TaruApp,
     succeeded_jobs: u64,
+    cancelled_jobs: u64,
     failed_jobs: u64,
 ) -> RuntimeSupervisorDiagnostics {
     for _ in 0..100 {
         let diagnostics = app.runtime_diagnostics();
-        if diagnostics.succeeded_jobs == succeeded_jobs && diagnostics.failed_jobs == failed_jobs {
+        if diagnostics.succeeded_jobs == succeeded_jobs
+            && diagnostics.cancelled_jobs == cancelled_jobs
+            && diagnostics.failed_jobs == failed_jobs
+        {
             return diagnostics;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -257,7 +261,7 @@ async fn background_scan_job_uses_runtime_job_supervision() {
         .enqueue_library_scan(library_id)
         .await
         .unwrap();
-    let diagnostics = wait_for_runtime_jobs(&app, 1, 0).await;
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 0).await;
     let persisted = app.jobs().get_job(job.id).await.unwrap();
 
     assert_eq!(persisted.status, JobStatus::Succeeded);

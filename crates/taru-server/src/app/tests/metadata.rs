@@ -3,11 +3,15 @@ use super::*;
 async fn wait_for_runtime_jobs(
     app: &TaruApp,
     succeeded_jobs: u64,
+    cancelled_jobs: u64,
     failed_jobs: u64,
 ) -> RuntimeSupervisorDiagnostics {
     for _ in 0..100 {
         let diagnostics = app.runtime_diagnostics();
-        if diagnostics.succeeded_jobs == succeeded_jobs && diagnostics.failed_jobs == failed_jobs {
+        if diagnostics.succeeded_jobs == succeeded_jobs
+            && diagnostics.cancelled_jobs == cancelled_jobs
+            && diagnostics.failed_jobs == failed_jobs
+        {
             return diagnostics;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -355,7 +359,7 @@ async fn background_metadata_refresh_job_uses_runtime_job_supervision() {
         .enqueue_metadata_refresh(item.id)
         .await
         .unwrap();
-    let diagnostics = wait_for_runtime_jobs(&app, 0, 1).await;
+    let diagnostics = wait_for_runtime_jobs(&app, 0, 0, 1).await;
     let persisted = app.jobs().get_job(job.id).await.unwrap();
 
     assert_eq!(persisted.status, JobStatus::Failed);
@@ -593,6 +597,120 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
     assert!(events.iter().any(|event| {
         event.kind == DomainEventKind::MetadataMaintenanceCompleted
             && event.subject == DomainEventSubject::Job(output.job.id)
+    }));
+}
+
+#[tokio::test]
+async fn metadata_maintenance_job_acknowledges_cancellation_before_next_item() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let control = BlockingBangumiControl::new();
+    let provider_server = BlockingBangumiServer::start(control.clone()).await;
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig {
+            providers: vec![MetadataProviderConfig {
+                provider: ExternalProvider::Bangumi,
+                enabled: true,
+                token_env: None,
+                api_key_env: None,
+                api_base_url: Some(provider_server.base_url()),
+                image_base_url: None,
+                language: None,
+                include_adult: false,
+                headers: Vec::new(),
+                runtime: None,
+            }],
+            ..MetadataConfig::default()
+        },
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Anime".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Anime,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let first = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "First Anime".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let second = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Second Anime".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    upsert_item_with_source(&store, library_id, &first).await;
+    upsert_item_with_source(&store, library_id, &second).await;
+
+    let job = app
+        .metadata()
+        .enqueue_metadata_maintenance(EnqueueMetadataMaintenanceRequest {
+            library_id: Some(library_id),
+            item_ids: Vec::new(),
+            providers: Some(vec![ExternalProvider::Bangumi]),
+            item_kinds: vec![MediaKind::Movie],
+            profile: None,
+            language: Some("zh-CN".to_owned()),
+            refresh_mode: Some(MetadataRefreshMode::MissingOnly),
+            force: false,
+        })
+        .await
+        .unwrap();
+    provider_server.control().wait_for_first_search().await;
+
+    let requested = app.jobs().request_job_cancellation(job.id).await.unwrap();
+    assert!(requested.requested);
+    assert!(!requested.terminal);
+    assert_eq!(requested.job.status, JobStatus::Running);
+
+    control.release_first_search();
+    let diagnostics = wait_for_runtime_jobs(&app, 0, 1, 0).await;
+    let persisted = app.jobs().get_job(job.id).await.unwrap();
+    let attempts = store.list_metadata_provider_attempts(job.id).await.unwrap();
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::new(100, 0))
+        .await
+        .unwrap();
+
+    assert_eq!(diagnostics.failed_jobs, 0);
+    assert_eq!(diagnostics.cancelled_jobs, 1);
+    assert_eq!(persisted.status, JobStatus::Cancelled);
+    assert_eq!(persisted.summary_json, None);
+    assert_eq!(persisted.error, None);
+    assert_eq!(attempts.len(), 1);
+    assert!(provider_server.control().requests() <= 2);
+    assert!(!events.iter().any(|event| {
+        event.kind == DomainEventKind::MetadataMaintenanceCompleted
+            && event.subject == DomainEventSubject::Job(job.id)
     }));
 }
 

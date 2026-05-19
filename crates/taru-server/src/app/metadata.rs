@@ -23,7 +23,9 @@ use time::OffsetDateTime;
 use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
 
-use super::job_runtime::DurableJobRuntime;
+use super::job_runtime::{
+    DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
+};
 use super::metadata_runtime::provider_resource_name;
 use super::runtime::RuntimeSupervisor;
 use crate::config::{MetadataMaintenancePolicyConfig, TaruServerConfig};
@@ -38,6 +40,12 @@ pub struct MetadataRefreshCommandOutput {
 pub struct MetadataMaintenanceCommandOutput {
     pub job: Job,
     pub summary: MetadataMaintenanceSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+enum MetadataMaintenanceExecution {
+    Completed(MetadataMaintenanceCommandOutput),
+    Cancelled(Job),
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -160,7 +168,8 @@ impl MetadataAppService {
         request: EnqueueMetadataMaintenanceRequest,
     ) -> Result<MetadataMaintenanceCommandOutput> {
         let job = self.create_metadata_maintenance_job(&request).await?;
-        self.execute_metadata_maintenance_job(job.id, request).await
+        self.execute_metadata_maintenance_command(job.id, request)
+            .await
     }
 
     pub async fn plan_metadata_maintenance(
@@ -291,18 +300,30 @@ impl MetadataAppService {
         job_id: JobId,
         request: EnqueueMetadataMaintenanceRequest,
     ) -> Result<Job> {
-        let output = self
+        match self
             .execute_metadata_maintenance_job(job_id, request)
-            .await?;
-        info!(
-            job_id = %output.job.id,
-            attempted_items = output.summary.attempted_items,
-            succeeded_items = output.summary.succeeded_items,
-            failed_items = output.summary.failed_items,
-            status = ?output.job.status,
-            "metadata maintenance job completed"
-        );
-        Ok(output.job)
+            .await?
+        {
+            MetadataMaintenanceExecution::Completed(output) => {
+                info!(
+                    job_id = %output.job.id,
+                    attempted_items = output.summary.attempted_items,
+                    succeeded_items = output.summary.succeeded_items,
+                    failed_items = output.summary.failed_items,
+                    status = ?output.job.status,
+                    "metadata maintenance job completed"
+                );
+                Ok(output.job)
+            }
+            MetadataMaintenanceExecution::Cancelled(job) => {
+                info!(
+                    job_id = %job.id,
+                    status = ?job.status,
+                    "metadata maintenance job cancelled"
+                );
+                Ok(job)
+            }
+        }
     }
 
     async fn execute_metadata_refresh_job(
@@ -345,7 +366,7 @@ impl MetadataAppService {
         &self,
         job_id: JobId,
         request: EnqueueMetadataMaintenanceRequest,
-    ) -> Result<MetadataMaintenanceCommandOutput> {
+    ) -> Result<MetadataMaintenanceExecution> {
         let permit =
             self.permits
                 .clone()
@@ -358,10 +379,13 @@ impl MetadataAppService {
 
         let runtime = DurableJobRuntime::new(self.store.clone());
         let run = runtime
-            .run_job(
+            .run_job_with_context(
                 job_id,
                 "metadata maintenance job",
-                || async { self.run_metadata_maintenance_job(job_id, request).await },
+                |context| async {
+                    self.run_metadata_maintenance_job(job_id, request, context)
+                        .await
+                },
                 |summary| {
                     DurableJobRuntime::serialize_summary(
                         summary,
@@ -370,14 +394,40 @@ impl MetadataAppService {
                 },
             )
             .await?;
-        let summary = run.output;
-        self.record_metadata_maintenance_completed_event(&summary)
-            .await;
 
-        Ok(MetadataMaintenanceCommandOutput {
-            job: run.job,
-            summary,
-        })
+        match run {
+            DurableJobRunOutcome::Completed(run) => {
+                let summary = run.output;
+                self.record_metadata_maintenance_completed_event(&summary)
+                    .await;
+
+                Ok(MetadataMaintenanceExecution::Completed(
+                    MetadataMaintenanceCommandOutput {
+                        job: run.job,
+                        summary,
+                    },
+                ))
+            }
+            DurableJobRunOutcome::Cancelled(job) => {
+                Ok(MetadataMaintenanceExecution::Cancelled(job))
+            }
+        }
+    }
+
+    async fn execute_metadata_maintenance_command(
+        &self,
+        job_id: JobId,
+        request: EnqueueMetadataMaintenanceRequest,
+    ) -> Result<MetadataMaintenanceCommandOutput> {
+        match self
+            .execute_metadata_maintenance_job(job_id, request)
+            .await?
+        {
+            MetadataMaintenanceExecution::Completed(output) => Ok(output),
+            MetadataMaintenanceExecution::Cancelled(job) => Err(TaruError::Conflict {
+                message: format!("metadata maintenance job {} was cancelled", job.id),
+            }),
+        }
     }
 
     pub(super) async fn record_metadata_refreshed_event(
@@ -491,7 +541,8 @@ impl MetadataAppService {
         &self,
         job_id: JobId,
         request: EnqueueMetadataMaintenanceRequest,
-    ) -> Result<MetadataMaintenanceSummary> {
+        context: DurableJobContext,
+    ) -> DurableJobOperationResult<MetadataMaintenanceSummary> {
         self.validate_metadata_maintenance_request(&request).await?;
         let items = self.metadata_maintenance_items(&request).await?;
         let mut summary = MetadataMaintenanceSummary {
@@ -509,6 +560,7 @@ impl MetadataAppService {
         };
 
         for item in items {
+            context.check_cancelled().await?;
             let profile = match self
                 .metadata_maintenance_profile_for_item(&item, &request)
                 .await

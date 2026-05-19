@@ -7,7 +7,9 @@ Last updated: 2026-05-19
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_runtime --no-fail-fast
+$env:CARGO_BUILD_JOBS='2'
+$env:NEXTEST_TEST_THREADS='1'
+cargo nextest run -j 2 -p taru-server job_runtime --no-fail-fast
 ```
 
 This proves the shared leased runtime can distinguish success, failure, and
@@ -19,7 +21,9 @@ acknowledged cancellation before worker-specific integrations are broadened.
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_runtime --no-fail-fast
+$env:CARGO_BUILD_JOBS='2'
+$env:NEXTEST_TEST_THREADS='1'
+cargo nextest run -j 2 -p taru-server job_runtime --no-fail-fast
 ```
 
 Expected coverage:
@@ -33,8 +37,10 @@ Expected coverage:
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_cancel --no-fail-fast
-cargo nextest run -p taru-server metadata --no-fail-fast
+$env:CARGO_BUILD_JOBS='2'
+$env:NEXTEST_TEST_THREADS='1'
+cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast
+cargo nextest run -j 2 -p taru-server metadata --no-fail-fast
 ```
 
 Expected coverage:
@@ -47,7 +53,8 @@ Expected coverage:
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_BUILD_JOBS='2'
+cargo check -j 2 -p taru-core -p taru-db -p taru-api -p taru-server --tests
 ```
 
 Expected coverage:
@@ -96,6 +103,28 @@ in `HANDOFF.md`.
   `cargo nextest run -p taru-server job_runtime --no-fail-fast`;
   `cargo check -p taru-server --tests`; `cargo fmt --all -- --check`;
   `git diff --check`; WORKSTREAM JSON parse.
+- `WJCC-030` (2026-05-19): Migrated metadata maintenance to the
+  context-aware durable job path. Checkpoints refresh observed cancel intent
+  before each item-level side-effect unit, acknowledged cancellation persists
+  terminal `JobStatus::Cancelled`, completed metadata-maintenance outbox events
+  are skipped for cancelled runs, and runtime diagnostics count cancelled jobs
+  separately from successful jobs. Gates run sequentially with
+  `CARGO_BUILD_JOBS=2` and `NEXTEST_TEST_THREADS=1`:
+  `cargo check -j 2 -p taru-api -p taru-server --tests` (pass);
+  `cargo nextest run -j 2 -p taru-server metadata_maintenance_job_acknowledges_cancellation_before_next_item --no-fail-fast`
+  (1 passed);
+  `cargo nextest run -j 2 -p taru-server job_runtime --no-fail-fast`
+  (5 passed);
+  `cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast`
+  (1 passed);
+  `cargo nextest run -j 2 -p taru-server runtime --no-fail-fast` (16 passed);
+  `cargo nextest run -j 2 -p taru-server metadata --no-fail-fast` (20 passed);
+  `cargo fmt --all -- --check` (pass);
+  `git diff --check` (pass, CRLF warnings only). After tightening supervisor
+  outcome counting to classify `JobStatus::Failed` returned by a supervised
+  job as a failed job instead of success, reran
+  `cargo check -j 2 -p taru-server --tests` (pass) and
+  `cargo nextest run -j 2 -p taru-server runtime --no-fail-fast` (16 passed).
 
 ## Notes
 

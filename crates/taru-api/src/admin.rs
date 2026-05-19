@@ -1574,6 +1574,7 @@ pub struct AdminOverviewRuntimeSummary {
     pub completed_tasks: u64,
     pub failed_tasks: u64,
     pub succeeded_jobs: u64,
+    pub cancelled_jobs: u64,
     pub failed_jobs: u64,
     pub shutdown_requested: bool,
 }
@@ -2703,6 +2704,7 @@ mod tests {
                 completed_tasks: 0,
                 failed_tasks: 0,
                 succeeded_jobs: 0,
+                cancelled_jobs: 0,
                 failed_jobs: 0,
                 shutdown_requested: false,
             },

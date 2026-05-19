@@ -33,6 +33,9 @@ pub(super) struct DurableJobRun<T> {
 
 #[derive(Clone, Debug)]
 pub(super) struct DurableJobContext {
+    store: SqliteStore,
+    guard: JobLeaseGuard,
+    lease_duration_ms: u64,
     cancellation: DurableJobCancellation,
 }
 
@@ -63,12 +66,26 @@ impl DurableJobContext {
         self.cancellation.requested_at()
     }
 
-    pub(super) fn check_cancelled(&self) -> DurableJobOperationResult<()> {
+    pub(super) async fn check_cancelled(&self) -> DurableJobOperationResult<()> {
+        self.refresh_cancellation().await?;
         if self.is_cancel_requested() {
             Err(DurableJobOperationError::Cancelled)
         } else {
             Ok(())
         }
+    }
+
+    async fn refresh_cancellation(&self) -> DurableJobOperationResult<()> {
+        let leased = self
+            .store
+            .heartbeat_job_lease(JobLeaseHeartbeat {
+                guard: self.guard,
+                lease_duration_ms: self.lease_duration_ms,
+            })
+            .await
+            .map_err(DurableJobOperationError::Failed)?;
+        self.cancellation.observe_lease(&leased.lease);
+        Ok(())
     }
 }
 
@@ -165,7 +182,12 @@ impl DurableJobRuntime {
         let cancellation = DurableJobCancellation::new();
         cancellation.observe_lease(&leased.lease);
         let heartbeat = self.start_heartbeat(operation, guard, cancellation.clone());
-        let context = DurableJobContext { cancellation };
+        let context = DurableJobContext {
+            store: self.store.clone(),
+            guard,
+            lease_duration_ms: self.lease_duration_ms,
+            cancellation,
+        };
 
         let output = match run(context).await {
             Ok(output) => output,
@@ -525,7 +547,7 @@ mod tests {
                             .lock()
                             .expect("test cancellation observation poisoned") =
                             context.cancel_requested_at();
-                        context.check_cancelled()?;
+                        context.check_cancelled().await?;
                         Ok(1_u32)
                     },
                     |value| DurableJobRuntime::serialize_summary(value, "test summary"),

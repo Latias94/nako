@@ -34,7 +34,7 @@ Last updated: 2026-05-19
 
 ## M2 - First Real Worker Checkpoints
 
-- [ ] WJCC-030 [owner=codex] [deps=WJCC-020] [scope=crates/taru-server/src/app/metadata.rs]
+- [x] WJCC-030 [owner=codex] [deps=WJCC-020] [scope=crates/taru-server/src/app/metadata.rs]
   Goal: Wire cancellation checkpoints into metadata maintenance before each
   new item refresh so a running Admin cancel request stops the next side-effect
   unit and persists terminal `cancelled`.
@@ -43,7 +43,13 @@ Last updated: 2026-05-19
   cancelled run; do not expose raw job payloads or provider responses.
   Evidence: Server app/HTTP tests showing requested cancellation becomes
   acknowledged cancellation after a checkpoint.
-  Handoff: `WJCC-040` broadens or splits remaining worker integrations.
+  Result: DONE. Metadata maintenance now runs through the context-aware durable
+  job runtime, checks cancellation before each item refresh, refreshes observed
+  cancel intent at checkpoints, persists terminal `cancelled`, reports runtime
+  cancellations separately from successes, and skips the completed outbox event
+  after a cancelled run.
+  Handoff: `WJCC-040` broadens or splits library scan/probe and NFO
+  integrations without pretending mid-operation rollback.
 
 ## M3 - Additional Worker Boundaries
 

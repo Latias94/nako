@@ -123,6 +123,7 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     );
     assert_eq!(overview.metadata.total_providers, 0);
     assert_eq!(overview.runtime.failed_tasks, 0);
+    assert_eq!(overview.runtime.cancelled_jobs, 0);
     assert_eq!(overview.runtime.failed_jobs, 0);
     assert!(!overview.runtime.shutdown_requested);
     assert_eq!(overview.startup.configured_libraries, 1);

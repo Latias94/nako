@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures_util::FutureExt;
-use taru_core::{Job, JobId, Result};
+use taru_core::{Job, JobId, JobStatus, Result};
 use tokio::task::AbortHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -27,6 +27,7 @@ struct RuntimeSupervisorInner {
     completed_tasks: AtomicU64,
     failed_tasks: AtomicU64,
     succeeded_jobs: AtomicU64,
+    cancelled_jobs: AtomicU64,
     failed_jobs: AtomicU64,
     shutdown_requested: AtomicBool,
 }
@@ -51,6 +52,7 @@ pub(crate) struct RuntimeSupervisorDiagnostics {
     pub completed_tasks: u64,
     pub failed_tasks: u64,
     pub succeeded_jobs: u64,
+    pub cancelled_jobs: u64,
     pub failed_jobs: u64,
     pub shutdown_requested: bool,
     pub tasks: Vec<RuntimeTaskDiagnostics>,
@@ -86,6 +88,7 @@ impl RuntimeSupervisor {
                 completed_tasks: AtomicU64::new(0),
                 failed_tasks: AtomicU64::new(0),
                 succeeded_jobs: AtomicU64::new(0),
+                cancelled_jobs: AtomicU64::new(0),
                 failed_jobs: AtomicU64::new(0),
                 shutdown_requested: AtomicBool::new(false),
             }),
@@ -162,7 +165,26 @@ impl RuntimeSupervisor {
         self.spawn_tracked(name, resource_class.into(), Some(job_id), async move {
             match run(context).await {
                 Ok(job) => {
-                    inner.succeeded_jobs.fetch_add(1, Ordering::Relaxed);
+                    match job.status {
+                        JobStatus::Succeeded => {
+                            inner.succeeded_jobs.fetch_add(1, Ordering::Relaxed);
+                        }
+                        JobStatus::Cancelled => {
+                            inner.cancelled_jobs.fetch_add(1, Ordering::Relaxed);
+                        }
+                        JobStatus::Failed => {
+                            inner.failed_jobs.fetch_add(1, Ordering::Relaxed);
+                        }
+                        JobStatus::Queued | JobStatus::Running => {
+                            inner.failed_jobs.fetch_add(1, Ordering::Relaxed);
+                            warn!(
+                                job_id = %job.id,
+                                job_kind = %job.kind.as_str(),
+                                status = %job.status.as_str(),
+                                "supervised job finished with non-terminal status"
+                            );
+                        }
+                    }
                     info!(
                         job_id = %job.id,
                         job_kind = %job.kind.as_str(),
@@ -220,6 +242,7 @@ impl RuntimeSupervisor {
             completed_tasks: self.inner.completed_tasks.load(Ordering::Relaxed),
             failed_tasks: self.inner.failed_tasks.load(Ordering::Relaxed),
             succeeded_jobs: self.inner.succeeded_jobs.load(Ordering::Relaxed),
+            cancelled_jobs: self.inner.cancelled_jobs.load(Ordering::Relaxed),
             failed_jobs: self.inner.failed_jobs.load(Ordering::Relaxed),
             shutdown_requested: self.inner.shutdown_requested.load(Ordering::Relaxed),
             tasks: state
@@ -299,6 +322,7 @@ mod tests {
         assert_eq!(diagnostics.completed_tasks, 10);
         assert_eq!(diagnostics.failed_tasks, 0);
         assert_eq!(diagnostics.succeeded_jobs, 0);
+        assert_eq!(diagnostics.cancelled_jobs, 0);
         assert_eq!(diagnostics.failed_jobs, 0);
     }
 
@@ -353,6 +377,8 @@ mod tests {
     async fn supervisor_records_supervised_job_outcomes() {
         let supervisor = RuntimeSupervisor::new();
         let success_id = JobId::new();
+        let cancelled_id = JobId::new();
+        let persisted_failed_id = JobId::new();
         let failed_id = JobId::new();
 
         supervisor.spawn_job(
@@ -363,6 +389,24 @@ mod tests {
                 assert_eq!(context.job_id, success_id);
                 assert!(!context.shutdown_token().is_cancelled());
                 Ok(test_job(success_id, JobStatus::Succeeded))
+            },
+        );
+        supervisor.spawn_job(
+            "cancelled_job",
+            "test.job".to_owned(),
+            cancelled_id,
+            move |context| async move {
+                assert_eq!(context.job_id, cancelled_id);
+                Ok(test_job(cancelled_id, JobStatus::Cancelled))
+            },
+        );
+        supervisor.spawn_job(
+            "persisted_failed_job",
+            "test.job".to_owned(),
+            persisted_failed_id,
+            move |context| async move {
+                assert_eq!(context.job_id, persisted_failed_id);
+                Ok(test_job(persisted_failed_id, JobStatus::Failed))
             },
         );
         supervisor.spawn_job(
@@ -379,9 +423,12 @@ mod tests {
 
         for _ in 0..50 {
             let diagnostics = supervisor.diagnostics();
-            if diagnostics.succeeded_jobs == 1 && diagnostics.failed_jobs == 1 {
+            if diagnostics.succeeded_jobs == 1
+                && diagnostics.cancelled_jobs == 1
+                && diagnostics.failed_jobs == 2
+            {
                 assert_eq!(diagnostics.active_tasks, 0);
-                assert_eq!(diagnostics.completed_tasks, 2);
+                assert_eq!(diagnostics.completed_tasks, 4);
                 assert_eq!(diagnostics.failed_tasks, 0);
                 return;
             }
