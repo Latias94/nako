@@ -71,6 +71,7 @@ build:
 .\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token -SkipBuild
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
+.\scripts\Smoke-Regression.ps1
 ```
 
 The script builds `:app:assembleDebug` by default, installs the debug APK to a
@@ -101,6 +102,21 @@ store and encrypted token vault. Generated screenshots and reports remain local
 under `apps/android/build/smoke/`.
 
 Fixture and state rules live in `SMOKE_FIXTURES.md`.
+
+Use the regression wrapper when you want the stable local Android confidence
+gate before handing work to another developer or agent:
+
+```powershell
+.\scripts\Smoke-Regression.ps1
+.\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token
+.\scripts\Smoke-Regression.ps1 -SkipBuild
+.\scripts\Smoke-Regression.ps1 -RetriesPerState 0
+```
+
+The wrapper builds the debug APK once by default, then runs the selected smoke
+fixture states through `Smoke-Emulator.ps1` and writes a combined report under
+`apps/android/build/smoke-regression/<timestamp>/`. The default state set is
+`empty-setup`, `profile-missing-token`, and `profile-with-media`.
 
 ## Server-Backed Demo Fixture
 

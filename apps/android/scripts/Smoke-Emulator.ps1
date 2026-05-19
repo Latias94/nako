@@ -7,6 +7,8 @@ param(
     [int]$FixtureServerPort = 3018,
     [string]$FixtureAccessToken = 'demo-fixture-token',
     [switch]$SkipBuild,
+    [switch]$SkipAppBuild,
+    [switch]$SkipFixtureServerBuild,
     [switch]$ResetAppData
 )
 
@@ -333,20 +335,42 @@ function Get-UiDump {
     )
 
     $safeName = $Name -replace '[^A-Za-z0-9_.-]', '-'
-    $remoteDump = "/sdcard/taru-android-smoke-$safeName.xml"
+    $remoteDump = "/data/local/tmp/taru-android-smoke-$safeName.xml"
     $localDump = Join-Path $OutputDir "$safeName.uiautomator.xml"
     $lastError = $null
 
-    for ($attempt = 1; $attempt -le 5; $attempt += 1) {
+    for ($attempt = 1; $attempt -le 8; $attempt += 1) {
         try {
             & $AdbPath -s $DeviceSerial shell rm $remoteDump *> $null
-            Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'uiautomator', 'dump', $remoteDump) -FailureMessage "adb UI dump failed for '$Name'."
+            & $AdbPath -s $DeviceSerial shell pkill -f uiautomator *> $null
+            Start-Sleep -Milliseconds 500
+            $dumpOutput = & $AdbPath -s $DeviceSerial shell uiautomator dump $remoteDump 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "adb UI dump failed for '$Name'.`n$($dumpOutput | Out-String)"
+            }
+
+            $remoteReady = $false
+            for ($fileAttempt = 1; $fileAttempt -le 10; $fileAttempt += 1) {
+                & $AdbPath -s $DeviceSerial shell ls $remoteDump *> $null
+                if ($LASTEXITCODE -eq 0) {
+                    $remoteReady = $true
+                    break
+                }
+
+                Start-Sleep -Milliseconds 250
+            }
+
+            if (-not $remoteReady) {
+                throw "UI dump '$Name' did not create remote hierarchy file '$remoteDump'. Dump output: $($dumpOutput | Out-String)"
+            }
+
             Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'pull', $remoteDump, $localDump) -FailureMessage "adb pull UI dump failed for '$Name'."
             Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteDump) -FailureMessage "adb cleanup UI dump failed for '$Name'."
             return $localDump
         } catch {
             $lastError = $_.Exception.Message
-            Start-Sleep -Milliseconds 750
+            & $AdbPath -s $DeviceSerial shell pkill -f uiautomator *> $null
+            Start-Sleep -Milliseconds 1500
         }
     }
 
@@ -566,6 +590,8 @@ $adb = Resolve-AdbPath
 $deviceSerial = Get-ConnectedDeviceSerial -AdbPath $adb -RequestedSerial $Serial
 $stateMode = Resolve-FixtureState -RequestedFixtureState $FixtureState -RequestedResetAppData ([bool]$ResetAppData)
 $clearsAppData = $stateMode -in @('empty-setup', 'profile-missing-token', 'profile-with-media')
+$skipAndroidBuild = [bool]($SkipBuild -or $SkipAppBuild)
+$skipServerBuild = [bool]($SkipBuild -or $SkipFixtureServerBuild)
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $androidRoot 'build\smoke'
@@ -580,7 +606,7 @@ $fixtureBaseUrl = $null
 
 try {
 
-if (-not $SkipBuild) {
+if (-not $skipAndroidBuild) {
     Push-Location $androidRoot
     try {
         & $gradlew :app:assembleDebug --no-daemon
@@ -609,7 +635,7 @@ if ($stateMode -eq 'profile-with-media') {
         -AndroidRoot $androidRoot `
         -OutputDir $outputDir `
         -Port $FixtureServerPort `
-        -SkipServerBuild ([bool]$SkipBuild)
+        -SkipServerBuild $skipServerBuild
     $fixtureServerProcess = $fixtureProvider.Process
     $fixtureBaseUrl = $fixtureProvider.Summary.base_url
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'reverse', "tcp:$FixtureServerPort", "tcp:$FixtureServerPort") -FailureMessage 'adb reverse failed for profile-with-media.'
@@ -736,7 +762,7 @@ $report = @"
 - Timestamp: $(Get-Date -Format o)
 - Device: $deviceSerial
 - APK: $apkPath
-- Build step: $(if ($SkipBuild) { 'skipped' } else { 'assembleDebug' })
+- Build step: $(if ($skipAndroidBuild) { 'skipped' } else { 'assembleDebug' })
 - State mode: $stateMode
 - Reset app data: $clearsAppData
 - Fixture server base URL: $(if ($fixtureBaseUrl) { $fixtureBaseUrl } else { 'n/a' })

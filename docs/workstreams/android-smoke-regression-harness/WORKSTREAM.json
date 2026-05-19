@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "slug": "android-smoke-regression-harness",
+  "title": "Android Smoke Regression Harness",
+  "status": "active",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Android has single-state emulator smoke fixtures, but no documented local regression command that composes the stable setup, shell, and server-backed media states into one repeatable confidence gate.",
+  "summary": "Local Android smoke regression wrapper added; next step is developer handoff/failure-classification closeout.",
+  "current_milestone": "M2",
+  "current_task": "ASR-030",
+  "task_prefix": "ASR",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-smoke-regression-harness/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-smoke-regression-harness/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-smoke-regression-harness/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-smoke-regression-harness/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-smoke-regression-harness/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States empty-setup,profile-missing-token,profile-with-media",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ASR-010",
+      "path": "docs/workstreams/android-smoke-regression-harness/DESIGN.md",
+      "notes": "Planning and local regression boundary freeze."
+    },
+    {
+      "task": "ASR-020",
+      "path": "apps/android/build/smoke-regression/20260519-005118/report.md",
+      "notes": "Full local smoke regression passed for empty-setup, profile-missing-token, and profile-with-media."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue through ASR-020/ASR-030 while the scope remains a local wrapper around existing smoke fixture states. Split CI, golden visual diffing, and deeper playback validation into separate lanes."
+  }
+}

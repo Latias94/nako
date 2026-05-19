@@ -120,6 +120,40 @@ Captured surfaces:
 - The `profile-with-media` profile seed entry point exists only in the debug
   APK. Release builds must not expose smoke fixture writers.
 
+## Local Regression
+
+Command:
+
+```powershell
+.\scripts\Smoke-Regression.ps1
+```
+
+Use this as the stable local confidence gate after Android UI, browse,
+playback-launch, or smoke-harness changes. The wrapper builds the debug APK
+once, runs the stable state set through `Smoke-Emulator.ps1`, and writes a
+combined report under `apps/android/build/smoke-regression/<timestamp>/`.
+
+Default states:
+
+- `empty-setup`
+- `profile-missing-token`
+- `profile-with-media`
+
+Useful variants:
+
+```powershell
+.\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token
+.\scripts\Smoke-Regression.ps1 -SkipBuild
+.\scripts\Smoke-Regression.ps1 -ContinueOnFailure
+.\scripts\Smoke-Regression.ps1 -RetriesPerState 0
+```
+
+When a regression fails, open the report and then rerun the failed state
+directly with `Smoke-Emulator.ps1 -FixtureState <state>` to collect focused
+evidence. The wrapper retries each state once by default because ADB
+`uiautomator dump` can temporarily return no root node while Android is
+transitioning between launched activities.
+
 ## Deferred Fixtures
 
 These states need more work and should not be hand-waved into the smoke script:
