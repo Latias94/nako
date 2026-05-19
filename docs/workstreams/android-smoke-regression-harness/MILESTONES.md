@@ -1,6 +1,6 @@
 # Android Smoke Regression Harness - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -60,3 +60,11 @@ Exit criteria:
 - Remaining CI, golden screenshot, and deeper playback work is either deferred
   or split into follow-on workstreams.
 - `WORKSTREAM.json` status is updated.
+
+Primary evidence:
+
+- `apps/android/build/smoke-regression/20260519-093524/report.md`
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+- `git diff --check`
+
+Status: Complete.

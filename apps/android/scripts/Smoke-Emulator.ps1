@@ -213,23 +213,39 @@ function Install-SmokeMediaProfileFixture {
         throw 'Fixture access token must be non-empty.'
     }
 
-    $component = 'dev.taru.android/.smoke.DebugSmokeFixtureSeedActivity'
+    $providerUri = 'content://dev.taru.android.smoke.fixture'
     $startedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-    $output = & $AdbPath -s $DeviceSerial shell am start -W -n $component `
-        --es base_url $BaseUrl `
-        --es access_token $AccessToken `
-        --el checked_at_millis $startedAt 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "adb seed media profile fixture failed.`n$output"
+    $seedOutput = $null
+    $lastSeedError = $null
+    for ($attempt = 1; $attempt -le 3; $attempt += 1) {
+        $output = & $AdbPath -s $DeviceSerial shell content call `
+            --uri $providerUri `
+            --method seed `
+            --arg $BaseUrl `
+            --extra "access_token:s:$AccessToken" `
+            --extra "checked_at_millis:l:$startedAt" 2>&1
+        $seedOutput = ($output | Out-String).TrimEnd()
+        if ($LASTEXITCODE -eq 0 -and $seedOutput -match 'status=ok') {
+            break
+        }
+
+        $lastSeedError = $seedOutput
+        Start-Sleep -Milliseconds 750
+    }
+
+    if ([string]::IsNullOrWhiteSpace($seedOutput) -or $seedOutput -notmatch 'status=ok') {
+        throw "Debug smoke fixture seed failed.`n$lastSeedError"
     }
 
     $safeOutput = (($output | Out-String) -replace [regex]::Escape($AccessToken), '<redacted>').TrimEnd()
     $seedPath = Join-Path $OutputDir 'profile-with-media-seed.txt'
     Write-Utf8File -Path $seedPath -Content @"
-Seed activity: $component
+Seed provider: $providerUri
 Base URL: $BaseUrl
 Display name: Smoke Server
 Access token: <redacted>
+Seed status:
+$seedOutput
 ADB output:
 $safeOutput
 "@
@@ -453,6 +469,30 @@ function Find-UiNode {
     return $null
 }
 
+function Dismiss-SystemAnrDialog {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [xml]$Hierarchy
+    )
+
+    $values = Get-UiTextValues -Hierarchy $Hierarchy
+    if ($values -notcontains "Process system isn't responding") {
+        return $false
+    }
+
+    $waitNode = Find-UiNode -Hierarchy $Hierarchy -Text 'Wait'
+    if ($waitNode -eq $null) {
+        return $false
+    }
+
+    $bounds = $waitNode.Attributes['bounds'].Value
+    $center = Get-BoundsCenter -Bounds $bounds
+    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'tap', $center.X, $center.Y) -FailureMessage 'adb tap failed for system ANR wait button.'
+    Start-Sleep -Seconds 2
+    return $true
+}
+
 function Get-BoundsCenter {
     param(
         [string]$Bounds
@@ -488,6 +528,10 @@ function Wait-ForUiText {
             $values = Get-UiTextValues -Hierarchy $hierarchy
             if ($values -contains $Text) {
                 return
+            }
+
+            if (Dismiss-SystemAnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
+                Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
             }
         } catch {
             $lastError = $_.Exception.Message
@@ -687,6 +731,7 @@ if ($stateMode -eq 'profile-with-media') {
         -OutputDir $outputDir `
         -BaseUrl $fixtureBaseUrl `
         -AccessToken $FixtureAccessToken
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop after profile-with-media seed failed.'
 }
 if ($stateMode -eq 'profile-missing-token') {
     Install-SmokeProfileFixture -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir

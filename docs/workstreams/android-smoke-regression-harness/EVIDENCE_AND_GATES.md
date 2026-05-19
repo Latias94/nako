@@ -1,6 +1,6 @@
 # Android Smoke Regression Harness - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -142,6 +142,50 @@ Decision:
   manipulation. Python remains a follow-on option for CI/device-farm,
   cross-platform packaging, structured JSON/JUnit export, or more complex
   concurrency.
+
+## ASR-040 Closeout Evidence
+
+Validated on 2026-05-19:
+
+```powershell
+pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Emulator.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null"
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
+pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token,profile-with-media
+git diff --check
+```
+
+Final full regression report:
+
+- `apps/android/build/smoke-regression/20260519-093524/report.md`
+
+Final state evidence:
+
+- `empty-setup`:
+  `apps/android/build/smoke-regression/20260519-093524/states/empty-setup/20260519-093541-empty-setup-emulator-5554/`
+- `profile-missing-token`:
+  `apps/android/build/smoke-regression/20260519-093524/states/profile-missing-token/20260519-093555-profile-missing-token-emulator-5554/`
+- `profile-with-media`:
+  `apps/android/build/smoke-regression/20260519-093524/states/profile-with-media/20260519-093628-profile-with-media-emulator-5554/`
+
+What this proves:
+
+- The default stable regression state set passed with `:app:assembleDebug`
+  enabled and one attempt per state.
+- Android debug unit tests pass after changing debug fixture seeding behavior.
+- Debug server-backed profile seeding no longer depends on launching the seed
+  Activity. The smoke script calls a debug-only `ContentProvider` and records
+  provider status in `profile-with-media-seed.txt`.
+- `Smoke-Emulator.ps1` tolerates Android system ANR wait dialogs by tapping
+  `Wait` and retrying UI text capture, without suppressing Taru app failures.
+- `git diff --check` passed with Git line-ending normalization warnings for
+  edited Windows-tracked files only.
+
+Closeout decision:
+
+- Close this local harness lane. CI/device-farm execution, golden visual
+  diffing, JSON/JUnit export, Python rewrite, and deeper playback/session
+  validation remain follow-ons outside ASR-040.
 
 ## Notes
 

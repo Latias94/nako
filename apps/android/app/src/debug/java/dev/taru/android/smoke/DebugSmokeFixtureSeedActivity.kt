@@ -2,6 +2,7 @@ package dev.taru.android.smoke
 
 import android.app.Activity
 import android.content.Intent
+import android.content.Context
 import android.os.Bundle
 import dev.taru.android.connection.AndroidSecureTokenVault
 import dev.taru.android.connection.ServerProfile
@@ -24,7 +25,7 @@ class DebugSmokeFixtureSeedActivity : Activity() {
                     System.currentTimeMillis(),
                 ),
             )
-            seedDebugSmokeFixture(request)
+            seedDebugSmokeFixture(this, request)
             setResult(RESULT_OK)
         }.onFailure { error ->
             setResult(
@@ -32,14 +33,7 @@ class DebugSmokeFixtureSeedActivity : Activity() {
                 Intent().putExtra(EXTRA_ERROR, error.message.orEmpty()),
             )
         }
-
         finish()
-    }
-
-    private fun seedDebugSmokeFixture(request: DebugSmokeFixtureSeedRequest) {
-        val snapshot = debugSmokeFixtureProfileSnapshot(request)
-        SharedPreferencesServerProfileStore(this).save(snapshot)
-        AndroidSecureTokenVault(this).saveToken(request.tokenReference, request.accessToken)
     }
 
     companion object {
@@ -49,6 +43,15 @@ class DebugSmokeFixtureSeedActivity : Activity() {
         const val EXTRA_CHECKED_AT_MILLIS = "checked_at_millis"
         const val EXTRA_ERROR = "error"
     }
+}
+
+internal fun seedDebugSmokeFixture(
+    context: Context,
+    request: DebugSmokeFixtureSeedRequest,
+) {
+    val snapshot = debugSmokeFixtureProfileSnapshot(request)
+    SharedPreferencesServerProfileStore(context).save(snapshot)
+    AndroidSecureTokenVault(context).saveToken(request.tokenReference, request.accessToken)
 }
 
 internal data class DebugSmokeFixtureSeedRequest(

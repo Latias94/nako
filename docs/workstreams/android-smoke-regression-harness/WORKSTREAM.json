@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "android-smoke-regression-harness",
   "title": "Android Smoke Regression Harness",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Android has single-state emulator smoke fixtures, but no documented local regression command that composes the stable setup, shell, and server-backed media states into one repeatable confidence gate.",
-  "summary": "Local Android smoke regression wrapper and failure handoff behavior are implemented; next step is closeout.",
+  "summary": "Local Android smoke regression wrapper, failure handoff behavior, and ASR-040 closeout gates are complete.",
   "current_milestone": "M3",
-  "current_task": "ASR-040",
+  "current_task": null,
   "task_prefix": "ASR",
   "authoritative_docs": [
     {
@@ -51,6 +51,11 @@
       "task": "ASR-030",
       "path": "apps/android/build/smoke-regression/20260519-081559/report.md",
       "notes": "Failure classification and focus recovery validated with controlled failure and successful two-state local regression."
+    },
+    {
+      "task": "ASR-040",
+      "path": "apps/android/build/smoke-regression/20260519-093524/report.md",
+      "notes": "Final local smoke regression passed for empty-setup, profile-missing-token, and profile-with-media in one attempt each."
     }
   ],
   "adr_refs": [
@@ -58,7 +63,7 @@
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue through ASR-020/ASR-030 while the scope remains a local wrapper around existing smoke fixture states. Split CI, golden visual diffing, and deeper playback validation into separate lanes."
+    "default_action": "stop",
+    "notes": "Lane is closed. Split CI/device-farm execution, golden visual diffing, JSON/JUnit export, Python rewrite, and deeper playback validation into separate follow-on lanes if needed."
   }
 }

@@ -1,6 +1,6 @@
 # Android Smoke Regression Harness - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -52,11 +52,17 @@ Last updated: 2026-05-19
 
 ## M3 - Closeout
 
-- [ ] ASR-040 [owner=planner] [deps=ASR-030] [scope=docs/workstreams/android-smoke-regression-harness]
+- [x] ASR-040 [owner=planner] [deps=ASR-030] [scope=docs/workstreams/android-smoke-regression-harness]
   Goal: Verify the harness, update evidence, and close or split CI/golden/deep
   playback follow-ons.
   Validation: fresh local regression command, Android unit/build gates if
   touched behavior warrants them, and `git diff --check`.
   Review: Use review-workstream and verify-rust-workstream before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Summarize remaining risks in HANDOFF.md.
+  Handoff: DONE on 2026-05-19. Final regression passed for `empty-setup`,
+  `profile-missing-token`, and `profile-with-media` in one attempt each.
+  Debug server-backed profile seeding now uses a debug-only provider call
+  instead of a seed Activity, and the single-state harness dismisses Android
+  system ANR wait dialogs before retrying UI text capture. CI/device-farm,
+  golden screenshots, and deeper playback validation remain deferred
+  follow-ons outside this local harness lane.

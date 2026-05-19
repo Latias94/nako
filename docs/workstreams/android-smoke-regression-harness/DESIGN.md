@@ -1,6 +1,6 @@
 # Android Smoke Regression Harness
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -85,6 +85,23 @@ smoke script with explicit states, and write one summary report.
 The Android app continues to consume only Public Client API route shapes for
 server-backed media evidence. Debug-only profile seeding remains confined to
 debug APK code and smoke scripts.
+
+## Closeout
+
+Closed on 2026-05-19. The stable local regression command is:
+
+```powershell
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token,profile-with-media
+```
+
+The final ASR-040 gate passed with all three states in one attempt:
+
+- `apps/android/build/smoke-regression/20260519-093524/report.md`
+
+`profile-with-media` now seeds its debug-only server profile through a
+debug-only `ContentProvider.call` path instead of the seed Activity lifecycle.
+This keeps smoke fixture setup out of the visible Activity stack and avoids
+misclassifying emulator/system focus problems as product UI failures.
 
 ## Closeout Condition
 
