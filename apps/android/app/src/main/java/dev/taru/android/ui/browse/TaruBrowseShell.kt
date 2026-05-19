@@ -73,14 +73,18 @@ fun TaruBrowseShell(
     ),
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
-    var navigationState by rememberSaveable(
+    val browseSession = remember { BrowseSession() }
+    var shellState by rememberSaveable(
         profile.id,
-        stateSaver = TaruBrowseNavigationStateSaver,
+        stateSaver = BrowseShellStateSaver,
     ) {
-        mutableStateOf(TaruBrowseNavigationState.root())
+        mutableStateOf(BrowseShellState())
     }
-    val selectedDestination = navigationState.selectedDestination
-    val route = navigationState.currentRoute
+    val selectedDestination = shellState.selectedDestination
+    val route = shellState.currentRoute
+    fun dispatchBrowseAction(action: BrowseAction) {
+        shellState = browseSession.reduce(shellState, action)
+    }
     val routeScope = rememberCoroutineScope()
     var refreshKey by remember { mutableIntStateOf(0) }
     var browseState by remember(profile.id, refreshKey) {
@@ -275,17 +279,17 @@ fun TaruBrowseShell(
         )
     }
 
-    BackHandler(enabled = navigationState.canNavigateBack) {
-        navigationState = navigationState.navigateBack()
+    BackHandler(enabled = shellState.canNavigateBack) {
+        dispatchBrowseAction(BrowseAction.Back)
     }
 
     TaruAdaptiveAppShell(
         modifier = modifier,
         destinations = shellDestinations,
         selectedDestination = selectedDestination,
-        navigationVisible = navigationState.navigationVisible,
+        navigationVisible = shellState.navigationVisible,
         onDestinationSelected = {
-            navigationState = navigationState.selectDestination(it)
+            dispatchBrowseAction(BrowseAction.SelectDestination(it))
         },
     ) { innerPadding ->
         TaruRouteTransition(
@@ -311,17 +315,17 @@ fun TaruBrowseShell(
                     },
                     onRetrySearch = { searchRefreshKey += 1 },
                     onChangeServer = onChangeServer,
-                    onOpenItem = { navigationState = navigationState.open(TaruRoute.ItemDetail(it.id)) },
+                    onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                     onOpenLibrary = {
-                        navigationState = navigationState.selectDestination(TaruDestination.Libraries)
+                        dispatchBrowseAction(BrowseAction.SelectDestination(TaruDestination.Libraries))
                     },
                     onOpenSearch = {
-                        navigationState = navigationState.selectDestination(TaruDestination.Search)
+                        dispatchBrowseAction(BrowseAction.SelectDestination(TaruDestination.Search))
                     },
-                    onOpenServerProfile = { navigationState = navigationState.open(TaruRoute.ServerProfile) },
-                    onOpenFacet = { navigationState = navigationState.open(TaruRoute.BrowseFacet(it)) },
+                    onOpenServerProfile = { dispatchBrowseAction(BrowseAction.OpenServerProfile) },
+                    onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                     onOpenLibraryDetail = { libraryId ->
-                        navigationState = navigationState.open(TaruRoute.LibraryDetail(libraryId))
+                        dispatchBrowseAction(BrowseAction.OpenLibraryDetail(libraryId))
                     },
                 )
                 is TaruRoute.ItemDetail -> DetailRouteContent(
@@ -337,11 +341,11 @@ fun TaruBrowseShell(
                     ),
                     profile = profile,
                     accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
-                    onBack = { navigationState = navigationState.navigateBack() },
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { detailRefreshKey += 1 },
                     onRetryPlayback = { playbackRefreshKey += 1 },
                     onChangeServer = onChangeServer,
-                    onOpenFacet = { navigationState = navigationState.open(TaruRoute.BrowseFacet(it)) },
+                    onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                     onSelectSource = { sourceId ->
                         selectedSourceId = sourceId
                         playbackRequestSourceId = null
@@ -378,9 +382,7 @@ fun TaruBrowseShell(
                                     )
                                 ) {
                                     is PlaybackStartResult.Success -> {
-                                        navigationState = navigationState.open(
-                                            TaruRoute.Player(start.launch),
-                                        )
+                                        dispatchBrowseAction(BrowseAction.OpenPlayer(start.launch))
                                         playbackState = playbackContent.copy(target = start.preparedTarget)
                                     }
                                     is PlaybackStartResult.Failure -> {
@@ -393,11 +395,11 @@ fun TaruBrowseShell(
                 )
                 is TaruRoute.LibraryDetail -> LibraryDetailRouteContent(
                     state = libraryDetailState,
-                    onBack = { navigationState = navigationState.navigateBack() },
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { libraryDetailRefreshKey += 1 },
                     onChangeServer = onChangeServer,
                     onOpenItem = { itemId ->
-                        navigationState = navigationState.open(TaruRoute.ItemDetail(itemId))
+                        dispatchBrowseAction(BrowseAction.OpenItem(itemId))
                     },
                 )
                 is TaruRoute.Player -> PlaybackPlayerRoute(
@@ -408,21 +410,21 @@ fun TaruBrowseShell(
                     userPlaybackClient = userPlaybackClient,
                     positionStore = positionStore,
                     exitEffectScope = playerExitEffectScope,
-                    onBack = { navigationState = navigationState.navigateBack() },
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
                     target = currentRoute.target,
                     state = facetState,
-                    onBack = { navigationState = navigationState.navigateBack() },
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { facetRefreshKey += 1 },
                     onChangeServer = onChangeServer,
-                    onOpenItem = { navigationState = navigationState.open(TaruRoute.ItemDetail(it.id)) },
+                    onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                 )
                 TaruRoute.ServerProfile -> ServerProfileScreen(
                     activeProfile = profile,
                     snapshot = snapshot,
                     tokenVault = tokenVault,
-                    onBack = { navigationState = navigationState.navigateBack() },
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onChangeServer = onChangeServer,
                     onSnapshotChanged = onSnapshotChanged,
                 )

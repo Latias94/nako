@@ -25,6 +25,20 @@ internal val TaruBrowseNavigationStateSaver: Saver<TaruBrowseNavigationState, St
         restore = ::restoreTaruBrowseNavigationState,
     )
 
+internal val BrowseShellStateSaver: Saver<BrowseShellState, String> =
+    Saver(
+        save = { it.toSaveablePayload() },
+        restore = ::restoreBrowseShellState,
+    )
+
+internal fun BrowseShellState.toSaveablePayload(): String =
+    navigation.toSaveablePayload()
+
+internal fun restoreBrowseShellState(payload: String): BrowseShellState =
+    BrowseShellState(
+        navigation = restoreTaruBrowseNavigationState(payload),
+    )
+
 internal fun TaruBrowseNavigationState.toSaveablePayload(): String =
     NavigationStateJson.encodeToString(
         SavedBrowseNavigationState(
