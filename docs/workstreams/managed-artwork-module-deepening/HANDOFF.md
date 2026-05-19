@@ -5,76 +5,80 @@ Last updated: 2026-05-19
 
 ## Current State
 
-The lane is opened and `MAMD-020`, `MAMD-030`, and `MAMD-040` are complete.
-Selected Artwork variant serving has moved into `artwork/variant.rs`; local
-Managed Artwork Artifact file storage and inventory have moved into
-`artwork/artifact_store.rs`; ingest fetch/validate/write/failure-summary logic
-has moved into `artwork/ingest_pipeline.rs`.
+The lane is opened and `MAMD-020`, `MAMD-030`, `MAMD-040`, and `MAMD-050`
+are complete.
+
+App-layer splits:
+
+- `crates/taru-server/src/app/artwork/variant.rs` owns Selected Artwork variant
+  request validation, original/derived byte envelope creation, resizing, and
+  presentation ETag behavior.
+- `crates/taru-server/src/app/artwork/artifact_store.rs` owns local Managed
+  Artwork Artifact path layout, storage URI validation, writes, reads, deletes,
+  inventory, and file classification.
+- `crates/taru-server/src/app/artwork/ingest_pipeline.rs` owns remote fetch,
+  content-type normalization, image validation, content hash creation, artifact
+  file write preparation, success summary serialization, and safe failure
+  summary serialization.
+
+DB-layer splits:
+
+- `crates/taru-db/src/artwork/gallery.rs` owns Admin gallery SQL/query/row
+  mapping.
+- `crates/taru-db/src/artwork/lifecycle.rs` owns artifact lifecycle
+  SQL/query/summary/row mapping and unselected artifact cleanup.
+- `crates/taru-db/src/artwork/selected.rs` owns Selected Artwork get/list SQL
+  and publication/unpublication transactions.
+- `crates/taru-db/src/artwork/candidate.rs` owns Artwork Candidate repository
+  methods, lookup SQL, and status update helpers.
+- `crates/taru-db/src/artwork/ingest.rs` owns Managed Artwork Ingest
+  lookup/insert helpers plus job transaction helpers used by ingest state
+  transitions.
+- `crates/taru-db/src/artwork/artifact.rs` owns Managed Artwork Artifact
+  insert/get helpers.
+
+`crates/taru-db/src/artwork.rs` still owns the existing repository trait methods
+for Managed Artwork and routes through these concern modules.
 
 ## Goal
 
 Improve locality and leverage around Managed Artwork app/db/api modules while
 preserving existing public/Admin behavior and redaction contracts.
 
-## Completed Tasks
+## Latest Validation
 
-`MAMD-020` extracted Selected Artwork variant serving into
-`crates/taru-server/src/app/artwork/variant.rs`.
+Fresh MAMD-050 validation passed:
 
-Result:
+```powershell
+$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_BUILD_JOBS='2'
+$env:NEXTEST_TEST_THREADS='1'
+cargo fmt --all -- --check
+cargo check -j 2 -p taru-db --tests
+cargo nextest run -j 2 -p taru-db artwork --no-fail-fast
+git diff --check
+```
 
-- `ImageVariantRequest` and `ManagedArtworkImageBytes` remain available to HTTP
-  code through the existing app re-export;
-- variant policy, artifact media-type planning, original/derived byte envelope
-  creation, resizing, and presentation ETag generation live in the private
-  variant Module;
-- `read_selected_image` keeps orchestration only and preserves the previous
-  error ordering.
-
-`MAMD-030` extracted local Managed Artwork Artifact storage and inventory into
-`crates/taru-server/src/app/artwork/artifact_store.rs`.
-
-Result:
-
-- local path layout, storage URI validation, write/read/delete operations, file
-  status, recursive inventory, discovered file parsing, and path-prefix checks
-  are local to the artifact store Module;
-- the store Module reports internal `ArtifactStoreFileIssue` values;
-- `ManagedArtworkAppService` projects those issues into Admin storage-drift DTO
-  reasons, keeping `taru-api` out of the file storage Module.
-
-`MAMD-040` extracted Managed Artwork ingest execution into
-`crates/taru-server/src/app/artwork/ingest_pipeline.rs`.
-
-Result:
-
-- remote fetch, content-type normalization, image validation, content hash
-  creation, artifact file write preparation, success summary serialization, and
-  safe failure summary serialization live in the ingest pipeline Module;
-- durable claim, database artifact commit, best-effort file rollback after
-  commit failure, and failure commit ordering remain in `ManagedArtworkAppService`;
-- no retry, cancellation, backoff, lease, repair, or re-ingest semantics were
-  added.
+The `git diff --check` command only reported Git line-ending notices.
 
 ## Next Task
 
-Continue with `MAMD-050`: split `crates/taru-db/src/artwork.rs` into
-concern-local SQLite adapter modules while preserving existing `taru-core`
-repository traits and public crate exports.
+Continue with `MAMD-060`: audit Managed Artwork DTO locality and redaction
+tests in:
 
-Progress so far:
+- `crates/taru-api/src/admin.rs`
+- `crates/taru-api/src/admin/**`
+- `crates/taru-api/src/public_client.rs`
+- related OpenAPI or HTTP docs only if the DTO boundary actually changes
 
-- `artwork/gallery.rs` owns Admin gallery SQL/query/row mapping.
-- `artwork/lifecycle.rs` owns artifact lifecycle SQL/query/summary/row mapping.
-- `artwork/selected.rs` owns Selected Artwork get/list SQL and
-  publication/unpublication transactions.
-- `artwork.rs` still owns repository trait impls and the remaining candidate,
-  ingest/artifact, and cleanup transaction helpers.
+Recommended approach:
 
-Recommended next split:
-
-- core ingest/artifact transaction helpers, split after checking whether
-  cleanup should remain in the parent repository impl or move beside lifecycle.
+- inventory Managed Artwork DTOs and conversion helpers;
+- keep explicit DTO names and redaction tests close to conversion code;
+- split API modules only if it reduces caller knowledge or removes real
+  concentration;
+- do not change OpenAPI/Public Client contracts unless the change is explicitly
+  documented and tested.
 
 ## Non-Goals To Preserve
 
@@ -92,14 +96,11 @@ Recommended next split:
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
-cargo check -j 2 -p taru-server --tests
-cargo check -j 2 -p taru-db --tests
-cargo nextest run -j 2 -p taru-db artwork --no-fail-fast
+cargo check -j 2 -p taru-api -p taru-server --tests
+cargo nextest run -j 2 -p taru-api managed_artwork --no-fail-fast
+cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast
 git diff --check
 ```
 
-## Notes
-
-No subagents were started for this lane. If parallel work is explicitly
-requested later, safe splits after `MAMD-050` lands are `MAMD-060` API surface
-audit and closeout review.
+Narrow the test filters to exact Admin/Public Client redaction tests if
+`managed_artwork` is too broad.

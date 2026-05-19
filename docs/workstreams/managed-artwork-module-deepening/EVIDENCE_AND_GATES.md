@@ -200,3 +200,25 @@ route/query documentation, or tests proving forbidden values are absent.
   - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
     tests passed.
   - `git diff --check`: passed with Git line-ending notices only.
+
+2026-05-19, MAMD-050 final:
+
+- Completed the SQLite Managed Artwork adapter concern split:
+  - `crates/taru-db/src/artwork/candidate.rs` now owns Artwork Candidate
+    repository methods, candidate lookup SQL, and status update helpers;
+  - `crates/taru-db/src/artwork/ingest.rs` now owns Managed Artwork Ingest
+    lookup/insert helpers and job transaction helpers used by ingest state
+    transitions;
+  - `crates/taru-db/src/artwork/artifact.rs` now owns Managed Artwork Artifact
+    insert/get helpers and artifact SQL;
+  - `crates/taru-db/src/artwork/lifecycle.rs` now also owns the unselected
+    artifact cleanup transaction, keeping lifecycle diagnostics and cleanup in
+    one concern;
+  - `crates/taru-db/src/artwork.rs` keeps the existing repository trait methods
+    and routes through concern modules.
+- Fresh validation:
+  - `cargo fmt --all -- --check`: passed.
+  - `cargo check -j 2 -p taru-db --tests`: passed.
+  - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
+    tests passed.
+  - `git diff --check`: passed with Git line-ending notices only.

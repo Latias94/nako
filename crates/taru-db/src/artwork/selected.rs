@@ -31,7 +31,7 @@ pub(super) async fn publish_selected_artwork_tx(
     expected_slot: Option<(MediaItemId, ImageKind)>,
 ) -> Result<SelectedArtworkPublicationRecord> {
     let mut transaction = pool.begin().await.map_err(database_error)?;
-    let artifact = get_managed_artwork_artifact_tx(&mut transaction, artifact_id)
+    let artifact = artifact::get_managed_artwork_artifact_tx(&mut transaction, artifact_id)
         .await?
         .ok_or_else(|| TaruError::NotFound {
             entity: "managed_artwork_artifact",
@@ -47,7 +47,7 @@ pub(super) async fn publish_selected_artwork_tx(
         }
     }
 
-    get_managed_artwork_ingest_tx(&mut transaction, artifact.ingest_id)
+    ingest::get_managed_artwork_ingest_tx(&mut transaction, artifact.ingest_id)
         .await?
         .filter(|ingest| ingest.artifact_id == Some(artifact.id))
         .filter(|ingest| ingest.status == ManagedArtworkIngestStatus::Stored)
@@ -130,7 +130,7 @@ pub(super) async fn unpublish_selected_artwork_for_item_kind_tx(
         get_selected_artwork_by_slot_tx(&mut transaction, item_id, &kind_part, &kind_key).await?;
     let artifact = if let Some(selected) = unpublished.as_ref() {
         Some(
-            get_managed_artwork_artifact_tx(&mut transaction, selected.artifact_id)
+            artifact::get_managed_artwork_artifact_tx(&mut transaction, selected.artifact_id)
                 .await?
                 .ok_or_else(|| TaruError::Database {
                     message: "selected artwork is linked to a missing managed artwork artifact"

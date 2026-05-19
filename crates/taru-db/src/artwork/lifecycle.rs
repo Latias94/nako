@@ -170,6 +170,56 @@ pub(super) async fn managed_artwork_artifact_lifecycle_rows_tx(
         .collect()
 }
 
+pub(super) async fn cleanup_unselected_managed_artwork_artifacts(
+    pool: &sqlx::SqlitePool,
+    page: PageRequest,
+) -> Result<ManagedArtworkArtifactCleanupReport> {
+    let page = page.clamped();
+    let mut transaction = pool.begin().await.map_err(database_error)?;
+    let candidates = managed_artwork_artifact_lifecycle_rows_tx(
+        &mut transaction,
+        ManagedArtworkArtifactLifecycleFilter::CleanupCandidates,
+        page,
+    )
+    .await?;
+    let examined_artifacts = u32::try_from(candidates.len()).unwrap_or(u32::MAX);
+    let mut cleaned_artifacts = Vec::new();
+
+    for candidate in candidates {
+        let artifact = candidate.artifact;
+        let result = sqlx::query(
+            r#"
+                UPDATE managed_artwork_artifacts
+                SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                WHERE id = ?1
+                    AND deleted_at IS NULL
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM selected_artworks s
+                        WHERE s.artifact_id = managed_artwork_artifacts.id
+                    )
+                "#,
+        )
+        .bind(artifact.id.to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 1 {
+            cleaned_artifacts.push(artifact);
+        }
+    }
+
+    transaction.commit().await.map_err(database_error)?;
+
+    Ok(ManagedArtworkArtifactCleanupReport {
+        examined_artifacts,
+        cleanup_candidate_artifacts: examined_artifacts,
+        cleaned_artifacts,
+    })
+}
+
 const fn lifecycle_select_sql(filter: ManagedArtworkArtifactLifecycleFilter) -> &'static str {
     match filter {
         ManagedArtworkArtifactLifecycleFilter::All => MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_SELECT,

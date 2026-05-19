@@ -64,19 +64,17 @@ Last updated: 2026-05-19
 
 ## M4 - Repository Adapter Module Split
 
-- [ ] MAMD-050 [owner=codex] [deps=MAMD-040] [scope=crates/taru-db/src/artwork.rs,crates/taru-db/src/artwork/**]
+- [x] MAMD-050 [owner=codex] [deps=MAMD-040] [scope=crates/taru-db/src/artwork.rs,crates/taru-db/src/artwork/**]
   Goal: Split SQLite Managed Artwork repository implementation by concern while
   preserving existing `taru-core` repository traits and public crate exports.
   Validation: focused `taru-db` artwork tests and repository compile checks.
   Evidence: SQL constants and row mappers move beside the concern they support.
-  Progress: Gallery and lifecycle read-model SQL/constants/row mapping have
-  moved to `crates/taru-db/src/artwork/gallery.rs` and
-  `crates/taru-db/src/artwork/lifecycle.rs`. Selected Artwork get/list plus
-  publication/unpublication transactions have moved to
-  `crates/taru-db/src/artwork/selected.rs`. Trait impls still route through the
-  same repository methods. Remaining work: split core ingest/artifact
-  transaction helpers.
-  Handoff: Continue DB adapter split with ingest/artifact helper modules.
+  Result: DONE. `gallery.rs`, `lifecycle.rs`, `selected.rs`,
+  `candidate.rs`, `ingest.rs`, and `artifact.rs` now own the SQL constants,
+  query helpers, row mapping calls, and concern-local transactions they support.
+  `artwork.rs` keeps the existing repository trait methods and routes through
+  those modules, preserving crate exports and repository trait shape.
+  Handoff: Continue with MAMD-060 API surface audit.
 
 ## M5 - API Surface Audit
 

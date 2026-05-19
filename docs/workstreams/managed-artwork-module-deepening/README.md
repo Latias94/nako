@@ -57,8 +57,9 @@ Module. `MAMD-030` extracted local Managed Artwork Artifact storage and
 inventory into a private artifact store Module. `MAMD-040` extracted fetch,
 validation, artifact write, prepared artifact construction, and safe failure
 summary creation into an ingest pipeline Module while preserving durable job
-commit ordering. The next implementation slice is `MAMD-050`: split the SQLite
-Managed Artwork repository adapter by concern.
+commit ordering. `MAMD-050` split the SQLite Managed Artwork repository adapter
+into concern-local modules. The next implementation slice is `MAMD-060`: audit
+Managed Artwork API DTO locality and redaction tests.
 
 ## Operating Notes
 
