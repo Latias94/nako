@@ -24,8 +24,8 @@ pub use taru_client_protocol::{
     LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
     LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto, MediaProbeDto, MediaSourceDto,
     MediaStreamDto, MetadataProfileDto, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, SearchItemHit, SearchResponse, SourceProbeResponse,
-    StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
+    PersonResponse, PlaybackDecisionResponse, PublicImageRefDto, SearchItemHit, SearchResponse,
+    SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
     TranscodeSessionResponse,
 };
 
@@ -497,7 +497,7 @@ fn metadata_source_to_dto(source: MetadataSource) -> ClientMetadataSource {
     }
 }
 
-fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
+pub(crate) fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
     match kind {
         ImageKind::Poster => ClientImageKind::Poster,
         ImageKind::Backdrop => ClientImageKind::Backdrop,

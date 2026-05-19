@@ -13,6 +13,7 @@ use crate::{
     NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
     NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
     ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
+    SelectedArtworkId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
     SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
@@ -102,6 +103,21 @@ pub trait ManagedArtworkRepository: Send + Sync {
         &self,
         id: ManagedArtworkArtifactId,
     ) -> Result<Option<ManagedArtworkArtifactRecord>>;
+
+    async fn publish_selected_artwork(
+        &self,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord>;
+
+    async fn get_selected_artwork(
+        &self,
+        id: SelectedArtworkId,
+    ) -> Result<Option<SelectedArtworkRecord>>;
+
+    async fn list_selected_artwork_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<SelectedArtworkRecord>>;
 }
 
 #[async_trait]

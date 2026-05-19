@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use taru_client_protocol::PageInfo;
+use taru_client_protocol::{ClientImageOwner, PublicImageRefDto};
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateStatus, CatalogGovernanceItemRecord, DomainEventKind,
     DomainEventSubject, EventId, ExternalProvider, ImageKind, IngestionFailureClass,
@@ -8,9 +9,10 @@ use taru_core::{
     ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId, ManagedArtworkArtifactRecord,
     ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
     ManagedArtworkIngestStatus, MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord,
-    OutboxEventStatus, ScanSnapshotId, StagingManifestId, StagingManifestRecord, StagingPurpose,
-    StagingState, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState,
+    OutboxEventStatus, ScanSnapshotId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
+    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState,
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
@@ -136,6 +138,64 @@ impl ManagedArtworkArtifactSummary {
             height: record.height,
             byte_len: record.byte_len,
             media_type: record.media_type,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PublishSelectedArtworkResponse {
+    pub selected_artwork: SelectedArtworkSummary,
+    pub image: PublicImageRefDto,
+    pub changed: bool,
+}
+
+impl PublishSelectedArtworkResponse {
+    #[must_use]
+    pub fn from_publication(publication: SelectedArtworkPublicationRecord) -> Self {
+        let selected_artwork = SelectedArtworkSummary::from_record(publication.selected_artwork);
+        let artifact = publication.artifact;
+        let image = PublicImageRefDto {
+            id: selected_artwork.id.to_string(),
+            owner: ClientImageOwner::Item(selected_artwork.item_id.to_string()),
+            kind: crate::image_kind_to_dto(selected_artwork.kind.clone()),
+            url: format!("/images/{}", selected_artwork.id),
+            width: artifact.width,
+            height: artifact.height,
+            language: None,
+            media_type: artifact.media_type,
+            etag: artifact.content_hash,
+        };
+
+        Self {
+            selected_artwork,
+            image,
+            changed: publication.changed,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SelectedArtworkSummary {
+    pub id: taru_core::SelectedArtworkId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub artifact_id: ManagedArtworkArtifactId,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl SelectedArtworkSummary {
+    #[must_use]
+    pub fn from_record(record: SelectedArtworkRecord) -> Self {
+        Self {
+            id: record.id,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            kind: record.kind,
+            artifact_id: record.artifact_id,
             created_at: record.created_at,
             updated_at: record.updated_at,
         }
@@ -1046,6 +1106,52 @@ mod tests {
         assert_eq!(summary.media_type.as_deref(), Some("image/png"));
         assert!(!body.contains("storage_uri"));
         assert!(!body.contains("private-storage-handle"));
+    }
+
+    #[test]
+    fn selected_artwork_publication_response_redacts_storage_uri() {
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let selected = SelectedArtworkRecord {
+            id: taru_core::SelectedArtworkId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            kind: ImageKind::Poster,
+            artifact_id,
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+        let artifact = ManagedArtworkArtifactRecord {
+            id: artifact_id,
+            ingest_id: ManagedArtworkIngestId::new(),
+            library_id: selected.library_id,
+            item_id: selected.item_id,
+            kind: selected.kind.clone(),
+            storage_uri: "managed-artwork://artifact/private-storage-handle".to_owned(),
+            content_hash: Some("sha256-public-etag".to_owned()),
+            width: Some(1),
+            height: Some(1),
+            byte_len: Some(68),
+            media_type: Some("image/png".to_owned()),
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+
+        let response =
+            PublishSelectedArtworkResponse::from_publication(SelectedArtworkPublicationRecord {
+                selected_artwork: selected,
+                artifact,
+                changed: true,
+            });
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert!(response.changed);
+        assert!(response.image.url.starts_with("/images/"));
+        assert_eq!(response.image.media_type.as_deref(), Some("image/png"));
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("managed-artwork://"));
+        assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("cache_uri"));
     }
 
     #[test]

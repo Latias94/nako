@@ -1679,6 +1679,93 @@ async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_with
 }
 
 #[tokio::test]
+async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without_locator_leaks() {
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let (remote_url, _) = tiny_artwork_server().await;
+    let (raw_token, _candidate_id, accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-publish-selected",
+    )
+    .await;
+
+    let processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let artifact = processed.artifact.as_ref().unwrap();
+    assert_eq!(processed.ingest.as_ref().unwrap().id, accepted.ingest.id);
+    assert_eq!(artifact.kind, ImageKind::Poster);
+
+    let publish_path = format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&publish_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let published: PublishSelectedArtworkResponse = serde_json::from_slice(&response_body).unwrap();
+
+    assert!(published.changed);
+    assert_eq!(published.selected_artwork.library_id, library_id);
+    assert_eq!(published.selected_artwork.item_id, source.item_id);
+    assert_eq!(published.selected_artwork.kind, ImageKind::Poster);
+    assert_eq!(published.selected_artwork.artifact_id, artifact.id);
+    assert_eq!(
+        published.image.id,
+        published.selected_artwork.id.to_string()
+    );
+    assert_eq!(
+        published.image.url,
+        format!("/images/{}", published.selected_artwork.id)
+    );
+    assert_eq!(published.image.media_type.as_deref(), Some("image/png"));
+    assert_eq!(published.image.width, Some(1));
+    assert_eq!(published.image.height, Some(1));
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+    assert!(!response_text.contains("managed-artwork://"));
+    assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
+
+    let replay =
+        request_json::<PublishSelectedArtworkResponse>(&router, Method::POST, &publish_path).await;
+    assert_eq!(replay.selected_artwork.id, published.selected_artwork.id);
+    assert_eq!(replay.selected_artwork.artifact_id, artifact.id);
+    assert!(!replay.changed);
+
+    let selected = store
+        .get_selected_artwork(published.selected_artwork.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(selected.artifact_id, artifact.id);
+}
+
+#[tokio::test]
 async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_unsupported_media_type()
  {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;

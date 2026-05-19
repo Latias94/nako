@@ -48,6 +48,7 @@ Authoritative docs:
 
 ## First Executable Task
 
-Continue with MAPS-030: implement explicit Admin publication from a stored
-Managed Artwork Artifact to a Selected Artwork record. MAPS-020 has frozen the
-public image reference and Selected Artwork model.
+Continue with MAPS-040: replace Public Client image DTOs with
+`PublicImageRefDto` and add first-party image byte serving for selected artwork.
+MAPS-030 has shipped explicit Admin publication from a stored Managed Artwork
+Artifact to a Selected Artwork record.

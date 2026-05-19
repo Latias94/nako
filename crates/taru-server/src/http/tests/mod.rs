@@ -30,11 +30,11 @@ use taru_api::{
     LibraryListResponse, LibraryResponse, MetadataMaintenancePlanResponse,
     MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
     MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
-    ProcessManagedArtworkIngestResponse, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-    StorageBackendStatus, SubmitAddonSideEffectRequest, TranscodeSessionResponse,
-    UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse,
-    WebhookEndpointResponse, WebhookEndpointsResponse,
+    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest, StorageBackendDiagnosticsResponse, StorageBackendKind,
+    StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
+    TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
+    WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,

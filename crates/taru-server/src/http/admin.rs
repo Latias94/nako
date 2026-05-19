@@ -26,6 +26,7 @@ use taru_api::{
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
 use taru_core::ArtworkCandidateId;
+use taru_core::ManagedArtworkArtifactId;
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -60,6 +61,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             "/admin/v1/artwork/ingests/process-next",
             post(process_next_admin_artwork_ingest),
         )
+        .route(
+            "/admin/v1/artwork/artifacts/{artifact_id}/publish",
+            post(publish_admin_artwork_artifact),
+        )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
@@ -83,6 +88,13 @@ pub(super) async fn process_next_admin_artwork_ingest(
     State(app): State<TaruApp>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.artwork().process_next().await?))
+}
+
+pub(super) async fn publish_admin_artwork_artifact(
+    State(app): State<TaruApp>,
+    Path(artifact_id): Path<ManagedArtworkArtifactId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().publish_artifact(artifact_id).await?))
 }
 
 pub(super) async fn list_admin_catalog_governance_items(

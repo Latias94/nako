@@ -164,3 +164,49 @@ work; unresolved Public Client leaks block completion.
     managed artifact seams.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited documentation files.
+
+2026-05-19, MAPS-030 Selected Artwork publication:
+
+- Added `SelectedArtworkId` to `taru-core`.
+- Added `SelectedArtworkRecord` and `SelectedArtworkPublicationRecord`.
+- Added `ManagedArtworkRepository` methods:
+  `publish_selected_artwork`, `get_selected_artwork`, and
+  `list_selected_artwork_for_item`.
+- Added migration `0027_selected_artwork_publication.sql`:
+  - `selected_artworks.id` is the stable public image identity;
+  - unique `(item_id, kind, kind_key)` keeps one selected artifact per item/kind
+    slot;
+  - `artifact_id` references `managed_artwork_artifacts(id)` with
+    `ON DELETE RESTRICT`;
+  - artifact and item indexes support serving follow-ons.
+- Added SQLite repository behavior:
+  - publishing requires a stored Managed Artwork Artifact linked to a stored
+    ingest;
+  - publishing the same artifact again returns the same Selected Artwork ID and
+    `changed = false`;
+  - publishing preserves artifact storage authority internally and returns no
+    `storage_uri`.
+- Added `PublicImageRefDto` as the redacted public image reference shape for
+  publication responses.
+- Added `PublishSelectedArtworkResponse` and Admin route
+  `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`.
+- Added HTTP/API docs for the current Admin publish route while keeping
+  `GET/HEAD /images/{image_id}` documented as planned MAPS-040 work.
+- Redaction evidence:
+  - Admin publication response omits `storage_uri`, `managed-artwork://...`,
+    source URL, `source_uri`, `cache_uri`, local artifact path, raw token, and
+    provider query string material.
+- Validation:
+  - `cargo nextest run -p taru-api selected_artwork_publication_response_redacts_storage_uri --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-db sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idempotently --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-server admin_publish_managed_artwork_artifact_creates_selected_artwork_without_locator_leaks --no-fail-fast`
+    passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+    passed.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 4 tests.
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 7 tests.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.

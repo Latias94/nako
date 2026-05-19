@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AddonId, AddonSideEffectId, ArtworkCandidateId, ArtworkTaskId, ImageAssetId, ImageKind, Job,
     JobId, JobStatus, LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
+    SelectedArtworkId,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -117,6 +118,24 @@ pub struct ManagedArtworkIngestProcessingRecord {
     pub ingest: ManagedArtworkIngestRecord,
     pub artifact: Option<ManagedArtworkArtifactRecord>,
     pub job: Job,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SelectedArtworkRecord {
+    pub id: SelectedArtworkId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub artifact_id: ManagedArtworkArtifactId,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SelectedArtworkPublicationRecord {
+    pub selected_artwork: SelectedArtworkRecord,
+    pub artifact: ManagedArtworkArtifactRecord,
+    pub changed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

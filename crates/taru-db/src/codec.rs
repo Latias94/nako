@@ -1115,6 +1115,18 @@ pub(crate) fn row_to_managed_artwork_artifact(
     })
 }
 
+pub(crate) fn row_to_selected_artwork(row: SqliteRow) -> Result<SelectedArtworkRecord> {
+    Ok(SelectedArtworkRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        artifact_id: parse_id(row_get::<String>(&row, "artifact_id")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
 pub(crate) fn serialize_metadata_json(metadata: &CanonicalMetadata) -> Result<String> {
     serde_json::to_string(metadata).map_err(database_error)
 }

@@ -437,6 +437,7 @@ GET  /admin/v1/events
 GET  /admin/v1/jobs
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
+POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -1184,15 +1185,24 @@ configured in-process fetch attempts; durable requeue/cancellation APIs,
 thumbnails, selected artwork publication, and public image-serving remain
 separate follow-on work.
 
-The follow-on `managed-artwork-public-serving-selection` workstream has frozen
-the planned public-serving contract but has not implemented these routes yet.
-The planned Selected Artwork publication command is:
+Administrators can publish a stored Managed Artwork Artifact as the current
+Selected Artwork with:
 
 ```text
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 ```
 
-The planned Public Client byte-serving routes are:
+The publish command is idempotent for the artifact's item and image kind. It
+creates or updates a stable Selected Artwork public ID and returns a redacted
+Selected Artwork summary plus a first-party image reference. The response never
+includes `storage_uri`, `managed-artwork://...`, local artifact paths,
+candidate `source_uri`, raw provider URLs, `cache_uri`, Source Locators, addon
+token material, or provider query strings. The returned image URL is a planned
+Public Client URL and does not serve bytes until the public image-serving slice
+ships.
+
+The follow-on public-serving slice has frozen these planned Public Client
+byte-serving routes but has not implemented them yet:
 
 ```text
 GET  /images/{image_id}

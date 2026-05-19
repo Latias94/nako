@@ -80,6 +80,20 @@ Primary gates:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+Result:
+
+- Added `SelectedArtworkId` and Selected Artwork publication records to
+  `taru-core`.
+- Added `0027_selected_artwork_publication.sql` with stable
+  `selected_artworks.id`, unique `(item_id, kind, kind_key)` selection slots,
+  and `ON DELETE RESTRICT` artifact references.
+- Added repository methods for idempotent publish, selected-artwork lookup, and
+  item selected-artwork listing.
+- Added redacted Admin publication response with `PublicImageRefDto`.
+- Added `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`, proving a
+  stored Managed Artwork Artifact can become Selected Artwork without exposing
+  `storage_uri`, local paths, source URLs, `cache_uri`, or addon token material.
+
 ## M3 - Public Image References And Byte Serving
 
 Outcome: clients can discover and fetch the selected image through Taru-owned

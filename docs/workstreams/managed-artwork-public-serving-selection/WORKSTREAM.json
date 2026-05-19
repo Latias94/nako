@@ -58,8 +58,8 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAPS-030",
-  "first_slice": "Selected Artwork publication from stored Managed Artwork Artifact",
+  "current_task": "MAPS-040",
+  "first_slice": "Public image references and byte serving for selected artwork",
   "non_goals": [
     "thumbnail or resize workers",
     "durable retry/requeue APIs",
@@ -75,6 +75,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "MAPS-020 froze the public DTO, route identity, and Selected Artwork schema. Continue with MAPS-030 by adding SelectedArtworkId, the 0027 selected_artworks migration, repository publish/read methods, and the Admin publish command. Keep thumbnail, durable retry/requeue, cancellation, and orphan cleanup as follow-ons."
+    "notes": "MAPS-030 shipped SelectedArtworkId, selected_artworks persistence, repository publish/read methods, and the Admin publish command. Continue with MAPS-040 by replacing Public Client image DTOs with PublicImageRefDto and adding GET/HEAD /images/{image_id}. Keep thumbnail, durable retry/requeue, cancellation, and orphan cleanup as follow-ons."
   }
 }

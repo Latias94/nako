@@ -39,7 +39,7 @@ Last updated: 2026-05-19
 
 ## M2 - Selected Artwork Publication
 
-- [ ] MAPS-030 [owner=codex] [deps=MAPS-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAPS-030 [owner=codex] [deps=MAPS-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
   Goal: Publish one stored Managed Artwork Artifact as the Selected Artwork for
   its item/kind through an explicit Admin API command.
   Validation: focused db publication tests; focused admin HTTP tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; `cargo fmt --all -- --check`; `git diff --check`.
@@ -48,6 +48,12 @@ Last updated: 2026-05-19
   `cache_uri`, local path, or Addon/provider token material.
   Evidence: migration/repository/service/API tests and notes in
   `EVIDENCE_AND_GATES.md`.
+  Result: DONE. Added `SelectedArtworkId`, `selected_artworks` migration,
+  selected-artwork repository publish/read methods, `PublicImageRefDto`,
+  redacted `PublishSelectedArtworkResponse`, and
+  `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`. Publication is
+  idempotent per item/kind slot and preserves a stable public selected-artwork
+  ID across replay.
   Handoff: Continue with MAPS-040 after a selected record can be created and
   read without serving bytes yet.
 

@@ -438,6 +438,19 @@ pub struct ImageAssetDto {
     pub etag: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PublicImageRefDto {
+    pub id: String,
+    pub owner: ClientImageOwner,
+    pub kind: ClientImageKind,
+    pub url: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+    pub media_type: Option<String>,
+    pub etag: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientMediaKind {

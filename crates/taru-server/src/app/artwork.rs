@@ -9,7 +9,10 @@ use futures_util::StreamExt;
 use image::GenericImageView;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use taru_api::{AcceptManagedArtworkCandidateResponse, ProcessManagedArtworkIngestResponse};
+use taru_api::{
+    AcceptManagedArtworkCandidateResponse, ProcessManagedArtworkIngestResponse,
+    PublishSelectedArtworkResponse,
+};
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
     ArtworkCandidateStatus, JobId, JobKind, LibraryItemRepository, ManagedArtworkArtifactId,
@@ -151,6 +154,16 @@ impl ManagedArtworkAppService {
                 ))
             }
         }
+    }
+
+    pub(crate) async fn publish_artifact(
+        &self,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<PublishSelectedArtworkResponse> {
+        let publication = self.store.publish_selected_artwork(artifact_id).await?;
+        Ok(PublishSelectedArtworkResponse::from_publication(
+            publication,
+        ))
     }
 
     async fn process_claim(

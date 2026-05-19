@@ -84,6 +84,7 @@ define_id!(ImageAssetId);
 define_id!(ArtworkCandidateId);
 define_id!(ManagedArtworkIngestId);
 define_id!(ManagedArtworkArtifactId);
+define_id!(SelectedArtworkId);
 define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
 define_id!(TranscodeSessionId);
