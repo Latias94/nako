@@ -680,6 +680,70 @@ impl ManagedArtworkRepository for SqliteStore {
 
         rows.into_iter().map(row_to_selected_artwork).collect()
     }
+
+    async fn list_managed_artwork_artifact_lifecycle(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactLifecycleSnapshot> {
+        let summary = managed_artwork_artifact_lifecycle_summary(&self.pool).await?;
+        let rows = managed_artwork_artifact_lifecycle_rows(&self.pool, filter, page).await?;
+
+        Ok(ManagedArtworkArtifactLifecycleSnapshot {
+            summary,
+            artifacts: rows,
+        })
+    }
+
+    async fn cleanup_unselected_managed_artwork_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactCleanupReport> {
+        let page = page.clamped();
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let candidates = managed_artwork_artifact_lifecycle_rows_tx(
+            &mut transaction,
+            ManagedArtworkArtifactLifecycleFilter::CleanupCandidates,
+            page,
+        )
+        .await?;
+        let examined_artifacts = u32::try_from(candidates.len()).unwrap_or(u32::MAX);
+        let mut cleaned_artifacts = Vec::new();
+
+        for candidate in candidates {
+            let artifact = candidate.artifact;
+            let result = sqlx::query(
+                r#"
+                UPDATE managed_artwork_artifacts
+                SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                WHERE id = ?1
+                    AND deleted_at IS NULL
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM selected_artworks s
+                        WHERE s.artifact_id = managed_artwork_artifacts.id
+                    )
+                "#,
+            )
+            .bind(artifact.id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+            if result.rows_affected() == 1 {
+                cleaned_artifacts.push(artifact);
+            }
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(ManagedArtworkArtifactCleanupReport {
+            examined_artifacts,
+            cleanup_candidate_artifacts: examined_artifacts,
+            cleaned_artifacts,
+        })
+    }
 }
 
 const ARTWORK_CANDIDATE_SELECT_BY_ID: &str = r#"
@@ -713,7 +777,7 @@ const MANAGED_ARTWORK_ARTIFACT_SELECT_BY_ID: &str = r#"
                 content_hash, width, height, byte_len, media_type,
                 created_at, updated_at
             FROM managed_artwork_artifacts
-            WHERE id = ?1
+            WHERE id = ?1 AND deleted_at IS NULL
             "#;
 
 const MANAGED_ARTWORK_ARTIFACT_SELECT_BY_INGEST: &str = r#"
@@ -722,7 +786,7 @@ const MANAGED_ARTWORK_ARTIFACT_SELECT_BY_INGEST: &str = r#"
                 content_hash, width, height, byte_len, media_type,
                 created_at, updated_at
             FROM managed_artwork_artifacts
-            WHERE ingest_id = ?1
+            WHERE ingest_id = ?1 AND deleted_at IS NULL
             "#;
 
 const SELECTED_ARTWORK_SELECT_BY_ID: &str = r#"
@@ -748,6 +812,85 @@ const SELECTED_ARTWORK_SELECT_BY_ITEM: &str = r#"
             FROM selected_artworks
             WHERE item_id = ?1
             ORDER BY kind ASC, id ASC
+            "#;
+
+const MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_SELECT: &str = r#"
+            SELECT
+                a.id,
+                a.ingest_id,
+                a.library_id,
+                a.item_id,
+                a.kind,
+                a.kind_key,
+                a.storage_uri,
+                a.content_hash,
+                a.width,
+                a.height,
+                a.byte_len,
+                a.media_type,
+                a.created_at,
+                a.updated_at,
+                COUNT(s.id) AS selected_artwork_count
+            FROM managed_artwork_artifacts a
+            LEFT JOIN selected_artworks s ON s.artifact_id = a.id
+            WHERE a.deleted_at IS NULL
+            GROUP BY
+                a.id,
+                a.ingest_id,
+                a.library_id,
+                a.item_id,
+                a.kind,
+                a.kind_key,
+                a.storage_uri,
+                a.content_hash,
+                a.width,
+                a.height,
+                a.byte_len,
+                a.media_type,
+                a.created_at,
+                a.updated_at
+            ORDER BY a.created_at ASC, a.id ASC
+            LIMIT ?1 OFFSET ?2
+            "#;
+
+const MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_CLEANUP_SELECT: &str = r#"
+            SELECT
+                a.id,
+                a.ingest_id,
+                a.library_id,
+                a.item_id,
+                a.kind,
+                a.kind_key,
+                a.storage_uri,
+                a.content_hash,
+                a.width,
+                a.height,
+                a.byte_len,
+                a.media_type,
+                a.created_at,
+                a.updated_at,
+                COUNT(s.id) AS selected_artwork_count
+            FROM managed_artwork_artifacts a
+            LEFT JOIN selected_artworks s ON s.artifact_id = a.id
+            WHERE a.deleted_at IS NULL
+            GROUP BY
+                a.id,
+                a.ingest_id,
+                a.library_id,
+                a.item_id,
+                a.kind,
+                a.kind_key,
+                a.storage_uri,
+                a.content_hash,
+                a.width,
+                a.height,
+                a.byte_len,
+                a.media_type,
+                a.created_at,
+                a.updated_at
+            HAVING selected_artwork_count = 0
+            ORDER BY a.created_at ASC, a.id ASC
+            LIMIT ?1 OFFSET ?2
             "#;
 
 async fn get_artwork_candidate(
@@ -1011,6 +1154,107 @@ async fn get_managed_artwork_artifact_by_ingest_tx(
         .map_err(database_error)?;
 
     row.map(row_to_managed_artwork_artifact).transpose()
+}
+
+async fn managed_artwork_artifact_lifecycle_summary(
+    pool: &sqlx::SqlitePool,
+) -> Result<ManagedArtworkArtifactLifecycleSummary> {
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            a.byte_len,
+            COUNT(s.id) AS selected_artwork_count
+        FROM managed_artwork_artifacts a
+        LEFT JOIN selected_artworks s ON s.artifact_id = a.id
+        WHERE a.deleted_at IS NULL
+        GROUP BY a.id, a.byte_len
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(database_error)?;
+
+    let mut summary = ManagedArtworkArtifactLifecycleSummary::default();
+    for row in rows {
+        let selected_artwork_count = i64_to_u32(row_get(&row, "selected_artwork_count")?)?;
+        let byte_len = optional_i64_to_u64(row_get(&row, "byte_len")?)?;
+
+        summary.total_artifacts = summary.total_artifacts.saturating_add(1);
+        if selected_artwork_count == 0 {
+            summary.cleanup_candidate_artifacts =
+                summary.cleanup_candidate_artifacts.saturating_add(1);
+        } else {
+            summary.protected_artifacts = summary.protected_artifacts.saturating_add(1);
+        }
+
+        match byte_len {
+            Some(byte_len) => {
+                summary.known_total_bytes = summary.known_total_bytes.saturating_add(byte_len);
+                if selected_artwork_count == 0 {
+                    summary.known_cleanup_candidate_bytes = summary
+                        .known_cleanup_candidate_bytes
+                        .saturating_add(byte_len);
+                } else {
+                    summary.known_protected_bytes =
+                        summary.known_protected_bytes.saturating_add(byte_len);
+                }
+            }
+            None => {
+                summary.unknown_byte_len_artifacts =
+                    summary.unknown_byte_len_artifacts.saturating_add(1);
+            }
+        }
+    }
+
+    Ok(summary)
+}
+
+async fn managed_artwork_artifact_lifecycle_rows(
+    pool: &sqlx::SqlitePool,
+    filter: ManagedArtworkArtifactLifecycleFilter,
+    page: PageRequest,
+) -> Result<Vec<ManagedArtworkArtifactLifecycleRecord>> {
+    let page = page.clamped();
+    let sql = match filter {
+        ManagedArtworkArtifactLifecycleFilter::All => MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_SELECT,
+        ManagedArtworkArtifactLifecycleFilter::CleanupCandidates => {
+            MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_CLEANUP_SELECT
+        }
+    };
+    let rows = sqlx::query(sql)
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(pool)
+        .await
+        .map_err(database_error)?;
+
+    rows.into_iter()
+        .map(row_to_managed_artwork_artifact_lifecycle)
+        .collect()
+}
+
+async fn managed_artwork_artifact_lifecycle_rows_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    filter: ManagedArtworkArtifactLifecycleFilter,
+    page: PageRequest,
+) -> Result<Vec<ManagedArtworkArtifactLifecycleRecord>> {
+    let page = page.clamped();
+    let sql = match filter {
+        ManagedArtworkArtifactLifecycleFilter::All => MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_SELECT,
+        ManagedArtworkArtifactLifecycleFilter::CleanupCandidates => {
+            MANAGED_ARTWORK_ARTIFACT_LIFECYCLE_CLEANUP_SELECT
+        }
+    };
+    let rows = sqlx::query(sql)
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&mut **transaction)
+        .await
+        .map_err(database_error)?;
+
+    rows.into_iter()
+        .map(row_to_managed_artwork_artifact_lifecycle)
+        .collect()
 }
 
 async fn get_selected_artwork(

@@ -1115,6 +1115,17 @@ pub(crate) fn row_to_managed_artwork_artifact(
     })
 }
 
+pub(crate) fn row_to_managed_artwork_artifact_lifecycle(
+    row: SqliteRow,
+) -> Result<ManagedArtworkArtifactLifecycleRecord> {
+    let selected_artwork_count = i64_to_u32(row_get(&row, "selected_artwork_count")?)?;
+
+    Ok(ManagedArtworkArtifactLifecycleRecord {
+        artifact: row_to_managed_artwork_artifact(row)?,
+        selected_artwork_count,
+    })
+}
+
 pub(crate) fn row_to_selected_artwork(row: SqliteRow) -> Result<SelectedArtworkRecord> {
     Ok(SelectedArtworkRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,

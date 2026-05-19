@@ -5,16 +5,17 @@ use crate::{
     AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkCandidateStatus,
     ArtworkTask, ArtworkTaskId, ExternalProvider, ImageKind, JobId, LibraryId,
     LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactId, ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
-    MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter, MetadataFieldLock,
-    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
-    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewJob, NewManagedArtworkArtifact,
-    NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
-    NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
-    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
-    SelectedArtworkId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
+    ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, MediaItem, MediaItemId,
+    MediaSourceId, MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
+    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
+    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
+    SelectedArtworkRecord, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -118,6 +119,17 @@ pub trait ManagedArtworkRepository: Send + Sync {
         &self,
         item_id: MediaItemId,
     ) -> Result<Vec<SelectedArtworkRecord>>;
+
+    async fn list_managed_artwork_artifact_lifecycle(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactLifecycleSnapshot>;
+
+    async fn cleanup_unselected_managed_artwork_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactCleanupReport>;
 }
 
 #[async_trait]

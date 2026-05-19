@@ -39,8 +39,8 @@ use crate::{
 use super::{
     error::ApiResult,
     query::{
-        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
-        StorageStagingQuery,
+        ArtworkArtifactLifecycleQuery, CatalogGovernanceItemsQuery, JobListQuery,
+        OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
     },
 };
 
@@ -64,6 +64,14 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/artwork/artifacts/{artifact_id}/publish",
             post(publish_admin_artwork_artifact),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/lifecycle",
+            get(get_admin_artwork_artifact_lifecycle),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/cleanup",
+            post(cleanup_admin_artwork_artifacts),
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
@@ -95,6 +103,28 @@ pub(super) async fn publish_admin_artwork_artifact(
     Path(artifact_id): Path<ManagedArtworkArtifactId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.artwork().publish_artifact(artifact_id).await?))
+}
+
+pub(super) async fn get_admin_artwork_artifact_lifecycle(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactLifecycleQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    Ok(Json(
+        app.artwork()
+            .artifact_lifecycle_diagnostics(filter, page)
+            .await?,
+    ))
+}
+
+pub(super) async fn cleanup_admin_artwork_artifacts(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactLifecycleQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (_filter, page) = query.into_filter_and_page()?;
+    Ok(Json(
+        app.artwork().cleanup_unselected_artifacts(page).await?,
+    ))
 }
 
 pub(super) async fn list_admin_catalog_governance_items(

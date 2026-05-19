@@ -138,6 +138,50 @@ pub struct SelectedArtworkPublicationRecord {
     pub changed: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkArtifactLifecycleRecord {
+    pub artifact: ManagedArtworkArtifactRecord,
+    pub selected_artwork_count: u32,
+}
+
+impl ManagedArtworkArtifactLifecycleRecord {
+    #[must_use]
+    pub const fn cleanup_candidate(&self) -> bool {
+        self.selected_artwork_count == 0
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkArtifactLifecycleSummary {
+    pub total_artifacts: u32,
+    pub protected_artifacts: u32,
+    pub cleanup_candidate_artifacts: u32,
+    pub known_total_bytes: u64,
+    pub known_protected_bytes: u64,
+    pub known_cleanup_candidate_bytes: u64,
+    pub unknown_byte_len_artifacts: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkArtifactLifecycleSnapshot {
+    pub summary: ManagedArtworkArtifactLifecycleSummary,
+    pub artifacts: Vec<ManagedArtworkArtifactLifecycleRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkArtifactCleanupReport {
+    pub examined_artifacts: u32,
+    pub cleanup_candidate_artifacts: u32,
+    pub cleaned_artifacts: Vec<ManagedArtworkArtifactRecord>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ManagedArtworkArtifactLifecycleFilter {
+    #[default]
+    All,
+    CleanupCandidates,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtworkCandidateSourceKind {

@@ -129,6 +129,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "selected artwork publication",
         include_str!("../migrations/0027_selected_artwork_publication.sql"),
     ),
+    (
+        28,
+        "managed artwork artifact cleanup",
+        include_str!("../migrations/0028_managed_artwork_artifact_cleanup.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

@@ -2,9 +2,10 @@ use serde::Deserialize;
 use taru_core::{
     AddonStatus, CatalogGovernanceItemListFilter,
     DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
-    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId, MediaSourceId,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, StagingPurpose, StagingState, TaruError,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionState,
+    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId,
+    ManagedArtworkArtifactLifecycleFilter, MediaSourceId, OutboxEventListFilter, OutboxEventStatus,
+    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionKind,
+    TranscodeSessionListFilter, TranscodeSessionState,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -235,6 +236,37 @@ impl StorageStagingQuery {
             self.state.map(parse_staging_state_filter).transpose()?,
             page.try_into()?,
         ))
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactLifecycleQuery {
+    pub(super) cleanup_candidates_only: Option<bool>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl ArtworkArtifactLifecycleQuery {
+    pub(super) fn into_filter_and_page(
+        self,
+    ) -> Result<(ManagedArtworkArtifactLifecycleFilter, PageRequest), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+        let filter = if self.cleanup_candidates_only.unwrap_or(false) {
+            ManagedArtworkArtifactLifecycleFilter::CleanupCandidates
+        } else {
+            ManagedArtworkArtifactLifecycleFilter::All
+        };
+
+        Ok((filter, page.try_into()?))
     }
 }
 

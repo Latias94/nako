@@ -68,6 +68,10 @@ attention.
   completed follow-on for publishing stored Managed Artwork Artifacts as Selected
   Artwork and exposing first-party Public Client image references without
   leaking raw source URLs, cache URIs, storage URIs, or local paths.
+- [managed-artwork-artifact-lifecycle-cleanup](managed-artwork-artifact-lifecycle-cleanup/README.md):
+  active follow-on for Managed Artwork Artifact lifecycle diagnostics, orphan
+  cleanup dry-run, Selected Artwork retention protection, and later protected
+  cleanup without leaking storage URIs or local paths.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

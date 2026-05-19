@@ -11,16 +11,17 @@ use image::GenericImageView;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use taru_api::{
-    AcceptManagedArtworkCandidateResponse, ProcessManagedArtworkIngestResponse,
-    PublishSelectedArtworkResponse,
+    AcceptManagedArtworkCandidateResponse, AdminManagedArtworkArtifactCleanupResponse,
+    AdminManagedArtworkArtifactFileCleanupSummary, AdminManagedArtworkArtifactLifecycleResponse,
+    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse, page_info_from_request,
 };
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
     ArtworkCandidateStatus, JobId, JobKind, LibraryItemRepository, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository, NewJob,
-    NewManagedArtworkArtifact, NewManagedArtworkIngest, Result, SelectedArtworkId,
-    StorageErrorKind, TaruError,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactRecord,
+    ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
+    ManagedArtworkRepository, MediaRepository, NewJob, NewManagedArtworkArtifact,
+    NewManagedArtworkIngest, PageRequest, Result, SelectedArtworkId, StorageErrorKind, TaruError,
 };
 use taru_db::SqliteStore;
 use tokio::{fs, io::AsyncWriteExt, sync::Semaphore};
@@ -165,6 +166,59 @@ impl ManagedArtworkAppService {
         let publication = self.store.publish_selected_artwork(artifact_id).await?;
         Ok(PublishSelectedArtworkResponse::from_publication(
             publication,
+        ))
+    }
+
+    pub(crate) async fn artifact_lifecycle_diagnostics(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<AdminManagedArtworkArtifactLifecycleResponse> {
+        let snapshot = self
+            .store
+            .list_managed_artwork_artifact_lifecycle(filter, page)
+            .await?;
+        let returned = snapshot.artifacts.len();
+
+        Ok(AdminManagedArtworkArtifactLifecycleResponse::from_snapshot(
+            snapshot,
+            page_info_from_request(page, returned),
+        ))
+    }
+
+    pub(crate) async fn cleanup_unselected_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<AdminManagedArtworkArtifactCleanupResponse> {
+        let report = self
+            .store
+            .cleanup_unselected_managed_artwork_artifacts(page)
+            .await?;
+        let mut file_cleanup = AdminManagedArtworkArtifactFileCleanupSummary::default();
+        for artifact in &report.cleaned_artifacts {
+            match self
+                .artifact_store
+                .delete_artifact_best_effort(artifact)
+                .await
+            {
+                ArtifactFileDeleteOutcome::Deleted => {
+                    file_cleanup.file_deleted_artifacts =
+                        file_cleanup.file_deleted_artifacts.saturating_add(1);
+                }
+                ArtifactFileDeleteOutcome::Missing => {
+                    file_cleanup.file_missing_artifacts =
+                        file_cleanup.file_missing_artifacts.saturating_add(1);
+                }
+                ArtifactFileDeleteOutcome::Failed => {
+                    file_cleanup.file_delete_failed_artifacts =
+                        file_cleanup.file_delete_failed_artifacts.saturating_add(1);
+                }
+            }
+        }
+
+        Ok(AdminManagedArtworkArtifactCleanupResponse::from_report(
+            report,
+            file_cleanup,
         ))
     }
 
@@ -579,11 +633,44 @@ impl LocalManagedArtworkArtifactStore {
         }
     }
 
+    async fn delete_artifact_best_effort(
+        &self,
+        artifact: &ManagedArtworkArtifactRecord,
+    ) -> ArtifactFileDeleteOutcome {
+        match self.path_for_artifact(artifact) {
+            Ok(path) if path_has_prefix(&path, &self.root) => match fs::remove_file(&path).await {
+                Ok(()) => ArtifactFileDeleteOutcome::Deleted,
+                Err(err) if err.kind() == ErrorKind::NotFound => ArtifactFileDeleteOutcome::Missing,
+                Err(_) => ArtifactFileDeleteOutcome::Failed,
+            },
+            _ => ArtifactFileDeleteOutcome::Failed,
+        }
+    }
+
     async fn read(
         &self,
         selected_id: SelectedArtworkId,
         artifact: &ManagedArtworkArtifactRecord,
     ) -> Result<Vec<u8>> {
+        let path = self.path_for_artifact(artifact)?;
+
+        fs::read(&path).await.map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                TaruError::NotFound {
+                    entity: "selected_artwork_image",
+                    id: selected_id.to_string(),
+                }
+            } else {
+                TaruError::Storage {
+                    uri: "managed-artwork://artifact".to_owned(),
+                    kind: StorageErrorKind::Io,
+                    message: "failed to read managed artwork artifact".to_owned(),
+                }
+            }
+        })
+    }
+
+    fn path_for_artifact(&self, artifact: &ManagedArtworkArtifactRecord) -> Result<PathBuf> {
         let expected_storage_uri = format!("managed-artwork://artifact/{}", artifact.id);
         if artifact.storage_uri != expected_storage_uri {
             return Err(TaruError::Storage {
@@ -626,21 +713,15 @@ impl LocalManagedArtworkArtifactStore {
             });
         }
 
-        fs::read(&path).await.map_err(|err| {
-            if err.kind() == ErrorKind::NotFound {
-                TaruError::NotFound {
-                    entity: "selected_artwork_image",
-                    id: selected_id.to_string(),
-                }
-            } else {
-                TaruError::Storage {
-                    uri: "managed-artwork://artifact".to_owned(),
-                    kind: StorageErrorKind::Io,
-                    message: "failed to read managed artwork artifact".to_owned(),
-                }
-            }
-        })
+        Ok(path)
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArtifactFileDeleteOutcome {
+    Deleted,
+    Missing,
+    Failed,
 }
 
 #[derive(Clone, Debug)]

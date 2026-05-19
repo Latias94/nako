@@ -6,13 +6,14 @@ use taru_core::{
     DomainEventSubject, EventId, ExternalProvider, ImageKind, IngestionFailureClass,
     IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind,
     JobStatus, LibraryId, LibraryPreset, LocalInferenceEvidence, LocalInferenceEvidenceSource,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId, ManagedArtworkArtifactRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
-    ManagedArtworkIngestStatus, MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord,
-    OutboxEventStatus, ScanSnapshotId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
-    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionState,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleRecord, ManagedArtworkArtifactLifecycleSnapshot,
+    ManagedArtworkArtifactLifecycleSummary, ManagedArtworkArtifactRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, ManagedArtworkIngestStatus,
+    MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord, OutboxEventStatus, ScanSnapshotId,
+    SelectedArtworkPublicationRecord, SelectedArtworkRecord, StagingManifestId,
+    StagingManifestRecord, StagingPurpose, StagingState, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
@@ -177,6 +178,167 @@ pub struct SelectedArtworkSummary {
     pub artifact_id: ManagedArtworkArtifactId,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactLifecycleResponse {
+    pub summary: AdminManagedArtworkArtifactLifecycleSummary,
+    pub artifacts: Vec<AdminManagedArtworkArtifactLifecycleItem>,
+    pub page: PageInfo,
+    pub dry_run: bool,
+}
+
+impl AdminManagedArtworkArtifactLifecycleResponse {
+    #[must_use]
+    pub fn from_snapshot(
+        snapshot: ManagedArtworkArtifactLifecycleSnapshot,
+        page: PageInfo,
+    ) -> Self {
+        Self {
+            summary: AdminManagedArtworkArtifactLifecycleSummary::from_summary(snapshot.summary),
+            artifacts: snapshot
+                .artifacts
+                .into_iter()
+                .map(AdminManagedArtworkArtifactLifecycleItem::from_record)
+                .collect(),
+            page,
+            dry_run: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactLifecycleSummary {
+    pub total_artifacts: u32,
+    pub protected_artifacts: u32,
+    pub cleanup_candidate_artifacts: u32,
+    pub known_total_bytes: u64,
+    pub known_protected_bytes: u64,
+    pub known_cleanup_candidate_bytes: u64,
+    pub unknown_byte_len_artifacts: u32,
+}
+
+impl AdminManagedArtworkArtifactLifecycleSummary {
+    #[must_use]
+    pub const fn from_summary(summary: ManagedArtworkArtifactLifecycleSummary) -> Self {
+        Self {
+            total_artifacts: summary.total_artifacts,
+            protected_artifacts: summary.protected_artifacts,
+            cleanup_candidate_artifacts: summary.cleanup_candidate_artifacts,
+            known_total_bytes: summary.known_total_bytes,
+            known_protected_bytes: summary.known_protected_bytes,
+            known_cleanup_candidate_bytes: summary.known_cleanup_candidate_bytes,
+            unknown_byte_len_artifacts: summary.unknown_byte_len_artifacts,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactLifecycleItem {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub selected_artwork_count: u32,
+    pub cleanup_candidate: bool,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+    pub has_content_hash: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminManagedArtworkArtifactLifecycleItem {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkArtifactLifecycleRecord) -> Self {
+        let cleanup_candidate = record.cleanup_candidate();
+        let artifact = record.artifact;
+        Self {
+            id: artifact.id,
+            ingest_id: artifact.ingest_id,
+            library_id: artifact.library_id,
+            item_id: artifact.item_id,
+            kind: artifact.kind,
+            selected_artwork_count: record.selected_artwork_count,
+            cleanup_candidate,
+            width: artifact.width,
+            height: artifact.height,
+            byte_len: artifact.byte_len,
+            media_type: artifact.media_type,
+            has_content_hash: artifact.content_hash.is_some(),
+            created_at: artifact.created_at,
+            updated_at: artifact.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactCleanupResponse {
+    pub examined_artifacts: u32,
+    pub cleanup_candidate_artifacts: u32,
+    pub cleaned_artifacts: Vec<AdminManagedArtworkArtifactCleanupItem>,
+    pub file_deleted_artifacts: u32,
+    pub file_missing_artifacts: u32,
+    pub file_delete_failed_artifacts: u32,
+    pub dry_run: bool,
+}
+
+impl AdminManagedArtworkArtifactCleanupResponse {
+    #[must_use]
+    pub fn from_report(
+        report: ManagedArtworkArtifactCleanupReport,
+        file_cleanup: AdminManagedArtworkArtifactFileCleanupSummary,
+    ) -> Self {
+        Self {
+            examined_artifacts: report.examined_artifacts,
+            cleanup_candidate_artifacts: report.cleanup_candidate_artifacts,
+            cleaned_artifacts: report
+                .cleaned_artifacts
+                .into_iter()
+                .map(AdminManagedArtworkArtifactCleanupItem::from_record)
+                .collect(),
+            file_deleted_artifacts: file_cleanup.file_deleted_artifacts,
+            file_missing_artifacts: file_cleanup.file_missing_artifacts,
+            file_delete_failed_artifacts: file_cleanup.file_delete_failed_artifacts,
+            dry_run: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactFileCleanupSummary {
+    pub file_deleted_artifacts: u32,
+    pub file_missing_artifacts: u32,
+    pub file_delete_failed_artifacts: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactCleanupItem {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+}
+
+impl AdminManagedArtworkArtifactCleanupItem {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkArtifactRecord) -> Self {
+        Self {
+            id: record.id,
+            ingest_id: record.ingest_id,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            kind: record.kind,
+            byte_len: record.byte_len,
+            media_type: record.media_type,
+        }
+    }
 }
 
 impl SelectedArtworkSummary {
@@ -1142,6 +1304,98 @@ mod tests {
         assert!(!body.contains("storage_uri"));
         assert!(!body.contains("managed-artwork://"));
         assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("cache_uri"));
+    }
+
+    #[test]
+    fn managed_artwork_lifecycle_response_redacts_storage_authority_and_hash_values() {
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let ingest_id = ManagedArtworkIngestId::new();
+        let lifecycle = AdminManagedArtworkArtifactLifecycleResponse::from_snapshot(
+            ManagedArtworkArtifactLifecycleSnapshot {
+                summary: ManagedArtworkArtifactLifecycleSummary {
+                    total_artifacts: 1,
+                    protected_artifacts: 0,
+                    cleanup_candidate_artifacts: 1,
+                    known_total_bytes: 68,
+                    known_protected_bytes: 0,
+                    known_cleanup_candidate_bytes: 68,
+                    unknown_byte_len_artifacts: 0,
+                },
+                artifacts: vec![ManagedArtworkArtifactLifecycleRecord {
+                    artifact: ManagedArtworkArtifactRecord {
+                        id: artifact_id,
+                        ingest_id,
+                        library_id: LibraryId::new(),
+                        item_id: MediaItemId::new(),
+                        kind: ImageKind::Poster,
+                        storage_uri: "managed-artwork://artifact/private-storage-handle".to_owned(),
+                        content_hash: Some("sha256-private-content-hash".to_owned()),
+                        width: Some(1),
+                        height: Some(1),
+                        byte_len: Some(68),
+                        media_type: Some("image/png".to_owned()),
+                        created_at: "2026-05-19T00:00:00Z".to_owned(),
+                        updated_at: "2026-05-19T00:00:00Z".to_owned(),
+                    },
+                    selected_artwork_count: 0,
+                }],
+            },
+            PageInfo::new(50, 0, 1),
+        );
+        let body = serde_json::to_string(&lifecycle).unwrap();
+
+        assert!(lifecycle.dry_run);
+        assert_eq!(lifecycle.summary.cleanup_candidate_artifacts, 1);
+        assert!(lifecycle.artifacts[0].cleanup_candidate);
+        assert!(lifecycle.artifacts[0].has_content_hash);
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("managed-artwork://"));
+        assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("sha256-private-content-hash"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("cache_uri"));
+    }
+
+    #[test]
+    fn managed_artwork_cleanup_response_redacts_storage_authority_and_hash_values() {
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let response = AdminManagedArtworkArtifactCleanupResponse::from_report(
+            ManagedArtworkArtifactCleanupReport {
+                examined_artifacts: 1,
+                cleanup_candidate_artifacts: 1,
+                cleaned_artifacts: vec![ManagedArtworkArtifactRecord {
+                    id: artifact_id,
+                    ingest_id: ManagedArtworkIngestId::new(),
+                    library_id: LibraryId::new(),
+                    item_id: MediaItemId::new(),
+                    kind: ImageKind::Poster,
+                    storage_uri: "managed-artwork://artifact/private-storage-handle".to_owned(),
+                    content_hash: Some("sha256-private-cleanup-hash".to_owned()),
+                    width: Some(1),
+                    height: Some(1),
+                    byte_len: Some(68),
+                    media_type: Some("image/png".to_owned()),
+                    created_at: "2026-05-19T00:00:00Z".to_owned(),
+                    updated_at: "2026-05-19T00:00:00Z".to_owned(),
+                }],
+            },
+            AdminManagedArtworkArtifactFileCleanupSummary {
+                file_deleted_artifacts: 1,
+                file_missing_artifacts: 0,
+                file_delete_failed_artifacts: 0,
+            },
+        );
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert!(!response.dry_run);
+        assert_eq!(response.cleaned_artifacts[0].id, artifact_id);
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("managed-artwork://"));
+        assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("sha256-private-cleanup-hash"));
+        assert!(!body.contains("content_hash"));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));
     }

@@ -441,6 +441,8 @@ GET  /admin/v1/events
 GET  /admin/v1/jobs
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
+GET  /admin/v1/artwork/artifacts/lifecycle
+POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
@@ -1227,6 +1229,41 @@ body. Public image references and byte-serving responses never include
 raw provider URLs, Source Locators, addon token material, or provider query
 strings. Thumbnail generation, durable retry/requeue, ingest cancellation, and
 orphan artifact cleanup remain separate follow-on work.
+
+Administrators can inspect Managed Artwork Artifact lifecycle state with:
+
+```text
+GET /admin/v1/artwork/artifacts/lifecycle?cleanup_candidates_only=false&limit=50&offset=0
+```
+
+The response is a diagnostics and cleanup dry-run view. It lists redacted
+artifact summaries, counts how many Selected Artwork rows currently protect
+each artifact, marks artifacts with zero selected-artwork references as cleanup
+candidates, and includes byte-count estimates when artifact metadata has a
+known byte length. `cleanup_candidates_only=true` restricts the returned rows
+to artifacts that are not currently referenced by Selected Artwork.
+
+This route does not delete files or database rows. It never returns
+`storage_uri`, `managed-artwork://...`, local artifact paths, raw source URLs,
+candidate `source_uri`, provider query strings, `cache_uri`, Source Locators,
+addon token material, or content-hash values. Actual cleanup is available only
+through the separate protected command below.
+
+Administrators can remove cleanup candidates with:
+
+```text
+POST /admin/v1/artwork/artifacts/cleanup?limit=50&offset=0
+```
+
+The command re-checks that each candidate has no Selected Artwork references at
+cleanup time, marks only eligible active artifacts as deleted in the database,
+and then best-effort removes the corresponding internal artifact file. Selected
+Artwork references remain the retention boundary; protected artifacts are not
+cleaned and continue to serve through `/images/{image_id}`. The cleanup response
+includes counts and redacted cleaned-artifact summaries only. It never returns
+`storage_uri`, `managed-artwork://...`, local paths, raw source URLs,
+`source_uri`, `cache_uri`, Source Locators, addon token material, provider query
+strings, or content-hash values.
 
 `validation_status` describes Addon principal, permission, library, and target
 validation. It is not the domain write result. `apply_status` describes the

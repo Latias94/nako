@@ -3557,6 +3557,437 @@ async fn sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idem
 }
 
 #[tokio::test]
+async fn sqlite_store_lists_managed_artwork_lifecycle_with_selected_artwork_protection() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Lifecycle Artwork Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.artwork".to_owned(),
+            name: "Example Artwork".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "artwork".to_owned(),
+            token_prefix: "taru_at_art".to_owned(),
+            token_hash: "sha256:artwork".to_owned(),
+        })
+        .await
+        .unwrap();
+    let first_side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item.id),
+            idempotency_key: "lifecycle-artwork-demo-selected".to_owned(),
+            provenance_json: "{}".to_owned(),
+            payload_json: "{}".to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let second_side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item.id),
+            idempotency_key: "lifecycle-artwork-demo-orphan".to_owned(),
+            provenance_json: "{}".to_owned(),
+            payload_json: "{}".to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+
+    let first_candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: first_side_effect.id,
+            library_id,
+            item_id: item.id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: "https://cdn.example.test/poster-one.png".to_owned(),
+            width: Some(1),
+            height: Some(1),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+    let second_candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: second_side_effect.id,
+            library_id,
+            item_id: item.id,
+            kind: ImageKind::Backdrop,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: "https://cdn.example.test/backdrop-one.png".to_owned(),
+            width: Some(1),
+            height: Some(1),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let mut artifact_ids = Vec::new();
+    for (candidate, kind, byte_len) in [
+        (first_candidate, ImageKind::Poster, 68_u64),
+        (second_candidate, ImageKind::Backdrop, 102_u64),
+    ] {
+        let ingest_id = ManagedArtworkIngestId::new();
+        let job_id = JobId::new();
+        let accepted = store
+            .accept_managed_artwork_candidate_ingest(
+                candidate.id,
+                NewManagedArtworkIngest {
+                    id: ingest_id,
+                    candidate_id: candidate.id,
+                    job_id,
+                    library_id,
+                    item_id: item.id,
+                    kind: kind.clone(),
+                    status: ManagedArtworkIngestStatus::Queued,
+                    artifact_id: None,
+                    failure_code: None,
+                },
+                NewJob {
+                    id: job_id,
+                    kind: JobKind::ManagedArtworkIngest,
+                    resource_class: "artwork.ingest".to_owned(),
+                    library_id: Some(library_id),
+                    source_id: None,
+                    input_json: Some("{}".to_owned()),
+                },
+            )
+            .await
+            .unwrap();
+        let claim = store
+            .claim_next_queued_managed_artwork_ingest()
+            .await
+            .unwrap()
+            .unwrap();
+        let artifact_id = ManagedArtworkArtifactId::new();
+        store
+            .commit_managed_artwork_artifact(
+                accepted.ingest.id,
+                NewManagedArtworkArtifact {
+                    id: artifact_id,
+                    ingest_id: claim.ingest.id,
+                    library_id,
+                    item_id: item.id,
+                    kind,
+                    storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                    content_hash: Some(format!("sha256-{artifact_id}")),
+                    width: Some(1),
+                    height: Some(1),
+                    byte_len: Some(byte_len),
+                    media_type: Some("image/png".to_owned()),
+                },
+                Some(r#"{"status":"stored"}"#.to_owned()),
+            )
+            .await
+            .unwrap();
+        artifact_ids.push(artifact_id);
+    }
+
+    store
+        .publish_selected_artwork(artifact_ids[0])
+        .await
+        .unwrap();
+
+    let snapshot = store
+        .list_managed_artwork_artifact_lifecycle(
+            ManagedArtworkArtifactLifecycleFilter::All,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(snapshot.summary.total_artifacts, 2);
+    assert_eq!(snapshot.summary.protected_artifacts, 1);
+    assert_eq!(snapshot.summary.cleanup_candidate_artifacts, 1);
+    assert_eq!(snapshot.summary.known_total_bytes, 170);
+    assert_eq!(snapshot.summary.known_protected_bytes, 68);
+    assert_eq!(snapshot.summary.known_cleanup_candidate_bytes, 102);
+    assert_eq!(snapshot.artifacts.len(), 2);
+    assert!(
+        snapshot
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.artifact.id == artifact_ids[0]
+                && artifact.selected_artwork_count == 1
+                && !artifact.cleanup_candidate())
+    );
+    assert!(
+        snapshot
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.artifact.id == artifact_ids[1]
+                && artifact.selected_artwork_count == 0
+                && artifact.cleanup_candidate())
+    );
+
+    let cleanup = store
+        .list_managed_artwork_artifact_lifecycle(
+            ManagedArtworkArtifactLifecycleFilter::CleanupCandidates,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(cleanup.artifacts.len(), 1);
+    assert_eq!(cleanup.artifacts[0].artifact.id, artifact_ids[1]);
+    assert!(cleanup.artifacts[0].cleanup_candidate());
+}
+
+#[tokio::test]
+async fn sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Cleanup Artwork Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.artwork.cleanup".to_owned(),
+            name: "Example Artwork Cleanup".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "artwork".to_owned(),
+            token_prefix: "taru_at_art".to_owned(),
+            token_hash: "sha256:artwork-cleanup".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let mut artifact_ids = Vec::new();
+    for (index, kind) in [ImageKind::Poster, ImageKind::Backdrop]
+        .into_iter()
+        .enumerate()
+    {
+        let side_effect = store
+            .create_addon_side_effect(NewAddonSideEffect {
+                id: AddonSideEffectId::new(),
+                addon_id,
+                token_id,
+                permission: AddonPermission::ArtworkWrite,
+                library_id,
+                target: AddonSideEffectTarget::media_item(item.id),
+                idempotency_key: format!("cleanup-artwork-demo-{index}"),
+                provenance_json: "{}".to_owned(),
+                payload_json: "{}".to_owned(),
+                validation_status: AddonSideEffectValidationStatus::Accepted,
+                safe_error_code: None,
+            })
+            .await
+            .unwrap();
+        let candidate = store
+            .create_artwork_candidate(NewArtworkCandidate {
+                id: ArtworkCandidateId::new(),
+                addon_id,
+                side_effect_id: side_effect.id,
+                library_id,
+                item_id: item.id,
+                kind: kind.clone(),
+                source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+                source_uri: format!("https://cdn.example.test/cleanup-{index}.png"),
+                width: Some(1),
+                height: Some(1),
+                language: Some("en".to_owned()),
+            })
+            .await
+            .unwrap();
+        let ingest_id = ManagedArtworkIngestId::new();
+        let job_id = JobId::new();
+        let accepted = store
+            .accept_managed_artwork_candidate_ingest(
+                candidate.id,
+                NewManagedArtworkIngest {
+                    id: ingest_id,
+                    candidate_id: candidate.id,
+                    job_id,
+                    library_id,
+                    item_id: item.id,
+                    kind: kind.clone(),
+                    status: ManagedArtworkIngestStatus::Queued,
+                    artifact_id: None,
+                    failure_code: None,
+                },
+                NewJob {
+                    id: job_id,
+                    kind: JobKind::ManagedArtworkIngest,
+                    resource_class: "artwork.ingest".to_owned(),
+                    library_id: Some(library_id),
+                    source_id: None,
+                    input_json: Some("{}".to_owned()),
+                },
+            )
+            .await
+            .unwrap();
+        let claim = store
+            .claim_next_queued_managed_artwork_ingest()
+            .await
+            .unwrap()
+            .unwrap();
+        let artifact_id = ManagedArtworkArtifactId::new();
+        store
+            .commit_managed_artwork_artifact(
+                accepted.ingest.id,
+                NewManagedArtworkArtifact {
+                    id: artifact_id,
+                    ingest_id: claim.ingest.id,
+                    library_id,
+                    item_id: item.id,
+                    kind,
+                    storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                    content_hash: Some(format!("sha256-cleanup-{index}")),
+                    width: Some(1),
+                    height: Some(1),
+                    byte_len: Some(68),
+                    media_type: Some("image/png".to_owned()),
+                },
+                Some(r#"{"status":"stored"}"#.to_owned()),
+            )
+            .await
+            .unwrap();
+        artifact_ids.push(artifact_id);
+    }
+
+    store
+        .publish_selected_artwork(artifact_ids[0])
+        .await
+        .unwrap();
+    let report = store
+        .cleanup_unselected_managed_artwork_artifacts(PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(report.examined_artifacts, 1);
+    assert_eq!(report.cleanup_candidate_artifacts, 1);
+    assert_eq!(report.cleaned_artifacts.len(), 1);
+    assert_eq!(report.cleaned_artifacts[0].id, artifact_ids[1]);
+    assert!(
+        store
+            .get_managed_artwork_artifact(artifact_ids[0])
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert_eq!(
+        store
+            .get_managed_artwork_artifact(artifact_ids[1])
+            .await
+            .unwrap(),
+        None
+    );
+
+    let lifecycle = store
+        .list_managed_artwork_artifact_lifecycle(
+            ManagedArtworkArtifactLifecycleFilter::All,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(lifecycle.summary.total_artifacts, 1);
+    assert_eq!(lifecycle.summary.protected_artifacts, 1);
+    assert_eq!(lifecycle.summary.cleanup_candidate_artifacts, 0);
+}
+
+#[tokio::test]
 async fn sqlite_store_rejects_addon_token_rotation_across_addons() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
