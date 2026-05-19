@@ -1,6 +1,6 @@
 # Managed Artwork Public Serving Selection Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -144,3 +144,15 @@ Exit criteria:
   public contracts.
 - Thumbnails, durable retry/requeue, cancellation, orphan cleanup, and public
   gallery behavior are completed, deferred, or split.
+
+Result:
+
+- MAPS is closed as completed: Selected Artwork publication, public image
+  references, byte serving, and redaction boundaries are implemented and
+  documented.
+- Fresh closeout gates passed on 2026-05-19.
+- Remaining lifecycle work is intentionally split:
+  - thumbnail/resize variants;
+  - durable retry/requeue and cancellation controls;
+  - orphan artifact cleanup and retention diagnostics;
+  - public/Admin gallery and candidate-management behavior.

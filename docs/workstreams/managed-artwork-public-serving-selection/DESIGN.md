@@ -1,6 +1,6 @@
 # Managed Artwork Public Serving Selection Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Problem
@@ -325,3 +325,9 @@ This lane can close when:
   are removed or confined away from Public Client DTOs;
 - thumbnails, retry/requeue, cancellation, and orphan cleanup are documented as
   follow-ons with no hidden runtime dependency.
+
+Closeout result: completed on 2026-05-19. The publication model, redacted Public
+Client image references, and first-party image byte-serving route are shipped.
+Thumbnail variants, durable ingest retry/requeue and cancellation controls,
+orphan artifact cleanup, and gallery/candidate management are split into
+follow-on lanes.

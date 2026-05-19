@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "managed-artwork-public-serving-selection",
   "title": "Managed Artwork Public Serving Selection",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Stored Managed Artwork Artifacts need a redacted Selected Artwork publication model and first-party Public Client image-serving boundary before clients can display managed artwork safely.",
@@ -58,7 +58,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAPS-050",
+  "current_task": null,
   "first_slice": "Public image references and byte serving for selected artwork",
   "non_goals": [
     "thumbnail or resize workers",
@@ -74,7 +74,7 @@
     "source": "public image serving and selected artwork publication split from internal artifact storage closeout"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "MAPS-040 shipped PublicImageRefDto catalog responses, removed ImageAssetDto/ImageRefDto/CanonicalMetadataDto.images from the Public Client protocol and OpenAPI, and added GET/HEAD /images/{image_id}. Continue with MAPS-050 to close this lane or split thumbnail, durable retry/requeue, cancellation, orphan cleanup, and public gallery work into follow-ons."
+    "default_action": "closed",
+    "notes": "MAPS is complete. Follow-ons are thumbnail/resize variants, durable retry/requeue and cancellation controls, orphan artifact lifecycle cleanup, and public/Admin gallery or candidate-management behavior."
   }
 }

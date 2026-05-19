@@ -65,7 +65,7 @@ attention.
   Taru-owned fetch/content validation and internal artifact byte storage before
   public image serving, thumbnails, or selected artwork publication.
 - [managed-artwork-public-serving-selection](managed-artwork-public-serving-selection/README.md):
-  active follow-on for publishing stored Managed Artwork Artifacts as Selected
+  completed follow-on for publishing stored Managed Artwork Artifacts as Selected
   Artwork and exposing first-party Public Client image references without
   leaking raw source URLs, cache URIs, storage URIs, or local paths.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):

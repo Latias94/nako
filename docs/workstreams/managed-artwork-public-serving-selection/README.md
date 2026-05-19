@@ -1,6 +1,6 @@
 # Managed Artwork Public Serving Selection
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 This workstream follows `managed-artwork-fetch-artifact-storage`. The previous
@@ -46,9 +46,23 @@ Authoritative docs:
 - No public artwork gallery or candidate-management UI; this lane publishes the
   current Selected Artwork only.
 
-## First Executable Task
+## Closeout
 
-Continue with MAPS-040: replace Public Client image DTOs with
-`PublicImageRefDto` and add first-party image byte serving for selected artwork.
-MAPS-030 has shipped explicit Admin publication from a stored Managed Artwork
-Artifact to a Selected Artwork record.
+This lane is complete. Stored Managed Artwork Artifacts can be explicitly
+published as Selected Artwork, Public Client item image responses use
+`PublicImageRefDto`, and selected image bytes are served through
+`GET/HEAD /images/{image_id}` without exposing source, cache, storage, or local
+filesystem locators.
+
+## Follow-On Splits
+
+- `managed-artwork-thumbnail-variants`: thumbnail/resize generation,
+  responsive variants, cache validators, and range/variant serving policy.
+- `managed-artwork-ingest-runtime-controls`: durable retry/requeue,
+  cancellation, and Admin/runtime controls for managed artwork ingest jobs.
+- `managed-artwork-artifact-lifecycle-cleanup`: orphan artifact detection,
+  selected-artwork retention protection, artifact garbage collection, and
+  operator diagnostics.
+- `managed-artwork-gallery-candidate-management`: public/Admin browsing for
+  candidates and artwork galleries after the Selected Artwork boundary is
+  stable.

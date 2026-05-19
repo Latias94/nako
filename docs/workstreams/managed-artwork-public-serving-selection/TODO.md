@@ -1,6 +1,6 @@
 # Managed Artwork Public Serving Selection TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -83,7 +83,7 @@ Last updated: 2026-05-19
 
 ## M4 - Closeout Or Split
 
-- [ ] MAPS-050 [owner=planner] [deps=MAPS-040] [scope=docs/workstreams/managed-artwork-public-serving-selection,docs/api]
+- [x] MAPS-050 [owner=planner] [deps=MAPS-040] [scope=docs/workstreams/managed-artwork-public-serving-selection,docs/api]
   Goal: Close the lane or split thumbnails, durable retry/requeue,
   cancellation, orphan cleanup, and public gallery behavior into separate
   follow-ons.
@@ -91,5 +91,10 @@ Last updated: 2026-05-19
   Review: review-workstream has no blocking findings; Public Client leak
   inventory proves old raw image locator fields are absent or non-public.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
+  Result: DONE. Fresh closeout gates passed, API/workstream docs now reflect
+  shipped publication and public serving behavior, and remaining image
+  lifecycle work is split into follow-ons for thumbnails/variants, durable
+  ingest runtime controls, orphan artifact lifecycle cleanup, and
+  gallery/candidate management.
   Handoff: Recommend the next lane only after Selected Artwork publication and
   public serving redaction are stable.

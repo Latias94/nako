@@ -1,6 +1,6 @@
 # Managed Artwork Public Serving Selection Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -256,3 +256,26 @@ work; unresolved Public Client leaks block completion.
     Remaining sensitive-term hits are redaction assertions, internal server
     storage resolution, or HTTP/API text that states the values are forbidden
     in public responses.
+
+2026-05-19, MAPS-050 closeout verification:
+
+- Closeout audit:
+  - target state is met: stored Managed Artwork Artifacts can be published as
+    Selected Artwork, Public Client image references are first-party and
+    redacted, and selected image bytes are served through Taru-owned routes;
+  - `ImageAsset` remains internal/provenance only;
+  - thumbnails, durable retry/requeue, cancellation, orphan cleanup, and
+    gallery/candidate management are split as follow-ons.
+- Fresh gate evidence:
+  - `rg -n "source_uri|cache_uri|storage_uri|ImageAssetDto|ImageRefDto|selected" crates/taru-api crates/taru-client-protocol crates/taru-server/src/http docs/api`
+    passed as an inventory. Remaining hits are Admin/internal tests, redaction
+    assertions, HTTP/API prohibitions, non-artwork playback wording, or
+    `PublicImageRefDto` selected-artwork references; no old Public Client raw
+    image DTO remains in protocol/OpenAPI.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-client -p taru-server --tests`
+    passed.
+  - `cargo nextest run -p taru-server image --no-fail-fast` passed.
+  - `cargo nextest run -p taru-api image --no-fail-fast` passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
+  - `npm run check --prefix sdk/typescript` passed.
