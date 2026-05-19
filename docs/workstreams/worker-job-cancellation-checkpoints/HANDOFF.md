@@ -5,23 +5,29 @@ Last updated: 2026-05-19
 
 ## Current State
 
-The lane is open. It follows `durable-job-ownership-leases`, which added durable
-job leases, heartbeats, redacted Admin cancel requests, and fenced
+The lane is active. It follows `durable-job-ownership-leases`, which added
+durable job leases, heartbeats, redacted Admin cancel requests, and fenced
 `cancel_leased_job`, but deliberately split worker-side cancellation
 checkpoints.
 
+`WJCC-020` is complete. `DurableJobRuntime` now supports a context-aware run
+path, heartbeat publication of observed cancel intent, cooperative checkpoint
+helpers, and fenced acknowledgement of terminal `cancelled`.
+
 ## Active Task
 
-- Task ID: `WJCC-020`
+- Task ID: `WJCC-030`
 - Owner: codex
 - Files:
-  - `crates/taru-server/src/app/job_runtime.rs`
+  - `crates/taru-server/src/app/metadata.rs`
 - Validation:
-  - `cargo nextest run -p taru-server job_runtime --no-fail-fast`
-  - `cargo check -p taru-server --tests`
-- Status: NEEDS_CONTEXT
-- Review: Runtime must distinguish cancellation from failure.
-- Evidence: Runtime tests should show terminal `JobStatus::Cancelled`.
+  - `cargo nextest run -p taru-server job_cancel --no-fail-fast`
+  - `cargo nextest run -p taru-server metadata --no-fail-fast`
+- Status: READY
+- Review: Metadata maintenance must not emit completed outbox events after a
+  cancelled run.
+- Evidence: Add focused server tests showing running cancel request becomes
+  terminal `cancelled` at a metadata maintenance checkpoint.
 
 ## Decisions Since Last Update
 
@@ -34,6 +40,9 @@ checkpoints.
   process-kill cancellation out of this lane.
 - Prefer metadata maintenance as the first real worker integration because it
   naturally loops over item-level side-effect units.
+- Existing `run_job` callers intentionally keep the pre-existing success/failure
+  interface. Real cooperative cancellation requires migrating a worker to
+  `run_job_with_context`.
 
 ## Blockers
 
@@ -41,7 +50,7 @@ checkpoints.
 
 ## Next Recommended Action
 
-Implement `WJCC-020`: add the runtime cancellation context/checkpoint API,
-update the heartbeat loop to publish observed cancel intent, and make
-`DurableJobRuntime` persist terminal `cancelled` with `cancel_leased_job` when
-the operation reports observed cancellation.
+Implement `WJCC-030`: migrate metadata maintenance to
+`run_job_with_context`, call `check_cancelled` before each new item refresh, and
+ensure cancelled maintenance does not record the metadata-maintenance-completed
+event.

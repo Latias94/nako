@@ -48,8 +48,8 @@
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
   "current_task": {
-    "id": "WJCC-020",
-    "title": "Runtime Cancellation Context",
+    "id": "WJCC-030",
+    "title": "First Real Worker Checkpoints",
     "status": "ready",
     "owner": "codex"
   },

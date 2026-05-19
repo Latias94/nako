@@ -1,12 +1,17 @@
-use std::{future::Future, sync::OnceLock};
+use std::{
+    future::Future,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 use serde::Serialize;
 use taru_core::{
-    CompleteLeasedJob, FailLeasedJob, Job, JobId, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobRepository, JobWorkerId, Result, TaruError,
+    CancelLeasedJob, CompleteLeasedJob, FailLeasedJob, Job, JobId, JobLeaseClaimFilter,
+    JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobRepository, JobWorkerId, Result,
+    TaruError,
 };
 use taru_db::SqliteStore;
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 const DEFAULT_LEASE_DURATION_MS: u64 = 30_000;
@@ -24,6 +29,64 @@ pub(super) struct DurableJobRuntime {
 pub(super) struct DurableJobRun<T> {
     pub(super) job: Job,
     pub(super) output: T,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct DurableJobContext {
+    cancellation: DurableJobCancellation,
+}
+
+#[derive(Debug)]
+pub(super) enum DurableJobRunOutcome<T> {
+    Completed(DurableJobRun<T>),
+    Cancelled(Job),
+}
+
+#[derive(Debug)]
+pub(super) enum DurableJobOperationError {
+    Cancelled,
+    Failed(TaruError),
+}
+
+pub(super) type DurableJobOperationResult<T> = std::result::Result<T, DurableJobOperationError>;
+
+impl DurableJobContext {
+    pub(super) fn is_cancel_requested(&self) -> bool {
+        self.cancellation.is_requested()
+    }
+
+    pub(super) async fn cancelled(&self) {
+        self.cancellation.cancelled().await;
+    }
+
+    pub(super) fn cancel_requested_at(&self) -> Option<String> {
+        self.cancellation.requested_at()
+    }
+
+    pub(super) fn check_cancelled(&self) -> DurableJobOperationResult<()> {
+        if self.is_cancel_requested() {
+            Err(DurableJobOperationError::Cancelled)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl From<TaruError> for DurableJobOperationError {
+    fn from(value: TaruError) -> Self {
+        Self::Failed(value)
+    }
+}
+
+impl<T> DurableJobRunOutcome<T> {
+    fn into_completed(self) -> Result<DurableJobRun<T>> {
+        match self {
+            Self::Completed(run) => Ok(run),
+            Self::Cancelled(job) => Err(TaruError::Conflict {
+                message: format!("job {} was cancelled", job.id),
+            }),
+        }
+    }
 }
 
 impl DurableJobRuntime {
@@ -62,6 +125,28 @@ impl DurableJobRuntime {
         RunFuture: Future<Output = Result<T>>,
         Summary: FnOnce(&T) -> Result<Option<String>>,
     {
+        self.run_job_with_context(
+            job_id,
+            operation,
+            |_context| async move { run().await.map_err(DurableJobOperationError::from) },
+            summary_json,
+        )
+        .await?
+        .into_completed()
+    }
+
+    pub(super) async fn run_job_with_context<T, Run, RunFuture, Summary>(
+        &self,
+        job_id: JobId,
+        operation: &'static str,
+        run: Run,
+        summary_json: Summary,
+    ) -> Result<DurableJobRunOutcome<T>>
+    where
+        Run: FnOnce(DurableJobContext) -> RunFuture,
+        RunFuture: Future<Output = DurableJobOperationResult<T>>,
+        Summary: FnOnce(&T) -> Result<Option<String>>,
+    {
         let leased = self
             .store
             .claim_next_job_lease(JobLeaseClaimRequest {
@@ -77,11 +162,19 @@ impl DurableJobRuntime {
                 message: format!("job {job_id} is not queued and claimable"),
             })?;
         let guard = leased.lease.guard();
-        let heartbeat = self.start_heartbeat(operation, guard);
+        let cancellation = DurableJobCancellation::new();
+        cancellation.observe_lease(&leased.lease);
+        let heartbeat = self.start_heartbeat(operation, guard, cancellation.clone());
+        let context = DurableJobContext { cancellation };
 
-        let output = match run().await {
+        let output = match run(context).await {
             Ok(output) => output,
-            Err(err) => {
+            Err(DurableJobOperationError::Cancelled) => {
+                heartbeat.stop().await;
+                let job = self.cancel_job(guard, operation).await?;
+                return Ok(DurableJobRunOutcome::Cancelled(job));
+            }
+            Err(DurableJobOperationError::Failed(err)) => {
                 heartbeat.stop().await;
                 self.fail_job(guard, operation, &err).await;
                 return Err(err);
@@ -105,7 +198,10 @@ impl DurableJobRuntime {
                 summary_json,
             })
             .await?;
-        Ok(DurableJobRun { job, output })
+        Ok(DurableJobRunOutcome::Completed(DurableJobRun {
+            job,
+            output,
+        }))
     }
 
     async fn fail_job(&self, guard: JobLeaseGuard, operation: &'static str, err: &TaruError) {
@@ -126,6 +222,22 @@ impl DurableJobRuntime {
         }
     }
 
+    async fn cancel_job(&self, guard: JobLeaseGuard, operation: &'static str) -> Result<Job> {
+        let job = self
+            .store
+            .cancel_leased_job(CancelLeasedJob {
+                guard,
+                summary_json: None,
+            })
+            .await?;
+        debug!(
+            job_id = %guard.job_id,
+            operation,
+            "durable job cancellation acknowledged"
+        );
+        Ok(job)
+    }
+
     pub(super) fn serialize_summary<T>(summary: &T, description: &str) -> Result<Option<String>>
     where
         T: Serialize,
@@ -141,6 +253,7 @@ impl DurableJobRuntime {
         &self,
         operation: &'static str,
         guard: JobLeaseGuard,
+        cancellation: DurableJobCancellation,
     ) -> DurableJobHeartbeat {
         let (stop_tx, mut stop_rx) = oneshot::channel();
         let store = self.store.clone();
@@ -157,7 +270,8 @@ impl DurableJobRuntime {
                             guard,
                             lease_duration_ms,
                         }).await {
-                            Ok(_) => {
+                            Ok(leased) => {
+                                cancellation.observe_lease(&leased.lease);
                                 debug!(
                                     job_id = %guard.job_id,
                                     operation,
@@ -186,6 +300,57 @@ impl DurableJobRuntime {
     }
 }
 
+#[derive(Clone, Debug)]
+struct DurableJobCancellation {
+    token: CancellationToken,
+    state: Arc<Mutex<DurableJobCancellationState>>,
+}
+
+#[derive(Debug, Default)]
+struct DurableJobCancellationState {
+    requested_at: Option<String>,
+}
+
+impl DurableJobCancellation {
+    fn new() -> Self {
+        Self {
+            token: CancellationToken::new(),
+            state: Arc::new(Mutex::new(DurableJobCancellationState::default())),
+        }
+    }
+
+    fn observe_lease(&self, lease: &taru_core::JobLeaseRecord) {
+        if let Some(requested_at) = lease.cancel_requested_at.as_ref() {
+            {
+                let mut state = self
+                    .state
+                    .lock()
+                    .expect("durable job cancellation state poisoned");
+                if state.requested_at.is_none() {
+                    state.requested_at = Some(requested_at.clone());
+                }
+            }
+            self.token.cancel();
+        }
+    }
+
+    fn is_requested(&self) -> bool {
+        self.token.is_cancelled()
+    }
+
+    async fn cancelled(&self) {
+        self.token.cancelled().await;
+    }
+
+    fn requested_at(&self) -> Option<String> {
+        self.state
+            .lock()
+            .expect("durable job cancellation state poisoned")
+            .requested_at
+            .clone()
+    }
+}
+
 fn default_worker_id() -> JobWorkerId {
     static WORKER_ID: OnceLock<JobWorkerId> = OnceLock::new();
     *WORKER_ID.get_or_init(JobWorkerId::new)
@@ -210,6 +375,7 @@ mod tests {
     use super::*;
     use taru_core::{JobKind, JobLeaseClaimFilter, JobStatus, NewJob, TransactionManager};
     use taru_db::SqliteStore;
+    use tokio::sync::Notify;
 
     async fn migrated_store() -> SqliteStore {
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -325,6 +491,80 @@ mod tests {
             Some("invalid input: planned failure")
         );
         assert!(loaded.completed_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn durable_job_runtime_acknowledges_observed_cancellation() {
+        let store = migrated_store().await;
+        let runtime = DurableJobRuntime::with_lease_timing(store.clone(), 1_000, 5);
+        let job = store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataMaintenance,
+                resource_class: "metadata.maintenance".to_owned(),
+                library_id: None,
+                source_id: None,
+                input_json: None,
+            })
+            .await
+            .unwrap();
+        let entered = Arc::new(Notify::new());
+        let entered_task = entered.clone();
+        let observed_at: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let observed_at_task = observed_at.clone();
+
+        let handle = tokio::spawn(async move {
+            runtime
+                .run_job_with_context(
+                    job.id,
+                    "test cancellation",
+                    move |context| async move {
+                        entered_task.notify_one();
+                        context.cancelled().await;
+                        *observed_at_task
+                            .lock()
+                            .expect("test cancellation observation poisoned") =
+                            context.cancel_requested_at();
+                        context.check_cancelled()?;
+                        Ok(1_u32)
+                    },
+                    |value| DurableJobRuntime::serialize_summary(value, "test summary"),
+                )
+                .await
+        });
+
+        entered.notified().await;
+        let requested = store
+            .request_job_cancellation(taru_core::RequestJobCancellation {
+                job_id: job.id,
+                reason: Some("operator request".to_owned()),
+            })
+            .await
+            .unwrap();
+        assert!(requested.requested);
+        assert!(!requested.terminal);
+
+        let outcome = tokio::time::timeout(std::time::Duration::from_secs(2), handle)
+            .await
+            .expect("runtime should observe cancellation")
+            .unwrap()
+            .unwrap();
+        let DurableJobRunOutcome::Cancelled(cancelled) = outcome else {
+            panic!("runtime should return a cancelled outcome");
+        };
+        let loaded = store.get_job(job.id).await.unwrap().unwrap();
+
+        assert_eq!(cancelled.status, JobStatus::Cancelled);
+        assert_eq!(loaded.status, JobStatus::Cancelled);
+        assert_eq!(loaded.summary_json, None);
+        assert_eq!(loaded.error, None);
+        assert!(loaded.completed_at.is_some());
+        assert!(
+            observed_at
+                .lock()
+                .expect("test cancellation observation poisoned")
+                .is_some()
+        );
     }
 
     #[tokio::test]

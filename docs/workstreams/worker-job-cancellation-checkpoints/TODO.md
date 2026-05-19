@@ -16,7 +16,7 @@ Last updated: 2026-05-19
 
 ## M1 - Runtime Cancellation Context
 
-- [ ] WJCC-020 [owner=codex] [deps=WJCC-010] [scope=crates/taru-server/src/app/job_runtime.rs]
+- [x] WJCC-020 [owner=codex] [deps=WJCC-010] [scope=crates/taru-server/src/app/job_runtime.rs]
   Goal: Add a per-run cancellation context/checkpoint API and make
   `DurableJobRuntime` acknowledge observed cancellation through
   `cancel_leased_job` instead of `fail_leased_job`.
@@ -25,8 +25,12 @@ Last updated: 2026-05-19
   and failure paths must keep existing behavior.
   Evidence: Runtime tests covering heartbeat-observed cancellation and terminal
   `JobStatus::Cancelled`.
+  Result: DONE. Added `DurableJobContext`, cooperative checkpoint helpers,
+  `run_job_with_context`, heartbeat publication of observed cancel intent, and
+  fenced runtime acknowledgement through `cancel_leased_job`.
   Handoff: `WJCC-030` owns the first real worker integration after the runtime
-  contract is stable.
+  contract is stable. Existing `run_job` callers keep success/failure behavior
+  until they migrate to context-aware checkpoints.
 
 ## M2 - First Real Worker Checkpoints
 

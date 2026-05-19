@@ -89,6 +89,13 @@ in `HANDOFF.md`.
   `durable-job-ownership-leases` closed. Fresh gates to run before commit:
   `Get-Content docs\workstreams\worker-job-cancellation-checkpoints\WORKSTREAM.json | ConvertFrom-Json`;
   `git diff --check`.
+- `WJCC-020`: Added runtime cancellation context support and a runtime test that
+  requests cancellation while a job is running, waits for heartbeat-observed
+  cancel intent, checks the context, and verifies terminal
+  `JobStatus::Cancelled` without summary or error leakage. Gates run:
+  `cargo nextest run -p taru-server job_runtime --no-fail-fast`;
+  `cargo check -p taru-server --tests`; `cargo fmt --all -- --check`;
+  `git diff --check`; WORKSTREAM JSON parse.
 
 ## Notes
 
