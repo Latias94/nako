@@ -69,7 +69,12 @@ Last updated: 2026-05-19
   preserving existing `taru-core` repository traits and public crate exports.
   Validation: focused `taru-db` artwork tests and repository compile checks.
   Evidence: SQL constants and row mappers move beside the concern they support.
-  Handoff: Decide whether Admin DTO module split is still worthwhile.
+  Progress: Gallery and lifecycle read-model SQL/constants/row mapping have
+  moved to `crates/taru-db/src/artwork/gallery.rs` and
+  `crates/taru-db/src/artwork/lifecycle.rs`. Trait impls still route through
+  the same repository methods. Remaining work: split selected-artwork
+  publication/unpublication and core ingest/artifact transaction helpers.
+  Handoff: Continue DB adapter split with selection or ingest helper modules.
 
 ## M5 - API Surface Audit
 

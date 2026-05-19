@@ -62,6 +62,20 @@ Continue with `MAMD-050`: split `crates/taru-db/src/artwork.rs` into
 concern-local SQLite adapter modules while preserving existing `taru-core`
 repository traits and public crate exports.
 
+Progress so far:
+
+- `artwork/gallery.rs` owns Admin gallery SQL/query/row mapping.
+- `artwork/lifecycle.rs` owns artifact lifecycle SQL/query/summary/row mapping.
+- `artwork.rs` still owns repository trait impls and the remaining candidate,
+  ingest/artifact, selected-artwork, and cleanup transaction helpers.
+
+Recommended next split:
+
+- selected-artwork publication/unpublication helpers, because they are a
+  coherent transaction Module and less broad than the ingest claim/commit
+  state machine;
+- then core ingest/artifact transaction helpers.
+
 ## Non-Goals To Preserve
 
 - Do not add provider search.

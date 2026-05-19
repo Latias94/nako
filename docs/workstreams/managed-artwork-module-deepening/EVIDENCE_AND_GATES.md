@@ -170,3 +170,19 @@ route/query documentation, or tests proving forbidden values are absent.
   - `cargo nextest run -j 2 -p taru-server admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_invalid_image --no-fail-fast`:
     passed; 1 test passed.
   - `git diff --check`: passed with Git line-ending notices only.
+
+2026-05-19, MAMD-050 partial:
+
+- Split the first SQLite Managed Artwork adapter concerns:
+  - `crates/taru-db/src/artwork/gallery.rs` now owns Admin gallery SQL, query
+    helpers, and row mapping;
+  - `crates/taru-db/src/artwork/lifecycle.rs` now owns artifact lifecycle SQL,
+    lifecycle summary aggregation, and lifecycle row helpers;
+  - `crates/taru-db/src/artwork.rs` keeps the repository trait implementation
+    and routes through those modules.
+- Fresh validation:
+  - `cargo fmt --all -- --check`: passed.
+  - `cargo check -j 2 -p taru-db --tests`: passed.
+  - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
+    tests passed.
+  - `git diff --check`: passed with Git line-ending notices only.
