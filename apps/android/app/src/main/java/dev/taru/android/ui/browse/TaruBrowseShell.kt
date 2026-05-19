@@ -47,6 +47,7 @@ import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import dev.taru.android.userplayback.UserPlaybackResult
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -63,6 +64,7 @@ fun TaruBrowseShell(
     playbackPreferencesStore: PlaybackPreferencesStore,
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
+    playerExitEffectScope: CoroutineScope,
     onChangeServer: () -> Unit,
     modifier: Modifier = Modifier,
     snapshot: ServerProfileSnapshot = ServerProfileSnapshot(
@@ -405,6 +407,7 @@ fun TaruBrowseShell(
                     playbackClient = playbackClient,
                     userPlaybackClient = userPlaybackClient,
                     positionStore = positionStore,
+                    exitEffectScope = playerExitEffectScope,
                     onBack = { navigationState = navigationState.navigateBack() },
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(

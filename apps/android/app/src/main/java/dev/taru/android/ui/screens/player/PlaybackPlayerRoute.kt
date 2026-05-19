@@ -78,9 +78,6 @@ import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 @Composable
 @OptIn(UnstableApi::class)
@@ -91,6 +88,7 @@ internal fun PlaybackPlayerRoute(
     playbackClient: TaruPlaybackClient,
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
+    exitEffectScope: CoroutineScope,
     onBack: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -133,6 +131,7 @@ internal fun PlaybackPlayerRoute(
             profile = profile,
             tokenVault = tokenVault,
             exitCoordinator = exitCoordinator,
+            exitEffectScope = exitEffectScope,
         )
     }
     val handleBack = {
@@ -274,13 +273,14 @@ private fun persistPositionAndCancelSession(
     profile: ServerProfile,
     tokenVault: TokenVault,
     exitCoordinator: PlaybackExitCoordinator,
+    exitEffectScope: CoroutineScope,
 ) {
     val snapshot = PlaybackExitSnapshot(
         isEnded = player.playbackState == Player.STATE_ENDED,
         positionMs = player.currentPosition,
         durationMs = player.duration,
     )
-    CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+    launchPlayerExitEffect(exitEffectScope) {
         exitCoordinator.applyExitEffects(
             launch = launch,
             snapshot = snapshot,

@@ -1,0 +1,20 @@
+{
+  "slug": "android-player-effect-scope-cleanup",
+  "title": "Android Player Effect Scope Cleanup",
+  "status": "closed",
+  "current_milestone": "M2",
+  "current_task": null,
+  "last_updated": "2026-05-19",
+  "goal": "Move Android player exit coroutine ownership out of PlaybackPlayerRoute into an app-owned effect scope.",
+  "task_prefix": "APESC",
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null
+  },
+  "paths": [
+    "docs/workstreams/android-player-effect-scope-cleanup",
+    "apps/android/app/src/main/java/dev/taru/android/ui",
+    "apps/android/app/src/main/java/dev/taru/android/ui/screens/player",
+    "apps/android/app/src/test/java/dev/taru/android/ui/screens/player"
+  ]
+}

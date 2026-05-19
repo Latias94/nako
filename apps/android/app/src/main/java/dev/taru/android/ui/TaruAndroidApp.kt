@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +25,7 @@ import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
 import dev.taru.android.userplayback.TaruUserPlaybackClient
+import kotlinx.coroutines.CoroutineScope
 
 @Composable
 fun TaruAndroidApp(
@@ -39,6 +41,7 @@ fun TaruAndroidApp(
     val playbackPreferencesStore = remember { SharedPreferencesPlaybackPreferencesStore(context) }
     val userPlaybackClient = remember { TaruUserPlaybackClient(transport) }
     val positionStore = remember { SharedPreferencesDevicePlaybackPositionStore(context) }
+    val playerExitEffectScope = rememberCoroutineScope()
 
     TaruAndroidAppContent(
         modifier = modifier,
@@ -50,6 +53,7 @@ fun TaruAndroidApp(
         playbackPreferencesStore = playbackPreferencesStore,
         userPlaybackClient = userPlaybackClient,
         positionStore = positionStore,
+        playerExitEffectScope = playerExitEffectScope,
     )
 }
 
@@ -63,6 +67,7 @@ fun TaruAndroidAppContent(
     playbackPreferencesStore: PlaybackPreferencesStore,
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
+    playerExitEffectScope: CoroutineScope,
     modifier: Modifier = Modifier,
 ) {
     var snapshot by remember { mutableStateOf(store.load()) }
@@ -96,6 +101,7 @@ fun TaruAndroidAppContent(
             playbackPreferencesStore = playbackPreferencesStore,
             userPlaybackClient = userPlaybackClient,
             positionStore = positionStore,
+            playerExitEffectScope = playerExitEffectScope,
             onSnapshotChanged = { next ->
                 store.save(next)
                 snapshot = next

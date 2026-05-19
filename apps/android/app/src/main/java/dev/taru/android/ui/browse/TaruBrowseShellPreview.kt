@@ -1,6 +1,7 @@
 package dev.taru.android.ui.browse
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.tooling.preview.Preview
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.InMemoryTokenVault
@@ -21,6 +22,7 @@ private fun TaruBrowseShellPreview() {
     val tokenVault = InMemoryTokenVault().apply {
         saveToken("server-token:server-1", "preview-token")
     }
+    val playerExitEffectScope = rememberCoroutineScope()
     TaruAndroidTheme(darkTheme = true) {
         TaruBrowseShell(
             profile = ServerProfile(
@@ -161,6 +163,7 @@ private fun TaruBrowseShellPreview() {
             ),
             playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
             positionStore = InMemoryDevicePlaybackPositionStore(),
+            playerExitEffectScope = playerExitEffectScope,
             onChangeServer = {},
         )
     }
