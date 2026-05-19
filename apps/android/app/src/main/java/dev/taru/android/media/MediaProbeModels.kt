@@ -4,6 +4,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class SourceProbeResponse(
+    @SerialName("source_id")
+    val sourceId: String,
+    val probe: MediaProbeDto,
+)
+
+@Serializable
 data class MediaProbeDto(
     @SerialName("duration_ms")
     val durationMs: Long? = null,

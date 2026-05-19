@@ -59,6 +59,7 @@ import dev.taru.android.ui.browse.PlaybackSelectionUiState
 import dev.taru.android.ui.browse.RelationshipCard
 import dev.taru.android.ui.browse.RelationshipRow
 import dev.taru.android.ui.browse.SectionHeader
+import dev.taru.android.ui.browse.SourceProbeUiState
 import dev.taru.android.ui.browse.StatusChip
 import dev.taru.android.ui.browse.SurfaceCard
 import dev.taru.android.ui.browse.TaruScrollColumn
@@ -74,6 +75,7 @@ import dev.taru.android.ui.theme.TaruTextSecondary
 @Composable
 internal fun DetailRouteContent(
     state: ItemDetailUiState,
+    sourceProbeState: SourceProbeUiState,
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     deviceResumePositionMs: Long?,
@@ -84,6 +86,8 @@ internal fun DetailRouteContent(
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onSelectSource: (String) -> Unit,
+    onRetrySourceProbe: () -> Unit,
     onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
@@ -103,12 +107,15 @@ internal fun DetailRouteContent(
             )
             is ItemDetailUiState.Content -> MediaItemDetailScreen(
                 response = state.response,
+                sourceProbeState = sourceProbeState,
                 playbackState = playbackState,
                 selectedSourceId = selectedSourceId,
                 deviceResumePositionMs = deviceResumePositionMs,
                 profile = profile,
                 accessToken = accessToken,
                 onOpenFacet = onOpenFacet,
+                onSelectSource = onSelectSource,
+                onRetrySourceProbe = onRetrySourceProbe,
                 onRequestPlayback = onRequestPlayback,
                 onRetryPlayback = onRetryPlayback,
                 onChangeServer = onChangeServer,
@@ -131,12 +138,15 @@ private fun DetailBackButton(onBack: () -> Unit) {
 @Composable
 private fun MediaItemDetailScreen(
     response: ItemDetailResponse,
+    sourceProbeState: SourceProbeUiState,
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     deviceResumePositionMs: Long?,
     profile: ServerProfile,
     accessToken: String,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onSelectSource: (String) -> Unit,
+    onRetrySourceProbe: () -> Unit,
     onRequestPlayback: (String) -> Unit,
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
@@ -159,12 +169,15 @@ private fun MediaItemDetailScreen(
 
     SourcePickerSurface(
         sources = response.sources,
+        sourceProbeState = sourceProbeState,
         playbackState = playbackState,
         selectedSourceId = selectedSource?.id,
         deviceResumePositionMs = deviceResumePositionMs,
-        onSelectSource = onRequestPlayback,
+        onSelectSource = onSelectSource,
+        onRetrySourceProbe = onRetrySourceProbe,
         onRetryPlayback = onRetryPlayback,
         onChangeServer = onChangeServer,
+        onRequestPlayback = onRequestPlayback,
         onStartPlayback = onStartPlayback,
     )
 

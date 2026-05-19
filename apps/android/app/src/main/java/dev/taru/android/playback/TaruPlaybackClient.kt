@@ -8,6 +8,7 @@ import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.connection.TaruPublicApiContract
+import dev.taru.android.media.SourceProbeResponse
 import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -20,6 +21,25 @@ class TaruPlaybackClient(
     private val transport: TaruHttpTransport,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+    suspend fun getSourceProbe(
+        profile: ServerProfile,
+        accessToken: String,
+        sourceId: String,
+    ): PlaybackResult<SourceProbeResponse> {
+        if (sourceId.isBlank()) {
+            return failure(
+                category = PlaybackFailureCategory.MissingSource,
+                userMessage = "Choose a Media Source before requesting source facts.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/probe",
+        )
+    }
+
     suspend fun getPlaybackDecision(
         profile: ServerProfile,
         accessToken: String,

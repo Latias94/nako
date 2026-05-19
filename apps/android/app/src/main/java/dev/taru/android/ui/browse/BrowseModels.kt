@@ -17,6 +17,7 @@ import dev.taru.android.browse.SearchResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.SafePlaybackDiagnostics
+import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.player.PlaybackLaunchRequest
 
 internal enum class TaruDestination(
@@ -161,6 +162,19 @@ internal sealed interface PlaybackSelectionUiState {
     data class Failure(
         val diagnostics: SafePlaybackDiagnostics,
     ) : PlaybackSelectionUiState
+}
+
+internal sealed interface SourceProbeUiState {
+    data object Idle : SourceProbeUiState
+    data object Loading : SourceProbeUiState
+
+    data class Content(
+        val response: SourceProbeResponse,
+    ) : SourceProbeUiState
+
+    data class Failure(
+        val diagnostics: SafePlaybackDiagnostics,
+    ) : SourceProbeUiState
 }
 
 internal sealed interface SearchUiState {

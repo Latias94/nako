@@ -15,6 +15,72 @@ import org.junit.Test
 
 class TaruPlaybackClientTest {
     @Test
+    fun `source probe uses public route and decodes safe media facts`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "source_id": "source 1",
+                      "probe": {
+                        "duration_ms": 7200000,
+                        "container": "matroska",
+                        "bit_rate": 12000000,
+                        "streams": [
+                          {
+                            "index": 0,
+                            "kind": "video",
+                            "codec": "h265",
+                            "language": null,
+                            "duration_ms": 7200000,
+                            "bit_rate": 11000000,
+                            "width": 3840,
+                            "height": 2160,
+                            "channels": null,
+                            "sample_rate": null
+                          },
+                          {
+                            "index": 1,
+                            "kind": "audio",
+                            "codec": "aac",
+                            "language": "eng",
+                            "duration_ms": 7200000,
+                            "bit_rate": 384000,
+                            "width": null,
+                            "height": null,
+                            "channels": 6,
+                            "sample_rate": 48000
+                          }
+                        ]
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.getSourceProbe(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            sourceId = "source 1",
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals(
+            "http://home.example.test/api/sources/source%201/probe",
+            transport.requests.single().url,
+        )
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("source 1", success.value.sourceId)
+        assertEquals("matroska", success.value.probe.container)
+        assertEquals(3840, success.value.probe.streams.first().width)
+        assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `playback decision encodes capability query decodes response and redacts safe request`() = runBlocking {
         val transport = FakePlaybackTransport(
             ResponseStep(
@@ -424,20 +490,30 @@ class TaruPlaybackClientTest {
     }
 
     @Test
-    fun `blank source decision fails locally without transport`() = runBlocking {
+    fun `blank source routes fail locally without transport`() = runBlocking {
         val transport = FakePlaybackTransport()
         val client = TaruPlaybackClient(transport)
 
-        val result = client.getPlaybackDecision(
+        val probe = client.getSourceProbe(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            sourceId = " ",
+        )
+        val decision = client.getPlaybackDecision(
             profile = profile("http://home.example.test"),
             accessToken = "secret-token",
             sourceId = " ",
         )
 
-        assertTrue(result is PlaybackResult.Failure)
+        assertTrue(probe is PlaybackResult.Failure)
         assertEquals(
             PlaybackFailureCategory.MissingSource,
-            (result as PlaybackResult.Failure).diagnostics.category,
+            (probe as PlaybackResult.Failure).diagnostics.category,
+        )
+        assertTrue(decision is PlaybackResult.Failure)
+        assertEquals(
+            PlaybackFailureCategory.MissingSource,
+            (decision as PlaybackResult.Failure).diagnostics.category,
         )
         assertTrue(transport.requests.isEmpty())
     }

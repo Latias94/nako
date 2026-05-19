@@ -1,6 +1,9 @@
 package dev.taru.android.ui.screens.sourcepicker
 
 import dev.taru.android.browse.MediaSourceDto
+import dev.taru.android.media.ClientMediaStreamKind
+import dev.taru.android.media.MediaProbeDto
+import dev.taru.android.media.MediaStreamDto
 import dev.taru.android.playback.ClientHardwareAcceleration
 import dev.taru.android.playback.ClientOutputContainer
 import dev.taru.android.playback.ClientPlaybackDecision
@@ -38,6 +41,41 @@ class SourcePickerDisplayModelTest {
         assertTrue(visibleText.contains("Media Library library-a"))
         assertFalse(visibleText.contains("file://"))
         assertFalse(visibleText.contains("/srv/private"))
+    }
+
+    @Test
+    fun probeFactLabelsSummarizeTechnicalFacts() {
+        val labels = probeFactLabels(
+            MediaProbeDto(
+                durationMs = 7_200_000,
+                container = "matroska",
+                bitRate = 12_000_000,
+                streams = listOf(
+                    MediaStreamDto(
+                        index = 0,
+                        kind = ClientMediaStreamKind.Video,
+                        codec = "h265",
+                        width = 3840,
+                        height = 2160,
+                    ),
+                    MediaStreamDto(
+                        index = 1,
+                        kind = ClientMediaStreamKind.Audio,
+                        codec = "aac",
+                    ),
+                    MediaStreamDto(
+                        index = 2,
+                        kind = ClientMediaStreamKind.Subtitle,
+                        codec = "subrip",
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf("MATROSKA", "2h 0m", "12 Mbps", "3840x2160 / h265", "1 audio", "1 subtitle"),
+            labels,
+        )
     }
 
     @Test

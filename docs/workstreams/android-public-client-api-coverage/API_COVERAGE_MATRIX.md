@@ -33,7 +33,7 @@ Legend:
 | `GET /genres?limit=&offset=` | gap | none | Defer until Browse Genres index exists. |
 | `GET /genres/{genre_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listGenreItems` | Keep as current genre facet result path. |
 | `GET /search?q=&facet=&limit=&offset=` | covered | `TaruBrowseClient.searchItems` | Keep; broaden only when advanced filters become product scope. |
-| `GET /sources/{source_id}/probe` | partial | playback decision response includes optional probe | Add only if Source Picker needs a refreshable probe detail panel. |
+| `GET /sources/{source_id}/probe` | covered | `TaruPlaybackClient.getSourceProbe`; `SourcePickerSurface` source facts | Keep as the Source Picker source-facts route, separate from playback decision. |
 | `GET /sources/{source_id}/playback/decision` | covered | `TaruPlaybackClient.getPlaybackDecision` | Keep as playback launch gate. |
 | `GET /sources/{source_id}/stream` | covered | `TaruPlaybackClient.directPlaybackTarget`; Media3 route | Keep as direct play target. |
 | `HEAD /sources/{source_id}/stream` | covered | `TaruPlaybackClient.headDirectPlaybackTarget` | Keep as request builder; productize preflight only if needed. |
@@ -64,11 +64,9 @@ client DTOs, but it must not become a server administration surface.
 
 ## Priority Order
 
-1. Source probe detail if Source Picker needs explicit technical media facts
-   outside playback decision.
-2. People/genre/tag index and person detail pages if browsing beyond metadata
+1. People/genre/tag index and person detail pages if browsing beyond metadata
    chips becomes a product goal.
-3. Server contract follow-on for User Playback State before claiming
+2. Server contract follow-on for User Playback State before claiming
    cross-device Continue Watching.
 
 ## Non-Negotiable Client Rules

@@ -35,10 +35,12 @@ import dev.taru.android.media.MediaProbeDto
 import dev.taru.android.playback.ClientPlaybackDecision
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.ClientOutputContainer
+import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PlaybackSelectionUiState
+import dev.taru.android.ui.browse.SourceProbeUiState
 import dev.taru.android.ui.browse.StatusChip
 import dev.taru.android.ui.browse.SurfaceCard
 import dev.taru.android.ui.browse.byteSizeLabel
@@ -66,12 +68,15 @@ internal data class PlaybackModePresentation(
 @Composable
 internal fun SourcePickerSurface(
     sources: List<MediaSourceDto>,
+    sourceProbeState: SourceProbeUiState,
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     deviceResumePositionMs: Long?,
     onSelectSource: (String) -> Unit,
+    onRetrySourceProbe: () -> Unit,
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
+    onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
     val selectedSource = selectedSource(sources, selectedSourceId)
@@ -101,13 +106,20 @@ internal fun SourcePickerSurface(
             return@SurfaceCard
         }
 
+        SourceProbePanel(
+            selectedSource = selectedSource,
+            state = sourceProbeState,
+            onRetry = onRetrySourceProbe,
+            onChangeServer = onChangeServer,
+        )
+
         SelectedSourceDecisionPanel(
             selectedSource = selectedSource,
             playbackState = playbackState,
             selectedDecision = selectedDecision,
             deviceResumePositionMs = deviceResumePositionMs,
             onRequestDecision = {
-                selectedSource?.id?.let(onSelectSource)
+                selectedSource?.id?.let(onRequestPlayback)
             },
             onRetryPlayback = onRetryPlayback,
             onChangeServer = onChangeServer,
@@ -127,6 +139,61 @@ internal fun SourcePickerSurface(
                     enabled = playbackState !is PlaybackSelectionUiState.Loading,
                     onSelect = { onSelectSource(model.sourceId) },
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SourceProbePanel(
+    selectedSource: MediaSourceDto?,
+    state: SourceProbeUiState,
+    onRetry: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
+    if (selectedSource == null || state == SourceProbeUiState.Idle) return
+
+    when (state) {
+        SourceProbeUiState.Idle -> Unit
+        SourceProbeUiState.Loading -> FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+        ) {
+            StatusChip(text = "Loading source facts")
+        }
+        is SourceProbeUiState.Content -> {
+            val facts = if (state.response.sourceId == selectedSource.id) {
+                probeFactLabels(state.response.probe)
+            } else {
+                emptyList()
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            ) {
+                StatusChip(text = "Source facts")
+                facts.ifEmpty { listOf("No probe facts") }.forEach { fact ->
+                    StatusChip(text = fact)
+                }
+            }
+        }
+        is SourceProbeUiState.Failure -> Row(
+            horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Source facts unavailable",
+                color = TaruTextMuted,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            OutlinedButton(onClick = onRetry) {
+                Text("Retry")
+            }
+            if (state.diagnostics.category in serverChangeCategories) {
+                OutlinedButton(onClick = onChangeServer) {
+                    Text("Change server")
+                }
             }
         }
     }
@@ -510,7 +577,7 @@ private fun SourcePickerRow(
     }
 }
 
-private fun probeFactLabels(probe: MediaProbeDto?): List<String> =
+internal fun probeFactLabels(probe: MediaProbeDto?): List<String> =
     buildList {
         if (probe == null) return@buildList
         probe.container?.takeIf { it.isNotBlank() }?.let { add(it.uppercase()) }
@@ -547,3 +614,10 @@ private fun bitRateLabel(bitRate: Long): String =
     } else {
         "${bitRate / 1_000L} Kbps"
     }
+
+private val serverChangeCategories = setOf(
+    PlaybackFailureCategory.MissingAccessToken,
+    PlaybackFailureCategory.Unauthorized,
+    PlaybackFailureCategory.Forbidden,
+    PlaybackFailureCategory.UnsupportedApiVersion,
+)

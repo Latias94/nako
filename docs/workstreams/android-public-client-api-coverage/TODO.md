@@ -36,12 +36,12 @@ Last updated: 2026-05-19
   Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/LibraryDetailScreen.kt`
   Handoff: Completed in this session. Library Detail is a first-class structural route with safe source inventory; it does not pretend to be a full media poster grid and does not display roots or source locators.
 
-- [ ] APIC-050 [owner=unassigned] [deps=APIC-040] [scope=docs, apps/android/app/src/main/java/dev/taru/android/playback]
+- [x] APIC-050 [owner=codex] [deps=APIC-040] [scope=docs, apps/android/app/src/main/java/dev/taru/android/playback]
   Goal: Decide whether direct `GET /sources/{source_id}/probe` is needed for Source Picker, or whether playback decision probe data is enough.
   Validation: design note or focused Android tests if implemented.
   Review: do not duplicate playback decision semantics in a second source detail flow.
-  Evidence: `API_COVERAGE_MATRIX.md`, playback/source picker tests if implemented.
-  Handoff: Split deeper track/subtitle/chapter selection into its own lane.
+  Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/taru/android/playback/TaruPlaybackClientTest.kt`, `apps/android/app/src/test/java/dev/taru/android/ui/screens/sourcepicker/SourcePickerDisplayModelTest.kt`
+  Handoff: Completed in this session. Source Picker now loads direct source probe facts independently from playback decision; deeper track/subtitle/chapter selection remains out of scope.
 
 ## M3 - Playback State Contract Split
 

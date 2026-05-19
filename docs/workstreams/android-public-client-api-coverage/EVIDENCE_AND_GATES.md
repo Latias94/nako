@@ -167,6 +167,53 @@ Notes:
   pagination, and safe string redaction. A follow-on smoke step can explicitly
   click a library tile if the regression harness grows a Library Detail state.
 
+## APIC-050 Evidence
+
+Date: 2026-05-19
+
+Decision:
+
+- Direct `GET /sources/{source_id}/probe` is needed because Source Picker has
+  a real pre-playback job: show technical source facts before the user asks the
+  server to prepare a playback route.
+- Playback decision remains separate. `GET
+  /sources/{source_id}/playback/decision` still answers whether this client can
+  play the selected source and which stream route to launch.
+- Deeper track, subtitle, audio, and chapter selection is not part of APIC-050.
+  That needs a separate product lane if we want full Plex/Jellyfin-style source
+  inspection.
+
+Implementation:
+
+- Added `SourceProbeResponse` to the shared Android media DTO package.
+- Added `TaruPlaybackClient.getSourceProbe` for
+  `/sources/{source_id}/probe`, including blank-source local failure and safe
+  request previews.
+- Split Source Picker state so selecting a Media Source loads source facts,
+  while the Play/Check action still requests playback decision.
+- Rendered direct probe facts as compact Source Picker chips to avoid adding a
+  second heavy panel on the detail screen.
+
+Validation:
+
+```powershell
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media
+git diff --check
+```
+
+Result: PASS on 2026-05-19.
+
+Smoke report:
+
+- `apps/android/build/smoke-regression/20260519-141311/report.md`
+
+Diagnostic note:
+
+- A first smoke run failed because a heavy Source Facts card pushed Metadata
+  chips below the existing `detail-metadata` capture. The implementation was
+  tightened into compact chips and the same smoke path passed.
+
 ## Standard Gates
 
 Docs-only changes:
