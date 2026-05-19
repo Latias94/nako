@@ -265,7 +265,8 @@ async fn browse_routes_return_catalog_graph() {
     );
     assert_eq!(detail.credits.len(), 1);
     assert_eq!(credits.people[0].name, "Demo Actor");
-    assert_eq!(images.images[0].id, image.id.to_string());
+    assert!(detail.images.is_empty());
+    assert!(images.images.is_empty());
     assert_eq!(people.people[0].id, person.id.to_string());
     assert_eq!(person_items.items[0].id, item.id.to_string());
     assert_eq!(tags.tags[0].name, "favorite");

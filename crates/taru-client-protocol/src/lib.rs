@@ -97,6 +97,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/images/{image_id}",
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head],
+        kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
         path: "/people",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Catalog,
@@ -362,8 +368,9 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 24);
+        assert_eq!(paths.len(), 25);
         assert!(paths.contains(&"/health"));
+        assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
 
@@ -388,7 +395,7 @@ mod tests {
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
         assert_eq!(json_count, 20);
-        assert_eq!(streaming_count, 4);
+        assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
     }
 
@@ -458,7 +465,6 @@ mod tests {
                 genres: vec!["demo".to_owned()],
                 tags: Vec::new(),
                 ratings: Vec::new(),
-                images: Vec::new(),
                 credits: Vec::new(),
                 collections: Vec::new(),
                 studios: Vec::new(),

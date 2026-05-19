@@ -1,5 +1,6 @@
 use std::{
     fmt::Write as _,
+    io::ErrorKind,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -16,9 +17,10 @@ use taru_api::{
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
     ArtworkCandidateStatus, JobId, JobKind, LibraryItemRepository, ManagedArtworkArtifactId,
-    ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, MediaRepository, NewJob, NewManagedArtworkArtifact,
-    NewManagedArtworkIngest, Result, TaruError,
+    ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository, NewJob,
+    NewManagedArtworkArtifact, NewManagedArtworkIngest, Result, SelectedArtworkId,
+    StorageErrorKind, TaruError,
 };
 use taru_db::SqliteStore;
 use tokio::{fs, io::AsyncWriteExt, sync::Semaphore};
@@ -166,6 +168,56 @@ impl ManagedArtworkAppService {
         ))
     }
 
+    pub(crate) async fn read_selected_image(
+        &self,
+        selected_id: SelectedArtworkId,
+    ) -> Result<ManagedArtworkImageBytes> {
+        let selected = self
+            .store
+            .get_selected_artwork(selected_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "selected_artwork",
+                id: selected_id.to_string(),
+            })?;
+        let artifact = self
+            .store
+            .get_managed_artwork_artifact(selected.artifact_id)
+            .await?
+            .ok_or_else(|| TaruError::Database {
+                message: "selected artwork references missing managed artwork artifact".to_owned(),
+            })?;
+
+        if selected.library_id != artifact.library_id
+            || selected.item_id != artifact.item_id
+            || selected.kind != artifact.kind
+        {
+            return Err(TaruError::Database {
+                message: "selected artwork and managed artwork artifact are inconsistent"
+                    .to_owned(),
+            });
+        }
+
+        let media_type = artifact
+            .media_type
+            .clone()
+            .unwrap_or_else(|| "application/octet-stream".to_owned());
+        let etag = artifact.content_hash.clone();
+        let bytes = self.artifact_store.read(selected_id, &artifact).await?;
+        let content_length = u64::try_from(bytes.len()).map_err(|err| TaruError::Storage {
+            uri: "managed-artwork://artifact".to_owned(),
+            kind: StorageErrorKind::Unknown,
+            message: format!("managed artwork image length is too large: {err}"),
+        })?;
+
+        Ok(ManagedArtworkImageBytes {
+            bytes,
+            media_type,
+            content_length,
+            etag,
+        })
+    }
+
     async fn process_claim(
         &self,
         claim: ManagedArtworkIngestClaimRecord,
@@ -229,6 +281,14 @@ impl ManagedArtworkAppService {
             }
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ManagedArtworkImageBytes {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) media_type: String,
+    pub(crate) content_length: u64,
+    pub(crate) etag: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -518,6 +578,69 @@ impl LocalManagedArtworkArtifactStore {
             let _ = fs::remove_file(&stored.path).await;
         }
     }
+
+    async fn read(
+        &self,
+        selected_id: SelectedArtworkId,
+        artifact: &ManagedArtworkArtifactRecord,
+    ) -> Result<Vec<u8>> {
+        let expected_storage_uri = format!("managed-artwork://artifact/{}", artifact.id);
+        if artifact.storage_uri != expected_storage_uri {
+            return Err(TaruError::Storage {
+                uri: "managed-artwork://artifact".to_owned(),
+                kind: StorageErrorKind::SecurityViolation,
+                message: "managed artwork artifact storage reference is invalid".to_owned(),
+            });
+        }
+
+        let Some(media_type) = artifact.media_type.as_deref() else {
+            return Err(TaruError::Storage {
+                uri: "managed-artwork://artifact".to_owned(),
+                kind: StorageErrorKind::Unknown,
+                message: "managed artwork artifact media type is missing".to_owned(),
+            });
+        };
+        let extension =
+            image_extension_for_media_type(media_type).ok_or_else(|| TaruError::Storage {
+                uri: "managed-artwork://artifact".to_owned(),
+                kind: StorageErrorKind::Unknown,
+                message: "managed artwork artifact media type is unsupported".to_owned(),
+            })?;
+        let artifact_id_text = artifact.id.to_string();
+        let shard = artifact_id_text
+            .get(0..2)
+            .ok_or_else(|| TaruError::Storage {
+                uri: "managed-artwork://artifact".to_owned(),
+                kind: StorageErrorKind::Unknown,
+                message: "managed artwork artifact id is invalid".to_owned(),
+            })?;
+        let path = self
+            .root
+            .join(shard)
+            .join(format!("{artifact_id_text}.{extension}"));
+        if !path_has_prefix(&path, &self.root) {
+            return Err(TaruError::Storage {
+                uri: "managed-artwork://artifact".to_owned(),
+                kind: StorageErrorKind::SecurityViolation,
+                message: "managed artwork artifact path escaped artifact root".to_owned(),
+            });
+        }
+
+        fs::read(&path).await.map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                TaruError::NotFound {
+                    entity: "selected_artwork_image",
+                    id: selected_id.to_string(),
+                }
+            } else {
+                TaruError::Storage {
+                    uri: "managed-artwork://artifact".to_owned(),
+                    kind: StorageErrorKind::Io,
+                    message: "failed to read managed artwork artifact".to_owned(),
+                }
+            }
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -589,6 +712,10 @@ fn image_format_for_media_type(media_type: &str) -> Option<(image::ImageFormat, 
         "image/webp" => Some((image::ImageFormat::WebP, "webp")),
         _ => None,
     }
+}
+
+fn image_extension_for_media_type(media_type: &str) -> Option<&'static str> {
+    image_format_for_media_type(media_type).map(|(_, extension)| extension)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

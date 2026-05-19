@@ -455,6 +455,40 @@ impl TaruClient {
         )
     }
 
+    /// Build a selected artwork image byte request.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn image_request(
+        &self,
+        image_id: impl AsRef<str>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_streaming_request(
+            Method::GET,
+            &format!("/images/{}", encode_path_segment(image_id.as_ref())),
+            Option::<&NoQuery>::None,
+            None,
+        )
+    }
+
+    /// Build a selected artwork image header preflight request.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn head_image_request(
+        &self,
+        image_id: impl AsRef<str>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_streaming_request(
+            Method::HEAD,
+            &format!("/images/{}", encode_path_segment(image_id.as_ref())),
+            Option::<&NoQuery>::None,
+            None,
+        )
+    }
+
     /// Build a remux byte stream request for one source.
     ///
     /// # Errors
@@ -1129,6 +1163,8 @@ mod tests {
             .stream_source_request("source 1", Some("bytes=10-20"))
             .unwrap();
         let head = client.head_stream_source_request("source 1", None).unwrap();
+        let image = client.image_request("image 1").unwrap();
+        let image_head = client.head_image_request("image 1").unwrap();
         let remux = client
             .remux_stream_source_request(
                 "source 1",
@@ -1161,6 +1197,8 @@ mod tests {
 
         assert_eq!(direct.method, Method::GET);
         assert_eq!(head.method, Method::HEAD);
+        assert_eq!(image.method, Method::GET);
+        assert_eq!(image_head.method, Method::HEAD);
         assert_eq!(remux.method, Method::GET);
         assert_eq!(playlist.method, Method::GET);
         assert_eq!(segment.method, Method::GET);
@@ -1171,6 +1209,14 @@ mod tests {
         assert_eq!(
             head.url.as_str(),
             "http://localhost:3000/api/sources/source%201/stream"
+        );
+        assert_eq!(
+            image.url.as_str(),
+            "http://localhost:3000/api/images/image%201"
+        );
+        assert_eq!(
+            image_head.url.as_str(),
+            "http://localhost:3000/api/images/image%201"
         );
         assert_eq!(
             remux.url.as_str(),
@@ -1185,7 +1231,15 @@ mod tests {
             "http://localhost:3000/api/playback/sessions/session%201/hls/segments/seg%20001.ts"
         );
 
-        for request in [&direct, &head, &remux, &playlist, &segment] {
+        for request in [
+            &direct,
+            &head,
+            &image,
+            &image_head,
+            &remux,
+            &playlist,
+            &segment,
+        ] {
             assert_eq!(
                 request.headers.get(AUTHORIZATION).unwrap(),
                 HeaderValue::from_static("Bearer secret")
@@ -1242,6 +1296,7 @@ mod tests {
         }
 
         for expected in [
+            "/images/{image_id}",
             "/sources/{source_id}/stream",
             "/sources/{source_id}/stream/remux",
             "/sources/{source_id}/stream/hls/playlist.m3u8",

@@ -48,6 +48,8 @@ GET  /items?limit=50&offset=0
 GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
+GET  /images/{image_id}
+HEAD /images/{image_id}
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -384,6 +386,8 @@ GET  /items?limit=50&offset=0
 GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
+GET  /images/{image_id}
+HEAD /images/{image_id}
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -1197,22 +1201,28 @@ creates or updates a stable Selected Artwork public ID and returns a redacted
 Selected Artwork summary plus a first-party image reference. The response never
 includes `storage_uri`, `managed-artwork://...`, local artifact paths,
 candidate `source_uri`, raw provider URLs, `cache_uri`, Source Locators, addon
-token material, or provider query strings. The returned image URL is a planned
-Public Client URL and does not serve bytes until the public image-serving slice
-ships.
+token material, or provider query strings. The returned image URL is the
+Public Client image route for the selected artwork.
 
-The follow-on public-serving slice has frozen these planned Public Client
-byte-serving routes but has not implemented them yet:
+Public Clients can discover selected artwork through item detail and item image
+listing responses. Those responses use redacted first-party image references:
+the image `id` is `selected_artworks.id`, and `url` is a relative Taru route
+such as `/images/{image_id}`. `ImageAsset` remains an internal provenance
+record and is not serialized as the Public Client image authority.
+
+Public Clients can fetch selected artwork bytes with:
 
 ```text
 GET  /images/{image_id}
 HEAD /images/{image_id}
 ```
 
-In that contract, `image_id` is the Selected Artwork public ID
-(`selected_artworks.id`), not a Managed Artwork Artifact ID or storage locator.
-Public image references use a first-party relative URL such as
-`/images/{image_id}` plus safe presentation metadata. They never include
+`image_id` is the Selected Artwork public ID, not a Managed Artwork Artifact ID
+or storage locator. The server resolves `managed-artwork://...` only inside the
+application boundary, reads bytes from internal artifact storage, and returns
+image headers such as `Content-Type`, `Content-Length`, and a safe ETag when a
+content hash exists. `HEAD` returns the same presentation headers without a
+body. Public image references and byte-serving responses never include
 `source_uri`, `cache_uri`, `storage_uri`, `managed-artwork://...`, local paths,
 raw provider URLs, Source Locators, addon token material, or provider query
 strings. Thumbnail generation, durable retry/requeue, ingest cancellation, and

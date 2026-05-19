@@ -2,14 +2,14 @@ use taru_api::{
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
     ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
     SearchResponse, TagItemsResponse, TagsResponse, collection_item_to_dto, genre_to_dto,
-    image_asset_to_dto, item_credit_to_dto, item_genre_to_dto, item_studio_to_dto, item_tag_to_dto,
-    media_item_to_dto, media_probe_to_dto, media_source_to_dto, page_info_from_request,
-    person_to_dto, tag_to_dto,
+    item_credit_to_dto, item_genre_to_dto, item_studio_to_dto, item_tag_to_dto, media_item_to_dto,
+    media_probe_to_dto, media_source_to_dto, page_info_from_request, person_to_dto,
+    selected_artwork_to_public_image_ref, tag_to_dto,
 };
 use taru_core::{
     CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord, CatalogGovernanceRepository,
-    CatalogRepository, GenreId, MediaItemId, MediaProbeRepository, MediaRepository, MediaSourceId,
-    PageRequest, PersonId, Result, TagId, TaruError,
+    CatalogRepository, GenreId, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
+    MediaRepository, MediaSourceId, PageRequest, PersonId, Result, TagId, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_search::{SearchIndex, SearchQuery};
@@ -60,7 +60,7 @@ impl CatalogAppService {
         let tags = self.store.list_item_tags(item.id).await?;
         let collections = self.store.list_item_collections(item.id).await?;
         let studios = self.store.list_item_studios(item.id).await?;
-        let images = self.store.list_item_images(item.id).await?;
+        let images = self.list_selected_item_image_refs(item.id).await?;
 
         Ok(ItemDetailResponse {
             item: media_item_to_dto(item),
@@ -73,7 +73,7 @@ impl CatalogAppService {
                 .map(collection_item_to_dto)
                 .collect(),
             studios: studios.into_iter().map(item_studio_to_dto).collect(),
-            images: images.into_iter().map(image_asset_to_dto).collect(),
+            images,
         })
     }
 
@@ -110,12 +110,34 @@ impl CatalogAppService {
                 entity: "media_item",
                 id: item_id.to_string(),
             })?;
-        let images = self.store.list_item_images(item_id).await?;
+        let images = self.list_selected_item_image_refs(item_id).await?;
 
         Ok(ImagesResponse {
             item_id: item_id.to_string(),
-            images: images.into_iter().map(image_asset_to_dto).collect(),
+            images,
         })
+    }
+
+    async fn list_selected_item_image_refs(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<taru_api::PublicImageRefDto>> {
+        let selected = self.store.list_selected_artwork_for_item(item_id).await?;
+        let mut images = Vec::with_capacity(selected.len());
+
+        for selected in selected {
+            let artifact = self
+                .store
+                .get_managed_artwork_artifact(selected.artifact_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "managed_artwork_artifact",
+                    id: selected.artifact_id.to_string(),
+                })?;
+            images.push(selected_artwork_to_public_image_ref(selected, artifact));
+        }
+
+        Ok(images)
     }
 
     pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {

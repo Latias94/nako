@@ -115,6 +115,22 @@ Primary gates:
 - `cargo nextest run -p taru-api image --no-fail-fast`
 - `git diff --check`
 
+Result:
+
+- Public Client `ItemDetailResponse.images` and `ImagesResponse.images` now
+  use `PublicImageRefDto`.
+- `CanonicalMetadataDto.images`, public `ImageAssetDto`, and public
+  `ImageRefDto` were removed from the Public Client protocol and OpenAPI
+  contract.
+- `GET /images/{image_id}` and `HEAD /images/{image_id}` were added as
+  Catalog streaming routes in the protocol inventory, OpenAPI, Rust SDK request
+  builders, TypeScript SDK runtime, and HTTP router.
+- `CatalogAppService` reads `selected_artworks` and returns first-party image
+  references; old `ImageAsset` rows remain internal/provenance only.
+- `ManagedArtworkAppService` reads selected artifact bytes through internal
+  Managed Artwork Artifact storage without exposing `storage_uri`, local paths,
+  raw provider URLs, `source_uri`, or `cache_uri`.
+
 ## M4 - Closeout Or Split
 
 Outcome: the public serving/selection boundary is complete or remaining lifecycle

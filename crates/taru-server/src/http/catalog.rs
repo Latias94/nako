@@ -1,11 +1,13 @@
 use axum::{
     Json, Router,
+    body::Body,
     extract::{Path, Query, State},
+    http::{HeaderValue, header},
     response::IntoResponse,
     routing::get,
 };
 use taru_api::SourceProbeResponse;
-use taru_core::{GenreId, MediaItemId, MediaSourceId, PersonId, TagId};
+use taru_core::{GenreId, MediaItemId, MediaSourceId, PersonId, SelectedArtworkId, TagId};
 use tracing::instrument;
 
 use crate::app::TaruApp;
@@ -21,6 +23,7 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route("/items/{item_id}", get(get_item))
         .route("/items/{item_id}/credits", get(list_item_credits))
         .route("/items/{item_id}/images", get(list_item_images))
+        .route("/images/{image_id}", get(get_image).head(head_image))
         .route("/people", get(list_people))
         .route("/people/{person_id}", get(get_person))
         .route("/people/{person_id}/items", get(list_person_items))
@@ -62,6 +65,24 @@ pub(super) async fn list_item_images(
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.catalog().list_item_images(item_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn get_image(
+    State(app): State<TaruApp>,
+    Path(image_id): Path<SelectedArtworkId>,
+) -> ApiResult<impl IntoResponse> {
+    let image = app.artwork().read_selected_image(image_id).await?;
+    Ok(selected_image_response(image, true))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn head_image(
+    State(app): State<TaruApp>,
+    Path(image_id): Path<SelectedArtworkId>,
+) -> ApiResult<impl IntoResponse> {
+    let image = app.artwork().read_selected_image(image_id).await?;
+    Ok(selected_image_response(image, false))
 }
 
 #[instrument(skip(app))]
@@ -162,4 +183,33 @@ pub(super) async fn get_source_probe(
     Path(source_id): Path<MediaSourceId>,
 ) -> ApiResult<Json<SourceProbeResponse>> {
     Ok(Json(app.catalog().get_source_probe(source_id).await?))
+}
+
+fn selected_image_response(
+    image: crate::app::ManagedArtworkImageBytes,
+    include_body: bool,
+) -> axum::response::Response {
+    let mut response = if include_body {
+        Body::from(image.bytes).into_response()
+    } else {
+        Body::empty().into_response()
+    };
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&image.media_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    headers.insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&image.content_length.to_string())
+            .expect("content length is a valid header"),
+    );
+    if let Some(etag) = image.etag {
+        let quoted = format!("\"{etag}\"");
+        if let Ok(value) = HeaderValue::from_str(&quoted) {
+            headers.insert(header::ETAG, value);
+        }
+    }
+    response
 }

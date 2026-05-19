@@ -210,3 +210,49 @@ work; unresolved Public Client leaks block completion.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
+
+2026-05-19, MAPS-040 Public image references and byte serving:
+
+- Replaced Public Client catalog image responses:
+  - `ItemDetailResponse.images` now serializes `Vec<PublicImageRefDto>`;
+  - `ImagesResponse.images` now serializes `Vec<PublicImageRefDto>`;
+  - `CanonicalMetadataDto` no longer serializes provider image URI records.
+- Removed public `ImageAssetDto` and `ImageRefDto` from
+  `taru-client-protocol` and the Public OpenAPI schemas. Legacy `ImageAsset`
+  remains internal/provenance only.
+- Added Public Client route inventory and OpenAPI operations for:
+  - `GET /images/{image_id}`;
+  - `HEAD /images/{image_id}`.
+- Added Rust SDK request builders and regenerated the committed TypeScript SDK
+  so both SDKs expose the selected artwork byte route without old raw image DTOs.
+- Updated `CatalogAppService` to list selected artwork records and build
+  first-party `PublicImageRefDto` values from selected artifact metadata.
+- Added server-side selected image serving:
+  - resolves `selected_artworks.id` to a Managed Artwork Artifact;
+  - validates the internal `managed-artwork://artifact/{artifact_id}` authority
+    inside the server boundary;
+  - reads bytes only below the configured artifact root;
+  - returns `Content-Type`, `Content-Length`, and quoted ETag when a safe
+    content hash exists.
+- Redaction evidence:
+  - public catalog/image HTTP tests reject source URL, provider query string,
+    addon raw token, `source_uri`, `cache_uri`, `storage_uri`,
+    `managed-artwork://...`, and local artifact root leakage;
+  - OpenAPI image contract tests prove `ImageAssetDto`, `ImageRefDto`, and
+    `CanonicalMetadataDto.images` are absent from the Public Client contract.
+- Validation:
+  - `cargo nextest run -p taru-api image --no-fail-fast` passed.
+  - `cargo nextest run -p taru-server image --no-fail-fast` passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-client -p taru-server --tests` passed.
+  - `cargo nextest run -p taru-client streaming_request_builders_use_stable_paths_methods_headers_and_queries sdk_inventory_uses_shared_protocol_routes_and_exposure --no-fail-fast` passed.
+  - `cargo nextest run -p taru-client-protocol public_route_inventory_is_protocol_owned_and_complete public_browse_dtos_use_wire_ids_and_client_enums --no-fail-fast` passed.
+  - `cargo nextest run -p taru-api sdk --no-fail-fast` passed.
+  - `npm run check --prefix sdk/typescript` passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.
+  - `rg -n "ImageAssetDto|ImageRefDto|source_uri|cache_uri|storage_uri|managed-artwork://|CanonicalMetadataDto.*images" crates/taru-client-protocol/src crates/taru-api/src/openapi.rs crates/taru-api/src/public_client.rs crates/taru-api/src/sdk.rs sdk/typescript/src/index.ts crates/taru-server/src/http/catalog.rs crates/taru-server/src/app/catalog.rs docs/api/HTTP_API.md`
+    showed no old Public Client image DTOs in protocol/OpenAPI/SDK output.
+    Remaining sensitive-term hits are redaction assertions, internal server
+    storage resolution, or HTTP/API text that states the values are forbidden
+    in public responses.

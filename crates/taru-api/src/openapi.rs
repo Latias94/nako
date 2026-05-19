@@ -112,6 +112,23 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/images/{image_id}".to_owned(),
+        json!({
+            "get": binary_get_with_tag(
+                "getImage",
+                "Serve one selected artwork image.",
+                "catalog",
+                vec![path_parameter("image_id", "Selected artwork image id.")]
+            ),
+            "head": empty_head_with_tag(
+                "headImage",
+                "Preflight selected artwork image headers.",
+                "catalog",
+                vec![path_parameter("image_id", "Selected artwork image id.")]
+            )
+        }),
+    );
+    paths.insert(
         "/people".to_owned(),
         json!({
             "get": json_get("listPeople", "List people.", "catalog", vec![parameter_ref("Limit"), parameter_ref("Offset")], schema_ref("PeopleResponse"))
@@ -286,10 +303,19 @@ fn json_post(
 }
 
 fn binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    binary_get_with_tag(operation_id, summary, "playback", parameters)
+}
+
+fn binary_get_with_tag(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+) -> Value {
     operation(
         operation_id,
         summary,
-        "playback",
+        tag,
         parameters,
         json!({
             "description": "Binary stream.",
@@ -325,10 +351,19 @@ fn text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value 
 }
 
 fn empty_head(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    empty_head_with_tag(operation_id, summary, "playback", parameters)
+}
+
+fn empty_head_with_tag(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+) -> Value {
     operation(
         operation_id,
         summary,
-        "playback",
+        tag,
         parameters,
         json!({
             "description": "Headers only.",
@@ -610,7 +645,7 @@ fn schemas() -> Value {
             "tags": array_schema(schema_ref("ItemTagDto")),
             "collections": array_schema(schema_ref("CollectionItemDto")),
             "studios": array_schema(schema_ref("ItemStudioDto")),
-            "images": array_schema(schema_ref("ImageAssetDto"))
+            "images": array_schema(schema_ref("PublicImageRefDto"))
         })),
         "ItemCreditsResponse": object_schema(&["item_id", "credits", "people"], json!({
             "item_id": uuid_schema(),
@@ -619,7 +654,7 @@ fn schemas() -> Value {
         })),
         "ImagesResponse": object_schema(&["item_id", "images"], json!({
             "item_id": uuid_schema(),
-            "images": array_schema(schema_ref("ImageAssetDto"))
+            "images": array_schema(schema_ref("PublicImageRefDto"))
         })),
         "PeopleResponse": object_schema(&["people", "page"], json!({
             "people": array_schema(schema_ref("PersonDto")),
@@ -708,7 +743,7 @@ fn schemas() -> Value {
             "metadata": schema_ref("CanonicalMetadataDto")
         })),
         "ClientMediaKind": enum_schema(&["movie", "series", "season", "episode", "collection", "extra", "unknown"]),
-        "CanonicalMetadataDto": object_schema(&["title", "original_title", "sort_title", "overview", "release_date", "runtime_minutes", "tagline", "genres", "tags", "ratings", "images", "credits", "collections", "studios", "external_ids"], json!({
+        "CanonicalMetadataDto": object_schema(&["title", "original_title", "sort_title", "overview", "release_date", "runtime_minutes", "tagline", "genres", "tags", "ratings", "credits", "collections", "studios", "external_ids"], json!({
             "title": string_schema(),
             "original_title": nullable_string_schema(),
             "sort_title": nullable_string_schema(),
@@ -719,21 +754,12 @@ fn schemas() -> Value {
             "genres": array_schema(string_schema()),
             "tags": array_schema(string_schema()),
             "ratings": array_schema(schema_ref("ContentRatingDto")),
-            "images": array_schema(schema_ref("ImageRefDto")),
             "credits": array_schema(schema_ref("CreditDto")),
             "collections": array_schema(schema_ref("CollectionRefDto")),
             "studios": array_schema(schema_ref("StudioRefDto")),
             "external_ids": array_schema(schema_ref("ExternalIdDto"))
         })),
         "ContentRatingDto": object_schema(&["source", "value"], json!({"source": string_schema(), "value": string_schema()})),
-        "ImageRefDto": object_schema(&["kind", "uri", "provider", "width", "height", "language"], json!({
-            "kind": string_schema(),
-            "uri": string_schema(),
-            "provider": string_schema(),
-            "width": json!({"type": "integer", "format": "int32", "nullable": true}),
-            "height": json!({"type": "integer", "format": "int32", "nullable": true}),
-            "language": nullable_string_schema()
-        })),
         "CreditDto": object_schema(&["name", "role", "character", "order", "external_ids"], json!({
             "name": string_schema(),
             "role": string_schema(),
@@ -802,18 +828,15 @@ fn schemas() -> Value {
             "sort_order": json!({"type": "integer", "format": "int32", "nullable": true})
         })),
         "ItemStudioDto": object_schema(&["item_id", "studio_id"], json!({"item_id": uuid_schema(), "studio_id": uuid_schema()})),
-        "ImageAssetDto": object_schema(&["id", "owner", "kind", "source_uri", "provider", "cache_uri", "width", "height", "language", "selected", "content_hash", "etag"], json!({
+        "PublicImageRefDto": object_schema(&["id", "owner", "kind", "url", "width", "height", "language", "media_type", "etag"], json!({
             "id": uuid_schema(),
-            "owner": string_schema(),
+            "owner": json!({"type": "object", "additionalProperties": string_schema()}),
             "kind": string_schema(),
-            "source_uri": string_schema(),
-            "provider": string_schema(),
-            "cache_uri": nullable_string_schema(),
+            "url": string_schema(),
             "width": json!({"type": "integer", "format": "int32", "nullable": true}),
             "height": json!({"type": "integer", "format": "int32", "nullable": true}),
             "language": nullable_string_schema(),
-            "selected": boolean_schema(),
-            "content_hash": nullable_string_schema(),
+            "media_type": nullable_string_schema(),
             "etag": nullable_string_schema()
         }))
     })
@@ -931,6 +954,53 @@ mod tests {
             assert!(
                 !serialized.contains(forbidden),
                 "public OpenAPI leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_openapi_image_contract_uses_public_refs_without_raw_locators() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+        let serialized = public_openapi_v1_json().to_ascii_lowercase();
+
+        assert!(schemas.contains_key("PublicImageRefDto"));
+        assert!(!schemas.contains_key("ImageAssetDto"));
+        assert!(!schemas.contains_key("ImageRefDto"));
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["get"]["responses"]["200"]["content"]["application/octet-stream"]
+                ["schema"]["format"],
+            "binary"
+        );
+        assert!(
+            document["paths"]["/images/{image_id}"]
+                .get("head")
+                .is_some()
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ItemDetailResponse"]["properties"]["images"]["items"]
+                ["$ref"],
+            "#/components/schemas/PublicImageRefDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ImagesResponse"]["properties"]["images"]["items"]["$ref"],
+            "#/components/schemas/PublicImageRefDto"
+        );
+        assert!(
+            document["components"]["schemas"]["CanonicalMetadataDto"]["properties"]
+                .get("images")
+                .is_none()
+        );
+
+        for forbidden in [
+            "source_uri",
+            "cache_uri",
+            "storage_uri",
+            "managed-artwork://",
+        ] {
+            assert!(
+                !serialized.contains(forbidden),
+                "public OpenAPI image contract leaked forbidden term: {forbidden}"
             );
         }
     }

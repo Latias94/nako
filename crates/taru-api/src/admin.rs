@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use taru_client_protocol::PageInfo;
-use taru_client_protocol::{ClientImageOwner, PublicImageRefDto};
+use taru_client_protocol::PublicImageRefDto;
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateStatus, CatalogGovernanceItemRecord, DomainEventKind,
     DomainEventSubject, EventId, ExternalProvider, ImageKind, IngestionFailureClass,
@@ -154,19 +154,11 @@ pub struct PublishSelectedArtworkResponse {
 impl PublishSelectedArtworkResponse {
     #[must_use]
     pub fn from_publication(publication: SelectedArtworkPublicationRecord) -> Self {
+        let image = crate::selected_artwork_to_public_image_ref(
+            publication.selected_artwork.clone(),
+            publication.artifact,
+        );
         let selected_artwork = SelectedArtworkSummary::from_record(publication.selected_artwork);
-        let artifact = publication.artifact;
-        let image = PublicImageRefDto {
-            id: selected_artwork.id.to_string(),
-            owner: ClientImageOwner::Item(selected_artwork.item_id.to_string()),
-            kind: crate::image_kind_to_dto(selected_artwork.kind.clone()),
-            url: format!("/images/{}", selected_artwork.id),
-            width: artifact.width,
-            height: artifact.height,
-            language: None,
-            media_type: artifact.media_type,
-            etag: artifact.content_hash,
-        };
 
         Self {
             selected_artwork,

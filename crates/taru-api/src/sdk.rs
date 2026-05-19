@@ -222,6 +222,14 @@ export class TaruClient {
     return this.requestJson("GET", `/items/${encodeURIComponent(itemId)}/images`);
   }
 
+  image(imageId: string): Promise<Response> {
+    return this.requestRaw("GET", `/images/${encodeURIComponent(imageId)}`);
+  }
+
+  headImage(imageId: string): Promise<Response> {
+    return this.requestRaw("HEAD", `/images/${encodeURIComponent(imageId)}`);
+  }
+
   listPeople(page?: PageQuery): Promise<PeopleResponse> {
     return this.requestJson("GET", "/people", { query: page });
   }

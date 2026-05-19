@@ -1,4 +1,5 @@
 use super::*;
+use axum::http::HeaderValue;
 
 fn tiny_png() -> Vec<u8> {
     let image = image::RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 255]));
@@ -1763,6 +1764,161 @@ async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without
         .unwrap()
         .unwrap();
     assert_eq!(selected.artifact_id, artifact.id);
+}
+
+#[tokio::test]
+async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks() {
+    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let expected_bytes = tiny_png();
+    let expected_byte_len = expected_bytes.len();
+    let (remote_url, _) = artwork_server(StatusCode::OK, "image/png", expected_bytes.clone()).await;
+    let (raw_token, _candidate_id, _accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-public-image-serving",
+    )
+    .await;
+
+    let processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let artifact = processed.artifact.as_ref().unwrap();
+    let published = request_json::<PublishSelectedArtworkResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id),
+    )
+    .await;
+
+    let images_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/items/{}/images", source.item_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let images_status = images_response.status();
+    let images_body = to_bytes(images_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(
+        images_status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&images_body)
+    );
+    let images: taru_api::ImagesResponse = serde_json::from_slice(&images_body).unwrap();
+    assert_eq!(images.item_id, source.item_id.to_string());
+    assert_eq!(images.images, vec![published.image.clone()]);
+
+    let item_detail_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/items/{}", source.item_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let item_detail_body = to_bytes(item_detail_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let item_detail: taru_api::ItemDetailResponse =
+        serde_json::from_slice(&item_detail_body).unwrap();
+    assert_eq!(item_detail.images, vec![published.image.clone()]);
+
+    for body in [&images_body, &item_detail_body] {
+        let text = String::from_utf8_lossy(body);
+        assert!(!text.contains(&remote_url));
+        assert!(!text.contains("token=secret"));
+        assert!(!text.contains(&raw_token));
+        assert!(!text.contains("source_uri"));
+        assert!(!text.contains("cache_uri"));
+        assert!(!text.contains("storage_uri"));
+        assert!(!text.contains("managed-artwork://"));
+        assert!(!text.contains(temp.path().to_string_lossy().as_ref()));
+    }
+
+    let image_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(image_response.status(), StatusCode::OK);
+    assert_eq!(
+        image_response.headers()[header::CONTENT_TYPE],
+        HeaderValue::from_static("image/png")
+    );
+    assert_eq!(
+        image_response.headers()[header::CONTENT_LENGTH],
+        HeaderValue::from_str(&expected_byte_len.to_string()).unwrap()
+    );
+    assert!(image_response.headers().get(header::ETAG).is_some());
+    let image_bytes = to_bytes(image_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(image_bytes.as_ref(), expected_bytes.as_slice());
+
+    let head_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&published.image.url)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(head_response.status(), StatusCode::OK);
+    assert_eq!(
+        head_response.headers()[header::CONTENT_TYPE],
+        HeaderValue::from_static("image/png")
+    );
+    assert_eq!(
+        head_response.headers()[header::CONTENT_LENGTH],
+        HeaderValue::from_str(&expected_byte_len.to_string()).unwrap()
+    );
+    let head_body = to_bytes(head_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(head_body.is_empty());
+
+    let missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/images/{}", taru_core::SelectedArtworkId::new()))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let missing_status = missing.status();
+    let missing_body = to_bytes(missing.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(missing_status, StatusCode::NOT_FOUND);
+    let missing_text = String::from_utf8_lossy(&missing_body);
+    assert!(!missing_text.contains("managed-artwork://"));
+    assert!(!missing_text.contains(temp.path().to_string_lossy().as_ref()));
 }
 
 #[tokio::test]

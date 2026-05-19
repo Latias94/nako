@@ -59,7 +59,7 @@ Last updated: 2026-05-19
 
 ## M3 - Public Image References And Byte Serving
 
-- [ ] MAPS-040 [owner=codex] [deps=MAPS-030] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-client-protocol,crates/taru-server,docs/api]
+- [x] MAPS-040 [owner=codex] [deps=MAPS-030] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-client-protocol,crates/taru-server,docs/api]
   Goal: Return first-party Public Client image references for selected artwork
   and serve selected image bytes through a Public Client route.
   Validation: focused catalog/image HTTP tests; OpenAPI route/schema tests; `cargo nextest run -p taru-server image --no-fail-fast`; `cargo nextest run -p taru-api image --no-fail-fast`; `git diff --check`.
@@ -70,6 +70,14 @@ Last updated: 2026-05-19
   non-public; `CanonicalMetadataDto` must not serialize provider image URIs.
   Evidence: route tests, protocol/OpenAPI tests, and redaction inventory in
   `EVIDENCE_AND_GATES.md`.
+  Result: DONE. Public Client item detail and item image routes now return
+  `PublicImageRefDto` selected-artwork references, `CanonicalMetadataDto` no
+  longer serializes provider image URIs, and Public Client protocol/OpenAPI no
+  longer define `ImageAssetDto` or `ImageRefDto`. Added `GET/HEAD
+  /images/{image_id}` to the Public Client route inventory, OpenAPI, Rust SDK
+  request builders, TypeScript SDK runtime, and HTTP router. The serving route
+  resolves `managed-artwork://...` only inside the server boundary and returns
+  selected artifact bytes with safe presentation headers.
   Handoff: Continue with MAPS-050 to close or split remaining image lifecycle
   work.
 

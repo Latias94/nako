@@ -29,6 +29,7 @@ mod webhooks;
 
 use addons::AddonAppService;
 use artwork::ManagedArtworkAppService;
+pub(crate) use artwork::ManagedArtworkImageBytes;
 use automation::AutomationAppService;
 use catalog::CatalogAppService;
 use jobs::{JobAppService, LibraryScanAppService};

@@ -58,7 +58,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAPS-040",
+  "current_task": "MAPS-050",
   "first_slice": "Public image references and byte serving for selected artwork",
   "non_goals": [
     "thumbnail or resize workers",
@@ -75,6 +75,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "MAPS-030 shipped SelectedArtworkId, selected_artworks persistence, repository publish/read methods, and the Admin publish command. Continue with MAPS-040 by replacing Public Client image DTOs with PublicImageRefDto and adding GET/HEAD /images/{image_id}. Keep thumbnail, durable retry/requeue, cancellation, and orphan cleanup as follow-ons."
+    "notes": "MAPS-040 shipped PublicImageRefDto catalog responses, removed ImageAssetDto/ImageRefDto/CanonicalMetadataDto.images from the Public Client protocol and OpenAPI, and added GET/HEAD /images/{image_id}. Continue with MAPS-050 to close this lane or split thumbnail, durable retry/requeue, cancellation, orphan cleanup, and public gallery work into follow-ons."
   }
 }
