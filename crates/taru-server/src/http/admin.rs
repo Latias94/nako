@@ -8,13 +8,14 @@ use serde::Deserialize;
 use taru_api::{
     ADMIN_API_VERSION, API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
     AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
-    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobListItem,
-    AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
-    AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
-    AdminOutboxEventListItem, AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
-    AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
-    AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
-    AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
+    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobCancelRequestResponse,
+    AdminJobListItem, AdminJobListResponse, AdminLibraryConfigDiagnostics,
+    AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
+    AdminMetadataRuntimeConfigDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
+    AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+    AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
+    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
+    AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
     AdminPlaybackHardwareCapabilityEvidence, AdminPlaybackHardwareCapabilityReason,
     AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareSmokeProbe,
     AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackRemoteBudgetDiagnostics,
@@ -27,8 +28,8 @@ use taru_api::{
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
 use taru_core::{
-    ArtworkCandidateId, ImageKind, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
-    TaruError,
+    ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
+    MediaItemId, TaruError,
 };
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
@@ -57,6 +58,7 @@ pub(super) fn routes() -> Router<TaruApp> {
         )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
+        .route("/admin/v1/jobs/{job_id}/cancel", post(cancel_admin_job))
         .route(
             "/admin/v1/artwork/candidates/{candidate_id}/accept",
             post(accept_admin_artwork_candidate),
@@ -554,6 +556,17 @@ pub(super) async fn list_admin_jobs(
         jobs,
         page: page_info_from_request(page, returned),
     }))
+}
+
+pub(super) async fn cancel_admin_job(
+    State(app): State<TaruApp>,
+    Path(job_id): Path<JobId>,
+) -> ApiResult<impl IntoResponse> {
+    let cancellation = app.jobs().request_job_cancellation(job_id).await?;
+
+    Ok(Json(AdminJobCancelRequestResponse::from_record(
+        cancellation,
+    )))
 }
 
 pub(super) async fn list_admin_playback_sessions(

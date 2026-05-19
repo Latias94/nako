@@ -79,9 +79,16 @@ Primary gates:
 Exit criteria:
 
 - Admin cancel-request behavior exists only if a worker can observe it.
+  Result: Admin can request cancellation durably. Queued jobs become terminal;
+  running jobs record intent only and wait for a worker checkpoint before
+  acknowledged cancellation.
 - Queued, running, terminal, and expired-lease cases have separate test
   coverage.
+  Result: queued, running, and terminal behavior is covered in HTTP tests;
+  expired-lease behavior is covered in repository tests.
 - Responses are redacted and do not expose raw durable payloads.
+  Result: API and HTTP tests prove the cancel-request response uses redacted
+  Admin job summaries.
 
 Primary gates:
 

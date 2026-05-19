@@ -171,6 +171,13 @@ claim run token. Existing library scan, metadata refresh/maintenance, and NFO
 import/export execution paths call this shared runtime, so their durable
 lifecycle is now leased even though each domain side effect remains typed.
 
+`DJOL-050` adds Admin cancel-request controls without pretending that a running
+worker has stopped. `POST /admin/v1/jobs/{job_id}/cancel` returns a redacted
+Admin job summary. Queued jobs become terminal `cancelled`; running jobs keep
+status `running` with a durable cancel request; terminal jobs reject the
+request. Worker-side cancellation checkpoints remain a follow-on because
+domain executors must decide where side effects can safely stop.
+
 ### Managed Artwork Ingest
 
 Managed Artwork ingest already has a typed claim from queued to fetching and a

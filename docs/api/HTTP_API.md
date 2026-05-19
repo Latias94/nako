@@ -373,6 +373,24 @@ resource class `artwork.ingest`. Their input includes only redacted Taru IDs
 and image kind. It must not include the candidate's raw remote URL, source URI,
 cache URI, local path, storage handle, or validation internals.
 
+Admin job lists use a redacted job summary instead of the public job envelope.
+They expose job identity, lifecycle fields, and `has_input`, `has_summary`, and
+`has_error` booleans, but never raw `input`, `summary`, or `error` payloads.
+
+Administrators can request durable job cancellation with:
+
+```text
+POST /admin/v1/jobs/{job_id}/cancel
+```
+
+For queued jobs, the response marks the job terminal `cancelled` because no
+worker owns side effects yet. For running jobs, the response records durable
+cancel intent and leaves the job `running` until the owning worker acknowledges
+the request. Terminal jobs return `409 conflict`. The response contains the
+same redacted Admin job summary, `requested`, `terminal`, and
+`cancel_requested_at`; it never returns raw job input, summary, error text,
+source locators, paths, storage handles, provider payloads, tokens, or secrets.
+
 ## Current Routes
 
 ```text
@@ -443,6 +461,7 @@ GET  /admin/v1/overview
 GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/events
 GET  /admin/v1/jobs
+POST /admin/v1/jobs/{job_id}/cancel
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
 POST /admin/v1/artwork/ingests/{ingest_id}/requeue

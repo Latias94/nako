@@ -13,28 +13,25 @@ and generic ownership leases into a follow-on.
 SQLite schema and repository proof for leases, cancellation request, fenced
 completion, and expired-lease recovery. `DJOL-040` wired the shared
 `DurableJobRuntime` through exact job claims, heartbeat, and run-token fenced
-success/failure. No Admin API route has changed in this lane yet.
+success/failure. `DJOL-050` added a truthful Admin cancel-request route.
 
 ## Active Task
 
-- Task ID: `DJOL-050`
+- Task ID: `DJOL-060`
 - Owner: codex
 - Files:
-  - `crates/taru-api`
-  - `crates/taru-server/src/http`
-  - `crates/taru-server/src/app/jobs.rs`
-  - `docs/api`
+  - `docs/workstreams/durable-job-ownership-leases`
 - Validation:
-  - `cargo nextest run -p taru-server job_cancel --no-fail-fast`
-  - `cargo check -p taru-api -p taru-server --tests`
-- Status: READY
+  - closeout gate in `EVIDENCE_AND_GATES.md`
+- Status: READY_TO_CLOSE_OR_SPLIT
 - Review: Not started
 - Evidence: `DJOL-020` core contract passed `cargo check -p taru-core --tests`,
   `cargo fmt --all -- --check`, WORKSTREAM JSON parse, and `git diff --check`.
   `DJOL-030` passed DB lease/cancel/startup tests, server startup recovery
   regression, cross-crate check, fmt check, JSON parse, and diff check.
   `DJOL-040` passed runtime leased execution tests, DB job lease tests,
-  cross-crate check, and fmt check.
+  cross-crate check, and fmt check. `DJOL-050` passed API DTO redaction,
+  server cancel-route behavior, and API/server check gates.
 
 ## Decisions Since Last Update
 
@@ -57,6 +54,11 @@ success/failure. No Admin API route has changed in this lane yet.
   fails with the run-token fence.
 - The runtime worker ID is process-local and stable for diagnostics; the run
   token remains the write authority.
+- `POST /admin/v1/jobs/{job_id}/cancel` is now Admin-only and redacted.
+- Queued jobs cancel immediately; running jobs only record cancel intent;
+  terminal jobs reject cancellation.
+- Worker-side cancellation acknowledgement checkpoints are not implemented in
+  this route slice.
 - Keep retry/backoff separate from ownership and lease correctness.
 
 ## Blockers
@@ -65,7 +67,5 @@ success/failure. No Admin API route has changed in this lane yet.
 
 ## Next Recommended Action
 
-Run `DJOL-050`: add truthful, redacted Admin cancel-request controls. Keep the
-API semantics narrow: queued jobs can become terminal `cancelled`, running jobs
-only record cancellation intent until the owning worker acknowledges, and
-terminal jobs reject cancel requests.
+Run `DJOL-060`: close this lane if final gates pass, or split worker-side
+cancellation checkpoints and broader worker migrations into named follow-ons.

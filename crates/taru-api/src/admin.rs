@@ -5,9 +5,10 @@ use taru_core::{
     AddonId, AddonSideEffectId, ArtworkCandidateId, ArtworkCandidateSourceKind,
     ArtworkCandidateStatus, CatalogGovernanceItemRecord, DomainEventKind, DomainEventSubject,
     EventId, ExternalProvider, ImageKind, IngestionFailureClass, IngestionFailurePhase,
-    IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind, JobStatus, LibraryId,
-    LibraryPreset, LocalInferenceEvidence, LocalInferenceEvidenceSource,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
+    IngestionFailureRecord, IngestionFailureStatus, Job, JobCancellationRequestRecord, JobId,
+    JobKind, JobStatus, LibraryId, LibraryPreset, LocalInferenceEvidence,
+    LocalInferenceEvidenceSource, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleRecord, ManagedArtworkArtifactLifecycleSnapshot,
     ManagedArtworkArtifactLifecycleSummary, ManagedArtworkArtifactRecord,
     ManagedArtworkGalleryArtifactRecord, ManagedArtworkGalleryCandidateRecord,
@@ -1081,6 +1082,26 @@ pub struct AdminJobListResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminJobCancelRequestResponse {
+    pub job: AdminJobListItem,
+    pub requested: bool,
+    pub terminal: bool,
+    pub cancel_requested_at: Option<String>,
+}
+
+impl AdminJobCancelRequestResponse {
+    #[must_use]
+    pub fn from_record(record: JobCancellationRequestRecord) -> Self {
+        Self {
+            job: AdminJobListItem::from_job(record.job),
+            requested: record.requested,
+            terminal: record.terminal,
+            cancel_requested_at: record.cancel_requested_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminJobListItem {
     pub id: JobId,
     pub kind: JobKind,
@@ -1805,6 +1826,44 @@ mod tests {
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn admin_job_cancel_request_response_redacts_raw_payloads_and_errors() {
+        let record = JobCancellationRequestRecord {
+            job: Job {
+                id: JobId::new(),
+                kind: JobKind::LibraryScan,
+                status: JobStatus::Running,
+                resource_class: "disk.scan".to_owned(),
+                library_id: Some(LibraryId::new()),
+                source_id: Some(MediaSourceId::new()),
+                input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
+                summary_json: Some(r#"{"output_path":"C:\\media\\private.nfo"}"#.to_owned()),
+                error: Some("token admin-token failed at C:\\media\\private.nfo".to_owned()),
+                queued_at: "2026-05-17T00:00:00Z".to_owned(),
+                started_at: Some("2026-05-17T00:00:01Z".to_owned()),
+                completed_at: None,
+            },
+            requested: true,
+            terminal: false,
+            cancel_requested_at: Some("2026-05-17T00:00:03Z".to_owned()),
+        };
+
+        let response = AdminJobCancelRequestResponse::from_record(record);
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert!(response.requested);
+        assert!(!response.terminal);
+        assert!(response.job.has_input);
+        assert!(response.job.has_summary);
+        assert!(response.job.has_error);
+        assert!(!body.contains("admin-token"));
+        assert!(!body.contains("private.nfo"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("error\":\"token"));
     }
 
     #[test]

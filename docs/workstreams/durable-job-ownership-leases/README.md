@@ -51,11 +51,10 @@ truthful cancellation controls.
 
 ## Current Slice
 
-`DJOL-040` is complete: the shared `DurableJobRuntime` exact-claims the queued
-job it is asked to run, records a process-local worker identity, heartbeats the
-lease, and persists success or failure through the run-token fence. The next
-slice is `DJOL-050`: add truthful, redacted Admin cancel-request controls on
-top of the repository/runtime semantics already proven here.
+`DJOL-050` is complete: Admin can request job cancellation through a redacted
+route that distinguishes queued, running, and terminal jobs. The next slice is
+`DJOL-060`: close the lane if final gates pass, or split worker-side
+cancellation checkpoints and broader worker migrations into follow-ons.
 
 ## Split Follow-Ons
 

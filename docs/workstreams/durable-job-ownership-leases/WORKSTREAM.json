@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "architecture_execution",
   "problem": "Durable jobs can be running without a durable owner, lease, heartbeat, cancellation request, or fenced completion contract.",
-  "current_task": "DJOL-050",
+  "current_task": "DJOL-060",
   "authoritative_docs": [
     {
       "role": "readme",
@@ -63,6 +63,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with DJOL-050 now that the shared DurableJobRuntime exact-claims, heartbeats, and completes through run-token fenced leases. Keep retry/backoff and broad worker migrations split from Admin cancel controls."
+    "notes": "Continue with DJOL-060 now that Admin cancel-request controls are truthful and redacted. Close the lane or split worker-side cancellation checkpoints and broader worker migrations into follow-ons."
   }
 }

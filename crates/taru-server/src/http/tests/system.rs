@@ -481,6 +481,156 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
 }
 
 #[tokio::test]
+async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let queued = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.tmdb".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let running = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(r#"{"path":"private.nfo"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    store.start_job(running.id).await.unwrap();
+    let succeeded = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::NfoExport,
+            resource_class: "metadata.nfo.export".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    store.start_job(succeeded.id).await.unwrap();
+    store
+        .succeed_job(succeeded.id, Some(r#"{"private":"summary"}"#.to_owned()))
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let queued_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/admin/v1/jobs/{}/cancel", queued.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(queued_response.status(), StatusCode::OK);
+    let queued_body = String::from_utf8(
+        to_bytes(queued_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let queued_cancel: AdminJobCancelRequestResponse = serde_json::from_str(&queued_body).unwrap();
+    assert!(queued_cancel.requested);
+    assert!(queued_cancel.terminal);
+    assert_eq!(queued_cancel.job.status, JobStatus::Cancelled);
+    assert!(queued_cancel.cancel_requested_at.is_some());
+    assert!(!queued_body.contains("admin-token"));
+    assert!(!queued_body.contains("secret"));
+    assert!(!queued_body.contains("input_json"));
+
+    let running_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/admin/v1/jobs/{}/cancel", running.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(running_response.status(), StatusCode::OK);
+    let running_body = String::from_utf8(
+        to_bytes(running_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let running_cancel: AdminJobCancelRequestResponse =
+        serde_json::from_str(&running_body).unwrap();
+    assert!(running_cancel.requested);
+    assert!(!running_cancel.terminal);
+    assert_eq!(running_cancel.job.status, JobStatus::Running);
+    assert!(running_cancel.cancel_requested_at.is_some());
+    assert!(!running_body.contains("private.nfo"));
+    assert!(!running_body.contains("input_json"));
+
+    let terminal_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/admin/v1/jobs/{}/cancel", succeeded.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(terminal_response.status(), StatusCode::CONFLICT);
+    let terminal_error = body_json::<ErrorResponse>(terminal_response).await;
+    assert_eq!(
+        terminal_error.code,
+        taru_api::ClientErrorCode::Conflict.as_str()
+    );
+}
+
+#[tokio::test]
 async fn admin_v1_events_lists_filters_and_redacts_payloads() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

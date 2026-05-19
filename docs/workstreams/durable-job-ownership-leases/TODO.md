@@ -62,18 +62,22 @@ Last updated: 2026-05-19
 
 ## M4 - Truthful Cancel Request Controls
 
-- [ ] DJOL-050 [owner=codex] [deps=DJOL-040] [scope=crates/taru-api,crates/taru-server/src/http,docs/api]
+- [x] DJOL-050 [owner=codex] [deps=DJOL-040] [scope=crates/taru-api,crates/taru-server/src/http,docs/api]
   Goal: Add redacted Admin cancel-request behavior for leased jobs if the
   worker can observe and acknowledge cancellation.
   Validation: `cargo nextest run -p taru-server job_cancel --no-fail-fast`; `cargo check -p taru-api -p taru-server --tests`.
   Review: Queued cancellation, running cancellation request, terminal-job
   rejection, and expired-lease behavior must be distinct.
   Evidence: HTTP/API tests and docs.
-  Handoff: Split if only the repository/runtime half is ready.
+  Result: DONE. Added `POST /admin/v1/jobs/{job_id}/cancel` with redacted
+  response semantics: queued jobs become terminal `cancelled`, running jobs
+  record durable cancel intent only, and terminal jobs return conflict.
+  Handoff: `DJOL-060` should close this lane or split worker-side cancellation
+  acknowledgement checkpoints into follow-ons.
 
 ## M5 - Closeout Or Split Worker Migrations
 
-- [ ] DJOL-060 [owner=planner] [deps=DJOL-050] [scope=docs/workstreams/durable-job-ownership-leases]
+- [ ] DJOL-060 [owner=codex] [deps=DJOL-050] [scope=docs/workstreams/durable-job-ownership-leases]
   Goal: Close the lane or split metadata/webhook/NFO/automation/scan worker
   migrations into follow-ons.
   Validation: `verify-rust-workstream` records fresh final gate evidence.

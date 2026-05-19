@@ -19,7 +19,7 @@ use taru_api::{
     AddonGrantAssignment, AddonGrantsResponse, AddonRegistrationResponse,
     AddonRegistrationsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
     AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
-    AdminCatalogGovernanceItemListResponse, AdminJobListResponse,
+    AdminCatalogGovernanceItemListResponse, AdminJobCancelRequestResponse, AdminJobListResponse,
     AdminManagedArtworkArtifactCleanupResponse, AdminManagedArtworkArtifactLifecycleResponse,
     AdminManagedArtworkArtifactRemediationPlanResponse,
     AdminManagedArtworkArtifactStorageDriftArtifactIssue,

@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use taru_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobListFilter, JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent,
-    PageRequest, Result, StagingPurpose, TaruError,
+    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job,
+    JobCancellationRequestRecord, JobId, JobKind, JobListFilter, JobRepository, Library, LibraryId,
+    LibraryRepository, NewJob, NewOutboxEvent, PageRequest, RequestJobCancellation, Result,
+    StagingPurpose, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_library::{
@@ -57,6 +58,18 @@ impl JobAppService {
         page: PageRequest,
     ) -> Result<Vec<Job>> {
         self.store.list_jobs(filter, page).await
+    }
+
+    pub(crate) async fn request_job_cancellation(
+        &self,
+        job_id: JobId,
+    ) -> Result<JobCancellationRequestRecord> {
+        self.store
+            .request_job_cancellation(RequestJobCancellation {
+                job_id,
+                reason: None,
+            })
+            .await
     }
 }
 
