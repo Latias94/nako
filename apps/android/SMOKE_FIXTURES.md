@@ -152,7 +152,8 @@ When a regression fails, open the report and then rerun the failed state
 directly with `Smoke-Emulator.ps1 -FixtureState <state>` to collect focused
 evidence. The wrapper retries each state once by default because ADB
 `uiautomator dump` can temporarily return no root node while Android is
-transitioning between launched activities.
+transitioning between launched activities. Failed reports include a category,
+evidence path, log path, and focused rerun command for the failed state.
 
 ## Deferred Fixtures
 

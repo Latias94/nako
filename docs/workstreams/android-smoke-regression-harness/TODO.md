@@ -35,7 +35,7 @@ Last updated: 2026-05-19
 
 ## M2 - Failure Classification And Developer Handoff
 
-- [ ] ASR-030 [owner=codex] [deps=ASR-020] [scope=apps/android/scripts,docs/workstreams/android-smoke-regression-harness]
+- [x] ASR-030 [owner=codex] [deps=ASR-020] [scope=apps/android/scripts,docs/workstreams/android-smoke-regression-harness]
   Goal: Ensure wrapper failures identify the failed state and preserve the
   evidence path so another developer or agent can continue diagnosis.
   Validation:
@@ -43,8 +43,12 @@ Last updated: 2026-05-19
   with the exact state, command, and evidence directory.
   Review: Use review-workstream for workstream compliance and script hygiene.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`.
-  Handoff: Split retry/ADB reconnect hardening if it grows beyond simple
-  wrapper behavior.
+  Handoff: DONE on 2026-05-19. Regression reports now include failure category,
+  state attempts, evidence path, log path, not-run reason, and focused rerun
+  command. `Smoke-Emulator.ps1` now waits for the Taru app window to regain
+  focus and recovers app focus before retrying UI hierarchy capture. Python
+  rewrite is deferred; current scope remains a Windows-first PowerShell
+  orchestration layer around ADB, Gradle, and existing smoke scripts.
 
 ## M3 - Closeout
 

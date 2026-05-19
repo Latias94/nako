@@ -116,7 +116,9 @@ gate before handing work to another developer or agent:
 The wrapper builds the debug APK once by default, then runs the selected smoke
 fixture states through `Smoke-Emulator.ps1` and writes a combined report under
 `apps/android/build/smoke-regression/<timestamp>/`. The default state set is
-`empty-setup`, `profile-missing-token`, and `profile-with-media`.
+`empty-setup`, `profile-missing-token`, and `profile-with-media`. If a state
+fails, the report includes the failed state, failure category, evidence path,
+log path, and a focused `Smoke-Emulator.ps1` rerun command.
 
 ## Server-Backed Demo Fixture
 

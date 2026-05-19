@@ -50,6 +50,8 @@ Primary gates:
 - successful local regression, or a recorded environment failure with exact
   command and state.
 
+Status: Complete.
+
 ## M3 - Closeout
 
 Exit criteria:

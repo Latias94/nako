@@ -293,6 +293,42 @@ function Wake-Device {
     Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'wm', 'dismiss-keyguard') -FailureMessage 'adb dismiss keyguard failed.'
 }
 
+function Wait-ForFocusedAppWindow {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$PackageName = 'dev.taru.android',
+        [int]$TimeoutSeconds = 10
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $windowDump = & $AdbPath -s $DeviceSerial shell dumpsys window 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $text = $windowDump | Out-String
+            if ($text -match "mCurrentFocus=Window\{[^}]*$([regex]::Escape($PackageName))/" -or
+                $text -match "mFocusedWindow=Window\{[^}]*$([regex]::Escape($PackageName))/") {
+                return $true
+            }
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    return $false
+}
+
+function Recover-AppFocus {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial
+    )
+
+    Wake-Device -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+    & $AdbPath -s $DeviceSerial shell am start -n 'dev.taru.android/.MainActivity' -a android.intent.action.MAIN -c android.intent.category.LAUNCHER *> $null
+    Start-Sleep -Seconds 2
+}
+
 function Install-SmokeProfileFixture {
     param(
         [string]$AdbPath,
@@ -341,6 +377,10 @@ function Get-UiDump {
 
     for ($attempt = 1; $attempt -le 8; $attempt += 1) {
         try {
+            if (-not (Wait-ForFocusedAppWindow -AdbPath $AdbPath -DeviceSerial $DeviceSerial -TimeoutSeconds 8)) {
+                Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+            }
+
             & $AdbPath -s $DeviceSerial shell rm $remoteDump *> $null
             & $AdbPath -s $DeviceSerial shell pkill -f uiautomator *> $null
             Start-Sleep -Milliseconds 500
@@ -370,6 +410,7 @@ function Get-UiDump {
         } catch {
             $lastError = $_.Exception.Message
             & $AdbPath -s $DeviceSerial shell pkill -f uiautomator *> $null
+            Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
             Start-Sleep -Milliseconds 1500
         }
     }

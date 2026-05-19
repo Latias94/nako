@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Current State
 
-This lane is open. `ASR-010` and `ASR-020` are complete.
+This lane is open. `ASR-010`, `ASR-020`, and `ASR-030` are complete.
 
 `ASR-020` added `apps/android/scripts/Smoke-Regression.ps1`, a local wrapper
 that builds once by default, runs selected stable fixture states through
@@ -14,12 +14,11 @@ that builds once by default, runs selected stable fixture states through
 
 ## Active Task
 
-- Task ID: ASR-030
-- Owner: codex
-- Files: `apps/android/scripts`,
-  `docs/workstreams/android-smoke-regression-harness`
-- Validation: successful local regression, or a recorded controlled
-  environment failure with state, command, and evidence directory.
+- Task ID: ASR-040
+- Owner: planner
+- Files: `docs/workstreams/android-smoke-regression-harness`
+- Validation: fresh local regression command, Android unit/build gates if
+  touched behavior warrants them, and `git diff --check`.
 - Status: READY
 - Review: Not run yet.
 - Evidence: `EVIDENCE_AND_GATES.md`
@@ -34,6 +33,14 @@ that builds once by default, runs selected stable fixture states through
   automated `uiautomator dump` had transient remote-file visibility failures.
 - Retry each state once by default in `Smoke-Regression.ps1`; use
   `-RetriesPerState 0` when a stricter no-retry signal is needed.
+- Regression reports now include failure category, state attempts, evidence
+  path, log path, not-run reason, and a focused single-state rerun command.
+- `Smoke-Emulator.ps1` now waits for the Taru app window to be focused before
+  UI hierarchy capture, and recovers focus by waking the device and relaunching
+  MainActivity before retrying.
+- Do not rewrite the harness in Python under the current local workflow. Python
+  is only worth revisiting for CI/device-farm execution, cross-platform
+  packaging, structured JSON/JUnit report export, or complex parallelism.
 - Keep CI, golden screenshots, and deeper playback validation as follow-ons.
 
 ## Blockers
@@ -43,9 +50,9 @@ that builds once by default, runs selected stable fixture states through
 
 ## Next Recommended Action
 
-- Execute `ASR-030`: review whether the current report and retry behavior is
-  enough for developer handoff, then either close the lane or add a narrow
-  failure-classification improvement.
+- Execute `ASR-040`: close the lane if a fresh final gate set passes, or split
+  CI, golden screenshot, or deeper playback validation into follow-on
+  workstreams.
 
 ## Latest Evidence
 
@@ -60,3 +67,16 @@ Fresh validation passed on 2026-05-19:
 Final report:
 
 - `apps/android/build/smoke-regression/20260519-005118/report.md`
+
+ASR-030 validation passed on 2026-05-19:
+
+- Controlled failure:
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup -Serial not-a-device -SkipBuild -RetriesPerState 0`
+- Successful local regression:
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token -SkipBuild`
+- `git diff --check`
+
+ASR-030 reports:
+
+- `apps/android/build/smoke-regression/20260519-080808/report.md`
+- `apps/android/build/smoke-regression/20260519-081559/report.md`

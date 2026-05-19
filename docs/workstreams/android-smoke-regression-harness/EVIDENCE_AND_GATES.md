@@ -103,6 +103,46 @@ Notes:
 - `git diff --check` passed with Git line-ending normalization warnings for
   edited Windows-tracked files only.
 
+## ASR-030 Evidence
+
+Validated on 2026-05-19:
+
+```powershell
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup -Serial not-a-device -SkipBuild -RetriesPerState 0
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token -SkipBuild
+git diff --check
+```
+
+Controlled failure report:
+
+- `apps/android/build/smoke-regression/20260519-080808/report.md`
+
+Successful local regression report:
+
+- `apps/android/build/smoke-regression/20260519-081559/report.md`
+
+What this proves:
+
+- A device-selection failure is classified as `device-automation` and the
+  report records the failed state, attempts, log path, and focused rerun
+  command.
+- State rows now include a category column; not-run states receive a reason
+  such as `blocked-by-earlier-state` or `android-build`.
+- The wrapper records Android build status separately from smoke state status.
+- `Smoke-Emulator.ps1` waits for the Taru app window to be focused before
+  `uiautomator dump`, and it recovers focus by waking the device and relaunching
+  MainActivity before retrying a UI hierarchy capture.
+- A two-state local regression passed after the focus recovery change:
+  `empty-setup` and `profile-missing-token`, both in one attempt.
+
+Decision:
+
+- Do not rewrite the harness in Python under ASR-030. The current problem is
+  Android/ADB orchestration and emulator focus recovery, not PowerShell string
+  manipulation. Python remains a follow-on option for CI/device-farm,
+  cross-platform packaging, structured JSON/JUnit export, or more complex
+  concurrency.
+
 ## Notes
 
 Do not commit generated screenshots, UI hierarchy dumps, fixture databases,

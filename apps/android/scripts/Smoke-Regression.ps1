@@ -70,6 +70,100 @@ function Convert-ToReportPath {
     return $Path.Replace('\', '/')
 }
 
+function Convert-ToCommandValue {
+    param(
+        [string]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return ''
+    }
+
+    if ($Value -match '[\s,;''"]') {
+        return "'$($Value -replace "'", "''")'"
+    }
+
+    return $Value
+}
+
+function Get-FailureCategory {
+    param(
+        [string]$State,
+        [string]$ErrorMessage
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ErrorMessage)) {
+        return 'n/a'
+    }
+
+    $message = $ErrorMessage.ToLowerInvariant()
+    if ($message.Contains('gradle') -or $message.Contains('assembledebug')) {
+        return 'android-build'
+    }
+
+    if ($message.Contains('no connected android devices') -or
+        $message.Contains('requested device') -or
+        $message.Contains('adb ') -or
+        $message.Contains('uiautomator') -or
+        $message.Contains('ui dump') -or
+        $message.Contains('null root node')) {
+        return 'device-automation'
+    }
+
+    if ($message.Contains('demo fixture') -or
+        $message.Contains('fixture server') -or
+        $message.Contains('health check') -or
+        $message.Contains('adb reverse')) {
+        return 'fixture-server'
+    }
+
+    if ($message.Contains('timed out waiting for ui text') -or
+        $message.Contains('missing expected ui text') -or
+        $message.Contains('cannot tap ui text')) {
+        return 'surface-criteria'
+    }
+
+    if ($State -eq 'profile-with-media') {
+        return 'media-smoke'
+    }
+
+    return 'unknown'
+}
+
+function Get-RerunCommand {
+    param(
+        [string]$State,
+        [string]$Serial,
+        [int]$FixtureServerPort,
+        [bool]$SkipFixtureServerBuild
+    )
+
+    $parts = New-Object System.Collections.Generic.List[string]
+    $parts.Add('pwsh')
+    $parts.Add('-NoProfile')
+    $parts.Add('-File')
+    $parts.Add('apps/android/scripts/Smoke-Emulator.ps1')
+    $parts.Add('-FixtureState')
+    $parts.Add($State)
+    $parts.Add('-SkipAppBuild')
+
+    if (-not [string]::IsNullOrWhiteSpace($Serial)) {
+        $parts.Add('-Serial')
+        $parts.Add((Convert-ToCommandValue -Value $Serial))
+    }
+
+    if ($FixtureServerPort -ne 3018) {
+        $parts.Add('-FixtureServerPort')
+        $parts.Add($FixtureServerPort.ToString())
+    }
+
+    if ($SkipFixtureServerBuild) {
+        $parts.Add('-SkipFixtureServerBuild')
+    }
+
+    return ($parts -join ' ')
+}
+
 function Resolve-SmokeStates {
     param(
         [string[]]$RequestedStates
@@ -123,10 +217,19 @@ New-Item -ItemType Directory -Force -Path $statesRoot | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
 $startedAt = Get-Date
+$buildStatus = 'SKIPPED'
+$buildError = $null
 
 try {
     if (-not $SkipBuild) {
-        Invoke-AndroidBuild -AndroidRoot $androidRoot
+        $buildStatus = 'PASS'
+        try {
+            Invoke-AndroidBuild -AndroidRoot $androidRoot
+        } catch {
+            $buildStatus = 'FAIL'
+            $buildError = $_.Exception.Message
+            throw
+        }
     }
 
     foreach ($state in $resolvedStates) {
@@ -178,10 +281,12 @@ try {
         $results.Add([pscustomobject]@{
             State = $state
             Status = $status
+            Category = Get-FailureCategory -State $state -ErrorMessage $errorMessage
             EvidenceDirectory = if ($latestEvidence) { $latestEvidence.FullName } else { $null }
             Log = $stateLog
             Error = $errorMessage
             Attempts = if ($status -eq 'PASS') { $attempt } else { $attempts }
+            RerunCommand = Get-RerunCommand -State $state -Serial $Serial -FixtureServerPort $FixtureServerPort -SkipFixtureServerBuild ([bool]$SkipFixtureServerBuild)
         })
 
         if ($status -ne 'PASS' -and -not $ContinueOnFailure) {
@@ -192,30 +297,52 @@ try {
     $finishedAt = Get-Date
     $failed = @($results | Where-Object { $_.Status -ne 'PASS' })
     $reportPath = Join-Path $runRoot 'report.md'
+    $overallPass = $buildStatus -ne 'FAIL' -and $failed.Count -eq 0 -and $results.Count -eq $resolvedStates.Count
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add('# Taru Android Smoke Regression')
     $lines.Add('')
     $lines.Add("- Started: $($startedAt.ToString('o'))")
     $lines.Add("- Finished: $($finishedAt.ToString('o'))")
     $lines.Add("- Android build step: $(if ($SkipBuild) { 'skipped' } else { 'assembleDebug' })")
+    $lines.Add("- Android build status: $buildStatus")
     $lines.Add("- Requested serial: $(if ([string]::IsNullOrWhiteSpace($Serial)) { 'auto' } else { $Serial })")
     $lines.Add("- Fixture server port: $FixtureServerPort")
     $lines.Add("- Fixture server build: $(if ($SkipFixtureServerBuild) { 'skipped when needed' } else { 'enabled when needed' })")
     $lines.Add("- Retries per state: $RetriesPerState")
-    $lines.Add("- Result: $(if ($failed.Count -eq 0 -and $results.Count -eq $resolvedStates.Count) { 'PASS' } else { 'FAIL' })")
+    $lines.Add("- Result: $(if ($overallPass) { 'PASS' } else { 'FAIL' })")
     $lines.Add('')
     $lines.Add('## States')
     $lines.Add('')
-    $lines.Add('| State | Status | Attempts | Evidence | Log |')
-    $lines.Add('| --- | --- | --- | --- | --- |')
+    $lines.Add('| State | Status | Attempts | Category | Evidence | Log |')
+    $lines.Add('| --- | --- | --- | --- | --- | --- |')
 
     foreach ($result in $results) {
-        $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Log) |")
+        $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $($result.Category) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Log) |")
     }
 
     $notRun = @($resolvedStates | Where-Object { $state = $_; -not ($results | Where-Object { $_.State -eq $state }) })
     foreach ($state in $notRun) {
-        $lines.Add("| $state | NOT_RUN | 0 | n/a | n/a |")
+        $reason = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
+        $lines.Add("| $state | NOT_RUN | 0 | $reason | n/a | n/a |")
+    }
+
+    if ($buildStatus -eq 'FAIL') {
+        $lines.Add('')
+        $lines.Add('## Build Failure')
+        $lines.Add('')
+        $lines.Add("Category: android-build")
+        $lines.Add('')
+        $lines.Add('Rerun:')
+        $lines.Add('')
+        $lines.Add('```powershell')
+        $lines.Add('apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon')
+        $lines.Add('```')
+        $lines.Add('')
+        $lines.Add('Error:')
+        $lines.Add('')
+        $lines.Add('```text')
+        $lines.Add($buildError)
+        $lines.Add('```')
     }
 
     $errors = @($results | Where-Object { -not [string]::IsNullOrWhiteSpace($_.Error) })
@@ -224,14 +351,32 @@ try {
         $lines.Add('## Errors')
         $lines.Add('')
         foreach ($result in $errors) {
-            $lines.Add("- $($result.State): $($result.Error)")
+            $lines.Add("### $($result.State)")
+            $lines.Add('')
+            $lines.Add("- Category: $($result.Category)")
+            $lines.Add("- Attempts: $($result.Attempts)")
+            $lines.Add("- Evidence: $(Convert-ToReportPath -Path $result.EvidenceDirectory)")
+            $lines.Add("- Log: $(Convert-ToReportPath -Path $result.Log)")
+            $lines.Add('')
+            $lines.Add('Rerun:')
+            $lines.Add('')
+            $lines.Add('```powershell')
+            $lines.Add($result.RerunCommand)
+            $lines.Add('```')
+            $lines.Add('')
+            $lines.Add('Error:')
+            $lines.Add('')
+            $lines.Add('```text')
+            $lines.Add($result.Error)
+            $lines.Add('```')
+            $lines.Add('')
         }
     }
 
     Write-Utf8File -Path $reportPath -Content ($lines -join [Environment]::NewLine)
 
     Write-Host "Smoke regression complete."
-    Write-Host "Result: $(if ($failed.Count -eq 0 -and $results.Count -eq $resolvedStates.Count) { 'PASS' } else { 'FAIL' })"
+    Write-Host "Result: $(if ($overallPass) { 'PASS' } else { 'FAIL' })"
     Write-Host "Report: $reportPath"
 }
 

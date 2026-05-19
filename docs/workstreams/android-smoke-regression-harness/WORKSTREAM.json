@@ -6,9 +6,9 @@
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Android has single-state emulator smoke fixtures, but no documented local regression command that composes the stable setup, shell, and server-backed media states into one repeatable confidence gate.",
-  "summary": "Local Android smoke regression wrapper added; next step is developer handoff/failure-classification closeout.",
-  "current_milestone": "M2",
-  "current_task": "ASR-030",
+  "summary": "Local Android smoke regression wrapper and failure handoff behavior are implemented; next step is closeout.",
+  "current_milestone": "M3",
+  "current_task": "ASR-040",
   "task_prefix": "ASR",
   "authoritative_docs": [
     {
@@ -46,6 +46,11 @@
       "task": "ASR-020",
       "path": "apps/android/build/smoke-regression/20260519-005118/report.md",
       "notes": "Full local smoke regression passed for empty-setup, profile-missing-token, and profile-with-media."
+    },
+    {
+      "task": "ASR-030",
+      "path": "apps/android/build/smoke-regression/20260519-081559/report.md",
+      "notes": "Failure classification and focus recovery validated with controlled failure and successful two-state local regression."
     }
   ],
   "adr_refs": [
