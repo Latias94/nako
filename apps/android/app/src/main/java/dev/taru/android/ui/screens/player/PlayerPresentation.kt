@@ -8,6 +8,7 @@ internal data class PlayerChromePresentation(
     val title: String,
     val modeLabel: String,
     val sourceLabel: String,
+    val backdropTitle: String,
     val resumeLabel: String?,
     val sessionLabel: String?,
 )
@@ -27,6 +28,7 @@ internal fun playerChromePresentation(launch: PlaybackLaunchRequest): PlayerChro
         title = launch.title.ifBlank { "Taru Playback" },
         modeLabel = playerModeLabel(launch.playbackMode),
         sourceLabel = "Selected source",
+        backdropTitle = launch.title.ifBlank { "Taru Playback" },
         resumeLabel = launch.resumePositionMs
             ?.takeIf { it > 0L }
             ?.let { "Local resume ${durationLabel(it)}" },

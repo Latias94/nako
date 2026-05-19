@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "slug": "android-public-client-api-coverage",
+  "title": "Android Public Client API Coverage",
+  "status": "active",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Android consumes the core Taru Public Client API, but the server route surface has grown and selected artwork/image serving plus several browse-detail routes are not yet intentionally covered.",
+  "current_task": "APIC-040",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-public-client-api-coverage/DESIGN.md"
+    },
+    {
+      "role": "coverage_matrix",
+      "path": "docs/workstreams/android-public-client-api-coverage/API_COVERAGE_MATRIX.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-public-client-api-coverage/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-public-client-api-coverage/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/api/HTTP_API.md",
+    "docs/workstreams/android-public-client-api-coverage/API_COVERAGE_MATRIX.md",
+    "apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt",
+    "apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt",
+    "apps/android/app/src/main/java/dev/taru/android/artwork/PublicArtwork.kt",
+    "apps/android/app/src/main/java/dev/taru/android/ui/artwork/TaruArtworkImage.kt",
+    "apps/android/app/src/main/java/dev/taru/android/ui/artwork/TaruArtworkSlots.kt",
+    "apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt"
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "run_next_task",
+    "next_task": "APIC-040",
+    "notes": "Selected artwork image consumption and productized fallback visual behavior are implemented. Decide Library Detail route coverage next. Split User Playback State into a server/client contract lane before claiming cross-device resume."
+  }
+}

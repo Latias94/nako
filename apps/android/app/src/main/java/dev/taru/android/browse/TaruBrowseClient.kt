@@ -72,6 +72,25 @@ class TaruBrowseClient(
         )
     }
 
+    suspend fun itemImages(
+        profile: ServerProfile,
+        accessToken: String,
+        itemId: String,
+    ): BrowseResult<ImagesResponse> {
+        if (itemId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.MissingItem,
+                userMessage = "Choose a Media Item before loading artwork.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/items/${encodePathSegment(itemId)}/images",
+        )
+    }
+
     suspend fun listGenreItems(
         profile: ServerProfile,
         accessToken: String,

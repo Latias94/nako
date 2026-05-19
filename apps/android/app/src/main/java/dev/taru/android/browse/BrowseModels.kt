@@ -136,7 +136,14 @@ data class ItemDetailResponse(
     val tags: List<ItemTagDto> = emptyList(),
     val collections: List<CollectionItemDto> = emptyList(),
     val studios: List<ItemStudioDto> = emptyList(),
-    val images: List<ImageAssetDto> = emptyList(),
+    val images: List<PublicImageRefDto> = emptyList(),
+)
+
+@Serializable
+data class ImagesResponse(
+    @SerialName("item_id")
+    val itemId: String,
+    val images: List<PublicImageRefDto> = emptyList(),
 )
 
 @Serializable
@@ -164,23 +171,12 @@ data class CanonicalMetadataDto(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val ratings: List<ContentRatingDto> = emptyList(),
-    val images: List<ImageRefDto> = emptyList(),
 )
 
 @Serializable
 data class ContentRatingDto(
     val source: String,
     val value: String,
-)
-
-@Serializable
-data class ImageRefDto(
-    val kind: String,
-    val uri: String,
-    val provider: JsonElement? = null,
-    val width: Int? = null,
-    val height: Int? = null,
-    val language: String? = null,
 )
 
 @Serializable
@@ -245,21 +241,16 @@ data class ItemStudioDto(
 )
 
 @Serializable
-data class ImageAssetDto(
+data class PublicImageRefDto(
     val id: String,
     val owner: JsonElement? = null,
-    val kind: JsonElement? = null,
-    @SerialName("source_uri")
-    val sourceUri: String = "",
-    val provider: JsonElement? = null,
-    @SerialName("cache_uri")
-    val cacheUri: String? = null,
+    val kind: JsonElement,
+    val url: String,
     val width: Int? = null,
     val height: Int? = null,
     val language: String? = null,
-    val selected: Boolean = false,
-    @SerialName("content_hash")
-    val contentHash: String? = null,
+    @SerialName("media_type")
+    val mediaType: String? = null,
     val etag: String? = null,
 )
 

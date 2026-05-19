@@ -10,6 +10,7 @@ import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemsResponse
 import dev.taru.android.browse.LibraryListResponse
+import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
@@ -112,6 +113,7 @@ internal sealed interface BrowseUiState {
     data class Content(
         val libraries: LibraryListResponse,
         val items: ItemsResponse,
+        val artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
     ) : BrowseUiState
 
     data class Failure(

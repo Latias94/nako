@@ -1,7 +1,6 @@
 package dev.taru.android.ui.screens.detail
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,17 +33,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.taru.android.artwork.PublicArtworkSlot
+import dev.taru.android.artwork.PublicArtworkSource
+import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.ItemCreditDto
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
+import dev.taru.android.connection.ServerProfile
 import dev.taru.android.playback.PlaybackRequestTarget
-import dev.taru.android.ui.browse.ArtworkBackdrop
+import dev.taru.android.ui.artwork.TaruBackdropArtwork
+import dev.taru.android.ui.artwork.TaruPosterArtwork
 import dev.taru.android.ui.browse.BrowseFacetTarget
 import dev.taru.android.ui.browse.BrowseFacetUiFamily
 import dev.taru.android.ui.browse.FacetChipRow
@@ -75,6 +77,8 @@ internal fun DetailRouteContent(
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     deviceResumePositionMs: Long?,
+    profile: ServerProfile,
+    accessToken: String,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onRetryPlayback: () -> Unit,
@@ -102,6 +106,8 @@ internal fun DetailRouteContent(
                 playbackState = playbackState,
                 selectedSourceId = selectedSourceId,
                 deviceResumePositionMs = deviceResumePositionMs,
+                profile = profile,
+                accessToken = accessToken,
                 onOpenFacet = onOpenFacet,
                 onRequestPlayback = onRequestPlayback,
                 onRetryPlayback = onRetryPlayback,
@@ -128,6 +134,8 @@ private fun MediaItemDetailScreen(
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     deviceResumePositionMs: Long?,
+    profile: ServerProfile,
+    accessToken: String,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onRequestPlayback: (String) -> Unit,
     onRetryPlayback: () -> Unit,
@@ -138,10 +146,13 @@ private fun MediaItemDetailScreen(
     val selectedSource = selectedSource(response.sources, selectedSourceId)
 
     DetailHero(
+        response = response,
         item = item,
         selectedSource = selectedSource,
         playbackState = playbackState,
         deviceResumePositionMs = deviceResumePositionMs,
+        profile = profile,
+        accessToken = accessToken,
         onRequestPlayback = onRequestPlayback,
         onStartPlayback = onStartPlayback,
     )
@@ -184,13 +195,23 @@ private fun MediaItemDetailScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DetailHero(
+    response: ItemDetailResponse,
     item: MediaItemDto,
     selectedSource: MediaSourceDto?,
     playbackState: PlaybackSelectionUiState,
     deviceResumePositionMs: Long?,
+    profile: ServerProfile,
+    accessToken: String,
     onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
+    val artworkSource = PublicArtworkSource(profile = profile, accessToken = accessToken)
+    val backdropRequest = artworkSource.requestFor(
+        preferredPublicArtwork(response.images, PublicArtworkSlot.Backdrop),
+    )
+    val posterRequest = artworkSource.requestFor(
+        preferredPublicArtwork(response.images, PublicArtworkSlot.Poster),
+    )
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = TaruShape.medium,
@@ -202,22 +223,15 @@ private fun DetailHero(
                 .fillMaxWidth()
                 .heightIn(min = 360.dp),
         ) {
-            ArtworkBackdrop(
+            TaruBackdropArtwork(
+                request = backdropRequest,
                 title = item.metadata.title,
                 modifier = Modifier.matchParentSize(),
-            )
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.58f),
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.96f),
-                            ),
-                        ),
-                    ),
+                overlayColors = listOf(
+                    Color.Transparent,
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.58f),
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.96f),
+                ),
             )
             Column(
                 modifier = Modifier
@@ -229,7 +243,11 @@ private fun DetailHero(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.large),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    PosterAnchor(title = item.metadata.title)
+                    PosterAnchor(
+                        title = item.metadata.title,
+                        kind = item.kind,
+                        artworkRequest = posterRequest,
+                    )
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
@@ -261,28 +279,20 @@ private fun DetailHero(
 }
 
 @Composable
-private fun PosterAnchor(title: String) {
-    Surface(
+private fun PosterAnchor(
+    title: String,
+    kind: String,
+    artworkRequest: dev.taru.android.artwork.PublicArtworkRequest?,
+) {
+    TaruPosterArtwork(
+        request = artworkRequest,
+        title = title,
+        kind = kind,
         modifier = Modifier
             .widthIn(min = 88.dp, max = 118.dp)
             .aspectRatio(TaruAspectRatio.poster),
-        shape = TaruShape.medium,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)),
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(TaruShape.medium)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = title.trim().take(1).ifBlank { "T" }.uppercase(),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-        }
-    }
+    )
 }
 
 @Composable

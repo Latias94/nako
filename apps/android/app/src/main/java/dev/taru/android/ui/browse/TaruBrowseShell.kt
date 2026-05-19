@@ -18,6 +18,7 @@ import dev.taru.android.browse.BrowseResult
 import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.PageRequest
+import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchRequest
 import dev.taru.android.browse.TaruBrowseClient
@@ -32,6 +33,7 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
+import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.ui.screens.detail.DetailRouteContent
 import dev.taru.android.ui.screens.player.PlaybackPlayerRoute
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
@@ -39,6 +41,11 @@ import dev.taru.android.ui.screens.settings.SettingsHomeScreen
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 @Composable
 fun TaruBrowseShell(
@@ -93,6 +100,10 @@ fun TaruBrowseShell(
             )
         }
     }
+    val artworkSource = PublicArtworkSource(
+        profile = profile,
+        accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
+    )
 
     LaunchedEffect(profile.id, refreshKey) {
         browseState = loadBrowseState(
@@ -213,6 +224,7 @@ fun TaruBrowseShell(
                     searchQuery = searchQuery,
                     searchState = searchState,
                     snapshot = snapshot,
+                    artworkSource = artworkSource,
                     onRetry = { refreshKey += 1 },
                     onSearchQueryChange = { searchQuery = it },
                     onSubmitSearch = {
@@ -241,6 +253,8 @@ fun TaruBrowseShell(
                         selectedSourceId = requestedSourceId,
                         positionStore = positionStore,
                     ),
+                    profile = profile,
+                    accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
                     onBack = { navigationState = navigationState.navigateBack() },
                     onRetry = { detailRefreshKey += 1 },
                     onRetryPlayback = { playbackRefreshKey += 1 },
@@ -503,11 +517,47 @@ private suspend fun loadBrowseState(
     if (items is BrowseResult.Failure) {
         return BrowseUiState.Failure(items.diagnostics)
     }
+    val itemPage = (items as BrowseResult.Success).value
 
     return BrowseUiState.Content(
         libraries = (libraries as BrowseResult.Success).value,
-        items = (items as BrowseResult.Success).value,
+        items = itemPage,
+        artworkByItemId = loadVisibleArtworkRefs(
+            profile = profile,
+            accessToken = accessToken,
+            browseClient = browseClient,
+            items = itemPage.items,
+        ),
     )
+}
+
+private suspend fun loadVisibleArtworkRefs(
+    profile: ServerProfile,
+    accessToken: String,
+    browseClient: TaruBrowseClient,
+    items: List<MediaItemDto>,
+): Map<String, List<PublicImageRefDto>> = coroutineScope {
+    val semaphore = Semaphore(permits = 4)
+    items
+        .map { item ->
+            async {
+                semaphore.withPermit {
+                    val result = browseClient.itemImages(
+                        profile = profile,
+                        accessToken = accessToken,
+                        itemId = item.id,
+                    )
+                    if (result is BrowseResult.Success && result.value.images.isNotEmpty()) {
+                        item.id to result.value.images
+                    } else {
+                        null
+                    }
+                }
+            }
+        }
+        .awaitAll()
+        .filterNotNull()
+        .toMap()
 }
 
 @Composable
@@ -518,6 +568,7 @@ private fun TopLevelContent(
     searchQuery: String,
     searchState: SearchUiState,
     snapshot: ServerProfileSnapshot,
+    artworkSource: PublicArtworkSource,
     onRetry: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
@@ -534,6 +585,7 @@ private fun TopLevelContent(
             HomeScreen(
                 profile = profile,
                 state = browseState,
+                artworkSource = artworkSource,
                 onRetry = onRetry,
                 onChangeServer = onChangeServer,
                 onOpenItem = onOpenItem,
@@ -545,6 +597,7 @@ private fun TopLevelContent(
         TaruDestination.Libraries -> BrowseScaffoldContent {
             LibrariesScreen(
                 state = browseState,
+                artworkSource = artworkSource,
                 onRetry = onRetry,
                 onChangeServer = onChangeServer,
                 onOpenItem = onOpenItem,

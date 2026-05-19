@@ -18,8 +18,19 @@ class PlayerPresentationTest {
         )
 
         assertEquals("Night Harbor", chrome.title)
+        assertEquals("Night Harbor", chrome.backdropTitle)
         assertEquals("HLS", chrome.modeLabel)
         assertEquals("Local resume 1:32", chrome.resumeLabel)
+    }
+
+    @Test
+    fun playerBackdropUsesStableFallbackTitleWhenLaunchTitleIsBlank() {
+        val chrome = playerChromePresentation(
+            launch = launch(title = " ", resumePositionMs = null),
+        )
+
+        assertEquals("Taru Playback", chrome.title)
+        assertEquals("Taru Playback", chrome.backdropTitle)
     }
 
     @Test
@@ -39,9 +50,12 @@ class PlayerPresentationTest {
         assertFalse(presentation.diagnostics.contains("secret-token"))
     }
 
-    private fun launch(resumePositionMs: Long?) =
+    private fun launch(
+        title: String = "Night Harbor",
+        resumePositionMs: Long?,
+    ) =
         playbackLaunchRequest(
-            title = "Night Harbor",
+            title = title,
             target = PlaybackRequestTarget(
                 request = TaruHttpRequest(
                     method = "GET",

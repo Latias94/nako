@@ -151,9 +151,12 @@ class TaruBrowseClientTest {
                           "id":"image-1",
                           "owner":{"item":"item 1"},
                           "kind":"poster",
-                          "source_uri":"https://example.test/poster.jpg",
-                          "provider":"local",
-                          "selected":true
+                          "url":"/images/image-1",
+                          "width":1000,
+                          "height":1500,
+                          "language":null,
+                          "media_type":"image/jpeg",
+                          "etag":"hash-1"
                         }
                       ]
                     }
@@ -180,6 +183,52 @@ class TaruBrowseClientTest {
         assertEquals(1, success.value.credits.size)
         assertEquals(1, success.value.images.size)
         assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `item images decodes public image refs and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "item_id": "item 1",
+                      "images": [
+                        {
+                          "id": "poster-1",
+                          "owner": {"item": "item 1"},
+                          "kind": "poster",
+                          "url": "/images/poster-1",
+                          "width": 1000,
+                          "height": 1500,
+                          "language": null,
+                          "media_type": "image/png",
+                          "etag": "hash-1"
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemImages(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item 1",
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/items/item%201/images", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("item 1", success.value.itemId)
+        assertEquals("/images/poster-1", success.value.images.single().url)
+        assertEquals("image/png", success.value.images.single().mediaType)
+        assertFalse(success.toString().contains("secret-token"))
+        assertFalse(success.toString().contains("source_uri"))
     }
 
     @Test

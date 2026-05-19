@@ -32,8 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.taru.android.artwork.PublicArtworkSlot
+import dev.taru.android.artwork.PublicArtworkSource
+import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.connection.ServerProfile
+import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
@@ -42,6 +46,7 @@ import dev.taru.android.ui.theme.TaruTextSecondary
 internal fun HomeScreen(
     profile: ServerProfile,
     state: BrowseUiState,
+    artworkSource: PublicArtworkSource,
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
@@ -56,6 +61,8 @@ internal fun HomeScreen(
             featuredItem = content?.items?.items?.firstOrNull(),
             libraryCount = content?.libraries?.libraries?.size,
             itemCount = content?.items?.page?.returned,
+            artworkSource = artworkSource,
+            artworkByItemId = content?.artworkByItemId.orEmpty(),
             onOpenItem = onOpenItem,
             onChangeServer = onChangeServer,
             onOpenLibrary = onOpenLibrary,
@@ -104,6 +111,8 @@ internal fun HomeScreen(
                 } else {
                     MediaPosterRow(
                         items = state.items.items.take(8),
+                        artworkSource = artworkSource,
+                        artworkByItemId = state.artworkByItemId,
                         onOpenItem = onOpenItem,
                     )
                 }
@@ -118,11 +127,18 @@ private fun HomeHeader(
     featuredItem: MediaItemDto?,
     libraryCount: Int?,
     itemCount: Int?,
+    artworkSource: PublicArtworkSource,
+    artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
     onOpenItem: (MediaItemDto) -> Unit,
     onChangeServer: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
+    val backdropRequest = artworkSource.requestFor(
+        featuredItem?.let { item ->
+            preferredPublicArtwork(artworkByItemId[item.id].orEmpty(), PublicArtworkSlot.Backdrop)
+        },
+    )
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = TaruShape.medium,
@@ -135,7 +151,8 @@ private fun HomeHeader(
                 .fillMaxWidth()
                 .heightIn(min = 260.dp),
         ) {
-            ArtworkBackdrop(
+            TaruBackdropArtwork(
+                request = backdropRequest,
                 title = featuredItem?.metadata?.title ?: "Taru",
                 modifier = Modifier.matchParentSize(),
             )

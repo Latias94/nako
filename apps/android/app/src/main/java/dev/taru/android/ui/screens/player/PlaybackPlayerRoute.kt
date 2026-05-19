@@ -63,6 +63,7 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
 import dev.taru.android.ui.theme.TaruAccent
@@ -147,17 +148,24 @@ internal fun PlaybackPlayerRoute(
             .fillMaxSize()
             .background(Color(0xFF05090B)),
     ) {
+        TaruPlayerBackdrop(
+            title = chrome.backdropTitle,
+            modifier = Modifier.matchParentSize(),
+        )
+
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     this.player = player
                     useController = true
+                    setArtworkDisplayMode(PlayerView.ARTWORK_DISPLAY_MODE_OFF)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                    setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
             update = { it.player = player },
