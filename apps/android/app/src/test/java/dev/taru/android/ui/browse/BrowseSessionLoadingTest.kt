@@ -7,9 +7,21 @@ import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.LibraryListResponse
 import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.MediaItemDto
+import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.browse.PageInfo
 import dev.taru.android.browse.SearchItemHit
 import dev.taru.android.browse.SearchResponse
+import dev.taru.android.browse.ItemDetailResponse
+import dev.taru.android.connection.SafeRequestPreview
+import dev.taru.android.connection.TaruHttpRequest
+import dev.taru.android.media.MediaProbeDto
+import dev.taru.android.media.SourceProbeResponse
+import dev.taru.android.playback.ClientPlaybackDecision
+import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackCapabilities
+import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.playback.PlaybackMediaSourceDto
+import dev.taru.android.playback.PlaybackRequestTarget
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,6 +118,90 @@ class BrowseSessionLoadingTest {
     }
 
     @Test
+    fun `item detail load selects first source and starts source probe`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            detailState = ItemDetailUiState.Content(
+                testDetail(
+                    itemId = "night-harbor",
+                    sourceIds = listOf("source-a", "source-b"),
+                ),
+            ),
+            sourceProbeState = SourceProbeUiState.Content(testSourceProbe("source-a")),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenItem("night-harbor"))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.ItemDetail("night-harbor")))?.join()
+
+        assertTrue(session.state.value.detailState is ItemDetailUiState.Content)
+        assertEquals("source-a", session.state.value.selectedSourceId)
+        assertTrue(session.state.value.sourceProbeState is SourceProbeUiState.Content)
+        assertEquals(listOf("source-a"), dataSource.sourceProbeRequests)
+        assertEquals(PlaybackSelectionUiState.Idle, session.state.value.playbackState)
+    }
+
+    @Test
+    fun `selecting a source resets playback decision and probes the selected source`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            detailState = ItemDetailUiState.Content(
+                testDetail(
+                    itemId = "night-harbor",
+                    sourceIds = listOf("source-a", "source-b"),
+                ),
+            ),
+            sourceProbeState = SourceProbeUiState.Content(testSourceProbe("source-b")),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenItem("night-harbor"))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.ItemDetail("night-harbor")))?.join()
+        session.dispatch(BrowseAction.RequestPlayback("source-a"))?.join()
+        session.dispatch(BrowseAction.SelectSource("source-b"))?.join()
+
+        assertEquals("source-b", session.state.value.selectedSourceId)
+        assertEquals(null, session.state.value.playbackRequestSourceId)
+        assertEquals(PlaybackSelectionUiState.Idle, session.state.value.playbackState)
+        assertEquals(listOf("source-a", "source-a", "source-b"), dataSource.sourceProbeRequests)
+    }
+
+    @Test
+    fun `request playback loads playback decision for selected source`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            playbackState = PlaybackSelectionUiState.Content(
+                response = testPlaybackDecision("source-a"),
+                target = testPlaybackTarget("source-a"),
+                capabilities = PlaybackCapabilities(),
+            ),
+        )
+        val session = BrowseSession(
+            initialState = BrowseShellState(
+                navigation = TaruBrowseNavigationState.root().open(TaruRoute.ItemDetail("night-harbor")),
+                selectedSourceId = "source-a",
+                detailState = ItemDetailUiState.Content(
+                    testDetail(
+                        itemId = "night-harbor",
+                        sourceIds = listOf("source-a"),
+                    ),
+                ),
+            ),
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.RequestPlayback("source-a"))?.join()
+
+        assertEquals("source-a", session.state.value.playbackRequestSourceId)
+        assertTrue(session.state.value.playbackState is PlaybackSelectionUiState.Content)
+        assertEquals(listOf("source-a"), dataSource.playbackRequests)
+    }
+
+    @Test
     fun `library detail route load ignores stale response after back`() = runBlocking {
         val dataSource = RecordingBrowseDataSource(
             libraryDetailState = LibraryDetailUiState.Content(testLibrarySources("library-movies")),
@@ -182,6 +278,24 @@ private class DeferredSearchBrowseDataSource : BrowseDataSource {
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState =
         FacetUiState.Content(testFacet(target))
 
+    override suspend fun loadItemDetail(itemId: String): ItemDetailUiState =
+        ItemDetailUiState.Content(
+            testDetail(
+                itemId = itemId,
+                sourceIds = listOf("source-default"),
+            ),
+        )
+
+    override suspend fun loadSourceProbe(sourceId: String): SourceProbeUiState =
+        SourceProbeUiState.Content(testSourceProbe(sourceId))
+
+    override suspend fun loadPlaybackSelection(sourceId: String): PlaybackSelectionUiState =
+        PlaybackSelectionUiState.Content(
+            response = testPlaybackDecision(sourceId),
+            target = testPlaybackTarget(sourceId),
+            capabilities = PlaybackCapabilities(),
+        )
+
     fun completeSearch(query: String) {
         searches
             .computeIfAbsent(query) { CompletableDeferred() }
@@ -215,11 +329,28 @@ private class RecordingBrowseDataSource(
             ),
         ),
     ),
+    private val detailState: ItemDetailUiState = ItemDetailUiState.Content(
+        testDetail(
+            itemId = "item-default",
+            sourceIds = listOf("source-default"),
+        ),
+    ),
+    private val sourceProbeState: SourceProbeUiState = SourceProbeUiState.Content(
+        testSourceProbe("source-default"),
+    ),
+    private val playbackState: PlaybackSelectionUiState = PlaybackSelectionUiState.Content(
+        response = testPlaybackDecision("source-default"),
+        target = testPlaybackTarget("source-default"),
+        capabilities = PlaybackCapabilities(),
+    ),
 ) : BrowseDataSource {
     var homeLoads: Int = 0
         private set
     val searchQueries: MutableList<String> = mutableListOf()
     val facetTargets: MutableList<BrowseFacetTarget> = mutableListOf()
+    val detailRequests: MutableList<String> = mutableListOf()
+    val sourceProbeRequests: MutableList<String> = mutableListOf()
+    val playbackRequests: MutableList<String> = mutableListOf()
 
     override suspend fun loadHome(): BrowseUiState {
         homeLoads += 1
@@ -237,6 +368,21 @@ private class RecordingBrowseDataSource(
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
         facetTargets += target
         return facetState
+    }
+
+    override suspend fun loadItemDetail(itemId: String): ItemDetailUiState {
+        detailRequests += itemId
+        return detailState
+    }
+
+    override suspend fun loadSourceProbe(sourceId: String): SourceProbeUiState {
+        sourceProbeRequests += sourceId
+        return sourceProbeState
+    }
+
+    override suspend fun loadPlaybackSelection(sourceId: String): PlaybackSelectionUiState {
+        playbackRequests += sourceId
+        return playbackState
     }
 }
 
@@ -291,6 +437,54 @@ private fun testItem(id: String): MediaItemDto =
         id = id,
         kind = "movie",
         metadata = CanonicalMetadataDto(title = "Night Harbor"),
+    )
+
+private fun testDetail(
+    itemId: String,
+    sourceIds: List<String>,
+): ItemDetailResponse =
+    ItemDetailResponse(
+        item = testItem(itemId),
+        sources = sourceIds.map { sourceId ->
+            MediaSourceDto(
+                id = sourceId,
+                libraryId = "library-movies",
+                itemId = itemId,
+            )
+        },
+    )
+
+private fun testSourceProbe(sourceId: String): SourceProbeResponse =
+    SourceProbeResponse(
+        sourceId = sourceId,
+        probe = MediaProbeDto(durationMs = 120_000),
+    )
+
+private fun testPlaybackDecision(sourceId: String): PlaybackDecisionResponse =
+    PlaybackDecisionResponse(
+        source = PlaybackMediaSourceDto(
+            id = sourceId,
+            libraryId = "library-movies",
+            itemId = "night-harbor",
+        ),
+        decision = ClientPlaybackDecision(
+            mode = ClientPlaybackMode.DirectPlay,
+            reason = "direct",
+        ),
+    )
+
+private fun testPlaybackTarget(sourceId: String): PlaybackRequestTarget =
+    PlaybackRequestTarget(
+        request = TaruHttpRequest(
+            method = "GET",
+            url = "http://127.0.0.1:3018/sources/$sourceId/stream",
+            headers = emptyMap(),
+        ),
+        safeRequest = SafeRequestPreview(
+            method = "GET",
+            url = "http://127.0.0.1:3018/sources/$sourceId/stream",
+            headers = emptyMap(),
+        ),
     )
 
 private fun testPage(returned: Int): PageInfo =

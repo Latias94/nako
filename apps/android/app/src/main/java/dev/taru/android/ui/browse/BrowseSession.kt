@@ -1,6 +1,8 @@
 package dev.taru.android.ui.browse
 
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.playback.PlaybackRequestTarget
+import dev.taru.android.playback.SafePlaybackDiagnostics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,11 @@ internal data class BrowseShellState(
     val submittedSearchQuery: String = "",
     val searchState: SearchUiState = SearchUiState.Idle,
     val facetState: FacetUiState = FacetUiState.Idle,
+    val detailState: ItemDetailUiState = ItemDetailUiState.Idle,
+    val selectedSourceId: String? = null,
+    val sourceProbeState: SourceProbeUiState = SourceProbeUiState.Idle,
+    val playbackRequestSourceId: String? = null,
+    val playbackState: PlaybackSelectionUiState = PlaybackSelectionUiState.Idle,
 ) {
     val selectedDestination: TaruDestination = navigation.selectedDestination
     val currentRoute: TaruRoute = navigation.currentRoute
@@ -32,6 +39,10 @@ internal sealed interface BrowseAction {
     data class OpenPlayer(val launch: PlaybackLaunchRequest) : BrowseAction
     data class RouteDisplayed(val route: TaruRoute) : BrowseAction
     data class SearchQueryChanged(val query: String) : BrowseAction
+    data class SelectSource(val sourceId: String) : BrowseAction
+    data class RequestPlayback(val sourceId: String) : BrowseAction
+    data class PlaybackStartPrepared(val target: PlaybackRequestTarget) : BrowseAction
+    data class PlaybackStartFailed(val diagnostics: SafePlaybackDiagnostics) : BrowseAction
     data object OpenServerProfile : BrowseAction
     data object Back : BrowseAction
     data object LoadHome : BrowseAction
@@ -39,6 +50,8 @@ internal sealed interface BrowseAction {
     data object SubmitSearch : BrowseAction
     data object RetrySearch : BrowseAction
     data object RetryCurrentRoute : BrowseAction
+    data object RetrySourceProbe : BrowseAction
+    data object RetryPlaybackDecision : BrowseAction
 }
 
 internal interface BrowseDataSource {
@@ -46,6 +59,9 @@ internal interface BrowseDataSource {
     suspend fun loadLibraryDetail(libraryId: String): LibraryDetailUiState
     suspend fun search(query: String): SearchUiState
     suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState
+    suspend fun loadItemDetail(itemId: String): ItemDetailUiState
+    suspend fun loadSourceProbe(sourceId: String): SourceProbeUiState
+    suspend fun loadPlaybackSelection(sourceId: String): PlaybackSelectionUiState
 }
 
 internal class BrowseSession(
@@ -60,6 +76,9 @@ internal class BrowseSession(
     private var libraryDetailRequestId: Long = 0
     private var searchRequestId: Long = 0
     private var facetRequestId: Long = 0
+    private var detailRequestId: Long = 0
+    private var sourceProbeRequestId: Long = 0
+    private var playbackSelectionRequestId: Long = 0
 
     fun dispatch(action: BrowseAction): Job? =
         when (action) {
@@ -69,9 +88,57 @@ internal class BrowseSession(
             BrowseAction.SubmitSearch -> submitSearch()
             BrowseAction.RetrySearch -> retrySearch()
             BrowseAction.RetryCurrentRoute -> loadCurrentRoute()
+            BrowseAction.RetrySourceProbe -> loadSelectedSourceProbe()
+            BrowseAction.RetryPlaybackDecision -> loadRequestedPlaybackSelection()
             is BrowseAction.RouteDisplayed -> loadRoute(action.route)
             is BrowseAction.SearchQueryChanged -> {
                 _state.update { it.copy(searchQuery = action.query) }
+                null
+            }
+            is BrowseAction.SelectSource -> {
+                sourceProbeRequestId += 1
+                playbackSelectionRequestId += 1
+                _state.update {
+                    it.copy(
+                        selectedSourceId = action.sourceId,
+                        sourceProbeState = SourceProbeUiState.Loading,
+                        playbackRequestSourceId = null,
+                        playbackState = PlaybackSelectionUiState.Idle,
+                    )
+                }
+                loadSourceProbe(action.sourceId)
+            }
+            is BrowseAction.RequestPlayback -> {
+                sourceProbeRequestId += 1
+                playbackSelectionRequestId += 1
+                _state.update {
+                    it.copy(
+                        selectedSourceId = action.sourceId,
+                        sourceProbeState = SourceProbeUiState.Loading,
+                        playbackRequestSourceId = action.sourceId,
+                        playbackState = PlaybackSelectionUiState.Loading,
+                    )
+                }
+                loadSourceProbe(action.sourceId)
+                loadPlaybackSelection(action.sourceId)
+            }
+            is BrowseAction.PlaybackStartPrepared -> {
+                _state.update { current ->
+                    val content = current.playbackState as? PlaybackSelectionUiState.Content
+                    if (content == null) {
+                        current
+                    } else {
+                        current.copy(playbackState = content.copy(target = action.target))
+                    }
+                }
+                null
+            }
+            is BrowseAction.PlaybackStartFailed -> {
+                _state.update {
+                    it.copy(
+                        playbackState = PlaybackSelectionUiState.Failure(action.diagnostics),
+                    )
+                }
                 null
             }
             else -> {
@@ -114,8 +181,14 @@ internal class BrowseSession(
             BrowseAction.SubmitSearch,
             BrowseAction.RetrySearch,
             BrowseAction.RetryCurrentRoute,
+            BrowseAction.RetrySourceProbe,
+            BrowseAction.RetryPlaybackDecision,
             is BrowseAction.RouteDisplayed,
             is BrowseAction.SearchQueryChanged,
+            is BrowseAction.SelectSource,
+            is BrowseAction.RequestPlayback,
+            is BrowseAction.PlaybackStartPrepared,
+            is BrowseAction.PlaybackStartFailed,
             -> current
         }
 
@@ -186,13 +259,22 @@ internal class BrowseSession(
 
     private fun loadRoute(route: TaruRoute): Job? =
         when (route) {
+            is TaruRoute.ItemDetail -> loadItemDetail(route.itemId)
             is TaruRoute.LibraryDetail -> loadLibraryDetail(route.libraryId)
             is TaruRoute.BrowseFacet -> loadFacet(route.target)
             else -> {
+                detailRequestId += 1
                 libraryDetailRequestId += 1
                 facetRequestId += 1
+                sourceProbeRequestId += 1
+                playbackSelectionRequestId += 1
                 _state.update {
                     it.copy(
+                        detailState = ItemDetailUiState.Idle,
+                        selectedSourceId = null,
+                        sourceProbeState = SourceProbeUiState.Idle,
+                        playbackRequestSourceId = null,
+                        playbackState = PlaybackSelectionUiState.Idle,
                         libraryDetailState = LibraryDetailUiState.Idle,
                         facetState = FacetUiState.Idle,
                     )
@@ -210,6 +292,32 @@ internal class BrowseSession(
         }
 
         var prepared = next
+        prepared = when (val route = next.currentRoute) {
+            is TaruRoute.ItemDetail -> {
+                detailRequestId += 1
+                sourceProbeRequestId += 1
+                playbackSelectionRequestId += 1
+                prepared.copy(
+                    detailState = ItemDetailUiState.Loading,
+                    selectedSourceId = null,
+                    sourceProbeState = SourceProbeUiState.Idle,
+                    playbackRequestSourceId = null,
+                    playbackState = PlaybackSelectionUiState.Idle,
+                )
+            }
+            else -> {
+                detailRequestId += 1
+                sourceProbeRequestId += 1
+                playbackSelectionRequestId += 1
+                prepared.copy(
+                    detailState = ItemDetailUiState.Idle,
+                    selectedSourceId = null,
+                    sourceProbeState = SourceProbeUiState.Idle,
+                    playbackRequestSourceId = null,
+                    playbackState = PlaybackSelectionUiState.Idle,
+                )
+            }
+        }
         prepared = when (val route = next.currentRoute) {
             is TaruRoute.LibraryDetail -> {
                 libraryDetailRequestId += 1
@@ -238,6 +346,48 @@ internal class BrowseSession(
         }
 
         return prepared
+    }
+
+    private fun loadItemDetail(itemId: String): Job {
+        val requestId = ++detailRequestId
+        _state.update {
+            it.copy(
+                detailState = ItemDetailUiState.Loading,
+                selectedSourceId = null,
+                sourceProbeState = SourceProbeUiState.Idle,
+                playbackRequestSourceId = null,
+                playbackState = PlaybackSelectionUiState.Idle,
+            )
+        }
+        return requiredScope().launch {
+            val nextState = requiredDataSource().loadItemDetail(itemId)
+            var acceptedSourceId: String? = null
+            _state.update { current ->
+                val routeStillCurrent = current.currentRoute == TaruRoute.ItemDetail(itemId)
+                if (requestId == detailRequestId && routeStillCurrent) {
+                    val selectedSourceId = nextState.firstSourceIdOrNull()
+                    acceptedSourceId = selectedSourceId
+                    current.copy(
+                        detailState = nextState,
+                        selectedSourceId = selectedSourceId,
+                        sourceProbeState = if (selectedSourceId == null) {
+                            SourceProbeUiState.Idle
+                        } else {
+                            SourceProbeUiState.Loading
+                        },
+                        playbackRequestSourceId = null,
+                        playbackState = PlaybackSelectionUiState.Idle,
+                    )
+                } else {
+                    current
+                }
+            }
+            acceptedSourceId?.let { sourceId ->
+                if (state.value.currentRoute == TaruRoute.ItemDetail(itemId)) {
+                    loadSourceProbe(sourceId)
+                }
+            }
+        }
     }
 
     private fun loadLibraryDetail(libraryId: String): Job {
@@ -277,6 +427,68 @@ internal class BrowseSession(
         }
     }
 
+    private fun loadSelectedSourceProbe(): Job? {
+        val sourceId = _state.value.selectedSourceId?.takeIf { it.isNotBlank() }
+        return if (sourceId == null || _state.value.currentRoute !is TaruRoute.ItemDetail) {
+            sourceProbeRequestId += 1
+            _state.update { it.copy(sourceProbeState = SourceProbeUiState.Idle) }
+            null
+        } else {
+            loadSourceProbe(sourceId)
+        }
+    }
+
+    private fun loadSourceProbe(sourceId: String): Job {
+        val requestId = ++sourceProbeRequestId
+        _state.update { it.copy(sourceProbeState = SourceProbeUiState.Loading) }
+        return requiredScope().launch {
+            val nextState = requiredDataSource().loadSourceProbe(sourceId)
+            _state.update { current ->
+                val routeStillCurrent = current.currentRoute is TaruRoute.ItemDetail
+                if (
+                    requestId == sourceProbeRequestId &&
+                    routeStillCurrent &&
+                    current.selectedSourceId == sourceId
+                ) {
+                    current.copy(sourceProbeState = nextState)
+                } else {
+                    current
+                }
+            }
+        }
+    }
+
+    private fun loadRequestedPlaybackSelection(): Job? {
+        val sourceId = _state.value.playbackRequestSourceId?.takeIf { it.isNotBlank() }
+        return if (sourceId == null || _state.value.currentRoute !is TaruRoute.ItemDetail) {
+            playbackSelectionRequestId += 1
+            _state.update { it.copy(playbackState = PlaybackSelectionUiState.Idle) }
+            null
+        } else {
+            loadPlaybackSelection(sourceId)
+        }
+    }
+
+    private fun loadPlaybackSelection(sourceId: String): Job {
+        val requestId = ++playbackSelectionRequestId
+        _state.update { it.copy(playbackState = PlaybackSelectionUiState.Loading) }
+        return requiredScope().launch {
+            val nextState = requiredDataSource().loadPlaybackSelection(sourceId)
+            _state.update { current ->
+                val routeStillCurrent = current.currentRoute is TaruRoute.ItemDetail
+                if (
+                    requestId == playbackSelectionRequestId &&
+                    routeStillCurrent &&
+                    current.playbackRequestSourceId == sourceId
+                ) {
+                    current.copy(playbackState = nextState)
+                } else {
+                    current
+                }
+            }
+        }
+    }
+
     private fun requiredDataSource(): BrowseDataSource =
         requireNotNull(dataSource) {
             "BrowseDataSource is required for async BrowseAction handling."
@@ -287,6 +499,13 @@ internal class BrowseSession(
             "CoroutineScope is required for async BrowseAction handling."
         }
 }
+
+private fun ItemDetailUiState.firstSourceIdOrNull(): String? =
+    (this as? ItemDetailUiState.Content)
+        ?.response
+        ?.sources
+        ?.firstOrNull()
+        ?.id
 
 internal fun BrowseFacetTarget.apiGapState(): FacetUiState.ApiGap =
     FacetUiState.ApiGap(

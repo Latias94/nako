@@ -5,8 +5,8 @@ Last updated: 2026-05-19
 
 ## Current Task
 
-AUSA-040: migrate Media Item Detail loading, selected Media Source state,
-source probe, playback decision, and retry events into `BrowseSession`.
+AUSA-050: move playback start action handling into `BrowseSession` using
+`PlaybackStartCoordinator`.
 
 ## Notes
 
@@ -22,3 +22,7 @@ source probe, playback decision, and retry events into `BrowseSession`.
   now run through `BrowseSession` and `BrowseDataSource`; shell no longer owns
   those refresh keys or route-driven loaders. Focused loading tests and full
   debug unit tests pass.
+- AUSA-040 is complete. Media Item Detail, selected Media Source, source probe,
+  playback decision, and related retry state now live in `BrowseSession`.
+  `TaruBrowseShell` still owns playback-start orchestration and should hand
+  that to the session in AUSA-050.

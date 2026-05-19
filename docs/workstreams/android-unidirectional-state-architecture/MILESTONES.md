@@ -31,6 +31,8 @@ Exit:
 
 ## M3 - Detail And Playback Selection Slice
 
+Status: Complete.
+
 Exit:
 
 - Media Item Detail, Media Source selection, source probe, and playback

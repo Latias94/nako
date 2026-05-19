@@ -28,3 +28,12 @@ Last updated: 2026-05-19
   Gates passed:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --no-daemon --no-parallel`;
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.
+- 2026-05-19: AUSA-040 moved Media Item Detail, selected Media Source,
+  source probe, playback decision, and retry state into `BrowseSession`.
+  `ClientBrowseDataSource` now owns token/client access for those loads.
+  `TaruBrowseShell` renders the session state and keeps only playback-start
+  orchestration for AUSA-050. Token-missing detail/probe/decision paths return
+  safe failure states without issuing HTTP requests.
+  Gates passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.ClientBrowseDataSourceTest --tests dev.taru.android.ui.browse.BrowseSessionTest --no-daemon --no-parallel`;
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.

@@ -33,12 +33,12 @@ Last updated: 2026-05-19
 
 ## M3 - Detail And Playback Selection Slice
 
-- [ ] AUSA-040 [owner=codex] [deps=AUSA-030] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse]
+- [x] AUSA-040 [owner=codex] [deps=AUSA-030] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse]
   Goal: Move Media Item Detail loading, selected Media Source state, source
   probe, playback decision, and retry events into `BrowseSession`.
   Validation: JVM tests prove item detail loading, selected source reset,
   source probe state, playback decision state, and token-safe failures.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.ClientBrowseDataSourceTest --tests dev.taru.android.ui.browse.BrowseSessionTest --no-daemon --no-parallel` and full `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel` passed on 2026-05-19.
   Handoff: AUSA-050 can migrate playback start route opening.
 
 ## M4 - Playback Start Integration

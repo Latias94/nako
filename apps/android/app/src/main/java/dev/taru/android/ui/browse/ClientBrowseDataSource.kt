@@ -11,6 +11,11 @@ import dev.taru.android.browse.SearchRequest
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TokenVault
+import dev.taru.android.playback.PlaybackFailureCategory
+import dev.taru.android.playback.PlaybackPreferencesStore
+import dev.taru.android.playback.PlaybackResult
+import dev.taru.android.playback.SafePlaybackDiagnostics
+import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import dev.taru.android.userplayback.UserPlaybackResult
 import kotlinx.coroutines.async
@@ -23,6 +28,8 @@ internal class ClientBrowseDataSource(
     private val profile: ServerProfile,
     private val tokenVault: TokenVault,
     private val browseClient: TaruBrowseClient,
+    private val playbackClient: TaruPlaybackClient,
+    private val playbackPreferencesStore: PlaybackPreferencesStore,
     private val userPlaybackClient: TaruUserPlaybackClient,
 ) : BrowseDataSource {
     override suspend fun loadHome(): BrowseUiState {
@@ -183,6 +190,101 @@ internal class ClientBrowseDataSource(
         return when (result) {
             is BrowseResult.Success -> FacetUiState.Content(result.value)
             is BrowseResult.Failure -> FacetUiState.Failure(result.diagnostics)
+        }
+    }
+
+    override suspend fun loadItemDetail(itemId: String): ItemDetailUiState {
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            return ItemDetailUiState.Failure(
+                SafeBrowseDiagnostics(
+                    category = BrowseFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before opening detail.",
+                ),
+            )
+        }
+
+        return when (
+            val result = browseClient.itemDetail(
+                profile = profile,
+                accessToken = accessToken,
+                itemId = itemId,
+            )
+        ) {
+            is BrowseResult.Success -> {
+                val userPlaybackState = when (
+                    val stateResult = userPlaybackClient.getState(
+                        profile = profile,
+                        accessToken = accessToken,
+                        itemId = itemId,
+                    )
+                ) {
+                    is UserPlaybackResult.Success -> stateResult.value.state
+                    is UserPlaybackResult.Failure -> null
+                }
+                ItemDetailUiState.Content(
+                    response = result.value,
+                    userPlaybackState = userPlaybackState,
+                )
+            }
+            is BrowseResult.Failure -> ItemDetailUiState.Failure(result.diagnostics)
+        }
+    }
+
+    override suspend fun loadSourceProbe(sourceId: String): SourceProbeUiState {
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            return SourceProbeUiState.Failure(
+                SafePlaybackDiagnostics(
+                    category = PlaybackFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before loading source facts.",
+                ),
+            )
+        }
+
+        return when (
+            val result = playbackClient.getSourceProbe(
+                profile = profile,
+                accessToken = accessToken,
+                sourceId = sourceId,
+            )
+        ) {
+            is PlaybackResult.Success -> SourceProbeUiState.Content(result.value)
+            is PlaybackResult.Failure -> SourceProbeUiState.Failure(result.diagnostics)
+        }
+    }
+
+    override suspend fun loadPlaybackSelection(sourceId: String): PlaybackSelectionUiState {
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            return PlaybackSelectionUiState.Failure(
+                SafePlaybackDiagnostics(
+                    category = PlaybackFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before requesting playback.",
+                ),
+            )
+        }
+
+        val capabilities = playbackPreferencesStore.loadCapabilities(profile.id)
+        return when (
+            val result = playbackClient.getPlaybackDecision(
+                profile = profile,
+                accessToken = accessToken,
+                sourceId = sourceId,
+                capabilities = capabilities,
+            )
+        ) {
+            is PlaybackResult.Success -> PlaybackSelectionUiState.Content(
+                response = result.value,
+                target = playbackClient.recommendedPlaybackTarget(
+                    profile = profile,
+                    accessToken = accessToken,
+                    decision = result.value,
+                    capabilities = capabilities,
+                ),
+                capabilities = capabilities,
+            )
+            is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(result.diagnostics)
         }
     }
 
