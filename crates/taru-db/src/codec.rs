@@ -1095,6 +1095,26 @@ pub(crate) fn row_to_managed_artwork_ingest(row: SqliteRow) -> Result<ManagedArt
     })
 }
 
+pub(crate) fn row_to_managed_artwork_artifact(
+    row: SqliteRow,
+) -> Result<ManagedArtworkArtifactRecord> {
+    Ok(ManagedArtworkArtifactRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        ingest_id: parse_id(row_get::<String>(&row, "ingest_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        storage_uri: row_get(&row, "storage_uri")?,
+        content_hash: row_get(&row, "content_hash")?,
+        width: optional_i64_to_u32(row_get(&row, "width")?)?,
+        height: optional_i64_to_u32(row_get(&row, "height")?)?,
+        byte_len: optional_i64_to_u64(row_get(&row, "byte_len")?)?,
+        media_type: row_get(&row, "media_type")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
 pub(crate) fn serialize_metadata_json(metadata: &CanonicalMetadata) -> Result<String> {
     serde_json::to_string(metadata).map_err(database_error)
 }

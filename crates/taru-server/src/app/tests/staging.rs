@@ -390,6 +390,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
                 remote_stream_concurrency: 1,
                 remote_stage_concurrency: 1,
             },
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),
@@ -494,6 +495,7 @@ async fn app_startup_cleans_expired_staging_inputs() {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

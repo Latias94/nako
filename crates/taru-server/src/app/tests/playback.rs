@@ -389,6 +389,7 @@ async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
         },
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -576,6 +577,7 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Remote Movies".to_owned(),

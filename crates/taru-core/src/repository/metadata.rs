@@ -5,10 +5,12 @@ use crate::{
     AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkCandidateStatus,
     ArtworkTask, ArtworkTaskId, ExternalProvider, ImageKind, JobId, LibraryId,
     LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestRecord, MediaItem, MediaItemId, MediaSourceId,
-    MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
-    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
-    NewJob, NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
+    MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter, MetadataFieldLock,
+    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
+    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewJob, NewManagedArtworkArtifact,
+    NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
     NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
     ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
     SourceDuplicateRelationship, SourceDuplicateRelationshipId,
@@ -76,6 +78,29 @@ pub trait ManagedArtworkRepository: Send + Sync {
         &self,
         candidate_id: crate::ArtworkCandidateId,
     ) -> Result<Option<ManagedArtworkIngestRecord>>;
+
+    async fn claim_next_queued_managed_artwork_ingest(
+        &self,
+    ) -> Result<Option<ManagedArtworkIngestClaimRecord>>;
+
+    async fn commit_managed_artwork_artifact(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        artifact: NewManagedArtworkArtifact,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord>;
+
+    async fn fail_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        failure_code: String,
+        job_error: String,
+    ) -> Result<ManagedArtworkIngestProcessingRecord>;
+
+    async fn get_managed_artwork_artifact(
+        &self,
+        id: ManagedArtworkArtifactId,
+    ) -> Result<Option<ManagedArtworkArtifactRecord>>;
 }
 
 #[async_trait]

@@ -736,6 +736,7 @@ async fn remux_app_with_source_and_transcode(
         transcode,
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

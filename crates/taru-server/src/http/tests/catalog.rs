@@ -43,6 +43,7 @@ async fn search_route_returns_indexed_items() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -110,6 +111,7 @@ async fn browse_routes_return_catalog_graph() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

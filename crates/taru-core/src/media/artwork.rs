@@ -74,6 +74,13 @@ pub struct ManagedArtworkAcceptanceRecord {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestClaimRecord {
+    pub candidate: ArtworkCandidateRecord,
+    pub ingest: ManagedArtworkIngestRecord,
+    pub job: Job,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewManagedArtworkArtifact {
     pub id: ManagedArtworkArtifactId,
     pub ingest_id: ManagedArtworkIngestId,
@@ -103,6 +110,13 @@ pub struct ManagedArtworkArtifactRecord {
     pub media_type: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestProcessingRecord {
+    pub ingest: ManagedArtworkIngestRecord,
+    pub artifact: Option<ManagedArtworkArtifactRecord>,
+    pub job: Job,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

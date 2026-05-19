@@ -436,6 +436,7 @@ GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/events
 GET  /admin/v1/jobs
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
+POST /admin/v1/artwork/ingests/process-next
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -646,15 +647,16 @@ server configuration. It includes admin/public API versions, auth enablement
 and token environment reference, concurrency settings, remux timeout, library
 names/presets/backend kind/root scheme, metadata runtime budgets, metadata
 provider enablement and secret-reference names, transcode hardware policy and
-slot budgets, staging budget/retention/cleanup settings, and remote playback
-stream/stage budgets.
+slot budgets, staging budget/retention/cleanup settings, remote playback
+stream/stage budgets, and managed artwork fetch/storage budgets.
 
 The config diagnostics route never returns `database_url`, local library roots,
-`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, WebDAV base URLs, WebDAV
-usernames, WebDAV password environment names, metadata proxy values, provider
-base URLs, literal header values, header secret environment names, resolved
-tokens, or resolved secrets. It is an Admin API route and is not part of Public
-Client OpenAPI or generated SDK artifacts.
+`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, managed artwork artifact
+roots, WebDAV base URLs, WebDAV usernames, WebDAV password environment names,
+metadata or artwork proxy values, provider base URLs, literal header values,
+header secret environment names, resolved tokens, or resolved secrets. It is an
+Admin API route and is not part of Public Client OpenAPI or generated SDK
+artifacts.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.
@@ -1146,6 +1148,39 @@ The accept response and durable job input/summary must never include raw remote
 URLs, Source Locators, filesystem paths, storage handles, cache URIs, raw
 validation failures, addon tokens, or payload/provenance JSON. Repeating accept
 for an already accepted candidate returns the existing ingest and job.
+
+Administrators can process one queued managed artwork ingest with
+`POST /admin/v1/artwork/ingests/process-next`. This route is an internal Admin
+runtime seam for the first Taru-owned fetch/validation/storage path: it claims
+one queued `managed_artwork_ingest`, fetches the accepted remote Artwork
+Candidate source under bounded artwork fetch policy, validates static image
+content, writes bytes below Taru's internal artwork artifact root, and commits a
+`managed_artwork_artifacts` row with an opaque `managed-artwork://...` storage
+reference. A successful response exposes only safe IDs and artifact metadata:
+media type, byte length, dimensions, content hash, ingest status, and the
+redacted job envelope. It never returns `storage_uri`, raw source URLs, local
+artifact paths, cache URIs, Source Locators, addon tokens, or validation
+details.
+
+If there is no queued ingest, the response is:
+
+```json
+{
+  "processed": false,
+  "ingest": null,
+  "artifact": null,
+  "job": null
+}
+```
+
+On success, the response has `"processed": true`, `ingest.status = "stored"`,
+an `artifact` summary, and `job.status = "succeeded"`. Validation or fetch
+failures use safe failure codes such as `unsupported_source`,
+`unsupported_media_type`, `too_large`, `invalid_image`,
+`dimension_limit_exceeded`, `fetch_timeout`, `fetch_failed`,
+`fetch_http_status`, or `storage_failed`; failure hardening, retry semantics,
+thumbnails, selected artwork publication, and public image-serving remain
+separate follow-on work.
 
 `validation_status` describes Addon principal, permission, library, and target
 validation. It is not the domain write result. `apply_status` describes the

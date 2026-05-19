@@ -5,10 +5,10 @@ use axum::{
     routing::{get, post},
 };
 use taru_api::{
-    ADMIN_API_VERSION, API_VERSION, AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
-    AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
-    AdminConfigStagingDiagnostics, AdminJobListItem, AdminJobListResponse,
-    AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+    ADMIN_API_VERSION, API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
+    AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
+    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobListItem,
+    AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
     AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
     AdminOutboxEventListItem, AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
     AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
@@ -56,6 +56,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             "/admin/v1/artwork/candidates/{candidate_id}/accept",
             post(accept_admin_artwork_candidate),
         )
+        .route(
+            "/admin/v1/artwork/ingests/process-next",
+            post(process_next_admin_artwork_ingest),
+        )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
@@ -73,6 +77,12 @@ pub(super) async fn accept_admin_artwork_candidate(
     Path(candidate_id): Path<ArtworkCandidateId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.artwork().accept_candidate(candidate_id).await?))
+}
+
+pub(super) async fn process_next_admin_artwork_ingest(
+    State(app): State<TaruApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().process_next().await?))
 }
 
 pub(super) async fn list_admin_catalog_governance_items(
@@ -189,6 +199,21 @@ pub(super) async fn get_admin_system_config(
         playback: AdminConfigPlaybackDiagnostics {
             remote_stream_concurrency: config.playback.remote_stream_concurrency,
             remote_stage_concurrency: config.playback.remote_stage_concurrency,
+        },
+        artwork: AdminArtworkConfigDiagnostics {
+            artifact_root_configured: !config.artwork.artifact_root.as_os_str().is_empty(),
+            fetch_timeout_ms: config.artwork.fetch_timeout_ms,
+            fetch_max_attempts: config.artwork.fetch_max_attempts,
+            fetch_max_bytes: config.artwork.fetch_max_bytes,
+            fetch_concurrency: config.artwork.fetch_concurrency,
+            fetch_user_agent: config.artwork.fetch_user_agent.clone(),
+            has_fetch_proxy: config
+                .artwork
+                .fetch_proxy
+                .as_ref()
+                .is_some_and(|proxy| !proxy.is_blank()),
+            max_width: config.artwork.max_width,
+            max_height: config.artwork.max_height,
         },
     })
 }

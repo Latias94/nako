@@ -1,5 +1,35 @@
 use super::*;
 
+fn tiny_png() -> Vec<u8> {
+    let image = image::RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 255]));
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(image)
+        .write_to(&mut cursor, image::ImageFormat::Png)
+        .unwrap();
+    cursor.into_inner()
+}
+
+async fn tiny_artwork_server() -> (String, u64) {
+    let bytes = tiny_png();
+    let byte_len = bytes.len() as u64;
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let served_bytes = bytes.clone();
+    let router = Router::new().route(
+        "/poster.png",
+        axum::routing::get(move || {
+            let bytes = served_bytes.clone();
+            async move { (StatusCode::OK, [(header::CONTENT_TYPE, "image/png")], bytes) }
+        }),
+    );
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}/poster.png?token=secret"), byte_len)
+}
+
 #[tokio::test]
 async fn addon_routes_register_disabled_by_default_and_validate_contract() {
     let temp = tempfile::tempdir().unwrap();
@@ -1300,11 +1330,12 @@ async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_art
     let proposed = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
     assert_eq!(proposed.status(), StatusCode::OK);
     let proposed = body_json::<AddonSideEffectResponse>(proposed).await;
-    let candidate_id = proposed.side_effect.apply_report.as_ref().unwrap()["candidate_id"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let candidate_id: taru_core::ArtworkCandidateId =
+        proposed.side_effect.apply_report.as_ref().unwrap()["candidate_id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
 
     let accept_path = format!("/admin/v1/artwork/candidates/{candidate_id}/accept");
     let response = router
@@ -1379,6 +1410,177 @@ async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_art
             .await;
     assert_eq!(replay.ingest.id, accepted.ingest.id);
     assert_eq!(replay.job.id, accepted.job.id);
+}
+
+#[tokio::test]
+async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_without_public_artwork()
+{
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let (remote_url, expected_byte_len) = tiny_artwork_server().await;
+
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("artwork runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::ArtworkWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::ArtworkWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaItem,
+            id: source.item_id.to_string(),
+        },
+        idempotency_key: "artwork-candidate-process-next".to_owned(),
+        provenance: serde_json::json!({
+            "origin": "reference-addon",
+            "token": issued.raw_token
+        }),
+        payload: serde_json::json!({
+            "intent": "propose_artwork",
+            "kind": "poster",
+            "source": {
+                "kind": "remote_url",
+                "url": remote_url
+            },
+            "language": "en"
+        }),
+    };
+    let proposed = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(proposed.status(), StatusCode::OK);
+    let proposed = body_json::<AddonSideEffectResponse>(proposed).await;
+    let candidate_id: taru_core::ArtworkCandidateId =
+        proposed.side_effect.apply_report.as_ref().unwrap()["candidate_id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+
+    let accept_path = format!("/admin/v1/artwork/candidates/{candidate_id}/accept");
+    let accepted =
+        request_json::<AcceptManagedArtworkCandidateResponse>(&router, Method::POST, &accept_path)
+            .await;
+    assert_eq!(accepted.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert!(!accepted.ingest.has_artifact);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/artwork/ingests/process-next")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let processed: ProcessManagedArtworkIngestResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert!(processed.processed);
+    let ingest = processed.ingest.as_ref().unwrap();
+    let artifact = processed
+        .artifact
+        .as_ref()
+        .unwrap_or_else(|| panic!("{}", String::from_utf8_lossy(&response_body)));
+    let job = processed.job.as_ref().unwrap();
+    assert_eq!(ingest.id, accepted.ingest.id);
+    assert_eq!(ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert!(ingest.has_artifact);
+    assert_eq!(artifact.ingest_id, ingest.id);
+    assert_eq!(artifact.library_id, library_id);
+    assert_eq!(artifact.item_id, source.item_id);
+    assert_eq!(artifact.kind, ImageKind::Poster);
+    assert_eq!(artifact.media_type.as_deref(), Some("image/png"));
+    assert_eq!(artifact.byte_len, Some(expected_byte_len));
+    assert_eq!(artifact.width, Some(1));
+    assert_eq!(artifact.height, Some(1));
+    assert_eq!(job.id, accepted.job.id);
+    assert_eq!(job.kind, JobKind::ManagedArtworkIngest);
+    assert_eq!(job.status, JobStatus::Succeeded);
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&issued.raw_token));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+    assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
+
+    let stored_ingest = store
+        .get_managed_artwork_ingest(ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert_eq!(stored_ingest.artifact_id, Some(artifact.id));
+    assert_eq!(stored_ingest.failure_code, None);
+
+    let stored_artifact = store
+        .get_managed_artwork_artifact(artifact.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        stored_artifact
+            .storage_uri
+            .starts_with("managed-artwork://")
+    );
+    assert!(
+        !stored_artifact
+            .storage_uri
+            .contains(temp.path().to_string_lossy().as_ref())
+    );
+    assert!(temp.path().join("taru-cache").join("artwork").exists());
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

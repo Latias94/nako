@@ -874,6 +874,7 @@ mod tests {
             transcode,
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: Vec::new(),
         }
     }

@@ -30,11 +30,11 @@ use taru_api::{
     LibraryListResponse, LibraryResponse, MetadataMaintenancePlanResponse,
     MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
     MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, StorageBackendDiagnosticsResponse,
-    StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
-    SubmitAddonSideEffectRequest, TranscodeSessionResponse, UpsertAutomationProviderRequest,
-    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
-    WebhookEndpointsResponse,
+    ProcessManagedArtworkIngestResponse, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+    StorageBackendStatus, SubmitAddonSideEffectRequest, TranscodeSessionResponse,
+    UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse,
+    WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
@@ -114,6 +114,10 @@ async fn router_with_media_source(
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("taru-cache").join("artwork"),
+            ..crate::config::ArtworkConfig::default()
+        },
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -195,6 +199,7 @@ async fn router_with_remux_source(
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -269,6 +274,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Sq
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -525,6 +531,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -556,6 +563,7 @@ async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, toke
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

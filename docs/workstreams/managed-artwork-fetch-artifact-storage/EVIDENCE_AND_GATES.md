@@ -123,3 +123,49 @@ ports, public API contracts, or durable job behavior.
     passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
+
+2026-05-19, MAFA-030 first fetch/artifact slice:
+
+- Added managed-artwork-specific repository methods:
+  `claim_next_queued_managed_artwork_ingest`,
+  `commit_managed_artwork_artifact`, `fail_managed_artwork_ingest`, and
+  `get_managed_artwork_artifact`.
+- The claim boundary moves one accepted queued ingest to `fetching` and its job
+  to `running` in one SQLite transaction. The commit boundary inserts
+  `managed_artwork_artifacts`, moves the ingest to `stored`, links
+  `artifact_id`, and marks the job `succeeded` in one transaction constrained
+  to claimed/running state.
+- Added `ArtworkConfig` with internal artifact root, fetch timeout, attempts,
+  max bytes, concurrency, user agent, optional proxy, and max dimensions.
+  Admin config diagnostics expose only budgets and booleans, not roots or proxy
+  values.
+- Added a server-local internal artifact storage port. It writes bytes under
+  the configured artifact root and persists only opaque
+  `managed-artwork://artifact/{artifact_id}` storage references in the
+  database.
+- Added bounded HTTP(S) byte fetch and image validation for `image/jpeg`,
+  `image/png`, and `image/webp` using decoded dimensions and SHA-256 content
+  hash. The first worker path rejects unsupported schemes/media types,
+  too-large bodies, invalid images, and dimension-limit violations with safe
+  codes.
+- Added Admin `POST /admin/v1/artwork/ingests/process-next`, returning a safe
+  `ProcessManagedArtworkIngestResponse` that omits `storage_uri`, source URLs,
+  paths, cache URIs, addon tokens, and validation internals.
+- Success path test evidence:
+  - `cargo nextest run -p taru-server admin_process_next_managed_artwork_ingest_stores_internal_artifact_without_public_artwork --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 4 tests.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
+  - `cargo nextest run -p taru-api managed_artwork public_openapi_paths_match_public_client_scope --no-fail-fast`
+    passed: 2 tests.
+  - `cargo nextest run -p taru-server admin_v1_system_config_reports_sanitized_configuration --no-fail-fast`
+    passed.
+- Gate evidence:
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.
+  - `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`
+    produced 675 current inventory lines for the managed artwork/storage/public
+    image seams.

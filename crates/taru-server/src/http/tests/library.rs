@@ -107,6 +107,7 @@ async fn ingestion_failure_routes_list_and_ignore_failures() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

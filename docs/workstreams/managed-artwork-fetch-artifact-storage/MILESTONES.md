@@ -67,6 +67,20 @@ Primary gates:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+Result:
+
+- `POST /admin/v1/artwork/ingests/process-next` can claim one queued managed
+  artwork ingest, fetch HTTP(S) bytes under artwork-specific policy, validate a
+  static JPEG/PNG/WebP image, write bytes to an internal local artifact root,
+  and commit `managed_artwork_artifacts` metadata with an opaque
+  `managed-artwork://...` storage reference.
+- Managed artwork artifact summaries and job summaries expose only safe IDs,
+  status, media type, byte length, dimensions, and content hash; raw source
+  URLs, storage URIs, filesystem paths, cache URIs, addon tokens, public
+  `ImageAsset`, thumbnails, and selected artwork remain out of scope.
+- Repository methods now provide a managed-artwork-specific claim/commit/fail
+  boundary instead of relying on generic job start/succeed/fail calls.
+
 ## M3 - Failure, Retry, And Redaction Hardening
 
 Outcome: failed fetch/validation/storage attempts produce safe, actionable,

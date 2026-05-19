@@ -47,6 +47,8 @@ pub struct TaruServerConfig {
     pub staging: StagingConfig,
     #[serde(default)]
     pub playback: PlaybackConfig,
+    #[serde(default)]
+    pub artwork: ArtworkConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LocalLibraryConfig>,
 }
@@ -139,6 +141,44 @@ impl Default for PlaybackConfig {
         Self {
             remote_stream_concurrency: default_remote_stream_concurrency(),
             remote_stage_concurrency: default_remote_stage_concurrency(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ArtworkConfig {
+    #[serde(default = "default_artwork_artifact_root")]
+    pub artifact_root: PathBuf,
+    #[serde(default = "default_artwork_fetch_timeout_ms")]
+    pub fetch_timeout_ms: u64,
+    #[serde(default = "default_artwork_fetch_max_attempts")]
+    pub fetch_max_attempts: u32,
+    #[serde(default = "default_artwork_fetch_max_bytes")]
+    pub fetch_max_bytes: u64,
+    #[serde(default = "default_artwork_fetch_concurrency")]
+    pub fetch_concurrency: usize,
+    #[serde(default = "default_artwork_fetch_user_agent")]
+    pub fetch_user_agent: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_proxy: Option<SecretString>,
+    #[serde(default = "default_artwork_max_dimension")]
+    pub max_width: u32,
+    #[serde(default = "default_artwork_max_dimension")]
+    pub max_height: u32,
+}
+
+impl Default for ArtworkConfig {
+    fn default() -> Self {
+        Self {
+            artifact_root: default_artwork_artifact_root(),
+            fetch_timeout_ms: default_artwork_fetch_timeout_ms(),
+            fetch_max_attempts: default_artwork_fetch_max_attempts(),
+            fetch_max_bytes: default_artwork_fetch_max_bytes(),
+            fetch_concurrency: default_artwork_fetch_concurrency(),
+            fetch_user_agent: default_artwork_fetch_user_agent(),
+            fetch_proxy: None,
+            max_width: default_artwork_max_dimension(),
+            max_height: default_artwork_max_dimension(),
         }
     }
 }
@@ -346,6 +386,7 @@ pub fn example_config() -> Result<String> {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -491,6 +532,34 @@ const fn default_transcode_gpu_concurrency() -> usize {
 
 fn default_remux_staging_root() -> PathBuf {
     PathBuf::from("taru-cache/remux")
+}
+
+fn default_artwork_artifact_root() -> PathBuf {
+    PathBuf::from("taru-cache/artwork")
+}
+
+const fn default_artwork_fetch_timeout_ms() -> u64 {
+    10_000
+}
+
+const fn default_artwork_fetch_max_attempts() -> u32 {
+    2
+}
+
+const fn default_artwork_fetch_max_bytes() -> u64 {
+    25 * 1024 * 1024
+}
+
+const fn default_artwork_fetch_concurrency() -> usize {
+    2
+}
+
+fn default_artwork_fetch_user_agent() -> String {
+    format!("taru/{}", env!("CARGO_PKG_VERSION"))
+}
+
+const fn default_artwork_max_dimension() -> u32 {
+    20_000
 }
 
 const fn default_metadata_provider_timeout_ms() -> u64 {

@@ -678,6 +678,7 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config.clone()],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -718,6 +719,7 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -793,6 +795,7 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config.clone()],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();

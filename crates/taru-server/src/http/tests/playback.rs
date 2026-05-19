@@ -32,6 +32,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -278,6 +279,7 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
             remote_stream_concurrency: 1,
             remote_stage_concurrency: 1,
         },
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Remote Movies".to_owned(),

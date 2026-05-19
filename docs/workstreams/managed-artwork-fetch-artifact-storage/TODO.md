@@ -37,7 +37,7 @@ Last updated: 2026-05-19
 
 ## M2 - First Fetch/Artifact Slice
 
-- [ ] MAFA-030 [owner=codex] [deps=MAFA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-vfs,docs/api]
+- [x] MAFA-030 [owner=codex] [deps=MAFA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-vfs,docs/api]
   Goal: Process one queued managed artwork ingest into an internal artifact or
   safe failure state under bounded fetch and validation policy.
   Validation: focused managed artwork worker tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
@@ -45,6 +45,13 @@ Last updated: 2026-05-19
   responses do not expose raw candidate source URLs, Source Locators,
   filesystem paths, storage handles, cache URIs, or raw validation details.
   Evidence: code/tests/API docs and MAFA notes in `EVIDENCE_AND_GATES.md`.
+  Result: DONE. Added managed-artwork-specific claim, commit, failure, and
+  artifact lookup repository methods; a server-local artwork artifact config
+  and storage port; bounded HTTP(S) byte fetch; static image validation for
+  JPEG, PNG, and WebP; safe Admin `process-next` response DTOs; and focused
+  server/db/API redaction tests. Successful processing writes internal bytes
+  and `managed_artwork_artifacts` metadata without creating public
+  `ImageAsset`, thumbnail, or selected artwork state.
   Handoff: Continue with MAFA-040 to harden failure/retry semantics or split if
   worker/runtime scope grows.
 

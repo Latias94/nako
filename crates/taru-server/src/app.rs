@@ -96,7 +96,7 @@ impl TaruApp {
         let metadata_permits = Arc::new(Semaphore::new(config.metadata_concurrency.max(1)));
         let metadata_providers = metadata_runtime::build_metadata_provider_registry(&config)?;
         let jobs = JobAppService::new(store.clone());
-        let artwork = ManagedArtworkAppService::new(store.clone());
+        let artwork = ManagedArtworkAppService::new(config.artwork.clone(), store.clone())?;
         let library_scan = LibraryScanAppService::new(
             config.clone(),
             store.clone(),

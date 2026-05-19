@@ -5,7 +5,8 @@ use taru_core::{
     DomainEventSubject, EventId, ExternalProvider, ImageKind, IngestionFailureClass,
     IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind,
     JobStatus, LibraryId, LibraryPreset, LocalInferenceEvidence, LocalInferenceEvidenceSource,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestRecord,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId, ManagedArtworkArtifactRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
     ManagedArtworkIngestStatus, MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord,
     OutboxEventStatus, ScanSnapshotId, StagingManifestId, StagingManifestRecord, StagingPurpose,
     StagingState, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
@@ -39,6 +40,38 @@ impl AcceptManagedArtworkCandidateResponse {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ProcessManagedArtworkIngestResponse {
+    pub processed: bool,
+    pub ingest: Option<ManagedArtworkIngestSummary>,
+    pub artifact: Option<ManagedArtworkArtifactSummary>,
+    pub job: Option<JobResponse>,
+}
+
+impl ProcessManagedArtworkIngestResponse {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self {
+            processed: false,
+            ingest: None,
+            artifact: None,
+            job: None,
+        }
+    }
+
+    #[must_use]
+    pub fn from_processing(processing: ManagedArtworkIngestProcessingRecord) -> Self {
+        Self {
+            processed: true,
+            ingest: Some(ManagedArtworkIngestSummary::from_record(processing.ingest)),
+            artifact: processing
+                .artifact
+                .map(ManagedArtworkArtifactSummary::from_record),
+            job: Some(JobResponse::from_job(processing.job)),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ManagedArtworkIngestSummary {
     pub id: ManagedArtworkIngestId,
@@ -67,6 +100,42 @@ impl ManagedArtworkIngestSummary {
             status: record.status,
             has_artifact: record.artifact_id.is_some(),
             has_failure: record.failure_code.is_some(),
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkArtifactSummary {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub content_hash: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl ManagedArtworkArtifactSummary {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkArtifactRecord) -> Self {
+        Self {
+            id: record.id,
+            ingest_id: record.ingest_id,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            kind: record.kind,
+            content_hash: record.content_hash,
+            width: record.width,
+            height: record.height,
+            byte_len: record.byte_len,
+            media_type: record.media_type,
             created_at: record.created_at,
             updated_at: record.updated_at,
         }
@@ -441,6 +510,7 @@ pub struct AdminServerConfigDiagnosticsResponse {
     pub transcode: AdminTranscodeConfigDiagnostics,
     pub staging: AdminConfigStagingDiagnostics,
     pub playback: AdminConfigPlaybackDiagnostics,
+    pub artwork: AdminArtworkConfigDiagnostics,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -527,6 +597,19 @@ pub struct AdminConfigStagingDiagnostics {
 pub struct AdminConfigPlaybackDiagnostics {
     pub remote_stream_concurrency: usize,
     pub remote_stage_concurrency: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminArtworkConfigDiagnostics {
+    pub artifact_root_configured: bool,
+    pub fetch_timeout_ms: u64,
+    pub fetch_max_attempts: u32,
+    pub fetch_max_bytes: u64,
+    pub fetch_concurrency: usize,
+    pub fetch_user_agent: String,
+    pub has_fetch_proxy: bool,
+    pub max_width: u32,
+    pub max_height: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -935,6 +1018,34 @@ mod tests {
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn managed_artwork_processing_response_redacts_storage_uri() {
+        let ingest_id = ManagedArtworkIngestId::new();
+        let artifact = ManagedArtworkArtifactRecord {
+            id: ManagedArtworkArtifactId::new(),
+            ingest_id,
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            kind: ImageKind::Poster,
+            storage_uri: "managed-artwork://artifact/private-storage-handle".to_owned(),
+            content_hash: Some("sha256-demo".to_owned()),
+            width: Some(1),
+            height: Some(1),
+            byte_len: Some(68),
+            media_type: Some("image/png".to_owned()),
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+
+        let summary = ManagedArtworkArtifactSummary::from_record(artifact);
+        let body = serde_json::to_string(&summary).unwrap();
+
+        assert_eq!(summary.ingest_id, ingest_id);
+        assert_eq!(summary.media_type.as_deref(), Some("image/png"));
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("private-storage-handle"));
     }
 
     #[test]

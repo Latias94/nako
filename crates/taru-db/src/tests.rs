@@ -3319,6 +3319,70 @@ async fn sqlite_store_accepts_artwork_candidate_into_managed_ingest_atomically()
         .unwrap();
     assert_eq!(replay.ingest.id, accepted.ingest.id);
     assert_eq!(replay.job.id, accepted.job.id);
+
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(claim.candidate.id, candidate.id);
+    assert_eq!(claim.candidate.source_uri, candidate.source_uri);
+    assert_eq!(claim.ingest.id, accepted.ingest.id);
+    assert_eq!(claim.ingest.status, ManagedArtworkIngestStatus::Fetching);
+    assert_eq!(claim.job.id, accepted.job.id);
+    assert_eq!(claim.job.status, JobStatus::Running);
+    assert!(
+        store
+            .claim_next_queued_managed_artwork_ingest()
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let artifact_id = ManagedArtworkArtifactId::new();
+    let committed = store
+        .commit_managed_artwork_artifact(
+            claim.ingest.id,
+            NewManagedArtworkArtifact {
+                id: artifact_id,
+                ingest_id: claim.ingest.id,
+                library_id,
+                item_id: item.id,
+                kind: ImageKind::Poster,
+                storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                content_hash: Some("sha256-demo".to_owned()),
+                width: Some(1),
+                height: Some(1),
+                byte_len: Some(68),
+                media_type: Some("image/png".to_owned()),
+            },
+            Some(r#"{"status":"stored","byte_len":68}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(committed.ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert_eq!(committed.ingest.artifact_id, Some(artifact_id));
+    assert_eq!(committed.artifact.as_ref().unwrap().id, artifact_id);
+    assert_eq!(committed.job.status, JobStatus::Succeeded);
+    assert!(
+        !committed
+            .job
+            .summary_json
+            .as_ref()
+            .unwrap()
+            .contains("token=secret")
+    );
+
+    let stored_artifact = store
+        .get_managed_artwork_artifact(artifact_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_artifact.ingest_id, claim.ingest.id);
+    assert_eq!(
+        stored_artifact.storage_uri,
+        format!("managed-artwork://artifact/{artifact_id}")
+    );
 }
 
 #[tokio::test]
