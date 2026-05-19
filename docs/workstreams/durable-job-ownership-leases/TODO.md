@@ -30,7 +30,7 @@ Last updated: 2026-05-19
 
 ## M2 - Durable Schema And Repository Proof
 
-- [ ] DJOL-030 [owner=unassigned] [deps=DJOL-020] [scope=crates/taru-db,crates/taru-core]
+- [x] DJOL-030 [owner=codex] [deps=DJOL-020] [scope=crates/taru-db,crates/taru-core]
   Goal: Add the durable columns and SQLite repository operations for fenced
   claim, heartbeat, finish, fail, cancel request, cancellation acknowledgement,
   and lease-aware recovery.
@@ -38,11 +38,15 @@ Last updated: 2026-05-19
   Review: Every mutating operation must fence on `job_id` plus run token where
   ownership is required.
   Evidence: SQLite migration, repository adapter tests.
+  Result: DONE. Added `0029_job_ownership_leases.sql`, fenced claim,
+  heartbeat, leased success/failure, durable cancel request, leased cancel
+  acknowledgement, expired-lease recovery, and startup preservation of queued
+  jobs. Legacy generic startup recovery now fails only running jobs.
   Handoff: `DJOL-040` wires one runtime path to the new contract.
 
 ## M3 - First Runtime Integration
 
-- [ ] DJOL-040 [owner=unassigned] [deps=DJOL-030] [scope=crates/taru-server/src/app/runtime.rs,crates/taru-server/src/app/job_runtime.rs]
+- [ ] DJOL-040 [owner=codex] [deps=DJOL-030] [scope=crates/taru-server/src/app/runtime.rs,crates/taru-server/src/app/job_runtime.rs]
   Goal: Make one real durable job execution path use leased ownership from
   claim/start through heartbeat and completion.
   Validation: `cargo nextest run -p taru-server job_runtime --no-fail-fast`.

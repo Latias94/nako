@@ -134,6 +134,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "managed artwork artifact cleanup",
         include_str!("../migrations/0028_managed_artwork_artifact_cleanup.sql"),
     ),
+    (
+        29,
+        "job ownership leases",
+        include_str!("../migrations/0029_job_ownership_leases.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

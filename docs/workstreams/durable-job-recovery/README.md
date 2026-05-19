@@ -1,7 +1,14 @@
 # Durable Job Recovery
 
-Status: Completed
+Status: Superseded By `durable-job-ownership-leases`
 Last updated: 2026-05-17
+
+## 2026-05-19 Supersession Note
+
+`docs/workstreams/durable-job-ownership-leases/` narrows the generic startup
+recovery rule. Generic recovery now preserves queued jobs and fails stale
+running jobs. Queued rows represent accepted work waiting for a dispatcher or
+worker; they are not proof that a previous process abandoned side effects.
 
 ## Why This Lane Exists
 
@@ -44,9 +51,9 @@ types to the runtime.
 
 ## Closeout
 
-M41 shipped startup recovery for stale queued/running durable jobs. This closes
-the correctness gap for process crash and forced abort paths, where in-process
-shutdown cleanup cannot be trusted.
+M41 shipped startup recovery for stale queued/running durable jobs. The later
+ownership-lease lane supersedes that coarse rule: generic startup recovery now
+preserves queued jobs and fails stale running jobs.
 
 Remaining architecture work:
 

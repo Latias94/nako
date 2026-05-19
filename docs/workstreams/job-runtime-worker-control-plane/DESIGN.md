@@ -63,7 +63,7 @@ Existing execution surfaces:
 | Managed Artwork ingest | `ManagedArtworkAppService` | Admin `process-next` route claims one queued ingest and executes synchronously. | Has strong claim/commit/fail/requeue repository semantics, but no supervised background loop. |
 | Webhook delivery | `WebhookAppService` | Admin/API command uses local `JoinSet` for endpoint fan-out. | Delivery attempts have their own domain state, but are not currently durable jobs. |
 | Staging lease drop cleanup | `StagingLease::drop` | Fire-and-forget `RuntimeSupervisor::spawn`. | Runtime-supervised task, but not a durable job. |
-| Startup recovery | `ServerStartupWorkflow` | Marks unfinished durable jobs failed on startup. | Coarse recovery: no ownership lease, all queued/running unfinished jobs fail. |
+| Startup recovery | `ServerStartupWorkflow` | Marks unfinished durable jobs failed on startup. | Superseded by the ownership-lease lane: generic recovery now preserves queued work and fails running work without a typed recovery path. |
 | Playback/transcode | `PlaybackAppService` and session manager | Uses transcode session state, not generic `jobs`. | Has its own cancellation and stale recovery semantics; do not fold into the first job-worker slice. |
 
 Existing runtime primitives:

@@ -5,13 +5,15 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M41 is complete. Startup recovery now fails stale queued/running durable jobs
-because that covers process crash and abort paths without relying on async
-persistence from synchronous shutdown.
+M41 is complete and later superseded by `durable-job-ownership-leases`.
+Startup recovery originally failed stale queued/running durable jobs because
+that covered process crash and abort paths without relying on async persistence
+from synchronous shutdown. The ownership-lease follow-on narrows generic
+recovery to running jobs and preserves queued jobs for a dispatcher or worker.
 
 ## Shipped
 
-- `SqliteStore` can fail unfinished jobs through `JobRepository`.
+- `SqliteStore` can fail unfinished running jobs through `JobRepository`.
 - `ServerStartupWorkflow` records recovered job count in
   `ServerStartupReport`.
 - SQLite and server startup tests cover the recovery behavior.

@@ -31,7 +31,8 @@ behavior on top of rows that only say `queued`, `running`, `succeeded`, or
 The current durable job model records lifecycle status, but not execution
 ownership:
 
-- `JobStatus` has only `queued`, `running`, `succeeded`, and `failed`.
+- Until `DJOL-020`, `JobStatus` had only `queued`, `running`, `succeeded`, and
+  `failed`; it now also has terminal `cancelled`.
 - `jobs` has no worker identity, lease expiry, heartbeat, run token, cancel
   request, or cancellation terminal state.
 - `JobRepository::start_job` updates a job by ID without fencing on the prior
@@ -144,6 +145,10 @@ Missing operations:
 - complete/fail/cancel only for the current run token;
 - request cancellation without claiming the job stopped;
 - recover expired running leases without failing queued jobs.
+
+`DJOL-030` updates the legacy `fail_unfinished_jobs` behavior to preserve
+queued jobs and fail only running jobs that have no typed recovery path. Queued
+jobs are accepted work, not evidence of an abandoned worker.
 
 ### Runtime Shape
 

@@ -39,6 +39,7 @@ Use after `DJOL-020` changes core job types or repository traits.
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 cargo nextest run -p taru-db job_lease --no-fail-fast
 cargo nextest run -p taru-db job_cancel --no-fail-fast
+cargo nextest run -p taru-db running_jobs_failed_on_startup --no-fail-fast
 ```
 
 Use after `DJOL-030` adds schema and repository operations.
@@ -81,6 +82,7 @@ requires it.
 | --- | --- | --- | --- | --- |
 | 2026-05-19 | DJOL-010 | WORKSTREAM JSON parse, `git diff --check` | Pass | Opening docs only; JSON parsed and diff check passed before commit. |
 | 2026-05-19 | DJOL-020 | `cargo check -p taru-core --tests`, `cargo check -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Core contract and ADR updated; no schema or API behavior change. |
+| 2026-05-19 | DJOL-030 | `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo nextest run -p taru-db job_cancel --no-fail-fast`, `cargo nextest run -p taru-db running_jobs_failed_on_startup --no-fail-fast`, `cargo nextest run -p taru-server recovers_unfinished_jobs --no-fail-fast`, `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | SQLite schema/repository proof complete; queued jobs are preserved by generic startup recovery, and recovered running jobs clear lease ownership fields. |
 
 ## Review Expectations
 

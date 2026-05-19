@@ -48,7 +48,9 @@ Exposing a cancel route now would create a false operational promise.
 
 ## Completed In `JRWCP-030`
 
-- Generic `fail_unfinished_jobs` now skips `managed_artwork_ingest` jobs.
+- Generic `fail_unfinished_jobs` now skips `managed_artwork_ingest` jobs. The
+  later ownership-lease lane narrows it further so queued generic jobs are
+  preserved and only running generic jobs are failed.
 - Managed Artwork startup recovery is typed:
   - queued ingests stay queued;
   - claimed `fetching`/`validating` ingests with running jobs fail with

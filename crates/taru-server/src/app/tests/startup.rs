@@ -973,11 +973,8 @@ async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_inges
         .unwrap();
     let queued_artwork_job = store.get_job(queued_artwork.job.id).await.unwrap().unwrap();
 
-    assert_eq!(queued.status, JobStatus::Failed);
-    assert_eq!(
-        queued.error,
-        Some("job was unfinished during server startup".to_owned())
-    );
+    assert_eq!(queued.status, JobStatus::Queued);
+    assert_eq!(queued.error, None);
     assert_eq!(running.status, JobStatus::Failed);
     assert_eq!(
         running.error,
@@ -1006,7 +1003,7 @@ async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_inges
     assert_eq!(queued_artwork_ingest.failure_code, None);
     assert_eq!(queued_artwork_job.status, JobStatus::Queued);
     assert_eq!(queued_artwork_job.error, None);
-    assert_eq!(restarted.startup_report().recovered_jobs, 3);
+    assert_eq!(restarted.startup_report().recovered_jobs, 2);
 
     let requeued = store
         .requeue_managed_artwork_ingest(fetching_artwork.ingest.id)
