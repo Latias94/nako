@@ -1,6 +1,6 @@
 use serde_json::{Map, Value, json};
 
-use crate::{API_VERSION, API_VERSION_HEADER, ClientErrorCode};
+use crate::{API_VERSION, API_VERSION_HEADER, ClientErrorCode, PLAYBACK_SESSION_ID_HEADER};
 
 #[must_use]
 pub fn public_openapi_v1() -> Value {
@@ -32,6 +32,13 @@ pub fn public_openapi_v1() -> Value {
                     "schema": {
                         "type": "string",
                         "enum": ["Bearer"]
+                    }
+                },
+                "TaruPlaybackSessionId": {
+                    "description": "Public playback session id associated with a remux or HLS response.",
+                    "schema": {
+                        "type": "string",
+                        "format": "uuid"
                     }
                 }
             },
@@ -228,9 +235,14 @@ fn public_paths() -> Value {
     paths.insert(
         "/sources/{source_id}/stream/remux".to_owned(),
         json!({
-            "get": binary_get(
+            "get": session_binary_get(
                 "remuxStreamSource",
                 "Run or reuse remux output and stream bytes.",
+                remux_parameters("source_id")
+            ),
+            "head": session_empty_head(
+                "headRemuxStreamSource",
+                "Preflight remux stream headers and expose playback session identity.",
                 remux_parameters("source_id")
             )
         }),
@@ -238,7 +250,7 @@ fn public_paths() -> Value {
     paths.insert(
         "/sources/{source_id}/stream/hls/playlist.m3u8".to_owned(),
         json!({
-            "get": text_get(
+            "get": session_text_get(
                 "hlsPlaylistSource",
                 "Start or reuse HLS transcode and return a playlist.",
                 playback_parameters("source_id")
@@ -264,6 +276,56 @@ fn public_paths() -> Value {
                 "hlsSegment",
                 "Stream one generated HLS segment.",
                 vec![path_parameter("session_id", "Playback session id."), path_parameter("segment_name", "HLS segment file name.")]
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/items/{item_id}".to_owned(),
+        json!({
+            "get": json_get(
+                "getUserPlaybackState",
+                "Get the current user's playback state for one media item.",
+                "user-playback",
+                vec![path_parameter("item_id", "Media item id.")],
+                schema_ref("UserPlaybackStateResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/continue-watching".to_owned(),
+        json!({
+            "get": json_get(
+                "listContinueWatching",
+                "List the current user's continue-watching items.",
+                "user-playback",
+                vec![parameter_ref("Limit"), parameter_ref("Offset")],
+                schema_ref("ContinueWatchingResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/items/{item_id}/progress".to_owned(),
+        json!({
+            "put": json_put(
+                "updateUserPlaybackProgress",
+                "Update the current user's playback progress for one media item.",
+                "user-playback",
+                vec![path_parameter("item_id", "Media item id.")],
+                schema_ref("UpdatePlaybackProgressRequest"),
+                schema_ref("UserPlaybackStateResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/items/{item_id}/watched".to_owned(),
+        json!({
+            "put": json_put(
+                "setUserWatchedState",
+                "Set the current user's watched state for one media item.",
+                "user-playback",
+                vec![path_parameter("item_id", "Media item id.")],
+                schema_ref("SetWatchedStateRequest"),
+                schema_ref("UserPlaybackStateResponse")
             )
         }),
     );
@@ -302,8 +364,55 @@ fn json_post(
     )
 }
 
+fn json_put(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    request_schema: Value,
+    response_schema: Value,
+) -> Value {
+    let mut value = operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json_response("OK.", response_schema),
+    );
+    value["requestBody"] = json!({
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": request_schema
+            }
+        }
+    });
+    value
+}
+
 fn binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
     binary_get_with_tag(operation_id, summary, "playback", parameters)
+}
+
+fn session_binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    operation(
+        operation_id,
+        summary,
+        "playback",
+        parameters,
+        json!({
+            "description": "Binary stream.",
+            "headers": playback_session_headers(),
+            "content": {
+                "application/octet-stream": {
+                    "schema": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                }
+            }
+        }),
+    )
 }
 
 fn binary_get_with_tag(
@@ -332,7 +441,7 @@ fn binary_get_with_tag(
     )
 }
 
-fn text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+fn session_text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
     operation(
         operation_id,
         summary,
@@ -340,12 +449,25 @@ fn text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value 
         parameters,
         json!({
             "description": "Text response.",
-            "headers": api_version_headers(),
+            "headers": playback_session_headers(),
             "content": {
                 "application/vnd.apple.mpegurl": {
                     "schema": string_schema()
                 }
             }
+        }),
+    )
+}
+
+fn session_empty_head(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    operation(
+        operation_id,
+        summary,
+        "playback",
+        parameters,
+        json!({
+            "description": "Headers only.",
+            "headers": playback_session_headers()
         }),
     )
 }
@@ -564,6 +686,13 @@ fn api_version_headers() -> Value {
     json!({API_VERSION_HEADER: header_ref("TaruApiVersion")})
 }
 
+fn playback_session_headers() -> Value {
+    json!({
+        API_VERSION_HEADER: header_ref("TaruApiVersion"),
+        PLAYBACK_SESSION_ID_HEADER: header_ref("TaruPlaybackSessionId")
+    })
+}
+
 fn string_schema() -> Value {
     json!({"type": "string"})
 }
@@ -754,6 +883,43 @@ fn schemas() -> Value {
             "started_at": nullable_string_schema(),
             "completed_at": nullable_string_schema()
         })),
+        "UserPlaybackStateResponse": object_schema(&["state"], json!({
+            "state": schema_ref("UserPlaybackStateDto")
+        })),
+        "ContinueWatchingResponse": object_schema(&["items", "page"], json!({
+            "items": array_schema(schema_ref("ContinueWatchingItemDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "ContinueWatchingItemDto": object_schema(&["item", "state", "images"], json!({
+            "item": schema_ref("MediaItemDto"),
+            "state": schema_ref("UserPlaybackStateDto"),
+            "images": array_schema(schema_ref("PublicImageRefDto"))
+        })),
+        "UserPlaybackStateDto": object_schema(&["item_id", "source_id", "resume_position_ms", "duration_ms", "progress_percent", "watched", "watched_at", "last_played_at", "updated_at", "version"], json!({
+            "item_id": uuid_schema(),
+            "source_id": nullable_string_schema(),
+            "resume_position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "progress_percent": json!({"type": "number", "format": "float", "nullable": true}),
+            "watched": boolean_schema(),
+            "watched_at": nullable_string_schema(),
+            "last_played_at": nullable_string_schema(),
+            "updated_at": nullable_string_schema(),
+            "version": integer_schema("int64")
+        })),
+        "UpdatePlaybackProgressRequest": object_schema(&["position_ms"], json!({
+            "source_id": nullable_string_schema(),
+            "position_ms": integer_schema("int64"),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "reported_at": nullable_string_schema()
+        })),
+        "SetWatchedStateRequest": object_schema(&["watched"], json!({
+            "watched": boolean_schema(),
+            "source_id": nullable_string_schema(),
+            "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "marked_at": nullable_string_schema()
+        })),
         "MediaItemDto": object_schema(&["id", "kind", "parent_id", "metadata"], json!({
             "id": uuid_schema(),
             "kind": schema_ref("ClientMediaKind"),
@@ -927,6 +1093,10 @@ mod tests {
             document["components"]["headers"]["TaruApiVersion"]["schema"]["enum"][0],
             API_VERSION
         );
+        assert_eq!(
+            document["components"]["headers"]["TaruPlaybackSessionId"]["schema"]["format"],
+            "uuid"
+        );
         assert!(
             document["components"]["responses"]["Unauthorized"]["headers"]
                 .get("www-authenticate")
@@ -995,6 +1165,21 @@ mod tests {
                 ["schema"]["format"],
             "binary"
         );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["responses"]
+                ["200"]["headers"][PLAYBACK_SESSION_ID_HEADER]["$ref"],
+            "#/components/headers/TaruPlaybackSessionId"
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/stream/remux"]["get"]["responses"]["200"]["headers"]
+                [PLAYBACK_SESSION_ID_HEADER]["$ref"],
+            "#/components/headers/TaruPlaybackSessionId"
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/stream/remux"]["head"]["responses"]["200"]["headers"]
+                [PLAYBACK_SESSION_ID_HEADER]["$ref"],
+            "#/components/headers/TaruPlaybackSessionId"
+        );
         assert!(
             document["paths"]["/images/{image_id}"]
                 .get("head")
@@ -1037,6 +1222,47 @@ mod tests {
             assert!(
                 !serialized.contains(forbidden),
                 "public OpenAPI image contract leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_openapi_user_playback_contract_uses_me_routes_without_principal_ids() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+        let serialized = public_openapi_v1_json().to_ascii_lowercase();
+
+        assert_eq!(
+            document["paths"]["/users/me/playback-state/items/{item_id}"]["get"]["responses"]["200"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UserPlaybackStateResponse"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-state/items/{item_id}/progress"]["put"]["requestBody"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UpdatePlaybackProgressRequest"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-state/items/{item_id}/watched"]["put"]["requestBody"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/SetWatchedStateRequest"
+        );
+        assert!(schemas.contains_key("ContinueWatchingResponse"));
+        assert!(schemas.contains_key("UserPlaybackStateDto"));
+        assert_eq!(
+            document["components"]["schemas"]["ContinueWatchingItemDto"]["properties"]["item"]["$ref"],
+            "#/components/schemas/MediaItemDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ContinueWatchingItemDto"]["properties"]["images"]["items"]
+                ["$ref"],
+            "#/components/schemas/PublicImageRefDto"
+        );
+
+        for forbidden in ["principal_id", "user_id", "local-admin"] {
+            assert!(
+                !serialized.contains(forbidden),
+                "public user playback contract leaked forbidden term: {forbidden}"
             );
         }
     }

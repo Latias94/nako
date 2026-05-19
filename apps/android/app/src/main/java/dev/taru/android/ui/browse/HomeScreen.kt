@@ -32,8 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.taru.android.artwork.PublicArtworkSlot
+import dev.taru.android.artwork.PublicArtworkSource
+import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.connection.ServerProfile
+import dev.taru.android.userplayback.ContinueWatchingItemDto
+import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
@@ -42,10 +47,12 @@ import dev.taru.android.ui.theme.TaruTextSecondary
 internal fun HomeScreen(
     profile: ServerProfile,
     state: BrowseUiState,
+    artworkSource: PublicArtworkSource,
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenLibraryDetail: (String) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
@@ -53,9 +60,12 @@ internal fun HomeScreen(
         val content = state as? BrowseUiState.Content
         HomeHeader(
             profile = profile,
-            featuredItem = content?.items?.items?.firstOrNull(),
+            featuredItem = content?.continueWatching?.items?.firstOrNull()?.item
+                ?: content?.items?.items?.firstOrNull(),
             libraryCount = content?.libraries?.libraries?.size,
             itemCount = content?.items?.page?.returned,
+            artworkSource = artworkSource,
+            artworkByItemId = content?.artworkByItemId.orEmpty(),
             onOpenItem = onOpenItem,
             onChangeServer = onChangeServer,
             onOpenLibrary = onOpenLibrary,
@@ -78,6 +88,23 @@ internal fun HomeScreen(
                     onOpenSearch = onOpenSearch,
                 )
 
+                val continueWatchingRows = state.continueWatching
+                    ?.items
+                    .orEmpty()
+                    .filter { !it.state.watched && it.state.resumePositionMs != null }
+                if (continueWatchingRows.isNotEmpty()) {
+                    SectionHeader(
+                        title = "Continue Watching",
+                        action = "${continueWatchingRows.size}",
+                    )
+                    ContinueWatchingPosterRow(
+                        rows = continueWatchingRows.take(8),
+                        artworkSource = artworkSource,
+                        artworkByItemId = state.artworkByItemId,
+                        onOpenItem = onOpenItem,
+                    )
+                }
+
                 SectionHeader(
                     title = "Media Libraries",
                     action = "View all",
@@ -89,7 +116,10 @@ internal fun HomeScreen(
                         body = "This server has no visible Media Libraries for the current access token.",
                     )
                 } else {
-                    LibraryCardRow(libraries = state.libraries.libraries.take(4))
+                    LibraryCardRow(
+                        libraries = state.libraries.libraries.take(4),
+                        onOpenLibrary = { library -> onOpenLibraryDetail(library.id) },
+                    )
                 }
 
                 SectionHeader(
@@ -104,8 +134,48 @@ internal fun HomeScreen(
                 } else {
                     MediaPosterRow(
                         items = state.items.items.take(8),
+                        artworkSource = artworkSource,
+                        artworkByItemId = state.artworkByItemId,
                         onOpenItem = onOpenItem,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingPosterRow(
+    rows: List<ContinueWatchingItemDto>,
+    artworkSource: PublicArtworkSource,
+    artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+    ) {
+        rows.forEach { row ->
+            Surface(
+                modifier = Modifier.width(132.dp),
+                shape = TaruShape.medium,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(TaruSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+                ) {
+                    MediaPosterCard(
+                        item = row.item,
+                        artworkSource = artworkSource,
+                        artworkRefs = artworkByItemId[row.item.id].orEmpty(),
+                        onOpenItem = onOpenItem,
+                    )
+                    StatusChip(text = continueWatchingProgressLabel(row))
                 }
             }
         }
@@ -118,11 +188,18 @@ private fun HomeHeader(
     featuredItem: MediaItemDto?,
     libraryCount: Int?,
     itemCount: Int?,
+    artworkSource: PublicArtworkSource,
+    artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
     onOpenItem: (MediaItemDto) -> Unit,
     onChangeServer: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
+    val backdropRequest = artworkSource.requestFor(
+        featuredItem?.let { item ->
+            preferredPublicArtwork(artworkByItemId[item.id].orEmpty(), PublicArtworkSlot.Backdrop)
+        },
+    )
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = TaruShape.medium,
@@ -135,7 +212,8 @@ private fun HomeHeader(
                 .fillMaxWidth()
                 .heightIn(min = 260.dp),
         ) {
-            ArtworkBackdrop(
+            TaruBackdropArtwork(
+                request = backdropRequest,
                 title = featuredItem?.metadata?.title ?: "Taru",
                 modifier = Modifier.matchParentSize(),
             )
@@ -208,6 +286,24 @@ private fun HomeHeader(
                 )
             }
         }
+    }
+}
+
+private fun continueWatchingProgressLabel(row: ContinueWatchingItemDto): String =
+    row.state.progressPercent
+        ?.takeIf { it > 0f }
+        ?.let { "%.0f%% watched".format(it.coerceIn(0f, 100f)) }
+        ?: row.state.resumePositionMs?.let { "Resume ${durationLabel(it)}" }
+        ?: "Resume"
+
+private fun durationLabel(positionMs: Long): String {
+    val totalMinutes = positionMs.coerceAtLeast(0L) / 60_000L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return if (hours > 0) {
+        "${hours}h ${minutes}m"
+    } else {
+        "${minutes}m"
     }
 }
 

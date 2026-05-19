@@ -2155,6 +2155,7 @@ dependencies = [
  "taru-core",
  "taru-streaming",
  "taru-transcode",
+ "time",
 ]
 
 [[package]]

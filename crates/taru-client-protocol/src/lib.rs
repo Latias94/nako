@@ -6,6 +6,7 @@ pub use catalog::*;
 
 pub const CLIENT_PROTOCOL_VERSION: &str = "v1";
 pub const API_VERSION_HEADER: &str = "x-taru-api-version";
+pub const PLAYBACK_SESSION_ID_HEADER: &str = "x-taru-playback-session-id";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PublicClientRoute {
@@ -20,6 +21,7 @@ pub enum PublicClientHttpMethod {
     Get,
     Head,
     Post,
+    Put,
 }
 
 impl PublicClientHttpMethod {
@@ -29,6 +31,7 @@ impl PublicClientHttpMethod {
             Self::Get => "GET",
             Self::Head => "HEAD",
             Self::Post => "POST",
+            Self::Put => "PUT",
         }
     }
 }
@@ -170,7 +173,7 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
     },
     PublicClientRoute {
         path: "/sources/{source_id}/stream/remux",
-        methods: &[PublicClientHttpMethod::Get],
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head],
         kind: PublicClientRouteKind::Playback,
         rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
     },
@@ -197,6 +200,30 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Playback,
         rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
+        path: "/users/me/playback-state/items/{item_id}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playback-state/continue-watching",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playback-state/items/{item_id}/progress",
+        methods: &[PublicClientHttpMethod::Put],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playback-state/items/{item_id}/watched",
+        methods: &[PublicClientHttpMethod::Put],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
 ];
 
@@ -358,6 +385,7 @@ mod tests {
 
         assert_eq!(health_json["version"], "v1");
         assert_eq!(API_VERSION_HEADER, "x-taru-api-version");
+        assert_eq!(PLAYBACK_SESSION_ID_HEADER, "x-taru-playback-session-id");
         assert_eq!(error_json["code"], "not_found");
         assert_eq!(page_json["limit"], 50);
         assert_eq!(page_json["offset"], 100);
@@ -368,11 +396,15 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 25);
+        assert_eq!(paths.len(), 29);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
+        assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
+        assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
+        assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/progress"));
+        assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/watched"));
 
         let direct_stream = PUBLIC_CLIENT_ROUTES
             .iter()
@@ -394,9 +426,21 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 20);
+        assert_eq!(json_count, 24);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
+        let remux_stream = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/sources/{source_id}/stream/remux")
+            .expect("remux stream route exists");
+        assert_eq!(
+            remux_stream
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "HEAD"]
+        );
     }
 
     #[test]
@@ -535,5 +579,31 @@ mod tests {
         assert_eq!(value["session"]["kind"], "hls_transcode");
         assert_eq!(value["session"]["state"], "running");
         assert!(value["session"].get("output_path").is_none());
+    }
+
+    #[test]
+    fn public_user_playback_state_hides_principal_identity() {
+        let response = UserPlaybackStateResponse {
+            state: UserPlaybackStateDto {
+                item_id: "item-1".to_owned(),
+                source_id: Some("source-1".to_owned()),
+                resume_position_ms: Some(120_000),
+                duration_ms: Some(600_000),
+                progress_percent: Some(0.2),
+                watched: false,
+                watched_at: None,
+                last_played_at: Some("1970-01-01T00:00:10Z".to_owned()),
+                updated_at: Some("1970-01-01T00:00:10Z".to_owned()),
+                version: 1,
+            },
+        };
+
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["state"]["item_id"], "item-1");
+        let progress = value["state"]["progress_percent"].as_f64().unwrap();
+        assert!((progress - 0.2).abs() < 0.000_001);
+        assert!(value["state"].get("principal_id").is_none());
+        assert!(value["state"].get("user_id").is_none());
     }
 }

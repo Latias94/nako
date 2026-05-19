@@ -62,6 +62,133 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `library detail and sources use active profile and decode safe source inventory`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "library": {
+                        "id": "library 1",
+                        "name": "Movies",
+                        "roots": ["file:///srv/media/movies"],
+                        "options": {
+                          "domain": "video",
+                          "preset": "movies"
+                        }
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "library": {
+                        "id": "library 1",
+                        "name": "Movies",
+                        "roots": ["file:///srv/media/movies"],
+                        "options": {"domain": "video", "preset": "movies"}
+                      },
+                      "sources": [
+                        {
+                          "source": {
+                            "id": "source 1",
+                            "library_id": "library 1",
+                            "item_id": "item 1",
+                            "file_name": "Night Harbor.mp4",
+                            "size_bytes": 2097152,
+                            "fingerprint": "hash-source"
+                          },
+                          "item": {
+                            "id": "item 1",
+                            "kind": "movie",
+                            "metadata": {
+                              "title": "Night Harbor",
+                              "genres": [],
+                              "tags": [],
+                              "ratings": []
+                            }
+                          },
+                          "probe": {
+                            "duration_ms": 120000,
+                            "container": "mp4",
+                            "bit_rate": 4200000,
+                            "streams": [
+                              {"index":0,"kind":"video","codec":"h264","width":1920,"height":1080},
+                              {"index":1,"kind":"audio","codec":"aac","channels":2}
+                            ]
+                          }
+                        }
+                      ],
+                      "page": {"limit": 10, "offset": 20, "returned": 1}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val detail = client.libraryDetail(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            libraryId = "library 1",
+        )
+        val sources = client.librarySources(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            libraryId = "library 1",
+            page = PageRequest(limit = 10, offset = 20),
+        )
+
+        assertTrue(detail is BrowseResult.Success)
+        assertTrue(sources is BrowseResult.Success)
+        detail as BrowseResult.Success
+        sources as BrowseResult.Success
+        assertEquals(
+            listOf(
+                "http://home.example.test/api/libraries/library%201",
+                "http://home.example.test/api/libraries/library%201/sources?limit=10&offset=20",
+            ),
+            transport.requests.map { it.url },
+        )
+        assertEquals("Bearer <redacted>", detail.request.headers["Authorization"])
+        assertEquals("Bearer <redacted>", sources.request.headers["Authorization"])
+        assertEquals("Movies", detail.value.library.name)
+        assertEquals("Night Harbor.mp4", sources.value.sources.single().source.fileName)
+        assertEquals("Night Harbor", sources.value.sources.single().item?.metadata?.title)
+        assertEquals("mp4", sources.value.sources.single().probe?.container)
+        assertEquals(20L, sources.value.page.offset)
+        assertFalse(detail.toString().contains("secret-token"))
+        assertFalse(sources.toString().contains("secret-token"))
+        assertFalse(sources.toString().contains("file:///srv"))
+    }
+
+    @Test
+    fun `blank library routes fail locally without transport`() = runBlocking {
+        val transport = FakeTransport()
+        val client = TaruBrowseClient(transport)
+
+        val detail = client.libraryDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            libraryId = " ",
+        )
+        val sources = client.librarySources(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            libraryId = " ",
+        )
+
+        assertTrue(detail is BrowseResult.Failure)
+        assertTrue(sources is BrowseResult.Failure)
+        assertEquals(BrowseFailureCategory.MissingLibrary, (detail as BrowseResult.Failure).diagnostics.category)
+        assertEquals(BrowseFailureCategory.MissingLibrary, (sources as BrowseResult.Failure).diagnostics.category)
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
     fun `list items decodes minimal media item tracer`() = runBlocking {
         val transport = FakeTransport(
             ResponseStep(
@@ -151,9 +278,12 @@ class TaruBrowseClientTest {
                           "id":"image-1",
                           "owner":{"item":"item 1"},
                           "kind":"poster",
-                          "source_uri":"https://example.test/poster.jpg",
-                          "provider":"local",
-                          "selected":true
+                          "url":"/images/image-1",
+                          "width":1000,
+                          "height":1500,
+                          "language":null,
+                          "media_type":"image/jpeg",
+                          "etag":"hash-1"
                         }
                       ]
                     }
@@ -180,6 +310,52 @@ class TaruBrowseClientTest {
         assertEquals(1, success.value.credits.size)
         assertEquals(1, success.value.images.size)
         assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `item images decodes public image refs and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "item_id": "item 1",
+                      "images": [
+                        {
+                          "id": "poster-1",
+                          "owner": {"item": "item 1"},
+                          "kind": "poster",
+                          "url": "/images/poster-1",
+                          "width": 1000,
+                          "height": 1500,
+                          "language": null,
+                          "media_type": "image/png",
+                          "etag": "hash-1"
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.itemImages(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            itemId = "item 1",
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/items/item%201/images", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("item 1", success.value.itemId)
+        assertEquals("/images/poster-1", success.value.images.single().url)
+        assertEquals("image/png", success.value.images.single().mediaType)
+        assertFalse(success.toString().contains("secret-token"))
+        assertFalse(success.toString().contains("source_uri"))
     }
 
     @Test

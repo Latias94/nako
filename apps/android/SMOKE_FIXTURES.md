@@ -86,24 +86,31 @@ Use this when evidence must prove the Android media path against real Public
 Client API responses. The script installs the debug APK, clears app data,
 prepares the `Night Harbor` demo fixture through
 `scripts/Start-DemoFixtureServer.ps1`, starts a local `taru-server`, applies
-`adb reverse`, then seeds one debug-only Server Profile plus an encrypted token
-value through the app's real profile store and token vault. The same debug-only
-seed also writes one device-local resume position for the selected `Night
-Harbor` Media Item and Media Source.
+`adb reverse`, writes one server-side **User Playback State** progress record
+through the Public Client API, then seeds one debug-only Server Profile plus an
+encrypted token value through the app's real profile store and token vault.
 
 Expected result:
 
 - exactly one local Server Profile named `Smoke Server` is present;
 - the token value is stored only in the Android token vault and is redacted from
   generated reports;
-- the local resume position is stored only in Android device-local app storage;
+- Continue Watching and resume state come from server-owned **User Playback
+  State**, not Android device-local storage;
 - Home shows `Night Harbor` and visible Media Library facts from the server;
 - detail, source picker, and player surfaces are reached through Public Client
   API route shapes;
 - detail metadata proves API-backed Genre, Tag, and Person relationships by
   opening facet result routes that return `Night Harbor`;
-- source picker and player evidence present resume as local-only state and do
-  not claim cross-device **User Playback State** or Continue Watching;
+- source picker and player evidence present the server-backed resume path and
+  do not fall back to device-local resume;
+- player evidence waits for Direct Play to reach the ended state and shows the
+  observed playback position/duration;
+- smoke creates a non-Direct remux playback session through Public Client API
+  `HEAD` preflight, then reads that session back through
+  `/playback/sessions/{session_id}` after returning from the Android player;
+- after leaving the player, smoke reads server **User Playback State** back and
+  records that the item is watched and absent from Continue Watching;
 - generated evidence is written under
   `apps/android/build/smoke/<timestamp>-profile-with-media-<serial>/`.
 
@@ -116,9 +123,59 @@ Captured surfaces:
 - `facet-tag.png`
 - `detail-cast-crew.png`
 - `facet-person.png`
-- `source-picker-local-resume.png`
+- `source-picker-server-resume.png`
 - `source-picker.png`
 - `player.png`
+- `profile-with-media-server-readback.txt`
+- `profile-with-media-session-readback.txt`
+- matching `*.uiautomator.xml` files
+- matching `*.criteria.txt` pass/fail files
+
+### profile-active-remux
+
+Command:
+
+```powershell
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-active-remux
+```
+
+Use this when evidence must prove active non-ended playback session
+cancellation. The script installs the debug APK, clears app data, prepares a
+fresh server-backed `Night Harbor.mkv` fixture, forces the debug profile's
+playback capabilities to choose Remux, starts playback only after source
+checking, exits the player before the slow remux wrapper completes, and reads
+the same session back through Public Client API.
+
+Expected result:
+
+- exactly one local Server Profile named `Smoke Server` is present;
+- the source picker shows `Night Harbor.mkv` and `Remux route prepared`;
+- source checking does not start a server-side session before the user starts
+  playback;
+- the Android player opens with a Public Client remux session id;
+- player exit requests `/playback/sessions/{session_id}/cancel` before
+  progress sync;
+- `/playback/sessions/{session_id}` returns terminal `cancelled` state with
+  `cancelled` failure category;
+- the cancellation readback artifact contains no bearer token, local path, or
+  server-only output field;
+- generated evidence is written under
+  `apps/android/build/smoke/<timestamp>-profile-active-remux-<serial>/`.
+
+Captured surfaces and artifacts:
+
+- `home.png`
+- `detail.png`
+- `detail-metadata.png`
+- `facet-genre.png`
+- `facet-tag.png`
+- `detail-cast-crew.png`
+- `facet-person.png`
+- `source-picker-server-resume.png`
+- `source-picker.png`
+- `player.png`
+- `detail-after-player-back.png`
+- `profile-active-remux-session-cancelled.txt`
 - matching `*.uiautomator.xml` files
 - matching `*.criteria.txt` pass/fail files
 
@@ -129,7 +186,10 @@ Captured surfaces:
   commands, or provider payloads into fixture files or reports.
 - Do not fake server-backed User Playback State, Continue Watching, or
   unsupported browse facets as real client data.
-- Use Public Client API responses or Android-local app state only.
+- Use Public Client API responses or Android-local app state only. Session
+  smoke must use the public playback session header and
+  `/playback/sessions/{session_id}` readback route, not logs or admin
+  diagnostics.
 - The `profile-with-media` profile seed entry point exists only in the debug
   APK. Release builds must not expose smoke fixture writers.
 
@@ -144,7 +204,8 @@ Command:
 Use this as the stable local confidence gate after Android UI, browse,
 playback-launch, or smoke-harness changes. The wrapper builds the debug APK
 once, runs the stable state set through `Smoke-Emulator.ps1`, and writes a
-combined report under `apps/android/build/smoke-regression/<timestamp>/`.
+combined `report.md` and machine-readable `report.json` under
+`apps/android/build/smoke-regression/<timestamp>/`.
 
 Default states:
 
@@ -152,10 +213,15 @@ Default states:
 - `profile-missing-token`
 - `profile-with-media`
 
+`profile-active-remux` is available as an explicit heavier state when the
+change touches playback session lifetime, remux startup, source picker start
+semantics, or player exit effects.
+
 Useful variants:
 
 ```powershell
 .\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token
+.\scripts\Smoke-Regression.ps1 -States profile-active-remux
 .\scripts\Smoke-Regression.ps1 -SkipBuild
 .\scripts\Smoke-Regression.ps1 -ContinueOnFailure
 .\scripts\Smoke-Regression.ps1 -RetriesPerState 0
@@ -175,5 +241,7 @@ These states need more work and should not be hand-waved into the smoke script:
 - `profile-empty-library`: requires a public, token-safe server/profile fixture
   that can show Home and Settings without private data.
 - `playback-ready`: the demo fixture currently prefers direct-play MP4 for a
-  player-safe launch target. Full playback quality, HLS/remux, and session
-  cancellation smoke remain deferred until they have explicit gates.
+  player-safe launch target. Full playback quality gates remain deferred.
+- `profile-active-hls`: HLS active cancellation can reuse the active-remux
+  pattern when playlist startup becomes asynchronous enough to need its own
+  runtime fixture.

@@ -5,8 +5,8 @@ use taru_core::{Result, TaruError};
 use super::{
     ffmpeg::stderr_message,
     runner_util::{
-        command_with_hls_output_dir, ffmpeg_command, join_stderr_task, kill_child,
-        promote_temp_hls_output, read_child_stderr, remove_dir_if_exists,
+        abort_stderr_task, command_with_hls_output_dir, ffmpeg_command, join_stderr_task,
+        kill_child, promote_temp_hls_output, read_child_stderr, remove_dir_if_exists,
     },
     runtime::{CancellationToken, RemuxRuntimeGuard},
     session::{TranscodeSessionId, TranscodeSessionKind, TranscodeSessionManager},
@@ -93,7 +93,7 @@ impl FfmpegHlsRunner {
             }
             () = cancel.cancelled() => {
                 kill_child(&mut child).await?;
-                let _ = join_stderr_task(stderr_task).await?;
+                abort_stderr_task(stderr_task);
                 manager.request_cancel(session_id)?;
                 remove_dir_if_exists(&temp_output_dir).await?;
                 manager.mark_cancelled(session_id)?;
@@ -104,7 +104,7 @@ impl FfmpegHlsRunner {
             }
             () = tokio::time::sleep(self.guard.timeout()) => {
                 kill_child(&mut child).await?;
-                let _ = join_stderr_task(stderr_task).await?;
+                abort_stderr_task(stderr_task);
                 manager.request_cancel(session_id)?;
                 remove_dir_if_exists(&temp_output_dir).await?;
                 let message = format!(

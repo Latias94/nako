@@ -45,7 +45,6 @@ use input::FfmpegInputService;
 #[cfg(test)]
 pub(crate) use input::source_path_for_ffmpeg_with_backend;
 use remux::RemuxAppService;
-#[cfg(test)]
 pub(crate) use remux::RemuxRequestKey;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -71,6 +70,15 @@ pub struct RemuxSourceOutput {
     pub output_container: RemuxContainer,
     pub disposition: RemuxSourceDisposition,
     pub session: Option<TranscodeSessionRecord>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RemuxSessionStart {
+    pub source: MediaSource,
+    pub decision: PlaybackDecision,
+    pub output_path: PathBuf,
+    pub output_container: RemuxContainer,
+    pub session: TranscodeSessionRecord,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -245,6 +253,7 @@ pub(crate) struct PlaybackAppService {
     config: TaruServerConfig,
     store: SqliteStore,
     storage_backends: StorageBackendRegistry,
+    runtime: RuntimeSupervisor,
     input: FfmpegInputService,
     cancellations: PlaybackSessionCancellationRegistry,
     remux: RemuxAppService,
@@ -261,12 +270,13 @@ impl PlaybackAppService {
         let cancellations = PlaybackSessionCancellationRegistry::default();
 
         Ok(Self {
-            input: FfmpegInputService::new(config.clone(), store.clone(), runtime),
+            input: FfmpegInputService::new(config.clone(), store.clone(), runtime.clone()),
             remux: RemuxAppService::new(&config, cancellations.clone()),
             hls: HlsAppService::new(&config, cancellations.clone())?,
             config,
             store,
             storage_backends,
+            runtime,
             cancellations,
         })
     }
@@ -332,40 +342,94 @@ impl PlaybackAppService {
         &self,
         request: RemuxSourceRequest,
     ) -> Result<RemuxSourceOutput> {
-        let source = self.get_source_or_not_found(request.source_id).await?;
-        let probe = self.store.get_media_probe(source.id).await?;
-        let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
-        let mut context = playback_selection_context(&uri, backend.as_ref()).await;
-        context.preferences.remux_output_container = Some(request.output_container);
-        let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
-        let decision = select_playback_source(PlaybackSelectionRequest {
-            source: &source,
-            probe: probe.as_ref(),
-            client: &request.client,
-            context,
-        });
+        let context = self.remux_source_context(&request).await?;
+        self.run_remux_source_context(context).await
+    }
 
-        let output_container = remux_output_container(&decision)?;
-        let profile_identity = playback_profile
-            .remux_transcode_profile(output_container)
-            .identity();
+    pub(crate) async fn remux_source_or_wait(
+        &self,
+        request: RemuxSourceRequest,
+    ) -> Result<RemuxSourceOutput> {
+        let context = self.remux_source_context(&request).await?;
+        if let Some(active) = self
+            .store
+            .find_active_transcode_session(
+                context.source.id,
+                TranscodeSessionKind::Remux,
+                &context.request_key,
+            )
+            .await?
+        {
+            return self.wait_for_remux_source_context(context, active.id).await;
+        }
 
+        self.run_remux_source_context(context).await
+    }
+
+    pub(crate) async fn start_remux_source(
+        &self,
+        request: RemuxSourceRequest,
+    ) -> Result<RemuxSessionStart> {
+        let context = self.remux_source_context(&request).await?;
+        if let Some(active) = self
+            .store
+            .find_active_transcode_session(
+                context.source.id,
+                TranscodeSessionKind::Remux,
+                &context.request_key,
+            )
+            .await?
+        {
+            return Ok(context.session_start(active));
+        }
+
+        if let Some(latest) = self
+            .store
+            .find_latest_transcode_session(
+                context.source.id,
+                TranscodeSessionKind::Remux,
+                &context.request_key,
+            )
+            .await?
+        {
+            if latest.state == TranscodeSessionState::Finished
+                && latest.output_path == context.output_path
+                && path_exists(&context.output_path)?
+            {
+                return Ok(context.session_start(latest));
+            }
+        }
+
+        let task_app = self.clone();
+        let task_request = request.clone();
+        self.runtime
+            .spawn("playback_remux_start", "playback.remux", async move {
+                if let Err(error) = task_app.remux_source(task_request).await {
+                    warn!(error = %error, "background remux start failed");
+                }
+            });
+
+        self.wait_for_started_remux_source_context(context).await
+    }
+
+    async fn run_remux_source_context(
+        &self,
+        context: RemuxSourceContext,
+    ) -> Result<RemuxSourceOutput> {
         let input = self
             .input
-            .source_input_for_ffmpeg(&source, &uri, &backend)
+            .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
             .await?;
-        let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
-        let output_path = staging.output_path(source.id, &profile_identity, output_container)?;
         let result = self
             .remux
             .run(
                 &self.store,
-                source,
-                decision,
+                context.source,
+                context.decision,
                 input.path.clone(),
-                output_path,
-                output_container,
-                profile_identity,
+                context.output_path,
+                context.output_container,
+                context.profile_identity,
             )
             .await;
         match result {
@@ -383,6 +447,153 @@ impl PlaybackAppService {
                 Err(err)
             }
         }
+    }
+
+    async fn wait_for_started_remux_source_context(
+        &self,
+        context: RemuxSourceContext,
+    ) -> Result<RemuxSessionStart> {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            if let Some(active) = self
+                .store
+                .find_active_transcode_session(
+                    context.source.id,
+                    TranscodeSessionKind::Remux,
+                    &context.request_key,
+                )
+                .await?
+            {
+                return Ok(context.session_start(active));
+            }
+
+            if let Some(latest) = self
+                .store
+                .find_latest_transcode_session(
+                    context.source.id,
+                    TranscodeSessionKind::Remux,
+                    &context.request_key,
+                )
+                .await?
+            {
+                if latest.state.is_terminal() {
+                    return Ok(context.session_start(latest));
+                }
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                return Err(TaruError::Conflict {
+                    message: format!(
+                        "remux request for source {} did not expose a playback session before timeout",
+                        context.source.id
+                    ),
+                });
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    }
+
+    async fn wait_for_remux_source_context(
+        &self,
+        context: RemuxSourceContext,
+        session_id: TranscodeSessionId,
+    ) -> Result<RemuxSourceOutput> {
+        let deadline = tokio::time::Instant::now()
+            + std::time::Duration::from_millis(self.config.remux_timeout_ms.max(1));
+        loop {
+            let session = self.get_transcode_session(session_id).await?;
+            match session.state {
+                TranscodeSessionState::Finished => {
+                    if !path_exists(&context.output_path)? {
+                        return Err(TaruError::storage_io(
+                            context.output_path.display().to_string(),
+                            "finished remux session output is missing",
+                        ));
+                    }
+
+                    return Ok(RemuxSourceOutput {
+                        source: context.source,
+                        decision: context.decision,
+                        output_path: context.output_path,
+                        output_container: context.output_container,
+                        disposition: RemuxSourceDisposition::ReusedExisting,
+                        session: Some(session),
+                    });
+                }
+                TranscodeSessionState::Cancelled => {
+                    return Ok(RemuxSourceOutput {
+                        source: context.source,
+                        decision: context.decision,
+                        output_path: context.output_path,
+                        output_container: context.output_container,
+                        disposition: RemuxSourceDisposition::Cancelled,
+                        session: Some(session),
+                    });
+                }
+                TranscodeSessionState::Failed => {
+                    return Err(TaruError::Provider {
+                        provider: "ffmpeg_remux".to_owned(),
+                        message: session
+                            .failure_message
+                            .unwrap_or_else(|| "remux runner failed".to_owned()),
+                    });
+                }
+                TranscodeSessionState::Planned
+                | TranscodeSessionState::Starting
+                | TranscodeSessionState::Running
+                | TranscodeSessionState::CancelRequested => {}
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                return Err(TaruError::Provider {
+                    provider: "ffmpeg_remux".to_owned(),
+                    message: format!("remux session {session_id} timed out while waiting"),
+                });
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    }
+
+    async fn remux_source_context(
+        &self,
+        request: &RemuxSourceRequest,
+    ) -> Result<RemuxSourceContext> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        let probe = self.store.get_media_probe(source.id).await?;
+        let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
+        let mut context = playback_selection_context(&uri, backend.as_ref()).await;
+        context.preferences.remux_output_container = Some(request.output_container);
+        let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
+        let decision = select_playback_source(PlaybackSelectionRequest {
+            source: &source,
+            probe: probe.as_ref(),
+            client: &request.client,
+            context,
+        });
+        let output_container = remux_output_container(&decision)?;
+        let profile_identity = playback_profile
+            .remux_transcode_profile(output_container)
+            .identity();
+        let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
+        let output_path = staging.output_path(source.id, &profile_identity, output_container)?;
+        let request_key = RemuxRequestKey {
+            source_id: source.id,
+            profile_identity: profile_identity.clone(),
+        }
+        .persisted_request_key();
+
+        Ok(RemuxSourceContext {
+            source,
+            decision,
+            uri,
+            backend,
+            output_path,
+            output_container,
+            profile_identity,
+            request_key,
+        })
     }
 
     pub(crate) async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
@@ -627,6 +838,30 @@ impl PlaybackAppService {
     ) -> Result<PlaybackSelectionContext> {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         Ok(playback_selection_context(&uri, backend.as_ref()).await)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RemuxSourceContext {
+    source: MediaSource,
+    decision: PlaybackDecision,
+    uri: StorageUri,
+    backend: Arc<super::storage::LibraryStorageBackend>,
+    output_path: PathBuf,
+    output_container: RemuxContainer,
+    profile_identity: TranscodeProfileIdentity,
+    request_key: String,
+}
+
+impl RemuxSourceContext {
+    fn session_start(self, session: TranscodeSessionRecord) -> RemuxSessionStart {
+        RemuxSessionStart {
+            source: self.source,
+            decision: self.decision,
+            output_path: self.output_path,
+            output_container: self.output_container,
+            session,
+        }
     }
 }
 

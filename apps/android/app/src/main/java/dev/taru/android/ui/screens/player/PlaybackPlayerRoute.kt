@@ -1,6 +1,7 @@
 package dev.taru.android.ui.screens.player
 
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -44,6 +45,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,7 +65,10 @@ import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionStore
+import dev.taru.android.player.PlaybackExitSnapshot
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.player.applyPlaybackExitEffects
+import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
 import dev.taru.android.ui.theme.TaruAccent
@@ -71,6 +77,7 @@ import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
+import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -83,6 +90,7 @@ internal fun PlaybackPlayerRoute(
     profile: ServerProfile,
     tokenVault: TokenVault,
     playbackClient: TaruPlaybackClient,
+    userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
     onBack: () -> Unit,
 ) {
@@ -90,6 +98,7 @@ internal fun PlaybackPlayerRoute(
     val clipboard = LocalClipboardManager.current
     var playerState by remember { mutableStateOf("Preparing") }
     var playbackError by remember { mutableStateOf<PlaybackErrorPresentation?>(null) }
+    var exitEffectsStarted by remember(launch) { mutableStateOf(false) }
     val chrome = remember(launch) { playerChromePresentation(launch) }
     val player = remember(launch.request.url) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -106,6 +115,27 @@ internal fun PlaybackPlayerRoute(
         playerState = "Preparing"
         preparePlayer(player, launch)
     }
+
+    fun runExitEffectsOnce() {
+        if (exitEffectsStarted) {
+            return
+        }
+        exitEffectsStarted = true
+        persistPositionAndCancelSession(
+            player = player,
+            launch = launch,
+            profile = profile,
+            tokenVault = tokenVault,
+            playbackClient = playbackClient,
+            userPlaybackClient = userPlaybackClient,
+            positionStore = positionStore,
+        )
+    }
+    val handleBack = {
+        runExitEffectsOnce()
+        onBack()
+    }
+    BackHandler(onBack = handleBack)
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -129,14 +159,7 @@ internal fun PlaybackPlayerRoute(
         }
         player.addListener(listener)
         onDispose {
-            persistPositionAndCancelSession(
-                player = player,
-                launch = launch,
-                profile = profile,
-                tokenVault = tokenVault,
-                playbackClient = playbackClient,
-                positionStore = positionStore,
-            )
+            runExitEffectsOnce()
             player.removeListener(listener)
             player.release()
         }
@@ -147,17 +170,24 @@ internal fun PlaybackPlayerRoute(
             .fillMaxSize()
             .background(Color(0xFF05090B)),
     ) {
+        TaruPlayerBackdrop(
+            title = chrome.backdropTitle,
+            modifier = Modifier.matchParentSize(),
+        )
+
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     this.player = player
                     useController = true
+                    setArtworkDisplayMode(PlayerView.ARTWORK_DISPLAY_MODE_OFF)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                    setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
             update = { it.player = player },
@@ -166,7 +196,7 @@ internal fun PlaybackPlayerRoute(
         PlayerTopOverlay(
             chrome = chrome,
             playerState = playerState,
-            onBack = onBack,
+            onBack = handleBack,
         )
 
         AnimatedVisibility(
@@ -180,7 +210,9 @@ internal fun PlaybackPlayerRoute(
 
         AnimatedVisibility(
             visible = playbackError == null,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = PlayerMedia3ControllerClearanceDp.dp),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
@@ -198,7 +230,7 @@ internal fun PlaybackPlayerRoute(
                     playerState = "Preparing"
                     preparePlayer(player, launch)
                 },
-                onBack = onBack,
+                onBack = handleBack,
                 onCopyDiagnostics = {
                     clipboard.setText(AnnotatedString(presentation.diagnostics))
                 },
@@ -238,34 +270,39 @@ private fun persistPositionAndCancelSession(
     profile: ServerProfile,
     tokenVault: TokenVault,
     playbackClient: TaruPlaybackClient,
+    userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
 ) {
-    val isEnded = player.playbackState == Player.STATE_ENDED
-    val positionMs = player.currentPosition
-    if (isEnded || positionMs <= 0L) {
-        positionStore.clear(launch.positionKey)
-    } else {
-        positionStore.save(
-            DevicePlaybackPosition(
-                key = launch.positionKey,
-                positionMs = positionMs,
-                durationMs = player.duration.takeIf { it > 0L },
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
-    }
-    val sessionId = launch.sessionId?.takeIf { it.isNotBlank() }
-    if (!isEnded && sessionId != null) {
-        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-        if (accessToken.isNotBlank()) {
-            CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-                playbackClient.cancelPlaybackSession(
-                    profile = profile,
+    val snapshot = PlaybackExitSnapshot(
+        isEnded = player.playbackState == Player.STATE_ENDED,
+        positionMs = player.currentPosition,
+        durationMs = player.duration,
+    )
+    CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+        applyPlaybackExitEffects(
+            launch = launch,
+            snapshot = snapshot,
+            profile = profile,
+            readAccessToken = tokenVault::readToken,
+            positionStore = positionStore,
+            updateProgress = { updateProfile, accessToken, itemId, report ->
+                userPlaybackClient.updateProgress(
+                    profile = updateProfile,
                     accessToken = accessToken,
-                    sessionId = sessionId,
+                    itemId = itemId,
+                    request = report.request,
                 )
-            }
-        }
+            },
+            setWatchedState = { watchedProfile, accessToken, itemId, report ->
+                userPlaybackClient.setWatchedState(
+                    profile = watchedProfile,
+                    accessToken = accessToken,
+                    itemId = itemId,
+                    request = report.request,
+                )
+            },
+            cancelPlaybackSession = playbackClient::cancelPlaybackSession,
+        )
     }
 }
 
@@ -398,7 +435,15 @@ private fun PlayerBottomOverlay(
             ) {
                 StatusChip(text = chrome.sourceLabel)
                 chrome.resumeLabel?.let { StatusChip(text = it) }
-                chrome.sessionLabel?.let { StatusChip(text = it) }
+                chrome.sessionLabel?.let { label ->
+                    Box(
+                        modifier = chrome.sessionAccessibilityLabel
+                            ?.let { Modifier.semantics { contentDescription = it } }
+                            ?: Modifier,
+                    ) {
+                        StatusChip(text = label)
+                    }
+                }
             }
         }
     }

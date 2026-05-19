@@ -578,7 +578,13 @@ mod tests {
             cancel_handle.cancel();
         });
 
-        let outcome = runner.run(&mut manager, session.id, cancel).await.unwrap();
+        let outcome = time::timeout(
+            Duration::from_millis(800),
+            runner.run(&mut manager, session.id, cancel),
+        )
+        .await
+        .expect("remux cancellation should not wait for inherited stderr pipes")
+        .unwrap();
 
         assert!(matches!(outcome, RemuxRunOutcome::Cancelled { .. }));
         assert!(!output_path.exists());

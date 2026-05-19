@@ -139,6 +139,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "job ownership leases",
         include_str!("../migrations/0029_job_ownership_leases.sql"),
     ),
+    (
+        30,
+        "user playback states",
+        include_str!("../migrations/0030_user_playback_states.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

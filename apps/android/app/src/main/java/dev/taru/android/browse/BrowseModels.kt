@@ -2,6 +2,7 @@ package dev.taru.android.browse
 
 import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
+import dev.taru.android.media.MediaProbeDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -30,12 +31,37 @@ data class LibraryListResponse(
 )
 
 @Serializable
+data class LibraryResponse(
+    val library: LibraryDto,
+)
+
+@Serializable
+data class LibrarySourcesResponse(
+    val library: LibraryDto,
+    val sources: List<LibrarySourceResponse> = emptyList(),
+    val page: PageInfo,
+)
+
+@Serializable
+data class LibrarySourceResponse(
+    val source: MediaSourceDto,
+    val item: MediaItemDto? = null,
+    val probe: MediaProbeDto? = null,
+) {
+    override fun toString(): String =
+        "LibrarySourceResponse(source=$source, item=$item, probe=$probe)"
+}
+
+@Serializable
 data class LibraryDto(
     val id: String,
     val name: String,
     val roots: List<String> = emptyList(),
     val options: LibraryOptionsDto? = null,
-)
+) {
+    override fun toString(): String =
+        "LibraryDto(id=$id, name=$name, roots=<redacted:${roots.size}>, options=$options)"
+}
 
 @Serializable
 data class LibraryOptionsDto(
@@ -136,7 +162,14 @@ data class ItemDetailResponse(
     val tags: List<ItemTagDto> = emptyList(),
     val collections: List<CollectionItemDto> = emptyList(),
     val studios: List<ItemStudioDto> = emptyList(),
-    val images: List<ImageAssetDto> = emptyList(),
+    val images: List<PublicImageRefDto> = emptyList(),
+)
+
+@Serializable
+data class ImagesResponse(
+    @SerialName("item_id")
+    val itemId: String,
+    val images: List<PublicImageRefDto> = emptyList(),
 )
 
 @Serializable
@@ -164,23 +197,12 @@ data class CanonicalMetadataDto(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val ratings: List<ContentRatingDto> = emptyList(),
-    val images: List<ImageRefDto> = emptyList(),
 )
 
 @Serializable
 data class ContentRatingDto(
     val source: String,
     val value: String,
-)
-
-@Serializable
-data class ImageRefDto(
-    val kind: String,
-    val uri: String,
-    val provider: JsonElement? = null,
-    val width: Int? = null,
-    val height: Int? = null,
-    val language: String? = null,
 )
 
 @Serializable
@@ -196,7 +218,10 @@ data class MediaSourceDto(
     @SerialName("size_bytes")
     val sizeBytes: Long? = null,
     val fingerprint: String? = null,
-)
+) {
+    override fun toString(): String =
+        "MediaSourceDto(id=$id, libraryId=$libraryId, itemId=$itemId, locator=<redacted>, fileName=$fileName, sizeBytes=$sizeBytes, fingerprint=$fingerprint)"
+}
 
 @Serializable
 data class ItemCreditDto(
@@ -245,26 +270,22 @@ data class ItemStudioDto(
 )
 
 @Serializable
-data class ImageAssetDto(
+data class PublicImageRefDto(
     val id: String,
     val owner: JsonElement? = null,
-    val kind: JsonElement? = null,
-    @SerialName("source_uri")
-    val sourceUri: String = "",
-    val provider: JsonElement? = null,
-    @SerialName("cache_uri")
-    val cacheUri: String? = null,
+    val kind: JsonElement,
+    val url: String,
     val width: Int? = null,
     val height: Int? = null,
     val language: String? = null,
-    val selected: Boolean = false,
-    @SerialName("content_hash")
-    val contentHash: String? = null,
+    @SerialName("media_type")
+    val mediaType: String? = null,
     val etag: String? = null,
 )
 
 enum class BrowseFailureCategory {
     MissingItem,
+    MissingLibrary,
     MissingAccessToken,
     UnreachableServer,
     Unauthorized,

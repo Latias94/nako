@@ -11,6 +11,7 @@ mod pagination;
 mod scan;
 mod transaction;
 mod transcode;
+mod user_playback;
 mod vfs;
 mod webhook;
 
@@ -27,5 +28,6 @@ pub use pagination::*;
 pub use scan::*;
 pub use transaction::*;
 pub use transcode::*;
+pub use user_playback::*;
 pub use vfs::*;
 pub use webhook::*;

@@ -1,7 +1,9 @@
 use serde_json::Value;
 use taru_client_protocol::public_client_paths;
 
-use crate::{API_VERSION, API_VERSION_HEADER, openapi::public_openapi_v1};
+use crate::{
+    API_VERSION, API_VERSION_HEADER, PLAYBACK_SESSION_ID_HEADER, openapi::public_openapi_v1,
+};
 
 #[must_use]
 pub fn typescript_sdk() -> String {
@@ -22,6 +24,10 @@ pub fn typescript_sdk() -> String {
     output.push_str(&format!(
         "export const TARU_API_VERSION_HEADER = \"{}\" as const;\n\n",
         API_VERSION_HEADER
+    ));
+    output.push_str(&format!(
+        "export const TARU_PLAYBACK_SESSION_ID_HEADER = \"{}\" as const;\n\n",
+        PLAYBACK_SESSION_ID_HEADER
     ));
     output.push_str("export const TARU_PUBLIC_PATHS = [\n");
     for path in public_client_paths() {
@@ -287,6 +293,10 @@ export class TaruClient {
     return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query, range });
   }
 
+  headRemuxStreamSource(sourceId: string, query?: RemuxPlaybackQuery): Promise<Response> {
+    return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query });
+  }
+
   hlsPlaylist(sourceId: string, capabilities?: PlaybackCapabilitiesQuery): Promise<string> {
     return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
   }
@@ -301,6 +311,22 @@ export class TaruClient {
 
   hlsSegment(sessionId: string, segmentName: string): Promise<Response> {
     return this.requestRaw("GET", `/playback/sessions/${encodeURIComponent(sessionId)}/hls/segments/${encodeURIComponent(segmentName)}`);
+  }
+
+  getUserPlaybackState(itemId: string): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("GET", `/users/me/playback-state/items/${encodeURIComponent(itemId)}`);
+  }
+
+  listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {
+    return this.requestJson("GET", "/users/me/playback-state/continue-watching", { query: page });
+  }
+
+  updateUserPlaybackProgress(itemId: string, body: UpdatePlaybackProgressRequest): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("PUT", `/users/me/playback-state/items/${encodeURIComponent(itemId)}/progress`, { body });
+  }
+
+  setUserWatchedState(itemId: string, body: SetWatchedStateRequest): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("PUT", `/users/me/playback-state/items/${encodeURIComponent(itemId)}/watched`, { body });
   }
 
   private async requestJson<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
@@ -332,7 +358,15 @@ export class TaruClient {
     if (options.range) {
       headers.set("Range", options.range);
     }
-    return this.fetchImpl(this.url(path, options.query), { method, headers });
+    const init: RequestInit = {
+      method,
+      headers,
+    };
+    if (options.body !== undefined) {
+      headers.set("Content-Type", "application/json");
+      init.body = JSON.stringify(options.body);
+    }
+    return this.fetchImpl(this.url(path, options.query), init);
   }
 
   private url(path: string, query?: QueryInput): string {
@@ -381,6 +415,7 @@ export class TaruClient {
 
 interface RequestOptions {
   auth?: boolean | undefined;
+  body?: unknown | undefined;
   headers?: HeadersInit | undefined;
   query?: QueryInput | undefined;
   range?: string | undefined;
@@ -408,10 +443,16 @@ mod tests {
             "searchItems(",
             "getPlaybackDecision(",
             "streamSource(",
+            "headStreamSource(",
             "remuxStreamSource(",
+            "headRemuxStreamSource(",
             "hlsPlaylist(",
             "getPlaybackSession(",
             "cancelPlaybackSession(",
+            "getUserPlaybackState(",
+            "listContinueWatching(",
+            "updateUserPlaybackProgress(",
+            "setUserWatchedState(",
         ] {
             assert!(sdk.contains(method), "SDK missing method {method}");
         }
@@ -430,6 +471,7 @@ mod tests {
             "Authorization",
             "Bearer ${this.bearerToken}",
             "TARU_API_VERSION_HEADER",
+            "TARU_PLAYBACK_SESSION_ID_HEADER",
             "TaruApiError",
             "ErrorResponse",
             "limit?: number",
@@ -438,6 +480,8 @@ mod tests {
             "image(imageId: string, variant?: ImageVariantQuery)",
             "headImage(imageId: string, variant?: ImageVariantQuery)",
             "response.headers.get",
+            "Content-Type",
+            "JSON.stringify",
         ] {
             assert!(
                 sdk.contains(expected),

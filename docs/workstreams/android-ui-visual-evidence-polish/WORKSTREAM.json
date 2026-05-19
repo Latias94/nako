@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "android-ui-visual-evidence-polish",
+  "title": "Android UI Visual Evidence Polish",
+  "status": "closed",
+  "updated": "2026-05-19",
+  "scope_kind": "ui",
+  "problem": "Latest Android smoke screenshots show the custom Player bottom information panel overlapping the Media3 controller and progress controls.",
+  "summary": "Closed lane for a narrow screenshot-driven Player UI polish that keeps Media3 controls enabled while moving Taru context chrome out of the controller area.",
+  "current_milestone": null,
+  "current_task": null,
+  "task_prefix": "AUP",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipBuild",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "AUP-010",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/DESIGN.md",
+      "notes": "Boundary freeze from screenshot audit."
+    },
+    {
+      "task": "AUP-020",
+      "path": "apps/android/build/smoke/20260519-120345-profile-with-media-emulator-5554/player.png",
+      "notes": "Focused player test and profile-with-media smoke passed; screenshot confirms Media3 controller clearance."
+    },
+    {
+      "task": "AUP-030",
+      "path": "docs/workstreams/android-ui-visual-evidence-polish/EVIDENCE_AND_GATES.md",
+      "notes": "Closeout evidence recorded on 2026-05-19."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "notes": "Workstream is closed. Open a separate lane for broader Home/Detail immersion or V2 visual-system expansion."
+  }
+}

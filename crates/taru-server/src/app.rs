@@ -25,6 +25,7 @@ mod runtime;
 mod staging;
 mod startup;
 mod storage;
+pub(crate) mod user_playback;
 mod webhooks;
 
 use addons::AddonAppService;
@@ -48,6 +49,7 @@ pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 use staging::cleanup_expired_staging_inputs;
 use startup::{ServerStartupReport, ServerStartupWorkflow};
 use storage::{StorageBackendRegistry, StorageDiagnosticsAppService};
+use user_playback::UserPlaybackAppService;
 use webhooks::WebhookAppService;
 
 #[cfg(test)]
@@ -74,6 +76,7 @@ struct TaruAppInner {
     metadata: MetadataAppService,
     nfo: NfoAppService,
     playback: PlaybackAppService,
+    user_playback: UserPlaybackAppService,
     startup_report: ServerStartupReport,
 }
 
@@ -134,6 +137,7 @@ impl TaruApp {
             storage_backends,
             runtime.clone(),
         )?;
+        let user_playback = UserPlaybackAppService::new(store.clone());
 
         let startup_report = ServerStartupWorkflow::new(&config, &store, metadata.clone())
             .run()
@@ -159,6 +163,7 @@ impl TaruApp {
                 metadata,
                 nfo,
                 playback,
+                user_playback,
                 startup_report: ServerStartupReport {
                     artwork_ingest_worker_started,
                     ..startup_report
@@ -231,6 +236,11 @@ impl TaruApp {
     #[must_use]
     pub(crate) fn playback(&self) -> PlaybackAppService {
         self.inner.playback.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn user_playback(&self) -> UserPlaybackAppService {
+        self.inner.user_playback.clone()
     }
 
     pub(crate) fn runtime_diagnostics(&self) -> RuntimeSupervisorDiagnostics {

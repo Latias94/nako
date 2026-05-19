@@ -38,13 +38,14 @@ use taru_api::{
     IssueAddonTokenRequest, JobResponse, LibraryListResponse, LibraryResponse,
     MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
     MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
-    MetadataRawCleanupResponse, MetadataRawResponsesResponse, ProcessManagedArtworkIngestResponse,
+    MetadataRawCleanupResponse, MetadataRawResponsesResponse, PLAYBACK_SESSION_ID_HEADER,
+    ProcessManagedArtworkIngestResponse,
     PublishSelectedArtworkResponse, RegisterAddonRequest, ReplaceAddonGrantsRequest,
     RequeueManagedArtworkIngestResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
-    TranscodeSessionResponse, UnpublishSelectedArtworkResponse, UpsertAutomationProviderRequest,
-    UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
-    WebhookEndpointsResponse,
+    TranscodeSessionResponse, UnpublishSelectedArtworkResponse,
+    UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse,
+    WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
     AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
@@ -98,6 +99,7 @@ mod library;
 mod metadata;
 mod playback;
 mod system;
+mod user_playback;
 mod webhooks;
 
 async fn router_with_media_source(

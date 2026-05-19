@@ -16,3 +16,4 @@ taru-client-protocol = { path = "../taru-client-protocol" }
 taru-core = { path = "../taru-core" }
 taru-streaming = { path = "../taru-streaming" }
 taru-transcode = { path = "../taru-transcode" }
+time.workspace = true

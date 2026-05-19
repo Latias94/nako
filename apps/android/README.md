@@ -72,8 +72,9 @@ command:
 
 The default command runs Android JVM tests, assembles the debug APK, then
 delegates the stable smoke state set to `Smoke-Regression.ps1`. Reports are
-written under `apps/android/build/validation/<timestamp>/`. Use `-SkipSmoke`
-when no emulator is available and you only need the local JVM/build gate.
+written under `apps/android/build/validation/<timestamp>/` as `report.md` for
+human handoff and `report.json` for automation. Use `-SkipSmoke` when no
+emulator is available and you only need the local JVM/build gate.
 
 Use the smoke script when you want a repeatable emulator sanity check after a
 build:
@@ -86,6 +87,7 @@ build:
 .\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token -SkipBuild
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-active-remux
 .\scripts\Smoke-Regression.ps1
 ```
 
@@ -110,12 +112,24 @@ one local Server Profile with no token value, so Home intentionally shows the
 safe re-authentication state instead of fake media data.
 
 Use `-FixtureState profile-with-media` when you need repeatable Home, detail,
-detail facet navigation, source picker, local resume, and player-safe launch
-evidence from real Public Client API responses. The script prepares and starts
-the server-backed `Night Harbor` fixture, applies `adb reverse`, and seeds the
-debug APK through its real profile store, encrypted token vault, and
-device-local playback position store. Generated screenshots and reports remain
-local under `apps/android/build/smoke/`.
+detail facet navigation, source picker, server-backed resume, Continue
+Watching, Direct Play advancement, and player-exit server readback evidence
+from real Public Client API responses. The script prepares and starts the
+server-backed `Night Harbor` fixture, writes a User Playback State progress
+record through the Public Client API, applies `adb reverse`, and seeds the debug
+APK through its real profile store and encrypted token vault. Generated
+screenshots, criteria files, and server readback artifacts remain local under
+`apps/android/build/smoke/`. This fixture also creates a token-safe remux
+session readback artifact with the public playback session header and
+`/playback/sessions/{session_id}` route. The visible player still uses the
+short MP4 Direct Play path.
+
+Use `-FixtureState profile-active-remux` when you need a focused playback
+session lifetime gate. It prepares a fresh MKV fixture, forces the debug
+profile to choose Remux, starts the remux session only when playback begins,
+exits the player before the slow remux wrapper completes, and records a
+token-safe `/playback/sessions/{session_id}` readback artifact showing
+terminal `cancelled` state.
 
 Fixture and state rules live in `SMOKE_FIXTURES.md`.
 
@@ -125,16 +139,22 @@ gate before handing work to another developer or agent:
 ```powershell
 .\scripts\Smoke-Regression.ps1
 .\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token
+.\scripts\Smoke-Regression.ps1 -States profile-active-remux
 .\scripts\Smoke-Regression.ps1 -SkipBuild
 .\scripts\Smoke-Regression.ps1 -RetriesPerState 0
 ```
 
 The wrapper builds the debug APK once by default, then runs the selected smoke
 fixture states through `Smoke-Emulator.ps1` and writes a combined report under
-`apps/android/build/smoke-regression/<timestamp>/`. The default state set is
-`empty-setup`, `profile-missing-token`, and `profile-with-media`. If a state
-fails, the report includes the failed state, failure category, evidence path,
-log path, and a focused `Smoke-Emulator.ps1` rerun command.
+`apps/android/build/smoke-regression/<timestamp>/` as `report.md` and
+`report.json`. The default state set is `empty-setup`,
+`profile-missing-token`, and `profile-with-media`. If a state fails, the report
+includes the failed state, failure category, evidence path, log path, and a
+focused `Smoke-Emulator.ps1` rerun command.
+
+`profile-active-remux` is intentionally opt-in for regression because it starts
+a slow server-side remux fixture and is heavier than the default confidence
+set.
 
 ## Server-Backed Demo Fixture
 

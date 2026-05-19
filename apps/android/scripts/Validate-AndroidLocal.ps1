@@ -34,6 +34,30 @@ function Convert-ToReportPath {
     return $Path.Replace('\', '/')
 }
 
+function Convert-ToJsonPath {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    return $Path.Replace('\', '/')
+}
+
+function Resolve-OutputRootPath {
+    param(
+        [string]$Path
+    )
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+
+    return (Join-Path (Get-Location).Path $Path)
+}
+
 function Invoke-ValidationStep {
     param(
         [string]$Name,
@@ -105,6 +129,25 @@ function Get-SmokeReportPath {
     return ($reportLine -replace '^Report:\s+', '').Trim()
 }
 
+function Get-SmokeJsonReportPath {
+    param(
+        [string]$LogPath
+    )
+
+    if (-not (Test-Path -LiteralPath $LogPath)) {
+        return $null
+    }
+
+    $reportLine = Get-Content -LiteralPath $LogPath |
+        Where-Object { $_ -match '^Structured report:\s+' } |
+        Select-Object -Last 1
+    if (-not $reportLine) {
+        return $null
+    }
+
+    return ($reportLine -replace '^Structured report:\s+', '').Trim()
+}
+
 $scriptDir = $PSScriptRoot
 $androidRoot = (Resolve-Path -LiteralPath (Join-Path $scriptDir '..')).Path
 $smokeRegressionScript = Join-Path $scriptDir 'Smoke-Regression.ps1'
@@ -116,6 +159,7 @@ if (-not (Test-Path -LiteralPath $smokeRegressionScript)) {
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $androidRoot 'build\validation'
 }
+$OutputRoot = Resolve-OutputRootPath -Path $OutputRoot
 
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $runRoot = Join-Path $OutputRoot $timestamp
@@ -124,6 +168,7 @@ New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
 $startedAt = Get-Date
 $results = New-Object System.Collections.Generic.List[object]
 $smokeReportPath = $null
+$smokeJsonReportPath = $null
 
 if ($SkipUnitTests) {
     $results.Add([pscustomobject]@{
@@ -194,12 +239,49 @@ if ($SkipSmoke -or $failedBeforeSmoke) {
         }
     $results.Add($smokeResult)
     $smokeReportPath = Get-SmokeReportPath -LogPath $smokeLogPath
+    $smokeJsonReportPath = Get-SmokeJsonReportPath -LogPath $smokeLogPath
 }
 
 $finishedAt = Get-Date
 $failed = @($results | Where-Object { $_.Status -eq 'FAIL' })
 $overallPass = $failed.Count -eq 0
 $reportPath = Join-Path $runRoot 'report.md'
+$jsonPath = Join-Path $runRoot 'report.json'
+$stepResults = @(
+    foreach ($result in $results) {
+        [pscustomobject]@{
+            name = $result.Name
+            status = $result.Status
+            started_at = $result.StartedAt.ToString('o')
+            finished_at = $result.FinishedAt.ToString('o')
+            log = Convert-ToJsonPath -Path $result.Log
+            error = $result.Error
+        }
+    }
+)
+$jsonReport = [ordered]@{
+    schema_version = 1
+    kind = 'taru_android_local_validation'
+    started_at = $startedAt.ToString('o')
+    finished_at = $finishedAt.ToString('o')
+    result = if ($overallPass) { 'PASS' } else { 'FAIL' }
+    report_markdown = Convert-ToJsonPath -Path $reportPath
+    report_json = Convert-ToJsonPath -Path $jsonPath
+    options = [ordered]@{
+        requested_serial = if ([string]::IsNullOrWhiteSpace($Serial)) { $null } else { $Serial }
+        smoke_states = @($SmokeStates)
+        skip_unit_tests = [bool]$SkipUnitTests
+        skip_assemble = [bool]$SkipAssemble
+        skip_smoke = [bool]$SkipSmoke
+        skip_fixture_server_build = [bool]$SkipFixtureServerBuild
+        retries_per_state = $RetriesPerState
+    }
+    steps = $stepResults
+    delegated_reports = [ordered]@{
+        smoke_markdown = Convert-ToJsonPath -Path $smokeReportPath
+        smoke_json = Convert-ToJsonPath -Path $smokeJsonReportPath
+    }
+}
 $lines = New-Object System.Collections.Generic.List[string]
 
 $lines.Add('# Taru Android Local Validation')
@@ -224,6 +306,9 @@ if (-not [string]::IsNullOrWhiteSpace($smokeReportPath)) {
     $lines.Add('## Smoke Regression')
     $lines.Add('')
     $lines.Add("- Report: $(Convert-ToReportPath -Path $smokeReportPath)")
+    if (-not [string]::IsNullOrWhiteSpace($smokeJsonReportPath)) {
+        $lines.Add("- Structured report: $(Convert-ToReportPath -Path $smokeJsonReportPath)")
+    }
 }
 
 if ($failed.Count -gt 0) {
@@ -242,10 +327,12 @@ if ($failed.Count -gt 0) {
 }
 
 Write-Utf8File -Path $reportPath -Content ($lines -join [Environment]::NewLine)
+Write-Utf8File -Path $jsonPath -Content ($jsonReport | ConvertTo-Json -Depth 12)
 
 Write-Host 'Android local validation complete.'
 Write-Host "Result: $(if ($overallPass) { 'PASS' } else { 'FAIL' })"
 Write-Host "Report: $reportPath"
+Write-Host "Structured report: $jsonPath"
 
 if (-not $overallPass) {
     throw "Android local validation failed. See report: $reportPath"

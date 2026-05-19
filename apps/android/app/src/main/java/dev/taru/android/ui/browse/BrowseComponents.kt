@@ -7,19 +7,16 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -47,14 +44,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.taru.android.artwork.PublicArtworkSlot
+import dev.taru.android.artwork.PublicArtworkSource
+import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.MediaItemDto
+import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
+import dev.taru.android.ui.artwork.TaruPosterArtwork
 import dev.taru.android.ui.components.TaruArtworkBackdrop as DesignArtworkBackdrop
 import dev.taru.android.ui.components.TaruIconBadge as DesignIconBadge
 import dev.taru.android.ui.components.TaruPressableScale as DesignPressableScale
@@ -65,8 +65,6 @@ import dev.taru.android.ui.components.TaruStateTone
 import dev.taru.android.ui.components.TaruStatusChip as DesignStatusChip
 import dev.taru.android.ui.components.TaruStatusPill as DesignStatusPill
 import dev.taru.android.ui.components.TaruSurfaceCard as DesignSurfaceCard
-import dev.taru.android.ui.theme.TaruAccentDim
-import dev.taru.android.ui.theme.TaruArtworkAccents
 import dev.taru.android.ui.theme.TaruAspectRatio
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
@@ -271,6 +269,8 @@ internal fun FailureCard(
 @Composable
 internal fun MediaPosterRow(
     items: List<MediaItemDto>,
+    artworkSource: PublicArtworkSource? = null,
+    artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
     FlowRow(
@@ -280,6 +280,8 @@ internal fun MediaPosterRow(
         items.forEach { item ->
             MediaPosterCard(
                 item = item,
+                artworkSource = artworkSource,
+                artworkRefs = artworkByItemId[item.id].orEmpty(),
                 onOpenItem = onOpenItem,
             )
         }
@@ -289,43 +291,25 @@ internal fun MediaPosterRow(
 @Composable
 internal fun MediaPosterCard(
     item: MediaItemDto,
+    artworkSource: PublicArtworkSource? = null,
+    artworkRefs: List<PublicImageRefDto> = emptyList(),
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
+    val artworkRequest = artworkSource?.requestFor(
+        preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
+    )
     PressableScale(
         modifier = Modifier.width(116.dp),
         onClick = { onOpenItem(item) },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
-            Surface(
+            PosterArtworkSurface(
+                item = item,
+                artworkRequest = artworkRequest,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(TaruAspectRatio.poster),
-                shape = TaruShape.medium,
-                color = artworkColor(item.metadata.title),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.68f),
-                                ),
-                            ),
-                        ),
-                    contentAlignment = Alignment.BottomStart,
-                ) {
-                    Text(
-                        modifier = Modifier.padding(TaruSpacing.small),
-                        text = item.kind,
-                        color = TaruTextSecondary,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            )
             Text(
                 text = item.metadata.title,
                 style = MaterialTheme.typography.bodyMedium,
@@ -348,20 +332,26 @@ internal fun MediaItemRow(
     item: MediaItemDto,
     onOpenItem: (MediaItemDto) -> Unit,
     trailingLabel: String = "Direct",
+    artworkSource: PublicArtworkSource? = null,
+    artworkRefs: List<PublicImageRefDto> = emptyList(),
 ) {
+    val artworkRequest = artworkSource?.requestFor(
+        preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
+    )
     PressableScale(onClick = { onOpenItem(item) }) {
         SurfaceCard {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Surface(
+                PosterArtworkSurface(
+                    item = item,
+                    artworkRequest = artworkRequest,
                     modifier = Modifier
                         .width(56.dp)
                         .aspectRatio(TaruAspectRatio.poster),
-                    shape = TaruShape.small,
-                    color = artworkColor(item.metadata.title),
-                ) {}
+                    compact = true,
+                )
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -387,19 +377,59 @@ internal fun MediaItemRow(
 }
 
 @Composable
-internal fun LibraryCardRow(libraries: List<LibraryDto>) {
+private fun PosterArtworkSurface(
+    item: MediaItemDto,
+    artworkRequest: dev.taru.android.artwork.PublicArtworkRequest?,
+    modifier: Modifier,
+    compact: Boolean = false,
+) {
+    TaruPosterArtwork(
+        request = artworkRequest,
+        title = item.metadata.title,
+        kind = item.kind,
+        modifier = modifier,
+        compact = compact,
+    )
+}
+
+@Composable
+internal fun LibraryCardRow(
+    libraries: List<LibraryDto>,
+    onOpenLibrary: ((LibraryDto) -> Unit)? = null,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
         verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
     ) {
         libraries.forEach { library ->
-            LibraryTile(library = library)
+            LibraryTile(
+                library = library,
+                onOpenLibrary = onOpenLibrary,
+            )
         }
     }
 }
 
 @Composable
-internal fun LibraryTile(library: LibraryDto) {
+internal fun LibraryTile(
+    library: LibraryDto,
+    onOpenLibrary: ((LibraryDto) -> Unit)? = null,
+) {
+    if (onOpenLibrary == null) {
+        LibraryTileSurface(library = library)
+        return
+    }
+
+    PressableScale(
+        modifier = Modifier.width(156.dp),
+        onClick = { onOpenLibrary(library) },
+    ) {
+        LibraryTileSurface(library = library)
+    }
+}
+
+@Composable
+private fun LibraryTileSurface(library: LibraryDto) {
     Surface(
         modifier = Modifier.width(156.dp),
         shape = TaruShape.medium,
@@ -567,8 +597,4 @@ internal fun PressableScale(
         onClick = onClick,
         content = content,
     )
-}
-
-internal fun artworkColor(seed: String): Color {
-    return TaruArtworkAccents.fromSeed(seed).container
 }

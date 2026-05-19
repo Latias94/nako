@@ -70,6 +70,30 @@ function Convert-ToReportPath {
     return $Path.Replace('\', '/')
 }
 
+function Convert-ToJsonPath {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    return $Path.Replace('\', '/')
+}
+
+function Resolve-OutputRootPath {
+    param(
+        [string]$Path
+    )
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+
+    return (Join-Path (Get-Location).Path $Path)
+}
+
 function Convert-ToCommandValue {
     param(
         [string]$Value
@@ -169,7 +193,7 @@ function Resolve-SmokeStates {
         [string[]]$RequestedStates
     )
 
-    $allowedStates = @('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media')
+    $allowedStates = @('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media', 'profile-active-remux')
     $resolvedStates = New-Object System.Collections.Generic.List[string]
     foreach ($entry in $RequestedStates) {
         if ([string]::IsNullOrWhiteSpace($entry)) {
@@ -209,6 +233,7 @@ if (-not (Test-Path -LiteralPath $smokeScript)) {
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $androidRoot 'build\smoke-regression'
 }
+$OutputRoot = Resolve-OutputRootPath -Path $OutputRoot
 
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $runRoot = Join-Path $OutputRoot $timestamp
@@ -297,7 +322,64 @@ try {
     $finishedAt = Get-Date
     $failed = @($results | Where-Object { $_.Status -ne 'PASS' })
     $reportPath = Join-Path $runRoot 'report.md'
+    $jsonPath = Join-Path $runRoot 'report.json'
     $overallPass = $buildStatus -ne 'FAIL' -and $failed.Count -eq 0 -and $results.Count -eq $resolvedStates.Count
+    $notRun = @($resolvedStates | Where-Object { $state = $_; -not ($results | Where-Object { $_.State -eq $state }) })
+    $notRunStates = @(
+        foreach ($state in $notRun) {
+            [pscustomobject]@{
+                state = $state
+                status = 'NOT_RUN'
+                category = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
+                attempts = 0
+                evidence_directory = $null
+                log = $null
+                error = $null
+                rerun_command = $null
+            }
+        }
+    )
+    $stateResults = @(
+        foreach ($result in $results) {
+            [pscustomobject]@{
+                state = $result.State
+                status = $result.Status
+                category = $result.Category
+                attempts = $result.Attempts
+                evidence_directory = Convert-ToJsonPath -Path $result.EvidenceDirectory
+                log = Convert-ToJsonPath -Path $result.Log
+                error = $result.Error
+                rerun_command = $result.RerunCommand
+            }
+        }
+        foreach ($state in $notRunStates) {
+            $state
+        }
+    )
+    $jsonReport = [ordered]@{
+        schema_version = 1
+        kind = 'taru_android_smoke_regression'
+        started_at = $startedAt.ToString('o')
+        finished_at = $finishedAt.ToString('o')
+        result = if ($overallPass) { 'PASS' } else { 'FAIL' }
+        report_markdown = Convert-ToJsonPath -Path $reportPath
+        report_json = Convert-ToJsonPath -Path $jsonPath
+        options = [ordered]@{
+            requested_serial = if ([string]::IsNullOrWhiteSpace($Serial)) { $null } else { $Serial }
+            states = @($resolvedStates)
+            fixture_server_port = $FixtureServerPort
+            skip_build = [bool]$SkipBuild
+            skip_fixture_server_build = [bool]$SkipFixtureServerBuild
+            retries_per_state = $RetriesPerState
+            continue_on_failure = [bool]$ContinueOnFailure
+        }
+        android_build = [ordered]@{
+            step = if ($SkipBuild) { 'skipped' } else { 'assembleDebug' }
+            status = $buildStatus
+            error = $buildError
+        }
+        states = $stateResults
+    }
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add('# Taru Android Smoke Regression')
     $lines.Add('')
@@ -320,7 +402,6 @@ try {
         $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $($result.Category) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Log) |")
     }
 
-    $notRun = @($resolvedStates | Where-Object { $state = $_; -not ($results | Where-Object { $_.State -eq $state }) })
     foreach ($state in $notRun) {
         $reason = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
         $lines.Add("| $state | NOT_RUN | 0 | $reason | n/a | n/a |")
@@ -374,10 +455,12 @@ try {
     }
 
     Write-Utf8File -Path $reportPath -Content ($lines -join [Environment]::NewLine)
+    Write-Utf8File -Path $jsonPath -Content ($jsonReport | ConvertTo-Json -Depth 12)
 
     Write-Host "Smoke regression complete."
     Write-Host "Result: $(if ($overallPass) { 'PASS' } else { 'FAIL' })"
     Write-Host "Report: $reportPath"
+    Write-Host "Structured report: $jsonPath"
 }
 
 if (@($results | Where-Object { $_.Status -ne 'PASS' }).Count -gt 0) {

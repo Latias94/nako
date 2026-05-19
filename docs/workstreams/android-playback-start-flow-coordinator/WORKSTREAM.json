@@ -1,0 +1,20 @@
+{
+  "slug": "android-playback-start-flow-coordinator",
+  "title": "Android Playback Start Flow Coordinator",
+  "status": "closed",
+  "current_milestone": "M2",
+  "current_task": null,
+  "last_updated": "2026-05-19",
+  "goal": "Move Android playback start preflight, resume resolution, and launch construction out of TaruBrowseShell into a focused tested coordinator.",
+  "task_prefix": "APSF",
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null
+  },
+  "paths": [
+    "docs/workstreams/android-playback-start-flow-coordinator",
+    "apps/android/app/src/main/java/dev/taru/android/playback",
+    "apps/android/app/src/main/java/dev/taru/android/ui/browse",
+    "apps/android/app/src/test/java/dev/taru/android/playback"
+  ]
+}

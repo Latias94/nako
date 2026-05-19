@@ -30,15 +30,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.MediaSourceDto
+import dev.taru.android.media.ClientMediaStreamKind
+import dev.taru.android.media.MediaProbeDto
 import dev.taru.android.playback.ClientPlaybackDecision
-import dev.taru.android.playback.ClientMediaStreamKind
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.ClientOutputContainer
-import dev.taru.android.playback.MediaProbeDto
+import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
+import dev.taru.android.player.PlaybackResumeSource
+import dev.taru.android.player.ResumePlaybackPosition
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PlaybackSelectionUiState
+import dev.taru.android.ui.browse.SourceProbeUiState
 import dev.taru.android.ui.browse.StatusChip
 import dev.taru.android.ui.browse.SurfaceCard
 import dev.taru.android.ui.browse.byteSizeLabel
@@ -66,12 +70,15 @@ internal data class PlaybackModePresentation(
 @Composable
 internal fun SourcePickerSurface(
     sources: List<MediaSourceDto>,
+    sourceProbeState: SourceProbeUiState,
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     onSelectSource: (String) -> Unit,
+    onRetrySourceProbe: () -> Unit,
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
+    onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
     val selectedSource = selectedSource(sources, selectedSourceId)
@@ -101,13 +108,20 @@ internal fun SourcePickerSurface(
             return@SurfaceCard
         }
 
+        SourceProbePanel(
+            selectedSource = selectedSource,
+            state = sourceProbeState,
+            onRetry = onRetrySourceProbe,
+            onChangeServer = onChangeServer,
+        )
+
         SelectedSourceDecisionPanel(
             selectedSource = selectedSource,
             playbackState = playbackState,
             selectedDecision = selectedDecision,
-            deviceResumePositionMs = deviceResumePositionMs,
+            resumePosition = resumePosition,
             onRequestDecision = {
-                selectedSource?.id?.let(onSelectSource)
+                selectedSource?.id?.let(onRequestPlayback)
             },
             onRetryPlayback = onRetryPlayback,
             onChangeServer = onChangeServer,
@@ -127,6 +141,61 @@ internal fun SourcePickerSurface(
                     enabled = playbackState !is PlaybackSelectionUiState.Loading,
                     onSelect = { onSelectSource(model.sourceId) },
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SourceProbePanel(
+    selectedSource: MediaSourceDto?,
+    state: SourceProbeUiState,
+    onRetry: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
+    if (selectedSource == null || state == SourceProbeUiState.Idle) return
+
+    when (state) {
+        SourceProbeUiState.Idle -> Unit
+        SourceProbeUiState.Loading -> FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+        ) {
+            StatusChip(text = "Loading source facts")
+        }
+        is SourceProbeUiState.Content -> {
+            val facts = if (state.response.sourceId == selectedSource.id) {
+                probeFactLabels(state.response.probe)
+            } else {
+                emptyList()
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            ) {
+                StatusChip(text = "Source facts")
+                facts.ifEmpty { listOf("No probe facts") }.forEach { fact ->
+                    StatusChip(text = fact)
+                }
+            }
+        }
+        is SourceProbeUiState.Failure -> Row(
+            horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Source facts unavailable",
+                color = TaruTextMuted,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            OutlinedButton(onClick = onRetry) {
+                Text("Retry")
+            }
+            if (state.diagnostics.category in serverChangeCategories) {
+                OutlinedButton(onClick = onChangeServer) {
+                    Text("Change server")
+                }
             }
         }
     }
@@ -240,7 +309,7 @@ private fun SelectedSourceDecisionPanel(
     selectedSource: MediaSourceDto?,
     playbackState: PlaybackSelectionUiState,
     selectedDecision: PlaybackDecisionResponse?,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     onRequestDecision: () -> Unit,
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
@@ -259,7 +328,7 @@ private fun SelectedSourceDecisionPanel(
             when (playbackState) {
                 PlaybackSelectionUiState.Idle -> DecisionIdleContent(
                     selectedSource = selectedSource,
-                    deviceResumePositionMs = deviceResumePositionMs,
+                    resumePosition = resumePosition,
                     onRequestDecision = onRequestDecision,
                 )
                 PlaybackSelectionUiState.Loading -> Text(
@@ -271,14 +340,14 @@ private fun SelectedSourceDecisionPanel(
                     if (selectedDecision == null) {
                         DecisionIdleContent(
                             selectedSource = selectedSource,
-                            deviceResumePositionMs = deviceResumePositionMs,
+                            resumePosition = resumePosition,
                             onRequestDecision = onRequestDecision,
                         )
                     } else {
                         DecisionReadyContent(
                             state = playbackState,
                             selectedDecision = selectedDecision,
-                            deviceResumePositionMs = deviceResumePositionMs,
+                            resumePosition = resumePosition,
                             onStartPlayback = onStartPlayback,
                         )
                     }
@@ -296,20 +365,20 @@ private fun SelectedSourceDecisionPanel(
 @Composable
 private fun DecisionIdleContent(
     selectedSource: MediaSourceDto?,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     onRequestDecision: () -> Unit,
 ) {
     Text(
-        text = if (deviceResumePositionMs != null) {
-            "Resume on this device"
+        text = if (resumePosition != null) {
+            resumePositionTitle(resumePosition)
         } else {
             "Ready to check playback"
         },
         style = MaterialTheme.typography.titleMedium,
     )
     Text(
-        text = if (deviceResumePositionMs != null) {
-            "A device-local position exists for the selected source. Taru still checks the source before playback."
+        text = if (resumePosition != null) {
+            resumePositionBody(resumePosition)
         } else {
             "Taru will prepare a client-safe playback decision before the player opens."
         },
@@ -325,7 +394,7 @@ private fun DecisionIdleContent(
             contentDescription = null,
         )
         Spacer(modifier = Modifier.width(TaruSpacing.small))
-        Text(if (deviceResumePositionMs != null) "Resume" else "Play")
+        Text(if (resumePosition != null) "Resume" else "Play")
     }
 }
 
@@ -334,7 +403,7 @@ private fun DecisionIdleContent(
 private fun DecisionReadyContent(
     state: PlaybackSelectionUiState.Content,
     selectedDecision: PlaybackDecisionResponse,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
     val presentation = playbackModePresentation(selectedDecision.decision)
@@ -385,7 +454,7 @@ private fun DecisionReadyContent(
                 contentDescription = null,
             )
             Spacer(modifier = Modifier.width(TaruSpacing.small))
-            Text(if (deviceResumePositionMs != null) "Start resume" else "Start playback")
+            Text(if (resumePosition != null) "Start resume" else "Start playback")
         }
     } ?: Text(
         text = "No playable route was prepared for this source.",
@@ -393,6 +462,20 @@ private fun DecisionReadyContent(
         style = MaterialTheme.typography.labelMedium,
     )
 }
+
+private fun resumePositionTitle(position: ResumePlaybackPosition): String =
+    when (position.source) {
+        PlaybackResumeSource.UserPlaybackState -> "Resume from server state"
+        PlaybackResumeSource.DeviceLocal -> "Resume on this device"
+    }
+
+private fun resumePositionBody(position: ResumePlaybackPosition): String =
+    when (position.source) {
+        PlaybackResumeSource.UserPlaybackState ->
+            "Taru will use authoritative User Playback State after checking the selected source."
+        PlaybackResumeSource.DeviceLocal ->
+            "A device-local position exists for the selected source. Taru still checks the source before playback."
+    }
 
 @Composable
 private fun DecisionFailureContent(
@@ -510,7 +593,7 @@ private fun SourcePickerRow(
     }
 }
 
-private fun probeFactLabels(probe: MediaProbeDto?): List<String> =
+internal fun probeFactLabels(probe: MediaProbeDto?): List<String> =
     buildList {
         if (probe == null) return@buildList
         probe.container?.takeIf { it.isNotBlank() }?.let { add(it.uppercase()) }
@@ -547,3 +630,10 @@ private fun bitRateLabel(bitRate: Long): String =
     } else {
         "${bitRate / 1_000L} Kbps"
     }
+
+private val serverChangeCategories = setOf(
+    PlaybackFailureCategory.MissingAccessToken,
+    PlaybackFailureCategory.Unauthorized,
+    PlaybackFailureCategory.Forbidden,
+    PlaybackFailureCategory.UnsupportedApiVersion,
+)

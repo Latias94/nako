@@ -9,7 +9,9 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use taru_api::{TranscodeSessionResponse, transcode_session_response_from_record};
+use taru_api::{
+    PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse, transcode_session_response_from_record,
+};
 use taru_core::{MediaSourceId, TaruError, TranscodeSessionId};
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -39,7 +41,7 @@ pub(super) fn routes() -> Router<TaruApp> {
         )
         .route(
             "/sources/{source_id}/stream/remux",
-            get(remux_stream_source),
+            get(remux_stream_source).head(head_remux_stream_source),
         )
         .route(
             "/sources/{source_id}/stream/hls/playlist.m3u8",
@@ -112,9 +114,9 @@ pub(super) async fn remux_stream_source(
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
     let remux = app
         .playback()
-        .remux_source(RemuxSourceRequest {
+        .remux_source_or_wait(RemuxSourceRequest {
             source_id,
-            client: query.capabilities.into(),
+            client: query.capabilities().into(),
             output_container,
         })
         .await?;
@@ -146,12 +148,50 @@ pub(super) async fn remux_stream_source(
         return Ok(empty_direct_play_response(&response_plan));
     }
 
-    stream_local_file_response(
+    let session_id = remux.session.as_ref().map(|session| session.id.to_string());
+    let mut response = stream_local_file_response(
         &remux.output_path,
         &remux.output_path.display().to_string(),
         &response_plan,
     )
-    .await
+    .await?;
+    if let Some(session_id) = session_id {
+        response.headers_mut().insert(
+            PLAYBACK_SESSION_ID_HEADER,
+            HeaderValue::from_str(&session_id).expect("session id is a valid header value"),
+        );
+    }
+    Ok(response)
+}
+
+#[instrument(skip(app))]
+pub(super) async fn head_remux_stream_source(
+    State(app): State<TaruApp>,
+    Path(source_id): Path<MediaSourceId>,
+    Query(query): Query<RemuxPlaybackQuery>,
+) -> ApiResult<Response> {
+    let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
+    let remux = app
+        .playback()
+        .start_remux_source(RemuxSourceRequest {
+            source_id,
+            client: query.capabilities().into(),
+            output_container,
+        })
+        .await?;
+
+    let response_plan = plan_direct_play_response(
+        0,
+        content_type_for_file_name(&format!("stream.{}", output_container.file_extension())),
+        DirectPlayRangeRequest::None,
+    );
+    let mut response = empty_direct_play_response(&response_plan);
+    response.headers_mut().insert(
+        PLAYBACK_SESSION_ID_HEADER,
+        HeaderValue::from_str(&remux.session.id.to_string())
+            .expect("session id is a valid header value"),
+    );
+    Ok(response)
 }
 
 #[instrument(skip(app))]
@@ -168,7 +208,10 @@ pub(super) async fn hls_playlist_source(
         })
         .await?;
 
-    Ok(hls_playlist_response(playlist.body))
+    Ok(hls_playlist_response(
+        playlist.body,
+        Some(playlist.session.id.to_string()),
+    ))
 }
 
 #[instrument(skip(app))]
@@ -244,7 +287,7 @@ fn empty_direct_play_response(plan: &DirectPlayResponsePlan) -> Response {
     response
 }
 
-fn hls_playlist_response(body: String) -> Response {
+fn hls_playlist_response(body: String, session_id: Option<String>) -> Response {
     let body_len = body.len();
     let mut response = Body::from(body).into_response();
     let headers = response.headers_mut();
@@ -256,6 +299,12 @@ fn hls_playlist_response(body: String) -> Response {
         header::CONTENT_LENGTH,
         HeaderValue::from_str(&body_len.to_string()).expect("content length is a valid header"),
     );
+    if let Some(session_id) = session_id {
+        headers.insert(
+            PLAYBACK_SESSION_ID_HEADER,
+            HeaderValue::from_str(&session_id).expect("session id is a valid header value"),
+        );
+    }
     response
 }
 
@@ -347,9 +396,22 @@ pub(super) struct PlaybackCapabilitiesQuery {
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct RemuxPlaybackQuery {
-    #[serde(flatten)]
-    capabilities: PlaybackCapabilitiesQuery,
+    direct_play: Option<bool>,
+    container: Option<String>,
+    video_codec: Option<String>,
+    audio_codec: Option<String>,
     output_container: Option<RemuxContainer>,
+}
+
+impl RemuxPlaybackQuery {
+    fn capabilities(self) -> PlaybackCapabilitiesQuery {
+        PlaybackCapabilitiesQuery {
+            direct_play: self.direct_play,
+            container: self.container,
+            video_codec: self.video_codec,
+            audio_codec: self.audio_codec,
+        }
+    }
 }
 
 impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {

@@ -3,14 +3,19 @@ package dev.taru.android.ui.screens.player
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.player.PlaybackResumeSource
 
 internal data class PlayerChromePresentation(
     val title: String,
     val modeLabel: String,
     val sourceLabel: String,
+    val backdropTitle: String,
     val resumeLabel: String?,
     val sessionLabel: String?,
+    val sessionAccessibilityLabel: String?,
 )
+
+internal const val PlayerMedia3ControllerClearanceDp = 132
 
 internal data class PlaybackErrorPresentation(
     val title: String,
@@ -25,12 +30,16 @@ internal fun playerChromePresentation(launch: PlaybackLaunchRequest): PlayerChro
         title = launch.title.ifBlank { "Taru Playback" },
         modeLabel = playerModeLabel(launch.playbackMode),
         sourceLabel = "Selected source",
+        backdropTitle = launch.title.ifBlank { "Taru Playback" },
         resumeLabel = launch.resumePositionMs
             ?.takeIf { it > 0L }
-            ?.let { "Local resume ${durationLabel(it)}" },
+            ?.let { "${resumeSourceLabel(launch.resumeSource)} ${durationLabel(it)}" },
         sessionLabel = launch.sessionId
             ?.takeIf { it.isNotBlank() }
             ?.let { "Playback session active" },
+        sessionAccessibilityLabel = launch.sessionId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "Playback session id $it" },
     )
 
 internal fun playbackErrorPresentation(
@@ -58,6 +67,14 @@ internal fun playerModeLabel(mode: ClientPlaybackMode): String =
         ClientPlaybackMode.DirectPlay -> "Direct"
         ClientPlaybackMode.Remux -> "Remux"
         ClientPlaybackMode.Transcode -> "HLS"
+    }
+
+private fun resumeSourceLabel(source: PlaybackResumeSource?): String =
+    when (source) {
+        PlaybackResumeSource.UserPlaybackState -> "Server resume"
+        PlaybackResumeSource.DeviceLocal,
+        null,
+        -> "Local resume"
     }
 
 internal fun durationLabel(positionMs: Long): String {

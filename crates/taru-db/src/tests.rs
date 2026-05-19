@@ -159,6 +159,148 @@ async fn sqlite_store_round_trips_media_items_and_sources() {
 }
 
 #[tokio::test]
+async fn sqlite_store_persists_user_playback_state_by_principal() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Night Harbor".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/Night Harbor.mkv".to_owned(),
+        file_name: "Night Harbor.mkv".to_owned(),
+        size_bytes: Some(128),
+        fingerprint: Some("night-harbor".to_owned()),
+    };
+    let principal = UserPrincipalId::local_admin();
+    let other_principal = UserPrincipalId::new("second-profile").unwrap();
+
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let state = store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal.clone(),
+            item_id: item.id,
+            source_id: Some(source.id),
+            resume_position_ms: Some(42_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(1_000),
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(state.principal_id, principal);
+    assert_eq!(state.item_id, item.id);
+    assert_eq!(state.source_id, Some(source.id));
+    assert_eq!(state.resume_position_ms, Some(42_000));
+    assert_eq!(state.duration_ms, Some(600_000));
+    assert!(!state.watched);
+    assert_eq!(state.version, 1);
+    assert_eq!(
+        store
+            .get_user_playback_state(&state.principal_id, item.id)
+            .await
+            .unwrap(),
+        Some(state.clone())
+    );
+    assert_eq!(
+        store
+            .get_user_playback_state(&other_principal, item.id)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        store
+            .list_continue_watching_states(&state.principal_id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![state]
+    );
+}
+
+#[tokio::test]
+async fn sqlite_store_continue_watching_filters_watched_zero_and_other_principals() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let principal = UserPrincipalId::local_admin();
+    let other_principal = UserPrincipalId::new("second-profile").unwrap();
+    store.upsert_library(&library).await.unwrap();
+
+    let first = seed_media_item_with_source(&store, library.id, "First").await;
+    let second = seed_media_item_with_source(&store, library.id, "Second").await;
+    let watched = seed_media_item_with_source(&store, library.id, "Watched").await;
+    let zero = seed_media_item_with_source(&store, library.id, "Zero").await;
+    let other = seed_media_item_with_source(&store, library.id, "Other").await;
+
+    for (source, principal_id, resume_position_ms, watched, last_played_at_ms) in [
+        (&first, principal.clone(), Some(60_000), false, Some(1_000)),
+        (
+            &second,
+            principal.clone(),
+            Some(120_000),
+            false,
+            Some(2_000),
+        ),
+        (&watched, principal.clone(), None, true, Some(3_000)),
+        (&zero, principal.clone(), None, false, Some(4_000)),
+        (&other, other_principal, Some(180_000), false, Some(5_000)),
+    ] {
+        store
+            .upsert_user_playback_state(UserPlaybackStateWrite {
+                principal_id,
+                item_id: source.item_id,
+                source_id: Some(source.id),
+                resume_position_ms,
+                duration_ms: Some(600_000),
+                watched,
+                watched_at_ms: watched.then_some(last_played_at_ms.unwrap()),
+                last_played_at_ms,
+                updated_at_ms: last_played_at_ms.unwrap(),
+            })
+            .await
+            .unwrap();
+    }
+
+    let states = store
+        .list_continue_watching_states(&principal, PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        states.iter().map(|state| state.item_id).collect::<Vec<_>>(),
+        vec![second.item_id, first.item_id]
+    );
+}
+
+#[tokio::test]
 async fn sqlite_store_round_trips_video_item_hierarchy_and_multiple_sources() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -5577,4 +5719,34 @@ async fn sqlite_store_rejects_addon_token_rotation_across_addons() {
 fn external_id_sort_key(external_id: &ExternalId) -> String {
     let (provider, provider_key) = provider_to_parts(&external_id.provider);
     format!("{provider}\0{provider_key}\0{}", external_id.value)
+}
+
+async fn seed_media_item_with_source(
+    store: &SqliteStore,
+    library_id: LibraryId,
+    title: &str,
+) -> MediaSource {
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: title.to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: format!("local:///Movies/{title}.mkv"),
+        file_name: format!("{title}.mkv"),
+        size_bytes: Some(128),
+        fingerprint: Some(title.to_owned()),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    source
 }

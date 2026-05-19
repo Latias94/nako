@@ -9,13 +9,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemsResponse
+import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.LibraryListResponse
+import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.SafePlaybackDiagnostics
+import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.userplayback.ContinueWatchingResponse
+import dev.taru.android.userplayback.UserPlaybackStateDto
 
 internal enum class TaruDestination(
     val label: String,
@@ -30,6 +36,7 @@ internal enum class TaruDestination(
 internal sealed interface TaruRoute {
     data object TopLevel : TaruRoute
     data class ItemDetail(val itemId: String) : TaruRoute
+    data class LibraryDetail(val libraryId: String) : TaruRoute
     data class Player(val launch: PlaybackLaunchRequest) : TaruRoute
     data class BrowseFacet(val target: BrowseFacetTarget) : TaruRoute
     data object ServerProfile : TaruRoute
@@ -112,6 +119,8 @@ internal sealed interface BrowseUiState {
     data class Content(
         val libraries: LibraryListResponse,
         val items: ItemsResponse,
+        val artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
+        val continueWatching: ContinueWatchingResponse? = null,
     ) : BrowseUiState
 
     data class Failure(
@@ -125,11 +134,25 @@ internal sealed interface ItemDetailUiState {
 
     data class Content(
         val response: ItemDetailResponse,
+        val userPlaybackState: UserPlaybackStateDto? = null,
     ) : ItemDetailUiState
 
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
     ) : ItemDetailUiState
+}
+
+internal sealed interface LibraryDetailUiState {
+    data object Idle : LibraryDetailUiState
+    data object Loading : LibraryDetailUiState
+
+    data class Content(
+        val response: LibrarySourcesResponse,
+    ) : LibraryDetailUiState
+
+    data class Failure(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : LibraryDetailUiState
 }
 
 internal sealed interface PlaybackSelectionUiState {
@@ -139,11 +162,25 @@ internal sealed interface PlaybackSelectionUiState {
     data class Content(
         val response: PlaybackDecisionResponse,
         val target: PlaybackRequestTarget?,
+        val capabilities: PlaybackCapabilities,
     ) : PlaybackSelectionUiState
 
     data class Failure(
         val diagnostics: SafePlaybackDiagnostics,
     ) : PlaybackSelectionUiState
+}
+
+internal sealed interface SourceProbeUiState {
+    data object Idle : SourceProbeUiState
+    data object Loading : SourceProbeUiState
+
+    data class Content(
+        val response: SourceProbeResponse,
+    ) : SourceProbeUiState
+
+    data class Failure(
+        val diagnostics: SafePlaybackDiagnostics,
+    ) : SourceProbeUiState
 }
 
 internal sealed interface SearchUiState {
