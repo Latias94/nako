@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "slug": "user-playback-state-contract",
+  "title": "User Playback State Contract",
+  "status": "draft",
+  "updated": "2026-05-19",
+  "scope_kind": "planning",
+  "problem": "Taru lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
+  "current_task": "UPS-010",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/user-playback-state-contract/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/user-playback-state-contract/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/user-playback-state-contract/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast",
+    "cargo nextest run -p taru-api -p taru-client --no-fail-fast",
+    "npm run check --prefix sdk/typescript",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon"
+  ],
+  "evidence": [
+    "CONTEXT.md",
+    "docs/api/HTTP_API.md",
+    "docs/workstreams/android-device-local-playback-position/",
+    "docs/workstreams/android-public-client-api-coverage/",
+    "apps/android/app/src/main/java/dev/taru/android/player/DevicePlaybackPosition.kt"
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "run_next_task",
+    "next_task": "UPS-010",
+    "notes": "Freeze the public User Playback State contract and user principal semantics before implementation. Do not let Android local resume become cross-device Continue Watching."
+  }
+}

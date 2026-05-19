@@ -56,12 +56,13 @@ Evidence:
 Exit criteria:
 
 - Android's device-local resume boundary remains explicit.
-- Cross-device Continue Watching is either split into a server/client User
-  Playback State workstream or deferred.
+- Cross-device Continue Watching is split into a server/client User Playback
+  State workstream.
 
-Expected gates:
+Evidence:
 
-- handoff records the selected path.
+- `docs/workstreams/user-playback-state-contract/`
+- `TODO.md` APIC-060 complete
 
 ## M4 - Closeout
 

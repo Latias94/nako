@@ -214,6 +214,37 @@ Diagnostic note:
   chips below the existing `detail-metadata` capture. The implementation was
   tightened into compact chips and the same smoke path passed.
 
+## APIC-060 Evidence
+
+Date: 2026-05-19
+
+Decision:
+
+- Split a new workstream instead of implementing **User Playback State** inside
+  the Android Public Client API coverage lane.
+- Reason: server-authoritative resume crosses user principal semantics, server
+  storage, public route shape, OpenAPI/SDKs, Android UI, and smoke evidence.
+  It is larger than a route-coverage cleanup task.
+
+Opened workstream:
+
+- `docs/workstreams/user-playback-state-contract/`
+- First task: `UPS-010`
+
+Validation:
+
+```powershell
+git diff --check
+```
+
+Result: PASS on 2026-05-19.
+
+Notes:
+
+- Android device-local resume remains valid as local fallback/cache only.
+- Android must not expose cross-device Continue Watching until the new
+  workstream ships a public server-authoritative contract.
+
 ## Standard Gates
 
 Docs-only changes:

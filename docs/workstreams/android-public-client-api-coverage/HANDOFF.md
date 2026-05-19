@@ -8,11 +8,11 @@ Last updated: 2026-05-19
 This workstream was opened after merging `main` into the
 `android-client-foundation` worktree. The merge completed without conflicts.
 
-APIC-010, APIC-020, APIC-030, APIC-040, and APIC-050 are complete. The route coverage
-baseline lives in `API_COVERAGE_MATRIX.md`, Android consumes public selected
-artwork image routes for core browse/detail surfaces, and Library Detail is now
-a first-class structural route. Source Picker now consumes direct source probe
-facts separately from playback decision.
+APIC-010, APIC-020, APIC-030, APIC-040, APIC-050, and APIC-060 are complete.
+The route coverage baseline lives in `API_COVERAGE_MATRIX.md`, Android consumes
+public selected artwork image routes for core browse/detail surfaces, Library
+Detail is now a first-class structural route, and Source Picker consumes direct
+source probe facts separately from playback decision.
 
 ## Key Findings
 
@@ -40,14 +40,21 @@ facts separately from playback decision.
 - `HEAD /images/{image_id}` is intentionally deferred until explicit preflight
   UX or diagnostics need it.
 - Server-authoritative User Playback State is still not public. Android must
-  keep current resume behavior device-local.
+  keep current resume behavior device-local until
+  `docs/workstreams/user-playback-state-contract/` ships.
 
 ## Next Task
 
-Run APIC-060 next:
+Run APIC-070 next:
 
-- APIC-060 decides whether to split a server/client User Playback State
-  workstream before Android claims cross-device resume or Continue Watching.
+- APIC-070 closes this route coverage lane or splits any remaining public route
+  gaps.
+
+Separate follow-on:
+
+- `docs/workstreams/user-playback-state-contract/` owns server-authoritative
+  **User Playback State**, cross-device resume, watched state, and Continue
+  Watching.
 
 Recommended validation:
 
@@ -82,3 +89,5 @@ Result: PASS on 2026-05-19. Report:
 - Coil 3.3.0 is now the selected image-loading dependency for authenticated
   public artwork routes.
 - Direct source probe is now covered for compact Source Picker source facts.
+- Server-authoritative **User Playback State** is split to
+  `docs/workstreams/user-playback-state-contract/`.

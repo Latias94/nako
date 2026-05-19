@@ -45,12 +45,12 @@ Last updated: 2026-05-19
 
 ## M3 - Playback State Contract Split
 
-- [ ] APIC-060 [owner=planner] [deps=APIC-010] [scope=docs/workstreams/android-public-client-api-coverage, docs/workstreams]
+- [x] APIC-060 [owner=codex] [deps=APIC-010] [scope=docs/workstreams/android-public-client-api-coverage, docs/workstreams]
   Goal: Split a server/client User Playback State workstream if cross-device resume, watched state, or Continue Watching is the next product priority.
   Validation: new workstream or explicit defer note.
   Review: Android must not claim server-authoritative resume without public routes.
-  Evidence: `HANDOFF.md`, optional new workstream path.
-  Handoff: Keep Android local resume device-local until the contract exists.
+  Evidence: `docs/workstreams/user-playback-state-contract/`, `HANDOFF.md`
+  Handoff: Completed in this session. New workstream `user-playback-state-contract` owns the server/client contract; Android local resume remains device-local until that lane ships.
 
 ## M4 - Closeout
 

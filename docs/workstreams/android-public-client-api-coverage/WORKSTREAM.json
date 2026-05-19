@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Android consumes the core Taru Public Client API, but the server route surface has grown and selected artwork/image serving plus several browse-detail routes are not yet intentionally covered.",
-  "current_task": "APIC-060",
+  "current_task": "APIC-070",
   "authoritative_docs": [
     {
       "role": "design",
@@ -32,6 +32,7 @@
   "evidence": [
     "docs/api/HTTP_API.md",
     "docs/workstreams/android-public-client-api-coverage/API_COVERAGE_MATRIX.md",
+    "docs/workstreams/user-playback-state-contract/",
     "apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt",
     "apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt",
     "apps/android/app/src/main/java/dev/taru/android/artwork/PublicArtwork.kt",
@@ -47,7 +48,7 @@
   ],
   "continue_policy": {
     "default_action": "run_next_task",
-    "next_task": "APIC-060",
-    "notes": "Selected artwork image consumption, productized fallback visual behavior, Library Detail/source inventory, and direct Source Probe coverage are implemented. Split User Playback State into a server/client contract lane before claiming cross-device resume."
+    "next_task": "APIC-070",
+    "notes": "Selected artwork image consumption, productized fallback visual behavior, Library Detail/source inventory, and direct Source Probe coverage are implemented. User Playback State is split to docs/workstreams/user-playback-state-contract/. Close this coverage lane next."
   }
 }

@@ -1,0 +1,49 @@
+# User Playback State Contract TODO
+
+Status: Draft
+Last updated: 2026-05-19
+
+## M0 - Contract And Principal Freeze
+
+- [ ] UPS-010 [owner=planner] [deps=none] [scope=docs/workstreams/user-playback-state-contract, docs/api, CONTEXT.md]
+  Goal: Freeze the first public **User Playback State** contract, including user principal strategy, DTOs, route inventory, progress semantics, watched threshold policy, and explicit non-goals.
+  Validation: `git diff --check`
+  Review: confirm the contract does not turn Single-Admin Mode into a permanent single-user domain model.
+  Evidence: `DESIGN.md`, `EVIDENCE_AND_GATES.md`, optional ADR if principal semantics need one.
+  Handoff: This is the first executable task. Do not implement schema or Android UI before this is complete.
+
+## M1 - Server Storage And App Service
+
+- [ ] UPS-020 [owner=unassigned] [deps=UPS-010] [scope=crates/taru-core, crates/taru-db, crates/taru-server]
+  Goal: Implement user playback state repository traits, SQLite schema/migrations, principal resolution, and app-service behavior for lookup/report/mark-watched.
+  Validation: `cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast`
+  Review: verify idempotent progress writes, safe principal scoping, source/item validation, and watched threshold behavior.
+  Evidence: repository and server app tests.
+  Handoff: Split if storage and HTTP routing become too large for one worker.
+
+## M2 - Public API And SDK Surface
+
+- [ ] UPS-030 [owner=unassigned] [deps=UPS-020] [scope=crates/taru-client-protocol, crates/taru-api, crates/taru-client, sdk/typescript, docs/api]
+  Goal: Expose the public routes through DTOs, OpenAPI, Rust SDK, TypeScript SDK, and HTTP API docs.
+  Validation: `cargo nextest run -p taru-api -p taru-client --no-fail-fast`; `npm run check --prefix sdk/typescript`
+  Review: ensure route schemas do not expose local paths, source locators, session internals, or token material.
+  Evidence: API/SDK tests and generated SDK drift checks.
+  Handoff: Public route names must be final before Android implementation starts.
+
+## M3 - Android Authoritative Resume Integration
+
+- [ ] UPS-040 [owner=unassigned] [deps=UPS-030] [scope=apps/android/app/src/main/java/dev/taru/android, apps/android/app/src/test/java/dev/taru/android]
+  Goal: Add Android client methods and UI integration for server-authoritative resume, progress reporting, watched transitions, and Continue Watching presentation.
+  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+  Review: device-local resume remains fallback/local cache and UI copy does not claim server state when routes fail.
+  Evidence: Android client/UI tests.
+  Handoff: Smoke fixture support can be split if emulator validation needs server seed changes.
+
+## M4 - Smoke Evidence And Closeout
+
+- [ ] UPS-050 [owner=planner] [deps=UPS-040] [scope=apps/android/scripts, docs/workstreams/user-playback-state-contract]
+  Goal: Add or update smoke evidence proving Continue Watching is backed by server **User Playback State**, then close or split remaining follow-ons.
+  Validation: `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-with-media`; `git diff --check`
+  Review: review-workstream has no blocking findings.
+  Evidence: `EVIDENCE_AND_GATES.md`, smoke report path, `WORKSTREAM.json`.
+  Handoff: Split multi-user account UI, offline sync, and recommendations into later lanes.
