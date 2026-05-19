@@ -1,6 +1,6 @@
 # User Playback State Contract
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -154,3 +154,7 @@ This lane can close when:
 - device-local resume remains clearly scoped as fallback/local cache;
 - all relevant unit, API, SDK, and Android gates pass;
 - docs and workstream evidence reflect the shipped behavior and follow-ons.
+
+This lane is closed. The Android smoke regression gate now proves the
+server-backed `profile-with-media` path, including Continue Watching sourced
+from server **User Playback State**.

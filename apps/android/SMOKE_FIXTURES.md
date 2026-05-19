@@ -86,24 +86,24 @@ Use this when evidence must prove the Android media path against real Public
 Client API responses. The script installs the debug APK, clears app data,
 prepares the `Night Harbor` demo fixture through
 `scripts/Start-DemoFixtureServer.ps1`, starts a local `taru-server`, applies
-`adb reverse`, then seeds one debug-only Server Profile plus an encrypted token
-value through the app's real profile store and token vault. The same debug-only
-seed also writes one device-local resume position for the selected `Night
-Harbor` Media Item and Media Source.
+`adb reverse`, writes one server-side **User Playback State** progress record
+through the Public Client API, then seeds one debug-only Server Profile plus an
+encrypted token value through the app's real profile store and token vault.
 
 Expected result:
 
 - exactly one local Server Profile named `Smoke Server` is present;
 - the token value is stored only in the Android token vault and is redacted from
   generated reports;
-- the local resume position is stored only in Android device-local app storage;
+- Continue Watching and resume state come from server-owned **User Playback
+  State**, not Android device-local storage;
 - Home shows `Night Harbor` and visible Media Library facts from the server;
 - detail, source picker, and player surfaces are reached through Public Client
   API route shapes;
 - detail metadata proves API-backed Genre, Tag, and Person relationships by
   opening facet result routes that return `Night Harbor`;
-- source picker and player evidence present resume as local-only state and do
-  not claim cross-device **User Playback State** or Continue Watching;
+- source picker and player evidence present the server-backed resume path and
+  do not fall back to device-local resume;
 - generated evidence is written under
   `apps/android/build/smoke/<timestamp>-profile-with-media-<serial>/`.
 
@@ -116,7 +116,7 @@ Captured surfaces:
 - `facet-tag.png`
 - `detail-cast-crew.png`
 - `facet-person.png`
-- `source-picker-local-resume.png`
+- `source-picker-server-resume.png`
 - `source-picker.png`
 - `player.png`
 - matching `*.uiautomator.xml` files

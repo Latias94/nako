@@ -1,6 +1,6 @@
 # User Playback State Contract Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Current State
@@ -23,15 +23,18 @@ state, prefers authoritative resume over device-local fallback, and reports
 progress/watched transitions from player exit state. `DevicePlaybackPositionStore`
 remains local cache/fallback only.
 
-## Next Task
+## Closeout
 
-Run UPS-050:
+UPS-050 is complete. The Android smoke lane now proves `profile-with-media`
+renders Continue Watching from server-backed **User Playback State**, and the
+fixture seed is deterministic even when prior smoke runs left watched state in
+the demo fixture database.
 
-- add or update smoke evidence proving Continue Watching is backed by server
-  **User Playback State** in `profile-with-media`;
-- update `EVIDENCE_AND_GATES.md` with the smoke report path;
-- close the workstream or split remaining follow-ons for account UI, offline
-  sync, recommendations, and richer user preferences.
+Fresh evidence:
+
+- `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-with-media`
+- `apps/android/build/smoke-regression/20260519-164812/report.md`
+- `git diff --check`
 
 Recommended validation:
 
@@ -56,7 +59,5 @@ git diff --check
 
 ## Parallel Work
 
-UPS-050 smoke evidence and closeout are now unblocked. Keep any multi-user
-account UI, offline sync, recommendation logic, favorites, hidden state, or
-rating work out of this first route-set closeout unless explicitly split into a
-new lane.
+Follow-ons should be split into new lanes if needed: multi-user account UI,
+offline sync, recommendation logic, favorites, hidden state, and rating.

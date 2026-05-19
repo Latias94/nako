@@ -1,13 +1,13 @@
 # User Playback State Contract Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
 
-Current gap: Android now uses the public **User Playback State** route set, but
-the emulator smoke lane still needs fresh evidence that Continue Watching is
-server-backed in the profile-with-media scenario.
+Current gap: none. UPS-050 closeout evidence is fresh and the emulator smoke
+lane now proves Continue Watching is backed by server **User Playback State**
+in the profile-with-media scenario.
 
 Useful reads:
 
@@ -202,3 +202,24 @@ Fresh gate evidence:
 - 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon` - PASS. This proves the new Android User Playback State client route, body, decoding, and diagnostics behavior.
 - 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --tests dev.taru.android.ui.browse.BrowseResumeStateTest --tests dev.taru.android.player.UserPlaybackReportingTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon` - PASS. This proves the client, authoritative resume priority, playback report mapping, and server/local resume labels.
 - 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` - PASS. This is the UPS-040 Android gate and proves the complete Android unit suite after UI/client integration.
+
+## UPS-050 Evidence
+
+Claim: the Android emulator smoke lane proves `profile-with-media` is backed by
+server **User Playback State**, with Continue Watching populated from the
+server fixture and no device-local resume claim.
+
+Evidence:
+
+- `apps/android/scripts/Smoke-Emulator.ps1` now seeds server-side playback
+  state deterministically by clearing any previous watched flag, writing
+  progress through the Public Client API, and asserting Continue Watching
+  returns at least one row.
+- `apps/android/SMOKE_FIXTURES.md` and `apps/android/README.md` describe the
+  server-backed smoke fixture and remove the old local-resume wording.
+
+Fresh gate evidence:
+
+- 2026-05-19: `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-with-media -SkipFixtureServerBuild` - PASS. This proved the fixed seed is repeatable even when reusing the fixture server build path.
+- 2026-05-19: `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-with-media` - PASS. Report: `apps/android/build/smoke-regression/20260519-164812/report.md`.
+- 2026-05-19: `git diff --check` - PASS. This remains the final whitespace gate for the closeout patch set.

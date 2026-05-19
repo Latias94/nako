@@ -1,6 +1,6 @@
 # User Playback State Contract Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Contract Freeze
@@ -70,3 +70,10 @@ Exit criteria:
 - Workstream docs reflect shipped behavior.
 - Follow-ons for accounts, offline sync, recommendations, and richer user
   preferences are split or explicitly deferred.
+
+Evidence:
+
+- `TODO.md` UPS-050 complete
+- `EVIDENCE_AND_GATES.md`
+- `WORKSTREAM.json`
+- smoke report `apps/android/build/smoke-regression/20260519-164812/report.md`

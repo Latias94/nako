@@ -177,6 +177,87 @@ function Resolve-SmokeMediaResumeFixture {
     }
 }
 
+function Write-SmokeMediaServerResumeFixture {
+    param(
+        [string]$OutputDir,
+        [string]$BaseUrl,
+        [string]$AccessToken,
+        [string]$MediaItemId,
+        [string]$SourceId,
+        [long]$PositionMs,
+        [long]$DurationMs
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+        throw 'Fixture access token must be non-empty.'
+    }
+    if ([string]::IsNullOrWhiteSpace($MediaItemId)) {
+        throw 'Fixture resume Media Item id is required.'
+    }
+    if ([string]::IsNullOrWhiteSpace($SourceId)) {
+        throw 'Fixture resume Media Source id is required.'
+    }
+    if ($PositionMs -le 0) {
+        throw 'Fixture resume position must be positive.'
+    }
+
+    $headers = @{
+        Authorization = "Bearer $AccessToken"
+        'Content-Type' = 'application/json'
+    }
+    $progressBody = @{
+        source_id = $SourceId
+        position_ms = $PositionMs
+        duration_ms = if ($DurationMs -gt 0) { $DurationMs } else { $null }
+    } | ConvertTo-Json -Depth 4 -Compress
+    $unwatchBody = @{
+        watched = $false
+        source_id = $SourceId
+        position_ms = $null
+        duration_ms = if ($DurationMs -gt 0) { $DurationMs } else { $null }
+    } | ConvertTo-Json -Depth 4 -Compress
+
+    $encodedItemId = [System.Uri]::EscapeDataString($MediaItemId)
+    $stateUrl = "$BaseUrl/users/me/playback-state/items/$encodedItemId"
+    $watchedUrl = "$BaseUrl/users/me/playback-state/items/$encodedItemId/watched"
+    $progressUrl = "$BaseUrl/users/me/playback-state/items/$encodedItemId/progress"
+    $continueUrl = "$BaseUrl/users/me/playback-state/continue-watching?limit=12&offset=0"
+    $initialResponse = Invoke-RestMethod -Uri $stateUrl -Headers $headers -TimeoutSec 10
+    $unwatchResponse = Invoke-RestMethod -Uri $watchedUrl -Method Put -Headers $headers -Body $unwatchBody -TimeoutSec 10
+    $progressResponse = Invoke-RestMethod -Uri $progressUrl -Method Put -Headers $headers -Body $progressBody -TimeoutSec 10
+    $continueResponse = Invoke-RestMethod -Uri $continueUrl -Headers $headers -TimeoutSec 10
+    $continueCount = @($continueResponse.items).Count
+    if ($continueCount -lt 1) {
+        throw "Server-backed Continue Watching did not return any rows after progress seed at '$continueUrl'."
+    }
+
+    $initialJson = $initialResponse | ConvertTo-Json -Depth 12
+    $unwatchJson = $unwatchResponse | ConvertTo-Json -Depth 12
+    $stateJson = $progressResponse | ConvertTo-Json -Depth 12
+    $continueJson = $continueResponse | ConvertTo-Json -Depth 12
+    $seedPath = Join-Path $OutputDir 'profile-with-media-server-resume.txt'
+    Write-Utf8File -Path $seedPath -Content @"
+Server User Playback State seed:
+State URL: $stateUrl
+Watched URL: $watchedUrl
+Progress URL: $progressUrl
+Continue Watching URL: $continueUrl
+Access token: <redacted>
+Resume Media Item id: $MediaItemId
+Resume Media Source id: $SourceId
+Resume position: $PositionMs
+Resume duration: $DurationMs
+Initial state response:
+$initialJson
+Unwatch response:
+$unwatchJson
+Progress response:
+$stateJson
+Continue Watching response:
+$continueJson
+"@
+}
+
 function Start-SmokeFixtureServer {
     param(
         [string]$ServerBinary,
@@ -260,11 +341,7 @@ function Install-SmokeMediaProfileFixture {
         [string]$DeviceSerial,
         [string]$OutputDir,
         [string]$BaseUrl,
-        [string]$AccessToken,
-        [string]$ResumeMediaItemId,
-        [string]$ResumeSourceId,
-        [long]$ResumePositionMs = 0,
-        [long]$ResumeDurationMs = 0
+        [string]$AccessToken
     )
 
     if ([string]::IsNullOrWhiteSpace($AccessToken)) {
@@ -285,18 +362,6 @@ function Install-SmokeMediaProfileFixture {
             '--extra', "access_token:s:$AccessToken",
             '--extra', "checked_at_millis:l:$startedAt"
         )
-        if (-not [string]::IsNullOrWhiteSpace($ResumeMediaItemId) -and
-            -not [string]::IsNullOrWhiteSpace($ResumeSourceId) -and
-            $ResumePositionMs -gt 0) {
-            $seedArguments += @(
-                '--extra', "resume_media_item_id:s:$ResumeMediaItemId",
-                '--extra', "resume_source_id:s:$ResumeSourceId",
-                '--extra', "resume_position_ms:l:$ResumePositionMs"
-            )
-            if ($ResumeDurationMs -gt 0) {
-                $seedArguments += @('--extra', "resume_duration_ms:l:$ResumeDurationMs")
-            }
-        }
 
         $output = & $AdbPath @seedArguments 2>&1
         $seedOutput = ($output | Out-String).TrimEnd()
@@ -320,10 +385,7 @@ Seed provider: $providerUri
 Base URL: $BaseUrl
 Display name: Smoke Server
 Access token: <redacted>
-Resume Media Item id: $ResumeMediaItemId
-Resume Media Source id: $ResumeSourceId
-Resume position: $ResumePositionMs
-Resume duration: $ResumeDurationMs
+Resume source: server User Playback State
 Seed status:
 $safeSeedOutput
 ADB output:
@@ -885,6 +947,14 @@ if ($stateMode -eq 'profile-with-media') {
     $resumeFixture = Resolve-SmokeMediaResumeFixture `
         -BaseUrl $fixtureBaseUrl `
         -AccessToken $FixtureAccessToken
+    Write-SmokeMediaServerResumeFixture `
+        -OutputDir $outputDir `
+        -BaseUrl $fixtureBaseUrl `
+        -AccessToken $FixtureAccessToken `
+        -MediaItemId $resumeFixture.MediaItemId `
+        -SourceId $resumeFixture.SourceId `
+        -PositionMs $resumeFixture.PositionMs `
+        -DurationMs $resumeFixture.DurationMs
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'reverse', "tcp:$FixtureServerPort", "tcp:$FixtureServerPort") -FailureMessage 'adb reverse failed for profile-with-media.'
     $fixtureReversePort = $FixtureServerPort
     Install-SmokeMediaProfileFixture `
@@ -892,11 +962,7 @@ if ($stateMode -eq 'profile-with-media') {
         -DeviceSerial $deviceSerial `
         -OutputDir $outputDir `
         -BaseUrl $fixtureBaseUrl `
-        -AccessToken $FixtureAccessToken `
-        -ResumeMediaItemId $resumeFixture.MediaItemId `
-        -ResumeSourceId $resumeFixture.SourceId `
-        -ResumePositionMs $resumeFixture.PositionMs `
-        -ResumeDurationMs $resumeFixture.DurationMs
+        -AccessToken $FixtureAccessToken
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop after profile-with-media seed failed.'
 }
 if ($stateMode -eq 'profile-missing-token') {
@@ -974,6 +1040,7 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
         'Smoke Server',
         'Night Harbor',
+        'Continue Watching',
         'Media Libraries',
         '1 visible',
         'Open detail'
@@ -987,7 +1054,7 @@ if ($stateMode -eq 'empty-setup') {
         'Needs check'
     )
 
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Metadata' -MaxSwipes 6
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Mystery' -MaxSwipes 6
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-metadata' -RequiredText @(
         'Metadata',
         'Mystery',
@@ -1019,16 +1086,16 @@ if ($stateMode -eq 'empty-setup') {
     )
     Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume on this device'
-    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-local-resume' -RequiredText @(
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume from server state'
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-server-resume' -RequiredText @(
         'Source / Version',
         'Night Harbor.mp4',
-        'Resume on this device',
-        'A device-local position exists for the selected source. Taru still checks the source before playback.',
+        'Resume from server state',
+        'Taru will use authoritative User Playback State after checking the selected source.',
         'Resume'
     ) -ForbiddenText @(
-        'Continue Watching',
-        'User Playback State'
+        'Resume on this device',
+        'Local resume'
     )
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Direct' -TimeoutSeconds 25
@@ -1040,8 +1107,8 @@ if ($stateMode -eq 'empty-setup') {
         'Direct route prepared',
         'Start resume'
     ) -ForbiddenText @(
-        'Continue Watching',
-        'User Playback State'
+        'Resume on this device',
+        'Local resume'
     )
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
@@ -1049,11 +1116,10 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'player' -RequiredText @(
         'Night Harbor',
         'Direct',
-        'Local resume 0:01',
+        'Server resume 0:01',
         'Tracks and subtitles use Media3 controls in this version.'
     ) -ForbiddenText @(
-        'Continue Watching',
-        'User Playback State'
+        'Local resume'
     )
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
@@ -1064,8 +1130,8 @@ if ($stateMode -eq 'empty-setup') {
         'Check source',
         'Needs check'
     ) -ForbiddenText @(
-        'Continue Watching',
-        'User Playback State'
+        'Resume on this device',
+        'Local resume'
     )
 } else {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'launch'

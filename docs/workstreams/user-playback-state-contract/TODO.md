@@ -1,6 +1,6 @@
 # User Playback State Contract TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Contract And Principal Freeze
@@ -41,7 +41,7 @@ Last updated: 2026-05-19
 
 ## M4 - Smoke Evidence And Closeout
 
-- [ ] UPS-050 [owner=planner] [deps=UPS-040] [scope=apps/android/scripts, docs/workstreams/user-playback-state-contract]
+- [x] UPS-050 [owner=planner] [deps=UPS-040] [scope=apps/android/scripts, docs/workstreams/user-playback-state-contract]
   Goal: Add or update smoke evidence proving Continue Watching is backed by server **User Playback State**, then close or split remaining follow-ons.
   Validation: `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-with-media`; `git diff --check`
   Review: review-workstream has no blocking findings.
