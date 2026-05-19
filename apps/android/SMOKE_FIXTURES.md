@@ -104,6 +104,10 @@ Expected result:
   opening facet result routes that return `Night Harbor`;
 - source picker and player evidence present the server-backed resume path and
   do not fall back to device-local resume;
+- player evidence waits for Direct Play to reach the ended state and shows the
+  observed playback position/duration;
+- after leaving the player, smoke reads server **User Playback State** back and
+  records that the item is watched and absent from Continue Watching;
 - generated evidence is written under
   `apps/android/build/smoke/<timestamp>-profile-with-media-<serial>/`.
 
@@ -119,6 +123,7 @@ Captured surfaces:
 - `source-picker-server-resume.png`
 - `source-picker.png`
 - `player.png`
+- `profile-with-media-server-readback.txt`
 - matching `*.uiautomator.xml` files
 - matching `*.criteria.txt` pass/fail files
 

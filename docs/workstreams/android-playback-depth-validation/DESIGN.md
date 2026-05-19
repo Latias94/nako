@@ -1,6 +1,6 @@
 # Android Playback Depth Validation
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -63,3 +63,7 @@ The first implementation should prefer user-facing or server-facing signals
 already available in the app and fixture. If a new signal is required, keep it
 debug-only or evidence-only and document why it does not change the production
 contract.
+
+This lane is closed. `profile-with-media` now proves Direct Play advancement
+to the ended state and records server **User Playback State** readback after
+player exit.

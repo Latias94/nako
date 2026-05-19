@@ -1,6 +1,6 @@
 # Android Playback Depth Validation - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Scope Freeze
@@ -27,6 +27,7 @@ Evidence:
 
 - focused smoke command
 - generated player advancement artifact
+- `TODO.md` APDV-020 complete
 
 ## M2 - Server Readback
 
@@ -39,6 +40,7 @@ Evidence:
 
 - focused smoke command
 - generated server readback artifact
+- `TODO.md` APDV-030 complete
 
 ## M3 - Closeout
 
@@ -47,3 +49,9 @@ Exit criteria:
 - Workstream docs reflect shipped behavior.
 - Follow-ons are split or explicitly deferred.
 - Fresh validation evidence exists.
+
+Evidence:
+
+- `EVIDENCE_AND_GATES.md`
+- `HANDOFF.md`
+- `WORKSTREAM.json`

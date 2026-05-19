@@ -1,21 +1,28 @@
 # Android Playback Depth Validation - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Current State
 
-APDV-010 is complete. The lane is open and scoped to Direct Play depth
-validation on top of the existing `profile-with-media` smoke fixture.
+APDV-010, APDV-020, APDV-030, and APDV-040 are complete. The lane is closed.
+The existing `profile-with-media` smoke fixture now proves Direct Play
+advancement and server **User Playback State** readback after player exit.
 
-## Next Task
+## Closeout Evidence
 
-Run APDV-020:
+- `apps/android/build/smoke-apdv/20260519-174200-profile-with-media-emulator-5554/player.criteria.txt`
+- `apps/android/build/smoke-apdv/20260519-174200-profile-with-media-emulator-5554/profile-with-media-server-readback.txt`
+- `git diff --check`
 
-- inspect the current player UI/evidence available during `profile-with-media`;
-- extend smoke evidence so playback advancement is proven beyond the seeded
-  server resume point;
-- keep the check local, deterministic, and token-safe.
+## Follow-Ons
+
+Split these into new lanes if needed:
+
+- HLS/remux/session cancellation validation.
+- A longer fixture for watched-threshold policy that is not dominated by a
+  two-second smoke clip.
+- Playback quality, subtitle, audio, and PiP depth checks.
 
 ## Constraints
 

@@ -258,6 +258,68 @@ $continueJson
 "@
 }
 
+function Write-SmokeMediaServerReadbackArtifact {
+    param(
+        [string]$OutputDir,
+        [string]$BaseUrl,
+        [string]$AccessToken,
+        [string]$MediaItemId,
+        [int]$TimeoutSeconds = 25
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+        throw 'Fixture access token must be non-empty.'
+    }
+    if ([string]::IsNullOrWhiteSpace($MediaItemId)) {
+        throw 'Fixture readback Media Item id is required.'
+    }
+
+    $headers = @{
+        Authorization = "Bearer $AccessToken"
+        'Content-Type' = 'application/json'
+    }
+    $encodedItemId = [System.Uri]::EscapeDataString($MediaItemId)
+    $stateUrl = "$BaseUrl/users/me/playback-state/items/$encodedItemId"
+    $continueUrl = "$BaseUrl/users/me/playback-state/continue-watching?limit=12&offset=0"
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $attempt = 0
+    $stateResponse = $null
+    $continueResponse = $null
+    while ((Get-Date) -lt $deadline) {
+        $attempt += 1
+        $stateResponse = Invoke-RestMethod -Uri $stateUrl -Headers $headers -TimeoutSec 10
+        $continueResponse = Invoke-RestMethod -Uri $continueUrl -Headers $headers -TimeoutSec 10
+        $watched = [bool]$stateResponse.state.watched
+        $continueCount = @($continueResponse.items).Count
+        if ($watched -and $continueCount -eq 0) {
+            $stateJson = $stateResponse | ConvertTo-Json -Depth 12
+            $continueJson = $continueResponse | ConvertTo-Json -Depth 12
+            $readbackPath = Join-Path $OutputDir 'profile-with-media-server-readback.txt'
+            Write-Utf8File -Path $readbackPath -Content @"
+Server User Playback State readback:
+State URL: $stateUrl
+Continue Watching URL: $continueUrl
+Attempts: $attempt
+Expected watched state: true
+Expected continue-watching rows: 0
+Observed watched state: $watched
+Observed continue-watching rows: $continueCount
+State response:
+$stateJson
+Continue Watching response:
+$continueJson
+"@
+            return $readbackPath
+        }
+
+        Start-Sleep -Milliseconds 750
+    }
+
+    $finalWatched = if ($stateResponse) { [bool]$stateResponse.state.watched } else { $false }
+    $finalContinueCount = if ($continueResponse) { @($continueResponse.items).Count } else { -1 }
+    throw "Server User Playback State did not settle to watched=true with an empty Continue Watching list after player exit. Last observed watched=$finalWatched, continue_rows=$finalContinueCount."
+}
+
 function Start-SmokeFixtureServer {
     param(
         [string]$ServerBinary,
@@ -1113,10 +1175,13 @@ if ($stateMode -eq 'empty-setup') {
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Ended' -TimeoutSeconds 25
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'player' -RequiredText @(
         'Night Harbor',
         'Direct',
         'Server resume 0:01',
+        '00:02',
+        'Ended',
         'Tracks and subtitles use Media3 controls in this version.'
     ) -ForbiddenText @(
         'Local resume'
@@ -1124,6 +1189,7 @@ if ($stateMode -eq 'empty-setup') {
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
+    $serverReadbackPath = Write-SmokeMediaServerReadbackArtifact -OutputDir $outputDir -BaseUrl $fixtureBaseUrl -AccessToken $FixtureAccessToken -MediaItemId $resumeFixture.MediaItemId
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText @(
         'Night Harbor',
         'Resume',
@@ -1144,6 +1210,11 @@ $surfaceReport = if ($surfaceEvidence.Count -eq 0) {
         "  - $($_.Name): screenshot=$($_.Screenshot), hierarchy=$($_.Hierarchy), criteria=$($_.Criteria)"
     }) -join [Environment]::NewLine
 }
+$serverReadbackReport = if ([string]::IsNullOrWhiteSpace($serverReadbackPath)) {
+    'n/a'
+} else {
+    Split-Path -Leaf $serverReadbackPath
+}
 
 $reportPath = Join-Path $outputDir 'report.md'
 $report = @"
@@ -1161,6 +1232,7 @@ $report = @"
 - Launch output: launch.txt
 - Surface evidence:
 $surfaceReport
+- Server playback readback: $serverReadbackReport
 - Repo root: $repoRoot
 "@
 $report | Out-File -LiteralPath $reportPath -Encoding utf8

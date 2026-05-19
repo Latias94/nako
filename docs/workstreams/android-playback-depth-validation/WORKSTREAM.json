@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "android-playback-depth-validation",
   "title": "Android Playback Depth Validation",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Android smoke proves player-safe launch, but not that Direct Play actually advances or that player exit reports server-owned User Playback State.",
-  "summary": "Deepen Android server-backed media smoke from player launch to Direct Play advancement and server progress readback.",
-  "current_milestone": "M1",
-  "current_task": "APDV-020",
+  "summary": "Closed lane deepening Android server-backed media smoke from player launch to Direct Play advancement and server progress readback.",
+  "current_milestone": "M3",
+  "current_task": null,
   "task_prefix": "APDV",
   "authoritative_docs": [
     {
@@ -42,6 +42,21 @@
       "task": "APDV-010",
       "path": "docs/workstreams/android-playback-depth-validation/DESIGN.md",
       "notes": "Planning and Direct Play depth target freeze."
+    },
+    {
+      "task": "APDV-020",
+      "path": "apps/android/build/smoke-apdv/20260519-174200-profile-with-media-emulator-5554/player.criteria.txt",
+      "notes": "Direct Play advancement evidence requires 00:02 and Ended."
+    },
+    {
+      "task": "APDV-030",
+      "path": "apps/android/build/smoke-apdv/20260519-174200-profile-with-media-emulator-5554/profile-with-media-server-readback.txt",
+      "notes": "Server User Playback State readback observed watched=true and zero Continue Watching rows."
+    },
+    {
+      "task": "APDV-040",
+      "path": "docs/workstreams/android-playback-depth-validation/HANDOFF.md",
+      "notes": "Lane closed with HLS/remux/session cancellation and longer playback policy checks deferred."
     }
   ],
   "adr_refs": [
@@ -50,8 +65,8 @@
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
   ],
   "continue_policy": {
-    "default_action": "run_next_task",
-    "next_task": "APDV-020",
-    "notes": "Implement focused Direct Play advancement smoke evidence before adding server readback."
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Lane is closed. Split HLS/remux/session cancellation, longer watched-threshold fixture, and playback quality validation into separate follow-on lanes if needed."
   }
 }
