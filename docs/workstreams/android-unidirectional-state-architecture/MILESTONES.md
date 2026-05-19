@@ -19,6 +19,8 @@ Exit:
 
 ## M2 - First Async Loading Slice
 
+Status: Complete.
+
 Exit:
 
 - Home, Library Detail, Search, and Browse Facet loading are handled by

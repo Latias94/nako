@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -16,12 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.taru.android.browse.BrowseFailureCategory
 import dev.taru.android.browse.BrowseResult
-import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.MediaItemDto
-import dev.taru.android.browse.PageRequest
-import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
-import dev.taru.android.browse.SearchRequest
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
@@ -29,7 +26,6 @@ import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.PlaybackResult
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.playback.PlaybackFailureCategory
-import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.PlaybackPreferencesStore
 import dev.taru.android.playback.PlaybackStartCoordinator
 import dev.taru.android.playback.PlaybackStartRequest
@@ -48,12 +44,7 @@ import dev.taru.android.ui.shell.TaruShellDestination
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import dev.taru.android.userplayback.UserPlaybackResult
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 @Composable
 fun TaruBrowseShell(
@@ -73,30 +64,38 @@ fun TaruBrowseShell(
     ),
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
-    val browseSession = remember { BrowseSession() }
-    var shellState by rememberSaveable(
+    val routeScope = rememberCoroutineScope()
+    val browseDataSource = remember(profile, tokenVault, browseClient, userPlaybackClient) {
+        ClientBrowseDataSource(
+            profile = profile,
+            tokenVault = tokenVault,
+            browseClient = browseClient,
+            userPlaybackClient = userPlaybackClient,
+        )
+    }
+    var savedShellState by rememberSaveable(
         profile.id,
         stateSaver = BrowseShellStateSaver,
     ) {
         mutableStateOf(BrowseShellState())
     }
+    val browseSession = remember(profile.id, browseDataSource, routeScope) {
+        BrowseSession(
+            initialState = savedShellState,
+            dataSource = browseDataSource,
+            scope = routeScope,
+        )
+    }
+    val shellState by browseSession.state.collectAsState()
     val selectedDestination = shellState.selectedDestination
     val route = shellState.currentRoute
     fun dispatchBrowseAction(action: BrowseAction) {
-        shellState = browseSession.reduce(shellState, action)
-    }
-    val routeScope = rememberCoroutineScope()
-    var refreshKey by remember { mutableIntStateOf(0) }
-    var browseState by remember(profile.id, refreshKey) {
-        mutableStateOf<BrowseUiState>(BrowseUiState.Loading)
+        browseSession.dispatch(action)
+        savedShellState = browseSession.state.value
     }
     var detailRefreshKey by remember { mutableIntStateOf(0) }
     var detailState by remember(profile.id, route, detailRefreshKey) {
         mutableStateOf<ItemDetailUiState>(ItemDetailUiState.Idle)
-    }
-    var libraryDetailRefreshKey by remember { mutableIntStateOf(0) }
-    var libraryDetailState by remember(profile.id, route, libraryDetailRefreshKey) {
-        mutableStateOf<LibraryDetailUiState>(LibraryDetailUiState.Idle)
     }
     var sourceProbeRefreshKey by remember { mutableIntStateOf(0) }
     var selectedSourceId by remember(profile.id, route) { mutableStateOf<String?>(null) }
@@ -107,14 +106,6 @@ fun TaruBrowseShell(
     var playbackRequestSourceId by remember(profile.id, route) { mutableStateOf<String?>(null) }
     var playbackState by remember(profile.id, route, playbackRequestSourceId, playbackRefreshKey) {
         mutableStateOf<PlaybackSelectionUiState>(PlaybackSelectionUiState.Idle)
-    }
-    var searchQuery by remember(profile.id) { mutableStateOf("") }
-    var submittedSearchQuery by remember(profile.id) { mutableStateOf("") }
-    var searchRefreshKey by remember { mutableIntStateOf(0) }
-    var searchState by remember(profile.id) { mutableStateOf<SearchUiState>(SearchUiState.Idle) }
-    var facetRefreshKey by remember { mutableIntStateOf(0) }
-    var facetState by remember(profile.id, route, facetRefreshKey) {
-        mutableStateOf<FacetUiState>(FacetUiState.Idle)
     }
     val shellDestinations = remember {
         TaruDestination.entries.map { destination ->
@@ -133,15 +124,6 @@ fun TaruBrowseShell(
         PlaybackStartCoordinator(
             playbackClient = playbackClient,
             positionStore = positionStore,
-        )
-    }
-
-    LaunchedEffect(profile.id, refreshKey) {
-        browseState = loadBrowseState(
-            profile = profile,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            userPlaybackClient = userPlaybackClient,
         )
     }
 
@@ -193,22 +175,6 @@ fun TaruBrowseShell(
         }
     }
 
-    LaunchedEffect(profile.id, route, libraryDetailRefreshKey) {
-        val libraryRoute = route as? TaruRoute.LibraryDetail
-        if (libraryRoute == null) {
-            libraryDetailState = LibraryDetailUiState.Idle
-            return@LaunchedEffect
-        }
-
-        libraryDetailState = LibraryDetailUiState.Loading
-        libraryDetailState = loadLibraryDetailState(
-            profile = profile,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            libraryId = libraryRoute.libraryId,
-        )
-    }
-
     LaunchedEffect(profile.id, route, selectedSourceId, sourceProbeRefreshKey) {
         val sourceId = selectedSourceId
         if (route !is TaruRoute.ItemDetail || sourceId.isNullOrBlank()) {
@@ -242,41 +208,12 @@ fun TaruBrowseShell(
         )
     }
 
-    LaunchedEffect(profile.id, submittedSearchQuery, searchRefreshKey) {
-        if (submittedSearchQuery.isBlank()) {
-            searchState = SearchUiState.Idle
-            return@LaunchedEffect
-        }
-
-        searchState = SearchUiState.Loading
-        searchState = loadSearchState(
-            profile = profile,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            query = submittedSearchQuery,
-        )
+    LaunchedEffect(profile.id) {
+        browseSession.dispatch(BrowseAction.LoadHome)
     }
 
-    LaunchedEffect(profile.id, route, facetRefreshKey) {
-        val facetRoute = route as? TaruRoute.BrowseFacet
-        if (facetRoute == null) {
-            facetState = FacetUiState.Idle
-            return@LaunchedEffect
-        }
-
-        val target = facetRoute.target
-        if (!target.isPublicRouteBacked) {
-            facetState = target.apiGapState()
-            return@LaunchedEffect
-        }
-
-        facetState = FacetUiState.Loading
-        facetState = loadFacetState(
-            profile = profile,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            target = target,
-        )
+    LaunchedEffect(profile.id, route) {
+        browseSession.dispatch(BrowseAction.RouteDisplayed(route))
     }
 
     BackHandler(enabled = shellState.canNavigateBack) {
@@ -302,18 +239,15 @@ fun TaruBrowseShell(
                 TaruRoute.TopLevel -> TopLevelContent(
                     profile = profile,
                     selectedDestination = selectedDestination,
-                    browseState = browseState,
-                    searchQuery = searchQuery,
-                    searchState = searchState,
+                    browseState = shellState.browseState,
+                    searchQuery = shellState.searchQuery,
+                    searchState = shellState.searchState,
                     snapshot = snapshot,
                     artworkSource = artworkSource,
-                    onRetry = { refreshKey += 1 },
-                    onSearchQueryChange = { searchQuery = it },
-                    onSubmitSearch = {
-                        submittedSearchQuery = searchQuery.trim()
-                        searchRefreshKey += 1
-                    },
-                    onRetrySearch = { searchRefreshKey += 1 },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryHome) },
+                    onSearchQueryChange = { dispatchBrowseAction(BrowseAction.SearchQueryChanged(it)) },
+                    onSubmitSearch = { dispatchBrowseAction(BrowseAction.SubmitSearch) },
+                    onRetrySearch = { dispatchBrowseAction(BrowseAction.RetrySearch) },
                     onChangeServer = onChangeServer,
                     onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                     onOpenLibrary = {
@@ -394,9 +328,9 @@ fun TaruBrowseShell(
                     },
                 )
                 is TaruRoute.LibraryDetail -> LibraryDetailRouteContent(
-                    state = libraryDetailState,
+                    state = shellState.libraryDetailState,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
-                    onRetry = { libraryDetailRefreshKey += 1 },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
                     onChangeServer = onChangeServer,
                     onOpenItem = { itemId ->
                         dispatchBrowseAction(BrowseAction.OpenItem(itemId))
@@ -414,9 +348,9 @@ fun TaruBrowseShell(
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
                     target = currentRoute.target,
-                    state = facetState,
+                    state = shellState.facetState,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
-                    onRetry = { facetRefreshKey += 1 },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
                     onChangeServer = onChangeServer,
                     onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                 )
@@ -522,241 +456,6 @@ private suspend fun loadPlaybackSelectionState(
         )
         is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(result.diagnostics)
     }
-}
-
-private suspend fun loadLibraryDetailState(
-    profile: ServerProfile,
-    tokenVault: TokenVault,
-    browseClient: TaruBrowseClient,
-    libraryId: String,
-): LibraryDetailUiState {
-    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-    if (accessToken.isBlank()) {
-        return LibraryDetailUiState.Failure(
-            SafeBrowseDiagnostics(
-                category = BrowseFailureCategory.MissingAccessToken,
-                userMessage = "Re-authenticate this server before opening library detail.",
-            ),
-        )
-    }
-
-    val detail = browseClient.libraryDetail(
-        profile = profile,
-        accessToken = accessToken,
-        libraryId = libraryId,
-    )
-    if (detail is BrowseResult.Failure) {
-        return LibraryDetailUiState.Failure(detail.diagnostics)
-    }
-
-    return when (
-        val sources = browseClient.librarySources(
-            profile = profile,
-            accessToken = accessToken,
-            libraryId = libraryId,
-            page = PageRequest(limit = 24, offset = 0),
-        )
-    ) {
-        is BrowseResult.Success -> LibraryDetailUiState.Content(sources.value)
-        is BrowseResult.Failure -> LibraryDetailUiState.Failure(sources.diagnostics)
-    }
-}
-
-private suspend fun loadSearchState(
-    profile: ServerProfile,
-    tokenVault: TokenVault,
-    browseClient: TaruBrowseClient,
-    query: String,
-): SearchUiState {
-    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-    if (accessToken.isBlank()) {
-        return SearchUiState.Failure(
-            SafeBrowseDiagnostics(
-                category = BrowseFailureCategory.MissingAccessToken,
-                userMessage = "Re-authenticate this server before searching.",
-            ),
-        )
-    }
-
-    return when (
-        val result = browseClient.searchItems(
-            profile = profile,
-            accessToken = accessToken,
-            query = SearchRequest(
-                query = query,
-                page = PageRequest(limit = 24, offset = 0),
-            ),
-        )
-    ) {
-        is BrowseResult.Success -> SearchUiState.Content(result.value)
-        is BrowseResult.Failure -> SearchUiState.Failure(result.diagnostics)
-    }
-}
-
-private suspend fun loadFacetState(
-    profile: ServerProfile,
-    tokenVault: TokenVault,
-    browseClient: TaruBrowseClient,
-    target: BrowseFacetTarget,
-): FacetUiState {
-    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-    if (accessToken.isBlank()) {
-        return FacetUiState.Failure(
-            SafeBrowseDiagnostics(
-                category = BrowseFailureCategory.MissingAccessToken,
-                userMessage = "Re-authenticate this server before browsing this facet.",
-            ),
-        )
-    }
-
-    val facetId = target.id.orEmpty()
-    val result: BrowseResult<FacetItemsResponse> = when (target.family) {
-        BrowseFacetUiFamily.Genre -> browseClient.listGenreItems(
-            profile = profile,
-            accessToken = accessToken,
-            genreId = facetId,
-            page = PageRequest(limit = 24, offset = 0),
-        )
-        BrowseFacetUiFamily.Tag -> browseClient.listTagItems(
-            profile = profile,
-            accessToken = accessToken,
-            tagId = facetId,
-            page = PageRequest(limit = 24, offset = 0),
-        )
-        BrowseFacetUiFamily.Person -> browseClient.listPersonItems(
-            profile = profile,
-            accessToken = accessToken,
-            personId = facetId,
-            page = PageRequest(limit = 24, offset = 0),
-        )
-        else -> return target.apiGapState()
-    }
-
-    return when (result) {
-        is BrowseResult.Success -> FacetUiState.Content(result.value)
-        is BrowseResult.Failure -> FacetUiState.Failure(result.diagnostics)
-    }
-}
-
-private fun BrowseFacetTarget.apiGapState(): FacetUiState.ApiGap =
-    FacetUiState.ApiGap(
-        title = "${family.label} not available",
-        body = apiGapBody(),
-    )
-
-private fun BrowseFacetTarget.apiGapBody(): String =
-    when (family) {
-        BrowseFacetUiFamily.Genre,
-        BrowseFacetUiFamily.Tag,
-        BrowseFacetUiFamily.Person,
-        -> if (id.isNullOrBlank()) {
-            "This relationship is visible, but the current response does not include the stable id needed to open related Media Items."
-        } else {
-            "Related Media Items for this ${family.label} cannot be opened from the current state."
-        }
-        BrowseFacetUiFamily.Library -> "Library-scoped browsing is not available from this app version yet."
-        BrowseFacetUiFamily.Studio -> "Studio-based browsing is not available from this app version yet."
-        BrowseFacetUiFamily.Collection -> "Collection-based browsing is not available from this app version yet."
-        BrowseFacetUiFamily.Year -> "Year-based browsing is not available from this app version yet."
-        BrowseFacetUiFamily.ItemKind -> "Media Item kind browsing is not available from this app version yet."
-        BrowseFacetUiFamily.SourceMode -> "Playback-mode browsing will become available after playback selection is implemented."
-    }
-
-private suspend fun loadBrowseState(
-    profile: ServerProfile,
-    tokenVault: TokenVault,
-    browseClient: TaruBrowseClient,
-    userPlaybackClient: TaruUserPlaybackClient,
-): BrowseUiState {
-    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-    if (accessToken.isBlank()) {
-        return BrowseUiState.Failure(
-            SafeBrowseDiagnostics(
-                category = BrowseFailureCategory.MissingAccessToken,
-                userMessage = "Re-authenticate this server before browsing.",
-            ),
-        )
-    }
-
-    val libraries = browseClient.listLibraries(
-        profile = profile,
-        accessToken = accessToken,
-        page = PageRequest(limit = 50, offset = 0),
-    )
-    if (libraries is BrowseResult.Failure) {
-        return BrowseUiState.Failure(libraries.diagnostics)
-    }
-
-    val items = browseClient.listItems(
-        profile = profile,
-        accessToken = accessToken,
-        page = PageRequest(limit = 24, offset = 0),
-    )
-    if (items is BrowseResult.Failure) {
-        return BrowseUiState.Failure(items.diagnostics)
-    }
-    val itemPage = (items as BrowseResult.Success).value
-    val continueWatching = when (
-        val result = userPlaybackClient.continueWatching(
-            profile = profile,
-            accessToken = accessToken,
-            page = PageRequest(limit = 12, offset = 0),
-        )
-    ) {
-        is UserPlaybackResult.Success -> result.value
-        is UserPlaybackResult.Failure -> null
-    }
-    val visibleArtwork = loadVisibleArtworkRefs(
-        profile = profile,
-        accessToken = accessToken,
-        browseClient = browseClient,
-        items = itemPage.items,
-    )
-    val continueArtwork = continueWatching
-        ?.items
-        ?.mapNotNull { row ->
-            row.images
-                .takeIf { it.isNotEmpty() }
-                ?.let { row.item.id to it }
-        }
-        ?.toMap()
-        .orEmpty()
-
-    return BrowseUiState.Content(
-        libraries = (libraries as BrowseResult.Success).value,
-        items = itemPage,
-        artworkByItemId = visibleArtwork + continueArtwork,
-        continueWatching = continueWatching,
-    )
-}
-
-private suspend fun loadVisibleArtworkRefs(
-    profile: ServerProfile,
-    accessToken: String,
-    browseClient: TaruBrowseClient,
-    items: List<MediaItemDto>,
-): Map<String, List<PublicImageRefDto>> = coroutineScope {
-    val semaphore = Semaphore(permits = 4)
-    items
-        .map { item ->
-            async {
-                semaphore.withPermit {
-                    val result = browseClient.itemImages(
-                        profile = profile,
-                        accessToken = accessToken,
-                        itemId = item.id,
-                    )
-                    if (result is BrowseResult.Success && result.value.images.isNotEmpty()) {
-                        item.id to result.value.images
-                    } else {
-                        null
-                    }
-                }
-            }
-        }
-        .awaitAll()
-        .filterNotNull()
-        .toMap()
 }
 
 @Composable

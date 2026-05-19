@@ -20,3 +20,11 @@ Last updated: 2026-05-19
   `TaruBrowseShell` navigation callbacks through `BrowseAction`.
   Gate passed:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionTest --tests dev.taru.android.ui.browse.TaruRouteStackTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon --no-parallel`.
+- 2026-05-19: AUSA-030 moved Home, Library Detail, Search, and Browse Facet
+  loading behind `BrowseSession` and `BrowseDataSource`. `TaruBrowseShell`
+  now renders session state for the migrated slice and dispatches explicit
+  retry/search/route actions. Stale route and stale search responses are
+  guarded by request generations.
+  Gates passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --no-daemon --no-parallel`;
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.

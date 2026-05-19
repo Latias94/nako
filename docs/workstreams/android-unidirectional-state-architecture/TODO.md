@@ -23,12 +23,12 @@ Last updated: 2026-05-19
 
 ## M2 - First Async Loading Slice
 
-- [ ] AUSA-030 [owner=codex] [deps=AUSA-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse]
+- [x] AUSA-030 [owner=codex] [deps=AUSA-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse]
   Goal: Move Home, Library Detail, Search, and Browse Facet loading actions
   from `TaruBrowseShell` into `BrowseSession`.
   Validation: JVM tests prove loading, success, failure, retry, and stale
   response handling for the migrated actions.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --no-daemon --no-parallel` and full `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel` passed on 2026-05-19.
   Handoff: AUSA-040 can migrate detail/source/playback selection.
 
 ## M3 - Detail And Playback Selection Slice
