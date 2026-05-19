@@ -18,7 +18,7 @@ import dev.taru.android.connection.TaruConnectionClient
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
-import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
+import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
 
@@ -33,7 +33,7 @@ fun TaruAndroidApp(
     val connectionClient = remember { TaruConnectionClient(transport) }
     val browseClient = remember { TaruBrowseClient(transport) }
     val playbackClient = remember { TaruPlaybackClient(transport) }
-    val positionStore = remember { InMemoryDevicePlaybackPositionStore() }
+    val positionStore = remember { SharedPreferencesDevicePlaybackPositionStore(context) }
 
     TaruAndroidAppContent(
         modifier = modifier,
