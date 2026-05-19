@@ -1,6 +1,6 @@
 # Android Public Client API Coverage
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -120,3 +120,19 @@ This lane can close when:
   or explicit non-goals;
 - Android unit/smoke gates pass for any code added in this lane;
 - docs and handoff point to the next executable task.
+
+## Closeout
+
+Closed on 2026-05-19.
+
+Android now has intentional coverage or explicit deferral for every current
+Public Client API v1 route. Selected artwork, Library Detail/source inventory,
+and direct source probe coverage are implemented. Server-authoritative **User
+Playback State** is split to
+`docs/workstreams/user-playback-state-contract/`.
+
+Final gates:
+
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+- `git diff --check`
+- public route inventory check against `docs/api/HTTP_API.md`

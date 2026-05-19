@@ -1,6 +1,6 @@
 # Android Public Client API Coverage Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Current State
@@ -8,7 +8,7 @@ Last updated: 2026-05-19
 This workstream was opened after merging `main` into the
 `android-client-foundation` worktree. The merge completed without conflicts.
 
-APIC-010, APIC-020, APIC-030, APIC-040, APIC-050, and APIC-060 are complete.
+APIC-010, APIC-020, APIC-030, APIC-040, APIC-050, APIC-060, and APIC-070 are complete.
 The route coverage baseline lives in `API_COVERAGE_MATRIX.md`, Android consumes
 public selected artwork image routes for core browse/detail surfaces, Library
 Detail is now a first-class structural route, and Source Picker consumes direct
@@ -45,23 +45,20 @@ source probe facts separately from playback decision.
 
 ## Next Task
 
-Run APIC-070 next:
+Run UPS-010 next:
 
-- APIC-070 closes this route coverage lane or splits any remaining public route
-  gaps.
+- `docs/workstreams/user-playback-state-contract/` owns
+  server-authoritative **User Playback State**, cross-device resume, watched
+  state, and Continue Watching.
 
-Separate follow-on:
-
-- `docs/workstreams/user-playback-state-contract/` owns server-authoritative
-  **User Playback State**, cross-device resume, watched state, and Continue
-  Watching.
-
-Recommended validation:
+Latest closeout validation:
 
 ```powershell
 apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
 git diff --check
 ```
+
+Result: PASS on 2026-05-19.
 
 Latest visual smoke evidence:
 
@@ -84,10 +81,13 @@ Result: PASS on 2026-05-19. Report:
 - Do not revive the completed Android foundation workstream for this work; this
   lane is the follow-up route coverage lane.
 
-## Open Decisions
+## Follow-Ons
 
 - Coil 3.3.0 is now the selected image-loading dependency for authenticated
   public artwork routes.
 - Direct source probe is now covered for compact Source Picker source facts.
 - Server-authoritative **User Playback State** is split to
   `docs/workstreams/user-playback-state-contract/`.
+- People/tag/genre index and Person Detail pages remain product backlog.
+- `HEAD /images/{image_id}` remains deferred until preflight or diagnostics UX
+  needs it.

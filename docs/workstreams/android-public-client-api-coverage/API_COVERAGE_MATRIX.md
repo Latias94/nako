@@ -1,6 +1,6 @@
 # Android Public Client API Coverage Matrix
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 Legend:
@@ -25,12 +25,12 @@ Legend:
 | `GET /items/{item_id}/images` | covered | `TaruBrowseClient.itemImages`; Home/Libraries artwork enrichment | Keep as best-effort visible-page artwork enrichment. |
 | `GET /images/{image_id}` | covered | `PublicArtworkSource`; `TaruArtworkImage` with Coil | Keep as authenticated selected artwork byte route. |
 | `HEAD /images/{image_id}` | defer | none | Coil/cache behavior is enough for APIC-020; add explicit preflight only if cache diagnostics or validation UX needs it. |
-| `GET /people?limit=&offset=` | gap | none | Defer until Browse People index exists. |
-| `GET /people/{person_id}` | gap | none | Add with Person Detail if productizes actor/director pages. |
+| `GET /people?limit=&offset=` | defer | none | Defer until Browse People index exists. |
+| `GET /people/{person_id}` | defer | none | Add with Person Detail if productizes actor/director pages. |
 | `GET /people/{person_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listPersonItems` | Keep as current cast/crew facet result path. |
-| `GET /tags?limit=&offset=` | gap | none | Defer until Browse Tags index exists. |
+| `GET /tags?limit=&offset=` | defer | none | Defer until Browse Tags index exists. |
 | `GET /tags/{tag_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listTagItems` | Keep as current tag facet result path. |
-| `GET /genres?limit=&offset=` | gap | none | Defer until Browse Genres index exists. |
+| `GET /genres?limit=&offset=` | defer | none | Defer until Browse Genres index exists. |
 | `GET /genres/{genre_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listGenreItems` | Keep as current genre facet result path. |
 | `GET /search?q=&facet=&limit=&offset=` | covered | `TaruBrowseClient.searchItems` | Keep; broaden only when advanced filters become product scope. |
 | `GET /sources/{source_id}/probe` | covered | `TaruPlaybackClient.getSourceProbe`; `SourcePickerSurface` source facts | Keep as the Source Picker source-facts route, separate from playback decision. |
@@ -62,12 +62,12 @@ not be consumed by the Android phone/tablet app in this lane:
 Android may indirectly benefit from these server capabilities through public
 client DTOs, but it must not become a server administration surface.
 
-## Priority Order
+## Closed Follow-Ons
 
-1. People/genre/tag index and person detail pages if browsing beyond metadata
+- People/genre/tag index and person detail pages if browsing beyond metadata
    chips becomes a product goal.
-2. Server contract follow-on for User Playback State before claiming
-   cross-device Continue Watching.
+- Server-authoritative **User Playback State**:
+  `docs/workstreams/user-playback-state-contract/`.
 
 ## Non-Negotiable Client Rules
 

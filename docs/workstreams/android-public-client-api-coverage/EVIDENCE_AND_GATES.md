@@ -1,6 +1,6 @@
 # Android Public Client API Coverage Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Evidence Anchors
@@ -244,6 +244,43 @@ Notes:
 - Android device-local resume remains valid as local fallback/cache only.
 - Android must not expose cross-device Continue Watching until the new
   workstream ships a public server-authoritative contract.
+
+## APIC-070 Closeout Evidence
+
+Date: 2026-05-19
+
+Claim:
+
+- Android Public Client API Coverage is complete for this lane. Every current
+  Public Client API v1 route is either covered by Android, explicitly deferred
+  as product backlog, or split to a follow-on workstream.
+
+Fresh validation:
+
+```powershell
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
+git diff --check
+```
+
+Result: PASS on 2026-05-19.
+
+Route inventory check:
+
+```powershell
+# Checked 27 public v1 routes listed in docs/api/HTTP_API.md against
+# API_COVERAGE_MATRIX.md closeout classifications.
+```
+
+Result: PASS on 2026-05-19.
+
+Follow-ons:
+
+- `docs/workstreams/user-playback-state-contract/` owns
+  server-authoritative **User Playback State**.
+- People/tag/genre index and Person Detail pages remain product backlog until
+  browse UX needs first-class index/detail surfaces.
+- `HEAD /images/{image_id}` remains deferred until explicit preflight,
+  diagnostics, or cache validation UX needs it.
 
 ## Standard Gates
 

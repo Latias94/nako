@@ -1,6 +1,6 @@
 # Android Public Client API Coverage Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Coverage Baseline
@@ -72,3 +72,10 @@ Exit criteria:
 - `API_COVERAGE_MATRIX.md` matches the current `docs/api/HTTP_API.md` public
   route inventory.
 - Remaining work is split into named follow-ons or explicitly deferred.
+
+Evidence:
+
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+- `git diff --check`
+- Public route inventory check: 27 routes matched in `docs/api/HTTP_API.md`
+- `TODO.md` APIC-070 complete

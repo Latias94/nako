@@ -2,11 +2,11 @@
   "schema_version": 1,
   "slug": "android-public-client-api-coverage",
   "title": "Android Public Client API Coverage",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Android consumes the core Taru Public Client API, but the server route surface has grown and selected artwork/image serving plus several browse-detail routes are not yet intentionally covered.",
-  "current_task": "APIC-070",
+  "current_task": null,
   "authoritative_docs": [
     {
       "role": "design",
@@ -47,8 +47,8 @@
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
-    "default_action": "run_next_task",
-    "next_task": "APIC-070",
-    "notes": "Selected artwork image consumption, productized fallback visual behavior, Library Detail/source inventory, and direct Source Probe coverage are implemented. User Playback State is split to docs/workstreams/user-playback-state-contract/. Close this coverage lane next."
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Lane closed. Continue in docs/workstreams/user-playback-state-contract/ with UPS-010 for server-authoritative User Playback State."
   }
 }

@@ -1,6 +1,6 @@
 # Android Public Client API Coverage TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -54,9 +54,9 @@ Last updated: 2026-05-19
 
 ## M4 - Closeout
 
-- [ ] APIC-070 [owner=planner] [deps=APIC-020, APIC-040, APIC-050, APIC-060] [scope=docs/workstreams/android-public-client-api-coverage]
+- [x] APIC-070 [owner=codex] [deps=APIC-020, APIC-040, APIC-050, APIC-060] [scope=docs/workstreams/android-public-client-api-coverage]
   Goal: Close the lane or split remaining route gaps into narrower follow-ons.
   Validation: final Android test gate for implemented code, `git diff --check`, and fresh matrix review against `docs/api/HTTP_API.md`.
   Review: review-workstream has no blocking findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`.
-  Handoff: Summarize remaining product backlog and server contract gaps.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `API_COVERAGE_MATRIX.md`.
+  Handoff: Completed in this session. Lane is closed; next executable work is `docs/workstreams/user-playback-state-contract/` UPS-010.
