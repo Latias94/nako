@@ -48,10 +48,10 @@
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
   "current_task": {
-    "id": "WJCC-040",
-    "title": "Additional Worker Boundaries",
+    "id": "WJCC-050",
+    "title": "Closeout Or Split Remaining Worker Migrations",
     "status": "ready",
-    "owner": "codex"
+    "owner": "planner"
   },
   "continue_policy": {
     "default_action": "continue",

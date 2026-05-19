@@ -49,6 +49,25 @@ Expected coverage:
 - metadata maintenance checks cancellation before the next item;
 - cancelled metadata maintenance does not emit a success/completed event.
 
+### Additional Worker Boundary Gate
+
+```powershell
+$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_BUILD_JOBS='2'
+$env:NEXTEST_TEST_THREADS='1'
+cargo nextest run -j 2 -p taru-server background_scan_job_acknowledges_cancellation_before_probe_stage --no-fail-fast
+cargo nextest run -j 2 -p taru-server nfo --no-fail-fast
+```
+
+Expected coverage:
+
+- library scan cancellation stops before the probe side-effect boundary;
+- cancelled library scan does not emit a `LibraryScanned` success event;
+- NFO import/export jobs still persist successful summaries and events after
+  moving to the context-aware runtime;
+- per-sidecar NFO cancellation remains an explicit follow-on, not an implied
+  app-layer guarantee.
+
 ### Cross-Crate Contract Gate
 
 ```powershell
@@ -125,6 +144,22 @@ in `HANDOFF.md`.
   job as a failed job instead of success, reran
   `cargo check -j 2 -p taru-server --tests` (pass) and
   `cargo nextest run -j 2 -p taru-server runtime --no-fail-fast` (16 passed).
+- `WJCC-040` (2026-05-19): Migrated library scan and NFO import/export jobs to
+  the context-aware durable runtime. Library scan checkpoints now refresh
+  cancellation before indexing, before probe, and before success publication;
+  cancelled scan runs skip `LibraryScanned`. NFO import/export have app-level
+  pre/post service checkpoints and keep per-sidecar cancellation as an explicit
+  `taru-nfo` API follow-on. Gates run sequentially with `CARGO_BUILD_JOBS=2`
+  and `NEXTEST_TEST_THREADS=1`:
+  `cargo check -j 2 -p taru-server --tests` (pass);
+  `cargo nextest run -j 2 -p taru-server background_scan_job_acknowledges_cancellation_before_probe_stage --no-fail-fast`
+  (1 passed);
+  `cargo nextest run -j 2 -p taru-server nfo --no-fail-fast` (9 passed);
+  `cargo nextest run -j 2 -p taru-server job_runtime --no-fail-fast`
+  (5 passed);
+  `cargo fmt --all -- --check` (pass);
+  `git diff --check` (pass, CRLF warnings only);
+  WORKSTREAM JSON parse (pass).
 
 ## Notes
 

@@ -10,30 +10,27 @@ durable job leases, heartbeats, redacted Admin cancel requests, and fenced
 `cancel_leased_job`, but deliberately split worker-side cancellation
 checkpoints.
 
-`WJCC-020` and `WJCC-030` are complete. `DurableJobRuntime` now supports a
-context-aware run path, heartbeat publication of observed cancel intent,
-cooperative checkpoint helpers, and fenced acknowledgement of terminal
-`cancelled`. Metadata maintenance is the first real worker integration: it
-checks cancellation before each item refresh, skips completed outbox publication
-for cancelled runs, and lets runtime diagnostics count cancelled jobs
-separately from successful jobs.
+`WJCC-020`, `WJCC-030`, and `WJCC-040` are complete. `DurableJobRuntime` now
+supports a context-aware run path, heartbeat publication of observed cancel
+intent, cooperative checkpoint helpers, and fenced acknowledgement of terminal
+`cancelled`. Metadata maintenance is the first item-level worker integration.
+Library scan now checks before scan, before probe, and before success
+publication. NFO import/export use app-level pre/post service checkpoints, with
+per-sidecar cancellation split to a future `taru-nfo` API boundary.
 
 ## Active Task
 
-- Task ID: `WJCC-040`
-- Owner: codex
+- Task ID: `WJCC-050`
+- Owner: planner
 - Files:
-  - `crates/taru-server/src/app/jobs.rs`
-  - `crates/taru-server/src/app/nfo.rs`
-  - `docs/api/HTTP_API.md`
+  - `docs/workstreams/worker-job-cancellation-checkpoints`
 - Validation:
-  - `cargo nextest run -p taru-server job_runtime --no-fail-fast`
-  - targeted package checks for touched modules
+  - `verify-rust-workstream` final gate evidence
+  - `review-workstream` blocking findings check
 - Status: READY
-- Review: Checkpoints must sit before new side-effect units, not after success
-  events or after irreversible writes.
-- Evidence: Add tests or documented split decisions for library scan/probe and
-  NFO import/export boundaries.
+- Review: Decide whether the lane can close now or whether remaining worker
+  migrations should stay in this lane.
+- Evidence: Closeout notes must name every follow-on by boundary type.
 
 ## Decisions Since Last Update
 
@@ -55,6 +52,11 @@ separately from successful jobs.
 - Use low-concurrency validation commands for this workspace unless the user
   explicitly asks for broader parallel verification:
   `CARGO_BUILD_JOBS=2`, `NEXTEST_TEST_THREADS=1`, and `cargo nextest run -j 2`.
+- Library scan/probe has a tested checkpoint before probe. It does not kill an
+  in-flight VFS scan or ffprobe process.
+- NFO import/export now avoid success publication after app-level cancellation,
+  but per-sidecar stop-before-read/write needs a dedicated `taru-nfo` service
+  API follow-on.
 
 ## Blockers
 
@@ -62,6 +64,6 @@ separately from successful jobs.
 
 ## Next Recommended Action
 
-Implement `WJCC-040`: audit library scan/probe and NFO import/export jobs,
-then either add safe cooperative checkpoints before their next side-effect unit
-or split deeper migrations into named follow-on lanes.
+Run `WJCC-050`: verify the final gate set, review the lane, and close or split
+follow-ons for webhook/addon job cancellation, retry/backoff, expired-lease
+requeue/stealing, child-process cancellation, and per-sidecar NFO checkpoints.

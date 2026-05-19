@@ -270,6 +270,98 @@ async fn background_scan_job_uses_runtime_job_supervision() {
 }
 
 #[tokio::test]
+async fn background_scan_job_acknowledges_cancellation_before_probe_stage() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let job = app
+        .library_scan()
+        .enqueue_library_scan(library_id)
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        server.control().wait_for_first_propfind(),
+    )
+    .await
+    .unwrap();
+
+    let requested = app.jobs().request_job_cancellation(job.id).await.unwrap();
+    assert!(requested.requested);
+    assert!(!requested.terminal);
+    assert_eq!(requested.job.status, JobStatus::Running);
+
+    server.control().release_first_propfind();
+    let diagnostics = wait_for_runtime_jobs(&app, 0, 1, 0).await;
+    let persisted = app.jobs().get_job(job.id).await.unwrap();
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::new(100, 0))
+        .await
+        .unwrap();
+
+    assert_eq!(diagnostics.failed_jobs, 0);
+    assert_eq!(diagnostics.cancelled_jobs, 1);
+    assert_eq!(persisted.status, JobStatus::Cancelled);
+    assert_eq!(persisted.summary_json, None);
+    assert_eq!(persisted.error, None);
+    assert_eq!(sources.len(), 1);
+    assert!(
+        store
+            .get_media_probe(sources[0].id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(server.control().movie_gets(), 0);
+    assert!(!events.iter().any(|event| {
+        event.kind == DomainEventKind::LibraryScanned
+            && event.subject == DomainEventSubject::Library(library_id)
+    }));
+}
+
+#[tokio::test]
 async fn app_startup_persists_all_configured_libraries_with_library_scoped_roots() {
     let temp = tempfile::tempdir().unwrap();
     let movies_id = LibraryId::new();

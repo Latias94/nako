@@ -391,6 +391,15 @@ same redacted Admin job summary, `requested`, `terminal`, and
 `cancel_requested_at`; it never returns raw job input, summary, error text,
 source locators, paths, storage handles, provider payloads, tokens, or secrets.
 
+Current cooperative checkpoint coverage is boundary based. Metadata
+maintenance checks before each item refresh. Library scan checks before scan
+indexing, before probe, and before success publication; an in-flight VFS scan
+or probe is allowed to finish, but a later checkpoint can still acknowledge
+operator cancellation before the next side-effect boundary. NFO import/export
+checks before and after the app-level NFO service call; per-sidecar
+read/write checkpoints require a `taru-nfo` service API follow-on and must not
+be implied by the Admin response.
+
 ## Current Routes
 
 ```text

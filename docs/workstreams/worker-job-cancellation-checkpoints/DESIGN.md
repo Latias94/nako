@@ -149,6 +149,12 @@ Checkpoints should not claim to roll back work already committed. If a provider
 request, VFS operation, or filesystem write is already in flight, the first
 slice may finish that operation and stop before the next one.
 
+For NFO library-wide jobs, the app layer can only check before and after the
+current `NfoService` call. Per-sidecar checkpoints require a `taru-nfo` service
+API that accepts a cancellation boundary before each source read/write; until
+that exists, Admin docs must describe NFO cancellation as app-level and
+boundary-based.
+
 ## Redaction Policy
 
 Admin responses and docs may expose:

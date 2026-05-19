@@ -53,15 +53,22 @@ Last updated: 2026-05-19
 
 ## M3 - Additional Worker Boundaries
 
-- [ ] WJCC-040 [owner=codex] [deps=WJCC-030] [scope=crates/taru-server/src/app/jobs.rs,crates/taru-server/src/app/nfo.rs,docs/api]
+- [x] WJCC-040 [owner=codex] [deps=WJCC-030] [scope=crates/taru-server/src/app/jobs.rs,crates/taru-server/src/app/nfo.rs,docs/api]
   Goal: Add cancellation checkpoints or explicit follow-on notes for library
   scan/probe and NFO import/export without pretending mid-operation rollback.
   Validation: `cargo nextest run -p taru-server job_runtime --no-fail-fast`; targeted package checks for touched modules.
   Review: Checkpoints must sit before new side-effect units, not after success
   events or after irreversible writes.
   Evidence: Tests or documented split decisions for each touched worker.
-  Handoff: Remaining job kinds should be split if they require deeper crate
-  changes.
+  Result: DONE. Library scan now uses the context-aware durable runtime and
+  checks cancellation before scan indexing, before probe, and before success
+  publication; cancelled scan runs skip the `LibraryScanned` outbox event. NFO
+  import/export now use the context-aware runtime with app-level pre/post
+  service checkpoints, while per-sidecar checkpoints are explicitly split to a
+  follow-on `taru-nfo` service API boundary.
+  Handoff: `WJCC-050` should close this lane and split remaining webhook,
+  addon, retry/backoff, lease-stealing, child-process, and per-sidecar NFO
+  work into separate lanes.
 
 ## M4 - Closeout Or Split Remaining Worker Migrations
 
