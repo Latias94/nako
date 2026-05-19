@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.taru.android.browse.BrowseFailureCategory
@@ -54,7 +55,12 @@ fun TaruBrowseShell(
     ),
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
-    var navigationState by remember(profile.id) { mutableStateOf(TaruBrowseNavigationState.root()) }
+    var navigationState by rememberSaveable(
+        profile.id,
+        stateSaver = TaruBrowseNavigationStateSaver,
+    ) {
+        mutableStateOf(TaruBrowseNavigationState.root())
+    }
     val selectedDestination = navigationState.selectedDestination
     val route = navigationState.currentRoute
     var refreshKey by remember { mutableIntStateOf(0) }

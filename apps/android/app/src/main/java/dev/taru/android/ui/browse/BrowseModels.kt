@@ -41,6 +41,7 @@ internal class TaruRouteStack private constructor(
     val current: TaruRoute = entries.last()
     val isAtRoot: Boolean = entries.size == 1
     val canPop: Boolean = !isAtRoot
+    val routes: List<TaruRoute> = entries
 
     init {
         require(entries.isNotEmpty()) { "Taru route stack cannot be empty." }
