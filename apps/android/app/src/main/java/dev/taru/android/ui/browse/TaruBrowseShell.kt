@@ -1,5 +1,6 @@
 package dev.taru.android.ui.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -53,8 +54,9 @@ fun TaruBrowseShell(
     ),
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
-    var selectedDestination by remember { mutableStateOf(TaruDestination.Home) }
-    var route by remember(profile.id) { mutableStateOf<TaruRoute>(TaruRoute.TopLevel) }
+    var navigationState by remember(profile.id) { mutableStateOf(TaruBrowseNavigationState.root()) }
+    val selectedDestination = navigationState.selectedDestination
+    val route = navigationState.currentRoute
     var refreshKey by remember { mutableIntStateOf(0) }
     var browseState by remember(profile.id, refreshKey) {
         mutableStateOf<BrowseUiState>(BrowseUiState.Loading)
@@ -178,12 +180,18 @@ fun TaruBrowseShell(
         )
     }
 
+    BackHandler(enabled = navigationState.canNavigateBack) {
+        navigationState = navigationState.navigateBack()
+    }
+
     TaruAdaptiveAppShell(
         modifier = modifier,
         destinations = shellDestinations,
         selectedDestination = selectedDestination,
-        navigationVisible = route is TaruRoute.TopLevel,
-        onDestinationSelected = { selectedDestination = it },
+        navigationVisible = navigationState.navigationVisible,
+        onDestinationSelected = {
+            navigationState = navigationState.selectDestination(it)
+        },
     ) { innerPadding ->
         TaruRouteTransition(
             targetState = route,
@@ -207,11 +215,15 @@ fun TaruBrowseShell(
                     },
                     onRetrySearch = { searchRefreshKey += 1 },
                     onChangeServer = onChangeServer,
-                    onOpenItem = { route = TaruRoute.ItemDetail(it.id) },
-                    onOpenLibrary = { selectedDestination = TaruDestination.Libraries },
-                    onOpenSearch = { selectedDestination = TaruDestination.Search },
-                    onOpenServerProfile = { route = TaruRoute.ServerProfile },
-                    onOpenFacet = { route = TaruRoute.BrowseFacet(it) },
+                    onOpenItem = { navigationState = navigationState.open(TaruRoute.ItemDetail(it.id)) },
+                    onOpenLibrary = {
+                        navigationState = navigationState.selectDestination(TaruDestination.Libraries)
+                    },
+                    onOpenSearch = {
+                        navigationState = navigationState.selectDestination(TaruDestination.Search)
+                    },
+                    onOpenServerProfile = { navigationState = navigationState.open(TaruRoute.ServerProfile) },
+                    onOpenFacet = { navigationState = navigationState.open(TaruRoute.BrowseFacet(it)) },
                 )
                 is TaruRoute.ItemDetail -> DetailRouteContent(
                     state = detailState,
@@ -223,11 +235,11 @@ fun TaruBrowseShell(
                         selectedSourceId = requestedSourceId,
                         positionStore = positionStore,
                     ),
-                    onBack = { route = TaruRoute.TopLevel },
+                    onBack = { navigationState = navigationState.navigateBack() },
                     onRetry = { detailRefreshKey += 1 },
                     onRetryPlayback = { playbackRefreshKey += 1 },
                     onChangeServer = onChangeServer,
-                    onOpenFacet = { route = TaruRoute.BrowseFacet(it) },
+                    onOpenFacet = { navigationState = navigationState.open(TaruRoute.BrowseFacet(it)) },
                     onRequestPlayback = {
                         requestedSourceId = it
                         playbackRefreshKey += 1
@@ -245,22 +257,24 @@ fun TaruBrowseShell(
                                 mediaItemId = item.id,
                                 sourceId = sourceId,
                             )
-                            route = TaruRoute.Player(
-                                playbackLaunchRequest(
-                                    title = title,
-                                    target = target,
-                                    serverProfileId = profile.id,
-                                    mediaItemId = item.id,
-                                    sourceId = sourceId,
-                                    playbackMode = playbackState.contentOrNull()
-                                        ?.response
-                                        ?.decision
-                                        ?.mode
-                                        ?: ClientPlaybackMode.DirectPlay,
-                                    sessionId = null,
-                                    resumePositionMs = positionKey
-                                        .let(positionStore::load)
-                                        ?.positionMs,
+                            navigationState = navigationState.open(
+                                TaruRoute.Player(
+                                    playbackLaunchRequest(
+                                        title = title,
+                                        target = target,
+                                        serverProfileId = profile.id,
+                                        mediaItemId = item.id,
+                                        sourceId = sourceId,
+                                        playbackMode = playbackState.contentOrNull()
+                                            ?.response
+                                            ?.decision
+                                            ?.mode
+                                            ?: ClientPlaybackMode.DirectPlay,
+                                        sessionId = null,
+                                        resumePositionMs = positionKey
+                                            .let(positionStore::load)
+                                            ?.positionMs,
+                                    ),
                                 ),
                             )
                         }
@@ -272,21 +286,21 @@ fun TaruBrowseShell(
                     tokenVault = tokenVault,
                     playbackClient = playbackClient,
                     positionStore = positionStore,
-                    onBack = { route = TaruRoute.TopLevel },
+                    onBack = { navigationState = navigationState.navigateBack() },
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
                     target = currentRoute.target,
                     state = facetState,
-                    onBack = { route = TaruRoute.TopLevel },
+                    onBack = { navigationState = navigationState.navigateBack() },
                     onRetry = { facetRefreshKey += 1 },
                     onChangeServer = onChangeServer,
-                    onOpenItem = { route = TaruRoute.ItemDetail(it.id) },
+                    onOpenItem = { navigationState = navigationState.open(TaruRoute.ItemDetail(it.id)) },
                 )
                 TaruRoute.ServerProfile -> ServerProfileScreen(
                     activeProfile = profile,
                     snapshot = snapshot,
                     tokenVault = tokenVault,
-                    onBack = { route = TaruRoute.TopLevel },
+                    onBack = { navigationState = navigationState.navigateBack() },
                     onChangeServer = onChangeServer,
                     onSnapshotChanged = onSnapshotChanged,
                 )

@@ -711,15 +711,16 @@ function Open-SmokeMediaDetail {
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
 }
 
-function Return-ToSmokeMediaHome {
+function Return-ToSmokeMediaDetail {
     param(
         [string]$AdbPath,
         [string]$DeviceSerial,
         [string]$OutputDir
     )
 
-    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK') -FailureMessage 'adb back failed while leaving facet route.'
-    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail' -TimeoutSeconds 25
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Night Harbor' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
 }
 
 function Assert-SmokeFacetRoute {
@@ -958,6 +959,16 @@ if ($stateMode -eq 'empty-setup') {
         'Server Access Token',
         'Token reference is stored locally; token value is never shown.'
     )
+
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Client identity, playback defaults, and safe diagnostics.'
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'settings-after-profile-back' -RequiredText @(
+        'Settings',
+        'Client identity, playback defaults, and safe diagnostics.',
+        'Account Access',
+        'Playback',
+        'Server profile'
+    )
 } elseif ($stateMode -eq 'profile-with-media') {
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 35
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
@@ -985,14 +996,18 @@ if ($stateMode -eq 'empty-setup') {
         'unknown'
     )
     $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Mystery' -FacetLabel 'Mystery' -FamilyLabel 'Genre' -Name 'facet-genre'
-    Return-ToSmokeMediaHome -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-facet-back' -RequiredText @(
+        'Night Harbor',
+        'Resume',
+        'Check source',
+        'Needs check'
+    )
 
-    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Lighthouse' -MaxSwipes 6
     $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'facet-tag'
-    Return-ToSmokeMediaHome -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
-    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Cast & Crew' -MaxSwipes 7
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-cast-crew' -RequiredText @(
         'Cast & Crew',
@@ -1002,9 +1017,7 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -FacetLabel 'Actor / as Keeper' -FamilyLabel 'Person' -Name 'facet-person' -AdditionalRequiredText @(
         'Mira Vale'
     )
-    Return-ToSmokeMediaHome -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
-
-    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume on this device'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-local-resume' -RequiredText @(
@@ -1038,6 +1051,18 @@ if ($stateMode -eq 'empty-setup') {
         'Direct',
         'Local resume 0:01',
         'Tracks and subtitles use Media3 controls in this version.'
+    ) -ForbiddenText @(
+        'Continue Watching',
+        'User Playback State'
+    )
+
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText @(
+        'Night Harbor',
+        'Resume',
+        'Check source',
+        'Needs check'
     ) -ForbiddenText @(
         'Continue Watching',
         'User Playback State'

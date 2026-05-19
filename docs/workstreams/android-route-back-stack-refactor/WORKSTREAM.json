@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "slug": "android-route-back-stack-refactor",
+  "title": "Android Route Back-Stack Refactor",
+  "status": "closed",
+  "updated": "2026-05-19",
+  "scope_kind": "architecture",
+  "problem": "Android browse shell navigation uses a single route variable, so child screens overwrite their parent context and Back returns to Top Level instead of the prior workflow page.",
+  "summary": "Closed lane for a tested Android navigation state model and smoke-proven context-preserving Back behavior.",
+  "current_milestone": null,
+  "current_task": null,
+  "task_prefix": "ARB",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-route-back-stack-refactor/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-route-back-stack-refactor/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-route-back-stack-refactor/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-route-back-stack-refactor/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-route-back-stack-refactor/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruRouteStackTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1 -FixtureState profile-with-media",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States empty-setup,profile-missing-token,profile-with-media -SkipBuild",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ARB-010",
+      "path": "docs/workstreams/android-route-back-stack-refactor/DESIGN.md",
+      "notes": "Boundary freeze for Android browse shell route/back-stack behavior."
+    },
+    {
+      "task": "ARB-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/TaruRouteStackTest.kt",
+      "notes": "Focused route stack and navigation state tests passed on 2026-05-19."
+    },
+    {
+      "task": "ARB-030",
+      "path": "apps/android/build/smoke-regression/20260519-112540/report.md",
+      "notes": "Three-state smoke regression passed with context-preserving Back evidence."
+    },
+    {
+      "task": "ARB-040",
+      "path": "docs/workstreams/android-route-back-stack-refactor/EVIDENCE_AND_GATES.md",
+      "notes": "Closeout evidence recorded on 2026-05-19."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "notes": "Workstream is closed. Open a new lane for deep links, route serialization, or process-death restoration."
+  }
+}
