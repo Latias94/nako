@@ -1,6 +1,6 @@
 # User Playback State Contract Milestones
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-19
 
 ## M0 - Contract Freeze
@@ -16,8 +16,10 @@ Exit criteria:
 Evidence:
 
 - `TODO.md` UPS-010 complete
+- `CONTRACT.md`
 - `DESIGN.md`
 - `EVIDENCE_AND_GATES.md`
+- `docs/adr/0028-user-playback-state-principal-and-public-contract.md`
 
 ## M1 - Server Authority
 

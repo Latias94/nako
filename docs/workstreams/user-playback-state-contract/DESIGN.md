@@ -1,6 +1,6 @@
 # User Playback State Contract
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -21,7 +21,13 @@ Metadata**, **Media Technical Facts**, or local Android storage.
     **Library Item State** definitions.
 - Existing docs:
   - `docs/api/HTTP_API.md`
+  - `docs/workstreams/user-playback-state-contract/CONTRACT.md`
   - `docs/workstreams/android-client-foundation/CLIENT_INTERFACE_DESIGN.md`
+- Architecture decisions:
+  - `docs/adr/0023-public-api-versioning-and-error-envelope-contract.md`
+  - `docs/adr/0024-inbound-token-authentication-boundary.md`
+  - `docs/adr/0025-openapi-public-client-sdk-contract.md`
+  - `docs/adr/0028-user-playback-state-principal-and-public-contract.md`
 - Related workstreams:
   - `docs/workstreams/android-client-foundation/`
   - `docs/workstreams/android-device-local-playback-position/`
@@ -63,6 +69,24 @@ When this lane closes:
 - Rust SDK, TypeScript SDK, API docs, and smoke/local validation agree on the
   shipped contract.
 
+## UPS-010 Contract Freeze
+
+UPS-010 freezes the first public route and DTO contract in
+`CONTRACT.md`. The implementation target is deliberately narrow:
+
+- current-user routes under `/users/me/playback-state/...`;
+- lookup state for one Media Item;
+- Continue Watching for the resolved principal;
+- progress reporting;
+- explicit watched/unwatched transitions;
+- server-owned watched threshold policy;
+- **Single-Admin Mode** principal resolution to the stable internal
+  `local-admin` principal.
+
+Favorites, hidden state, and user rating remain **User Playback State** domain
+concepts, but first-slice routes intentionally defer them. They must not be
+modeled as global Media Item metadata.
+
 ## In Scope
 
 - Contract design for **User Playback State** public routes.
@@ -83,6 +107,7 @@ When this lane closes:
 - Downloads/offline playback.
 - Audio/subtitle/chapter track selection.
 - Admin-only diagnostics beyond what is needed to test the public contract.
+- First-slice routes for favorites, hidden state, or user rating.
 
 ## Starting Assumptions
 
@@ -90,7 +115,7 @@ When this lane closes:
 | --- | --- | --- | --- |
 | **User Playback State** must remain distinct from **Canonical Metadata** and **Media Technical Facts**. | High | `CONTEXT.md` explicitly separates these terms. | Data model would pollute shared item facts with per-user state. |
 | Android's existing device-local resume is useful as fallback but cannot back Continue Watching claims. | High | `android-device-local-playback-position` closed with server state out of scope. | The app may falsely present cross-device behavior. |
-| Single-Admin Mode can start with a stable internal user principal. | Medium | Current public API uses bearer-token auth, not accounts. | A later account system may need migration or principal remapping. |
+| Single-Admin Mode can start with a stable internal user principal. | High | ADR-0028 freezes `local-admin` as the first stable internal principal. | A later account system may need migration or principal remapping. |
 | Progress reporting should be idempotent and tolerant of frequent player ticks. | High | Mobile playback emits many position updates and may background/exit abruptly. | Naive writes could overload storage or regress playback. |
 | Watched thresholds need a server-owned policy. | Medium | Clients differ in duration knowledge and exit behavior. | Client-only thresholds will diverge across Android, web, and SDK users. |
 
@@ -101,11 +126,12 @@ The domain record should belong in `taru-core`, storage in `taru-db`, mapping
 and DTOs in `taru-api`/`taru-client-protocol`, route orchestration in
 `taru-server`, and Android consumption under the existing public client layer.
 
-The first slice should define a stable principal even in **Single-Admin Mode**,
-for example a reserved local admin user id. The principal must be explicit in
-storage and service boundaries, even if the HTTP auth layer initially resolves
-every accepted admin bearer token to that principal. This keeps the data model
-ready for later user accounts without rewriting every playback-state row.
+The first slice defines a stable principal even in **Single-Admin Mode**. The
+HTTP auth layer resolves every accepted admin bearer token to the internal
+`local-admin` principal before playback-state services run. The principal must
+be explicit in storage and service boundaries. Bearer token values must never be
+stored as user ids. This keeps the data model ready for later user accounts
+without rewriting every playback-state row.
 
 Route design should separate three jobs:
 

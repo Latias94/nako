@@ -1,16 +1,16 @@
 # User Playback State Contract TODO
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-19
 
 ## M0 - Contract And Principal Freeze
 
-- [ ] UPS-010 [owner=planner] [deps=none] [scope=docs/workstreams/user-playback-state-contract, docs/api, CONTEXT.md]
+- [x] UPS-010 [owner=planner] [deps=none] [scope=docs/workstreams/user-playback-state-contract, docs/adr, CONTEXT.md]
   Goal: Freeze the first public **User Playback State** contract, including user principal strategy, DTOs, route inventory, progress semantics, watched threshold policy, and explicit non-goals.
   Validation: `git diff --check`
   Review: confirm the contract does not turn Single-Admin Mode into a permanent single-user domain model.
-  Evidence: `DESIGN.md`, `EVIDENCE_AND_GATES.md`, optional ADR if principal semantics need one.
-  Handoff: This is the first executable task. Do not implement schema or Android UI before this is complete.
+  Evidence: `CONTRACT.md`, `DESIGN.md`, `EVIDENCE_AND_GATES.md`, `docs/adr/0028-user-playback-state-principal-and-public-contract.md`.
+  Handoff: Complete. UPS-020 can implement storage/service behavior against the frozen contract.
 
 ## M1 - Server Storage And App Service
 

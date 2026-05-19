@@ -2,15 +2,19 @@
   "schema_version": 1,
   "slug": "user-playback-state-contract",
   "title": "User Playback State Contract",
-  "status": "draft",
+  "status": "active",
   "updated": "2026-05-19",
-  "scope_kind": "planning",
+  "scope_kind": "execution",
   "problem": "Taru lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
-  "current_task": "UPS-010",
+  "current_task": "UPS-020",
   "authoritative_docs": [
     {
       "role": "design",
       "path": "docs/workstreams/user-playback-state-contract/DESIGN.md"
+    },
+    {
+      "role": "contract",
+      "path": "docs/workstreams/user-playback-state-contract/CONTRACT.md"
     },
     {
       "role": "execution",
@@ -31,16 +35,21 @@
   "evidence": [
     "CONTEXT.md",
     "docs/api/HTTP_API.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
     "docs/workstreams/android-device-local-playback-position/",
     "docs/workstreams/android-public-client-api-coverage/",
     "apps/android/app/src/main/java/dev/taru/android/player/DevicePlaybackPosition.kt"
   ],
   "adr_refs": [
-    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
   ],
   "continue_policy": {
     "default_action": "run_next_task",
-    "next_task": "UPS-010",
-    "notes": "Freeze the public User Playback State contract and user principal semantics before implementation. Do not let Android local resume become cross-device Continue Watching."
+    "next_task": "UPS-020",
+    "notes": "Implement storage and app-service behavior against CONTRACT.md and ADR-0028. Do not add favorites, hidden state, or user rating in the first route set."
   }
 }

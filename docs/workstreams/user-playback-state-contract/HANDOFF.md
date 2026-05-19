@@ -1,12 +1,17 @@
 # User Playback State Contract Handoff
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-19
 
 ## Current State
 
 This workstream was split from
 `docs/workstreams/android-public-client-api-coverage/` APIC-060.
+
+UPS-010 is complete. The first public **User Playback State** contract is frozen
+in `CONTRACT.md`, and ADR-0028 defines how **Single-Admin Mode** resolves to an
+internal stable `local-admin` principal without making the domain permanently
+single-user.
 
 No implementation has started. The current Android behavior remains
 device-local resume through `DevicePlaybackPositionStore`; it must not be
@@ -15,17 +20,18 @@ Continue Watching.
 
 ## Next Task
 
-Run UPS-010:
+Run UPS-020:
 
-- freeze the first public route contract;
-- decide Single-Admin Mode user principal semantics;
-- decide which user-state fields are in the first slice;
-- decide whether an ADR is required before schema/API work.
+- implement the explicit principal parameter through core/server storage
+  boundaries;
+- add SQLite persistence for item/source-scoped playback state;
+- implement lookup, progress, and watched/unwatched app-service behavior;
+- cover idempotent writes, source/item validation, and watched threshold policy.
 
 Recommended validation:
 
 ```powershell
-git diff --check
+cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast
 ```
 
 ## Constraints To Preserve
@@ -37,9 +43,11 @@ git diff --check
 - Single-Admin Mode must not become a permanent single-user domain model.
 - Continue Watching should appear only when backed by authoritative server
   state.
+- UPS-020 should not add favorites, hidden state, or user rating. They are
+  deferred from the first route set.
 
 ## Parallel Work
 
-Parallel workers are safe after UPS-010 completes. Before that, contract work
-is a single-owner planning task because route names, principal semantics, and
-state fields are tightly coupled.
+Parallel workers are safe after UPS-010. Keep UPS-020 storage/service work
+separate from UPS-030 public API/SDK work until repository and service behavior
+are proven.

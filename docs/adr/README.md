@@ -46,3 +46,4 @@ evidence has been reviewed.
 - [0025: Generate Public Client OpenAPI From Protocol-Owned Wire Types](0025-openapi-public-client-sdk-contract.md)
 - [0026: Use Native Client Shells With a Shared Rust Client Core](0026-native-client-shells-with-shared-rust-client-core.md)
 - [0027: Define a Versioned Admin API Boundary for the Web Console](0027-admin-api-boundary-for-web-console.md)
+- [0028: Resolve User Playback State Through a Stable Principal](0028-user-playback-state-principal-and-public-contract.md)
