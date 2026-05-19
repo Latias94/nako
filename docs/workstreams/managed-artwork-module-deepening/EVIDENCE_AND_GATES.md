@@ -1,6 +1,6 @@
 # Managed Artwork Module Deepening Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -243,3 +243,22 @@ route/query documentation, or tests proving forbidden values are absent.
     passed; 12 tests passed.
   - `cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast`:
     passed; 13 tests passed.
+
+2026-05-19, MAMD-070 closeout:
+
+- Closed the lane after final verification.
+- No residual follow-on was split from this architecture lane. Deferred product
+  scopes remain explicitly out of scope: provider search, Public Client gallery
+  browsing, persisted thumbnail eviction, repair/re-ingest, and new runtime
+  retry/cancel semantics.
+- Fresh validation:
+  - `cargo fmt --all -- --check`: passed.
+  - `cargo check -j 2 -p taru-server -p taru-api -p taru-db --tests`:
+    passed.
+  - `cargo nextest run -j 2 -p taru-api managed_artwork --no-fail-fast`:
+    passed; 12 tests passed.
+  - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
+    tests passed.
+  - `cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast`:
+    passed; 13 tests passed.
+  - `git diff --check`: passed.

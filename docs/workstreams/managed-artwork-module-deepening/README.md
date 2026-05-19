@@ -1,6 +1,6 @@
 # Managed Artwork Module Deepening
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -50,7 +50,7 @@ remediation while preserving the existing redaction and authority rules.
 - `HANDOFF.md`
 - `WORKSTREAM.json`
 
-## Current Slice
+## Closeout
 
 `MAMD-020` extracted Selected Artwork image variant serving into a private app
 Module. `MAMD-030` extracted local Managed Artwork Artifact storage and
@@ -59,8 +59,8 @@ validation, artifact write, prepared artifact construction, and safe failure
 summary creation into an ingest pipeline Module while preserving durable job
 commit ordering. `MAMD-050` split the SQLite Managed Artwork repository adapter
 into concern-local modules. `MAMD-060` moved Managed Artwork Admin DTOs and
-redaction tests into a concern-local API module. The remaining slice is
-`MAMD-070`: verify and close or split any residual follow-ons.
+redaction tests into a concern-local API module. `MAMD-070` verified and closed
+the lane without splitting additional follow-ons.
 
 ## Operating Notes
 

@@ -108,7 +108,7 @@ attention.
   Artwork ingest failures without conflating fetch execution, publication,
   cleanup, repair, or cancellation.
 - [managed-artwork-module-deepening](managed-artwork-module-deepening/README.md):
-  active architecture follow-on for deepening Managed Artwork app/db/api
+  completed architecture follow-on for deepening Managed Artwork app/db/api
   Modules around candidates, artifacts, Selected Artwork, variants,
   lifecycle/remediation, and redaction-preserving seams without adding provider
   search, Public Client gallery, thumbnail eviction, repair/re-ingest, or new

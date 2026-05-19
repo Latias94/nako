@@ -1,12 +1,13 @@
 {
   "slug": "managed-artwork-module-deepening",
-  "status": "active",
+  "status": "completed",
   "goal": "Deepen Managed Artwork app/db/api modules without changing product semantics or redaction contracts",
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "MAMD-070",
-  "first_slice": "Verify closeout and split residual follow-ons if needed",
+  "current_task": null,
+  "first_slice": "Completed Managed Artwork app/db/api module deepening",
+  "completed_at": "2026-05-19",
   "non_goals": [
     "provider search, ranking, or provider payload expansion",
     "Public Client gallery browsing",

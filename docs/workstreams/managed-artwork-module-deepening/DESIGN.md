@@ -1,6 +1,6 @@
 # Managed Artwork Module Deepening Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Problem
@@ -89,8 +89,8 @@ local to their concern instead of growing a single `artwork.rs` adapter file.
 ### API Surface
 
 Admin and Public Client DTOs remain explicit. Redaction tests remain at the API
-surface. If DTO volume keeps growing, a later slice may split Managed Artwork
-Admin DTOs into a focused module while preserving the exported public names.
+surface. Managed Artwork Admin DTOs now live in a focused module while
+preserving the exported public names.
 
 ## Redaction Invariants
 
@@ -114,4 +114,3 @@ surfaces.
 - Work proceeds through small refactor slices with focused validation.
 - Reference projects under `repo-ref/` are for behavior and architecture study
   only; implementation remains original Taru code.
-

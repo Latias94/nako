@@ -1,6 +1,6 @@
 # Managed Artwork Module Deepening Task Ledger
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Audit
@@ -92,8 +92,11 @@ Last updated: 2026-05-19
 
 ## M6 - Closeout
 
-- [ ] MAMD-070 [owner=codex] [deps=MAMD-060] [scope=docs/workstreams/managed-artwork-module-deepening,workspace]
+- [x] MAMD-070 [owner=codex] [deps=MAMD-060] [scope=docs/workstreams/managed-artwork-module-deepening,workspace]
   Goal: Verify the lane, record evidence, list intentional residual work, and
   close or split follow-ons.
   Validation: focused gates plus formatting and whitespace checks.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
+  Result: DONE. Final low-concurrency format, compile, API, DB, server, and
+  whitespace gates passed. No residual follow-on was split from this
+  architecture lane.

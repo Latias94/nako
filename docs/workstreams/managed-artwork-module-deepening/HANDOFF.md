@@ -1,12 +1,11 @@
 # Managed Artwork Module Deepening Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
-The lane is ready for `MAMD-070` closeout. `MAMD-020` through `MAMD-060` are
-complete.
+The lane is closed. `MAMD-020` through `MAMD-070` are complete.
 
 App-layer splits:
 
@@ -49,28 +48,25 @@ API-layer split:
 
 ## Latest Validation
 
-Fresh MAMD-060 validation passed:
+Fresh MAMD-070 closeout validation passed:
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
 cargo fmt --all -- --check
-cargo check -j 2 -p taru-api --tests
-cargo check -j 2 -p taru-server --tests
+cargo check -j 2 -p taru-server -p taru-api -p taru-db --tests
 cargo nextest run -j 2 -p taru-api managed_artwork --no-fail-fast
+cargo nextest run -j 2 -p taru-db artwork --no-fail-fast
 cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast
+git diff --check
 ```
 
-## Next Task
+## Follow-Ons
 
-Run `MAMD-070` closeout:
-
-- perform final low-concurrency verification;
-- run `git diff --check`;
-- decide whether any residual work should be split into a new workstream;
-- update `WORKSTREAM.json`, `TODO.md`, `MILESTONES.md`,
-  `EVIDENCE_AND_GATES.md`, and this handoff.
+No residual follow-on was split from this architecture lane. Product scopes
+that remain intentionally out of scope should stay in their own future lanes if
+they become priority work.
 
 ## Non-Goals To Preserve
 
