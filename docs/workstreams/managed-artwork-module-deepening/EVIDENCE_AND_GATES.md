@@ -222,3 +222,24 @@ route/query documentation, or tests proving forbidden values are absent.
   - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
     tests passed.
   - `git diff --check`: passed with Git line-ending notices only.
+
+2026-05-19, MAMD-060:
+
+- Audited Managed Artwork API DTO locality:
+  - Managed Artwork Admin DTOs, conversion helpers, and redaction tests were
+    concentrated in `crates/taru-api/src/admin.rs` alongside unrelated Admin
+    DTOs;
+  - moved them into `crates/taru-api/src/admin/managed_artwork.rs`;
+  - kept `admin.rs` re-exporting the module so `taru_api::*` and HTTP callers
+    retain the same public names;
+  - left `selected_artwork_to_public_image_ref` in `public_client.rs` because
+    it is already the Public Client protocol DTO conversion boundary and is not
+    over-concentrated.
+- Fresh validation:
+  - `cargo fmt --all -- --check`: passed.
+  - `cargo check -j 2 -p taru-api --tests`: passed.
+  - `cargo check -j 2 -p taru-server --tests`: passed.
+  - `cargo nextest run -j 2 -p taru-api managed_artwork --no-fail-fast`:
+    passed; 12 tests passed.
+  - `cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast`:
+    passed; 13 tests passed.

@@ -5,8 +5,8 @@ Last updated: 2026-05-19
 
 ## Current State
 
-The lane is opened and `MAMD-020`, `MAMD-030`, `MAMD-040`, and `MAMD-050`
-are complete.
+The lane is ready for `MAMD-070` closeout. `MAMD-020` through `MAMD-060` are
+complete.
 
 App-layer splits:
 
@@ -37,48 +37,40 @@ DB-layer splits:
 - `crates/taru-db/src/artwork/artifact.rs` owns Managed Artwork Artifact
   insert/get helpers.
 
-`crates/taru-db/src/artwork.rs` still owns the existing repository trait methods
-for Managed Artwork and routes through these concern modules.
+API-layer split:
 
-## Goal
-
-Improve locality and leverage around Managed Artwork app/db/api modules while
-preserving existing public/Admin behavior and redaction contracts.
+- `crates/taru-api/src/admin/managed_artwork.rs` owns Managed Artwork Admin
+  DTOs, conversion helpers, and DTO-level redaction tests.
+- `crates/taru-api/src/admin.rs` re-exports the module so `taru_api::*` and HTTP
+  callers keep stable public names.
+- `selected_artwork_to_public_image_ref` intentionally remains in
+  `public_client.rs` because it is the Public Client protocol DTO conversion
+  boundary and remains small.
 
 ## Latest Validation
 
-Fresh MAMD-050 validation passed:
+Fresh MAMD-060 validation passed:
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
 cargo fmt --all -- --check
-cargo check -j 2 -p taru-db --tests
-cargo nextest run -j 2 -p taru-db artwork --no-fail-fast
-git diff --check
+cargo check -j 2 -p taru-api --tests
+cargo check -j 2 -p taru-server --tests
+cargo nextest run -j 2 -p taru-api managed_artwork --no-fail-fast
+cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast
 ```
-
-The `git diff --check` command only reported Git line-ending notices.
 
 ## Next Task
 
-Continue with `MAMD-060`: audit Managed Artwork DTO locality and redaction
-tests in:
+Run `MAMD-070` closeout:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-api/src/admin/**`
-- `crates/taru-api/src/public_client.rs`
-- related OpenAPI or HTTP docs only if the DTO boundary actually changes
-
-Recommended approach:
-
-- inventory Managed Artwork DTOs and conversion helpers;
-- keep explicit DTO names and redaction tests close to conversion code;
-- split API modules only if it reduces caller knowledge or removes real
-  concentration;
-- do not change OpenAPI/Public Client contracts unless the change is explicitly
-  documented and tested.
+- perform final low-concurrency verification;
+- run `git diff --check`;
+- decide whether any residual work should be split into a new workstream;
+- update `WORKSTREAM.json`, `TODO.md`, `MILESTONES.md`,
+  `EVIDENCE_AND_GATES.md`, and this handoff.
 
 ## Non-Goals To Preserve
 
@@ -89,18 +81,3 @@ Recommended approach:
 - Do not add new runtime retry, cancellation, backoff, or lease semantics.
 - Do not expose raw source URLs, storage URIs, local paths, cache URIs, or
   content hashes.
-
-## Suggested Validation
-
-```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-$env:CARGO_BUILD_JOBS='2'
-$env:NEXTEST_TEST_THREADS='1'
-cargo check -j 2 -p taru-api -p taru-server --tests
-cargo nextest run -j 2 -p taru-api managed_artwork --no-fail-fast
-cargo nextest run -j 2 -p taru-server managed_artwork --no-fail-fast
-git diff --check
-```
-
-Narrow the test filters to exact Admin/Public Client redaction tests if
-`managed_artwork` is too broad.

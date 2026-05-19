@@ -5,8 +5,8 @@
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "MAMD-060",
-  "first_slice": "Audit Managed Artwork API DTO locality and redaction boundaries",
+  "current_task": "MAMD-070",
+  "first_slice": "Verify closeout and split residual follow-ons if needed",
   "non_goals": [
     "provider search, ranking, or provider payload expansion",
     "Public Client gallery browsing",

@@ -78,12 +78,17 @@ Last updated: 2026-05-19
 
 ## M5 - API Surface Audit
 
-- [ ] MAMD-060 [owner=codex] [deps=MAMD-050] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin/**,crates/taru-api/src/public_client.rs]
+- [x] MAMD-060 [owner=codex] [deps=MAMD-050] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin/**,crates/taru-api/src/public_client.rs]
   Goal: Audit Managed Artwork DTO locality and split only if doing so reduces
   caller knowledge without weakening explicit DTO/redaction tests.
   Validation: Admin/Public Client redaction tests and OpenAPI checks.
   Evidence: redaction tests remain close to DTO conversion code.
-  Handoff: Close or split remaining follow-ons.
+  Result: DONE. Managed Artwork Admin DTOs, conversions, and redaction tests
+  moved into `crates/taru-api/src/admin/managed_artwork.rs`; `admin.rs` keeps
+  a module re-export so `taru_api::*` and HTTP callers remain stable. Public
+  Client image reference conversion stayed in `public_client.rs` because it is
+  already the protocol DTO boundary and remains small.
+  Handoff: Continue with MAMD-070 closeout.
 
 ## M6 - Closeout
 
