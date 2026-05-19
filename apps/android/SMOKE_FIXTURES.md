@@ -100,6 +100,8 @@ Expected result:
 - Home shows `Night Harbor` and visible Media Library facts from the server;
 - detail, source picker, and player surfaces are reached through Public Client
   API route shapes;
+- detail metadata proves API-backed Genre, Tag, and Person relationships by
+  opening facet result routes that return `Night Harbor`;
 - source picker and player evidence present resume as local-only state and do
   not claim cross-device **User Playback State** or Continue Watching;
 - generated evidence is written under
@@ -109,6 +111,11 @@ Captured surfaces:
 
 - `home.png`
 - `detail.png`
+- `detail-metadata.png`
+- `facet-genre.png`
+- `facet-tag.png`
+- `detail-cast-crew.png`
+- `facet-person.png`
 - `source-picker-local-resume.png`
 - `source-picker.png`
 - `player.png`

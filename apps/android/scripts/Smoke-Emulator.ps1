@@ -694,6 +694,60 @@ function Tap-UiText {
     Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'tap', $center.X, $center.Y) -FailureMessage "adb tap failed for '$Text'."
 }
 
+function Open-SmokeMediaDetail {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Night Harbor' -TimeoutSeconds 35
+    if (-not (Test-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail' -DumpName 'open-detail-check')) {
+        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK') -FailureMessage 'adb back failed while returning to home.'
+        Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail' -TimeoutSeconds 25
+    }
+
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
+}
+
+function Return-ToSmokeMediaHome {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK') -FailureMessage 'adb back failed while leaving facet route.'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail' -TimeoutSeconds 25
+}
+
+function Assert-SmokeFacetRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$TapText,
+        [string]$FacetLabel,
+        [string]$FamilyLabel,
+        [string]$Name,
+        [string[]]$AdditionalRequiredText = @()
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText -MaxSwipes 6
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Media Items' -TimeoutSeconds 25
+    $requiredText = @(
+        $FacetLabel,
+        $FamilyLabel,
+        'API backed',
+        '1 results',
+        'Related Media Items',
+        'Night Harbor'
+    ) + $AdditionalRequiredText
+    return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
+}
+
 function Capture-SmokeSurface {
     param(
         [string]$AdbPath,
@@ -914,14 +968,43 @@ if ($stateMode -eq 'empty-setup') {
         'Open detail'
     )
 
-    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Open detail'
-    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
+    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
         'Night Harbor',
         'Resume',
         'Check source',
         'Needs check'
     )
+
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Metadata' -MaxSwipes 6
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-metadata' -RequiredText @(
+        'Metadata',
+        'Mystery',
+        'Lighthouse',
+        '2026',
+        'unknown'
+    )
+    $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Mystery' -FacetLabel 'Mystery' -FamilyLabel 'Genre' -Name 'facet-genre'
+    Return-ToSmokeMediaHome -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+
+    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Lighthouse' -MaxSwipes 6
+    $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'facet-tag'
+    Return-ToSmokeMediaHome -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+
+    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Cast & Crew' -MaxSwipes 7
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-cast-crew' -RequiredText @(
+        'Cast & Crew',
+        'Actor / as Keeper',
+        'Open related Media Items from this person.'
+    )
+    $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -FacetLabel 'Actor / as Keeper' -FamilyLabel 'Person' -Name 'facet-person' -AdditionalRequiredText @(
+        'Mira Vale'
+    )
+    Return-ToSmokeMediaHome -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+
+    Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume on this device'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-local-resume' -RequiredText @(
