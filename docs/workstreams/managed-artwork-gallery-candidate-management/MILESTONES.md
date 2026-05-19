@@ -1,6 +1,6 @@
 # Managed Artwork Gallery Candidate Management Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Open Management Boundary
@@ -51,4 +51,4 @@ Exit criteria:
 - Workstream docs record evidence and follow-ons.
 - No raw locator/hash exposure is introduced.
 
-Status: Pending.
+Status: Done. Fresh closeout gates passed and follow-ons are documented.

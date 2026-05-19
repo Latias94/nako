@@ -1,6 +1,6 @@
 # Managed Artwork Gallery Candidate Management
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -58,4 +58,10 @@ token material, or content hash values.
 idempotent, preserves the Selected Artwork public ID when replacing the slot,
 and rejects artifacts that do not belong to the requested item/kind.
 
-Next up is `MAGC-040`: closeout and follow-on splitting.
+## Closeout
+
+This lane is complete. Taru now has a redacted Admin item artwork gallery and a
+guarded item/kind-scoped selection command. Public Client artwork remains
+Selected Artwork only. Unpublish/delete behavior, Public candidate/gallery
+browsing, persisted variant cache/eviction, durable retry/cancel, and
+missing-artifact repair remain split follow-ons.

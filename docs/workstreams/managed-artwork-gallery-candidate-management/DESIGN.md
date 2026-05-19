@@ -1,6 +1,6 @@
 # Managed Artwork Gallery Candidate Management Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Problem
@@ -73,8 +73,9 @@ POST   /admin/v1/items/{item_id}/artwork/{kind}/select
 DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection
 ```
 
-Those commands are intentionally deferred until the read model proves the
-terminology and redaction contract.
+The item/kind-scoped select command shipped in this lane. Unpublish remains
+deferred because it needs explicit retention and public image visibility
+policy.
 
 ## Architecture Direction
 
@@ -113,3 +114,7 @@ This lane can close when the item-scoped Admin gallery read model and at least
 one safe selection management action are implemented, documented, and verified
 with tests proving no raw source, cache, storage, path, token, or content-hash
 values leak through Admin/Public responses.
+
+Status: Closed. The shipped read model is
+`GET /admin/v1/items/{item_id}/artwork`, and the shipped selection command is
+`POST /admin/v1/items/{item_id}/artwork/{kind}/select`.

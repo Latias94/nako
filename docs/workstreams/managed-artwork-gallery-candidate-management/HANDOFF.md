@@ -1,26 +1,27 @@
 # Managed Artwork Gallery Candidate Management Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
-This lane is open and `MAGC-030` is complete.
+This lane is complete.
 
 The lane owns Admin management for item-scoped artwork choices after the
 candidate ingest, artifact storage, selected artwork publication, public image
 serving, lifecycle cleanup, remediation policy, and thumbnail variant lanes.
 
-## Next Step
+## Completion
 
-Implement `MAGC-040`:
+Shipped:
 
-- run closeout verification gates;
-- decide whether remaining work belongs in this lane or split follow-ons;
-- update `EVIDENCE_AND_GATES.md`, `MILESTONES.md`, `WORKSTREAM.json`, and this
-  handoff;
-- keep unpublish/delete behavior out of closeout unless a separate retention
-  policy is designed and tested.
+- `GET /admin/v1/items/{item_id}/artwork?limit=50&offset=0`
+- `POST /admin/v1/items/{item_id}/artwork/{kind}/select`
+- redacted Admin gallery DTOs;
+- repository-level item/kind guard for Selected Artwork replacement;
+- `has_content_hash` instead of content hash values in Admin artifact
+  summaries;
+- HTTP docs and focused redaction tests.
 
 ## Blockers
 
@@ -55,6 +56,7 @@ None known.
 
 ## Follow-Ons Outside This Lane
 
+- Selected Artwork unpublish/delete policy.
 - Public Client candidate/gallery browsing.
 - Persisted thumbnail/variant cache and eviction.
 - `managed-artwork-ingest-runtime-controls`.

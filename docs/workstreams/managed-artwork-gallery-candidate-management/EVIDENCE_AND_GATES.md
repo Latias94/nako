@@ -1,6 +1,6 @@
 # Managed Artwork Gallery Candidate Management Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -116,6 +116,30 @@ absent.
   behavior.
 - Fresh focused validation so far:
   - `cargo nextest run -p taru-db publishes_selected_artwork_with_item_kind_guard --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
+
+2026-05-19, MAGC-040 closeout:
+
+- Closeout claim:
+  - item-scoped Admin gallery read model is implemented and documented;
+  - item/kind-scoped selection management is implemented and documented;
+  - Public Client image responses remain Selected Artwork only;
+  - unpublish/delete, Public gallery browsing, persisted variant cache,
+    retry/cancel, and repair/re-ingest are split follow-ons.
+- Fresh closeout validation:
+  - `rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|gallery|candidate|selected_artwork" crates/taru-api crates/taru-server/src/http docs/api`
+    completed. Remaining hits are route names, docs stating forbidden fields,
+    safe boolean fields such as `has_content_hash`, internal/admin tests, and
+    redaction assertions.
+  - `cargo nextest run -p taru-api managed_artwork_gallery --no-fail-fast`
     passed.
   - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
     passed.

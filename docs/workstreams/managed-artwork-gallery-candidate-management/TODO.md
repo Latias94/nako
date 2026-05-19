@@ -1,6 +1,6 @@
 # Managed Artwork Gallery Candidate Management Task Ledger
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Contract
@@ -47,11 +47,11 @@ Last updated: 2026-05-19
 
 ## M3 - Closeout
 
-- [ ] MAGC-040 [owner=codex] [deps=MAGC-030] [scope=workspace,docs]
+- [x] MAGC-040 [owner=codex] [deps=MAGC-030] [scope=workspace,docs]
   Goal: Close the lane with fresh validation evidence, documented route
   contract, and explicit follow-ons.
   Validation: focused nextest gates; relevant cargo check; `cargo fmt --all
   -- --check`; `git diff --check`; redaction inventory.
   Evidence: `EVIDENCE_AND_GATES.md` and `HANDOFF.md`.
   Handoff: Split Public gallery browsing, unpublish behavior, persisted variant
-  cache/eviction, retry/cancel, and repair/re-ingest.
+  cache/eviction, retry/cancel, and repair/re-ingest. This lane is complete.
