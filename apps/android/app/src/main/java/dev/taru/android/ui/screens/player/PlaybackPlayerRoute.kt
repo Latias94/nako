@@ -62,9 +62,9 @@ import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionStore
+import dev.taru.android.player.PlaybackExitSnapshot
 import dev.taru.android.player.PlaybackLaunchRequest
-import dev.taru.android.player.UserPlaybackStateReport
-import dev.taru.android.player.userPlaybackStateReport
+import dev.taru.android.player.applyPlaybackExitEffects
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
@@ -256,56 +256,36 @@ private fun persistPositionAndCancelSession(
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
 ) {
-    val isEnded = player.playbackState == Player.STATE_ENDED
-    val positionMs = player.currentPosition
-    val durationMs = player.duration.takeIf { it > 0L }
-    if (isEnded || positionMs <= 0L) {
-        positionStore.clear(launch.positionKey)
-    } else {
-        positionStore.save(
-            DevicePlaybackPosition(
-                key = launch.positionKey,
-                positionMs = positionMs,
-                durationMs = durationMs,
-                updatedAtMillis = System.currentTimeMillis(),
-            ),
-        )
-    }
-    val sessionId = launch.sessionId?.takeIf { it.isNotBlank() }
-    val report = userPlaybackStateReport(
-        launch = launch,
-        isEnded = isEnded,
-        positionMs = positionMs,
-        durationMs = durationMs,
+    val snapshot = PlaybackExitSnapshot(
+        isEnded = player.playbackState == Player.STATE_ENDED,
+        positionMs = player.currentPosition,
+        durationMs = player.duration,
     )
-    if (report != null || (!isEnded && sessionId != null)) {
-        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-        if (accessToken.isNotBlank()) {
-            CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-                when (report) {
-                    is UserPlaybackStateReport.Progress -> userPlaybackClient.updateProgress(
-                        profile = profile,
-                        accessToken = accessToken,
-                        itemId = report.itemId,
-                        request = report.request,
-                    )
-                    is UserPlaybackStateReport.Watched -> userPlaybackClient.setWatchedState(
-                        profile = profile,
-                        accessToken = accessToken,
-                        itemId = report.itemId,
-                        request = report.request,
-                    )
-                    null -> Unit
-                }
-                if (!isEnded && sessionId != null) {
-                    playbackClient.cancelPlaybackSession(
-                        profile = profile,
-                        accessToken = accessToken,
-                        sessionId = sessionId,
-                    )
-                }
-            }
-        }
+    CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+        applyPlaybackExitEffects(
+            launch = launch,
+            snapshot = snapshot,
+            profile = profile,
+            readAccessToken = tokenVault::readToken,
+            positionStore = positionStore,
+            updateProgress = { updateProfile, accessToken, itemId, report ->
+                userPlaybackClient.updateProgress(
+                    profile = updateProfile,
+                    accessToken = accessToken,
+                    itemId = itemId,
+                    request = report.request,
+                )
+            },
+            setWatchedState = { watchedProfile, accessToken, itemId, report ->
+                userPlaybackClient.setWatchedState(
+                    profile = watchedProfile,
+                    accessToken = accessToken,
+                    itemId = itemId,
+                    request = report.request,
+                )
+            },
+            cancelPlaybackSession = playbackClient::cancelPlaybackSession,
+        )
     }
 }
 

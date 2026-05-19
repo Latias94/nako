@@ -438,8 +438,14 @@ async fn remux_stream_route_runs_and_reuses_completed_output() {
             .and_then(|value| value.to_str().ok()),
         Some("bytes 1-4/7")
     );
+    let session_header = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&bytes[..], b"emux");
+    assert!(session_header.is_some());
 
     fs::remove_file(ffmpeg_path).unwrap();
 
@@ -457,6 +463,52 @@ async fn remux_stream_route_runs_and_reuses_completed_output() {
     assert_eq!(reused.status(), StatusCode::OK);
     let bytes = to_bytes(reused.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&bytes[..], b"remuxed");
+}
+
+#[tokio::test]
+async fn head_remux_stream_route_exposes_session_without_body() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("video/mp4")
+    );
+    let session = store
+        .find_latest_transcode_session(
+            source.id,
+            TranscodeSessionKind::Remux,
+            &local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let session_id = session.id.to_string();
+    assert_eq!(
+        response
+            .headers()
+            .get(PLAYBACK_SESSION_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(session_id.as_str())
+    );
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert!(bytes.is_empty());
 }
 
 #[tokio::test]
@@ -690,6 +742,11 @@ async fn hls_playlist_and_segment_routes_work() {
             .and_then(|value| value.to_str().ok()),
         Some("application/vnd.apple.mpegurl")
     );
+    let session_header = playlist_response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
 
     let session = store
         .find_latest_transcode_session(
@@ -700,6 +757,7 @@ async fn hls_playlist_and_segment_routes_work() {
         .await
         .unwrap()
         .unwrap();
+    assert_eq!(session_header, Some(session.id.to_string()));
     let playlist = String::from_utf8(
         to_bytes(playlist_response.into_body(), usize::MAX)
             .await

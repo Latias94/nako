@@ -1,6 +1,6 @@
 use serde_json::{Map, Value, json};
 
-use crate::{API_VERSION, API_VERSION_HEADER, ClientErrorCode};
+use crate::{API_VERSION, API_VERSION_HEADER, ClientErrorCode, PLAYBACK_SESSION_ID_HEADER};
 
 #[must_use]
 pub fn public_openapi_v1() -> Value {
@@ -32,6 +32,13 @@ pub fn public_openapi_v1() -> Value {
                     "schema": {
                         "type": "string",
                         "enum": ["Bearer"]
+                    }
+                },
+                "TaruPlaybackSessionId": {
+                    "description": "Public playback session id associated with a remux or HLS response.",
+                    "schema": {
+                        "type": "string",
+                        "format": "uuid"
                     }
                 }
             },
@@ -228,9 +235,14 @@ fn public_paths() -> Value {
     paths.insert(
         "/sources/{source_id}/stream/remux".to_owned(),
         json!({
-            "get": binary_get(
+            "get": session_binary_get(
                 "remuxStreamSource",
                 "Run or reuse remux output and stream bytes.",
+                remux_parameters("source_id")
+            ),
+            "head": session_empty_head(
+                "headRemuxStreamSource",
+                "Preflight remux stream headers and expose playback session identity.",
                 remux_parameters("source_id")
             )
         }),
@@ -238,7 +250,7 @@ fn public_paths() -> Value {
     paths.insert(
         "/sources/{source_id}/stream/hls/playlist.m3u8".to_owned(),
         json!({
-            "get": text_get(
+            "get": session_text_get(
                 "hlsPlaylistSource",
                 "Start or reuse HLS transcode and return a playlist.",
                 playback_parameters("source_id")
@@ -382,6 +394,27 @@ fn binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Valu
     binary_get_with_tag(operation_id, summary, "playback", parameters)
 }
 
+fn session_binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    operation(
+        operation_id,
+        summary,
+        "playback",
+        parameters,
+        json!({
+            "description": "Binary stream.",
+            "headers": playback_session_headers(),
+            "content": {
+                "application/octet-stream": {
+                    "schema": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                }
+            }
+        }),
+    )
+}
+
 fn binary_get_with_tag(
     operation_id: &str,
     summary: &str,
@@ -408,7 +441,7 @@ fn binary_get_with_tag(
     )
 }
 
-fn text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+fn session_text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
     operation(
         operation_id,
         summary,
@@ -416,12 +449,25 @@ fn text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value 
         parameters,
         json!({
             "description": "Text response.",
-            "headers": api_version_headers(),
+            "headers": playback_session_headers(),
             "content": {
                 "application/vnd.apple.mpegurl": {
                     "schema": string_schema()
                 }
             }
+        }),
+    )
+}
+
+fn session_empty_head(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    operation(
+        operation_id,
+        summary,
+        "playback",
+        parameters,
+        json!({
+            "description": "Headers only.",
+            "headers": playback_session_headers()
         }),
     )
 }
@@ -620,6 +666,13 @@ fn schema_ref(name: &str) -> Value {
 
 fn api_version_headers() -> Value {
     json!({API_VERSION_HEADER: header_ref("TaruApiVersion")})
+}
+
+fn playback_session_headers() -> Value {
+    json!({
+        API_VERSION_HEADER: header_ref("TaruApiVersion"),
+        PLAYBACK_SESSION_ID_HEADER: header_ref("TaruPlaybackSessionId")
+    })
 }
 
 fn string_schema() -> Value {
@@ -1022,6 +1075,10 @@ mod tests {
             document["components"]["headers"]["TaruApiVersion"]["schema"]["enum"][0],
             API_VERSION
         );
+        assert_eq!(
+            document["components"]["headers"]["TaruPlaybackSessionId"]["schema"]["format"],
+            "uuid"
+        );
         assert!(
             document["components"]["responses"]["Unauthorized"]["headers"]
                 .get("www-authenticate")
@@ -1084,6 +1141,21 @@ mod tests {
             document["paths"]["/images/{image_id}"]["get"]["responses"]["200"]["content"]["application/octet-stream"]
                 ["schema"]["format"],
             "binary"
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["responses"]
+                ["200"]["headers"][PLAYBACK_SESSION_ID_HEADER]["$ref"],
+            "#/components/headers/TaruPlaybackSessionId"
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/stream/remux"]["get"]["responses"]["200"]["headers"]
+                [PLAYBACK_SESSION_ID_HEADER]["$ref"],
+            "#/components/headers/TaruPlaybackSessionId"
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/stream/remux"]["head"]["responses"]["200"]["headers"]
+                [PLAYBACK_SESSION_ID_HEADER]["$ref"],
+            "#/components/headers/TaruPlaybackSessionId"
         );
         assert!(
             document["paths"]["/images/{image_id}"]

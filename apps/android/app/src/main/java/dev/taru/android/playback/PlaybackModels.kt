@@ -110,7 +110,12 @@ enum class ClientHardwareAcceleration {
 data class PlaybackRequestTarget(
     val request: TaruHttpRequest,
     val safeRequest: SafeRequestPreview,
-)
+    val sessionProbeRequest: TaruHttpRequest? = null,
+    val sessionId: String? = null,
+) {
+    override fun toString(): String =
+        "PlaybackRequestTarget(safeRequest=$safeRequest, hasSessionProbeRequest=${sessionProbeRequest != null}, sessionId=$sessionId)"
+}
 
 @Serializable
 data class TranscodeSessionResponse(

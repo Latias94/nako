@@ -4,6 +4,8 @@
 export const TARU_API_VERSION = "v1" as const;
 export const TARU_API_VERSION_HEADER = "x-taru-api-version" as const;
 
+export const TARU_PLAYBACK_SESSION_ID_HEADER = "x-taru-playback-session-id" as const;
+
 export const TARU_PUBLIC_PATHS = [
   "/health",
   "/libraries",
@@ -555,6 +557,10 @@ export class TaruClient {
 
   remuxStreamSource(sourceId: string, query?: RemuxPlaybackQuery, range?: string): Promise<Response> {
     return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query, range });
+  }
+
+  headRemuxStreamSource(sourceId: string, query?: RemuxPlaybackQuery): Promise<Response> {
+    return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query });
   }
 
   hlsPlaylist(sourceId: string, capabilities?: PlaybackCapabilitiesQuery): Promise<string> {

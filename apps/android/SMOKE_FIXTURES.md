@@ -106,6 +106,9 @@ Expected result:
   do not fall back to device-local resume;
 - player evidence waits for Direct Play to reach the ended state and shows the
   observed playback position/duration;
+- smoke creates a non-Direct remux playback session through Public Client API
+  `HEAD` preflight, then reads that session back through
+  `/playback/sessions/{session_id}` after returning from the Android player;
 - after leaving the player, smoke reads server **User Playback State** back and
   records that the item is watched and absent from Continue Watching;
 - generated evidence is written under
@@ -124,6 +127,7 @@ Captured surfaces:
 - `source-picker.png`
 - `player.png`
 - `profile-with-media-server-readback.txt`
+- `profile-with-media-session-readback.txt`
 - matching `*.uiautomator.xml` files
 - matching `*.criteria.txt` pass/fail files
 
@@ -134,7 +138,10 @@ Captured surfaces:
   commands, or provider payloads into fixture files or reports.
 - Do not fake server-backed User Playback State, Continue Watching, or
   unsupported browse facets as real client data.
-- Use Public Client API responses or Android-local app state only.
+- Use Public Client API responses or Android-local app state only. Session
+  smoke must use the public playback session header and
+  `/playback/sessions/{session_id}` readback route, not logs or admin
+  diagnostics.
 - The `profile-with-media` profile seed entry point exists only in the debug
   APK. Release builds must not expose smoke fixture writers.
 
@@ -181,5 +188,6 @@ These states need more work and should not be hand-waved into the smoke script:
 - `profile-empty-library`: requires a public, token-safe server/profile fixture
   that can show Home and Settings without private data.
 - `playback-ready`: the demo fixture currently prefers direct-play MP4 for a
-  player-safe launch target. Full playback quality, HLS/remux, and session
-  cancellation smoke remain deferred until they have explicit gates.
+  player-safe launch target. Full playback quality and an active non-ended
+  HLS/remux player cancellation smoke remain deferred until they have explicit
+  long-media or non-Direct runtime gates.

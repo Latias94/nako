@@ -95,31 +95,47 @@ class TaruPlaybackClient(
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
         outputContainer: ClientOutputContainer = ClientOutputContainer.Mp4,
         range: String? = null,
-    ): PlaybackRequestTarget =
-        playbackTarget(
+    ): PlaybackRequestTarget {
+        val pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream/remux${
+            remuxQuery(capabilities, outputContainer)
+        }"
+        return playbackTarget(
             profile = profile,
             accessToken = accessToken,
             method = "GET",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream/remux${
-                remuxQuery(capabilities, outputContainer)
-            }",
+            pathAndQuery = pathAndQuery,
             range = range,
+            sessionProbeRequest = authenticatedRequest(
+                profile = profile,
+                accessToken = accessToken,
+                method = "HEAD",
+                pathAndQuery = pathAndQuery,
+            ),
         )
+    }
 
     fun hlsPlaylistTarget(
         profile: ServerProfile,
         accessToken: String,
         sourceId: String,
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
-    ): PlaybackRequestTarget =
-        playbackTarget(
+    ): PlaybackRequestTarget {
+        val pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream/hls/playlist.m3u8${
+            capabilitiesQuery(capabilities)
+        }"
+        return playbackTarget(
             profile = profile,
             accessToken = accessToken,
             method = "GET",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream/hls/playlist.m3u8${
-                capabilitiesQuery(capabilities)
-            }",
+            pathAndQuery = pathAndQuery,
+            sessionProbeRequest = authenticatedRequest(
+                profile = profile,
+                accessToken = accessToken,
+                method = "GET",
+                pathAndQuery = pathAndQuery,
+            ),
         )
+    }
 
     fun hlsSegmentTarget(
         profile: ServerProfile,
@@ -179,8 +195,8 @@ class TaruPlaybackClient(
         profile: ServerProfile,
         accessToken: String,
         decision: PlaybackDecisionResponse,
-    ): PlaybackRequestTarget? =
-        when (decision.decision.mode) {
+    ): PlaybackRequestTarget? {
+        val target = when (decision.decision.mode) {
             ClientPlaybackMode.DirectPlay -> directPlaybackTarget(
                 profile = profile,
                 accessToken = accessToken,
@@ -198,6 +214,33 @@ class TaruPlaybackClient(
                 sourceId = decision.source.id,
             )
         }
+        return target
+    }
+
+    suspend fun prepareRecommendedPlaybackTarget(
+        profile: ServerProfile,
+        accessToken: String,
+        decision: PlaybackDecisionResponse,
+    ): PlaybackResult<PlaybackRequestTarget> {
+        val target = recommendedPlaybackTarget(
+            profile = profile,
+            accessToken = accessToken,
+            decision = decision,
+        ) ?: return failure(
+            category = PlaybackFailureCategory.UnsupportedSource,
+            userMessage = "The server did not return a playable route for this source.",
+        )
+
+        return when (decision.decision.mode) {
+            ClientPlaybackMode.DirectPlay -> PlaybackResult.Success(target, target.safeRequest)
+            ClientPlaybackMode.Remux,
+            ClientPlaybackMode.Transcode,
+            -> prepareSessionBackedTarget(
+                target = target,
+                accessToken = accessToken,
+            )
+        }
+    }
 
     private suspend inline fun <reified T> executeJson(
         profile: ServerProfile,
@@ -324,6 +367,7 @@ class TaruPlaybackClient(
         method: String,
         pathAndQuery: String,
         range: String? = null,
+        sessionProbeRequest: TaruHttpRequest? = null,
     ): PlaybackRequestTarget {
         val headers = buildMap {
             put("Authorization", "Bearer $accessToken")
@@ -337,6 +381,52 @@ class TaruPlaybackClient(
         return PlaybackRequestTarget(
             request = request,
             safeRequest = safeRequest(request),
+            sessionProbeRequest = sessionProbeRequest,
+        )
+    }
+
+    private suspend fun prepareSessionBackedTarget(
+        target: PlaybackRequestTarget,
+        accessToken: String,
+    ): PlaybackResult<PlaybackRequestTarget> {
+        if (!target.sessionId.isNullOrBlank()) {
+            return PlaybackResult.Success(target, target.safeRequest)
+        }
+
+        val preflightRequest = target.sessionProbeRequest ?: return failure(
+            category = PlaybackFailureCategory.MissingSession,
+            userMessage = "The playback route does not expose a public session preflight request.",
+            request = target.safeRequest,
+        )
+        val response = when (val result = executeOrFailure(preflightRequest, accessToken)) {
+            is TransportResult.Failure -> return result.failure
+            is TransportResult.Response -> result.response
+        }
+        if (!response.isSuccessful()) {
+            return httpFailure(preflightRequest, response, accessToken)
+        }
+        val observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader)
+        if (observedApiVersion != null && observedApiVersion != TaruPublicApiContract.expectedApiVersion) {
+            return failure(
+                category = PlaybackFailureCategory.UnsupportedApiVersion,
+                userMessage = "This server uses an unsupported Public Client API version.",
+                observedApiVersion = observedApiVersion,
+                request = safeRequest(preflightRequest),
+            )
+        }
+
+        val sessionId = response
+            .header(TaruPublicApiContract.playbackSessionIdHeader)
+            ?.takeIf { it.isNotBlank() }
+            ?: return failure(
+                category = PlaybackFailureCategory.MissingSession,
+                userMessage = "The server did not expose a playback session for this route.",
+                request = safeRequest(preflightRequest),
+            )
+
+        return PlaybackResult.Success(
+            value = target.copy(sessionId = sessionId),
+            request = target.safeRequest,
         )
     }
 

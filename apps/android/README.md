@@ -118,7 +118,11 @@ server-backed `Night Harbor` fixture, writes a User Playback State progress
 record through the Public Client API, applies `adb reverse`, and seeds the debug
 APK through its real profile store and encrypted token vault. Generated
 screenshots, criteria files, and server readback artifacts remain local under
-`apps/android/build/smoke/`.
+`apps/android/build/smoke/`. This fixture also creates a token-safe remux
+session readback artifact with the public playback session header and
+`/playback/sessions/{session_id}` route. The visible player still uses the
+short MP4 Direct Play path; active non-ended HLS/remux cancellation smoke needs
+a dedicated runtime fixture.
 
 Fixture and state rules live in `SMOKE_FIXTURES.md`.
 

@@ -320,6 +320,136 @@ $continueJson
     throw "Server User Playback State did not settle to watched=true with an empty Continue Watching list after player exit. Last observed watched=$finalWatched, continue_rows=$finalContinueCount."
 }
 
+function Get-HttpHeaderValue {
+    param(
+        [object]$Headers,
+        [string]$Name
+    )
+
+    if ($Headers -eq $null -or [string]::IsNullOrWhiteSpace($Name)) {
+        return $null
+    }
+
+    foreach ($key in $Headers.Keys) {
+        if ([string]$key -ieq $Name) {
+            $value = $Headers[$key]
+            if ($value -is [array]) {
+                return [string]($value | Select-Object -First 1)
+            }
+
+            return [string]$value
+        }
+    }
+
+    return $null
+}
+
+function Start-SmokePlaybackSessionProbe {
+    param(
+        [string]$BaseUrl,
+        [string]$AccessToken,
+        [string]$SourceId
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+        throw 'Fixture access token must be non-empty.'
+    }
+    if ([string]::IsNullOrWhiteSpace($SourceId)) {
+        throw 'Fixture playback session Media Source id is required.'
+    }
+
+    $headers = @{
+        Authorization = "Bearer $AccessToken"
+    }
+    $encodedSourceId = [System.Uri]::EscapeDataString($SourceId)
+    $sessionHeaderName = 'x-taru-playback-session-id'
+    $preflightUrl = "$BaseUrl/sources/$encodedSourceId/stream/remux?container=mkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+    $startedAt = Get-Date
+    $preflightResponse = Invoke-WebRequest -Uri $preflightUrl -Method Head -Headers $headers -UseBasicParsing -TimeoutSec 60
+    $sessionId = Get-HttpHeaderValue -Headers $preflightResponse.Headers -Name $sessionHeaderName
+    if ([string]::IsNullOrWhiteSpace($sessionId)) {
+        throw "Remux preflight did not expose '$sessionHeaderName' at '$preflightUrl'."
+    }
+
+    return [pscustomobject]@{
+        SourceId = $SourceId
+        PreflightUrl = $preflightUrl
+        SessionHeaderName = $sessionHeaderName
+        SessionId = $sessionId
+        StatusCode = [int]$preflightResponse.StatusCode
+        CreatedAt = $startedAt.ToString('o')
+    }
+}
+
+function Write-SmokePlaybackSessionReadbackArtifact {
+    param(
+        [string]$OutputDir,
+        [string]$BaseUrl,
+        [string]$AccessToken,
+        [object]$SessionProbe,
+        [int]$TimeoutSeconds = 25
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+        throw 'Fixture access token must be non-empty.'
+    }
+    if ($SessionProbe -eq $null -or [string]::IsNullOrWhiteSpace([string]$SessionProbe.SessionId)) {
+        throw 'Fixture playback session probe is required before readback.'
+    }
+
+    $headers = @{
+        Authorization = "Bearer $AccessToken"
+    }
+    $encodedSessionId = [System.Uri]::EscapeDataString([string]$SessionProbe.SessionId)
+    $sessionUrl = "$BaseUrl/playback/sessions/$encodedSessionId"
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $attempt = 0
+    $sessionResponse = $null
+    while ((Get-Date) -lt $deadline) {
+        $attempt += 1
+        $sessionResponse = Invoke-RestMethod -Uri $sessionUrl -Headers $headers -TimeoutSec 10
+        $observedId = [string]$sessionResponse.session.id
+        $observedKind = [string]$sessionResponse.session.kind
+        $observedState = [string]$sessionResponse.session.state
+        if ($observedId -eq [string]$SessionProbe.SessionId -and
+            $observedKind -eq 'remux' -and
+            -not [string]::IsNullOrWhiteSpace($observedState)) {
+            $sessionJson = $sessionResponse | ConvertTo-Json -Depth 12
+            if ($sessionJson -match 'output_path|[A-Za-z]:\\\\|file://|local://') {
+                throw 'Public playback session readback contained a forbidden local path or server-only field.'
+            }
+
+            $readbackPath = Join-Path $OutputDir 'profile-with-media-session-readback.txt'
+            Write-Utf8File -Path $readbackPath -Content @"
+Public playback session readback:
+Preflight URL: $($SessionProbe.PreflightUrl)
+Preflight method: HEAD
+Preflight status: $($SessionProbe.StatusCode)
+Session header: $($SessionProbe.SessionHeaderName)
+Access token: <redacted>
+Session URL: $sessionUrl
+Created before Android player exit: true
+Observed after Android player exit: true
+Attempts: $attempt
+Expected source id: $($SessionProbe.SourceId)
+Expected session id: $($SessionProbe.SessionId)
+Expected kind: remux
+Observed session id: $observedId
+Observed kind: $observedKind
+Observed state: $observedState
+Session response:
+$sessionJson
+"@
+            return $readbackPath
+        }
+
+        Start-Sleep -Milliseconds 750
+    }
+
+    $finalState = if ($sessionResponse -and $sessionResponse.session) { [string]$sessionResponse.session.state } else { 'n/a' }
+    throw "Public playback session readback did not return the expected remux session before timeout. Last observed state=$finalState."
+}
+
 function Start-SmokeFixtureServer {
     param(
         [string]$ServerBinary,
@@ -971,6 +1101,8 @@ New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $fixtureServerProcess = $null
 $fixtureReversePort = $null
 $fixtureBaseUrl = $null
+$playbackSessionProbe = $null
+$playbackSessionReadbackPath = $null
 
 try {
 
@@ -1173,6 +1305,11 @@ if ($stateMode -eq 'empty-setup') {
         'Local resume'
     )
 
+    $playbackSessionProbe = Start-SmokePlaybackSessionProbe `
+        -BaseUrl $fixtureBaseUrl `
+        -AccessToken $FixtureAccessToken `
+        -SourceId $resumeFixture.SourceId
+
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 25
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Ended' -TimeoutSeconds 25
@@ -1189,6 +1326,11 @@ if ($stateMode -eq 'empty-setup') {
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
+    $playbackSessionReadbackPath = Write-SmokePlaybackSessionReadbackArtifact `
+        -OutputDir $outputDir `
+        -BaseUrl $fixtureBaseUrl `
+        -AccessToken $FixtureAccessToken `
+        -SessionProbe $playbackSessionProbe
     $serverReadbackPath = Write-SmokeMediaServerReadbackArtifact -OutputDir $outputDir -BaseUrl $fixtureBaseUrl -AccessToken $FixtureAccessToken -MediaItemId $resumeFixture.MediaItemId
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText @(
         'Night Harbor',
@@ -1215,6 +1357,11 @@ $serverReadbackReport = if ([string]::IsNullOrWhiteSpace($serverReadbackPath)) {
 } else {
     Split-Path -Leaf $serverReadbackPath
 }
+$playbackSessionReadbackReport = if ([string]::IsNullOrWhiteSpace($playbackSessionReadbackPath)) {
+    'n/a'
+} else {
+    Split-Path -Leaf $playbackSessionReadbackPath
+}
 
 $reportPath = Join-Path $outputDir 'report.md'
 $report = @"
@@ -1233,6 +1380,7 @@ $report = @"
 - Surface evidence:
 $surfaceReport
 - Server playback readback: $serverReadbackReport
+- Public playback session readback: $playbackSessionReadbackReport
 - Repo root: $repoRoot
 "@
 $report | Out-File -LiteralPath $reportPath -Encoding utf8

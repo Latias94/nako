@@ -364,7 +364,7 @@ fun TaruBrowseShell(
                                             ?.decision
                                             ?.mode
                                             ?: ClientPlaybackMode.DirectPlay,
-                                        sessionId = null,
+                                        sessionId = target.sessionId,
                                         resumePositionMs = resumePosition?.positionMs,
                                         resumeSource = resumePosition?.source,
                                     ),
@@ -485,14 +485,19 @@ private suspend fun loadPlaybackSelectionState(
             sourceId = sourceId,
         )
     ) {
-        is PlaybackResult.Success -> PlaybackSelectionUiState.Content(
-            response = result.value,
-            target = playbackClient.recommendedPlaybackTarget(
+        is PlaybackResult.Success -> when (
+            val target = playbackClient.prepareRecommendedPlaybackTarget(
                 profile = profile,
                 accessToken = accessToken,
                 decision = result.value,
-            ),
-        )
+            )
+        ) {
+            is PlaybackResult.Success -> PlaybackSelectionUiState.Content(
+                response = result.value,
+                target = target.value,
+            )
+            is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(target.diagnostics)
+        }
         is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(result.diagnostics)
     }
 }

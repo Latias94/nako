@@ -235,6 +235,7 @@ class TaruPlaybackClientTest {
             assertEquals("Bearer secret-token", target.request.headers["Authorization"])
             assertEquals("Bearer <redacted>", target.safeRequest.headers["Authorization"])
             assertFalse(target.safeRequest.toString().contains("secret-token"))
+            assertFalse(target.toString().contains("secret-token"))
         }
     }
 
@@ -459,6 +460,105 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `preparing remux playback target reads session id from public head response`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    body = "",
+                    headers = mapOf(
+                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
+                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-1"),
+                    ),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Remux, ClientOutputContainer.Mkv),
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals("session-remux-1", success.value.sessionId)
+        assertEquals("HEAD", transport.requests.single().method)
+        assertEquals(
+            "http://home.example.test/api/sources/source%201/stream/remux?output_container=mkv",
+            transport.requests.single().url,
+        )
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertFalse(success.value.toString().contains("secret-token"))
+        assertFalse(success.request.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `preparing hls playback target reads session id from public playlist response`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    body = "#EXTM3U\n",
+                    headers = mapOf(
+                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
+                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-hls-1"),
+                    ),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Transcode, ClientOutputContainer.Hls),
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals("session-hls-1", success.value.sessionId)
+        assertEquals("GET", transport.requests.single().method)
+        assertEquals(
+            "http://home.example.test/sources/source%201/stream/hls/playlist.m3u8",
+            transport.requests.single().url,
+        )
+        assertFalse(success.request.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `session backed playback target fails when public session header is missing`() = runBlocking {
+        val transport = FakePlaybackTransport(ResponseStep(ok(body = "")))
+        val client = TaruPlaybackClient(transport)
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Remux, ClientOutputContainer.Mp4),
+        )
+
+        assertTrue(result is PlaybackResult.Failure)
+        val diagnostics = (result as PlaybackResult.Failure).diagnostics
+        assertEquals(PlaybackFailureCategory.MissingSession, diagnostics.category)
+        assertEquals("HEAD", transport.requests.single().method)
+        assertFalse(diagnostics.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `direct play target preparation remains sessionless and does not hit transport`() = runBlocking {
+        val transport = FakePlaybackTransport()
+        val client = TaruPlaybackClient(transport)
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.DirectPlay),
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals(null, success.value.sessionId)
+        assertEquals("GET", success.value.request.method)
+        assertEquals("http://home.example.test/sources/source%201/stream", success.value.request.url)
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
     fun `playback errors are actionable and sanitized`() = runBlocking {
         val transport = FakePlaybackTransport(
             ResponseStep(
@@ -553,6 +653,61 @@ class TaruPlaybackClientTest {
             statusCode = 200,
             headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
             body = body,
+        )
+
+    private fun ok(
+        body: String,
+        headers: Map<String, List<String>>,
+    ): TaruHttpResponse =
+        TaruHttpResponse(
+            statusCode = 200,
+            headers = headers,
+            body = body,
+        )
+
+    private fun playbackDecision(
+        mode: ClientPlaybackMode,
+        outputContainer: ClientOutputContainer = ClientOutputContainer.Mp4,
+    ): PlaybackDecisionResponse =
+        PlaybackDecisionResponse(
+            source = PlaybackMediaSourceDto(
+                id = "source 1",
+                libraryId = "library-1",
+                itemId = "item-1",
+                locator = "file:///srv/media/night-harbor.mkv",
+                fileName = "night-harbor.mkv",
+            ),
+            decision = when (mode) {
+                ClientPlaybackMode.DirectPlay -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.DirectPlay,
+                    reason = "direct",
+                    directPlay = ClientDirectPlayPlan(
+                        sourceId = "source 1",
+                        contentType = "video/x-matroska",
+                        supportsRangeRequests = true,
+                    ),
+                )
+                ClientPlaybackMode.Remux -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Remux,
+                    reason = "container",
+                    transcodePlan = ClientTranscodePlan(
+                        outputContainer = outputContainer,
+                        videoCodec = "h264",
+                        audioCodec = "aac",
+                        hardwareAcceleration = ClientHardwareAcceleration.None,
+                    ),
+                )
+                ClientPlaybackMode.Transcode -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Transcode,
+                    reason = "needs hls",
+                    transcodePlan = ClientTranscodePlan(
+                        outputContainer = outputContainer,
+                        videoCodec = "h264",
+                        audioCodec = "aac",
+                        hardwareAcceleration = ClientHardwareAcceleration.None,
+                    ),
+                )
+            },
         )
 }
 

@@ -25,11 +25,12 @@ pub use taru_client_protocol::{
     ItemCreditsResponse, ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto,
     ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto, LibraryResponse,
     LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto,
-    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PageInfo, PeopleResponse,
-    PersonDto, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicImageRefDto,
-    SearchItemHit, SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto,
-    TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
-    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse,
+    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PLAYBACK_SESSION_ID_HEADER,
+    PageInfo, PeopleResponse, PersonDto, PersonItemsResponse, PersonResponse,
+    PlaybackDecisionResponse, PublicImageRefDto, SearchItemHit, SearchResponse,
+    SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse,
+    TagsResponse, TranscodeSessionDto, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
+    UserPlaybackStateDto, UserPlaybackStateResponse,
 };
 
 #[must_use]

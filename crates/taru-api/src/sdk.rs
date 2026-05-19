@@ -1,7 +1,9 @@
 use serde_json::Value;
 use taru_client_protocol::public_client_paths;
 
-use crate::{API_VERSION, API_VERSION_HEADER, openapi::public_openapi_v1};
+use crate::{
+    API_VERSION, API_VERSION_HEADER, PLAYBACK_SESSION_ID_HEADER, openapi::public_openapi_v1,
+};
 
 #[must_use]
 pub fn typescript_sdk() -> String {
@@ -22,6 +24,10 @@ pub fn typescript_sdk() -> String {
     output.push_str(&format!(
         "export const TARU_API_VERSION_HEADER = \"{}\" as const;\n\n",
         API_VERSION_HEADER
+    ));
+    output.push_str(&format!(
+        "export const TARU_PLAYBACK_SESSION_ID_HEADER = \"{}\" as const;\n\n",
+        PLAYBACK_SESSION_ID_HEADER
     ));
     output.push_str("export const TARU_PUBLIC_PATHS = [\n");
     for path in public_client_paths() {
@@ -282,6 +288,10 @@ export class TaruClient {
     return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query, range });
   }
 
+  headRemuxStreamSource(sourceId: string, query?: RemuxPlaybackQuery): Promise<Response> {
+    return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query });
+  }
+
   hlsPlaylist(sourceId: string, capabilities?: PlaybackCapabilitiesQuery): Promise<string> {
     return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
   }
@@ -428,7 +438,9 @@ mod tests {
             "searchItems(",
             "getPlaybackDecision(",
             "streamSource(",
+            "headStreamSource(",
             "remuxStreamSource(",
+            "headRemuxStreamSource(",
             "hlsPlaylist(",
             "getPlaybackSession(",
             "cancelPlaybackSession(",
@@ -449,6 +461,7 @@ mod tests {
             "Authorization",
             "Bearer ${this.bearerToken}",
             "TARU_API_VERSION_HEADER",
+            "TARU_PLAYBACK_SESSION_ID_HEADER",
             "TaruApiError",
             "ErrorResponse",
             "limit?: number",

@@ -6,6 +6,7 @@ pub use catalog::*;
 
 pub const CLIENT_PROTOCOL_VERSION: &str = "v1";
 pub const API_VERSION_HEADER: &str = "x-taru-api-version";
+pub const PLAYBACK_SESSION_ID_HEADER: &str = "x-taru-playback-session-id";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PublicClientRoute {
@@ -172,7 +173,7 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
     },
     PublicClientRoute {
         path: "/sources/{source_id}/stream/remux",
-        methods: &[PublicClientHttpMethod::Get],
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head],
         kind: PublicClientRouteKind::Playback,
         rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
     },
@@ -384,6 +385,7 @@ mod tests {
 
         assert_eq!(health_json["version"], "v1");
         assert_eq!(API_VERSION_HEADER, "x-taru-api-version");
+        assert_eq!(PLAYBACK_SESSION_ID_HEADER, "x-taru-playback-session-id");
         assert_eq!(error_json["code"], "not_found");
         assert_eq!(page_json["limit"], 50);
         assert_eq!(page_json["offset"], 100);
@@ -427,6 +429,18 @@ mod tests {
         assert_eq!(json_count, 24);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
+        let remux_stream = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/sources/{source_id}/stream/remux")
+            .expect("remux stream route exists");
+        assert_eq!(
+            remux_stream
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "HEAD"]
+        );
     }
 
     #[test]

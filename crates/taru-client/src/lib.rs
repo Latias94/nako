@@ -11,9 +11,9 @@ pub use taru_client_protocol::{
     API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, ClientOutputContainer,
     ContinueWatchingResponse, ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse,
     ImagesResponse, ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryListResponse,
-    LibraryResponse, LibrarySourcesResponse, PageInfo, PeopleResponse, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse,
-    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
+    LibraryResponse, LibrarySourcesResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse,
+    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure,
+    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
     TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateResponse,
     public_client_json_routes, public_client_paths, public_client_streaming_routes,
 };
@@ -592,6 +592,30 @@ impl TaruClient {
             ),
             query.as_ref(),
             range,
+        )
+    }
+
+    /// Build a remux stream header preflight request for one source.
+    ///
+    /// The response exposes the public playback session id header without
+    /// transferring stream bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn head_remux_stream_source_request(
+        &self,
+        source_id: impl AsRef<str>,
+        query: Option<RemuxPlaybackQuery<'_>>,
+    ) -> Result<ClientRequest, TaruClientError> {
+        self.build_streaming_request(
+            Method::HEAD,
+            &format!(
+                "/sources/{}/stream/remux",
+                encode_path_segment(source_id.as_ref())
+            ),
+            query.as_ref(),
+            None,
         )
     }
 
@@ -1433,6 +1457,20 @@ mod tests {
                 Some("bytes=0-"),
             )
             .unwrap();
+        let remux_head = client
+            .head_remux_stream_source_request(
+                "source 1",
+                Some(RemuxPlaybackQuery {
+                    capabilities: PlaybackCapabilitiesQuery {
+                        direct_play: Some(false),
+                        container: Some("mp4,mkv"),
+                        video_codec: Some("h264"),
+                        audio_codec: Some("aac"),
+                    },
+                    output_container: Some(ClientOutputContainer::Mkv),
+                }),
+            )
+            .unwrap();
         let playlist = client
             .hls_playlist_request(
                 "source 1",
@@ -1453,6 +1491,7 @@ mod tests {
         assert_eq!(image.method, Method::GET);
         assert_eq!(image_head.method, Method::HEAD);
         assert_eq!(remux.method, Method::GET);
+        assert_eq!(remux_head.method, Method::HEAD);
         assert_eq!(playlist.method, Method::GET);
         assert_eq!(segment.method, Method::GET);
         assert_eq!(
@@ -1476,6 +1515,10 @@ mod tests {
             "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
         );
         assert_eq!(
+            remux_head.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+        );
+        assert_eq!(
             playlist.url.as_str(),
             "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?container=hls&video_codec=h264"
         );
@@ -1490,6 +1533,7 @@ mod tests {
             &image,
             &image_head,
             &remux,
+            &remux_head,
             &playlist,
             &segment,
         ] {
@@ -1507,6 +1551,8 @@ mod tests {
             remux.headers.get(RANGE).unwrap(),
             HeaderValue::from_static("bytes=0-")
         );
+        assert!(remux_head.headers.get(RANGE).is_none());
+        assert_eq!(PLAYBACK_SESSION_ID_HEADER, "x-taru-playback-session-id");
     }
 
     #[test]
@@ -1571,6 +1617,19 @@ mod tests {
         );
         assert_eq!(
             direct_stream.methods,
+            &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head]
+        );
+
+        let remux_stream = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/sources/{source_id}/stream/remux")
+            .unwrap();
+        assert_eq!(
+            remux_stream.rust_sdk_exposure,
+            PublicClientRustSdkExposure::StreamingBuilder
+        );
+        assert_eq!(
+            remux_stream.methods,
             &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head]
         );
     }
