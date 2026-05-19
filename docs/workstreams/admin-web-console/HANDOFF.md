@@ -1,7 +1,7 @@
 # Admin Web Console Handoff
 
 Status: Active
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 
 ## Current State
 
@@ -29,6 +29,12 @@ The key context artifact for v0.dev is:
 AWC-040 and AWC-050 are complete for M53. `V0_CONTEXT.md` now distinguishes
 the live `GET /admin/v1/overview` seam from remaining mock or planned Admin API
 surfaces, and this handoff captures the first concise v0.dev prompt.
+
+AWC-060 is complete. The accepted front-end workspace is `apps/admin-web`, with
+Vite, React, and TypeScript. The scaffold keeps the Admin API client, live/mock
+data source boundary, and mock fixtures under `src/adminApi`. The first live
+read is `GET /admin/v1/overview`; other first-prototype rows remain mock or
+planned until AWC-070 wires existing Admin API read models.
 
 ## v0.dev Prompt
 
@@ -61,21 +67,21 @@ describe a front-end framework; produce the UI prototype only.
 
 ## Next Recommended Task
 
-AWC-060 is the next implementation task, but it is intentionally blocked until
-the user accepts a front-end stack and workspace location. Do not scaffold UI
-code before that decision.
+AWC-070 should deepen the Admin API client layer and wire the next existing
+Admin API read models: jobs, playback sessions/runtime, storage staging, system
+config, events, and catalog governance. Add UI-level redaction tests before
+rendering any new live fields.
 
 ## Constraints
 
-- Do not choose a front-end framework until the user asks for implementation or
-  accepts a stack.
 - Do not place generated UI inside Rust server crates.
 - Do not expose secrets, tokens, resolved provider credentials, webhook
   secrets, addon tokens, or unsafe local paths in UI contexts or mock data.
+- Do not put admin bearer tokens in Vite build-time environment variables.
 - Do not copy Jellyfin, Plex, or reference-project UI/source/assets.
 
 ## Open Questions
 
-- First web app workspace path.
-- Static mock prototype versus API-wired first slice.
 - Editable settings versus read-only diagnostics in the first release.
+- Whether AWC-070 should use hand-written DTO types first or generate a
+  separate Admin API TypeScript contract after the next API inventory pass.

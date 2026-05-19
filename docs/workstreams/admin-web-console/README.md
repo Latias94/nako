@@ -1,7 +1,7 @@
 # Admin Web Console
 
 Status: Active
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 
 This workstream owns the planning baseline for Taru's first web-based server
 administration console.
@@ -43,7 +43,10 @@ framework or detailed visual implementation.
 - Provide v0.dev with product and routing context, not implementation lock-in.
 - Preserve the distinction between Public Client API and versioned Admin API
   surfaces.
-- Implement the first read-only Admin API v1 overview seam before wiring any
-  frontend UI.
-- Keep the captured v0 prompt framework-neutral until a stack and workspace are
-  accepted.
+- Keep the real web app under `apps/admin-web`, separate from Rust server
+  crates and Public Client SDK artifacts.
+- Use Vite, React, and TypeScript for the first scaffold.
+- Keep the `src/adminApi` boundary explicit: live Admin API reads are separate
+  from mock or planned data.
+- Do not put admin bearer tokens or other secrets into build-time frontend
+  environment variables.

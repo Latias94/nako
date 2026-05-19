@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Taru">
+  <rect width="64" height="64" rx="12" fill="oklch(30% 0.035 61)" />
+  <path d="M20 15h24l-3 34H23L20 15Z" fill="oklch(69% 0.125 54)" />
+  <path d="M23 22h18M22 32h20M23 42h18" stroke="oklch(24% 0.025 65)" stroke-width="4" stroke-linecap="round" />
+  <path d="M29 15v34M35 15v34" stroke="oklch(24% 0.025 65)" stroke-width="3" stroke-linecap="round" />
+</svg>

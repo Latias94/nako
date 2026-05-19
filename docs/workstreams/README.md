@@ -11,12 +11,12 @@ attention.
   order, playback-first mobile scope, Public Client API connection/browse/search
   loops, playback decision/request construction, Media3 playback smoke,
   playback session boundary, and follow-on API gaps under ADR 0026.
-- [android-client-qa-harness](android-client-qa-harness/README.md): active
+- [android-client-qa-harness](android-client-qa-harness/README.md): completed
   Android client testing lane for local emulator smoke checks, screenshot
   evidence, repeatable fixture/state assumptions, and developer-friendly QA
   commands for parallel Android work.
 - [android-developer-validation-entrypoint](android-developer-validation-entrypoint/README.md):
-  active Android developer validation lane for one local handoff command that
+  closed Android developer validation lane for one local handoff command that
   composes JVM tests, debug assemble, and smoke regression evidence.
 - [android-smoke-regression-harness](android-smoke-regression-harness/DESIGN.md):
   closed local Android smoke regression lane for composing stable emulator
@@ -26,7 +26,7 @@ attention.
   covering dark-first dynamic color, artwork-led media surfaces, restrained
   motion, adaptive phone/tablet chrome, and clean Compose UI boundaries.
 - [architecture-review-followups](architecture-review-followups/README.md):
-  proposed planning and routing lane for the 2026-05-18 architecture review
+  completed planning and routing lane for the 2026-05-18 architecture review
   findings, covering metadata/catalog atomicity, metadata merge-policy
   unification, Media Library source-of-truth, Public Client Source Locator
   redaction, Addon side-effect seams, playback request identity, and transcode
@@ -45,12 +45,12 @@ attention.
   completed execution lane for unifying Canonical Metadata merge authority across
   NFO import, provider refresh, and hierarchy confirmation while keeping NFO XML
   preservation and provider breadth out of scope.
-- [multi-library-hardening](multi-library-hardening/README.md): proposed
+- [multi-library-hardening](multi-library-hardening/README.md): completed
   execution lane for hardening Media Library config/database source of truth,
   startup reconciliation, and removal of remaining one-library authority
   shortcuts after the M8 correctness baseline.
 - [public-client-source-locator-redaction](public-client-source-locator-redaction/README.md):
-  proposed Public Client API follow-up for auditing and removing or redacting
+  completed Public Client API follow-up for auditing and removing or redacting
   raw Source Locator exposure from protocol DTOs, OpenAPI, SDKs, and HTTP docs
   while preserving internal storage/playback locators.
 - [addon-token-grants-side-effects](addon-token-grants-side-effects/README.md):
@@ -95,7 +95,7 @@ attention.
   redacted public/Admin variant contracts, and cache validators that do not
   expose artifact storage or content hashes.
 - [managed-artwork-gallery-candidate-management](managed-artwork-gallery-candidate-management/README.md):
-  active follow-on for redacted Admin item-scoped artwork galleries, candidate
+  completed follow-on for redacted Admin item-scoped artwork galleries, candidate
   comparison, and explicit Selected Artwork management without exposing raw
   candidate sources, storage handles, paths, cache URIs, or content hashes.
 - [selected-artwork-unpublish-delete-policy](selected-artwork-unpublish-delete-policy/README.md):
@@ -172,10 +172,10 @@ attention.
   NFO storage write policy work, covering local atomic sidecar writes, explicit
   VFS write modes, internal NFO export diagnostics, and separation between XML
   preservation and storage persistence mechanics.
-- [admin-web-console](admin-web-console/README.md): proposed web admin console
-  planning work, covering Taru's administration-first web surface, media
-  governance page families, Admin API implications, brand direction, and a
-  v0.dev-oriented context document.
+- [admin-web-console](admin-web-console/README.md): active web admin console
+  work, covering Taru's administration-first web surface, media governance page
+  families, Admin API implications, brand direction, the `apps/admin-web`
+  scaffold, and the live/mock Admin API data-source boundary.
 - [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
   completed M47 NFO Round Trip preservation work, covering preservation-aware
   movie NFO update, unknown XML field retention, conflict reporting, forced

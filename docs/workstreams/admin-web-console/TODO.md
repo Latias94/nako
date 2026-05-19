@@ -1,7 +1,7 @@
 # Admin Web Console TODO
 
 Status: Active
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 
 ## AWC.0 Planning Baseline
 
@@ -69,17 +69,24 @@ Last updated: 2026-05-17
 
 ## AWC.3 Implementation Follow-On
 
-- [ ] AWC-060 [owner=codex] [deps=AWC-050] [scope=frontend-workspace-location]
+- [x] AWC-060 [owner=codex] [deps=AWC-050] [scope=apps/admin-web, docs/workstreams/admin-web-console]
   Goal: Choose and create the actual web app workspace location only after the
   prototype direction and front-end stack are accepted.
   Validation: app scaffold builds and has a clear API/mock-data boundary.
-  Evidence: future implementation workstream or task notes.
-  Handoff: Do not place generated code into the Rust server crates.
+  Evidence: `apps/admin-web` Vite/React/TypeScript scaffold,
+  `src/adminApi/client.ts`, `src/adminApi/dataSource.ts`, mock data boundary,
+  component tests, production build, and Playwright smoke checks.
+  Handoff: `apps/admin-web` is the selected workspace. The first live Admin API
+  read is `GET /admin/v1/overview`; other page rows are explicitly mock or
+  planned. Do not bake admin tokens into Vite environment variables.
 
 - [ ] AWC-070 [owner=codex] [deps=AWC-060] [scope=admin-api-sdk-or-client]
-  Goal: Wire the first pages to real Admin API or a generated/admin-specific
-  client layer.
-  Validation: focused UI smoke tests or browser verification against local
-  server/mock server.
+  Goal: Deepen the Admin API client layer and wire the next existing Admin API
+  read-models beyond overview, starting with jobs, playback runtime/sessions,
+  storage staging, system config, events, and catalog governance where routes
+  already exist.
+  Validation: focused UI tests for live/mock source behavior, redaction checks
+  for rendered text and fixtures, browser verification against local server or
+  deterministic mock server.
   Evidence: future implementation evidence.
   Handoff: Secrets and local paths must stay redacted in UI and test fixtures.

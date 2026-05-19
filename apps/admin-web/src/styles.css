@@ -1,0 +1,543 @@
+:root {
+  color-scheme: light;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color: oklch(24% 0.025 65);
+  background: oklch(96.5% 0.018 74);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.appShell {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, oklch(30% 0.035 61) 0 264px, transparent 264px),
+    oklch(96.5% 0.018 74);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  height: 100vh;
+  padding: 22px 16px;
+  color: oklch(94% 0.018 78);
+}
+
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px 14px;
+  border-bottom: 1px solid oklch(52% 0.035 62);
+}
+
+.brandMark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 7px;
+  background: oklch(69% 0.125 54);
+  color: oklch(20% 0.02 60);
+  font-weight: 800;
+}
+
+.brandName {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.brandSubline {
+  color: oklch(78% 0.02 76);
+  font-size: 0.78rem;
+}
+
+.navList {
+  display: grid;
+  gap: 4px;
+}
+
+.navItem {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 10px;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  color: oklch(84% 0.018 76);
+  text-decoration: none;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.navItem:hover,
+.navItem:focus-visible,
+.navItem.active {
+  background: oklch(38% 0.035 61);
+  color: oklch(97% 0.012 80);
+  outline: none;
+}
+
+.sourceDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: oklch(62% 0.026 75);
+}
+
+.sourceDot.live,
+.sourceDot.hybrid {
+  background: oklch(68% 0.16 150);
+}
+
+.sourceDot.planned {
+  background: oklch(65% 0.12 42);
+}
+
+.mainSurface {
+  min-width: 0;
+  padding: 26px clamp(18px, 3vw, 38px) 42px;
+}
+
+.topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.eyebrow,
+.sectionKicker {
+  margin: 0 0 6px;
+  color: oklch(45% 0.04 65);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 720px;
+  margin-bottom: 0;
+  color: oklch(23% 0.028 65);
+  font-size: 1.75rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+h2 {
+  margin-bottom: 0;
+  color: oklch(25% 0.028 65);
+  font-size: 1.12rem;
+  letter-spacing: 0;
+}
+
+h3 {
+  margin-bottom: 10px;
+  color: oklch(27% 0.024 65);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
+
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dataSourceMeter {
+  display: flex;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid oklch(82% 0.024 75);
+  border-radius: 7px;
+  background: oklch(98% 0.009 78);
+  color: oklch(43% 0.024 68);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border-radius: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.primaryButton {
+  border: 1px solid oklch(54% 0.12 52);
+  background: oklch(61% 0.135 54);
+  color: oklch(20% 0.02 61);
+  padding: 0 13px;
+}
+
+.secondaryButton {
+  border: 1px solid oklch(79% 0.025 70);
+  background: oklch(98% 0.009 78);
+  color: oklch(30% 0.026 65);
+  padding: 0 11px;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid oklch(81% 0.08 58);
+  border-radius: 7px;
+  background: oklch(94% 0.055 64);
+  color: oklch(36% 0.055 55);
+  font-size: 0.9rem;
+}
+
+.overviewBand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid oklch(82% 0.024 75);
+  border-radius: 8px;
+  background: oklch(98% 0.009 78);
+}
+
+.metricGrid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metricTile {
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 14px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.014 78);
+}
+
+.metricTile span,
+.metricTile small {
+  color: oklch(48% 0.026 68);
+  font-size: 0.82rem;
+}
+
+.metricTile strong {
+  color: oklch(23% 0.035 65);
+  font-size: 1.58rem;
+  line-height: 1;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.panel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid oklch(82% 0.024 75);
+  border-radius: 8px;
+  background: oklch(98% 0.009 78);
+}
+
+.panel.wide {
+  grid-column: 1 / -1;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.panelTitleLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.panelHeader p {
+  max-width: 70ch;
+  margin: 6px 0 0;
+  color: oklch(46% 0.024 68);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.sourceLabel,
+.statusPill,
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sourceLabel {
+  padding: 5px 7px;
+  border: 1px solid oklch(83% 0.024 75);
+  background: oklch(96% 0.013 76);
+  color: oklch(43% 0.03 66);
+}
+
+.sourceLabel.live {
+  border-color: oklch(76% 0.08 150);
+  background: oklch(93% 0.045 150);
+  color: oklch(36% 0.08 150);
+}
+
+.sourceLabel.planned {
+  border-color: oklch(81% 0.075 55);
+  background: oklch(95% 0.042 55);
+}
+
+.statusBadge {
+  padding: 8px 10px;
+}
+
+.statusBadge.healthy {
+  background: oklch(92% 0.055 148);
+  color: oklch(35% 0.08 148);
+}
+
+.statusBadge.degraded {
+  background: oklch(93% 0.058 68);
+  color: oklch(38% 0.074 55);
+}
+
+.statusPill {
+  padding: 6px 8px;
+  background: oklch(94% 0.014 76);
+  color: oklch(40% 0.02 68);
+}
+
+.statusPill.good {
+  background: oklch(92% 0.055 148);
+  color: oklch(35% 0.08 148);
+}
+
+.statusPill.warn {
+  background: oklch(93% 0.058 68);
+  color: oklch(38% 0.074 55);
+}
+
+.statusPill.bad {
+  background: oklch(92% 0.054 28);
+  color: oklch(38% 0.1 28);
+}
+
+.statusPill.info {
+  background: oklch(93% 0.046 220);
+  color: oklch(37% 0.08 225);
+}
+
+.statusPill.muted {
+  background: oklch(93% 0.012 76);
+  color: oklch(46% 0.018 70);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  padding: 11px 10px;
+  border-bottom: 1px solid oklch(86% 0.018 75);
+  text-align: left;
+}
+
+th {
+  color: oklch(42% 0.025 68);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+td {
+  color: oklch(30% 0.024 66);
+}
+
+.stackList {
+  display: grid;
+  gap: 8px;
+}
+
+.listRow,
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 0;
+  border-bottom: 1px solid oklch(87% 0.018 75);
+}
+
+.listRow:last-child,
+.settingRow:last-child {
+  border-bottom: 0;
+}
+
+.listRow div {
+  display: grid;
+  gap: 3px;
+}
+
+.listRow strong,
+.settingRow strong {
+  color: oklch(27% 0.026 65);
+  font-size: 0.92rem;
+}
+
+.listRow span,
+.settingRow span {
+  color: oklch(47% 0.024 68);
+  font-size: 0.82rem;
+}
+
+.emptyState {
+  padding: 18px;
+  border: 1px dashed oklch(78% 0.024 75);
+  border-radius: 7px;
+  color: oklch(48% 0.024 68);
+}
+
+.splitPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 16px;
+}
+
+.runtimeCard {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 184px;
+  padding: 14px;
+  border: 1px solid oklch(83% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.013 76);
+}
+
+.runtimeCard p {
+  margin-bottom: 0;
+  color: oklch(43% 0.024 68);
+}
+
+.capabilityLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settingGrid {
+  display: grid;
+}
+
+@media (max-width: 960px) {
+  .appShell {
+    grid-template-columns: 1fr;
+    background: oklch(96.5% 0.018 74);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    padding: 14px;
+    background: oklch(30% 0.035 61);
+  }
+
+  .navList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topBar,
+  .panelHeader,
+  .topBarActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .metricGrid,
+  .contentGrid,
+  .splitPanel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .mainSurface {
+    padding: 18px 12px 28px;
+  }
+
+  .navList {
+    grid-template-columns: 1fr;
+  }
+
+  .overviewBand {
+    grid-template-columns: 1fr;
+  }
+}
