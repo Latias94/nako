@@ -20,6 +20,7 @@ admin-web UI workstream.
   - `docs/adr/0025-openapi-public-client-sdk-contract.md`
   - `docs/adr/0027-admin-api-boundary-for-web-console.md`
 - Existing docs:
+  - `docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md`
   - `docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md`
   - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
   - `docs/api/HTTP_API.md`
@@ -89,7 +90,9 @@ Prefer a contract shape that is cheap to regenerate and compile-check:
 - explicit `/admin/v1/*` route inventory;
 - generated response/request TypeScript interfaces from admin DTO schemas or
   an admin-only OpenAPI subset;
-- a tiny admin client runtime if needed by `apps/admin-web`;
+- generated route constants and query interfaces for the first read-model
+  filters;
+- no generated fetch runtime in the first slice;
 - Rust tests for route inventory, leakage, and sync;
 - TypeScript tests/checks for admin-web consumption.
 

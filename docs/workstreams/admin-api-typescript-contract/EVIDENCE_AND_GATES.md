@@ -73,6 +73,7 @@ schema helpers or route inventory behavior outside `taru-api`.
 
 - `docs/workstreams/admin-api-typescript-contract/README.md`
 - `docs/workstreams/admin-api-typescript-contract/DESIGN.md`
+- `docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md`
 - `docs/workstreams/admin-api-typescript-contract/TODO.md`
 - `docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md`
 - `docs/adr/0025-openapi-public-client-sdk-contract.md`
@@ -88,3 +89,9 @@ schema helpers or route inventory behavior outside `taru-api`.
   Admin API TypeScript contract generation. The default direction is an
   app-local generated contract under `apps/admin-web` backed by `taru-api`,
   with explicit separation from the Public Client TypeScript SDK.
+- 2026-05-19: AATC-020 completed. `ADMIN_CONTRACT_INVENTORY.md` records the
+  current admin-web hand-written wire DTOs, UI-only local types, covered
+  `/admin/v1/*` route/query inventory, and accepted first artifact shape:
+  route constants plus wire/query interfaces without a generated fetch client.
+  Validation passed: `npm run check` in `apps/admin-web` and `git diff --check`
+  with CRLF warnings only.

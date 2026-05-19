@@ -12,15 +12,19 @@ Last updated: 2026-05-19
   Evidence: this workstream and `docs/workstreams/admin-web-console`.
   Handoff: Continue with AATC-020 before editing Rust generator code.
 
-- [ ] AATC-020 [owner=codex] [deps=AATC-010] [scope=crates/taru-api, apps/admin-web/src/adminApi, docs/workstreams/admin-api-typescript-contract]
+- [x] AATC-020 [owner=codex] [deps=AATC-010] [scope=crates/taru-api, apps/admin-web/src/adminApi, docs/workstreams/admin-api-typescript-contract]
   Goal: Audit current hand-written admin-web wire DTOs and choose the exact
   first artifact shape: generated interfaces only, generated route constants,
   or generated tiny client.
   Validation: documented decision plus route/DTO inventory; no code generation
   behavior changes yet unless the audit exposes a trivial test-only guard.
   Review: review-workstream before accepting implementation tasks.
-  Evidence: updated DESIGN/HANDOFF and optional inventory note.
-  Handoff: The next task should have a concrete file-level generator target.
+  Evidence: `ADMIN_CONTRACT_INVENTORY.md`, updated `DESIGN.md`, and updated
+  `HANDOFF.md`.
+  Handoff: AATC-030 should generate app-local route constants, wire
+  interfaces, and query interfaces under
+  `apps/admin-web/src/adminApi/generated/contract.ts`, while keeping
+  `client.ts` as the hand-written fetch/runtime boundary.
 
 ## AATC.1 Generator Proof
 

@@ -37,8 +37,8 @@ separate task accepts their server semantics.
 
 ## Artifact Location Decision
 
-Default direction: generate an app-local artifact under
-`apps/admin-web/src/adminApi/generated`.
+Accepted AATC-020 direction: generate an app-local artifact under
+`apps/admin-web/src/adminApi/generated/contract.ts`.
 
 Rationale:
 
@@ -55,13 +55,13 @@ The public TypeScript SDK uses `crates/taru-api/src/sdk.rs` and the public
 OpenAPI document. Admin generation should reuse small schema-conversion helpers
 where practical, but keep its route inventory and leakage tests separate.
 
-Acceptable first implementation:
+Accepted first implementation:
 
-- a new `taru-api` generator module or focused functions in `sdk.rs`;
+- a focused `taru-api` generator entry point, preferably in a new
+  `admin_contract` module rather than in the public SDK generator;
 - a new example such as `emit-admin-typescript-contract`;
-- generated TypeScript interfaces and route constants;
-- optional tiny fetch client if it removes duplicated route paths from
-  admin-web;
+- generated TypeScript interfaces, query interfaces, and route constants;
+- no generated fetch client in the first slice;
 - a sync test comparing generated output with the committed app-local file.
 
 Do not create a combined public+admin OpenAPI or combined SDK. That would undo
@@ -92,13 +92,23 @@ generated contract lands. It may keep UI-only summary types, source-map types,
 and view models, but wire DTOs for covered `/admin/v1/*` routes should come
 from the generated contract.
 
-The `client.ts` boundary can either:
+The `client.ts` boundary should keep a hand-written fetch wrapper in the first
+slice. It should import generated response types and route constants, while
+base URL normalization, bearer auth, request failure behavior, and
+section-level fallback stay app-owned.
 
-- keep a hand-written fetch wrapper that imports generated response types; or
-- use a generated admin client runtime for covered routes.
+Generated query interfaces should exist for the covered list routes even if
+the first UI wiring still calls them without filters. Filters are the next
+admin-web workflow, and query names are part of the HTTP contract.
 
-The first option is lower-risk. The second option is worthwhile if route paths
-or query encoding start duplicating across the app.
+## AATC-020 Decision
+
+See [ADMIN_CONTRACT_INVENTORY.md](ADMIN_CONTRACT_INVENTORY.md) for the route
+and DTO audit.
+
+The chosen artifact shape is **route constants + wire interfaces + query
+interfaces**. Interfaces-only generation leaves route strings duplicated; a
+generated client takes too much ownership of admin-web runtime policy.
 
 ## Follow-On UI Work
 

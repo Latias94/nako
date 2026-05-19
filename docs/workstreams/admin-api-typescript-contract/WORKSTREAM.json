@@ -16,6 +16,10 @@
       "path": "docs/workstreams/admin-api-typescript-contract/DESIGN.md"
     },
     {
+      "role": "inventory",
+      "path": "docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md"
+    },
+    {
       "role": "execution",
       "path": "docs/workstreams/admin-api-typescript-contract/TODO.md"
     },
@@ -39,6 +43,7 @@
   ],
   "evidence": [
     "docs/workstreams/admin-api-typescript-contract",
+    "docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md",
     "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
@@ -53,6 +58,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AATC-010 is complete. Continue with AATC-020 before editing generator code: inventory current admin-web DTOs and choose the first generated artifact shape."
+    "notes": "AATC-020 is complete. Continue with AATC-030: generate app-local route constants plus wire/query interfaces, keep admin-web client runtime hand-written, and preserve Public Client SDK separation."
   }
 }

@@ -30,7 +30,11 @@ Primary evidence:
 
 - Updated `DESIGN.md`
 - Updated `HANDOFF.md`
-- Optional route/DTO inventory note
+- `ADMIN_CONTRACT_INVENTORY.md`
+
+Status: completed for AATC-020. The accepted artifact shape is route constants
+plus wire/query interfaces, generated app-locally under `apps/admin-web`,
+without a generated fetch client.
 
 ## M-AATC.2 Generator Proof And Sync
 
