@@ -186,3 +186,17 @@ route/query documentation, or tests proving forbidden values are absent.
   - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
     tests passed.
   - `git diff --check`: passed with Git line-ending notices only.
+
+2026-05-19, MAMD-050 selected split:
+
+- Split Selected Artwork SQLite adapter concern:
+  - `crates/taru-db/src/artwork/selected.rs` now owns Selected Artwork get/list
+    SQL and publication/unpublication transactions;
+  - `crates/taru-db/src/artwork.rs` keeps repository trait methods and routes
+    through the selected module.
+- Fresh validation:
+  - `cargo fmt --all -- --check`: passed.
+  - `cargo check -j 2 -p taru-db --tests`: passed.
+  - `cargo nextest run -j 2 -p taru-db artwork --no-fail-fast`: passed; 11
+    tests passed.
+  - `git diff --check`: passed with Git line-ending notices only.

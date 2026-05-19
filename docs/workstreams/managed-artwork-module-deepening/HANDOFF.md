@@ -66,15 +66,15 @@ Progress so far:
 
 - `artwork/gallery.rs` owns Admin gallery SQL/query/row mapping.
 - `artwork/lifecycle.rs` owns artifact lifecycle SQL/query/summary/row mapping.
+- `artwork/selected.rs` owns Selected Artwork get/list SQL and
+  publication/unpublication transactions.
 - `artwork.rs` still owns repository trait impls and the remaining candidate,
-  ingest/artifact, selected-artwork, and cleanup transaction helpers.
+  ingest/artifact, and cleanup transaction helpers.
 
 Recommended next split:
 
-- selected-artwork publication/unpublication helpers, because they are a
-  coherent transaction Module and less broad than the ingest claim/commit
-  state machine;
-- then core ingest/artifact transaction helpers.
+- core ingest/artifact transaction helpers, split after checking whether
+  cleanup should remain in the parent repository impl or move beside lifecycle.
 
 ## Non-Goals To Preserve
 
