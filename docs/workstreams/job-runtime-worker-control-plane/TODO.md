@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## M0 - Runtime Inventory And Contract
 
-- [ ] JRWCP-010 [owner=codex] [deps=none] [scope=docs/workstreams/job-runtime-worker-control-plane,docs/adr,crates/taru-core,crates/taru-db,crates/taru-server]
+- [x] JRWCP-010 [owner=codex] [deps=none] [scope=docs/workstreams/job-runtime-worker-control-plane,docs/adr,crates/taru-core,crates/taru-db,crates/taru-server]
   Goal: Inventory existing durable job execution paths, ADR constraints, and
   worker/runtime supervisor surfaces; choose the first shared contract shape.
   Validation: design notes identify each current execution mode and name the
@@ -13,7 +13,13 @@ Last updated: 2026-05-19
   Review: do not propose a generic untyped scheduler; keep job-kind execution
   typed.
   Evidence: updated `DESIGN.md`, `MILESTONES.md`, and `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue with the Managed Artwork worker tracer bullet.
+  Result: DONE. Inventory shows existing `RuntimeSupervisor::spawn_job` and
+  `DurableJobRuntime` cover immediate one-job execution, while Managed Artwork
+  has typed claim/commit/fail/requeue but no supervised worker loop. First code
+  slice should use a concrete Managed Artwork worker registered through
+  `RuntimeSupervisor`, keeping claim/commit/fail in the Managed Artwork
+  repository and postponing generic lease schema.
+  Handoff: Continue with `JRWCP-020`.
 
 ## M1 - Managed Artwork Worker Tracer Bullet
 

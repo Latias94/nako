@@ -51,6 +51,63 @@ The first runtime slice should prove:
   worker is mature;
 - requeue remains a control-plane command and does not fetch bytes directly.
 
+## Current Runtime Inventory
+
+Existing execution surfaces:
+
+| Surface | Current Owner | Shape | Notes |
+| --- | --- | --- | --- |
+| Library scan | `LibraryScanAppService` | Enqueue job, then `RuntimeSupervisor::spawn_job`; execution uses `DurableJobRuntime`. | Already close to desired supervised job execution, but no shared claim loop because jobs are spawned immediately after enqueue. |
+| Metadata refresh and maintenance | `MetadataAppService` | Enqueue job, then `RuntimeSupervisor::spawn_job`; scheduled policy tasks use `RuntimeSupervisor::spawn`. | Scheduled task enqueues jobs; each job still runs as an immediate supervised task. |
+| NFO import/export | `NfoAppService` | Enqueue job, then `RuntimeSupervisor::spawn_job`; execution uses `DurableJobRuntime`. | Similar to library scan. |
+| Managed Artwork ingest | `ManagedArtworkAppService` | Admin `process-next` route claims one queued ingest and executes synchronously. | Has strong claim/commit/fail/requeue repository semantics, but no supervised background loop. |
+| Webhook delivery | `WebhookAppService` | Admin/API command uses local `JoinSet` for endpoint fan-out. | Delivery attempts have their own domain state, but are not currently durable jobs. |
+| Staging lease drop cleanup | `StagingLease::drop` | Fire-and-forget `RuntimeSupervisor::spawn`. | Runtime-supervised task, but not a durable job. |
+| Startup recovery | `ServerStartupWorkflow` | Marks unfinished durable jobs failed on startup. | Coarse recovery: no ownership lease, all queued/running unfinished jobs fail. |
+| Playback/transcode | `PlaybackAppService` and session manager | Uses transcode session state, not generic `jobs`. | Has its own cancellation and stale recovery semantics; do not fold into the first job-worker slice. |
+
+Existing runtime primitives:
+
+- `RuntimeSupervisor::spawn`: process-local task registration, cancellation on
+  shutdown, panic accounting, diagnostics.
+- `RuntimeSupervisor::spawn_job`: supervised task tied to one `JobId`, with
+  success/failure counters.
+- `DurableJobRuntime::run_job`: starts one job, runs typed work, writes
+  succeeded or failed job state.
+- `JobRepository`: enqueue/start/succeed/fail/list/get, but no typed
+  claim-next, lease heartbeat, cancel request, or retry-at/backoff.
+- Managed Artwork repository methods already implement a typed claim/commit/fail
+  state machine for `managed_artwork_ingest` rows plus their durable job rows.
+
+## Minimal Shared Contract For First Code Slice
+
+Do not start by adding generic `jobs` table leases. The least risky vertical
+slice is:
+
+1. extract the duplicated "claim one unit, execute it, report whether work was
+   found" shape behind a small worker runner in `taru-server`;
+2. keep claim/commit/fail in the Managed Artwork repository because it must
+   update ingest and job state atomically;
+3. register the runner with `RuntimeSupervisor::spawn`, not bare
+   `tokio::spawn`;
+4. use configured artwork/fetch resource limits already owned by
+   `ManagedArtworkAppService`;
+5. keep `process-next` as the manual single-step API while the worker runner is
+   introduced.
+
+Candidate contract names for `JRWCP-020`:
+
+```text
+ManagedArtworkAppService::process_next_unit()
+ManagedArtworkWorker::run_until_idle()
+RuntimeWorkerLoop::run_until_idle(...)
+```
+
+The first implementation should prefer a concrete Managed Artwork worker over a
+generic trait if the generic shape would hide domain invariants. A small
+internal helper that owns idle/backoff/shutdown behavior is acceptable once two
+workers need it.
+
 ## Open Design Questions
 
 | Question | Initial Direction | Why It Matters |
@@ -60,6 +117,12 @@ The first runtime slice should prove:
 | Cancellation | Introduce cancellation request semantics only after worker ownership exists. | Cancellation without a registered runner is only state decoration. |
 | Resource budgets | Declare resource class permits in runtime config and supervisor. | Artwork fetch, metadata network, webhook, CPU/GPU work need separate limits. |
 | Admin controls | Return redacted summaries with presence flags, not raw inputs/errors. | Job input and summary JSON can contain private operational data. |
+
+Updated decision for the first implementation slice: postpone generic lease
+schema until a second queued worker needs it. Managed Artwork already has a
+typed claim transition from queued to fetching/running and a startup recovery
+path that fails unfinished jobs. The first worker should use that existing
+claim boundary and keep the design open for later generic job leases.
 
 ## Redaction Policy
 

@@ -8,14 +8,30 @@ Last updated: 2026-05-19
 This lane has been opened as the recommended follow-on after Managed Artwork
 ingest requeue. No runtime code has changed in this lane yet.
 
+## Completed In `JRWCP-010`
+
+Inventory result:
+
+- `RuntimeSupervisor::spawn_job` already supervises immediate one-job tasks.
+- `DurableJobRuntime::run_job` already wraps start/succeed/fail for job kinds
+  like library scan, metadata refresh/maintenance, and NFO import/export.
+- Managed Artwork ingest has stronger typed claim/commit/fail/requeue methods
+  because ingest rows and durable job rows must move atomically.
+- Managed Artwork is still driven through Admin `process-next`, so it lacks a
+  supervised background loop.
+- Generic job leases should wait until a second queued worker needs them; the
+  first slice should reuse the typed Managed Artwork claim boundary.
+
 ## Next Task
 
-Start with `JRWCP-010`:
+Continue with `JRWCP-020`:
 
-- inventory existing job execution paths;
-- reconcile ADR 0006 and ADR 0019 with current code;
-- choose the minimal shared worker contract;
-- identify the first Managed Artwork worker tracer bullet.
+- add a concrete Managed Artwork ingest worker registered through
+  `RuntimeSupervisor`;
+- keep `process-next` as the manual single-step Admin command;
+- process queued work through the existing safe artifact pipeline;
+- prove success path without calling Admin `process-next`;
+- avoid broad generic scheduler or lease schema in this first slice.
 
 ## Files To Inspect First
 

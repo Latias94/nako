@@ -5,6 +5,8 @@ Last updated: 2026-05-19
 
 ## M0 - Runtime Inventory And Contract
 
+Status: Done
+
 Exit criteria:
 
 - Existing job execution surfaces are listed.
@@ -13,6 +15,8 @@ Exit criteria:
 - First shared worker contract is specific enough to implement.
 
 ## M1 - Managed Artwork Worker Tracer Bullet
+
+Status: Ready
 
 Exit criteria:
 

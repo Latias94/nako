@@ -5,7 +5,7 @@
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "JRWCP-010",
+  "current_task": "JRWCP-020",
   "first_slice": "Inventory runtime/job execution surfaces and choose the minimal shared worker contract for Managed Artwork ingest",
   "non_goals": [
     "distributed multi-process scheduling",

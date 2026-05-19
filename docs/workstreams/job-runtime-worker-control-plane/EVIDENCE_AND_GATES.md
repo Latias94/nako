@@ -44,6 +44,7 @@ Expected result:
 | --- | --- | --- | --- |
 | 2026-05-19 | `Get-Content ... WORKSTREAM.json \| ConvertFrom-Json` | Pass | Workstream JSON parses and reports `active` / `JRWCP-010`. |
 | 2026-05-19 | `git diff --check` | Pass | Opening-doc diff is whitespace-clean; Git reports only line-ending normalization warnings. |
+| 2026-05-19 | `JRWCP-010` inventory | Pass | `DESIGN.md` now lists existing job execution surfaces, runtime primitives, and the minimal Managed Artwork worker contract. |
 
 ## Review Checklist
 
