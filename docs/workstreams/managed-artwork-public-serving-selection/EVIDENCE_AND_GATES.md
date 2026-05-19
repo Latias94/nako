@@ -114,3 +114,53 @@ work; unresolved Public Client leaks block completion.
     managed artifact seams.
   - `git diff --check` passed with only a Git CRLF normalization warning for
     `docs/workstreams/README.md`.
+
+2026-05-19, MAPS-020 public contract and selection model freeze:
+
+- Audited current code and docs before implementation:
+  - `crates/taru-core/src/id.rs` has `ManagedArtworkArtifactId` and
+    `ImageAssetId`, but no `SelectedArtworkId` yet.
+  - `crates/taru-db/src/migrations.rs` currently stops at migration 0026, so
+    the first Selected Artwork migration will be
+    `0027_selected_artwork_publication.sql`.
+  - `crates/taru-client-protocol/src/lib.rs` owns the Public Client route
+    inventory; `/items/{item_id}/images` is currently JSON and no
+    `/images/{image_id}` binary route exists.
+  - `crates/taru-db/src/catalog.rs::list_item_images` still reads
+    `image_assets` rows ordered by `selected`, which is not the future public
+    selection authority.
+  - `crates/taru-server/src/app/artwork.rs` has write/delete helpers for local
+    Managed Artwork Artifact storage, but no read/stream helper yet.
+  - `crates/taru-server/src/http/admin.rs` currently exposes candidate accept
+    and ingest process-next routes, but no artifact publish route yet.
+- Frozen contract:
+  - public image ID authority is `selected_artworks.id`, represented as
+    `SelectedArtworkId`;
+  - Admin publication route is
+    `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`;
+  - Public Client byte routes are `GET /images/{image_id}` and
+    `HEAD /images/{image_id}`;
+  - Public Client image DTO is `PublicImageRefDto` with only selected-artwork
+    ID, owner, kind, first-party relative URL, dimensions, language, media
+    type, and safe ETag;
+  - `ImageAssetDto`, `ImageRefDto.uri`, and `CanonicalMetadataDto.images` must
+    leave the Public Client protocol path during MAPS-040;
+  - legacy `ImageAsset` remains internal/provenance only until a later cleanup
+    decides whether to migrate or delete it.
+- Redaction decision:
+  - Public and Admin responses must not expose `storage_uri`, local paths,
+    `managed-artwork://...`, `source_uri`, `cache_uri`, raw provider URLs,
+    Source Locators, addon token material, or provider query strings.
+- Split decision:
+  - thumbnail generation, durable retry/requeue, ingest cancellation, and
+    orphan artifact cleanup remain separate follow-ons.
+- `docs/api/HTTP_API.md` now documents the planned MAPS contract as planned,
+  not as a current route.
+- MAPS-020 validation:
+  - `Get-Content -Raw docs/workstreams/managed-artwork-public-serving-selection/WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    passed.
+  - `rg -n "ImageAssetDto|ImageRefDto|source_uri|cache_uri|storage_uri|selected|managed_artwork_artifacts|list_item_images|/items/\\{item_id\\}/images|/images" crates docs`
+    produced 689 inventory lines for the public image, selected-artwork, and
+    managed artifact seams.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited documentation files.

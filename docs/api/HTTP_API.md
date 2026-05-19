@@ -1184,6 +1184,30 @@ configured in-process fetch attempts; durable requeue/cancellation APIs,
 thumbnails, selected artwork publication, and public image-serving remain
 separate follow-on work.
 
+The follow-on `managed-artwork-public-serving-selection` workstream has frozen
+the planned public-serving contract but has not implemented these routes yet.
+The planned Selected Artwork publication command is:
+
+```text
+POST /admin/v1/artwork/artifacts/{artifact_id}/publish
+```
+
+The planned Public Client byte-serving routes are:
+
+```text
+GET  /images/{image_id}
+HEAD /images/{image_id}
+```
+
+In that contract, `image_id` is the Selected Artwork public ID
+(`selected_artworks.id`), not a Managed Artwork Artifact ID or storage locator.
+Public image references use a first-party relative URL such as
+`/images/{image_id}` plus safe presentation metadata. They never include
+`source_uri`, `cache_uri`, `storage_uri`, `managed-artwork://...`, local paths,
+raw provider URLs, Source Locators, addon token material, or provider query
+strings. Thumbnail generation, durable retry/requeue, ingest cancellation, and
+orphan artifact cleanup remain separate follow-on work.
+
 `validation_status` describes Addon principal, permission, library, and target
 validation. It is not the domain write result. `apply_status` describes the
 domain apply outcome and is one of `pending`, `applied`, `failed`, or

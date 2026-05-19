@@ -19,7 +19,7 @@ Last updated: 2026-05-19
 
 ## M1 - Public Contract And Selection Model Freeze
 
-- [ ] MAPS-020 [owner=codex] [deps=MAPS-010] [scope=crates/taru-core,crates/taru-api,crates/taru-client-protocol,crates/taru-server,docs/api,docs/workstreams/managed-artwork-public-serving-selection]
+- [x] MAPS-020 [owner=codex] [deps=MAPS-010] [scope=crates/taru-core,crates/taru-api,crates/taru-client-protocol,crates/taru-server,docs/api,docs/workstreams/managed-artwork-public-serving-selection]
   Goal: Freeze the public image reference DTO and Selected Artwork persistence
   model, including how `ImageAssetDto`, `ImageRefDto.uri`, OpenAPI, and catalog
   responses stop exposing raw image locators.
@@ -28,6 +28,12 @@ Last updated: 2026-05-19
   migration contract before implementation. Confirm whether old `ImageAsset`
   remains internal, is migrated, or is deleted in this lane.
   Evidence: design update and audit notes in `EVIDENCE_AND_GATES.md`.
+  Result: DONE. Public image ID authority is `selected_artworks.id`; public
+  byte route is `GET/HEAD /images/{image_id}`; Admin publication route is
+  `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`; public DTO is
+  `PublicImageRefDto`; first migration is `0027_selected_artwork_publication`;
+  old `ImageAsset` remains internal/provenance only and must be removed from
+  Public Client DTO/OpenAPI paths during MAPS-040.
   Handoff: Continue with MAPS-030 once the public DTO and Selected Artwork
   schema shape are no longer ambiguous.
 
@@ -54,7 +60,8 @@ Last updated: 2026-05-19
   Review: item detail and item image responses must not include `source_uri`,
   `cache_uri`, `storage_uri`, raw `uri`, local paths, or stale `selected`
   booleans. The serving route must resolve storage only inside the server
-  boundary.
+  boundary. `ImageAssetDto` and `ImageRefDto` must be deleted or made
+  non-public; `CanonicalMetadataDto` must not serialize provider image URIs.
   Evidence: route tests, protocol/OpenAPI tests, and redaction inventory in
   `EVIDENCE_AND_GATES.md`.
   Handoff: Continue with MAPS-050 to close or split remaining image lifecycle

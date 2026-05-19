@@ -86,9 +86,28 @@ It must not include:
 
 ## Architecture Direction
 
+### MAPS-020 Frozen Contract
+
+The first implementation target is now fixed as follows:
+
+- Public image ID authority: `selected_artworks.id`.
+- Public image byte route: `GET /images/{image_id}` and
+  `HEAD /images/{image_id}`.
+- Admin publication route:
+  `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`.
+- Public DTO: `PublicImageRefDto`.
+- Admin publication DTO: `PublishSelectedArtworkResponse`.
+- Core ID: `SelectedArtworkId`.
+- First persistence migration: `0027_selected_artwork_publication.sql`.
+
+This contract deliberately makes Selected Artwork the public image identity.
+Clients never receive `ManagedArtworkArtifactId` as a fetch URL, never receive
+`managed-artwork://...`, and never need to know whether bytes live in local
+artifact storage, a future object store, or a thumbnail pipeline.
+
 ### Persistence
 
-Prefer a new Selected Artwork table/read model instead of overloading
+Use a new Selected Artwork table/read model instead of overloading
 `image_assets.selected`.
 
 Rationale:
@@ -112,8 +131,29 @@ Expected first schema shape:
 - unique `(item_id, kind, kind_key)`
 - index on `artifact_id`
 
-`library_id`, `item_id`, and `kind` should match the linked artifact. The
-repository method should enforce this inside one transaction.
+`selected_artworks.id` is stable for the `(item_id, kind, kind_key)` selection
+slot. Reselecting a different artifact for the same item/kind updates
+`artifact_id` and `updated_at` while preserving the public image URL. A changed
+ETag tells clients that the bytes behind the stable route changed.
+
+`artifact_id` should use `ON DELETE RESTRICT`. Orphan cleanup must never delete
+currently selected artwork by accident; cleanup can only remove unselected
+artifacts in a later lifecycle lane.
+
+`library_id`, `item_id`, and `kind` must match the linked artifact. SQLite
+cannot express that cross-table invariant as a simple check constraint, so the
+repository publish method must enforce it inside one transaction before the
+upsert.
+
+First repository methods:
+
+- `publish_selected_artwork(artifact_id) -> SelectedArtworkPublicationRecord`
+- `get_selected_artwork(id) -> Option<SelectedArtworkRecord>`
+- `list_selected_artwork_for_item(item_id) -> Vec<SelectedArtworkRecord>`
+
+The publication method must require a stored artifact row. Failed ingests,
+candidate rows, raw provider images, and legacy `ImageAsset` rows are not
+publishable.
 
 ### Application Service
 
@@ -124,9 +164,35 @@ Add a Taru-owned publication method, likely under the artwork app service:
 3. Upsert Selected Artwork for `(item_id, kind, kind_key)`.
 4. Return a redacted publication summary and public image reference.
 
-The first route should be an Admin API command. Automatic "select after ingest"
-policy is intentionally deferred; accepting and storing an artifact should not
-silently publish it.
+The Admin route is:
+
+```text
+POST /admin/v1/artwork/artifacts/{artifact_id}/publish
+```
+
+It has no body in the first slice. The artifact already carries the item,
+library, and image kind. A future policy route can add body fields for
+alternate owners, variants, or batch selection, but the first boundary should
+not accept raw paths, source URLs, storage URIs, or arbitrary public URLs.
+
+Automatic "select after ingest" policy is intentionally deferred; accepting and
+storing an artifact should not silently publish it.
+
+The response shape is:
+
+- `selected_artwork.id`
+- `selected_artwork.library_id`
+- `selected_artwork.item_id`
+- `selected_artwork.kind`
+- `selected_artwork.artifact_id`
+- `selected_artwork.created_at`
+- `selected_artwork.updated_at`
+- `image: PublicImageRefDto`
+- `changed: bool`
+
+`artifact_id` is safe as an Admin identifier, but it is not a fetch URL. The
+response must omit `storage_uri`, local paths, raw source URLs, `cache_uri`,
+candidate `source_uri`, and provider/addon token material.
 
 ### Public Client API
 
@@ -134,18 +200,52 @@ Public catalog item detail and item image listing should return the new public
 image reference shape. If no Selected Artwork exists, the public image list is
 empty.
 
-`ImageAssetDto` and `ImageRefDto.uri` are not safe as-is. This lane should
-either replace them in Public Client protocol types or confine them to internal
-Admin/provenance surfaces. Because Taru is still early and this is a correctness
-lane, prefer a clean public contract over compatibility with the old leak-prone
-shape.
+`ImageAssetDto` and `ImageRefDto.uri` are not safe as-is and must be removed
+from the Public Client protocol surface in this lane. `ImageAsset` may remain
+as an internal catalog/provenance record while provider metadata ingestion still
+uses it, but no Public Client DTO or OpenAPI schema should serialize it.
+
+Public protocol changes:
+
+- Replace `ItemDetailResponse.images: Vec<ImageAssetDto>` with
+  `Vec<PublicImageRefDto>`.
+- Replace `ImagesResponse.images: Vec<ImageAssetDto>` with
+  `Vec<PublicImageRefDto>`.
+- Remove `CanonicalMetadataDto.images` from Public Client responses for this
+  lane. Canonical Metadata should not carry provider image URLs into client
+  protocol DTOs. A future browse summary can add selected public artwork
+  explicitly if list/search cards need images.
+- Delete or make non-public `ImageAssetDto` and `ImageRefDto` from
+  `taru-client-protocol`.
+- Update OpenAPI to define `PublicImageRefDto`, remove the old image URI/cache
+  schemas, and add `/images/{image_id}` as a binary response route.
+
+`PublicImageRefDto` fields:
+
+```text
+id: string
+owner: ClientImageOwner
+kind: ClientImageKind
+url: string
+width: number | null
+height: number | null
+language: string | null
+media_type: string | null
+etag: string | null
+```
+
+The `url` must be a first-party relative route such as
+`/images/{image_id}`. It must never be a provider URL, local path,
+`managed-artwork://...` URI, cache URI, Source Locator, data URI, or temporary
+signed URL.
 
 ### Image Serving
 
 Add a Public Client route for image bytes, for example:
 
 ```text
-GET /api/v1/images/{image_id}
+GET  /images/{image_id}
+HEAD /images/{image_id}
 ```
 
 The handler should:
@@ -159,8 +259,38 @@ The handler should:
 - map missing rows to `404` without revealing whether a storage object exists;
 - avoid logging source URLs, local paths, or storage URIs.
 
+The route is a Catalog route in the public route inventory but should be marked
+as streaming/binary, not as a JSON method. The generated Rust SDK should expose
+it with a streaming builder similar to playback byte routes.
+
+`LocalManagedArtworkArtifactStore` currently supports write and best-effort
+delete only. MAPS-040 must add a read/stream helper that resolves bytes from the
+artifact ID and stored media type under the configured artifact root. It should
+validate the expected `managed-artwork://artifact/{artifact_id}` shape but must
+not expose or return the filesystem path. The first implementation may read the
+whole validated image into memory because MAFA already enforces the artwork byte
+limit; range support remains a follow-on.
+
 Range requests, thumbnail variants, resize parameters, and cache eviction are
 deferred unless required by a focused correctness test.
+
+### Legacy ImageAsset Policy
+
+`ImageAsset` remains an internal catalog/provenance model during this lane. It
+is still used by `taru-catalog` and existing catalog repository tests for
+provider/local image facts. It is not the public selected-artwork authority.
+
+MAPS-040 should remove these public adapter paths:
+
+- `taru_api::image_asset_to_dto`
+- `ImageAssetDto` from `taru-client-protocol`
+- `ImageRefDto.uri` from `CanonicalMetadataDto`
+- OpenAPI `ImageAssetDto` and `ImageRefDto` schemas
+- Public catalog responses backed by `store.list_item_images`
+
+After the public serving path is stable, a later cleanup can decide whether
+legacy `image_assets.selected` should be deleted, preserved only for internal
+metadata provenance, or migrated into Artwork Candidate/Managed Artwork flows.
 
 ## Assumptions
 

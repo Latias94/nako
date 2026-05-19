@@ -8,18 +8,28 @@ Last updated: 2026-05-19
 MAPS is open. The previous MAFA lane stores validated Managed Artwork bytes as
 internal artifacts and keeps `managed-artwork://...` storage authority private.
 This lane now owns the public boundary: Selected Artwork publication, redacted
-Public Client image references, and first-party image byte serving.
+Public Client image references, and first-party image byte serving. MAPS-020
+has frozen the contract:
+
+- `selected_artworks.id` is the public image ID authority.
+- `GET/HEAD /images/{image_id}` serves selected image bytes.
+- `POST /admin/v1/artwork/artifacts/{artifact_id}/publish` publishes a stored
+  artifact as Selected Artwork.
+- `PublicImageRefDto` replaces leak-prone Public Client image DTOs.
+- `ImageAsset` remains internal/provenance only and is not the public selected
+  artwork authority.
 
 ## Current Task
 
-- Task ID: MAPS-020
+- Task ID: MAPS-030
 - Owner: codex
-- Files: `crates/taru-core`, `crates/taru-api`,
-  `crates/taru-client-protocol`, `crates/taru-server`, `docs/api`,
-  `docs/workstreams/managed-artwork-public-serving-selection`
-- Validation: audit inventory plus `git diff --check`
+- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-api`,
+  `crates/taru-server`, `docs/api`
+- Validation: focused db publication tests; focused admin HTTP tests;
+  `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`;
+  `cargo fmt --all -- --check`; `git diff --check`
 - Status: READY
-- Review: freeze DTO/route/schema shape before implementation
+- Review: implement Selected Artwork publication before public byte serving
 - Evidence: `EVIDENCE_AND_GATES.md`
 
 ## Blockers
@@ -28,10 +38,12 @@ Public Client image references, and first-party image byte serving.
 
 ## Next Recommended Action
 
-- Run MAPS-020 and make the public image contract explicit before adding schema
-  migrations or route handlers.
-- Prefer a new Selected Artwork model over reusing `ImageAsset.selected`.
-- Treat old public `source_uri`, `cache_uri`, `ImageRefDto.uri`, and
-  `selected` fields as leak-prone unless proven internal-only.
+- Run MAPS-030 by adding `SelectedArtworkId`,
+  `0027_selected_artwork_publication.sql`, selected-artwork repository records
+  and methods, and the Admin publish command.
+- Keep the Admin response redacted: no `storage_uri`, source URL, `cache_uri`,
+  local path, or addon/provider token material.
+- Do not start MAPS-040 public byte serving until a selected record can be
+  created and read.
 - Keep thumbnails, durable retry/requeue, cancellation, and orphan artifact
   cleanup split from the first serving path.

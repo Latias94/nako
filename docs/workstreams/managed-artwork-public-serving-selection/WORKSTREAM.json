@@ -58,8 +58,8 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAPS-020",
-  "first_slice": "Public image reference and Selected Artwork model freeze",
+  "current_task": "MAPS-030",
+  "first_slice": "Selected Artwork publication from stored Managed Artwork Artifact",
   "non_goals": [
     "thumbnail or resize workers",
     "durable retry/requeue APIs",
@@ -75,6 +75,6 @@
   },
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start with MAPS-020 to freeze the public DTO, route identity, and Selected Artwork schema before adding migrations or handlers. Keep thumbnail, durable retry/requeue, cancellation, and orphan cleanup as follow-ons."
+    "notes": "MAPS-020 froze the public DTO, route identity, and Selected Artwork schema. Continue with MAPS-030 by adding SelectedArtworkId, the 0027 selected_artworks migration, repository publish/read methods, and the Admin publish command. Keep thumbnail, durable retry/requeue, cancellation, and orphan cleanup as follow-ons."
   }
 }

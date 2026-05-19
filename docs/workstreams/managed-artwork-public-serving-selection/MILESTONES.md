@@ -34,6 +34,24 @@ Exit criteria:
 - Old `ImageAsset` behavior is either kept internal, migrated, or scheduled for
   deletion with no public leakage.
 
+Result:
+
+- Public image ID authority is `selected_artworks.id`, represented in core as
+  `SelectedArtworkId`.
+- Public serving uses `GET /images/{image_id}` and `HEAD /images/{image_id}`;
+  the route is a Catalog binary/streaming route, not a JSON method.
+- Admin publication uses
+  `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`.
+- Public Client responses use `PublicImageRefDto` with `id`, `owner`, `kind`,
+  first-party relative `url`, dimensions, language, media type, and safe ETag.
+- `ImageAssetDto`, `ImageRefDto.uri`, and `CanonicalMetadataDto.images` are
+  removed from the Public Client protocol path during MAPS-040. Legacy
+  `ImageAsset` remains internal/provenance only until a later cleanup decides
+  whether to migrate or delete it.
+- First migration is `0027_selected_artwork_publication.sql`, introducing
+  `selected_artworks` with stable public IDs and unique `(item_id, kind,
+  kind_key)` selection slots.
+
 Primary gates:
 
 - `rg -n "ImageAssetDto|ImageRefDto|source_uri|cache_uri|storage_uri|selected|managed_artwork_artifacts|list_item_images|/items/\\{item_id\\}/images|/images" crates docs`
