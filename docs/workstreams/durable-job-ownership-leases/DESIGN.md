@@ -150,6 +150,11 @@ Missing operations:
 queued jobs and fail only running jobs that have no typed recovery path. Queued
 jobs are accepted work, not evidence of an abandoned worker.
 
+`DJOL-040` extends `JobLeaseClaimFilter` with optional `job_id` matching. This
+lets synchronous command paths and supervisor-spawned background paths claim the
+exact job they just enqueued instead of racing against another queued job of the
+same kind or resource class.
+
 ### Runtime Shape
 
 `RuntimeSupervisor` owns process-local tasks, shutdown tokens, abort handles,
@@ -158,6 +163,13 @@ are useful layers, but neither one owns cross-process durability. The lease
 contract must live in repository methods, while the supervisor passes the
 worker identity, run token, and shutdown/cancel observation points into typed
 executors.
+
+After `DJOL-040`, `DurableJobRuntime::run_job` is the first shared leased
+runtime path. It exact-claims the queued job, records a stable process-local
+worker ID, starts a heartbeat loop, and persists success or failure with the
+claim run token. Existing library scan, metadata refresh/maintenance, and NFO
+import/export execution paths call this shared runtime, so their durable
+lifecycle is now leased even though each domain side effect remains typed.
 
 ### Managed Artwork Ingest
 

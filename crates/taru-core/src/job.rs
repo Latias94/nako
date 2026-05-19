@@ -117,6 +117,7 @@ pub struct Job {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct JobLeaseClaimFilter {
+    pub job_id: Option<JobId>,
     pub kind: Option<JobKind>,
     pub resource_class: Option<String>,
     pub library_id: Option<LibraryId>,

@@ -51,11 +51,11 @@ truthful cancellation controls.
 
 ## Current Slice
 
-`DJOL-010` opens the lane and freezes the initial code inventory. The next
-slice should make the state-machine choice explicit before adding schema:
-cancel request should be durable intent, ownership should be fenced by a run
-token, and terminal cancellation should be distinguishable from ordinary
-failure if the Admin API is going to promise cancellation.
+`DJOL-040` is complete: the shared `DurableJobRuntime` exact-claims the queued
+job it is asked to run, records a process-local worker identity, heartbeats the
+lease, and persists success or failure through the run-token fence. The next
+slice is `DJOL-050`: add truthful, redacted Admin cancel-request controls on
+top of the repository/runtime semantics already proven here.
 
 ## Split Follow-Ons
 

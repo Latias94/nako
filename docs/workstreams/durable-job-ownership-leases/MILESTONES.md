@@ -59,8 +59,13 @@ Primary gates:
 
 Exit criteria:
 
-- One real job path uses the leased contract end to end.
+- Shared `DurableJobRuntime::run_job` uses the leased contract end to end.
+  Result: library scan, metadata refresh/maintenance, and NFO import/export
+  execution paths now use exact claim, heartbeat, and run-token fenced
+  completion through the shared runtime.
 - Runtime diagnostics remain process-local and do not overclaim durable state.
+  Result: worker ID is process-local diagnostic identity; run token remains the
+  durable write fence.
 - Startup recovery is lease-aware.
 - Stale owners cannot complete or fail jobs after the lease token changes.
 

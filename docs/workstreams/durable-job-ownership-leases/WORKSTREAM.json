@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "architecture_execution",
   "problem": "Durable jobs can be running without a durable owner, lease, heartbeat, cancellation request, or fenced completion contract.",
-  "current_task": "DJOL-040",
+  "current_task": "DJOL-050",
   "authoritative_docs": [
     {
       "role": "readme",
@@ -40,6 +40,7 @@
     "cargo nextest run -p taru-db job_lease --no-fail-fast",
     "cargo nextest run -p taru-db job_cancel --no-fail-fast",
     "cargo nextest run -p taru-server job_runtime --no-fail-fast",
+    "cargo nextest run -p taru-server startup --no-fail-fast",
     "cargo nextest run -p taru-server job_cancel --no-fail-fast",
     "cargo fmt --all -- --check"
   ],
@@ -62,6 +63,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with DJOL-040 now that the SQLite lease and cancellation repository proof is in place. Split retry/backoff and worker migrations when ownership semantics are stable."
+    "notes": "Continue with DJOL-050 now that the shared DurableJobRuntime exact-claims, heartbeats, and completes through run-token fenced leases. Keep retry/backoff and broad worker migrations split from Admin cancel controls."
   }
 }

@@ -245,6 +245,7 @@ impl JobRepository for SqliteStore {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         let kind = request.filter.kind.map(|kind| kind.as_str().to_owned());
         let resource_class = request.filter.resource_class;
+        let requested_job_id = request.filter.job_id.map(|id| id.to_string());
         let library_id = request.filter.library_id.map(|id| id.to_string());
         let source_id = request.filter.source_id.map(|id| id.to_string());
         let job_id = sqlx::query_scalar::<_, String>(
@@ -254,8 +255,9 @@ impl JobRepository for SqliteStore {
             WHERE status = ?1
                 AND (?2 IS NULL OR kind = ?2)
                 AND (?3 IS NULL OR resource_class = ?3)
-                AND (?4 IS NULL OR library_id = ?4)
-                AND (?5 IS NULL OR source_id = ?5)
+                AND (?4 IS NULL OR id = ?4)
+                AND (?5 IS NULL OR library_id = ?5)
+                AND (?6 IS NULL OR source_id = ?6)
             ORDER BY queued_at ASC, id ASC
             LIMIT 1
             "#,
@@ -263,6 +265,7 @@ impl JobRepository for SqliteStore {
         .bind(JobStatus::Queued.as_str())
         .bind(kind.as_deref())
         .bind(resource_class.as_deref())
+        .bind(requested_job_id.as_deref())
         .bind(library_id.as_deref())
         .bind(source_id.as_deref())
         .fetch_optional(&mut *transaction)
@@ -539,14 +542,15 @@ impl JobRepository for SqliteStore {
     async fn recover_expired_job_leases(&self, recovery: RecoverExpiredJobLeases) -> Result<u64> {
         let kind = recovery.filter.kind.map(|kind| kind.as_str().to_owned());
         let resource_class = recovery.filter.resource_class;
+        let job_id = recovery.filter.job_id.map(|id| id.to_string());
         let library_id = recovery.filter.library_id.map(|id| id.to_string());
         let source_id = recovery.filter.source_id.map(|id| id.to_string());
         let result = sqlx::query(
             r#"
             UPDATE jobs
             SET
-                status = ?7,
-                error = ?8,
+                status = ?8,
+                error = ?9,
                 worker_id = NULL,
                 run_token = NULL,
                 heartbeat_at = NULL,
@@ -558,14 +562,16 @@ impl JobRepository for SqliteStore {
                 AND lease_expires_at < ?2
                 AND (?3 IS NULL OR kind = ?3)
                 AND (?4 IS NULL OR resource_class = ?4)
-                AND (?5 IS NULL OR library_id = ?5)
-                AND (?6 IS NULL OR source_id = ?6)
+                AND (?5 IS NULL OR id = ?5)
+                AND (?6 IS NULL OR library_id = ?6)
+                AND (?7 IS NULL OR source_id = ?7)
             "#,
         )
         .bind(JobStatus::Running.as_str())
         .bind(recovery.expired_before)
         .bind(kind.as_deref())
         .bind(resource_class.as_deref())
+        .bind(job_id.as_deref())
         .bind(library_id.as_deref())
         .bind(source_id.as_deref())
         .bind(JobStatus::Failed.as_str())

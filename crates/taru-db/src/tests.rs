@@ -1972,7 +1972,7 @@ async fn sqlite_store_job_lease_claims_next_with_worker_token_and_filter() {
         })
         .await
         .unwrap();
-    let claimable = store
+    let target = store
         .enqueue_job(NewJob {
             id: JobId::new(),
             kind: JobKind::LibraryScan,
@@ -1983,13 +1983,25 @@ async fn sqlite_store_job_lease_claims_next_with_worker_token_and_filter() {
         })
         .await
         .unwrap();
+    let decoy = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            library_id: Some(library.id),
+            source_id: None,
+            input_json: Some(r#"{"library_id":"movies","slot":"decoy"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
 
     let worker_id = JobWorkerId::new();
-    let claimed = store
+    let exact_claim = store
         .claim_next_job_lease(JobLeaseClaimRequest {
             worker_id,
             lease_duration_ms: 30_000,
             filter: JobLeaseClaimFilter {
+                job_id: Some(target.id),
                 kind: Some(JobKind::LibraryScan),
                 resource_class: Some("disk.scan".to_owned()),
                 library_id: Some(library.id),
@@ -1998,23 +2010,48 @@ async fn sqlite_store_job_lease_claims_next_with_worker_token_and_filter() {
         })
         .await
         .unwrap()
-        .expect("library scan job should be claimable");
+        .expect("target library scan job should be claimable by id");
 
-    assert_eq!(claimed.job.id, claimable.id);
+    assert_eq!(exact_claim.job.id, target.id);
+    assert_eq!(exact_claim.job.input_json, target.input_json);
+    assert_eq!(exact_claim.lease.job_id, target.id);
+    assert_eq!(exact_claim.lease.worker_id, worker_id);
+    assert_eq!(exact_claim.lease.cancel_requested_at, None);
+    assert_eq!(exact_claim.lease.cancel_reason, None);
+
+    let claimed = store
+        .claim_next_job_lease(JobLeaseClaimRequest {
+            worker_id,
+            lease_duration_ms: 30_000,
+            filter: JobLeaseClaimFilter {
+                job_id: None,
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                library_id: Some(library.id),
+                source_id: None,
+            },
+        })
+        .await
+        .unwrap()
+        .expect("remaining library scan job should be claimable");
+
+    assert_eq!(claimed.job.id, decoy.id);
     assert_eq!(claimed.job.status, JobStatus::Running);
-    assert_eq!(claimed.job.input_json, claimable.input_json);
+    assert_eq!(claimed.job.input_json, decoy.input_json);
     assert!(claimed.job.started_at.is_some());
     assert_eq!(claimed.job.completed_at, None);
     assert_eq!(claimed.job.error, None);
-    assert_eq!(claimed.lease.job_id, claimable.id);
+    assert_eq!(claimed.lease.job_id, decoy.id);
     assert_eq!(claimed.lease.worker_id, worker_id);
     assert_eq!(claimed.lease.cancel_requested_at, None);
     assert_eq!(claimed.lease.cancel_reason, None);
     assert!(!claimed.lease.heartbeat_at.is_empty());
     assert!(!claimed.lease.lease_expires_at.is_empty());
 
-    let loaded = store.get_job(claimable.id).await.unwrap().unwrap();
+    let loaded = store.get_job(target.id).await.unwrap().unwrap();
+    let decoy_loaded = store.get_job(decoy.id).await.unwrap().unwrap();
     assert_eq!(loaded.status, JobStatus::Running);
+    assert_eq!(decoy_loaded.status, JobStatus::Running);
     assert_eq!(
         store.get_job(skipped.id).await.unwrap().unwrap().status,
         JobStatus::Queued
@@ -2025,6 +2062,7 @@ async fn sqlite_store_job_lease_claims_next_with_worker_token_and_filter() {
                 worker_id,
                 lease_duration_ms: 30_000,
                 filter: JobLeaseClaimFilter {
+                    job_id: None,
                     kind: Some(JobKind::LibraryScan),
                     resource_class: Some("disk.scan".to_owned()),
                     library_id: Some(library.id),
@@ -2313,6 +2351,24 @@ async fn sqlite_store_job_lease_recovery_fails_only_expired_running_leases() {
     assert_eq!(expired_claim.job.id, running.id);
     assert_eq!(active_claim.job.id, active.id);
 
+    let exact_recovery = store
+        .recover_expired_job_leases(RecoverExpiredJobLeases {
+            filter: JobLeaseClaimFilter {
+                job_id: Some(running.id),
+                ..JobLeaseClaimFilter::default()
+            },
+            expired_before: "9999-01-01T00:00:00.000Z".to_owned(),
+            error: "lease expired during startup recovery".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(exact_recovery, 1);
+
+    let running = store.get_job(running.id).await.unwrap().unwrap();
+    let active = store.get_job(active.id).await.unwrap().unwrap();
+    assert_eq!(running.status, JobStatus::Failed);
+    assert_eq!(active.status, JobStatus::Running);
+
     let recovered = store
         .recover_expired_job_leases(RecoverExpiredJobLeases {
             filter: JobLeaseClaimFilter::default(),
@@ -2321,7 +2377,7 @@ async fn sqlite_store_job_lease_recovery_fails_only_expired_running_leases() {
         })
         .await
         .unwrap();
-    assert_eq!(recovered, 2);
+    assert_eq!(recovered, 1);
 
     let queued = store.get_job(queued.id).await.unwrap().unwrap();
     let running = store.get_job(running.id).await.unwrap().unwrap();

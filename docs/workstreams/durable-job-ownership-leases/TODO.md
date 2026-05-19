@@ -46,19 +46,23 @@ Last updated: 2026-05-19
 
 ## M3 - First Runtime Integration
 
-- [ ] DJOL-040 [owner=codex] [deps=DJOL-030] [scope=crates/taru-server/src/app/runtime.rs,crates/taru-server/src/app/job_runtime.rs]
+- [x] DJOL-040 [owner=codex] [deps=DJOL-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server/src/app/job_runtime.rs]
   Goal: Make one real durable job execution path use leased ownership from
   claim/start through heartbeat and completion.
   Validation: `cargo nextest run -p taru-server job_runtime --no-fail-fast`.
   Review: The runtime supervisor remains process-local; durable truth stays in
   repository operations.
   Evidence: Server runtime tests and startup recovery tests.
+  Result: DONE. `DurableJobRuntime::run_job` now exact-claims the queued job,
+  persists heartbeats under a stable process worker ID, and completes or fails
+  through the run-token fence. The existing library, metadata, and NFO app
+  services call this shared runtime path.
   Handoff: `DJOL-050` can add truthful Admin cancel-request controls only after
   this proof exists.
 
 ## M4 - Truthful Cancel Request Controls
 
-- [ ] DJOL-050 [owner=unassigned] [deps=DJOL-040] [scope=crates/taru-api,crates/taru-server/src/http,docs/api]
+- [ ] DJOL-050 [owner=codex] [deps=DJOL-040] [scope=crates/taru-api,crates/taru-server/src/http,docs/api]
   Goal: Add redacted Admin cancel-request behavior for leased jobs if the
   worker can observe and acknowledge cancellation.
   Validation: `cargo nextest run -p taru-server job_cancel --no-fail-fast`; `cargo check -p taru-api -p taru-server --tests`.
