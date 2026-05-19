@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "managed-artwork-fetch-artifact-storage",
   "title": "Managed Artwork Fetch Artifact Storage",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Queued managed artwork ingest jobs need a Taru-owned fetch, validation, and internal artifact byte storage boundary before candidate artwork can be served, thumbnailed, selected, or published.",
@@ -50,7 +50,7 @@
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
-  "current_task": "MAFA-050",
+  "current_task": null,
   "first_slice": "Queued managed artwork ingest fetch into internal artifact storage",
   "non_goals": [
     "Addon Manager lifecycle automation",
@@ -66,7 +66,7 @@
     "source": "remote fetch/content validation and artifact byte storage split from queued candidate-ingest closeout"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with MAFA-050. Close the lane or split public serving, thumbnails, selected artwork publication, durable retry/requeue, cancellation, and orphan cleanup into narrower follow-ons."
+    "default_action": "open_follow_on",
+    "notes": "Lane closed. Open a narrower follow-on before implementing public managed artwork serving, thumbnails, selected artwork publication, durable retry/requeue, cancellation, or orphan cleanup."
   }
 }

@@ -1,6 +1,6 @@
 # Managed Artwork Fetch Artifact Storage
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 This workstream follows `managed-artwork-ingest-selection`. The previous lane
@@ -41,3 +41,13 @@ Authoritative docs:
 - No thumbnail or resize pipeline unless it is needed only for validation.
 - No Addon Side Effect fetch/cache behavior.
 - No artwork sidecar file export; that remains Library File Write scope.
+
+## Closeout Outcome
+
+- Accepted managed artwork ingest jobs can be processed by a Taru-owned Admin
+  runtime seam into internal artifact bytes and `managed_artwork_artifacts`
+  metadata.
+- Fetch, validation, local internal artifact storage, claim/commit/failure
+  transitions, and redacted Admin responses are in place.
+- Public image serving, thumbnails, selected artwork publication, durable
+  retry/requeue, cancellation, and orphan cleanup remain explicit follow-ons.

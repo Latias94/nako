@@ -1,6 +1,6 @@
 # Managed Artwork Fetch Artifact Storage Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -124,3 +124,10 @@ Exit criteria:
 - HTTP/API docs reflect shipped behavior.
 - Public image serving, thumbnails, selected artwork publication, and catalog
   projection refresh are completed, deferred, or split.
+
+Result:
+
+- Workstream closed on 2026-05-19 after fresh closeout gates.
+- Follow-ons should be opened separately for public image serving, thumbnails,
+  selected artwork publication/catalog projection refresh, durable retry/requeue,
+  cancellation, and orphan artifact cleanup.

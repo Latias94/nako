@@ -1,6 +1,6 @@
 # Managed Artwork Fetch Artifact Storage
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -180,3 +180,8 @@ This lane can close when:
 - targeted Rust gates pass,
 - and public serving, thumbnails, and selected artwork publication are split or
   explicitly deferred.
+
+Closeout result: met on 2026-05-19. The lane ships internal artifact authority
+only. Public image serving, thumbnails, selected artwork publication, durable
+retry/requeue, cancellation, and orphan cleanup are deferred or should be split
+into narrower follow-on work.

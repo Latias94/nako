@@ -1,6 +1,6 @@
 # Managed Artwork Fetch Artifact Storage TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -76,11 +76,16 @@ Last updated: 2026-05-19
 
 ## M4 - Closeout Or Split
 
-- [ ] MAFA-050 [owner=planner] [deps=MAFA-040] [scope=docs/workstreams/managed-artwork-fetch-artifact-storage,docs/api]
+- [x] MAFA-050 [owner=planner] [deps=MAFA-040] [scope=docs/workstreams/managed-artwork-fetch-artifact-storage,docs/api]
   Goal: Close the fetch/artifact lane or split public serving, thumbnails, and
   selected artwork publication into narrower follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
   Review: review-workstream has no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
+  Result: DONE. Workstream closed after fresh closeout gates. Internal managed
+  artifact authority, byte storage, success redaction, and failure redaction are
+  stable enough for follow-ons. Public image serving, thumbnails, selected
+  artwork publication, durable retry/requeue, cancellation, and orphan artifact
+  cleanup are deferred/split candidates.
   Handoff: Recommend the next lane only after internal artifact authority,
   byte storage, and redaction guarantees are stable.

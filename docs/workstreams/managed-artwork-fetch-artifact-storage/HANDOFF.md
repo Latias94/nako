@@ -1,6 +1,6 @@
 # Managed Artwork Fetch Artifact Storage Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
@@ -16,18 +16,18 @@ publication. MAFA-040 adds safe failed-job summaries and bounded internal
 failure codes, with redaction tests for unsupported media type and invalid
 image failures.
 
-## Active Task
+## Closed Task
 
 - Task ID: MAFA-050
 - Owner: codex
 - Files: `docs/workstreams/managed-artwork-fetch-artifact-storage`,
   `docs/api`
 - Validation: verify-rust-workstream records fresh final gate evidence
-- Status: READY
-- Review: close the fetch/artifact lane or split public serving, thumbnails,
-  selected artwork publication, durable retry, and cancellation into narrower
-  follow-ons
-- Evidence: update closeout notes and final gate evidence
+- Status: DONE
+- Review: lane closed; public serving, thumbnails, selected artwork
+  publication, durable retry/requeue, cancellation, and orphan cleanup are
+  follow-on candidates
+- Evidence: `EVIDENCE_AND_GATES.md`
 
 ## Blockers
 
@@ -35,11 +35,11 @@ image failures.
 
 ## Next Recommended Action
 
-- Run MAFA-050. Review MAFA-030/040 evidence, decide whether this workstream is
-  ready to close, and split follow-ons for public image serving, thumbnails,
-  selected artwork publication, durable retry/requeue, cancellation, and orphan
-  artifact cleanup.
+- Open a new follow-on before implementing public image behavior. Recommended
+  first split: public managed artwork serving and selected artwork publication,
+  because clients still have no public image reference for internal artifacts.
 - Keep `managed-artwork://...` as an opaque internal storage reference. Do not
   expose raw artifact paths or `storage_uri` in Admin DTOs.
-- Do not create public `ImageAsset` rows, selected artwork, thumbnails, public
-  image references, or Addon Side Effect fetch/cache behavior during closeout.
+- Keep durable retry/requeue, cancellation, and orphan artifact cleanup as
+  separate follow-ons unless the public-serving lane proves they are immediate
+  blockers.

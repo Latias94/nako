@@ -61,7 +61,7 @@ attention.
   Taru-managed ingest state through a redacted Admin API command and durable
   `managed_artwork_ingest` job, without public artwork publication.
 - [managed-artwork-fetch-artifact-storage](managed-artwork-fetch-artifact-storage/README.md):
-  active follow-on for processing queued managed artwork ingest jobs through
+  completed follow-on for processing queued managed artwork ingest jobs through
   Taru-owned fetch/content validation and internal artifact byte storage before
   public image serving, thumbnails, or selected artwork publication.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):

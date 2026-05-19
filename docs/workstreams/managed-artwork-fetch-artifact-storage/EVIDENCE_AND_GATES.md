@@ -1,6 +1,6 @@
 # Managed Artwork Fetch Artifact Storage Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -195,3 +195,26 @@ ports, public API contracts, or durable job behavior.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
+
+2026-05-19, MAFA-050 closeout:
+
+- Closeout claim: the MAFA lane now provides internal managed artwork artifact
+  authority for accepted queued ingests, including success/failure redaction,
+  without publishing public `ImageAsset`, thumbnails, selected artwork, or
+  public image-serving routes.
+- Fresh closeout verification:
+  - `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`
+    produced 718 current inventory lines.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+    passed.
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 6 tests.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
+- Split/defer decisions:
+  - public image serving and public DTO shape are follow-on work;
+  - thumbnail generation/resizing is follow-on work;
+  - selected artwork publication and catalog/search projection refresh are
+    follow-on work;
+  - durable retry/requeue, cancellation APIs, and orphan artifact cleanup are
+    follow-on work.
