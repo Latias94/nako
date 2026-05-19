@@ -80,6 +80,7 @@ requires it.
 | Date | Task | Gate | Result | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-05-19 | DJOL-010 | WORKSTREAM JSON parse, `git diff --check` | Pass | Opening docs only; JSON parsed and diff check passed before commit. |
+| 2026-05-19 | DJOL-020 | `cargo check -p taru-core --tests`, `cargo check -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Core contract and ADR updated; no schema or API behavior change. |
 
 ## Review Expectations
 

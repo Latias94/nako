@@ -15,13 +15,17 @@ Last updated: 2026-05-19
 
 ## M1 - State Machine And Contract Freeze
 
-- [ ] DJOL-020 [owner=codex] [deps=DJOL-010] [scope=docs/adr,crates/taru-core/src/job.rs,crates/taru-core/src/repository/jobs.rs]
+- [x] DJOL-020 [owner=codex] [deps=DJOL-010] [scope=docs/adr,crates/taru-core/src/job.rs,crates/taru-core/src/repository/jobs.rs]
   Goal: Freeze the job ownership state machine, cancellation semantics,
   terminal-status choice, repository contract names, and safe Admin fields.
   Validation: `cargo check -p taru-core --tests`; `cargo fmt --all -- --check`.
   Review: Confirm no raw job input, summary, error, Source Locator, storage
   handle, path, token, or provider payload becomes part of DTO planning.
   Evidence: `DESIGN.md`, ADR delta if required, core type/repository diffs.
+  Result: DONE. `cancelled` is a terminal status distinct from `failed`;
+  `JobWorkerId` is diagnostic; `JobRunToken` is the write fence; repository
+  lease/cancel methods are present with default unsupported behavior until
+  SQLite implements them.
   Handoff: `DJOL-030` owns schema and SQLite tests after this contract is stable.
 
 ## M2 - Durable Schema And Repository Proof

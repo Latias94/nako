@@ -189,18 +189,39 @@ are not.
 
 ## Candidate Data Model
 
-Names are intentionally provisional until `DJOL-020` freezes the contract:
+Names chosen by `DJOL-020` for the shared core contract:
 
-- `owner_id TEXT`
+- `worker_id TEXT`
 - `run_token TEXT`
 - `lease_expires_at TEXT`
 - `heartbeat_at TEXT`
 - `cancel_requested_at TEXT`
 - `cancel_reason TEXT`
-- possible terminal status: `cancelled`
+- terminal status: `cancelled`
 
-`owner_id` is diagnostic. `run_token` is the fence. Completion without the
+`worker_id` is diagnostic. `run_token` is the fence. Completion without the
 current token must fail or return a stale-owner outcome.
+
+## `DJOL-020` Contract Decision
+
+`taru-core` now owns the vocabulary before SQLite migration work starts:
+
+- `JobStatus::Cancelled` is a terminal status distinct from `failed`.
+- `JobWorkerId` identifies a process-local or future durable worker instance.
+- `JobRunToken` fences one claim attempt.
+- `JobLeaseClaimRequest` carries worker identity, lease duration, and an
+  optional kind/resource/library/source filter.
+- `JobLeaseRecord` carries `job_id`, `worker_id`, `run_token`,
+  `heartbeat_at`, `lease_expires_at`, and cancellation-request facts.
+- `JobLeaseGuard` is the minimal token required for heartbeat, completion,
+  failure, and cancellation acknowledgement.
+- `JobRepository` exposes default-unsupported methods for claim, heartbeat,
+  fenced success, fenced failure, cancel request, cancellation acknowledgement,
+  and expired-lease recovery.
+
+The default-unsupported repository methods are intentional. They let this task
+freeze the cross-crate contract without pretending that existing SQLite rows
+already carry lease fields. `DJOL-030` owns the migration and adapter tests.
 
 ## Redaction Policy
 

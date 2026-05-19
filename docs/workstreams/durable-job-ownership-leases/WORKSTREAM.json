@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "architecture_execution",
   "problem": "Durable jobs can be running without a durable owner, lease, heartbeat, cancellation request, or fenced completion contract.",
-  "current_task": "DJOL-020",
+  "current_task": "DJOL-030",
   "authoritative_docs": [
     {
       "role": "readme",
@@ -62,6 +62,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with DJOL-020 until the state machine and repository contracts are frozen. Split retry/backoff and worker migrations when ownership semantics are stable."
+    "notes": "Continue with DJOL-030 now that the state machine and repository contracts are frozen. Split retry/backoff and worker migrations when ownership semantics are stable."
   }
 }

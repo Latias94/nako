@@ -24,11 +24,15 @@ Primary evidence:
 Exit criteria:
 
 - The lane chooses whether to add terminal `cancelled` status or represent
-  acknowledged cancellation another way.
+  acknowledged cancellation another way. Result: terminal `cancelled` status.
 - Cancel request is defined separately from cancellation acknowledgement.
+  Result: request and acknowledgement have separate repository methods.
 - Ownership identity, run token, lease expiry, and heartbeat names are fixed.
+  Result: `worker_id`, `run_token`, `lease_expires_at`, and `heartbeat_at`.
 - Repository contracts are named before database implementation starts.
-- Any ADR 0006 delta is documented.
+  Result: core trait methods exist with default unsupported implementations.
+- Any ADR 0006 delta is documented. Result: ADR 0006 now records leases,
+  fencing, and terminal cancellation.
 
 Primary gates:
 

@@ -66,6 +66,8 @@ define_id!(LibraryId);
 define_id!(MediaItemId);
 define_id!(MediaSourceId);
 define_id!(JobId);
+define_id!(JobWorkerId);
+define_id!(JobRunToken);
 define_id!(EventId);
 define_id!(AutomationProviderId);
 define_id!(AutomationArtifactId);
