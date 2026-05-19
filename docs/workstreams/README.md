@@ -107,6 +107,10 @@ attention.
   completed follow-on for redacted Admin retry/requeue controls around Managed
   Artwork ingest failures without conflating fetch execution, publication,
   cleanup, repair, or cancellation.
+- [job-runtime-worker-control-plane](job-runtime-worker-control-plane/README.md):
+  active architecture follow-on for a shared durable job worker/control-plane
+  boundary, starting with Managed Artwork ingest as the first supervised
+  vertical slice.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target
