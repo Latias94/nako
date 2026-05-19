@@ -1,15 +1,11 @@
-package dev.taru.android.ui.browse
+package dev.taru.android.player
 
-import dev.taru.android.player.DevicePlaybackPosition
-import dev.taru.android.player.DevicePlaybackPositionKey
-import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
-import dev.taru.android.player.PlaybackResumeSource
 import dev.taru.android.userplayback.UserPlaybackStateDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class BrowseResumeStateTest {
+class PlaybackResumeResolverTest {
     @Test
     fun authoritativeUserPlaybackStateWinsOverDeviceLocalResume() {
         val store = InMemoryDevicePlaybackPositionStore()
@@ -21,7 +17,7 @@ class BrowseResumeStateTest {
             ),
         )
 
-        val resume = resolvedResumePosition(
+        val resume = resolvePlaybackResumePosition(
             profileId = "server-1",
             mediaItemId = "item-1",
             sourceId = "source-1",
@@ -44,14 +40,14 @@ class BrowseResumeStateTest {
             ),
         )
 
-        val watched = resolvedResumePosition(
+        val watched = resolvePlaybackResumePosition(
             profileId = "server-1",
             mediaItemId = "item-1",
             sourceId = "source-1",
             userPlaybackState = state(resumePositionMs = null, sourceId = "source-1", watched = true),
             positionStore = store,
         )
-        val differentSource = resolvedResumePosition(
+        val differentSource = resolvePlaybackResumePosition(
             profileId = "server-1",
             mediaItemId = "item-1",
             sourceId = "source-1",
@@ -67,7 +63,7 @@ class BrowseResumeStateTest {
 
     @Test
     fun missingServerAndLocalStateHasNoResume() {
-        val resume = resolvedResumePosition(
+        val resume = resolvePlaybackResumePosition(
             profileId = "server-1",
             mediaItemId = "item-1",
             sourceId = "source-1",

@@ -1,12 +1,8 @@
-package dev.taru.android.ui.browse
+package dev.taru.android.player
 
-import dev.taru.android.player.DevicePlaybackPositionKey
-import dev.taru.android.player.DevicePlaybackPositionStore
-import dev.taru.android.player.PlaybackResumeSource
-import dev.taru.android.player.ResumePlaybackPosition
 import dev.taru.android.userplayback.UserPlaybackStateDto
 
-internal fun resolvedResumePosition(
+internal fun resolvePlaybackResumePosition(
     profileId: String,
     mediaItemId: String,
     sourceId: String,
