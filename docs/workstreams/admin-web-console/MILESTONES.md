@@ -1,6 +1,6 @@
 # Admin Web Console Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M-AWC.0 Planning Baseline
@@ -142,12 +142,10 @@ Exit criteria:
 - First pages are either backed by realistic mocks or real Admin API.
 - Sensitive information is redacted in UI, fixtures, logs, and diagnostics.
 
-Status: partially completed for AWC-060. `apps/admin-web` now contains the
+Status: completed for AWC-060 and AWC-070. `apps/admin-web` now contains the
 first Vite/React/TypeScript scaffold, an explicit Admin API client/data-source
-boundary, mock/planned data fixtures, and a live `GET /admin/v1/overview`
-read path. AWC-070 deepened the same boundary with existing Admin API
-read-model routes for jobs, playback, storage, config, events, and catalog
-governance.
+boundary, mock/planned data fixtures, and live-capable Admin API reads for
+overview, jobs, playback, storage, config, events, and catalog governance.
 
 AWC-060 validation:
 
@@ -158,6 +156,14 @@ AWC-060 validation:
 - Playwright CLI smoke at `http://127.0.0.1:5174/`
 - Desktop viewport 1440x1000: no horizontal overflow.
 - Mobile viewport 390x844: no horizontal overflow.
+
+Closeout:
+
+- The admin web baseline is complete.
+- Generated Admin API TypeScript contract work is split to
+  `docs/workstreams/admin-api-typescript-contract/`.
+- Deeper Jobs, Catalog Governance, Playback, and Settings workflows should wait
+  until the contract strategy is settled.
 
 AWC-070 validation:
 

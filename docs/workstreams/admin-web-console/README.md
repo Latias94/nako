@@ -1,10 +1,10 @@
 # Admin Web Console
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
-This workstream owns the planning baseline for Taru's first web-based server
-administration console.
+This workstream owns the completed planning and first implementation baseline
+for Taru's first web-based server administration console.
 
 The console is an operator and media-governance surface, not the flagship
 playback client. It should help a self-hosted administrator configure media
@@ -31,11 +31,11 @@ sidecar addons. These are operationally powerful but need a coherent admin UI
 shape before a front-end generation tool or implementation team can build the
 first console.
 
-This lane records the product context, page families, Admin API implications,
-and v0-oriented prompt context without committing Taru to a front-end
-framework or detailed visual implementation.
+This lane recorded the product context, page families, Admin API implications,
+v0-oriented prompt context, the first `apps/admin-web` scaffold, and the
+initial live/mock Admin API data-source boundary.
 
-## Current Direction
+## Completed Direction
 
 - Treat web as the first-class administration surface.
 - Keep playback clients separate from the admin console direction.
@@ -50,3 +50,10 @@ framework or detailed visual implementation.
   from mock or planned data.
 - Do not put admin bearer tokens or other secrets into build-time frontend
   environment variables.
+
+## Follow-On Split
+
+The current baseline is complete. Follow-on Admin API contract work belongs in
+[admin-api-typescript-contract](../admin-api-typescript-contract/README.md) so
+the web app does not grow a long-lived hand-written DTO surface that can drift
+from `taru-api`.

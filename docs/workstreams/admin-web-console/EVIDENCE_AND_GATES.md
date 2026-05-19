@@ -1,6 +1,6 @@
 # Admin Web Console Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Planning Gates
@@ -96,6 +96,7 @@ npx --no-install playwright-cli resize 390 844
 - `apps/admin-web/src/adminApi/dataSource.ts`
 - `apps/admin-web/src/adminApi/mockData.ts`
 - `apps/admin-web/README.md`
+- `docs/workstreams/admin-api-typescript-contract/`
 
 ## Evidence Log
 
@@ -141,3 +142,7 @@ npx --no-install playwright-cli resize 390 844
   `npm run test` with 9 tests, `npm run build`, `git diff --check`, and
   Playwright CLI smoke at desktop 1440x1000 and mobile 390x844 with no
   horizontal overflow and no browser console errors.
+- 2026-05-19: Lane closeout. AWC-010 through AWC-070 are complete. Follow-on
+  Admin API TypeScript contract generation is split to
+  `docs/workstreams/admin-api-typescript-contract/` so future admin web slices
+  do not deepen a hand-written DTO surface.
