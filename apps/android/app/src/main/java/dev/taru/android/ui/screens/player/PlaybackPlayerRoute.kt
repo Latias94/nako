@@ -180,7 +180,9 @@ internal fun PlaybackPlayerRoute(
 
         AnimatedVisibility(
             visible = playbackError == null,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = PlayerMedia3ControllerClearanceDp.dp),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {

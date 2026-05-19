@@ -12,6 +12,8 @@ internal data class PlayerChromePresentation(
     val sessionLabel: String?,
 )
 
+internal const val PlayerMedia3ControllerClearanceDp = 132
+
 internal data class PlaybackErrorPresentation(
     val title: String,
     val body: String,

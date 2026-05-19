@@ -23,6 +23,11 @@ class PlayerPresentationTest {
     }
 
     @Test
+    fun playerContextChromeKeepsClearanceForMedia3Controls() {
+        assertTrue(PlayerMedia3ControllerClearanceDp >= 96)
+    }
+
+    @Test
     fun playbackErrorDiagnosticsUseSafeRequestOnly() {
         val presentation = playbackErrorPresentation(
             errorCodeName = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED",
