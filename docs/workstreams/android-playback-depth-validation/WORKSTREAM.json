@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "slug": "android-playback-depth-validation",
+  "title": "Android Playback Depth Validation",
+  "status": "active",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Android smoke proves player-safe launch, but not that Direct Play actually advances or that player exit reports server-owned User Playback State.",
+  "summary": "Deepen Android server-backed media smoke from player launch to Direct Play advancement and server progress readback.",
+  "current_milestone": "M1",
+  "current_task": "APDV-020",
+  "task_prefix": "APDV",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-playback-depth-validation/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-playback-depth-validation/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-playback-depth-validation/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-playback-depth-validation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-playback-depth-validation/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "pwsh -NoProfile -Command \"[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Emulator.ps1' -Raw)) | Out-Null\"",
+    "pwsh -NoProfile -File apps/android/scripts/Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipAppBuild -SkipFixtureServerBuild",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "APDV-010",
+      "path": "docs/workstreams/android-playback-depth-validation/DESIGN.md",
+      "notes": "Planning and Direct Play depth target freeze."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "run_next_task",
+    "next_task": "APDV-020",
+    "notes": "Implement focused Direct Play advancement smoke evidence before adding server readback."
+  }
+}
