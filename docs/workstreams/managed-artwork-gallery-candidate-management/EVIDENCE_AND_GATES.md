@@ -84,3 +84,24 @@ absent.
   - persisted variant cache, durable retry/cancel, missing repair, provider
     search/ranking, and deletion/unpublish policy stay out of this lane unless
     split explicitly.
+
+2026-05-19, MAGC-020:
+
+- Implemented `GET /admin/v1/items/{item_id}/artwork?limit=50&offset=0`.
+- Added core/db gallery snapshot records that avoid carrying raw
+  `source_uri`, `storage_uri`, or content hash values into the Admin response
+  path.
+- Added explicit Admin gallery DTOs and route docs.
+- Tightened managed ingest artifact summaries to expose `has_content_hash`
+  instead of content hash values.
+- Fresh focused validation:
+  - `cargo nextest run -p taru-api managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.

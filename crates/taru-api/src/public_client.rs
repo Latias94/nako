@@ -485,7 +485,7 @@ fn metadata_source_to_dto(source: MetadataSource) -> ClientMetadataSource {
     }
 }
 
-pub(crate) fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
+pub fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
     match kind {
         ImageKind::Poster => ClientImageKind::Poster,
         ImageKind::Backdrop => ClientImageKind::Backdrop,

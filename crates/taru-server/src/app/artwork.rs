@@ -25,15 +25,15 @@ use taru_api::{
     AdminManagedArtworkArtifactStrayFileCleanupResponse,
     AdminManagedArtworkArtifactStrayFileCleanupStatus,
     AdminManagedArtworkArtifactStrayFileCleanupSummary,
-    AdminManagedArtworkArtifactStrayFileRemediationAction, ProcessManagedArtworkIngestResponse,
-    PublishSelectedArtworkResponse, page_info_from_request,
+    AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
+    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse, page_info_from_request,
 };
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
     ArtworkCandidateStatus, JobId, JobKind, LibraryItemRepository, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactRecord,
     ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, MediaRepository, NewJob, NewManagedArtworkArtifact,
+    ManagedArtworkRepository, MediaItemId, MediaRepository, NewJob, NewManagedArtworkArtifact,
     NewManagedArtworkIngest, PageRequest, Result, SelectedArtworkId, StorageErrorKind, TaruError,
 };
 use taru_db::SqliteStore;
@@ -181,6 +181,30 @@ impl ManagedArtworkAppService {
         let publication = self.store.publish_selected_artwork(artifact_id).await?;
         Ok(PublishSelectedArtworkResponse::from_publication(
             publication,
+        ))
+    }
+
+    pub(crate) async fn item_gallery(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<AdminManagedArtworkGalleryResponse> {
+        self.store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+        let snapshot = self
+            .store
+            .get_managed_artwork_gallery_for_item(item_id, page)
+            .await?;
+        let returned = snapshot.candidates.len().max(snapshot.artifacts.len());
+
+        Ok(AdminManagedArtworkGalleryResponse::from_snapshot(
+            snapshot,
+            page_info_from_request(page, returned),
         ))
     }
 

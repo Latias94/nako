@@ -47,7 +47,10 @@ content hashes.
 
 ## Current Slice
 
-`MAGC-020` should implement the first redacted Admin gallery read model:
-`GET /admin/v1/items/{item_id}/artwork` or an equivalent Admin route that lets
-operators compare current Selected Artwork, accepted/stored artifacts, and
-proposed candidates without exposing internal locators.
+`MAGC-020` implemented the first redacted Admin gallery read model:
+`GET /admin/v1/items/{item_id}/artwork`. The route lets operators compare
+current Selected Artwork, accepted/stored artifacts, and proposed candidates
+without exposing internal locators, raw source URLs, provider query strings,
+token material, or content hash values.
+
+Next up is `MAGC-030`: selection management from the gallery context.

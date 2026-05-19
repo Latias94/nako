@@ -451,6 +451,7 @@ GET  /admin/v1/artwork/artifacts/remediation-plan
 POST /admin/v1/artwork/artifacts/remediate-stray-files
 POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
+GET  /admin/v1/items/{item_id}/artwork
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -1171,10 +1172,10 @@ Candidate source under bounded artwork fetch policy, validates static image
 content, writes bytes below Taru's internal artwork artifact root, and commits a
 `managed_artwork_artifacts` row with an opaque `managed-artwork://...` storage
 reference. A successful response exposes only safe IDs and artifact metadata:
-media type, byte length, dimensions, content hash, ingest status, and the
-redacted job envelope. It never returns `storage_uri`, raw source URLs, local
-artifact paths, cache URIs, Source Locators, addon tokens, or validation
-details.
+media type, byte length, dimensions, `has_content_hash`, ingest status, and
+the redacted job envelope. It never returns `storage_uri`, raw source URLs,
+local artifact paths, cache URIs, Source Locators, addon tokens, content hash
+values, or validation details.
 
 If there is no queued ingest, the response is:
 
@@ -1212,6 +1213,31 @@ includes `storage_uri`, `managed-artwork://...`, local artifact paths,
 candidate `source_uri`, raw provider URLs, `cache_uri`, Source Locators, addon
 token material, or provider query strings. The returned image URL is the
 Public Client image route for the selected artwork.
+
+Administrators can inspect one Media Item's artwork management state with:
+
+```text
+GET /admin/v1/items/{item_id}/artwork?limit=50&offset=0
+```
+
+The response is an item-scoped Admin gallery read model. It separates Artwork
+Candidates, stored Managed Artwork Artifacts, and current Selected Artwork. It
+uses the same `limit` and `offset` page for candidates and artifacts; Selected
+Artwork entries are returned for the item without pagination because they are
+bounded by image kind slots. Candidate rows include safe IDs, image kind,
+source kind, dimensions, language, status, optional ingest summary, artifact
+linkage, and selected flags. Artifact rows include safe IDs, candidate linkage,
+image kind, dimensions, byte length, media type, `has_content_hash`, selected
+count, and selected flags. Selected entries include a redacted Selected Artwork
+summary, the linked artifact summary, and the first-party Public Client image
+reference.
+
+This Admin gallery response must not include `storage_uri`,
+`managed-artwork://...`, local artifact paths, candidate `source_uri`, raw
+provider URLs, `cache_uri`, Source Locators, addon/provider token material,
+provider query strings, file contents, or content hash values. Non-selected
+artifacts are selectable by ID through Admin commands, but they do not receive
+Public Client image URLs until they are published as Selected Artwork.
 
 Public Clients can discover selected artwork through item detail and item image
 listing responses. Those responses use redacted first-party image references:

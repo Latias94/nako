@@ -1855,10 +1855,8 @@ async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without
     assert!(!response_text.contains("storage_uri"));
     assert!(!response_text.contains("managed-artwork://"));
     assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
-    if let Some(content_hash) = artifact.content_hash.as_ref() {
-        assert!(!response_text.contains(content_hash));
-    }
-    assert!(!response_text.contains("content_hash"));
+    assert!(artifact.has_content_hash);
+    assert!(!response_text.contains("\"content_hash\""));
 
     let replay =
         request_json::<PublishSelectedArtworkResponse>(&router, Method::POST, &publish_path).await;
@@ -1872,6 +1870,96 @@ async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without
         .unwrap()
         .unwrap();
     assert_eq!(selected.artifact_id, artifact.id);
+}
+
+#[tokio::test]
+async fn admin_managed_artwork_gallery_lists_candidates_artifacts_and_selection_without_locator_leaks()
+ {
+    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let (remote_url, _) = tiny_artwork_server().await;
+    let (raw_token, candidate_id, accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-admin-gallery",
+    )
+    .await;
+
+    let processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let artifact = processed.artifact.as_ref().unwrap();
+    assert!(artifact.has_content_hash);
+    let published = request_json::<PublishSelectedArtworkResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id),
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/items/{}/artwork?limit=50&offset=0",
+                    source.item_id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let gallery: AdminManagedArtworkGalleryResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert_eq!(gallery.item_id, source.item_id);
+    assert_eq!(gallery.summary.candidates, 1);
+    assert_eq!(gallery.summary.artifacts, 1);
+    assert_eq!(gallery.summary.selected, 1);
+    assert_eq!(gallery.page.returned, 1);
+    assert_eq!(gallery.candidates[0].id, candidate_id);
+    assert_eq!(
+        gallery.candidates[0].ingest.as_ref().unwrap().id,
+        accepted.ingest.id
+    );
+    assert_eq!(gallery.candidates[0].artifact_id, Some(artifact.id));
+    assert!(gallery.candidates[0].has_stored_artifact);
+    assert!(gallery.candidates[0].selected);
+    assert_eq!(gallery.artifacts[0].id, artifact.id);
+    assert_eq!(gallery.artifacts[0].candidate_id, candidate_id);
+    assert!(gallery.artifacts[0].selected);
+    assert!(gallery.artifacts[0].has_content_hash);
+    assert_eq!(
+        gallery.selected[0].selected_artwork.id,
+        published.selected_artwork.id
+    );
+    assert_eq!(gallery.selected[0].image, published.image);
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+    assert!(!response_text.contains("managed-artwork://"));
+    assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(!response_text.contains("\"content_hash\""));
 }
 
 #[tokio::test]
@@ -1906,7 +1994,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
     )
     .await;
     let artifact = processed.artifact.as_ref().unwrap();
-    let artifact_content_hash = artifact.content_hash.clone().unwrap();
+    assert!(artifact.has_content_hash);
     let published = request_json::<PublishSelectedArtworkResponse>(
         &router,
         Method::POST,
@@ -1970,7 +2058,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         assert!(!text.contains("storage_uri"));
         assert!(!text.contains("managed-artwork://"));
         assert!(!text.contains(temp.path().to_string_lossy().as_ref()));
-        assert!(!text.contains(&artifact_content_hash));
+        assert!(!text.contains("\"content_hash\""));
     }
 
     let image_response = router
@@ -2000,7 +2088,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .to_str()
         .unwrap()
         .to_owned();
-    assert!(!original_etag.contains(&artifact_content_hash));
+    assert!(original_etag.contains("taru-img-v1-"));
     let image_bytes = to_bytes(image_response.into_body(), usize::MAX)
         .await
         .unwrap();
@@ -2060,7 +2148,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .unwrap()
         .to_owned();
     assert_ne!(variant_etag, original_etag);
-    assert!(!variant_etag.contains(&artifact_content_hash));
+    assert!(variant_etag.contains("taru-img-v1-"));
     let variant_content_length = variant_response.headers()[header::CONTENT_LENGTH]
         .to_str()
         .unwrap()
@@ -2131,7 +2219,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         assert!(!invalid_text.contains("storage_uri"));
         assert!(!invalid_text.contains("managed-artwork://"));
         assert!(!invalid_text.contains(temp.path().to_string_lossy().as_ref()));
-        assert!(!invalid_text.contains(&artifact_content_hash));
+        assert!(!invalid_text.contains("\"content_hash\""));
     }
 
     let missing = router
@@ -2256,12 +2344,9 @@ async fn admin_managed_artwork_lifecycle_dry_run_protects_selected_artwork_and_r
     assert!(!response_text.contains("cache_uri"));
     assert!(!response_text.contains("storage_uri"));
     assert!(!response_text.contains("managed-artwork://"));
-    if let Some(content_hash) = first_artifact.content_hash.as_ref() {
-        assert!(!response_text.contains(content_hash));
-    }
-    if let Some(content_hash) = second_artifact.content_hash.as_ref() {
-        assert!(!response_text.contains(content_hash));
-    }
+    assert!(first_artifact.has_content_hash);
+    assert!(second_artifact.has_content_hash);
+    assert!(!response_text.contains("\"content_hash\""));
     assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
 
     let cleanup_only = request_json::<AdminManagedArtworkArtifactLifecycleResponse>(
@@ -2395,13 +2480,9 @@ async fn admin_managed_artwork_cleanup_removes_only_unselected_artifacts_without
     assert!(!cleanup_text.contains("cache_uri"));
     assert!(!cleanup_text.contains("storage_uri"));
     assert!(!cleanup_text.contains("managed-artwork://"));
-    assert!(!cleanup_text.contains("content_hash"));
-    if let Some(content_hash) = selected_artifact.content_hash.as_ref() {
-        assert!(!cleanup_text.contains(content_hash));
-    }
-    if let Some(content_hash) = orphan_artifact.content_hash.as_ref() {
-        assert!(!cleanup_text.contains(content_hash));
-    }
+    assert!(!cleanup_text.contains("\"content_hash\""));
+    assert!(selected_artifact.has_content_hash);
+    assert!(orphan_artifact.has_content_hash);
     assert!(!cleanup_text.contains(temp.path().to_string_lossy().as_ref()));
 
     let lifecycle = request_json::<AdminManagedArtworkArtifactLifecycleResponse>(
@@ -2526,10 +2607,8 @@ async fn admin_managed_artwork_storage_drift_reports_missing_and_stray_files_wit
     assert!(!body.contains("cache_uri"));
     assert!(!body.contains("storage_uri"));
     assert!(!body.contains("managed-artwork://"));
-    assert!(!body.contains("content_hash"));
-    if let Some(content_hash) = artifact.content_hash.as_ref() {
-        assert!(!body.contains(content_hash));
-    }
+    assert!(!body.contains("\"content_hash\""));
+    assert!(artifact.has_content_hash);
     assert!(!body.contains(temp.path().to_string_lossy().as_ref()));
     assert!(!body.contains(private_filename));
     assert!(!body.contains(&format!("{stray_artifact_id}.png")));
@@ -2686,10 +2765,8 @@ async fn admin_managed_artwork_remediation_requires_confirmation_and_deletes_onl
     assert!(!body.contains("cache_uri"));
     assert!(!body.contains("storage_uri"));
     assert!(!body.contains("managed-artwork://"));
-    assert!(!body.contains("content_hash"));
-    if let Some(content_hash) = artifact.content_hash.as_ref() {
-        assert!(!body.contains(content_hash));
-    }
+    assert!(!body.contains("\"content_hash\""));
+    assert!(artifact.has_content_hash);
     assert!(!body.contains(temp.path().to_string_lossy().as_ref()));
     assert!(!body.contains(private_filename));
     assert!(!body.contains(&format!("{stray_artifact_id}.png")));

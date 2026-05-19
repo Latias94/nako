@@ -295,6 +295,28 @@ impl ArtworkArtifactLifecycleQuery {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkGalleryQuery {
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl ArtworkGalleryQuery {
+    pub(super) fn into_page(self) -> Result<PageRequest, TaruError> {
+        PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        }
+        .try_into()
+    }
+}
+
 const DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT: u32 = 500;
 const MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT: u32 = 5_000;
 

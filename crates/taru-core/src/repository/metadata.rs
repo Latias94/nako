@@ -7,15 +7,16 @@ use crate::{
     LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
     ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
-    ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
-    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, MediaItem, MediaItemId,
-    MediaSourceId, MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
-    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
-    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
-    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
-    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
-    SelectedArtworkRecord, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
+    MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter, MetadataFieldLock,
+    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
+    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewJob, NewManagedArtworkArtifact,
+    NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
+    NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
+    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
+    SelectedArtworkId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -119,6 +120,12 @@ pub trait ManagedArtworkRepository: Send + Sync {
         &self,
         item_id: MediaItemId,
     ) -> Result<Vec<SelectedArtworkRecord>>;
+
+    async fn get_managed_artwork_gallery_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkGallerySnapshot>;
 
     async fn list_managed_artwork_artifact_lifecycle(
         &self,

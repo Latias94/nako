@@ -14,7 +14,7 @@ Last updated: 2026-05-19
 
 ## M1 - Admin Gallery Read Model
 
-- [ ] MAGC-020 [owner=codex] [deps=MAGC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAGC-020 [owner=codex] [deps=MAGC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
   Goal: Implement the first item-scoped Admin artwork gallery read model that
   shows current Selected Artwork, eligible Managed Artwork Artifacts, and safe
   Artwork Candidate summaries without exposing locators or hashes.
@@ -24,8 +24,10 @@ Last updated: 2026-05-19
   Evidence: route response includes candidate/artifact/selection IDs, image
   kind, dimensions, statuses, selected flags, and public image refs where
   applicable; forbidden storage/source/cache/hash/path/token values are absent.
-  Handoff: Decide whether selection commands can reuse artifact publish or need
-  item/kind-scoped command DTOs.
+  Handoff: `GET /admin/v1/items/{item_id}/artwork` is the first read model.
+  Continue with selection management; decide whether to preserve the existing
+  artifact publish route as the command or add an item/kind-scoped command for
+  stronger operator intent.
 
 ## M2 - Selection Management
 

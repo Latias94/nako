@@ -2,13 +2,16 @@ use serde::{Deserialize, Serialize};
 use taru_client_protocol::PageInfo;
 use taru_client_protocol::PublicImageRefDto;
 use taru_core::{
-    ArtworkCandidateId, ArtworkCandidateStatus, CatalogGovernanceItemRecord, DomainEventKind,
-    DomainEventSubject, EventId, ExternalProvider, ImageKind, IngestionFailureClass,
-    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind,
-    JobStatus, LibraryId, LibraryPreset, LocalInferenceEvidence, LocalInferenceEvidenceSource,
+    AddonId, AddonSideEffectId, ArtworkCandidateId, ArtworkCandidateSourceKind,
+    ArtworkCandidateStatus, CatalogGovernanceItemRecord, DomainEventKind, DomainEventSubject,
+    EventId, ExternalProvider, ImageKind, IngestionFailureClass, IngestionFailurePhase,
+    IngestionFailureRecord, IngestionFailureStatus, Job, JobId, JobKind, JobStatus, LibraryId,
+    LibraryPreset, LocalInferenceEvidence, LocalInferenceEvidenceSource,
     ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleRecord, ManagedArtworkArtifactLifecycleSnapshot,
-    ManagedArtworkArtifactLifecycleSummary, ManagedArtworkArtifactRecord, ManagedArtworkIngestId,
+    ManagedArtworkArtifactLifecycleSummary, ManagedArtworkArtifactRecord,
+    ManagedArtworkGalleryArtifactRecord, ManagedArtworkGalleryCandidateRecord,
+    ManagedArtworkGallerySelectedRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestId,
     ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, ManagedArtworkIngestStatus,
     MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord, OutboxEventStatus, ScanSnapshotId,
     SelectedArtworkPublicationRecord, SelectedArtworkRecord, StagingManifestId,
@@ -116,7 +119,7 @@ pub struct ManagedArtworkArtifactSummary {
     pub library_id: LibraryId,
     pub item_id: MediaItemId,
     pub kind: ImageKind,
-    pub content_hash: Option<String>,
+    pub has_content_hash: bool,
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub byte_len: Option<u64>,
@@ -134,7 +137,7 @@ impl ManagedArtworkArtifactSummary {
             library_id: record.library_id,
             item_id: record.item_id,
             kind: record.kind,
-            content_hash: record.content_hash,
+            has_content_hash: record.content_hash.is_some(),
             width: record.width,
             height: record.height,
             byte_len: record.byte_len,
@@ -636,6 +639,183 @@ impl SelectedArtworkSummary {
             created_at: record.created_at,
             updated_at: record.updated_at,
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkGalleryResponse {
+    pub item_id: MediaItemId,
+    pub summary: AdminManagedArtworkGallerySummary,
+    pub candidates: Vec<AdminManagedArtworkGalleryCandidate>,
+    pub artifacts: Vec<AdminManagedArtworkGalleryArtifact>,
+    pub selected: Vec<AdminManagedArtworkGallerySelected>,
+    pub page: PageInfo,
+}
+
+impl AdminManagedArtworkGalleryResponse {
+    #[must_use]
+    pub fn from_snapshot(snapshot: ManagedArtworkGallerySnapshot, page: PageInfo) -> Self {
+        Self {
+            item_id: snapshot.item_id,
+            summary: AdminManagedArtworkGallerySummary {
+                candidates: snapshot.summary.candidates,
+                artifacts: snapshot.summary.artifacts,
+                selected: snapshot.summary.selected,
+            },
+            candidates: snapshot
+                .candidates
+                .into_iter()
+                .map(AdminManagedArtworkGalleryCandidate::from_record)
+                .collect(),
+            artifacts: snapshot
+                .artifacts
+                .into_iter()
+                .map(AdminManagedArtworkGalleryArtifact::from_record)
+                .collect(),
+            selected: snapshot
+                .selected
+                .into_iter()
+                .map(AdminManagedArtworkGallerySelected::from_record)
+                .collect(),
+            page,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkGallerySummary {
+    pub candidates: u32,
+    pub artifacts: u32,
+    pub selected: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkGalleryCandidate {
+    pub id: ArtworkCandidateId,
+    pub addon_id: AddonId,
+    pub side_effect_id: AddonSideEffectId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub source_kind: ArtworkCandidateSourceKind,
+    pub status: ArtworkCandidateStatus,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+    pub ingest: Option<ManagedArtworkIngestSummary>,
+    pub artifact_id: Option<ManagedArtworkArtifactId>,
+    pub has_stored_artifact: bool,
+    pub selected_artwork_count: u32,
+    pub selected: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminManagedArtworkGalleryCandidate {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkGalleryCandidateRecord) -> Self {
+        let has_stored_artifact = record.has_stored_artifact();
+        let selected = record.selected();
+        Self {
+            id: record.id,
+            addon_id: record.addon_id,
+            side_effect_id: record.side_effect_id,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            kind: record.kind,
+            source_kind: record.source_kind,
+            status: record.status,
+            width: record.width,
+            height: record.height,
+            language: record.language,
+            ingest: record.ingest.map(ManagedArtworkIngestSummary::from_record),
+            artifact_id: record.artifact_id,
+            has_stored_artifact,
+            selected_artwork_count: record.selected_artwork_count,
+            selected,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkGalleryArtifact {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub candidate_id: ArtworkCandidateId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub selected_artwork_count: u32,
+    pub selected: bool,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+    pub has_content_hash: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminManagedArtworkGalleryArtifact {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkGalleryArtifactRecord) -> Self {
+        let selected = record.selected();
+        Self {
+            id: record.id,
+            ingest_id: record.ingest_id,
+            candidate_id: record.candidate_id,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            kind: record.kind,
+            selected_artwork_count: record.selected_artwork_count,
+            selected,
+            width: record.width,
+            height: record.height,
+            byte_len: record.byte_len,
+            media_type: record.media_type,
+            has_content_hash: record.has_content_hash,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkGallerySelected {
+    pub selected_artwork: SelectedArtworkSummary,
+    pub artifact: AdminManagedArtworkGalleryArtifact,
+    pub image: PublicImageRefDto,
+}
+
+impl AdminManagedArtworkGallerySelected {
+    #[must_use]
+    pub fn from_record(record: ManagedArtworkGallerySelectedRecord) -> Self {
+        let image = gallery_selected_artwork_to_public_image_ref(&record);
+        Self {
+            selected_artwork: SelectedArtworkSummary::from_record(record.selected_artwork),
+            artifact: AdminManagedArtworkGalleryArtifact::from_record(record.artifact),
+            image,
+        }
+    }
+}
+
+fn gallery_selected_artwork_to_public_image_ref(
+    record: &ManagedArtworkGallerySelectedRecord,
+) -> PublicImageRefDto {
+    let selected = &record.selected_artwork;
+    let artifact = &record.artifact;
+    PublicImageRefDto {
+        id: selected.id.to_string(),
+        owner: taru_client_protocol::ClientImageOwner::Item(selected.item_id.to_string()),
+        kind: crate::public_client::image_kind_to_dto(selected.kind.clone()),
+        url: format!("/images/{}", selected.id),
+        width: artifact.width,
+        height: artifact.height,
+        language: None,
+        media_type: artifact.media_type.clone(),
+        etag: None,
     }
 }
 
@@ -1541,8 +1721,11 @@ mod tests {
 
         assert_eq!(summary.ingest_id, ingest_id);
         assert_eq!(summary.media_type.as_deref(), Some("image/png"));
+        assert!(summary.has_content_hash);
         assert!(!body.contains("storage_uri"));
         assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("sha256-demo"));
+        assert!(!body.contains("\"content_hash\""));
     }
 
     #[test]
@@ -1594,9 +1777,107 @@ mod tests {
         assert!(!body.contains("managed-artwork://"));
         assert!(!body.contains("private-storage-handle"));
         assert!(!body.contains("sha256-public-etag"));
-        assert!(!body.contains("content_hash"));
+        assert!(!body.contains("\"content_hash\""));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));
+    }
+
+    #[test]
+    fn managed_artwork_gallery_response_redacts_candidate_source_storage_and_hash_values() {
+        let candidate_id = ArtworkCandidateId::new();
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let ingest_id = ManagedArtworkIngestId::new();
+        let selected = SelectedArtworkRecord {
+            id: taru_core::SelectedArtworkId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            kind: ImageKind::Poster,
+            artifact_id,
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+        let artifact = ManagedArtworkGalleryArtifactRecord {
+            id: artifact_id,
+            ingest_id,
+            candidate_id,
+            library_id: selected.library_id,
+            item_id: selected.item_id,
+            kind: ImageKind::Poster,
+            width: Some(1000),
+            height: Some(1500),
+            byte_len: Some(68),
+            media_type: Some("image/png".to_owned()),
+            has_content_hash: true,
+            selected_artwork_count: 1,
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+        let response = AdminManagedArtworkGalleryResponse::from_snapshot(
+            ManagedArtworkGallerySnapshot {
+                item_id: selected.item_id,
+                summary: taru_core::ManagedArtworkGallerySummary {
+                    candidates: 1,
+                    artifacts: 1,
+                    selected: 1,
+                },
+                candidates: vec![ManagedArtworkGalleryCandidateRecord {
+                    id: candidate_id,
+                    addon_id: AddonId::new(),
+                    side_effect_id: AddonSideEffectId::new(),
+                    library_id: selected.library_id,
+                    item_id: selected.item_id,
+                    kind: ImageKind::Poster,
+                    source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+                    width: Some(1000),
+                    height: Some(1500),
+                    language: Some("en".to_owned()),
+                    status: ArtworkCandidateStatus::Accepted,
+                    ingest: Some(ManagedArtworkIngestRecord {
+                        id: ingest_id,
+                        candidate_id,
+                        job_id: JobId::new(),
+                        library_id: selected.library_id,
+                        item_id: selected.item_id,
+                        kind: ImageKind::Poster,
+                        status: ManagedArtworkIngestStatus::Stored,
+                        artifact_id: Some(artifact_id),
+                        failure_code: None,
+                        created_at: "2026-05-19T00:00:00Z".to_owned(),
+                        updated_at: "2026-05-19T00:00:00Z".to_owned(),
+                    }),
+                    artifact_id: Some(artifact_id),
+                    selected_artwork_count: 1,
+                    created_at: "2026-05-19T00:00:00Z".to_owned(),
+                    updated_at: "2026-05-19T00:00:00Z".to_owned(),
+                }],
+                artifacts: vec![artifact.clone()],
+                selected: vec![ManagedArtworkGallerySelectedRecord {
+                    selected_artwork: selected,
+                    artifact,
+                }],
+            },
+            PageInfo::new(50, 0, 1),
+        );
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert_eq!(response.summary.candidates, 1);
+        assert_eq!(response.candidates[0].artifact_id, Some(artifact_id));
+        assert!(response.candidates[0].has_stored_artifact);
+        assert!(response.candidates[0].selected);
+        assert!(response.artifacts[0].selected);
+        assert!(response.artifacts[0].has_content_hash);
+        assert_eq!(
+            response.selected[0].image.url,
+            format!("/images/{}", response.selected[0].selected_artwork.id)
+        );
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("managed-artwork://"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("cache_uri"));
+        assert!(!body.contains("https://cdn.example.test"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("sha256-private-content-hash"));
+        assert!(!body.contains("\"content_hash\""));
     }
 
     #[test]
@@ -1686,7 +1967,7 @@ mod tests {
         assert!(!body.contains("managed-artwork://"));
         assert!(!body.contains("private-storage-handle"));
         assert!(!body.contains("sha256-private-cleanup-hash"));
-        assert!(!body.contains("content_hash"));
+        assert!(!body.contains("\"content_hash\""));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));
     }
@@ -1737,7 +2018,7 @@ mod tests {
         assert_eq!(response.missing_artifacts[0].id, artifact_id);
         assert!(!body.contains("storage_uri"));
         assert!(!body.contains("managed-artwork://"));
-        assert!(!body.contains("content_hash"));
+        assert!(!body.contains("\"content_hash\""));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));
         assert!(!body.contains("private-path"));
@@ -1823,7 +2104,7 @@ mod tests {
         for body in [plan_body, cleanup_body] {
             assert!(!body.contains("storage_uri"));
             assert!(!body.contains("managed-artwork://"));
-            assert!(!body.contains("content_hash"));
+            assert!(!body.contains("\"content_hash\""));
             assert!(!body.contains("source_uri"));
             assert!(!body.contains("cache_uri"));
             assert!(!body.contains("artifact_root"));

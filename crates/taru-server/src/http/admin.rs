@@ -27,6 +27,7 @@ use taru_api::{
 };
 use taru_core::ArtworkCandidateId;
 use taru_core::ManagedArtworkArtifactId;
+use taru_core::MediaItemId;
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -40,8 +41,8 @@ use super::{
     error::ApiResult,
     query::{
         ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
-        ArtworkArtifactStorageDriftQuery, CatalogGovernanceItemsQuery, JobListQuery,
-        OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
+        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
+        JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
     },
 };
 
@@ -65,6 +66,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/artwork/artifacts/{artifact_id}/publish",
             post(publish_admin_artwork_artifact),
+        )
+        .route(
+            "/admin/v1/items/{item_id}/artwork",
+            get(get_admin_item_artwork_gallery),
         )
         .route(
             "/admin/v1/artwork/artifacts/lifecycle",
@@ -116,6 +121,18 @@ pub(super) async fn publish_admin_artwork_artifact(
     Path(artifact_id): Path<ManagedArtworkArtifactId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.artwork().publish_artifact(artifact_id).await?))
+}
+
+pub(super) async fn get_admin_item_artwork_gallery(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+    Query(query): Query<ArtworkGalleryQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.artwork()
+            .item_gallery(item_id, query.into_page()?)
+            .await?,
+    ))
 }
 
 pub(super) async fn get_admin_artwork_artifact_lifecycle(

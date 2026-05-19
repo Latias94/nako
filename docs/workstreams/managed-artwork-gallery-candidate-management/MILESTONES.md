@@ -24,7 +24,9 @@ Exit criteria:
 - Raw candidate source URLs, storage URIs, cache URIs, paths, tokens, and
   content hashes are absent.
 
-Status: Pending.
+Status: Done. `GET /admin/v1/items/{item_id}/artwork` returns the first
+redacted Admin gallery read model with candidate, artifact, and selected
+artwork sections.
 
 ## M2 - Selection Management
 
