@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "slug": "durable-job-ownership-leases",
+  "title": "Durable Job Ownership Leases",
+  "status": "active",
+  "updated": "2026-05-19",
+  "scope_kind": "architecture_execution",
+  "problem": "Durable jobs can be running without a durable owner, lease, heartbeat, cancellation request, or fenced completion contract.",
+  "current_task": "DJOL-020",
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/durable-job-ownership-leases/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/durable-job-ownership-leases/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/durable-job-ownership-leases/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/durable-job-ownership-leases/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/durable-job-ownership-leases/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/durable-job-ownership-leases/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "Get-Content docs\\workstreams\\durable-job-ownership-leases\\WORKSTREAM.json | ConvertFrom-Json",
+    "git diff --check",
+    "cargo check -p taru-core --tests",
+    "cargo nextest run -p taru-db job_lease --no-fail-fast",
+    "cargo nextest run -p taru-db job_cancel --no-fail-fast",
+    "cargo nextest run -p taru-server job_runtime --no-fail-fast",
+    "cargo nextest run -p taru-server job_cancel --no-fail-fast",
+    "cargo fmt --all -- --check"
+  ],
+  "evidence": [
+    "docs/workstreams/durable-job-ownership-leases/DESIGN.md",
+    "docs/workstreams/durable-job-ownership-leases/EVIDENCE_AND_GATES.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md"
+  ],
+  "non_goals": [
+    "automatic retry and backoff policy",
+    "distributed multi-process scheduler",
+    "migrating every job kind in one pass",
+    "unsafe task killing",
+    "playback/transcode cancellation refactor",
+    "Public Client API changes",
+    "exposing raw job input, summary, errors, source locators, storage handles, local paths, tokens, secrets, or provider payloads"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with DJOL-020 until the state machine and repository contracts are frozen. Split retry/backoff and worker migrations when ownership semantics are stable."
+  }
+}

@@ -112,6 +112,11 @@ attention.
   slice, covering opt-in supervised Managed Artwork ingest execution and typed
   startup recovery while splitting cancellation, generic leases, retry/backoff,
   and other job-kind migrations.
+- [durable-job-ownership-leases](durable-job-ownership-leases/README.md):
+  active architecture follow-on for durable job worker identity, fenced
+  ownership leases, heartbeats, cancel-request semantics, and lease-aware
+  startup recovery before broader worker migrations or truthful Admin
+  cancellation controls.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target
