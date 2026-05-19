@@ -16,7 +16,7 @@ use crate::{
     NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
     ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
     SelectedArtworkId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SelectedArtworkUnpublicationRecord, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -117,6 +117,12 @@ pub trait ManagedArtworkRepository: Send + Sync {
         kind: ImageKind,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<SelectedArtworkPublicationRecord>;
+
+    async fn unpublish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+    ) -> Result<SelectedArtworkUnpublicationRecord>;
 
     async fn get_selected_artwork(
         &self,

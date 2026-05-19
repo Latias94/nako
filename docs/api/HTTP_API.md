@@ -453,6 +453,7 @@ POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/items/{item_id}/artwork
 POST /admin/v1/items/{item_id}/artwork/{kind}/select
+DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -1262,6 +1263,28 @@ artifact files. The response shape matches
 `POST /admin/v1/artwork/artifacts/{artifact_id}/publish`: a redacted Selected
 Artwork summary, first-party image reference, and `changed` flag.
 
+Administrators can unpublish one item artwork slot with:
+
+```text
+DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection
+```
+
+`kind` accepts the same values as the select command: `poster`, `backdrop`,
+`logo`, `thumbnail`, or `banner`. The command removes the Selected Artwork
+publication slot for that item/kind only. It is idempotent for an existing
+item with no current selection and returns `changed: false` in that case.
+Missing items still return `404`, and unsupported kinds return `400`.
+
+Unpublish does not delete Managed Artwork Artifact records, does not remove
+stored artifact bytes, and does not invoke artifact cleanup. The previously
+selected artifact remains visible to Admin gallery/lifecycle diagnostics and
+becomes cleanup-eligible only when no Selected Artwork rows reference it. The
+response returns a redacted summary of the unpublished selection and the
+previous first-party image reference when `changed: true`; it never returns
+`storage_uri`, `managed-artwork://...`, local paths, raw source URLs,
+`source_uri`, `cache_uri`, provider query strings, addon tokens, file contents,
+or content hash values.
+
 Public Clients can discover selected artwork through item detail and item image
 listing responses. Those responses use redacted first-party image references:
 the image `id` is `selected_artworks.id`, and `url` is a relative Taru route
@@ -1285,6 +1308,10 @@ application boundary, reads bytes from internal artifact storage, and returns
 image headers such as `Content-Type`, `Content-Length`, and an opaque
 presentation ETag that is not the artifact content hash. `HEAD` returns the
 same presentation headers without a body.
+
+After the Selected Artwork slot is unpublished, the old `image_id` no longer
+resolves. `GET` and `HEAD /images/{old_image_id}` return `404`; Taru does not
+fall back to Managed Artwork Artifact IDs or storage locators.
 
 `width` and `height` request bounded on-demand variants. Either dimension may
 be omitted; when both are present, the server fits the image inside the

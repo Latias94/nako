@@ -218,6 +218,15 @@ pub struct SelectedArtworkPublicationRecord {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SelectedArtworkUnpublicationRecord {
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub unpublished: Option<SelectedArtworkRecord>,
+    pub artifact: Option<ManagedArtworkArtifactRecord>,
+    pub changed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ManagedArtworkArtifactLifecycleRecord {
     pub artifact: ManagedArtworkArtifactRecord,
     pub selected_artwork_count: u32,

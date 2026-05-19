@@ -98,6 +98,11 @@ attention.
   active follow-on for redacted Admin item-scoped artwork galleries, candidate
   comparison, and explicit Selected Artwork management without exposing raw
   candidate sources, storage handles, paths, cache URIs, or content hashes.
+- [selected-artwork-unpublish-delete-policy](selected-artwork-unpublish-delete-policy/README.md):
+  completed follow-on for explicit Selected Artwork unpublish behavior, Public
+  Client image visibility after unpublish, and artifact retention/delete
+  boundaries without exposing storage handles, paths, source URLs, cache URIs,
+  or content hashes.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

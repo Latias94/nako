@@ -2,7 +2,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 use taru_api::{
@@ -73,6 +73,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/items/{item_id}/artwork/{kind}/select",
             post(select_admin_item_artwork),
+        )
+        .route(
+            "/admin/v1/items/{item_id}/artwork/{kind}/selection",
+            delete(unpublish_admin_item_artwork),
         )
         .route(
             "/admin/v1/artwork/artifacts/lifecycle",
@@ -150,6 +154,17 @@ pub(super) async fn select_admin_item_artwork(
                 parse_admin_artwork_kind(&kind)?,
                 request.artifact_id,
             )
+            .await?,
+    ))
+}
+
+pub(super) async fn unpublish_admin_item_artwork(
+    State(app): State<TaruApp>,
+    Path((item_id, kind)): Path<(MediaItemId, String)>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.artwork()
+            .unpublish_item_artwork(item_id, parse_admin_artwork_kind(&kind)?)
             .await?,
     ))
 }

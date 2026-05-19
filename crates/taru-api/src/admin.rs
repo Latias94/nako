@@ -14,9 +14,10 @@ use taru_core::{
     ManagedArtworkGallerySelectedRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestId,
     ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, ManagedArtworkIngestStatus,
     MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord, OutboxEventStatus, ScanSnapshotId,
-    SelectedArtworkPublicationRecord, SelectedArtworkRecord, StagingManifestId,
-    StagingManifestRecord, StagingPurpose, StagingState, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
+    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState,
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
@@ -168,6 +169,55 @@ impl PublishSelectedArtworkResponse {
             selected_artwork,
             image,
             changed: publication.changed,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UnpublishSelectedArtworkResponse {
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub changed: bool,
+    pub unpublished: Option<UnpublishedSelectedArtworkSummary>,
+}
+
+impl UnpublishSelectedArtworkResponse {
+    #[must_use]
+    pub fn from_unpublication(unpublication: SelectedArtworkUnpublicationRecord) -> Self {
+        let unpublished = match (unpublication.unpublished, unpublication.artifact) {
+            (Some(selected_artwork), Some(artifact)) => Some(
+                UnpublishedSelectedArtworkSummary::from_records(selected_artwork, artifact),
+            ),
+            (None, None) => None,
+            _ => None,
+        };
+
+        Self {
+            item_id: unpublication.item_id,
+            kind: unpublication.kind,
+            changed: unpublication.changed,
+            unpublished,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UnpublishedSelectedArtworkSummary {
+    pub selected_artwork: SelectedArtworkSummary,
+    pub previous_image: PublicImageRefDto,
+}
+
+impl UnpublishedSelectedArtworkSummary {
+    #[must_use]
+    pub fn from_records(
+        selected_artwork: SelectedArtworkRecord,
+        artifact: ManagedArtworkArtifactRecord,
+    ) -> Self {
+        let previous_image =
+            crate::selected_artwork_to_public_image_ref(selected_artwork.clone(), artifact);
+        Self {
+            selected_artwork: SelectedArtworkSummary::from_record(selected_artwork),
+            previous_image,
         }
     }
 }
@@ -1777,6 +1827,75 @@ mod tests {
         assert!(!body.contains("managed-artwork://"));
         assert!(!body.contains("private-storage-handle"));
         assert!(!body.contains("sha256-public-etag"));
+        assert!(!body.contains("\"content_hash\""));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("cache_uri"));
+    }
+
+    #[test]
+    fn selected_artwork_unpublish_response_redacts_storage_uri_and_hash() {
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let selected = SelectedArtworkRecord {
+            id: taru_core::SelectedArtworkId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            kind: ImageKind::Poster,
+            artifact_id,
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+        let artifact = ManagedArtworkArtifactRecord {
+            id: artifact_id,
+            ingest_id: ManagedArtworkIngestId::new(),
+            library_id: selected.library_id,
+            item_id: selected.item_id,
+            kind: selected.kind.clone(),
+            storage_uri: "managed-artwork://artifact/private-storage-handle".to_owned(),
+            content_hash: Some("sha256-unpublish-etag".to_owned()),
+            width: Some(1),
+            height: Some(1),
+            byte_len: Some(68),
+            media_type: Some("image/png".to_owned()),
+            created_at: "2026-05-19T00:00:00Z".to_owned(),
+            updated_at: "2026-05-19T00:00:00Z".to_owned(),
+        };
+
+        let response = UnpublishSelectedArtworkResponse::from_unpublication(
+            SelectedArtworkUnpublicationRecord {
+                item_id: selected.item_id,
+                kind: selected.kind.clone(),
+                unpublished: Some(selected),
+                artifact: Some(artifact),
+                changed: true,
+            },
+        );
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert!(response.changed);
+        assert!(response.unpublished.is_some());
+        assert!(
+            response
+                .unpublished
+                .as_ref()
+                .unwrap()
+                .previous_image
+                .url
+                .starts_with("/images/")
+        );
+        assert_eq!(
+            response
+                .unpublished
+                .as_ref()
+                .unwrap()
+                .previous_image
+                .media_type
+                .as_deref(),
+            Some("image/png")
+        );
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("managed-artwork://"));
+        assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("sha256-unpublish-etag"));
         assert!(!body.contains("\"content_hash\""));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));

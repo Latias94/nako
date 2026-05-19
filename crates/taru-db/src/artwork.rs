@@ -593,6 +593,14 @@ impl ManagedArtworkRepository for SqliteStore {
         publish_selected_artwork_tx(&self.pool, artifact_id, Some((item_id, kind))).await
     }
 
+    async fn unpublish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+    ) -> Result<SelectedArtworkUnpublicationRecord> {
+        unpublish_selected_artwork_for_item_kind_tx(&self.pool, item_id, kind).await
+    }
+
     async fn get_selected_artwork(
         &self,
         id: SelectedArtworkId,
@@ -1342,6 +1350,52 @@ async fn publish_selected_artwork_tx(
         selected_artwork,
         artifact,
         changed,
+    })
+}
+
+async fn unpublish_selected_artwork_for_item_kind_tx(
+    pool: &sqlx::SqlitePool,
+    item_id: MediaItemId,
+    kind: ImageKind,
+) -> Result<SelectedArtworkUnpublicationRecord> {
+    let mut transaction = pool.begin().await.map_err(database_error)?;
+    let (kind_part, kind_key) = image_kind_to_parts(&kind);
+    let unpublished =
+        get_selected_artwork_by_slot_tx(&mut transaction, item_id, &kind_part, &kind_key).await?;
+    let artifact = if let Some(selected) = unpublished.as_ref() {
+        Some(
+            get_managed_artwork_artifact_tx(&mut transaction, selected.artifact_id)
+                .await?
+                .ok_or_else(|| TaruError::Database {
+                    message: "selected artwork is linked to a missing managed artwork artifact"
+                        .to_owned(),
+                })?,
+        )
+    } else {
+        None
+    };
+
+    if let Some(selected) = unpublished.as_ref() {
+        sqlx::query(
+            r#"
+            DELETE FROM selected_artworks
+            WHERE id = ?1
+            "#,
+        )
+        .bind(selected.id.to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+    }
+
+    transaction.commit().await.map_err(database_error)?;
+
+    Ok(SelectedArtworkUnpublicationRecord {
+        item_id,
+        kind,
+        changed: unpublished.is_some(),
+        unpublished,
+        artifact,
     })
 }
 

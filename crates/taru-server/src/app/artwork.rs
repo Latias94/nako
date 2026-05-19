@@ -26,7 +26,8 @@ use taru_api::{
     AdminManagedArtworkArtifactStrayFileCleanupStatus,
     AdminManagedArtworkArtifactStrayFileCleanupSummary,
     AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
-    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse, page_info_from_request,
+    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse,
+    UnpublishSelectedArtworkResponse, page_info_from_request,
 };
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
@@ -203,6 +204,27 @@ impl ManagedArtworkAppService {
             .await?;
         Ok(PublishSelectedArtworkResponse::from_publication(
             publication,
+        ))
+    }
+
+    pub(crate) async fn unpublish_item_artwork(
+        &self,
+        item_id: MediaItemId,
+        kind: taru_core::ImageKind,
+    ) -> Result<UnpublishSelectedArtworkResponse> {
+        self.store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+        let unpublication = self
+            .store
+            .unpublish_selected_artwork_for_item_kind(item_id, kind)
+            .await?;
+        Ok(UnpublishSelectedArtworkResponse::from_unpublication(
+            unpublication,
         ))
     }
 

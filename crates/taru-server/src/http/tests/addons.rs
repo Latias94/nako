@@ -2122,6 +2122,159 @@ async fn managed_artwork_variant_routes_resize_selected_artwork_without_locator_
     assert_selected_artwork_variant_serving_without_locator_or_hash_leaks().await;
 }
 
+#[tokio::test]
+async fn admin_selected_artwork_unpublish_hides_public_image_without_deleting_artifact() {
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let expected_bytes = png_with_size(4, 2);
+    let (remote_url, _) = artwork_server(StatusCode::OK, "image/png", expected_bytes).await;
+    let (raw_token, _candidate_id, _accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-unpublish",
+    )
+    .await;
+
+    let processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let artifact = processed.artifact.as_ref().unwrap().clone();
+    let published = request_json::<PublishSelectedArtworkResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id),
+    )
+    .await;
+    assert_eq!(
+        request_json::<taru_api::ImagesResponse>(
+            &router,
+            Method::GET,
+            &format!("/items/{}/images", source.item_id),
+        )
+        .await
+        .images,
+        vec![published.image.clone()]
+    );
+
+    let unpublish_path = format!(
+        "/admin/v1/items/{}/artwork/poster/selection",
+        source.item_id
+    );
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(&unpublish_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let unpublished: UnpublishSelectedArtworkResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert!(unpublished.changed);
+    assert_eq!(unpublished.item_id, source.item_id);
+    assert_eq!(unpublished.kind, ImageKind::Poster);
+    let previous = unpublished.unpublished.as_ref().unwrap();
+    assert_eq!(previous.selected_artwork.id, published.selected_artwork.id);
+    assert_eq!(previous.selected_artwork.artifact_id, artifact.id);
+    assert_eq!(previous.previous_image, published.image);
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+    assert!(!response_text.contains("managed-artwork://"));
+    assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(artifact.has_content_hash);
+    assert!(!response_text.contains("\"content_hash\""));
+
+    let images = request_json::<taru_api::ImagesResponse>(
+        &router,
+        Method::GET,
+        &format!("/items/{}/images", source.item_id),
+    )
+    .await;
+    assert!(images.images.is_empty());
+
+    for method in [Method::GET, Method::HEAD] {
+        let image_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(&published.image.url)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(image_response.status(), StatusCode::NOT_FOUND);
+    }
+
+    assert!(
+        store
+            .get_managed_artwork_artifact(artifact.id)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let lifecycle = request_json::<AdminManagedArtworkArtifactLifecycleResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/artwork/artifacts/lifecycle?cleanup_candidates_only=true",
+    )
+    .await;
+    assert!(
+        lifecycle
+            .artifacts
+            .iter()
+            .any(|candidate| candidate.id == artifact.id
+                && candidate.cleanup_candidate
+                && candidate.selected_artwork_count == 0)
+    );
+
+    let replay =
+        request_json::<UnpublishSelectedArtworkResponse>(&router, Method::DELETE, &unpublish_path)
+            .await;
+    assert!(!replay.changed);
+    assert!(replay.unpublished.is_none());
+
+    let unknown_kind = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(format!(
+                    "/admin/v1/items/{}/artwork/custom/selection",
+                    source.item_id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unknown_kind.status(), StatusCode::BAD_REQUEST);
+}
+
 async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks() {
     let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
