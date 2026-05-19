@@ -1,7 +1,7 @@
 # Admin API TypeScript Contract Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Smallest Current Repro
 
@@ -113,3 +113,11 @@ schema helpers or route inventory behavior outside `taru-api`.
   `cargo fmt --all` also mechanically formatted one existing import wrapping
   difference in `crates/taru-server/src/http/tests/mod.rs` so the broad
   formatting gate can remain green.
+- 2026-05-20: AATC-040 completed. `apps/admin-web/src/adminApi/types.ts`
+  no longer owns long-lived hand-written wire DTO definitions; it re-exports
+  covered response/page DTOs from `generated/contract` while keeping
+  admin-web-only view models local. `dataSource.ts` and `mockData.ts` import
+  wire DTOs directly from the generated contract, and `dataSource.test.ts`
+  uses generated route constants for fixture routing. Validation passed:
+  `cd apps/admin-web && npm run check`, `cd apps/admin-web && npm run test`,
+  `cd apps/admin-web && npm run build`, and `git diff --check`.

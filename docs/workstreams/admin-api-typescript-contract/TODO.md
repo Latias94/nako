@@ -1,7 +1,7 @@
 # Admin API TypeScript Contract TODO
 
 Status: Active
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## AATC.0 Scope And Contract Decision
 
@@ -42,15 +42,18 @@ Last updated: 2026-05-19
   from `apps/admin-web/src/adminApi/types.ts` while keeping UI view models
   local.
 
-- [ ] AATC-040 [owner=codex] [deps=AATC-030] [scope=apps/admin-web/src/adminApi, apps/admin-web/src]
+- [x] AATC-040 [owner=codex] [deps=AATC-030] [scope=apps/admin-web/src/adminApi, apps/admin-web/src]
   Goal: Make admin-web consume the generated Admin API contract for covered
   wire DTOs while keeping UI-only view models local.
   Validation: `cd apps/admin-web && npm run check`, `npm run test`, and
   `npm run build`.
   Review: review-workstream for DTO duplication and redaction fixture safety.
-  Evidence: admin-web imports generated contract; tests keep source fallback
-  and redaction behavior.
-  Handoff: Jobs/Catalog/Playback detail pages can start after this task.
+  Evidence: `apps/admin-web/src/adminApi/types.ts` re-exports generated wire
+  DTOs, `dataSource.ts` and `mockData.ts` import covered wire DTOs from
+  `generated/contract`, and `dataSource.test.ts` uses generated route
+  constants for live/mock fixtures.
+  Handoff: AATC-050 should close the Public/Admin separation contract and
+  document the generation command before detail-page UI work starts.
 
 ## AATC.2 Boundary And Closeout
 

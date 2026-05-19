@@ -1,7 +1,7 @@
 # Admin API TypeScript Contract Milestones
 
 Status: Active
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## M-AATC.0 Contract Boundary Freeze
 
@@ -72,6 +72,10 @@ npm run check
 npm run test
 npm run build
 ```
+
+Status: completed for AATC-040. Admin-web wire DTOs for covered read models
+are now imported from the generated contract, while `types.ts` keeps only
+admin-web view/data-source types plus compatibility re-exports.
 
 ## M-AATC.4 Closeout
 

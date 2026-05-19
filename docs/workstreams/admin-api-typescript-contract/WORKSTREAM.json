@@ -3,7 +3,7 @@
   "slug": "admin-api-typescript-contract",
   "title": "Admin API TypeScript Contract",
   "status": "active",
-  "updated": "2026-05-19",
+  "updated": "2026-05-20",
   "scope_kind": "contract_generation",
   "problem": "Admin web currently hand-writes Admin API wire DTOs, creating drift risk before deeper web console workflows are built.",
   "authoritative_docs": [
@@ -58,6 +58,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AATC-030 is complete. Continue with AATC-040: remove long-lived wire DTO duplication from admin-web types by importing or re-exporting generated contract DTOs while keeping UI view models local."
+    "notes": "AATC-040 is complete. Continue with AATC-050: close the Public/Admin separation contract, document generation commands, refresh evidence, and split detail-page UI work as follow-ons."
   }
 }

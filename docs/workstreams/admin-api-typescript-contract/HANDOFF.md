@@ -1,7 +1,7 @@
 # Admin API TypeScript Contract Handoff
 
 Status: Active
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Current State
 
@@ -21,17 +21,23 @@ AWC-070 route constants, query interfaces, and wire interfaces under
 generated response types and route constants while keeping its hand-written
 fetch/runtime boundary.
 
+AATC-040 is complete. Admin-web no longer owns duplicate hand-written wire
+DTO definitions for the covered AWC-070 routes. `types.ts` re-exports
+generated wire DTOs and keeps UI-only view/data-source types local;
+`dataSource.ts`, `mockData.ts`, and data-source tests consume generated
+contract types/routes directly.
+
 ## Active Task
 
-- Task ID: AATC-040
+- Task ID: AATC-050
 - Owner: codex
-- Files: `apps/admin-web/src/adminApi`, `apps/admin-web/src`
-- Validation: `cd apps/admin-web && npm run check`, `npm run test`, and
-  `npm run build`
+- Files: `crates/taru-api`, `sdk/typescript`, `docs/api`,
+  `docs/workstreams/admin-api-typescript-contract`
+- Validation: focused `taru-api` nextest tests, public TypeScript SDK sync
+  test, admin-web gates, and `git diff --check`
 - Status: READY
-- Review: review-workstream for DTO duplication and redaction fixture safety
-- Evidence: admin-web imports generated contract for covered wire DTOs; tests
-  keep source fallback and redaction behavior
+- Review: review-workstream and verify-rust-workstream before closeout
+- Evidence: Public Client SDK separation tests and Admin API contract docs
 
 ## Decisions Since Last Update
 
@@ -46,14 +52,17 @@ fetch/runtime boundary.
   auth, request failure behavior, and future live/mock fallback policy.
 - The AATC-030 generator intentionally emits a narrow explicit contract rather
   than a generated fetch client or a public/admin combined SDK.
+- AATC-040 keeps compatibility re-exports from `types.ts` but moves source
+  ownership of covered wire DTOs to `generated/contract`.
 
 ## Blockers
 
 - None for AATC-030.
 - None for AATC-040.
+- None for AATC-050.
 
 ## Next Recommended Action
 
-Run AATC-040: remove durable wire DTO duplication from
-`apps/admin-web/src/adminApi/types.ts` by importing/re-exporting generated
-contract DTOs, while keeping UI-only view models local to admin-web.
+Run AATC-050: document generation and separation commands, refresh Public
+Client SDK/Admin API separation evidence, and close or split the workstream
+before starting Jobs/Catalog/Playback detail-page UI work.
