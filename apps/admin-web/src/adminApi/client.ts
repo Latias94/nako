@@ -1,4 +1,13 @@
-import type { AdminOverviewResponse } from "./types";
+import type {
+  AdminCatalogGovernanceItemListResponse,
+  AdminJobListResponse,
+  AdminOutboxEventListResponse,
+  AdminOverviewResponse,
+  AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackSessionListResponse,
+  AdminServerConfigDiagnosticsResponse,
+  AdminStorageStagingDiagnosticsResponse,
+} from "./types";
 
 export type AdminApiClientOptions = {
   baseUrl?: string;
@@ -19,6 +28,36 @@ export class AdminApiClient {
 
   async getOverview(): Promise<AdminOverviewResponse> {
     return this.getJson<AdminOverviewResponse>("/admin/v1/overview");
+  }
+
+  async getCatalogGovernanceItems(): Promise<AdminCatalogGovernanceItemListResponse> {
+    return this.getJson<AdminCatalogGovernanceItemListResponse>(
+      "/admin/v1/catalog/governance/items",
+    );
+  }
+
+  async getEvents(): Promise<AdminOutboxEventListResponse> {
+    return this.getJson<AdminOutboxEventListResponse>("/admin/v1/events");
+  }
+
+  async getJobs(): Promise<AdminJobListResponse> {
+    return this.getJson<AdminJobListResponse>("/admin/v1/jobs");
+  }
+
+  async getPlaybackSessions(): Promise<AdminPlaybackSessionListResponse> {
+    return this.getJson<AdminPlaybackSessionListResponse>("/admin/v1/playback/sessions");
+  }
+
+  async getPlaybackRuntime(): Promise<AdminPlaybackRuntimeDiagnosticsResponse> {
+    return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>("/admin/v1/playback/runtime");
+  }
+
+  async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
+    return this.getJson<AdminStorageStagingDiagnosticsResponse>("/admin/v1/storage/staging");
+  }
+
+  async getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
+    return this.getJson<AdminServerConfigDiagnosticsResponse>("/admin/v1/system/config");
   }
 
   private async getJson<T>(path: string): Promise<T> {

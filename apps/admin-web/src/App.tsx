@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   AdminConsoleData,
   AdminDataSource,
+  AdminSourceMap,
   DataSourceMode,
 } from "./adminApi/dataSource";
 import { mockAdminConsoleData } from "./adminApi/mockData";
@@ -34,21 +35,22 @@ type NavItem = {
   label: string;
   id: string;
   icon: ComponentType<{ size?: number }>;
+  sourceKey?: keyof AdminSourceMap;
   source: DataSourceMode;
 };
 
 const navItems: NavItem[] = [
-  { label: "Overview", id: "overview", icon: Activity, source: "hybrid" },
+  { label: "Overview", id: "overview", icon: Activity, sourceKey: "overview", source: "hybrid" },
   { label: "Media Libraries", id: "libraries", icon: Library, source: "mock" },
-  { label: "Catalog", id: "catalog", icon: Film, source: "planned" },
+  { label: "Catalog", id: "catalog", icon: Film, sourceKey: "catalogGovernance", source: "planned" },
   { label: "Metadata", id: "metadata", icon: Sparkles, source: "mock" },
-  { label: "Jobs", id: "jobs", icon: ListChecks, source: "mock" },
-  { label: "Playback", id: "playback", icon: PlayCircle, source: "mock" },
-  { label: "Storage", id: "storage", icon: HardDrive, source: "mock" },
-  { label: "Automation", id: "automation", icon: Cable, source: "planned" },
+  { label: "Jobs", id: "jobs", icon: ListChecks, sourceKey: "jobs", source: "mock" },
+  { label: "Playback", id: "playback", icon: PlayCircle, sourceKey: "playbackRuntime", source: "mock" },
+  { label: "Storage", id: "storage", icon: HardDrive, sourceKey: "storageStaging", source: "mock" },
+  { label: "Automation", id: "automation", icon: Cable, sourceKey: "events", source: "planned" },
   { label: "Addons", id: "addons", icon: Puzzle, source: "planned" },
   { label: "Network", id: "network", icon: Boxes, source: "planned" },
-  { label: "Settings", id: "settings", icon: Settings, source: "mock" },
+  { label: "Settings", id: "settings", icon: Settings, sourceKey: "systemConfig", source: "mock" },
 ];
 
 export function App({ dataSource }: { dataSource: AdminDataSource }) {
@@ -105,11 +107,12 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
         <nav className="navList">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const source = item.sourceKey ? loadState.data.sources[item.sourceKey] : item.source;
             return (
               <a className={item.id === "overview" ? "navItem active" : "navItem"} href={`#${item.id}`} key={item.id}>
                 <Icon size={17} />
                 <span>{item.label}</span>
-                <SourceDot source={item.source} />
+                <SourceDot source={source} />
               </a>
             );
           })}
@@ -139,6 +142,16 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
           <div className="notice" role="status">
             <CircleAlert size={17} />
             <span>{loadState.message}</span>
+          </div>
+        ) : null}
+
+        {Object.keys(loadState.data.errors).length > 0 ? (
+          <div className="notice subtle" role="status">
+            <CircleAlert size={17} />
+            <span>
+              {Object.keys(loadState.data.errors).length} Admin API read models are using safe mock
+              data.
+            </span>
           </div>
         ) : null}
 
@@ -190,7 +203,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
           <section className="panel" id="metadata">
             <PanelHeader
               title="Metadata Providers"
-              source={loadState.data.overviewSource}
+              source={loadState.data.sources.overview}
               description="Provider availability and local authority health."
             />
             <div className="stackList">
@@ -215,7 +228,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
           <section className="panel" id="jobs">
             <PanelHeader
               title="Jobs"
-              source="mock"
+              source={loadState.data.sources.jobs}
               action="Open queue"
               description="Durable jobs and cancellable runtime work."
             />
@@ -226,16 +239,54 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                     <strong>{job.kind}</strong>
                     <span>{job.resourceClass}</span>
                   </div>
-                  <StatusPill label={job.status} tone={job.status === "failed" ? "bad" : job.status === "running" ? "info" : "good"} />
+                  <StatusPill
+                    label={job.status}
+                    tone={job.hasError || job.status === "failed" ? "bad" : job.status === "running" ? "info" : "good"}
+                  />
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="panel wide" id="catalog">
+            <PanelHeader
+              title="Catalog Governance"
+              source={loadState.data.sources.catalogGovernance}
+              description="Unknown and low-confidence Media Items needing operator review."
+            />
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Media Item</th>
+                    <th>Kind</th>
+                    <th>Issues</th>
+                    <th>Sources</th>
+                    <th>Provider mappings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadState.data.catalog.items.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.title}</td>
+                      <td>{item.kind}</td>
+                      <td>{item.issues.length > 0 ? item.issues.join(", ") : "none"}</td>
+                      <td>{item.sourceCount}</td>
+                      <td>{item.providerMappingCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
 
           <section className="panel wide" id="playback">
             <PanelHeader
               title="Playback & Transcode"
-              source="mock"
+              source={combinedSource(
+                loadState.data.sources.playbackSessions,
+                loadState.data.sources.playbackRuntime,
+              )}
               description="Session state, hardware acceleration, and staging budgets."
             />
             <div className="splitPanel">
@@ -257,6 +308,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                 <FlaskConical size={18} />
                 <h3>Hardware policy</h3>
                 <p>{loadState.data.playback.hardwarePolicy}</p>
+                <p className="runtimeNote">FFmpeg probe: {loadState.data.playback.ffmpegStatus}</p>
                 <div className="capabilityLine">
                   {loadState.data.playback.accelerators.map((accelerator) => (
                     <StatusPill
@@ -273,8 +325,8 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
           <section className="panel" id="storage">
             <PanelHeader
               title="Storage"
-              source={loadState.data.overviewSource}
-              description="Backend status without root paths or Source Locators."
+              source={combinedSource(loadState.data.sources.overview, loadState.data.sources.storageStaging)}
+              description="Backend and staging status without root paths or Source Locators."
             />
             <div className="stackList">
               {loadState.data.overview.storage.backends.map((backend) => (
@@ -286,13 +338,41 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                   <StatusPill label={backend.status} tone={backend.status === "ready" ? "good" : "bad"} />
                 </div>
               ))}
+              {loadState.data.storage.records.map((record) => (
+                <div className="listRow" key={record.id}>
+                  <div>
+                    <strong>{record.sourceScheme} staging</strong>
+                    <span>{record.purpose}</span>
+                  </div>
+                  <StatusPill label={record.state} tone={record.hasValidationError ? "bad" : "info"} />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel" id="automation">
+            <PanelHeader
+              title="Automation Events"
+              source={loadState.data.sources.events}
+              description="Redacted event outbox history for webhooks and automation."
+            />
+            <div className="stackList">
+              {loadState.data.events.events.map((event) => (
+                <div className="listRow" key={event.id}>
+                  <div>
+                    <strong>{event.kind}</strong>
+                    <span>{event.attempts} attempts</span>
+                  </div>
+                  <StatusPill label={event.status} tone={event.hasError ? "bad" : "good"} />
+                </div>
+              ))}
             </div>
           </section>
 
           <section className="panel" id="settings">
             <PanelHeader
               title="Settings"
-              source="mock"
+              source={loadState.data.sources.systemConfig}
               description="Read-only diagnostics until mutation routes are designed."
             />
             <div className="settingGrid">
@@ -396,7 +476,14 @@ function StatusPill({
 }
 
 function SourceLabel({ source }: { source: DataSourceMode }) {
-  const label = source === "live" ? "Live Admin API" : source === "hybrid" ? "Live + mock" : source === "mock" ? "Mock data" : "Planned";
+  const label =
+    source === "live"
+      ? "Live Admin API"
+      : source === "hybrid"
+        ? "Live + mock"
+        : source === "mock"
+          ? "Mock data"
+          : "Planned";
   return <span className={`sourceLabel ${source}`}>{label}</span>;
 }
 
@@ -406,17 +493,17 @@ function SourceDot({ source }: { source: DataSourceMode }) {
 
 function summarizeSources(data: AdminConsoleData) {
   const sources: DataSourceMode[] = [
-    data.overviewSource,
+    data.sources.overview,
     "mock",
+    data.sources.catalogGovernance,
+    "mock",
+    data.sources.jobs,
+    combinedSource(data.sources.playbackSessions, data.sources.playbackRuntime),
+    combinedSource(data.sources.overview, data.sources.storageStaging),
+    data.sources.events,
     "planned",
-    "mock",
-    "mock",
-    "mock",
-    data.overviewSource,
     "planned",
-    "planned",
-    "planned",
-    "mock",
+    data.sources.systemConfig,
   ];
 
   return sources.reduce(
@@ -432,4 +519,20 @@ function summarizeSources(data: AdminConsoleData) {
     },
     { live: 0, mock: 0, planned: 0 },
   );
+}
+
+function combinedSource(...sources: DataSourceMode[]): DataSourceMode {
+  if (sources.every((source) => source === "live")) {
+    return "live";
+  }
+
+  if (sources.some((source) => source === "live")) {
+    return "hybrid";
+  }
+
+  if (sources.every((source) => source === "planned")) {
+    return "planned";
+  }
+
+  return "mock";
 }

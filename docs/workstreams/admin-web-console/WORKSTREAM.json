@@ -63,6 +63,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AWC-060 is complete with apps/admin-web. Continue with AWC-070 to deepen Admin API read-model wiring and UI redaction tests."
+    "notes": "AWC-070 is complete. Continue by deciding generated Admin API TypeScript contract versus hand-written DTO boundary before adding route filters/detail pages."
   }
 }

@@ -11,7 +11,14 @@ describe("Admin web console scaffold", () => {
       async load() {
         return {
           ...mockAdminConsoleData,
-          overviewSource: "live",
+          sources: {
+            ...mockAdminConsoleData.sources,
+            overview: "live",
+            jobs: "live",
+            playbackRuntime: "live",
+            storageStaging: "live",
+            systemConfig: "live",
+          },
           overview: {
             ...mockAdminConsoleData.overview,
             storage: {
@@ -56,12 +63,37 @@ describe("Admin web console scaffold", () => {
     expect(screen.getAllByText("Mock data").length).toBeGreaterThan(0);
   });
 
+  it("shows a section fallback summary when individual Admin API read models use mock data", async () => {
+    const dataSource: AdminDataSource = {
+      async load() {
+        return {
+          ...mockAdminConsoleData,
+          errors: {
+            jobs: "Admin API request failed with HTTP 503",
+            playbackRuntime: "Admin API request failed with HTTP 503",
+          },
+        };
+      },
+    };
+
+    render(<App dataSource={dataSource} />);
+
+    expect(await screen.findByText("2 Admin API read models are using safe mock data.")).toBeInTheDocument();
+  });
+
   it("does not render unsafe locator, local path, or token value fields", async () => {
     const dataSource: AdminDataSource = {
       async load() {
         return {
           ...mockAdminConsoleData,
-          overviewSource: "live",
+          sources: {
+            ...mockAdminConsoleData.sources,
+            overview: "live",
+            jobs: "live",
+            playbackRuntime: "live",
+            storageStaging: "live",
+            systemConfig: "live",
+          },
         };
       },
     };

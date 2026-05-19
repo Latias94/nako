@@ -130,3 +130,14 @@ npx --no-install playwright-cli resize 390 844
   390x844 with no horizontal overflow, and browser console with no errors after
   adding the app favicon. The app README records that build-time Vite
   environment variables must not contain admin tokens or secrets.
+- 2026-05-19: AWC-070 completed. `apps/admin-web/src/adminApi/client.ts` now
+  has typed methods for `GET /admin/v1/catalog/governance/items`,
+  `/events`, `/jobs`, `/playback/sessions`, `/playback/runtime`,
+  `/storage/staging`, and `/system/config`. `dataSource.ts` composes those
+  read models with section-level live/mock fallback instead of a whole-page
+  fallback. The UI surfaces Catalog Governance, Automation Events, playback
+  runtime/session data, storage staging rows, and system config summaries with
+  source labels and a fallback notice. Validation passed: `npm run check`,
+  `npm run test` with 9 tests, `npm run build`, `git diff --check`, and
+  Playwright CLI smoke at desktop 1440x1000 and mobile 390x844 with no
+  horizontal overflow and no browser console errors.

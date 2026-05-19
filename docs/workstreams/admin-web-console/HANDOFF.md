@@ -36,6 +36,13 @@ data source boundary, and mock fixtures under `src/adminApi`. The first live
 read is `GET /admin/v1/overview`; other first-prototype rows remain mock or
 planned until AWC-070 wires existing Admin API read models.
 
+AWC-070 is complete. `apps/admin-web/src/adminApi` now has typed client methods
+and deterministic fixtures for the existing Admin API read-model routes:
+catalog governance, events, jobs, playback sessions/runtime, storage staging,
+and system config. `dataSource.ts` composes them through section-level
+live/mock fallback, so one failed route does not force the whole console back
+to mock data. The UI shows source labels plus a safe fallback summary.
+
 ## v0.dev Prompt
 
 ```text
@@ -67,10 +74,11 @@ describe a front-end framework; produce the UI prototype only.
 
 ## Next Recommended Task
 
-AWC-070 should deepen the Admin API client layer and wire the next existing
-Admin API read models: jobs, playback sessions/runtime, storage staging, system
-config, events, and catalog governance. Add UI-level redaction tests before
-rendering any new live fields.
+The next task should decide the Admin API TypeScript contract strategy before
+adding more routes: either generate a separate Admin API contract from
+`taru-api`, or keep a narrow hand-written frontend DTO boundary with explicit
+tests. After that, the most useful UI slice is detail pages and filters for
+Jobs, Catalog Governance, and Playback.
 
 ## Constraints
 
@@ -85,3 +93,5 @@ rendering any new live fields.
 - Editable settings versus read-only diagnostics in the first release.
 - Whether AWC-070 should use hand-written DTO types first or generate a
   separate Admin API TypeScript contract after the next API inventory pass.
+- Whether the next admin-web task should add a generated Admin API TypeScript
+  contract before building deeper route filters and detail pages.

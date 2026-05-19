@@ -234,6 +234,12 @@ h3 {
   font-size: 0.9rem;
 }
 
+.notice.subtle {
+  border-color: oklch(82% 0.024 75);
+  background: oklch(97% 0.012 76);
+  color: oklch(42% 0.028 67);
+}
+
 .overviewBand {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

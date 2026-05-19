@@ -80,7 +80,7 @@ Last updated: 2026-05-19
   read is `GET /admin/v1/overview`; other page rows are explicitly mock or
   planned. Do not bake admin tokens into Vite environment variables.
 
-- [ ] AWC-070 [owner=codex] [deps=AWC-060] [scope=admin-api-sdk-or-client]
+- [x] AWC-070 [owner=codex] [deps=AWC-060] [scope=apps/admin-web/src/adminApi, apps/admin-web/src/App.tsx, docs/workstreams/admin-web-console]
   Goal: Deepen the Admin API client layer and wire the next existing Admin API
   read-models beyond overview, starting with jobs, playback runtime/sessions,
   storage staging, system config, events, and catalog governance where routes
@@ -88,5 +88,11 @@ Last updated: 2026-05-19
   Validation: focused UI tests for live/mock source behavior, redaction checks
   for rendered text and fixtures, browser verification against local server or
   deterministic mock server.
-  Evidence: future implementation evidence.
-  Handoff: Secrets and local paths must stay redacted in UI and test fixtures.
+  Evidence: typed `AdminApiClient` methods for existing read-model routes,
+  section-level live/mock source map, deterministic mock fixtures,
+  `dataSource.test.ts`, UI fallback summary tests, production build, and
+  Playwright smoke checks.
+  Handoff: Existing read-model routes are represented in the frontend data
+  boundary. Future work should choose between a generated Admin API TypeScript
+  contract and continued hand-written DTOs before adding more routes. Secrets
+  and local paths must stay redacted in UI and test fixtures.

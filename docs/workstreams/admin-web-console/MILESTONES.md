@@ -145,7 +145,9 @@ Exit criteria:
 Status: partially completed for AWC-060. `apps/admin-web` now contains the
 first Vite/React/TypeScript scaffold, an explicit Admin API client/data-source
 boundary, mock/planned data fixtures, and a live `GET /admin/v1/overview`
-read path. AWC-070 remains open for deeper Admin API read-model wiring.
+read path. AWC-070 deepened the same boundary with existing Admin API
+read-model routes for jobs, playback, storage, config, events, and catalog
+governance.
 
 AWC-060 validation:
 
@@ -153,6 +155,16 @@ AWC-060 validation:
 - `npm run check`
 - `npm run test`: 4 tests passed.
 - `npm run build`
+- Playwright CLI smoke at `http://127.0.0.1:5174/`
+- Desktop viewport 1440x1000: no horizontal overflow.
+- Mobile viewport 390x844: no horizontal overflow.
+
+AWC-070 validation:
+
+- `npm run check`
+- `npm run test`: 9 tests passed.
+- `npm run build`
+- `git diff --check`
 - Playwright CLI smoke at `http://127.0.0.1:5174/`
 - Desktop viewport 1440x1000: no horizontal overflow.
 - Mobile viewport 390x844: no horizontal overflow.
