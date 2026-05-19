@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "slug": "managed-artwork-public-serving-selection",
+  "title": "Managed Artwork Public Serving Selection",
+  "status": "active",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Stored Managed Artwork Artifacts need a redacted Selected Artwork publication model and first-party Public Client image-serving boundary before clients can display managed artwork safely.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/managed-artwork-public-serving-selection/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/managed-artwork-public-serving-selection/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/managed-artwork-public-serving-selection/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/managed-artwork-public-serving-selection/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/managed-artwork-public-serving-selection/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"ImageAssetDto|ImageRefDto|source_uri|cache_uri|storage_uri|selected|managed_artwork_artifacts|list_item_images|/items/\\\\{item_id\\\\}/images|/images\" crates docs",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-server --tests",
+    "cargo nextest run -p taru-server image --no-fail-fast",
+    "cargo nextest run -p taru-api image --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/managed-artwork-public-serving-selection/DESIGN.md",
+    "docs/workstreams/managed-artwork-public-serving-selection/TODO.md",
+    "docs/workstreams/managed-artwork-fetch-artifact-storage/HANDOFF.md",
+    "crates/taru-core/src/media/artwork.rs",
+    "crates/taru-core/src/media/catalog.rs",
+    "crates/taru-core/src/repository/catalog.rs",
+    "crates/taru-core/src/repository/metadata.rs",
+    "crates/taru-db/migrations/0026_managed_artwork_ingest.sql",
+    "crates/taru-db/src/artwork.rs",
+    "crates/taru-db/src/catalog.rs",
+    "crates/taru-api/src/public_client.rs",
+    "crates/taru-api/src/openapi.rs",
+    "crates/taru-client-protocol/src/catalog.rs",
+    "crates/taru-server/src/app/artwork.rs",
+    "crates/taru-server/src/app/catalog.rs",
+    "crates/taru-server/src/http/catalog.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": "MAPS-020",
+  "first_slice": "Public image reference and Selected Artwork model freeze",
+  "non_goals": [
+    "thumbnail or resize workers",
+    "durable retry/requeue APIs",
+    "managed ingest cancellation APIs",
+    "orphan artifact cleanup",
+    "Artwork Export to sidecar files",
+    "public artwork gallery or candidate management"
+  ],
+  "routed_from": {
+    "workstream": "managed-artwork-fetch-artifact-storage",
+    "task": "MAFA-050",
+    "source": "public image serving and selected artwork publication split from internal artifact storage closeout"
+  },
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Start with MAPS-020 to freeze the public DTO, route identity, and Selected Artwork schema before adding migrations or handlers. Keep thumbnail, durable retry/requeue, cancellation, and orphan cleanup as follow-ons."
+  }
+}
