@@ -1,6 +1,6 @@
 # Durable Job Ownership Leases
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -51,10 +51,11 @@ truthful cancellation controls.
 
 ## Current Slice
 
-`DJOL-050` is complete: Admin can request job cancellation through a redacted
-route that distinguishes queued, running, and terminal jobs. The next slice is
-`DJOL-060`: close the lane if final gates pass, or split worker-side
-cancellation checkpoints and broader worker migrations into follow-ons.
+This lane is closed. Taru now has durable job ownership leases, heartbeats,
+run-token fenced completion/failure, lease-aware recovery, a shared leased
+`DurableJobRuntime` path, and a truthful redacted Admin cancel-request route.
+Worker-side cancellation checkpoints, broader worker migrations, retry/backoff,
+and distributed scheduling are follow-ons.
 
 ## Split Follow-Ons
 

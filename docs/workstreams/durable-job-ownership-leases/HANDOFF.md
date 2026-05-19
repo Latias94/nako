@@ -1,11 +1,11 @@
 # Durable Job Ownership Leases - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
-The lane is open. `DJOL-010` recorded the initial design, non-goals, and code
+The lane is closed. `DJOL-010` recorded the initial design, non-goals, and code
 inventory after `job-runtime-worker-control-plane` split durable cancellation
 and generic ownership leases into a follow-on.
 
@@ -15,7 +15,7 @@ completion, and expired-lease recovery. `DJOL-040` wired the shared
 `DurableJobRuntime` through exact job claims, heartbeat, and run-token fenced
 success/failure. `DJOL-050` added a truthful Admin cancel-request route.
 
-## Active Task
+## Closed Task
 
 - Task ID: `DJOL-060`
 - Owner: codex
@@ -23,8 +23,8 @@ success/failure. `DJOL-050` added a truthful Admin cancel-request route.
   - `docs/workstreams/durable-job-ownership-leases`
 - Validation:
   - closeout gate in `EVIDENCE_AND_GATES.md`
-- Status: READY_TO_CLOSE_OR_SPLIT
-- Review: Not started
+- Status: DONE
+- Review: lane closed with follow-ons split
 - Evidence: `DJOL-020` core contract passed `cargo check -p taru-core --tests`,
   `cargo fmt --all -- --check`, WORKSTREAM JSON parse, and `git diff --check`.
   `DJOL-030` passed DB lease/cancel/startup tests, server startup recovery
@@ -65,7 +65,16 @@ success/failure. `DJOL-050` added a truthful Admin cancel-request route.
 
 - None.
 
+## Follow-Ons
+
+- Worker-side cancellation checkpoints for long-running typed executors.
+- Broader worker migrations for metadata, webhook, NFO, automation, scan, and
+  probe work that should drain queued jobs without immediate HTTP callers.
+- Generic retry/backoff policy over the durable lease model.
+- Distributed scheduling or multi-process lease-stealing policy.
+
 ## Next Recommended Action
 
-Run `DJOL-060`: close this lane if final gates pass, or split worker-side
-cancellation checkpoints and broader worker migrations into named follow-ons.
+Open a new follow-on for worker-side cancellation checkpoints before claiming
+that running job cancellation can stop side effects. Keep retry/backoff and
+multi-process scheduling separate unless they become blockers.

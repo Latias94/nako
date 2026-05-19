@@ -1,6 +1,6 @@
 # Durable Job Ownership Leases - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -85,6 +85,7 @@ requires it.
 | 2026-05-19 | DJOL-030 | `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo nextest run -p taru-db job_cancel --no-fail-fast`, `cargo nextest run -p taru-db running_jobs_failed_on_startup --no-fail-fast`, `cargo nextest run -p taru-server recovers_unfinished_jobs --no-fail-fast`, `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | SQLite schema/repository proof complete; queued jobs are preserved by generic startup recovery, and recovered running jobs clear lease ownership fields. |
 | 2026-05-19 | DJOL-040 | `cargo nextest run -p taru-server job_runtime --no-fail-fast`, `cargo nextest run -p taru-server startup --no-fail-fast`, `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Runtime now exact-claims queued jobs, heartbeats leases, and persists success/failure through the run-token fence. |
 | 2026-05-19 | DJOL-050 | `cargo nextest run -p taru-api admin_job_cancel --no-fail-fast`, `cargo nextest run -p taru-server job_cancel --no-fail-fast`, `cargo check -p taru-api -p taru-server --tests` | Pass | Admin cancel-request route is truthful for queued/running/terminal jobs and returns redacted job summaries. |
+| 2026-05-19 | DJOL-060 | `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo nextest run -p taru-db job_cancel --no-fail-fast`, `cargo nextest run -p taru-server job_runtime --no-fail-fast`, `cargo nextest run -p taru-server startup --no-fail-fast`, `cargo nextest run -p taru-server job_cancel --no-fail-fast`, `cargo nextest run -p taru-api admin_job_cancel --no-fail-fast`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Closeout gate passed; remaining worker checkpoints and broader migrations are split follow-ons. |
 
 ## Review Expectations
 

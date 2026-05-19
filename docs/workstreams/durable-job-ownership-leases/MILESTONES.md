@@ -1,6 +1,6 @@
 # Durable Job Ownership Leases - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -100,6 +100,11 @@ Primary gates:
 Exit criteria:
 
 - Gate set is recorded with fresh evidence.
+  Result: closeout evidence is recorded in `EVIDENCE_AND_GATES.md`.
 - Workstream status is updated.
+  Result: `WORKSTREAM.json`, `README.md`, `TODO.md`, and `HANDOFF.md` are
+  marked completed.
 - Remaining worker migrations are completed, deferred, or split into named
   follow-ons.
+  Result: worker-side cancellation checkpoints, broader worker migration,
+  retry/backoff, and distributed scheduling remain explicit follow-ons.

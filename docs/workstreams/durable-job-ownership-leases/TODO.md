@@ -1,6 +1,6 @@
 # Durable Job Ownership Leases - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -77,10 +77,13 @@ Last updated: 2026-05-19
 
 ## M5 - Closeout Or Split Worker Migrations
 
-- [ ] DJOL-060 [owner=codex] [deps=DJOL-050] [scope=docs/workstreams/durable-job-ownership-leases]
+- [x] DJOL-060 [owner=codex] [deps=DJOL-050] [scope=docs/workstreams/durable-job-ownership-leases]
   Goal: Close the lane or split metadata/webhook/NFO/automation/scan worker
   migrations into follow-ons.
   Validation: `verify-rust-workstream` records fresh final gate evidence.
   Review: `review-workstream` has no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
+  Result: DONE. Lane closed after fresh closeout gates. Worker-side
+  cancellation checkpoints, broader worker migrations, retry/backoff, and
+  distributed scheduling are follow-ons.
   Handoff: Remaining migrations must name the leased contract they use.
