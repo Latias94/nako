@@ -23,7 +23,6 @@ import dev.taru.android.playback.PlaybackPreferencesStore
 import dev.taru.android.playback.PlaybackStartCoordinator
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
-import dev.taru.android.player.resolvePlaybackResumePosition
 import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.ui.screens.detail.DetailRouteContent
 import dev.taru.android.ui.screens.player.PlaybackPlayerRoute
@@ -77,6 +76,12 @@ fun TaruBrowseShell(
             coordinator = playbackStartCoordinator,
         )
     }
+    val resumeResolver = remember(profile.id, positionStore) {
+        ClientBrowseResumeResolver(
+            serverProfileId = profile.id,
+            positionStore = positionStore,
+        )
+    }
     var savedShellState by rememberSaveable(
         profile.id,
         stateSaver = BrowseShellStateSaver,
@@ -88,6 +93,7 @@ fun TaruBrowseShell(
             initialState = savedShellState,
             dataSource = browseDataSource,
             playbackStarter = playbackStarter,
+            resumeResolver = resumeResolver,
             scope = routeScope,
         )
     }
@@ -170,12 +176,7 @@ fun TaruBrowseShell(
                     sourceProbeState = shellState.sourceProbeState,
                     playbackState = shellState.playbackState,
                     selectedSourceId = shellState.selectedSourceId,
-                    resumePosition = detailResumePosition(
-                        profileId = profile.id,
-                        state = shellState.detailState,
-                        selectedSourceId = shellState.selectedSourceId,
-                        positionStore = positionStore,
-                    ),
+                    resumePosition = shellState.resumePosition,
                     profile = profile,
                     accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
@@ -230,25 +231,6 @@ fun TaruBrowseShell(
             }
         }
     }
-}
-
-private fun detailResumePosition(
-    profileId: String,
-    state: ItemDetailUiState,
-    selectedSourceId: String?,
-    positionStore: DevicePlaybackPositionStore,
-): dev.taru.android.player.ResumePlaybackPosition? {
-    val content = state as? ItemDetailUiState.Content ?: return null
-    val detail = content.response
-    val source = detail.sources.firstOrNull { it.id == selectedSourceId } ?: detail.sources.firstOrNull()
-    val sourceId = source?.id?.takeIf { it.isNotBlank() } ?: return null
-    return resolvePlaybackResumePosition(
-        profileId = profileId,
-        mediaItemId = detail.item.id,
-        sourceId = sourceId,
-        userPlaybackState = content.userPlaybackState,
-        positionStore = positionStore,
-    )
 }
 
 @Composable

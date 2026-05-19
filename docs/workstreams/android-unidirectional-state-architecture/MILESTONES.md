@@ -1,6 +1,6 @@
 # Android Unidirectional State Architecture - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Lane Setup
@@ -52,14 +52,18 @@ Exit:
 
 ## M5 - Compose Shell Cleanup
 
+Status: Complete.
+
 Exit:
 
 - `TaruBrowseShell` renders state and dispatches actions.
-- Client calls and token reads are removed from the shell.
+- Client calls and playback start orchestration are removed from the shell.
 - Local `refreshKey` counters and route-driven `LaunchedEffect` loaders are
   removed from the shell.
 
 ## M6 - Closeout
+
+Status: Complete.
 
 Exit:
 

@@ -1,15 +1,15 @@
 {
   "slug": "android-unidirectional-state-architecture",
   "title": "Android Unidirectional State Architecture",
-  "status": "active",
-  "current_milestone": "M5",
-  "current_task": "AUSA-060",
+  "status": "closed",
+  "current_milestone": "M6",
+  "current_task": null,
   "last_updated": "2026-05-19",
   "goal": "Move Android Browse state, async loading, navigation events, and playback start orchestration into a tested unidirectional BrowseSession architecture.",
   "task_prefix": "AUSA",
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "AUSA-060"
+    "default_action": "stop",
+    "next_task": null
   },
   "paths": [
     "docs/workstreams/android-unidirectional-state-architecture",

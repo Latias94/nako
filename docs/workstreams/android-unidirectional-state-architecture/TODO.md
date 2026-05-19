@@ -1,6 +1,6 @@
 # Android Unidirectional State Architecture - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Lane Setup
@@ -53,17 +53,17 @@ Last updated: 2026-05-19
 
 ## M5 - Compose Shell Cleanup
 
-- [ ] AUSA-060 [owner=codex] [deps=AUSA-050] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/ui]
+- [x] AUSA-060 [owner=codex] [deps=AUSA-050] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/ui]
   Goal: Reduce `TaruBrowseShell` to state rendering and action dispatch.
   Validation: full Android debug unit tests, targeted browse/session tests, and
   smoke regression if runtime behavior changed.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.BrowseSessionTest --tests dev.taru.android.ui.browse.ClientBrowseDataSourceTest --no-daemon --no-parallel` and full `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel` passed on 2026-05-19.
   Handoff: AUSA-070 can close after verification.
 
 ## M6 - Closeout
 
-- [ ] AUSA-070 [owner=codex] [deps=AUSA-060] [scope=docs/workstreams/android-unidirectional-state-architecture]
+- [x] AUSA-070 [owner=codex] [deps=AUSA-060] [scope=docs/workstreams/android-unidirectional-state-architecture]
   Goal: Verify the UDF architecture, record evidence, and close the workstream.
   Validation: targeted Android JVM tests, full `:app:testDebugUnitTest`,
   `git diff --check`, and smoke regression if needed.
-  Evidence: closeout notes in `EVIDENCE_AND_GATES.md` and `HANDOFF.md`.
+  Evidence: closeout notes in `EVIDENCE_AND_GATES.md` and `HANDOFF.md`; final `git diff --check` passed on 2026-05-19.

@@ -27,6 +27,7 @@ import dev.taru.android.playback.PlaybackStartRequest
 import dev.taru.android.playback.PlaybackStartResult
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.player.PlaybackResumeSource
+import dev.taru.android.player.ResumePlaybackPosition
 import dev.taru.android.player.playbackLaunchRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -125,6 +126,10 @@ class BrowseSessionLoadingTest {
 
     @Test
     fun `item detail load selects first source and starts source probe`() = runBlocking {
+        val resumePosition = ResumePlaybackPosition(
+            positionMs = 92_000,
+            source = PlaybackResumeSource.DeviceLocal,
+        )
         val dataSource = RecordingBrowseDataSource(
             detailState = ItemDetailUiState.Content(
                 testDetail(
@@ -136,6 +141,7 @@ class BrowseSessionLoadingTest {
         )
         val session = BrowseSession(
             dataSource = dataSource,
+            resumeResolver = StaticBrowseResumeResolver(resumePosition),
             scope = CoroutineScope(coroutineContext + Job()),
         )
 
@@ -144,6 +150,7 @@ class BrowseSessionLoadingTest {
 
         assertTrue(session.state.value.detailState is ItemDetailUiState.Content)
         assertEquals("source-a", session.state.value.selectedSourceId)
+        assertEquals(resumePosition, session.state.value.resumePosition)
         assertTrue(session.state.value.sourceProbeState is SourceProbeUiState.Content)
         assertEquals(listOf("source-a"), dataSource.sourceProbeRequests)
         assertEquals(PlaybackSelectionUiState.Idle, session.state.value.playbackState)
@@ -364,6 +371,15 @@ private class RecordingPlaybackStarter(
         requests += request
         return result
     }
+}
+
+private class StaticBrowseResumeResolver(
+    private val resumePosition: ResumePlaybackPosition?,
+) : BrowseResumeResolver {
+    override fun resolve(
+        detailState: ItemDetailUiState,
+        selectedSourceId: String?,
+    ): ResumePlaybackPosition? = resumePosition
 }
 
 private class DeferredSearchBrowseDataSource : BrowseDataSource {

@@ -1,6 +1,6 @@
 # Android Unidirectional State Architecture - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Required Gates
@@ -46,3 +46,11 @@ Last updated: 2026-05-19
   Gates passed:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.BrowseSessionTest --no-daemon --no-parallel`;
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.
+- 2026-05-19: AUSA-060 moved resume-position calculation behind
+  `BrowseResumeResolver`, leaving `TaruBrowseShell` as a Compose adapter that
+  creates production adapters, observes `BrowseSession.state`, renders routes,
+  and dispatches `BrowseAction`. Targeted and full debug unit gates passed.
+- 2026-05-19: AUSA-070 closeout completed. Final gate:
+  `git diff --check`. Smoke regression was not rerun because this lane changed
+  internal Android state orchestration and preserved existing public client and
+  playback semantics under JVM coverage.

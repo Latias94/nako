@@ -1,6 +1,7 @@
 package dev.taru.android.ui.browse
 
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.player.ResumePlaybackPosition
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.PlaybackStartRequest
 import dev.taru.android.playback.PlaybackStartResult
@@ -22,6 +23,7 @@ internal data class BrowseShellState(
     val facetState: FacetUiState = FacetUiState.Idle,
     val detailState: ItemDetailUiState = ItemDetailUiState.Idle,
     val selectedSourceId: String? = null,
+    val resumePosition: ResumePlaybackPosition? = null,
     val sourceProbeState: SourceProbeUiState = SourceProbeUiState.Idle,
     val playbackRequestSourceId: String? = null,
     val playbackState: PlaybackSelectionUiState = PlaybackSelectionUiState.Idle,
@@ -68,10 +70,18 @@ internal interface BrowsePlaybackStarter {
     suspend fun start(request: PlaybackStartRequest): PlaybackStartResult
 }
 
+internal interface BrowseResumeResolver {
+    fun resolve(
+        detailState: ItemDetailUiState,
+        selectedSourceId: String?,
+    ): ResumePlaybackPosition?
+}
+
 internal class BrowseSession(
     initialState: BrowseShellState = BrowseShellState(),
     private val dataSource: BrowseDataSource? = null,
     private val playbackStarter: BrowsePlaybackStarter? = null,
+    private val resumeResolver: BrowseResumeResolver = EmptyBrowseResumeResolver,
     private val scope: CoroutineScope? = null,
 ) {
     private val _state = MutableStateFlow(initialState)
@@ -107,6 +117,7 @@ internal class BrowseSession(
                 _state.update {
                     it.copy(
                         selectedSourceId = action.sourceId,
+                        resumePosition = resolveResumePosition(it.detailState, action.sourceId),
                         sourceProbeState = SourceProbeUiState.Loading,
                         playbackRequestSourceId = null,
                         playbackState = PlaybackSelectionUiState.Idle,
@@ -120,6 +131,7 @@ internal class BrowseSession(
                 _state.update {
                     it.copy(
                         selectedSourceId = action.sourceId,
+                        resumePosition = resolveResumePosition(it.detailState, action.sourceId),
                         sourceProbeState = SourceProbeUiState.Loading,
                         playbackRequestSourceId = action.sourceId,
                         playbackState = PlaybackSelectionUiState.Loading,
@@ -258,6 +270,7 @@ internal class BrowseSession(
                     it.copy(
                         detailState = ItemDetailUiState.Idle,
                         selectedSourceId = null,
+                        resumePosition = null,
                         sourceProbeState = SourceProbeUiState.Idle,
                         playbackRequestSourceId = null,
                         playbackState = PlaybackSelectionUiState.Idle,
@@ -289,6 +302,7 @@ internal class BrowseSession(
                 prepared.copy(
                     detailState = ItemDetailUiState.Loading,
                     selectedSourceId = null,
+                    resumePosition = null,
                     sourceProbeState = SourceProbeUiState.Idle,
                     playbackRequestSourceId = null,
                     playbackState = PlaybackSelectionUiState.Idle,
@@ -301,6 +315,7 @@ internal class BrowseSession(
                 prepared.copy(
                     detailState = ItemDetailUiState.Idle,
                     selectedSourceId = null,
+                    resumePosition = null,
                     sourceProbeState = SourceProbeUiState.Idle,
                     playbackRequestSourceId = null,
                     playbackState = PlaybackSelectionUiState.Idle,
@@ -343,6 +358,7 @@ internal class BrowseSession(
             it.copy(
                 detailState = ItemDetailUiState.Loading,
                 selectedSourceId = null,
+                resumePosition = null,
                 sourceProbeState = SourceProbeUiState.Idle,
                 playbackRequestSourceId = null,
                 playbackState = PlaybackSelectionUiState.Idle,
@@ -359,6 +375,7 @@ internal class BrowseSession(
                     current.copy(
                         detailState = nextState,
                         selectedSourceId = selectedSourceId,
+                        resumePosition = resolveResumePosition(nextState, selectedSourceId),
                         sourceProbeState = if (selectedSourceId == null) {
                             SourceProbeUiState.Idle
                         } else {
@@ -542,6 +559,15 @@ internal class BrowseSession(
         requireNotNull(playbackStarter) {
             "BrowsePlaybackStarter is required for playback start action handling."
         }
+
+    private fun resolveResumePosition(
+        detailState: ItemDetailUiState,
+        selectedSourceId: String?,
+    ): ResumePlaybackPosition? =
+        resumeResolver.resolve(
+            detailState = detailState,
+            selectedSourceId = selectedSourceId,
+        )
 }
 
 private fun ItemDetailUiState.firstSourceIdOrNull(): String? =
@@ -550,6 +576,13 @@ private fun ItemDetailUiState.firstSourceIdOrNull(): String? =
         ?.sources
         ?.firstOrNull()
         ?.id
+
+private data object EmptyBrowseResumeResolver : BrowseResumeResolver {
+    override fun resolve(
+        detailState: ItemDetailUiState,
+        selectedSourceId: String?,
+    ): ResumePlaybackPosition? = null
+}
 
 internal fun BrowseFacetTarget.apiGapState(): FacetUiState.ApiGap =
     FacetUiState.ApiGap(

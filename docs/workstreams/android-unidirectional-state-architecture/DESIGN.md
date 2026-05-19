@@ -1,6 +1,6 @@
 # Android Unidirectional State Architecture - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Problem
@@ -64,3 +64,15 @@ Media Source selection, User Playback State, and Playback Source Selection.
   should be reused rather than replaced in this lane.
 - `output/` and `tmp/` are generated or local work directories and must remain
   untouched.
+
+## Closeout Notes
+
+- `BrowseSession` is now the state machine and async orchestration surface for
+  Browse navigation, home/search/library/facet loading, Media Item Detail,
+  source selection, source probe, playback decision, playback start, and Player
+  route opening.
+- `TaruBrowseShell` now acts as the Compose adapter: it creates production
+  adapters, observes session state, renders routes, and dispatches actions.
+- UI surfaces still receive access tokens where rendering or player routes need
+  them. That is retained as presentation/runtime input, not state orchestration.
+  A future presentation adapter can narrow those props further.

@@ -1,11 +1,11 @@
 # Android Unidirectional State Architecture - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## Current Task
 
-AUSA-060: reduce `TaruBrowseShell` to state rendering and action dispatch.
+Closed.
 
 ## Notes
 
@@ -27,3 +27,16 @@ AUSA-060: reduce `TaruBrowseShell` to state rendering and action dispatch.
   `BrowsePlaybackStarter`; `TaruBrowseShell` only dispatches `StartPlayback`.
   Success opens the Player route, and failure leaves playback diagnostics in
   session state.
+- AUSA-060 is complete. Resume position calculation is behind
+  `BrowseResumeResolver`; `TaruBrowseShell` no longer owns refresh keys, async
+  loads, route-specific state, source selection, playback decision, or playback
+  start orchestration.
+- AUSA-070 is complete. Focused session tests, full debug unit tests, and
+  `git diff --check` passed.
+
+## Follow-ons
+
+- Consider a future presentation/runtime adapter to reduce direct token props
+  passed into artwork, detail, and player rendering surfaces. This was left
+  outside this workstream because it is not state orchestration and would touch
+  screen/player contracts.
