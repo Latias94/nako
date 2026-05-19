@@ -37,15 +37,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
-import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.ItemCreditDto
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
-import dev.taru.android.connection.ServerProfile
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.player.ResumePlaybackPosition
+import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.artwork.TaruPosterArtwork
 import dev.taru.android.ui.browse.BrowseFacetTarget
@@ -80,8 +79,7 @@ internal fun DetailRouteContent(
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     resumePosition: ResumePlaybackPosition?,
-    profile: ServerProfile,
-    accessToken: String,
+    artworkResolver: ArtworkRequestResolver,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onRetryPlayback: () -> Unit,
@@ -112,8 +110,7 @@ internal fun DetailRouteContent(
                 playbackState = playbackState,
                 selectedSourceId = selectedSourceId,
                 resumePosition = resumePosition,
-                profile = profile,
-                accessToken = accessToken,
+                artworkResolver = artworkResolver,
                 onOpenFacet = onOpenFacet,
                 onSelectSource = onSelectSource,
                 onRetrySourceProbe = onRetrySourceProbe,
@@ -143,8 +140,7 @@ private fun MediaItemDetailScreen(
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
     resumePosition: ResumePlaybackPosition?,
-    profile: ServerProfile,
-    accessToken: String,
+    artworkResolver: ArtworkRequestResolver,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onSelectSource: (String) -> Unit,
     onRetrySourceProbe: () -> Unit,
@@ -162,8 +158,7 @@ private fun MediaItemDetailScreen(
         selectedSource = selectedSource,
         playbackState = playbackState,
         resumePosition = resumePosition,
-        profile = profile,
-        accessToken = accessToken,
+        artworkResolver = artworkResolver,
         onRequestPlayback = onRequestPlayback,
         onStartPlayback = onStartPlayback,
     )
@@ -214,16 +209,14 @@ private fun DetailHero(
     selectedSource: MediaSourceDto?,
     playbackState: PlaybackSelectionUiState,
     resumePosition: ResumePlaybackPosition?,
-    profile: ServerProfile,
-    accessToken: String,
+    artworkResolver: ArtworkRequestResolver,
     onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
-    val artworkSource = PublicArtworkSource(profile = profile, accessToken = accessToken)
-    val backdropRequest = artworkSource.requestFor(
+    val backdropRequest = artworkResolver.requestFor(
         preferredPublicArtwork(response.images, PublicArtworkSlot.Backdrop),
     )
-    val posterRequest = artworkSource.requestFor(
+    val posterRequest = artworkResolver.requestFor(
         preferredPublicArtwork(response.images, PublicArtworkSlot.Poster),
     )
     Surface(

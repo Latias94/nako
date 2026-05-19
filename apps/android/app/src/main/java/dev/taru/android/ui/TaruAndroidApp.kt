@@ -24,6 +24,7 @@ import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
+import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.CoroutineScope
 
@@ -91,6 +92,14 @@ fun TaruAndroidAppContent(
             },
         )
     } else {
+        val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(
+            profile = activeProfile,
+            tokenVault = tokenVault,
+            playbackClient = playbackClient,
+            userPlaybackClient = userPlaybackClient,
+            positionStore = positionStore,
+            exitEffectScope = playerExitEffectScope,
+        )
         TaruBrowseShell(
             modifier = modifier,
             profile = activeProfile,
@@ -101,7 +110,7 @@ fun TaruAndroidAppContent(
             playbackPreferencesStore = playbackPreferencesStore,
             userPlaybackClient = userPlaybackClient,
             positionStore = positionStore,
-            playerExitEffectScope = playerExitEffectScope,
+            playerRouteRenderer = playerRouteRenderer,
             onSnapshotChanged = { next ->
                 store.save(next)
                 snapshot = next

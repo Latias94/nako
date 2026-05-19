@@ -33,11 +33,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
-import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.userplayback.ContinueWatchingItemDto
+import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
@@ -47,7 +47,7 @@ import dev.taru.android.ui.theme.TaruTextSecondary
 internal fun HomeScreen(
     profile: ServerProfile,
     state: BrowseUiState,
-    artworkSource: PublicArtworkSource,
+    artworkResolver: ArtworkRequestResolver,
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
@@ -64,7 +64,7 @@ internal fun HomeScreen(
                 ?: content?.items?.items?.firstOrNull(),
             libraryCount = content?.libraries?.libraries?.size,
             itemCount = content?.items?.page?.returned,
-            artworkSource = artworkSource,
+            artworkResolver = artworkResolver,
             artworkByItemId = content?.artworkByItemId.orEmpty(),
             onOpenItem = onOpenItem,
             onChangeServer = onChangeServer,
@@ -99,7 +99,7 @@ internal fun HomeScreen(
                     )
                     ContinueWatchingPosterRow(
                         rows = continueWatchingRows.take(8),
-                        artworkSource = artworkSource,
+                        artworkResolver = artworkResolver,
                         artworkByItemId = state.artworkByItemId,
                         onOpenItem = onOpenItem,
                     )
@@ -134,7 +134,7 @@ internal fun HomeScreen(
                 } else {
                     MediaPosterRow(
                         items = state.items.items.take(8),
-                        artworkSource = artworkSource,
+                        artworkResolver = artworkResolver,
                         artworkByItemId = state.artworkByItemId,
                         onOpenItem = onOpenItem,
                     )
@@ -147,7 +147,7 @@ internal fun HomeScreen(
 @Composable
 private fun ContinueWatchingPosterRow(
     rows: List<ContinueWatchingItemDto>,
-    artworkSource: PublicArtworkSource,
+    artworkResolver: ArtworkRequestResolver,
     artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
@@ -171,7 +171,7 @@ private fun ContinueWatchingPosterRow(
                 ) {
                     MediaPosterCard(
                         item = row.item,
-                        artworkSource = artworkSource,
+                        artworkResolver = artworkResolver,
                         artworkRefs = artworkByItemId[row.item.id].orEmpty(),
                         onOpenItem = onOpenItem,
                     )
@@ -188,14 +188,14 @@ private fun HomeHeader(
     featuredItem: MediaItemDto?,
     libraryCount: Int?,
     itemCount: Int?,
-    artworkSource: PublicArtworkSource,
+    artworkResolver: ArtworkRequestResolver,
     artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
     onOpenItem: (MediaItemDto) -> Unit,
     onChangeServer: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
-    val backdropRequest = artworkSource.requestFor(
+    val backdropRequest = artworkResolver.requestFor(
         featuredItem?.let { item ->
             preferredPublicArtwork(artworkByItemId[item.id].orEmpty(), PublicArtworkSlot.Backdrop)
         },

@@ -48,12 +48,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
-import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
+import dev.taru.android.ui.artwork.ArtworkRequestResolver
+import dev.taru.android.ui.artwork.EmptyArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruPosterArtwork
 import dev.taru.android.ui.components.TaruArtworkBackdrop as DesignArtworkBackdrop
 import dev.taru.android.ui.components.TaruIconBadge as DesignIconBadge
@@ -269,7 +270,7 @@ internal fun FailureCard(
 @Composable
 internal fun MediaPosterRow(
     items: List<MediaItemDto>,
-    artworkSource: PublicArtworkSource? = null,
+    artworkResolver: ArtworkRequestResolver = EmptyArtworkRequestResolver,
     artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
@@ -280,7 +281,7 @@ internal fun MediaPosterRow(
         items.forEach { item ->
             MediaPosterCard(
                 item = item,
-                artworkSource = artworkSource,
+                artworkResolver = artworkResolver,
                 artworkRefs = artworkByItemId[item.id].orEmpty(),
                 onOpenItem = onOpenItem,
             )
@@ -291,11 +292,11 @@ internal fun MediaPosterRow(
 @Composable
 internal fun MediaPosterCard(
     item: MediaItemDto,
-    artworkSource: PublicArtworkSource? = null,
+    artworkResolver: ArtworkRequestResolver = EmptyArtworkRequestResolver,
     artworkRefs: List<PublicImageRefDto> = emptyList(),
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
-    val artworkRequest = artworkSource?.requestFor(
+    val artworkRequest = artworkResolver.requestFor(
         preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
     )
     PressableScale(
@@ -332,10 +333,10 @@ internal fun MediaItemRow(
     item: MediaItemDto,
     onOpenItem: (MediaItemDto) -> Unit,
     trailingLabel: String = "Direct",
-    artworkSource: PublicArtworkSource? = null,
+    artworkResolver: ArtworkRequestResolver = EmptyArtworkRequestResolver,
     artworkRefs: List<PublicImageRefDto> = emptyList(),
 ) {
-    val artworkRequest = artworkSource?.requestFor(
+    val artworkRequest = artworkResolver.requestFor(
         preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
     )
     PressableScale(onClick = { onOpenItem(item) }) {

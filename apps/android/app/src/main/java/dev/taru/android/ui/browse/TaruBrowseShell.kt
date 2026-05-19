@@ -23,19 +23,19 @@ import dev.taru.android.playback.PlaybackPreferencesStore
 import dev.taru.android.playback.PlaybackStartCoordinator
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
-import dev.taru.android.artwork.PublicArtworkSource
+import dev.taru.android.ui.artwork.ArtworkRequestResolver
+import dev.taru.android.ui.artwork.TokenVaultArtworkRequestResolver
 import dev.taru.android.ui.screens.detail.DetailRouteContent
-import dev.taru.android.ui.screens.player.PlaybackPlayerRoute
+import dev.taru.android.ui.screens.player.PlayerRouteRenderer
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
 import dev.taru.android.ui.screens.settings.SettingsHomeScreen
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
 import dev.taru.android.userplayback.TaruUserPlaybackClient
-import kotlinx.coroutines.CoroutineScope
 
 @Composable
-fun TaruBrowseShell(
+internal fun TaruBrowseShell(
     profile: ServerProfile,
     tokenVault: TokenVault,
     browseClient: TaruBrowseClient,
@@ -43,7 +43,7 @@ fun TaruBrowseShell(
     playbackPreferencesStore: PlaybackPreferencesStore,
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
-    playerExitEffectScope: CoroutineScope,
+    playerRouteRenderer: PlayerRouteRenderer,
     onChangeServer: () -> Unit,
     modifier: Modifier = Modifier,
     snapshot: ServerProfileSnapshot = ServerProfileSnapshot(
@@ -113,10 +113,12 @@ fun TaruBrowseShell(
             )
         }
     }
-    val artworkSource = PublicArtworkSource(
-        profile = profile,
-        accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
-    )
+    val artworkResolver = remember(profile, tokenVault) {
+        TokenVaultArtworkRequestResolver(
+            profile = profile,
+            tokenVault = tokenVault,
+        )
+    }
     LaunchedEffect(profile.id) {
         browseSession.dispatch(BrowseAction.LoadHome)
     }
@@ -152,7 +154,7 @@ fun TaruBrowseShell(
                     searchQuery = shellState.searchQuery,
                     searchState = shellState.searchState,
                     snapshot = snapshot,
-                    artworkSource = artworkSource,
+                    artworkResolver = artworkResolver,
                     onRetry = { dispatchBrowseAction(BrowseAction.RetryHome) },
                     onSearchQueryChange = { dispatchBrowseAction(BrowseAction.SearchQueryChanged(it)) },
                     onSubmitSearch = { dispatchBrowseAction(BrowseAction.SubmitSearch) },
@@ -177,8 +179,7 @@ fun TaruBrowseShell(
                     playbackState = shellState.playbackState,
                     selectedSourceId = shellState.selectedSourceId,
                     resumePosition = shellState.resumePosition,
-                    profile = profile,
-                    accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
+                    artworkResolver = artworkResolver,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
                     onRetryPlayback = { dispatchBrowseAction(BrowseAction.RetryPlaybackDecision) },
@@ -202,14 +203,8 @@ fun TaruBrowseShell(
                         dispatchBrowseAction(BrowseAction.OpenItem(itemId))
                     },
                 )
-                is TaruRoute.Player -> PlaybackPlayerRoute(
+                is TaruRoute.Player -> playerRouteRenderer.Render(
                     launch = currentRoute.launch,
-                    profile = profile,
-                    tokenVault = tokenVault,
-                    playbackClient = playbackClient,
-                    userPlaybackClient = userPlaybackClient,
-                    positionStore = positionStore,
-                    exitEffectScope = playerExitEffectScope,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                 )
                 is TaruRoute.BrowseFacet -> BrowseFacetRouteContent(
@@ -241,7 +236,7 @@ private fun TopLevelContent(
     searchQuery: String,
     searchState: SearchUiState,
     snapshot: ServerProfileSnapshot,
-    artworkSource: PublicArtworkSource,
+    artworkResolver: ArtworkRequestResolver,
     onRetry: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
@@ -259,7 +254,7 @@ private fun TopLevelContent(
             HomeScreen(
                 profile = profile,
                 state = browseState,
-                artworkSource = artworkSource,
+                artworkResolver = artworkResolver,
                 onRetry = onRetry,
                 onChangeServer = onChangeServer,
                 onOpenItem = onOpenItem,
@@ -272,7 +267,7 @@ private fun TopLevelContent(
         TaruDestination.Libraries -> BrowseScaffoldContent {
             LibrariesScreen(
                 state = browseState,
-                artworkSource = artworkSource,
+                artworkResolver = artworkResolver,
                 onRetry = onRetry,
                 onChangeServer = onChangeServer,
                 onOpenLibrary = { library -> onOpenLibraryDetail(library.id) },

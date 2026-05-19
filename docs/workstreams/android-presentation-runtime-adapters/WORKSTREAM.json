@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "android-presentation-runtime-adapters",
+  "title": "Android Presentation Runtime Adapters",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "architecture-refactor",
+  "problem": "Browse and detail presentation surfaces still receive runtime-shaped token/profile/player dependencies after the Browse UDF refactor.",
+  "summary": "Narrow Android Browse presentation/runtime adapters so visual surfaces receive presentation-safe inputs and the Browse shell stops depending on concrete artwork/player internals.",
+  "current_milestone": "M4",
+  "current_task": null,
+  "task_prefix": "APRA",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-presentation-runtime-adapters/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-presentation-runtime-adapters/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-presentation-runtime-adapters/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-presentation-runtime-adapters/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-presentation-runtime-adapters/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "git diff --check"
+  ],
+  "dependencies": [
+    "docs/workstreams/android-unidirectional-state-architecture",
+    "docs/workstreams/android-material-expressive-ui"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Closed. Continue with docs/workstreams/android-player-session-architecture."
+  }
+}

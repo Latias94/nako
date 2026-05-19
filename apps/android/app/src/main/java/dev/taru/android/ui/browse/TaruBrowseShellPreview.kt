@@ -13,6 +13,7 @@ import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.playback.InMemoryPlaybackPreferencesStore
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
+import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 
@@ -22,26 +23,123 @@ private fun TaruBrowseShellPreview() {
     val tokenVault = InMemoryTokenVault().apply {
         saveToken("server-token:server-1", "preview-token")
     }
+    val profile = ServerProfile(
+        id = "server-1",
+        displayName = "Home Server",
+        baseUrl = "http://localhost:3000",
+        tokenReference = "server-token:server-1",
+        lastObservedApiVersion = "v1",
+    )
+    val playbackClient = TaruPlaybackClient(
+        transport = object : TaruHttpTransport {
+            override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
+                TaruHttpResponse(
+                    statusCode = 200,
+                    body = """
+                    {
+                      "source": {
+                        "id": "source-1",
+                        "library_id": "library-1",
+                        "item_id": "item-1",
+                        "locator": "file:///preview/night-harbor.mkv",
+                        "file_name": "night-harbor.mkv",
+                        "size_bytes": 42
+                      },
+                      "probe": null,
+                      "decision": {
+                        "mode": "direct_play",
+                        "reason": "preview route",
+                        "direct_play": {
+                          "source_id": "source-1",
+                          "content_type": "video/x-matroska",
+                          "supports_range_requests": true
+                        },
+                        "transcode_plan": null
+                      }
+                    }
+                    """.trimIndent(),
+                )
+        },
+    )
+    val userPlaybackClient = TaruUserPlaybackClient(
+        transport = object : TaruHttpTransport {
+            override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
+                if (request.url.contains("/continue-watching")) {
+                    TaruHttpResponse(
+                        statusCode = 200,
+                        body = """
+                        {
+                          "items": [
+                            {
+                              "item": {
+                                "id": "item-1",
+                                "kind": "movie",
+                                "metadata": {
+                                  "title": "Night Harbor",
+                                  "release_date": "2024-01-01",
+                                  "runtime_minutes": 106,
+                                  "genres": ["Mystery"],
+                                  "tags": ["Lighthouse"],
+                                  "ratings": []
+                                }
+                              },
+                              "state": {
+                                "item_id": "item-1",
+                                "source_id": "source-1",
+                                "resume_position_ms": 92000,
+                                "duration_ms": 6360000,
+                                "progress_percent": 1.4,
+                                "watched": false,
+                                "watched_at": null,
+                                "last_played_at": "2026-05-19T00:00:00Z",
+                                "updated_at": "2026-05-19T00:00:00Z",
+                                "version": 1
+                              },
+                              "images": []
+                            }
+                          ],
+                          "page": {"limit":12,"offset":0,"returned":1}
+                        }
+                        """.trimIndent(),
+                    )
+                } else {
+                    TaruHttpResponse(
+                        statusCode = 200,
+                        body = """
+                        {
+                          "state": {
+                            "item_id": "item-1",
+                            "source_id": "source-1",
+                            "resume_position_ms": 92000,
+                            "duration_ms": 6360000,
+                            "progress_percent": 1.4,
+                            "watched": false,
+                            "watched_at": null,
+                            "last_played_at": "2026-05-19T00:00:00Z",
+                            "updated_at": "2026-05-19T00:00:00Z",
+                            "version": 1
+                          }
+                        }
+                        """.trimIndent(),
+                    )
+                }
+        },
+    )
+    val positionStore = InMemoryDevicePlaybackPositionStore()
     val playerExitEffectScope = rememberCoroutineScope()
+    val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(
+        profile = profile,
+        tokenVault = tokenVault,
+        playbackClient = playbackClient,
+        userPlaybackClient = userPlaybackClient,
+        positionStore = positionStore,
+        exitEffectScope = playerExitEffectScope,
+    )
     TaruAndroidTheme(darkTheme = true) {
         TaruBrowseShell(
-            profile = ServerProfile(
-                id = "server-1",
-                displayName = "Home Server",
-                baseUrl = "http://localhost:3000",
-                tokenReference = "server-token:server-1",
-                lastObservedApiVersion = "v1",
-            ),
+            profile = profile,
             snapshot = ServerProfileSnapshot(
-                profiles = listOf(
-                    ServerProfile(
-                        id = "server-1",
-                        displayName = "Home Server",
-                        baseUrl = "http://localhost:3000",
-                        tokenReference = "server-token:server-1",
-                        lastObservedApiVersion = "v1",
-                    ),
-                ),
+                profiles = listOf(profile),
                 activeProfileId = "server-1",
             ),
             tokenVault = tokenVault,
@@ -66,104 +164,11 @@ private fun TaruBrowseShellPreview() {
                         }
                 },
             ),
-            playbackClient = TaruPlaybackClient(
-                transport = object : TaruHttpTransport {
-                    override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
-                        TaruHttpResponse(
-                            statusCode = 200,
-                            body = """
-                            {
-                              "source": {
-                                "id": "source-1",
-                                "library_id": "library-1",
-                                "item_id": "item-1",
-                                "locator": "file:///preview/night-harbor.mkv",
-                                "file_name": "night-harbor.mkv",
-                                "size_bytes": 42
-                              },
-                              "probe": null,
-                              "decision": {
-                                "mode": "direct_play",
-                                "reason": "preview route",
-                                "direct_play": {
-                                  "source_id": "source-1",
-                                  "content_type": "video/x-matroska",
-                                  "supports_range_requests": true
-                                },
-                                "transcode_plan": null
-                              }
-                            }
-                            """.trimIndent(),
-                        )
-                },
-            ),
-            userPlaybackClient = TaruUserPlaybackClient(
-                transport = object : TaruHttpTransport {
-                    override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
-                        if (request.url.contains("/continue-watching")) {
-                            TaruHttpResponse(
-                                statusCode = 200,
-                                body = """
-                                {
-                                  "items": [
-                                    {
-                                      "item": {
-                                        "id": "item-1",
-                                        "kind": "movie",
-                                        "metadata": {
-                                          "title": "Night Harbor",
-                                          "release_date": "2024-01-01",
-                                          "runtime_minutes": 106,
-                                          "genres": ["Mystery"],
-                                          "tags": ["Lighthouse"],
-                                          "ratings": []
-                                        }
-                                      },
-                                      "state": {
-                                        "item_id": "item-1",
-                                        "source_id": "source-1",
-                                        "resume_position_ms": 92000,
-                                        "duration_ms": 6360000,
-                                        "progress_percent": 1.4,
-                                        "watched": false,
-                                        "watched_at": null,
-                                        "last_played_at": "2026-05-19T00:00:00Z",
-                                        "updated_at": "2026-05-19T00:00:00Z",
-                                        "version": 1
-                                      },
-                                      "images": []
-                                    }
-                                  ],
-                                  "page": {"limit":12,"offset":0,"returned":1}
-                                }
-                                """.trimIndent(),
-                            )
-                        } else {
-                            TaruHttpResponse(
-                                statusCode = 200,
-                                body = """
-                                {
-                                  "state": {
-                                    "item_id": "item-1",
-                                    "source_id": "source-1",
-                                    "resume_position_ms": 92000,
-                                    "duration_ms": 6360000,
-                                    "progress_percent": 1.4,
-                                    "watched": false,
-                                    "watched_at": null,
-                                    "last_played_at": "2026-05-19T00:00:00Z",
-                                    "updated_at": "2026-05-19T00:00:00Z",
-                                    "version": 1
-                                  }
-                                }
-                                """.trimIndent(),
-                            )
-                        }
-                },
-            ),
+            playbackClient = playbackClient,
+            userPlaybackClient = userPlaybackClient,
             playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
-            positionStore = InMemoryDevicePlaybackPositionStore(),
-            playerExitEffectScope = playerExitEffectScope,
+            positionStore = positionStore,
+            playerRouteRenderer = playerRouteRenderer,
             onChangeServer = {},
         )
     }

@@ -9,16 +9,16 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.LibraryDto
+import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
 
 @Composable
 internal fun LibrariesScreen(
     state: BrowseUiState,
-    artworkSource: PublicArtworkSource,
+    artworkResolver: ArtworkRequestResolver,
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenLibrary: (LibraryDto) -> Unit,
@@ -76,7 +76,7 @@ internal fun LibrariesScreen(
                 } else {
                     MediaPosterRow(
                         items = state.items.items,
-                        artworkSource = artworkSource,
+                        artworkResolver = artworkResolver,
                         artworkByItemId = state.artworkByItemId,
                         onOpenItem = onOpenItem,
                     )
