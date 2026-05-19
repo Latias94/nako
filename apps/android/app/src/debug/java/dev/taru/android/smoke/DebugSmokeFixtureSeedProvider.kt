@@ -33,6 +33,10 @@ class DebugSmokeFixtureSeedProvider : ContentProvider() {
                     DebugSmokeFixtureSeedActivity.EXTRA_CHECKED_AT_MILLIS,
                     System.currentTimeMillis(),
                 ) ?: System.currentTimeMillis(),
+                resumeMediaItemId = extras?.getString(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_MEDIA_ITEM_ID),
+                resumeSourceId = extras?.getString(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_SOURCE_ID),
+                resumePositionMs = extras?.longOrNull(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_POSITION_MS),
+                resumeDurationMs = extras?.longOrNull(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_DURATION_MS),
             )
             seedDebugSmokeFixture(appContext, request)
             resultBundle(status = STATUS_OK)
@@ -87,3 +91,6 @@ class DebugSmokeFixtureSeedProvider : ContentProvider() {
         const val STATUS_ERROR = "error"
     }
 }
+
+private fun Bundle.longOrNull(key: String): Long? =
+    if (containsKey(key)) getLong(key) else null

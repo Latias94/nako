@@ -1,14 +1,17 @@
 package dev.taru.android.smoke
 
 import android.app.Activity
-import android.content.Intent
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import dev.taru.android.connection.AndroidSecureTokenVault
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.SharedPreferencesServerProfileStore
 import dev.taru.android.connection.TaruPublicApiContract
+import dev.taru.android.player.DevicePlaybackPosition
+import dev.taru.android.player.DevicePlaybackPositionKey
+import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import java.net.URI
 
 class DebugSmokeFixtureSeedActivity : Activity() {
@@ -24,6 +27,10 @@ class DebugSmokeFixtureSeedActivity : Activity() {
                     EXTRA_CHECKED_AT_MILLIS,
                     System.currentTimeMillis(),
                 ),
+                resumeMediaItemId = intent.getStringExtra(EXTRA_RESUME_MEDIA_ITEM_ID),
+                resumeSourceId = intent.getStringExtra(EXTRA_RESUME_SOURCE_ID),
+                resumePositionMs = intent.longExtraOrNull(EXTRA_RESUME_POSITION_MS),
+                resumeDurationMs = intent.longExtraOrNull(EXTRA_RESUME_DURATION_MS),
             )
             seedDebugSmokeFixture(this, request)
             setResult(RESULT_OK)
@@ -41,6 +48,10 @@ class DebugSmokeFixtureSeedActivity : Activity() {
         const val EXTRA_ACCESS_TOKEN = "access_token"
         const val EXTRA_DISPLAY_NAME = "display_name"
         const val EXTRA_CHECKED_AT_MILLIS = "checked_at_millis"
+        const val EXTRA_RESUME_MEDIA_ITEM_ID = "resume_media_item_id"
+        const val EXTRA_RESUME_SOURCE_ID = "resume_source_id"
+        const val EXTRA_RESUME_POSITION_MS = "resume_position_ms"
+        const val EXTRA_RESUME_DURATION_MS = "resume_duration_ms"
         const val EXTRA_ERROR = "error"
     }
 }
@@ -52,6 +63,20 @@ internal fun seedDebugSmokeFixture(
     val snapshot = debugSmokeFixtureProfileSnapshot(request)
     SharedPreferencesServerProfileStore(context).save(snapshot)
     AndroidSecureTokenVault(context).saveToken(request.tokenReference, request.accessToken)
+    request.resumePosition?.let { resume ->
+        SharedPreferencesDevicePlaybackPositionStore(context).save(
+            DevicePlaybackPosition(
+                key = DevicePlaybackPositionKey(
+                    serverProfileId = request.profileId,
+                    mediaItemId = resume.mediaItemId,
+                    sourceId = resume.sourceId,
+                ),
+                positionMs = resume.positionMs,
+                durationMs = resume.durationMs,
+                updatedAtMillis = request.checkedAtMillis,
+            ),
+        )
+    }
 }
 
 internal data class DebugSmokeFixtureSeedRequest(
@@ -59,16 +84,28 @@ internal data class DebugSmokeFixtureSeedRequest(
     val accessToken: String,
     val displayName: String,
     val checkedAtMillis: Long,
+    val resumePosition: DebugSmokeFixtureResumePosition? = null,
 ) {
     val profileId: String = "server-1"
     val tokenReference: String = "server-token:$profileId"
 }
+
+internal data class DebugSmokeFixtureResumePosition(
+    val mediaItemId: String,
+    val sourceId: String,
+    val positionMs: Long,
+    val durationMs: Long?,
+)
 
 internal fun debugSmokeFixtureSeedRequest(
     baseUrl: String?,
     accessToken: String?,
     displayName: String?,
     checkedAtMillis: Long,
+    resumeMediaItemId: String? = null,
+    resumeSourceId: String? = null,
+    resumePositionMs: Long? = null,
+    resumeDurationMs: Long? = null,
 ): DebugSmokeFixtureSeedRequest {
     val normalizedBaseUrl = normalizeSmokeFixtureBaseUrl(baseUrl)
     val token = accessToken?.trim().orEmpty()
@@ -79,6 +116,12 @@ internal fun debugSmokeFixtureSeedRequest(
         accessToken = token,
         displayName = displayName?.trim().takeUnless { it.isNullOrBlank() } ?: "Smoke Server",
         checkedAtMillis = checkedAtMillis,
+        resumePosition = debugSmokeFixtureResumePosition(
+            mediaItemId = resumeMediaItemId,
+            sourceId = resumeSourceId,
+            positionMs = resumePositionMs,
+            durationMs = resumeDurationMs,
+        ),
     )
 }
 
@@ -100,6 +143,49 @@ internal fun debugSmokeFixtureProfileSnapshot(
         activeProfileId = request.profileId,
     )
 
+private fun debugSmokeFixtureResumePosition(
+    mediaItemId: String?,
+    sourceId: String?,
+    positionMs: Long?,
+    durationMs: Long?,
+): DebugSmokeFixtureResumePosition? {
+    val hasResumeInput =
+        !mediaItemId.isNullOrBlank() ||
+            !sourceId.isNullOrBlank() ||
+            positionMs != null ||
+            durationMs != null
+    if (!hasResumeInput) {
+        return null
+    }
+
+    val normalizedMediaItemId = mediaItemId?.trim().orEmpty()
+    val normalizedSourceId = sourceId?.trim().orEmpty()
+    require(normalizedMediaItemId.isNotBlank()) {
+        "Smoke fixture resume Media Item id is required when resume state is provided."
+    }
+    require(normalizedSourceId.isNotBlank()) {
+        "Smoke fixture resume Media Source id is required when resume state is provided."
+    }
+
+    val normalizedPositionMs = requireNotNull(positionMs) {
+        "Smoke fixture resume position is required when resume state is provided."
+    }
+    require(normalizedPositionMs > 0L) {
+        "Smoke fixture resume position must be positive."
+    }
+
+    val normalizedDurationMs = durationMs?.also {
+        require(it > 0L) { "Smoke fixture resume duration must be positive when provided." }
+    }
+
+    return DebugSmokeFixtureResumePosition(
+        mediaItemId = normalizedMediaItemId,
+        sourceId = normalizedSourceId,
+        positionMs = normalizedPositionMs,
+        durationMs = normalizedDurationMs,
+    )
+}
+
 private fun normalizeSmokeFixtureBaseUrl(input: String?): String {
     val trimmed = input?.trim()?.trimEnd('/').orEmpty()
     require(trimmed.isNotBlank()) { "Smoke fixture base URL is required." }
@@ -114,3 +200,6 @@ private fun normalizeSmokeFixtureBaseUrl(input: String?): String {
 
     return uri.toString().trimEnd('/')
 }
+
+private fun Intent.longExtraOrNull(name: String): Long? =
+    if (hasExtra(name)) getLongExtra(name, 0L) else null

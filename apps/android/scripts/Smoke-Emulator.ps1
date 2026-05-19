@@ -123,6 +123,60 @@ function Wait-ForHttpHealth {
     throw "Fixture server health check did not pass at '$healthUrl'. Last error: $lastError"
 }
 
+function Resolve-SmokeMediaResumeFixture {
+    param(
+        [string]$BaseUrl,
+        [string]$AccessToken
+    )
+
+    $headers = @{}
+    if (-not [string]::IsNullOrWhiteSpace($AccessToken)) {
+        $headers['Authorization'] = "Bearer $AccessToken"
+    }
+
+    $itemsUrl = "$BaseUrl/items?limit=1&offset=0"
+    $items = Invoke-RestMethod -Uri $itemsUrl -Headers $headers -TimeoutSec 10
+    $itemCandidates = @()
+    if ($null -ne $items.items) {
+        $itemCandidates = @($items.items)
+    }
+    if ($itemCandidates.Count -eq 0) {
+        throw "Fixture server did not return any Media Items at '$itemsUrl'."
+    }
+
+    $item = $itemCandidates[0]
+    $itemId = [string]$item.id
+    if ([string]::IsNullOrWhiteSpace($itemId)) {
+        throw 'Fixture server returned a Media Item without an id.'
+    }
+
+    $encodedItemId = [System.Uri]::EscapeDataString($itemId)
+    $detailUrl = "$BaseUrl/items/$encodedItemId"
+    $detail = Invoke-RestMethod -Uri $detailUrl -Headers $headers -TimeoutSec 10
+    $sourceCandidates = @()
+    if ($null -ne $detail.sources) {
+        $sourceCandidates = @($detail.sources)
+    }
+    if ($sourceCandidates.Count -eq 0) {
+        throw "Fixture server did not return any Media Sources at '$detailUrl'."
+    }
+
+    $source = $sourceCandidates[0]
+    $sourceId = [string]$source.id
+    if ([string]::IsNullOrWhiteSpace($sourceId)) {
+        throw 'Fixture server returned a Media Source without an id.'
+    }
+
+    return [pscustomobject]@{
+        MediaItemId = $itemId
+        SourceId = $sourceId
+        PositionMs = 1000
+        DurationMs = 2000
+        Title = [string]$item.metadata.title
+        FileName = [string]$source.file_name
+    }
+}
+
 function Start-SmokeFixtureServer {
     param(
         [string]$ServerBinary,
@@ -206,7 +260,11 @@ function Install-SmokeMediaProfileFixture {
         [string]$DeviceSerial,
         [string]$OutputDir,
         [string]$BaseUrl,
-        [string]$AccessToken
+        [string]$AccessToken,
+        [string]$ResumeMediaItemId,
+        [string]$ResumeSourceId,
+        [long]$ResumePositionMs = 0,
+        [long]$ResumeDurationMs = 0
     )
 
     if ([string]::IsNullOrWhiteSpace($AccessToken)) {
@@ -218,12 +276,29 @@ function Install-SmokeMediaProfileFixture {
     $seedOutput = $null
     $lastSeedError = $null
     for ($attempt = 1; $attempt -le 3; $attempt += 1) {
-        $output = & $AdbPath -s $DeviceSerial shell content call `
-            --uri $providerUri `
-            --method seed `
-            --arg $BaseUrl `
-            --extra "access_token:s:$AccessToken" `
-            --extra "checked_at_millis:l:$startedAt" 2>&1
+        $seedArguments = @(
+            '-s', $DeviceSerial,
+            'shell', 'content', 'call',
+            '--uri', $providerUri,
+            '--method', 'seed',
+            '--arg', $BaseUrl,
+            '--extra', "access_token:s:$AccessToken",
+            '--extra', "checked_at_millis:l:$startedAt"
+        )
+        if (-not [string]::IsNullOrWhiteSpace($ResumeMediaItemId) -and
+            -not [string]::IsNullOrWhiteSpace($ResumeSourceId) -and
+            $ResumePositionMs -gt 0) {
+            $seedArguments += @(
+                '--extra', "resume_media_item_id:s:$ResumeMediaItemId",
+                '--extra', "resume_source_id:s:$ResumeSourceId",
+                '--extra', "resume_position_ms:l:$ResumePositionMs"
+            )
+            if ($ResumeDurationMs -gt 0) {
+                $seedArguments += @('--extra', "resume_duration_ms:l:$ResumeDurationMs")
+            }
+        }
+
+        $output = & $AdbPath @seedArguments 2>&1
         $seedOutput = ($output | Out-String).TrimEnd()
         if ($LASTEXITCODE -eq 0 -and $seedOutput -match 'status=ok') {
             break
@@ -238,14 +313,19 @@ function Install-SmokeMediaProfileFixture {
     }
 
     $safeOutput = (($output | Out-String) -replace [regex]::Escape($AccessToken), '<redacted>').TrimEnd()
+    $safeSeedOutput = ($seedOutput -replace [regex]::Escape($AccessToken), '<redacted>').TrimEnd()
     $seedPath = Join-Path $OutputDir 'profile-with-media-seed.txt'
     Write-Utf8File -Path $seedPath -Content @"
 Seed provider: $providerUri
 Base URL: $BaseUrl
 Display name: Smoke Server
 Access token: <redacted>
+Resume Media Item id: $ResumeMediaItemId
+Resume Media Source id: $ResumeSourceId
+Resume position: $ResumePositionMs
+Resume duration: $ResumeDurationMs
 Seed status:
-$seedOutput
+$safeSeedOutput
 ADB output:
 $safeOutput
 "@
@@ -620,7 +700,8 @@ function Capture-SmokeSurface {
         [string]$DeviceSerial,
         [string]$OutputDir,
         [string]$Name,
-        [string[]]$RequiredText = @()
+        [string[]]$RequiredText = @(),
+        [string[]]$ForbiddenText = @()
     )
 
     $remoteShot = "/sdcard/taru-android-smoke-$Name.png"
@@ -639,6 +720,7 @@ function Capture-SmokeSurface {
     $criteriaLines.Add("UI hierarchy: $(Split-Path -Leaf $dumpPath)")
 
     $missing = @()
+    $unexpected = @()
     if ($RequiredText.Count -eq 0) {
         $criteriaLines.Add('Required text/content descriptions: none')
     } else {
@@ -652,11 +734,33 @@ function Capture-SmokeSurface {
         }
     }
 
-    $criteriaLines.Add("Result: $(if ($missing.Count -eq 0) { 'PASS' } else { 'FAIL' })")
+    if ($ForbiddenText.Count -eq 0) {
+        $criteriaLines.Add('Forbidden text/content description fragments: none')
+    } else {
+        $criteriaLines.Add('Forbidden text/content description fragments:')
+        foreach ($text in $ForbiddenText) {
+            $present = $false
+            foreach ($value in $values) {
+                if ($value.IndexOf($text, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    $present = $true
+                    break
+                }
+            }
+            $criteriaLines.Add("- $text : $(if ($present) { 'UNEXPECTED' } else { 'PASS' })")
+            if ($present) {
+                $unexpected += $text
+            }
+        }
+    }
+
+    $criteriaLines.Add("Result: $(if ($missing.Count -eq 0 -and $unexpected.Count -eq 0) { 'PASS' } else { 'FAIL' })")
     $criteriaLines | Out-File -LiteralPath $criteriaPath -Encoding utf8
 
     if ($missing.Count -gt 0) {
         throw "Surface '$Name' missing expected UI text/content descriptions: $($missing -join ', ')."
+    }
+    if ($unexpected.Count -gt 0) {
+        throw "Surface '$Name' contained forbidden UI text/content description fragments: $($unexpected -join ', ')."
     }
 
     return [pscustomobject]@{
@@ -723,6 +827,9 @@ if ($stateMode -eq 'profile-with-media') {
         -SkipServerBuild $skipServerBuild
     $fixtureServerProcess = $fixtureProvider.Process
     $fixtureBaseUrl = $fixtureProvider.Summary.base_url
+    $resumeFixture = Resolve-SmokeMediaResumeFixture `
+        -BaseUrl $fixtureBaseUrl `
+        -AccessToken $FixtureAccessToken
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'reverse', "tcp:$FixtureServerPort", "tcp:$FixtureServerPort") -FailureMessage 'adb reverse failed for profile-with-media.'
     $fixtureReversePort = $FixtureServerPort
     Install-SmokeMediaProfileFixture `
@@ -730,7 +837,11 @@ if ($stateMode -eq 'profile-with-media') {
         -DeviceSerial $deviceSerial `
         -OutputDir $outputDir `
         -BaseUrl $fixtureBaseUrl `
-        -AccessToken $FixtureAccessToken
+        -AccessToken $FixtureAccessToken `
+        -ResumeMediaItemId $resumeFixture.MediaItemId `
+        -ResumeSourceId $resumeFixture.SourceId `
+        -ResumePositionMs $resumeFixture.PositionMs `
+        -ResumeDurationMs $resumeFixture.DurationMs
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop after profile-with-media seed failed.'
 }
 if ($stateMode -eq 'profile-missing-token') {
@@ -807,27 +918,46 @@ if ($stateMode -eq 'empty-setup') {
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
         'Night Harbor',
+        'Resume',
         'Check source',
         'Needs check'
     )
 
-    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source'
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume on this device'
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-local-resume' -RequiredText @(
+        'Source / Version',
+        'Night Harbor.mp4',
+        'Resume on this device',
+        'A device-local position exists for the selected source. Taru still checks the source before playback.',
+        'Resume'
+    ) -ForbiddenText @(
+        'Continue Watching',
+        'User Playback State'
+    )
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Direct' -TimeoutSeconds 25
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Source / Version'
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start playback'
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker' -RequiredText @(
         'Source / Version',
         'Night Harbor.mp4',
         'Direct route prepared',
-        'Start playback'
+        'Start resume'
+    ) -ForbiddenText @(
+        'Continue Watching',
+        'User Playback State'
     )
 
-    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start playback'
+    Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 25
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'player' -RequiredText @(
         'Night Harbor',
         'Direct',
+        'Local resume 0:01',
         'Tracks and subtitles use Media3 controls in this version.'
+    ) -ForbiddenText @(
+        'Continue Watching',
+        'User Playback State'
     )
 } else {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'launch'

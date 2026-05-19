@@ -110,11 +110,11 @@ one local Server Profile with no token value, so Home intentionally shows the
 safe re-authentication state instead of fake media data.
 
 Use `-FixtureState profile-with-media` when you need repeatable Home, detail,
-source picker, and player-safe launch evidence from real Public Client API
-responses. The script prepares and starts the server-backed `Night Harbor`
-fixture, applies `adb reverse`, and seeds the debug APK through its real profile
-store and encrypted token vault. Generated screenshots and reports remain local
-under `apps/android/build/smoke/`.
+source picker, local resume, and player-safe launch evidence from real Public
+Client API responses. The script prepares and starts the server-backed `Night
+Harbor` fixture, applies `adb reverse`, and seeds the debug APK through its real
+profile store, encrypted token vault, and device-local playback position store.
+Generated screenshots and reports remain local under `apps/android/build/smoke/`.
 
 Fixture and state rules live in `SMOKE_FIXTURES.md`.
 

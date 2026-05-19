@@ -28,6 +28,52 @@ class DebugSmokeFixtureSeedActivityTest {
     }
 
     @Test
+    fun `seed request normalizes optional local resume input`() {
+        val request = debugSmokeFixtureSeedRequest(
+            baseUrl = "http://127.0.0.1:3018",
+            accessToken = "demo-fixture-token",
+            displayName = "Smoke Server",
+            checkedAtMillis = 42L,
+            resumeMediaItemId = " item-1 ",
+            resumeSourceId = " source-1 ",
+            resumePositionMs = 1_000L,
+            resumeDurationMs = 2_000L,
+        )
+
+        val resume = requireNotNull(request.resumePosition)
+        assertEquals("item-1", resume.mediaItemId)
+        assertEquals("source-1", resume.sourceId)
+        assertEquals(1_000L, resume.positionMs)
+        assertEquals(2_000L, resume.durationMs)
+    }
+
+    @Test
+    fun `seed request rejects partial or nonpositive resume input`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            debugSmokeFixtureSeedRequest(
+                baseUrl = "http://127.0.0.1:3018",
+                accessToken = "demo-fixture-token",
+                displayName = "Smoke Server",
+                checkedAtMillis = 42L,
+                resumeMediaItemId = "item-1",
+                resumeSourceId = "source-1",
+                resumePositionMs = 0L,
+            )
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            debugSmokeFixtureSeedRequest(
+                baseUrl = "http://127.0.0.1:3018",
+                accessToken = "demo-fixture-token",
+                displayName = "Smoke Server",
+                checkedAtMillis = 42L,
+                resumeMediaItemId = "item-1",
+                resumePositionMs = 1_000L,
+            )
+        }
+    }
+
+    @Test
     fun `seed request rejects invalid base url and blank token`() {
         assertThrows(IllegalArgumentException::class.java) {
             debugSmokeFixtureSeedRequest(

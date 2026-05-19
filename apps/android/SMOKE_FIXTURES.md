@@ -87,16 +87,21 @@ Client API responses. The script installs the debug APK, clears app data,
 prepares the `Night Harbor` demo fixture through
 `scripts/Start-DemoFixtureServer.ps1`, starts a local `taru-server`, applies
 `adb reverse`, then seeds one debug-only Server Profile plus an encrypted token
-value through the app's real profile store and token vault.
+value through the app's real profile store and token vault. The same debug-only
+seed also writes one device-local resume position for the selected `Night
+Harbor` Media Item and Media Source.
 
 Expected result:
 
 - exactly one local Server Profile named `Smoke Server` is present;
 - the token value is stored only in the Android token vault and is redacted from
   generated reports;
+- the local resume position is stored only in Android device-local app storage;
 - Home shows `Night Harbor` and visible Media Library facts from the server;
 - detail, source picker, and player surfaces are reached through Public Client
   API route shapes;
+- source picker and player evidence present resume as local-only state and do
+  not claim cross-device **User Playback State** or Continue Watching;
 - generated evidence is written under
   `apps/android/build/smoke/<timestamp>-profile-with-media-<serial>/`.
 
@@ -104,6 +109,7 @@ Captured surfaces:
 
 - `home.png`
 - `detail.png`
+- `source-picker-local-resume.png`
 - `source-picker.png`
 - `player.png`
 - matching `*.uiautomator.xml` files
