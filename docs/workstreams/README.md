@@ -103,6 +103,10 @@ attention.
   Client image visibility after unpublish, and artifact retention/delete
   boundaries without exposing storage handles, paths, source URLs, cache URIs,
   or content hashes.
+- [managed-artwork-ingest-runtime-controls](managed-artwork-ingest-runtime-controls/README.md):
+  active follow-on for redacted Admin retry/requeue controls around Managed
+  Artwork ingest failures without conflating fetch execution, publication,
+  cleanup, repair, or cancellation.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target
