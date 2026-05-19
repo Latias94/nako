@@ -10,11 +10,13 @@ use std::{
 
 use async_trait::async_trait;
 use axum::{
-    Router,
-    http::{Method, StatusCode as AxumStatusCode, header},
+    Json, Router,
+    extract::State,
+    http::{Method, StatusCode as AxumStatusCode, Uri, header},
     response::{IntoResponse, Response},
     routing::any,
 };
+use serde_json::json;
 use taru_api::EnqueueMetadataMaintenanceRequest;
 use taru_core::{
     CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId, JobKind,
@@ -38,8 +40,9 @@ use taru_transcode::{
     TranscodePlan, TranscodeProfileIdentity,
 };
 use taru_vfs::{
-    ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
-    StorageBackend, StorageCapabilities, StorageUri, VirtualFile,
+    ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest,
+    StagedFile, StorageBackend, StorageCapabilities, StorageUri, StorageWriteReport,
+    StorageWriteRequest, VirtualFile,
 };
 use tokio::{net::TcpListener, sync::Notify};
 
@@ -411,6 +414,296 @@ struct MockWebDavServer {
     addr: std::net::SocketAddr,
 }
 
+#[derive(Clone)]
+struct BlockingWebDavControl {
+    propfind_count: Arc<AtomicUsize>,
+    movie_get_count: Arc<AtomicUsize>,
+    first_propfind_seen: Arc<AtomicBool>,
+    first_propfind_released: Arc<AtomicBool>,
+    first_propfind_entered: Arc<Notify>,
+    release_first_propfind: Arc<Notify>,
+}
+
+impl BlockingWebDavControl {
+    fn new() -> Self {
+        Self {
+            propfind_count: Arc::new(AtomicUsize::new(0)),
+            movie_get_count: Arc::new(AtomicUsize::new(0)),
+            first_propfind_seen: Arc::new(AtomicBool::new(false)),
+            first_propfind_released: Arc::new(AtomicBool::new(false)),
+            first_propfind_entered: Arc::new(Notify::new()),
+            release_first_propfind: Arc::new(Notify::new()),
+        }
+    }
+
+    async fn wait_for_first_propfind(&self) {
+        loop {
+            let notified = self.first_propfind_entered.notified();
+            if self.first_propfind_seen.load(Ordering::SeqCst) {
+                return;
+            }
+            notified.await;
+        }
+    }
+
+    fn release_first_propfind(&self) {
+        self.first_propfind_released.store(true, Ordering::SeqCst);
+        self.release_first_propfind.notify_waiters();
+    }
+
+    fn movie_gets(&self) -> usize {
+        self.movie_get_count.load(Ordering::SeqCst)
+    }
+}
+
+struct BlockingWebDavServer {
+    addr: std::net::SocketAddr,
+    control: BlockingWebDavControl,
+}
+
+#[derive(Clone)]
+struct BlockingNfoWebDavControl {
+    nfo_get_count: Arc<AtomicUsize>,
+    first_get_seen: Arc<AtomicBool>,
+    first_get_released: Arc<AtomicBool>,
+    first_get_entered: Arc<Notify>,
+    release_first_get: Arc<Notify>,
+}
+
+impl BlockingNfoWebDavControl {
+    fn new() -> Self {
+        Self {
+            nfo_get_count: Arc::new(AtomicUsize::new(0)),
+            first_get_seen: Arc::new(AtomicBool::new(false)),
+            first_get_released: Arc::new(AtomicBool::new(false)),
+            first_get_entered: Arc::new(Notify::new()),
+            release_first_get: Arc::new(Notify::new()),
+        }
+    }
+
+    async fn wait_for_first_get(&self) {
+        loop {
+            let notified = self.first_get_entered.notified();
+            if self.first_get_seen.load(Ordering::SeqCst) {
+                return;
+            }
+            notified.await;
+        }
+    }
+
+    fn release_first_get(&self) {
+        self.first_get_released.store(true, Ordering::SeqCst);
+        self.release_first_get.notify_waiters();
+    }
+
+    fn nfo_gets(&self) -> usize {
+        self.nfo_get_count.load(Ordering::SeqCst)
+    }
+}
+
+struct BlockingNfoWebDavServer {
+    addr: std::net::SocketAddr,
+    control: BlockingNfoWebDavControl,
+}
+
+#[derive(Clone)]
+struct BlockingNfoExportControl {
+    nfo_write_count: Arc<AtomicUsize>,
+    first_write_seen: Arc<AtomicBool>,
+    first_write_released: Arc<AtomicBool>,
+    first_write_entered: Arc<Notify>,
+    release_first_write: Arc<Notify>,
+}
+
+impl BlockingNfoExportControl {
+    fn new() -> Self {
+        Self {
+            nfo_write_count: Arc::new(AtomicUsize::new(0)),
+            first_write_seen: Arc::new(AtomicBool::new(false)),
+            first_write_released: Arc::new(AtomicBool::new(false)),
+            first_write_entered: Arc::new(Notify::new()),
+            release_first_write: Arc::new(Notify::new()),
+        }
+    }
+
+    async fn wait_for_first_write(&self) {
+        loop {
+            let notified = self.first_write_entered.notified();
+            if self.first_write_seen.load(Ordering::SeqCst) {
+                return;
+            }
+            notified.await;
+        }
+    }
+
+    fn release_first_write(&self) {
+        self.first_write_released.store(true, Ordering::SeqCst);
+        self.release_first_write.notify_waiters();
+    }
+
+    fn nfo_writes(&self) -> usize {
+        self.nfo_write_count.load(Ordering::SeqCst)
+    }
+}
+
+struct BlockingNfoExportBackend {
+    inner: LocalFsBackend,
+    control: BlockingNfoExportControl,
+}
+
+impl BlockingNfoExportBackend {
+    fn new(root: impl Into<PathBuf>, control: BlockingNfoExportControl) -> taru_core::Result<Self> {
+        Ok(Self {
+            inner: LocalFsBackend::new(root)?,
+            control,
+        })
+    }
+
+    async fn block_first_nfo_write(&self, uri: &StorageUri) {
+        if !uri.as_str().ends_with(".nfo") {
+            return;
+        }
+
+        let count = self.control.nfo_write_count.fetch_add(1, Ordering::SeqCst) + 1;
+        if count == 1 {
+            self.control.first_write_seen.store(true, Ordering::SeqCst);
+            self.control.first_write_entered.notify_waiters();
+            loop {
+                let notified = self.control.release_first_write.notified();
+                if self.control.first_write_released.load(Ordering::SeqCst) {
+                    break;
+                }
+                notified.await;
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl StorageBackend for BlockingNfoExportBackend {
+    fn scheme(&self) -> &'static str {
+        self.inner.scheme()
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> taru_core::Result<ObjectMetadata> {
+        self.inner.stat(uri).await
+    }
+
+    async fn list(&self, uri: &StorageUri) -> taru_core::Result<Vec<ObjectMetadata>> {
+        self.inner.list(uri).await
+    }
+
+    async fn open_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> taru_core::Result<VirtualFile> {
+        self.inner.open_range(uri, range).await
+    }
+
+    async fn read_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> taru_core::Result<ReadRange> {
+        self.inner.read_range(uri, range).await
+    }
+
+    async fn stream_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> taru_core::Result<ReadStream> {
+        self.inner.stream_range(uri, range).await
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> taru_core::Result<String> {
+        self.inner.read_to_string(uri).await
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> taru_core::Result<()> {
+        self.block_first_nfo_write(uri).await;
+        self.inner.write_string(uri, content).await
+    }
+
+    async fn write(&self, request: StorageWriteRequest) -> taru_core::Result<StorageWriteReport> {
+        self.block_first_nfo_write(&request.uri).await;
+        self.inner.write(request).await
+    }
+
+    async fn stage(&self, request: StageRequest) -> taru_core::Result<StagedFile> {
+        self.inner.stage(request).await
+    }
+}
+
+#[derive(Clone)]
+struct BlockingBangumiControl {
+    request_count: Arc<AtomicUsize>,
+    first_search_seen: Arc<AtomicBool>,
+    first_search_released: Arc<AtomicBool>,
+    first_search_entered: Arc<Notify>,
+    release_first_search: Arc<Notify>,
+}
+
+impl BlockingBangumiControl {
+    fn new() -> Self {
+        Self {
+            request_count: Arc::new(AtomicUsize::new(0)),
+            first_search_seen: Arc::new(AtomicBool::new(false)),
+            first_search_released: Arc::new(AtomicBool::new(false)),
+            first_search_entered: Arc::new(Notify::new()),
+            release_first_search: Arc::new(Notify::new()),
+        }
+    }
+
+    async fn wait_for_first_search(&self) {
+        loop {
+            let notified = self.first_search_entered.notified();
+            if self.first_search_seen.load(Ordering::SeqCst) {
+                return;
+            }
+            notified.await;
+        }
+    }
+
+    fn release_first_search(&self) {
+        self.first_search_released.store(true, Ordering::SeqCst);
+        self.release_first_search.notify_waiters();
+    }
+
+    fn requests(&self) -> usize {
+        self.request_count.load(Ordering::SeqCst)
+    }
+}
+
+struct BlockingBangumiServer {
+    addr: std::net::SocketAddr,
+    control: BlockingBangumiControl,
+}
+
+impl BlockingBangumiServer {
+    async fn start(control: BlockingBangumiControl) -> Self {
+        let router = Router::new()
+            .route("/{*path}", any(mock_blocking_bangumi_handler))
+            .with_state(control.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        Self { addr, control }
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://{}", self.addr)
+    }
+
+    fn control(&self) -> BlockingBangumiControl {
+        self.control.clone()
+    }
+}
+
 impl MockWebDavServer {
     async fn start() -> Self {
         let router = Router::new().route("/{*path}", any(mock_webdav_handler));
@@ -425,6 +718,52 @@ impl MockWebDavServer {
 
     fn base_url(&self) -> String {
         format!("http://{}/dav", self.addr)
+    }
+}
+
+impl BlockingWebDavServer {
+    async fn start(control: BlockingWebDavControl) -> Self {
+        let router = Router::new()
+            .route("/{*path}", any(mock_blocking_webdav_handler))
+            .with_state(control.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        Self { addr, control }
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://{}/dav", self.addr)
+    }
+
+    fn control(&self) -> BlockingWebDavControl {
+        self.control.clone()
+    }
+}
+
+impl BlockingNfoWebDavServer {
+    async fn start(control: BlockingNfoWebDavControl) -> Self {
+        let router = Router::new()
+            .route("/{*path}", any(mock_blocking_nfo_webdav_handler))
+            .with_state(control.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        Self { addr, control }
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://{}/dav", self.addr)
+    }
+
+    fn control(&self) -> BlockingNfoWebDavControl {
+        self.control.clone()
     }
 }
 
@@ -498,6 +837,125 @@ async fn mock_webdav_handler(method: Method, uri: axum::http::Uri) -> Response {
             "<movie><title>Remote NFO</title></movie>",
         )
             .into_response();
+    }
+
+    AxumStatusCode::NOT_FOUND.into_response()
+}
+
+async fn mock_blocking_webdav_handler(
+    State(control): State<BlockingWebDavControl>,
+    method: Method,
+    uri: Uri,
+) -> Response {
+    let path = uri.path();
+    if method.as_str() == "PROPFIND" {
+        let count = control.propfind_count.fetch_add(1, Ordering::SeqCst) + 1;
+        if count == 1 {
+            control.first_propfind_seen.store(true, Ordering::SeqCst);
+            control.first_propfind_entered.notify_waiters();
+            loop {
+                let notified = control.release_first_propfind.notified();
+                if control.first_propfind_released.load(Ordering::SeqCst) {
+                    break;
+                }
+                notified.await;
+            }
+        }
+
+        return mock_webdav_handler(method, uri).await;
+    }
+
+    if method == Method::GET && path.ends_with("/Movies/Demo.mkv") {
+        control.movie_get_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    mock_webdav_handler(method, uri).await
+}
+
+async fn mock_blocking_nfo_webdav_handler(
+    State(control): State<BlockingNfoWebDavControl>,
+    method: Method,
+    uri: Uri,
+) -> Response {
+    let path = uri.path();
+    if method == Method::GET && path.ends_with(".nfo") {
+        let count = control.nfo_get_count.fetch_add(1, Ordering::SeqCst) + 1;
+        if count == 1 {
+            control.first_get_seen.store(true, Ordering::SeqCst);
+            control.first_get_entered.notify_waiters();
+            loop {
+                let notified = control.release_first_get.notified();
+                if control.first_get_released.load(Ordering::SeqCst) {
+                    break;
+                }
+                notified.await;
+            }
+        }
+
+        let title = if path.ends_with("/Movies/First.nfo") {
+            "First Remote NFO"
+        } else if path.ends_with("/Movies/Second.nfo") {
+            "Second Remote NFO"
+        } else {
+            "Remote NFO"
+        };
+        return (
+            AxumStatusCode::OK,
+            format!("<movie><title>{title}</title></movie>"),
+        )
+            .into_response();
+    }
+
+    AxumStatusCode::NOT_FOUND.into_response()
+}
+
+async fn mock_blocking_bangumi_handler(
+    State(control): State<BlockingBangumiControl>,
+    method: Method,
+    uri: Uri,
+) -> Response {
+    let count = control.request_count.fetch_add(1, Ordering::SeqCst) + 1;
+    let path = uri.path();
+    if method == Method::POST && path.ends_with("/v0/search/subjects") {
+        if count == 1 {
+            control.first_search_seen.store(true, Ordering::SeqCst);
+            control.first_search_entered.notify_waiters();
+            loop {
+                let notified = control.release_first_search.notified();
+                if control.first_search_released.load(Ordering::SeqCst) {
+                    break;
+                }
+                notified.await;
+            }
+        }
+        return Json(json!({
+            "data": [{
+                "id": 8,
+                "name": "Cowboy Bebop",
+                "name_cn": "Cowboy Bebop",
+                "summary": "Whatever happens, happens.",
+                "date": "1998-04-03",
+                "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+                "tags": [{"name": "sci-fi"}],
+                "rating": {"score": 9.1}
+            }]
+        }))
+        .into_response();
+    }
+
+    if method == Method::GET && path.ends_with("/v0/subjects/8") {
+        return Json(json!({
+            "id": 8,
+            "name": "Cowboy Bebop",
+            "name_cn": "Cowboy Bebop",
+            "summary": "Whatever happens, happens.",
+            "date": "1998-04-03",
+            "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+            "tags": [{"name": "sci-fi"}],
+            "rating": {"score": 9.1},
+            "infobox": []
+        }))
+        .into_response();
     }
 
     AxumStatusCode::NOT_FOUND.into_response()

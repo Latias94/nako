@@ -10,8 +10,10 @@ use taru_core::{
 use taru_vfs::StorageBackend;
 
 use super::{
-    NfoCodec, NfoDocument, NfoFailure, NfoFailureKind, NfoImportRequest, NfoImportSummary,
-    NfoService, workflow::nfo_uri_for_source,
+    NfoCancellationCheck, NfoCancellationDecision, NfoCodec, NfoDocument, NfoFailure,
+    NfoFailureKind, NfoImportRequest, NfoImportSummary, NfoLibraryRunOutcome, NfoService,
+    NfoSidecarCheckpoint, NfoSidecarOperation, NoopNfoCancellationCheck,
+    workflow::nfo_uri_for_source,
 };
 
 pub trait NfoImportRepository:
@@ -31,6 +33,17 @@ where
     C: NfoCodec,
 {
     pub async fn import_library(&self, request: NfoImportRequest) -> Result<NfoImportSummary> {
+        Ok(self
+            .import_library_with_cancellation(request, &NoopNfoCancellationCheck)
+            .await?
+            .into_summary())
+    }
+
+    pub async fn import_library_with_cancellation(
+        &self,
+        request: NfoImportRequest,
+        cancellation: &dyn NfoCancellationCheck,
+    ) -> Result<NfoLibraryRunOutcome<NfoImportSummary>> {
         ensure_import_policy(request.policy)?;
 
         let sources = self.list_all_sources(request.library_id).await?;
@@ -46,6 +59,20 @@ where
         };
 
         for source in sources {
+            if cancellation
+                .check(NfoSidecarCheckpoint {
+                    operation: NfoSidecarOperation::Import,
+                    library_id: request.library_id,
+                    source_id: source.id,
+                    item_id: source.item_id,
+                })
+                .await?
+                == NfoCancellationDecision::Cancel
+            {
+                sort_import_failures(&mut summary);
+                return Ok(NfoLibraryRunOutcome::Cancelled(summary));
+            }
+
             match self
                 .import_source(source, request.policy, request.force)
                 .await
@@ -67,10 +94,8 @@ where
             }
         }
 
-        summary
-            .failures
-            .sort_by(|left, right| left.locator.cmp(&right.locator));
-        Ok(summary)
+        sort_import_failures(&mut summary);
+        Ok(NfoLibraryRunOutcome::Completed(summary))
     }
 
     async fn import_source(
@@ -305,6 +330,12 @@ where
 
         Ok(items)
     }
+}
+
+fn sort_import_failures(summary: &mut NfoImportSummary) {
+    summary
+        .failures
+        .sort_by(|left, right| left.locator.cmp(&right.locator));
 }
 
 enum NfoImportOutcome {

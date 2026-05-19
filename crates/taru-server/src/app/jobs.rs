@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use taru_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobListFilter, JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent,
-    PageRequest, Result, StagingPurpose, TaruError,
+    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job,
+    JobCancellationRequestRecord, JobId, JobKind, JobListFilter, JobRepository, Library, LibraryId,
+    LibraryRepository, NewJob, NewOutboxEvent, PageRequest, RequestJobCancellation, Result,
+    StagingPurpose, TaruError,
 };
 use taru_db::SqliteStore;
 use taru_library::{
@@ -18,7 +19,9 @@ use tracing::{Instrument, info, info_span, warn};
 use crate::config::{TaruServerConfig, libraries_from_config};
 
 use super::{
-    job_runtime::DurableJobRuntime,
+    job_runtime::{
+        DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
+    },
     runtime::RuntimeSupervisor,
     staging::ManifestRecordingStorageBackend,
     storage::{StorageBackendRegistry, remote_probe_staging_root},
@@ -29,6 +32,12 @@ pub struct ScanCommandOutput {
     pub job: Job,
     pub index: LibraryIndexSummary,
     pub probe: LibraryProbeSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+enum LibraryScanExecution {
+    Completed(ScanCommandOutput),
+    Cancelled(Job),
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +66,18 @@ impl JobAppService {
         page: PageRequest,
     ) -> Result<Vec<Job>> {
         self.store.list_jobs(filter, page).await
+    }
+
+    pub(crate) async fn request_job_cancellation(
+        &self,
+        job_id: JobId,
+    ) -> Result<JobCancellationRequestRecord> {
+        self.store
+            .request_job_cancellation(RequestJobCancellation {
+                job_id,
+                reason: None,
+            })
+            .await
     }
 }
 
@@ -112,7 +133,7 @@ impl LibraryScanAppService {
 
     pub(crate) async fn scan_library(&self, library_id: LibraryId) -> Result<ScanCommandOutput> {
         let job = self.create_library_scan_job(library_id).await?;
-        self.execute_library_scan_job(job.id, library_id).await
+        self.execute_library_scan_command(job.id, library_id).await
     }
 
     pub(crate) async fn scan_all_configured_libraries(&self) -> Result<Vec<ScanCommandOutput>> {
@@ -154,21 +175,33 @@ impl LibraryScanAppService {
     }
 
     async fn finish_library_scan_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
-        let output = self.execute_library_scan_job(job_id, library_id).await?;
-        info!(
-            job_id = %output.job.id,
-            library_id = %library_id,
-            status = ?output.job.status,
-            "library scan job completed"
-        );
-        Ok(output.job)
+        match self.execute_library_scan_job(job_id, library_id).await? {
+            LibraryScanExecution::Completed(output) => {
+                info!(
+                    job_id = %output.job.id,
+                    library_id = %library_id,
+                    status = ?output.job.status,
+                    "library scan job completed"
+                );
+                Ok(output.job)
+            }
+            LibraryScanExecution::Cancelled(job) => {
+                info!(
+                    job_id = %job.id,
+                    library_id = %library_id,
+                    status = ?job.status,
+                    "library scan job cancelled"
+                );
+                Ok(job)
+            }
+        }
     }
 
     async fn execute_library_scan_job(
         &self,
         job_id: JobId,
         library_id: LibraryId,
-    ) -> Result<ScanCommandOutput> {
+    ) -> Result<LibraryScanExecution> {
         let permit =
             self.permits
                 .clone()
@@ -181,10 +214,10 @@ impl LibraryScanAppService {
 
         let runtime = DurableJobRuntime::new(self.store.clone());
         let run = runtime
-            .run_job(
+            .run_job_with_context(
                 job_id,
                 "library scan job",
-                || async { self.run_library_scan(job_id, library_id).await },
+                |context| async { self.run_library_scan(job_id, library_id, context).await },
                 |(index, probe)| {
                     let summary = ScanJobSummary {
                         index: index.clone(),
@@ -194,15 +227,34 @@ impl LibraryScanAppService {
                 },
             )
             .await?;
-        let (index, probe) = run.output;
-        self.record_library_scanned_event(job_id, library_id, &index, &probe)
-            .await;
 
-        Ok(ScanCommandOutput {
-            job: run.job,
-            index,
-            probe,
-        })
+        match run {
+            DurableJobRunOutcome::Completed(run) => {
+                let (index, probe) = run.output;
+                self.record_library_scanned_event(job_id, library_id, &index, &probe)
+                    .await;
+
+                Ok(LibraryScanExecution::Completed(ScanCommandOutput {
+                    job: run.job,
+                    index,
+                    probe,
+                }))
+            }
+            DurableJobRunOutcome::Cancelled(job) => Ok(LibraryScanExecution::Cancelled(job)),
+        }
+    }
+
+    async fn execute_library_scan_command(
+        &self,
+        job_id: JobId,
+        library_id: LibraryId,
+    ) -> Result<ScanCommandOutput> {
+        match self.execute_library_scan_job(job_id, library_id).await? {
+            LibraryScanExecution::Completed(output) => Ok(output),
+            LibraryScanExecution::Cancelled(job) => Err(TaruError::Conflict {
+                message: format!("library scan job {} was cancelled", job.id),
+            }),
+        }
     }
 
     async fn record_library_scanned_event(
@@ -240,7 +292,8 @@ impl LibraryScanAppService {
         &self,
         job_id: JobId,
         library_id: LibraryId,
-    ) -> Result<(LibraryIndexSummary, LibraryProbeSummary)> {
+        context: DurableJobContext,
+    ) -> DurableJobOperationResult<(LibraryIndexSummary, LibraryProbeSummary)> {
         let library = self.library_for_scan(library_id).await?;
         info!(
             job_id = %job_id,
@@ -249,6 +302,7 @@ impl LibraryScanAppService {
             "starting library scan pipeline"
         );
 
+        context.check_cancelled().await?;
         let index_backend = self
             .storage_backends
             .backend_for_library_root(&library)
@@ -266,6 +320,7 @@ impl LibraryScanAppService {
             })
             .await?;
 
+        context.check_cancelled().await?;
         let storage_backend = self
             .storage_backends
             .backend_for_library_root(&library)
@@ -296,6 +351,7 @@ impl LibraryScanAppService {
             })
             .await?;
 
+        context.check_cancelled().await?;
         Ok((index, probe))
     }
 

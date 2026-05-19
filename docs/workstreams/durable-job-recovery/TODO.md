@@ -15,11 +15,12 @@ Last updated: 2026-05-17
 
 - [x] DJR-020 [owner=codex] [deps=DJR-010] [scope=crates/taru-core/src/repository/jobs.rs,crates/taru-db/src/jobs.rs,crates/taru-db/src/tests.rs]
   Goal: Add a repository operation that fails unfinished queued/running jobs
-  from a previous process.
-  Validation: `cargo nextest run -p taru-db sqlite_store_marks_unfinished_jobs_failed_on_startup --no-fail-fast`
+  from a previous process. Superseded: later ownership-lease work preserves
+  queued jobs and fails only running jobs.
+  Validation: `cargo nextest run -p taru-db running_jobs_failed_on_startup --no-fail-fast`
   passed with 1 test.
-  Evidence: `sqlite_store_marks_unfinished_jobs_failed_on_startup` proves
-  queued/running jobs become failed and terminal jobs are unchanged.
+  Evidence: `running_jobs_failed_on_startup` proves running jobs become failed,
+  queued jobs are preserved, and terminal jobs are unchanged.
   Handoff: Completed; startup integration followed in DJR-030.
 
 - [x] DJR-030 [owner=codex] [deps=DJR-020] [scope=crates/taru-server/src/app/startup.rs,crates/taru-server/src/app/tests/startup.rs]

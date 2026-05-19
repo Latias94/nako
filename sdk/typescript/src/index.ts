@@ -434,6 +434,11 @@ export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
   output_container?: "mp4" | "mkv";
 }
 
+export interface ImageVariantQuery {
+  width?: number;
+  height?: number;
+}
+
 export interface TaruClientOptions {
   baseUrl: string;
   bearerToken?: string;
@@ -499,12 +504,12 @@ export class TaruClient {
     return this.requestJson("GET", `/items/${encodeURIComponent(itemId)}/images`);
   }
 
-  image(imageId: string): Promise<Response> {
-    return this.requestRaw("GET", `/images/${encodeURIComponent(imageId)}`);
+  image(imageId: string, variant?: ImageVariantQuery): Promise<Response> {
+    return this.requestRaw("GET", `/images/${encodeURIComponent(imageId)}`, { query: variant });
   }
 
-  headImage(imageId: string): Promise<Response> {
-    return this.requestRaw("HEAD", `/images/${encodeURIComponent(imageId)}`);
+  headImage(imageId: string, variant?: ImageVariantQuery): Promise<Response> {
+    return this.requestRaw("HEAD", `/images/${encodeURIComponent(imageId)}`, { query: variant });
   }
 
   listPeople(page?: PageQuery): Promise<PeopleResponse> {

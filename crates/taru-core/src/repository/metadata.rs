@@ -7,15 +7,17 @@ use crate::{
     LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
     ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
-    ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
-    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, MediaItem, MediaItemId,
-    MediaSourceId, MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
+    ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
+    ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
+    MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
     MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
     NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
     NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
     ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
     ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
-    SelectedArtworkRecord, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SelectedArtworkRecord, SelectedArtworkUnpublicationRecord, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -100,6 +102,18 @@ pub trait ManagedArtworkRepository: Send + Sync {
         job_summary_json: Option<String>,
     ) -> Result<ManagedArtworkIngestProcessingRecord>;
 
+    async fn fail_unfinished_managed_artwork_ingests(
+        &self,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<u64>;
+
+    async fn requeue_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<ManagedArtworkIngestRequeueRecord>;
+
     async fn get_managed_artwork_artifact(
         &self,
         id: ManagedArtworkArtifactId,
@@ -110,6 +124,19 @@ pub trait ManagedArtworkRepository: Send + Sync {
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<SelectedArtworkPublicationRecord>;
 
+    async fn publish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord>;
+
+    async fn unpublish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+    ) -> Result<SelectedArtworkUnpublicationRecord>;
+
     async fn get_selected_artwork(
         &self,
         id: SelectedArtworkId,
@@ -119,6 +146,12 @@ pub trait ManagedArtworkRepository: Send + Sync {
         &self,
         item_id: MediaItemId,
     ) -> Result<Vec<SelectedArtworkRecord>>;
+
+    async fn get_managed_artwork_gallery_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkGallerySnapshot>;
 
     async fn list_managed_artwork_artifact_lifecycle(
         &self,

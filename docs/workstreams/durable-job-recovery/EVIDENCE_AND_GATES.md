@@ -31,8 +31,10 @@ git diff --check
 
 - `JobRepository::fail_unfinished_jobs` expresses startup recovery intent at
   the repository seam.
-- `SqliteStore::fail_unfinished_jobs` marks queued/running jobs failed with a
-  startup-stale error and leaves succeeded/failed jobs unchanged.
+- `SqliteStore::fail_unfinished_jobs` originally marked queued/running jobs
+  failed with a startup-stale error and left succeeded/failed jobs unchanged.
+  The later ownership-lease lane narrows generic recovery to running jobs and
+  preserves queued jobs.
 - `ServerStartupWorkflow` runs unfinished job recovery after migration and
   records `ServerStartupReport::recovered_jobs`.
 - `app_startup_marks_unfinished_jobs_failed` proves restart recovery through

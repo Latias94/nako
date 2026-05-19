@@ -18,7 +18,7 @@ Last updated: 2026-05-19
   Goal: Implement user playback state repository traits, SQLite schema/migrations, principal resolution, and app-service behavior for lookup/report/mark-watched.
   Validation: `cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast`
   Review: verify idempotent progress writes, safe principal scoping, source/item validation, and watched threshold behavior.
-  Evidence: `crates/taru-core/src/user_playback.rs`, `crates/taru-db/src/user_playback.rs`, `crates/taru-db/migrations/0029_user_playback_states.sql`, `crates/taru-server/src/app/user_playback.rs`, repository/server/auth tests.
+  Evidence: `crates/taru-core/src/user_playback.rs`, `crates/taru-db/src/user_playback.rs`, `crates/taru-db/migrations/0030_user_playback_states.sql`, `crates/taru-server/src/app/user_playback.rs`, repository/server/auth tests.
   Handoff: Complete. UPS-030 can expose protocol DTOs, HTTP routes, OpenAPI, and SDK surface against the implemented service.
 
 ## M2 - Public API And SDK Surface

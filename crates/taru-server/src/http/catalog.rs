@@ -14,7 +14,7 @@ use crate::app::TaruApp;
 
 use super::{
     error::ApiResult,
-    query::{PageQuery, SearchPageQuery},
+    query::{ImageVariantQuery, PageQuery, SearchPageQuery},
 };
 
 pub(super) fn routes() -> Router<TaruApp> {
@@ -71,8 +71,12 @@ pub(super) async fn list_item_images(
 pub(super) async fn get_image(
     State(app): State<TaruApp>,
     Path(image_id): Path<SelectedArtworkId>,
+    Query(query): Query<ImageVariantQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let image = app.artwork().read_selected_image(image_id).await?;
+    let image = app
+        .artwork()
+        .read_selected_image(image_id, query.into_variant_request()?)
+        .await?;
     Ok(selected_image_response(image, true))
 }
 
@@ -80,8 +84,12 @@ pub(super) async fn get_image(
 pub(super) async fn head_image(
     State(app): State<TaruApp>,
     Path(image_id): Path<SelectedArtworkId>,
+    Query(query): Query<ImageVariantQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let image = app.artwork().read_selected_image(image_id).await?;
+    let image = app
+        .artwork()
+        .read_selected_image(image_id, query.into_variant_request()?)
+        .await?;
     Ok(selected_image_response(image, false))
 }
 

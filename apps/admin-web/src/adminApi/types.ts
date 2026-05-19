@@ -1,0 +1,431 @@
+export type DataSourceMode = "live" | "hybrid" | "mock" | "planned";
+
+export type AdminSectionKey =
+  | "overview"
+  | "catalogGovernance"
+  | "events"
+  | "jobs"
+  | "playbackSessions"
+  | "playbackRuntime"
+  | "storageStaging"
+  | "systemConfig";
+
+export type AdminSourceMap = Record<AdminSectionKey, DataSourceMode>;
+
+export type AdminErrorMap = Partial<Record<AdminSectionKey, string>>;
+
+export type PageInfo = {
+  limit: number;
+  offset: number;
+  returned: number;
+};
+
+export type AdminOverviewStatus = "healthy" | "degraded";
+
+export type AdminOverviewResponse = {
+  admin_api_version: string;
+  public_api_version: string;
+  status: AdminOverviewStatus;
+  storage: {
+    total_backends: number;
+    ready_backends: number;
+    degraded_backends: number;
+    unavailable_backends: number;
+    backends: Array<{
+      library_id: string;
+      library_name: string;
+      backend_kind: string;
+      status: string;
+    }>;
+  };
+  metadata: {
+    total_providers: number;
+    available_providers: number;
+    disabled_providers: number;
+    unavailable_providers: number;
+    providers: Array<{
+      provider: string;
+      status: string;
+    }>;
+  };
+  runtime: {
+    active_tasks: number;
+    completed_tasks: number;
+    failed_tasks: number;
+    succeeded_jobs: number;
+    cancelled_jobs: number;
+    failed_jobs: number;
+    shutdown_requested: boolean;
+  };
+  startup: {
+    configured_libraries: number;
+    recovered_transcode_sessions: number;
+    recovered_jobs: number;
+    staging_deleted_records: number;
+    staging_deleted_files: number;
+    metadata_raw_cache_deleted: number;
+    metadata_lifecycle_tasks_started: number;
+    artwork_ingest_worker_started: boolean;
+  };
+};
+
+export type AdminCatalogGovernanceItemListResponse = {
+  items: AdminCatalogGovernanceItem[];
+  page: PageInfo;
+};
+
+export type AdminCatalogGovernanceItem = {
+  item_id: string;
+  library_id: string;
+  kind: string;
+  parent_id: string | null;
+  title: string;
+  release_date: string | null;
+  source_count: number;
+  representative_source_id: string | null;
+  representative_file_name: string | null;
+  local_inference: AdminLocalInferenceSummary | null;
+  provider_mapping_count: number;
+  accepted_provider_mapping_count: number;
+  duplicate_relationship_count: number;
+  issues: string[];
+};
+
+export type AdminLocalInferenceSummary = {
+  source_id: string;
+  inferred_kind: string;
+  inferred_title: string | null;
+  inferred_year: number | null;
+  inferred_season: number | null;
+  inferred_episode: number | null;
+  confidence_milli: number | null;
+  evidence_source: string;
+  has_evidence: boolean;
+  inference_version: string;
+};
+
+export type AdminOutboxEventListResponse = {
+  events: AdminOutboxEventListItem[];
+  page: PageInfo;
+};
+
+export type AdminOutboxEventListItem = {
+  id: string;
+  kind: string;
+  subject: string | Record<string, unknown>;
+  library_id: string | null;
+  source_id: string | null;
+  status: string;
+  attempts: number;
+  has_payload: boolean;
+  has_error: boolean;
+  occurred_at: string;
+  updated_at: string;
+  next_attempt_at: string | null;
+};
+
+export type AdminJobListItem = {
+  id: string;
+  kind: string;
+  status: string;
+  resource_class: string;
+  library_id: string | null;
+  source_id: string | null;
+  has_input: boolean;
+  has_summary: boolean;
+  has_error: boolean;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+export type AdminJobListResponse = {
+  jobs: AdminJobListItem[];
+  page: PageInfo;
+};
+
+export type AdminPlaybackSessionListItem = {
+  id: string;
+  source_id: string;
+  kind: string;
+  request_key: string;
+  state: string;
+  failure_category: string | null;
+  has_failure_message: boolean;
+  active: boolean;
+  terminal: boolean;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+export type AdminPlaybackSessionListResponse = {
+  sessions: AdminPlaybackSessionListItem[];
+  page: PageInfo;
+};
+
+export type AdminPlaybackRuntimeDiagnosticsResponse = {
+  admin_api_version: string;
+  public_api_version: string;
+  ffmpeg: {
+    probe_status: string;
+    has_probe_error: boolean;
+    hardware_capability_count: number;
+    available_gpu_capabilities: number;
+  };
+  hardware: {
+    policy: Record<string, unknown>;
+    selection: {
+      acceleration: string;
+      fallback_used: boolean;
+      reason: string;
+    };
+    capabilities: Array<{
+      accelerator: string;
+      available: boolean;
+      reason_code: string;
+      evidence: string;
+      smoke_probe: {
+        status: string;
+        operator_check: string;
+        has_detail: boolean;
+      };
+    }>;
+  };
+  transcode: {
+    configured_cpu_slots: number;
+    configured_gpu_slots: number;
+    effective_cpu_slots: number;
+    effective_gpu_slots: number;
+    selected_hls_slots: number;
+  };
+  remux: {
+    max_concurrent_sessions: number;
+    timeout_ms: number;
+  };
+  remote_playback: {
+    backend_count: number;
+    stream_permits_available: number;
+    stream_permits_max: number;
+    stage_permits_available: number;
+    stage_permits_max: number;
+    state_scope: string;
+  };
+  staging: {
+    max_bytes: number;
+    retention_ms: number;
+    cleanup_on_startup: boolean;
+    startup_deleted_records: number;
+    startup_deleted_files: number;
+  };
+};
+
+export type AdminStorageStagingDiagnosticsResponse = {
+  admin_api_version: string;
+  public_api_version: string;
+  summary: {
+    configured_max_bytes: number;
+    used_manifest_bytes: number;
+    cleanup_on_startup: boolean;
+    retention_ms: number;
+    startup_deleted_records: number;
+    startup_deleted_files: number;
+    process_cached_backends: number;
+    vfs_cache: {
+      object_count: number;
+      listing_count: number;
+      failure_count: number;
+      stale_object_count: number;
+      stale_listing_count: number;
+      last_failure_at_ms: number | null;
+    };
+  };
+  records: Array<{
+    id: string;
+    source_scheme: string;
+    purpose: string;
+    state: string;
+    size_bytes: number | null;
+    has_etag: boolean;
+    has_fingerprint: boolean;
+    active_leases: number;
+    has_validation_error: boolean;
+    created_at_ms: number;
+    updated_at_ms: number;
+    last_accessed_at_ms: number;
+    expires_at_ms: number | null;
+  }>;
+  page: PageInfo;
+};
+
+export type AdminServerConfigDiagnosticsResponse = {
+  admin_api_version: string;
+  public_api_version: string;
+  auth: {
+    enabled: boolean;
+    token_env: string | null;
+  };
+  runtime: {
+    listen_addr: string;
+    scan_concurrency: number;
+    probe_concurrency: number;
+    metadata_concurrency: number;
+    remux_concurrency: number;
+    webhook_concurrency: number;
+    remux_timeout_ms: number;
+  };
+  libraries: Array<{
+    id: string;
+    name: string;
+    preset: string;
+    backend_kind: string;
+    root_scheme: string;
+    has_webdav_password_env: boolean;
+    webdav_timeout_ms: number | null;
+    webdav_max_attempts: number | null;
+  }>;
+  metadata: {
+    raw_cache_retention_ms: number;
+    raw_cache_cleanup_on_startup: boolean;
+    raw_cache_cleanup_interval_ms: number;
+    maintenance_policies: number;
+    providers: Array<{
+      provider: string;
+      enabled: boolean;
+      token_env: string | null;
+      api_key_env: string | null;
+      has_api_base_url: boolean;
+      has_image_base_url: boolean;
+      language: string | null;
+      include_adult: boolean;
+      header_count: number;
+      secret_header_count: number;
+      has_provider_runtime_override: boolean;
+    }>;
+    runtime: {
+      timeout_ms: number;
+      max_attempts: number;
+      min_interval_ms: number;
+      concurrency: number;
+      user_agent: string;
+      has_proxy: boolean;
+      circuit_breaker_failures: number;
+      circuit_breaker_backoff_ms: number;
+    };
+  };
+  transcode: {
+    hardware_policy: Record<string, unknown>;
+    cpu_concurrency: number;
+    gpu_concurrency: number;
+  };
+  staging: {
+    max_bytes: number;
+    retention_ms: number;
+    cleanup_on_startup: boolean;
+  };
+  playback: {
+    remote_stream_concurrency: number;
+    remote_stage_concurrency: number;
+  };
+  artwork: {
+    artifact_root_configured: boolean;
+    fetch_timeout_ms: number;
+    fetch_max_attempts: number;
+    fetch_max_bytes: number;
+    fetch_concurrency: number;
+    ingest_worker_enabled: boolean;
+    ingest_worker_idle_ms: number;
+    fetch_user_agent: string;
+    has_fetch_proxy: boolean;
+    max_width: number;
+    max_height: number;
+  };
+};
+
+export type AdminConsoleData = {
+  sources: AdminSourceMap;
+  errors: AdminErrorMap;
+  overview: AdminOverviewResponse;
+  libraries: LibraryRow[];
+  catalog: CatalogGovernanceSummary;
+  events: EventSummary;
+  jobs: JobRow[];
+  playback: PlaybackSummary;
+  storage: StorageSummary;
+  settings: SettingRow[];
+};
+
+export type LibraryRow = {
+  id: string;
+  name: string;
+  backendKind: string;
+  status: "ready" | "degraded" | "unavailable";
+  itemCount: number;
+  lastScan: string;
+};
+
+export type CatalogGovernanceSummary = {
+  items: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    issues: string[];
+    sourceCount: number;
+    providerMappingCount: number;
+  }>;
+  page: PageInfo;
+};
+
+export type EventSummary = {
+  events: Array<{
+    id: string;
+    kind: string;
+    status: string;
+    attempts: number;
+    hasError: boolean;
+  }>;
+  page: PageInfo;
+};
+
+export type JobRow = {
+  id: string;
+  kind: string;
+  status: string;
+  resourceClass: string;
+  hasError: boolean;
+};
+
+export type PlaybackSummary = {
+  hardwarePolicy: string;
+  ffmpegStatus: string;
+  accelerators: Array<{
+    name: string;
+    available: boolean;
+  }>;
+  sessions: Array<{
+    id: string;
+    kind: string;
+    sourceTitle: string;
+    state: string;
+  }>;
+};
+
+export type StorageSummary = {
+  stagingUsedBytes: number;
+  stagingMaxBytes: number;
+  vfsObjectCount: number;
+  records: Array<{
+    id: string;
+    sourceScheme: string;
+    purpose: string;
+    state: string;
+    sizeBytes: number | null;
+    hasValidationError: boolean;
+  }>;
+};
+
+export type SettingRow = {
+  label: string;
+  value: string;
+};

@@ -114,7 +114,7 @@ Evidence:
   `UserPlaybackState`, and write records.
 - `crates/taru-core/src/repository/user_playback.rs` defines the repository
   contract for upsert, lookup, and Continue Watching state listing.
-- `crates/taru-db/migrations/0029_user_playback_states.sql` persists rows by
+- `crates/taru-db/migrations/0030_user_playback_states.sql` persists rows by
   principal, item, and optional source.
 - `crates/taru-db/src/user_playback.rs` implements SQLite persistence and
   Continue Watching filtering/sorting.

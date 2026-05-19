@@ -1,5 +1,12 @@
 use super::*;
-use taru_core::{Library, LibraryOptions, LibraryRepository};
+use taru_core::{
+    AddonPermission, AddonRepository, AddonSideEffectTarget, AddonSideEffectValidationStatus,
+    AddonStatus, ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
+    ImageKind, Library, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
+    ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
+    NewArtworkCandidate, NewManagedArtworkIngest,
+};
 
 fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> TaruServerConfig {
     TaruServerConfig {
@@ -27,11 +34,15 @@ fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> TaruServer
 async fn wait_for_runtime_jobs(
     app: &TaruApp,
     succeeded_jobs: u64,
+    cancelled_jobs: u64,
     failed_jobs: u64,
 ) -> RuntimeSupervisorDiagnostics {
     for _ in 0..100 {
         let diagnostics = app.runtime_diagnostics();
-        if diagnostics.succeeded_jobs == succeeded_jobs && diagnostics.failed_jobs == failed_jobs {
+        if diagnostics.succeeded_jobs == succeeded_jobs
+            && diagnostics.cancelled_jobs == cancelled_jobs
+            && diagnostics.failed_jobs == failed_jobs
+        {
             return diagnostics;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -41,6 +52,107 @@ async fn wait_for_runtime_jobs(
         "runtime job diagnostics did not reach expected state: {:?}",
         app.runtime_diagnostics()
     );
+}
+
+async fn create_startup_managed_artwork_ingest(
+    store: &SqliteStore,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    idempotency_key: &str,
+) -> ManagedArtworkAcceptanceRecord {
+    let addon_id = taru_core::AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: format!("example.artwork.{idempotency_key}"),
+            name: "Startup Artwork".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token_id = taru_core::AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "startup artwork".to_owned(),
+            token_prefix: "taru_at_startup".to_owned(),
+            token_hash: format!("sha256:{idempotency_key}"),
+        })
+        .await
+        .unwrap();
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: taru_core::AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: idempotency_key.to_owned(),
+            provenance_json: r#"{"origin":"startup-test"}"#.to_owned(),
+            payload_json: r#"{"intent":"propose_artwork"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: side_effect.id,
+            library_id,
+            item_id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: format!("https://cdn.example.test/{idempotency_key}.png?token=secret"),
+            width: Some(1),
+            height: Some(1),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+    let job_id = JobId::new();
+
+    store
+        .accept_managed_artwork_candidate_ingest(
+            candidate.id,
+            NewManagedArtworkIngest {
+                id: ManagedArtworkIngestId::new(),
+                candidate_id: candidate.id,
+                job_id,
+                library_id,
+                item_id,
+                kind: ImageKind::Poster,
+                status: ManagedArtworkIngestStatus::Queued,
+                artifact_id: None,
+                failure_code: None,
+            },
+            NewJob {
+                id: job_id,
+                kind: JobKind::ManagedArtworkIngest,
+                resource_class: "artwork.ingest".to_owned(),
+                library_id: Some(library_id),
+                source_id: None,
+                input_json: Some(
+                    serde_json::json!({
+                        "candidate_id": candidate.id,
+                        "library_id": library_id,
+                        "item_id": item_id,
+                        "image_kind": "poster"
+                    })
+                    .to_string(),
+                ),
+            },
+        )
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
@@ -149,12 +261,104 @@ async fn background_scan_job_uses_runtime_job_supervision() {
         .enqueue_library_scan(library_id)
         .await
         .unwrap();
-    let diagnostics = wait_for_runtime_jobs(&app, 1, 0).await;
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 0).await;
     let persisted = app.jobs().get_job(job.id).await.unwrap();
 
     assert_eq!(persisted.status, JobStatus::Succeeded);
     assert_eq!(diagnostics.completed_tasks, 1);
     assert_eq!(diagnostics.failed_tasks, 0);
+}
+
+#[tokio::test]
+async fn background_scan_job_acknowledges_cancellation_before_probe_stage() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        }],
+    };
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let job = app
+        .library_scan()
+        .enqueue_library_scan(library_id)
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        server.control().wait_for_first_propfind(),
+    )
+    .await
+    .unwrap();
+
+    let requested = app.jobs().request_job_cancellation(job.id).await.unwrap();
+    assert!(requested.requested);
+    assert!(!requested.terminal);
+    assert_eq!(requested.job.status, JobStatus::Running);
+
+    server.control().release_first_propfind();
+    let diagnostics = wait_for_runtime_jobs(&app, 0, 1, 0).await;
+    let persisted = app.jobs().get_job(job.id).await.unwrap();
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::new(100, 0))
+        .await
+        .unwrap();
+
+    assert_eq!(diagnostics.failed_jobs, 0);
+    assert_eq!(diagnostics.cancelled_jobs, 1);
+    assert_eq!(persisted.status, JobStatus::Cancelled);
+    assert_eq!(persisted.summary_json, None);
+    assert_eq!(persisted.error, None);
+    assert_eq!(sources.len(), 1);
+    assert!(
+        store
+            .get_media_probe(sources[0].id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(server.control().movie_gets(), 0);
+    assert!(!events.iter().any(|event| {
+        event.kind == DomainEventKind::LibraryScanned
+            && event.subject == DomainEventSubject::Library(library_id)
+    }));
 }
 
 #[tokio::test]
@@ -726,7 +930,7 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
 }
 
 #[tokio::test]
-async fn app_startup_marks_unfinished_jobs_failed() {
+async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_ingests() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
@@ -806,6 +1010,41 @@ async fn app_startup_marks_unfinished_jobs_failed() {
         .await
         .unwrap();
 
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Startup Artwork".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    let fetching_artwork =
+        create_startup_managed_artwork_ingest(&store, library_id, item.id, "startup-fetching")
+            .await;
+    let fetching_claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fetching_claim.ingest.id, fetching_artwork.ingest.id);
+    assert_eq!(
+        fetching_claim.ingest.status,
+        ManagedArtworkIngestStatus::Fetching
+    );
+    assert_eq!(fetching_claim.job.status, JobStatus::Running);
+    let queued_artwork =
+        create_startup_managed_artwork_ingest(&store, library_id, item.id, "startup-queued").await;
+
     drop(app);
     let restarted = TaruApp::new_with_store(config, store.clone())
         .await
@@ -813,19 +1052,63 @@ async fn app_startup_marks_unfinished_jobs_failed() {
     let queued = store.get_job(queued_id).await.unwrap().unwrap();
     let running = store.get_job(running_id).await.unwrap().unwrap();
     let succeeded = store.get_job(succeeded_id).await.unwrap().unwrap();
+    let fetching_artwork_ingest = store
+        .get_managed_artwork_ingest(fetching_artwork.ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let fetching_artwork_job = store
+        .get_job(fetching_artwork.job.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let queued_artwork_ingest = store
+        .get_managed_artwork_ingest(queued_artwork.ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let queued_artwork_job = store.get_job(queued_artwork.job.id).await.unwrap().unwrap();
 
-    assert_eq!(queued.status, JobStatus::Failed);
-    assert_eq!(
-        queued.error,
-        Some("job was unfinished during server startup".to_owned())
-    );
+    assert_eq!(queued.status, JobStatus::Queued);
+    assert_eq!(queued.error, None);
     assert_eq!(running.status, JobStatus::Failed);
     assert_eq!(
         running.error,
         Some("job was unfinished during server startup".to_owned())
     );
     assert_eq!(succeeded.status, JobStatus::Succeeded);
+    assert_eq!(
+        fetching_artwork_ingest.status,
+        ManagedArtworkIngestStatus::Failed
+    );
+    assert_eq!(
+        fetching_artwork_ingest.failure_code.as_deref(),
+        Some("startup_recovery")
+    );
+    assert_eq!(fetching_artwork_ingest.artifact_id, None);
+    assert_eq!(fetching_artwork_job.status, JobStatus::Failed);
+    assert_eq!(
+        fetching_artwork_job.error.as_deref(),
+        Some("managed artwork ingest was unfinished during server startup")
+    );
+    assert!(fetching_artwork_job.summary_json.is_some());
+    assert_eq!(
+        queued_artwork_ingest.status,
+        ManagedArtworkIngestStatus::Queued
+    );
+    assert_eq!(queued_artwork_ingest.failure_code, None);
+    assert_eq!(queued_artwork_job.status, JobStatus::Queued);
+    assert_eq!(queued_artwork_job.error, None);
     assert_eq!(restarted.startup_report().recovered_jobs, 2);
+
+    let requeued = store
+        .requeue_managed_artwork_ingest(fetching_artwork.ingest.id)
+        .await
+        .unwrap();
+    assert!(requeued.requeued);
+    assert!(requeued.had_failure);
+    assert_eq!(requeued.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(requeued.job.status, JobStatus::Queued);
 }
 
 #[tokio::test]

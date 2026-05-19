@@ -49,7 +49,9 @@ GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
 GET  /images/{image_id}
+GET  /images/{image_id}?width=300&height=450
 HEAD /images/{image_id}
+HEAD /images/{image_id}?width=300&height=450
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -450,6 +452,33 @@ resource class `artwork.ingest`. Their input includes only redacted Taru IDs
 and image kind. It must not include the candidate's raw remote URL, source URI,
 cache URI, local path, storage handle, or validation internals.
 
+Admin job lists use a redacted job summary instead of the public job envelope.
+They expose job identity, lifecycle fields, and `has_input`, `has_summary`, and
+`has_error` booleans, but never raw `input`, `summary`, or `error` payloads.
+
+Administrators can request durable job cancellation with:
+
+```text
+POST /admin/v1/jobs/{job_id}/cancel
+```
+
+For queued jobs, the response marks the job terminal `cancelled` because no
+worker owns side effects yet. For running jobs, the response records durable
+cancel intent and leaves the job `running` until the owning worker acknowledges
+the request. Terminal jobs return `409 conflict`. The response contains the
+same redacted Admin job summary, `requested`, `terminal`, and
+`cancel_requested_at`; it never returns raw job input, summary, error text,
+source locators, paths, storage handles, provider payloads, tokens, or secrets.
+
+Current cooperative checkpoint coverage is boundary based. Metadata
+maintenance checks before each item refresh. Library scan checks before scan
+indexing, before probe, and before success publication; an in-flight VFS scan
+or probe is allowed to finish, but a later checkpoint can still acknowledge
+operator cancellation before the next side-effect boundary. NFO import/export
+checks before and after the app-level NFO service call; per-sidecar
+read/write checkpoints require a `taru-nfo` service API follow-on and must not
+be implied by the Admin response.
+
 ## Current Routes
 
 ```text
@@ -466,7 +495,9 @@ GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
 GET  /images/{image_id}
+GET  /images/{image_id}?width=300&height=450
 HEAD /images/{image_id}
+HEAD /images/{image_id}?width=300&height=450
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -518,14 +549,19 @@ GET  /admin/v1/overview
 GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/events
 GET  /admin/v1/jobs
+POST /admin/v1/jobs/{job_id}/cancel
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
+POST /admin/v1/artwork/ingests/{ingest_id}/requeue
 GET  /admin/v1/artwork/artifacts/lifecycle
 GET  /admin/v1/artwork/artifacts/storage-drift
 GET  /admin/v1/artwork/artifacts/remediation-plan
 POST /admin/v1/artwork/artifacts/remediate-stray-files
 POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
+GET  /admin/v1/items/{item_id}/artwork
+POST /admin/v1/items/{item_id}/artwork/{kind}/select
+DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -555,6 +591,13 @@ The staging/cache diagnostics route never returns staging `local_path`, full
 fingerprint values, validation error text, cache error text, WebDAV
 credentials, or secret values. It is an Admin API route and is not part of
 Public Client OpenAPI or generated SDK artifacts.
+
+`GET /admin/v1/overview` includes a redacted runtime summary with active and
+completed task counts plus supervised job outcome counters:
+`succeeded_jobs`, `cancelled_jobs`, and `failed_jobs`. Operator-acknowledged
+job cancellation is counted separately from success and failure. Failed runtime
+tasks or failed supervised jobs degrade the overview status; cancelled jobs do
+not.
 
 `POST /items/{item_id}/metadata/refresh` returns `202 Accepted` with a queued
 metadata refresh job. The current implementation uses the library metadata
@@ -738,6 +781,13 @@ names/presets/backend kind/root scheme, metadata runtime budgets, metadata
 provider enablement and secret-reference names, transcode hardware policy and
 slot budgets, staging budget/retention/cleanup settings, remote playback
 stream/stage budgets, and managed artwork fetch/storage budgets.
+Managed artwork ingest workers are opt-in through `[artwork]`.
+`ingest_worker_enabled = true` starts one process-local supervised worker after
+startup recovery and library reconciliation finish. The worker uses
+`artwork.ingest` resource accounting and sleeps for
+`ingest_worker_idle_ms` when no queued ingest is available. When disabled,
+accepted candidates remain queued until an administrator runs
+`POST /admin/v1/artwork/ingests/process-next` or re-enables the worker.
 
 The config diagnostics route never returns `database_url`, local library roots,
 `ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, managed artwork artifact
@@ -1240,16 +1290,22 @@ for an already accepted candidate returns the existing ingest and job.
 
 Administrators can process one queued managed artwork ingest with
 `POST /admin/v1/artwork/ingests/process-next`. This route is an internal Admin
-runtime seam for the first Taru-owned fetch/validation/storage path: it claims
-one queued `managed_artwork_ingest`, fetches the accepted remote Artwork
-Candidate source under bounded artwork fetch policy, validates static image
-content, writes bytes below Taru's internal artwork artifact root, and commits a
+runtime seam for the first Taru-owned fetch/validation/storage path. The same
+claim/fetch/validate/store/fail pipeline is also used by the optional
+process-local Managed Artwork ingest worker when
+`[artwork].ingest_worker_enabled = true`. Both execution paths claim one queued
+`managed_artwork_ingest`, fetch the accepted remote Artwork Candidate source
+under bounded artwork fetch policy, validate static image content, write bytes
+below Taru's internal artwork artifact root, and commit a
 `managed_artwork_artifacts` row with an opaque `managed-artwork://...` storage
-reference. A successful response exposes only safe IDs and artifact metadata:
-media type, byte length, dimensions, content hash, ingest status, and the
-redacted job envelope. It never returns `storage_uri`, raw source URLs, local
-artifact paths, cache URIs, Source Locators, addon tokens, or validation
-details.
+reference. The Admin `process-next` command remains a single-step manual drain;
+if the worker already drained the queue it returns `"processed": false`.
+
+A successful response exposes only safe IDs and artifact metadata:
+media type, byte length, dimensions, `has_content_hash`, ingest status, and
+the redacted job envelope. It never returns `storage_uri`, raw source URLs,
+local artifact paths, cache URIs, Source Locators, addon tokens, content hash
+values, or validation details.
 
 If there is no queued ingest, the response is:
 
@@ -1268,10 +1324,50 @@ failures use safe failure codes such as `unsupported_source`,
 `unsupported_media_type`, `too_large`, `invalid_image`,
 `dimension_limit_exceeded`, `fetch_timeout`, `fetch_failed`,
 `fetch_http_status`, or `storage_failed`. Failed job summaries include only
-safe IDs, `"status": "failed"`, and `failure_code`. Retry is limited to the
-configured in-process fetch attempts; durable requeue/cancellation APIs,
-thumbnails, selected artwork publication, and public image-serving remain
-separate follow-on work.
+safe IDs, `"status": "failed"`, and `failure_code`. In-process fetch retry is
+limited to the configured fetch attempts; durable retry is exposed separately
+as an Admin requeue command.
+
+Startup recovery is explicit for Managed Artwork ingest. Queued
+`managed_artwork_ingest` jobs remain queued across restart so an enabled worker
+or manual `process-next` can drain them later. Ingests already claimed by a
+previous process (`fetching` or `validating` with a running
+`managed_artwork_ingest` job) are marked failed with safe failure code
+`startup_recovery`, no artifact, and a redacted job summary. Those failed
+ingests are requeueable through the Admin requeue command.
+
+Administrators can requeue a failed Managed Artwork ingest with:
+
+```text
+POST /admin/v1/artwork/ingests/{ingest_id}/requeue
+```
+
+The command is keyed by ingest ID. It only resets a failed
+`managed_artwork_ingest` row and its failed durable `managed_artwork_ingest`
+job back to queued state. It clears the ingest `failure_code` and job
+`error`, `summary_json`, `started_at`, and `completed_at`, while preserving the
+existing candidate, ingest, and job IDs. Requeue does not fetch, validate,
+store bytes, publish Selected Artwork, delete artifacts, cleanup files, repair
+missing artifacts, or create duplicate candidates, ingests, jobs, artifacts, or
+files.
+
+Already queued ingests return `200 OK` with `"requeued": false`. Failed ingests
+with failed managed-artwork jobs return `200 OK` with `"requeued": true`.
+Stored, fetching, validating, running, mismatched-job, or inconsistent states
+return `409 Conflict`; missing ingests return `404 Not Found`.
+
+The requeue response includes a redacted ingest summary, a redacted
+managed-artwork job summary, `requeued`, and `had_failure`. The job summary
+uses presence flags for `input`, `summary`, and `error`; it does not serialize
+raw job payloads or failure text. The response never returns raw candidate
+`source_uri`, addon payload/provenance JSON, provider query strings, addon
+tokens, `storage_uri`, `managed-artwork://...`, local artifact paths,
+artifact root paths, cache URIs, Source Locators, raw validation/fetch error
+messages, file contents, or content hash values.
+
+Active cancellation, automatic retry scheduling, missing artifact repair,
+thumbnails, and artifact cleanup/deletion policy remain separate
+runtime-control or lifecycle follow-ons.
 
 Administrators can publish a stored Managed Artwork Artifact as the current
 Selected Artwork with:
@@ -1288,6 +1384,75 @@ candidate `source_uri`, raw provider URLs, `cache_uri`, Source Locators, addon
 token material, or provider query strings. The returned image URL is the
 Public Client image route for the selected artwork.
 
+Administrators can inspect one Media Item's artwork management state with:
+
+```text
+GET /admin/v1/items/{item_id}/artwork?limit=50&offset=0
+```
+
+The response is an item-scoped Admin gallery read model. It separates Artwork
+Candidates, stored Managed Artwork Artifacts, and current Selected Artwork. It
+uses the same `limit` and `offset` page for candidates and artifacts; Selected
+Artwork entries are returned for the item without pagination because they are
+bounded by image kind slots. Candidate rows include safe IDs, image kind,
+source kind, dimensions, language, status, optional ingest summary, artifact
+linkage, and selected flags. Artifact rows include safe IDs, candidate linkage,
+image kind, dimensions, byte length, media type, `has_content_hash`, selected
+count, and selected flags. Selected entries include a redacted Selected Artwork
+summary, the linked artifact summary, and the first-party Public Client image
+reference.
+
+This Admin gallery response must not include `storage_uri`,
+`managed-artwork://...`, local artifact paths, candidate `source_uri`, raw
+provider URLs, `cache_uri`, Source Locators, addon/provider token material,
+provider query strings, file contents, or content hash values. Non-selected
+artifacts are selectable by ID through Admin commands, but they do not receive
+Public Client image URLs until they are published as Selected Artwork.
+
+Administrators can select or replace one item artwork slot from the gallery
+context with:
+
+```text
+POST /admin/v1/items/{item_id}/artwork/{kind}/select
+Content-Type: application/json
+
+{
+  "artifact_id": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+`kind` currently accepts `poster`, `backdrop`, `logo`, `thumbnail`, or
+`banner`. The command is idempotent when the requested artifact is already the
+Selected Artwork for that item/kind slot. Selecting a different eligible
+artifact replaces the slot while preserving the stable Selected Artwork public
+ID. The command rejects artifacts that belong to another item or another image
+kind, and it does not delete, clean up, unpublish, repair, re-ingest, or mutate
+artifact files. The response shape matches
+`POST /admin/v1/artwork/artifacts/{artifact_id}/publish`: a redacted Selected
+Artwork summary, first-party image reference, and `changed` flag.
+
+Administrators can unpublish one item artwork slot with:
+
+```text
+DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection
+```
+
+`kind` accepts the same values as the select command: `poster`, `backdrop`,
+`logo`, `thumbnail`, or `banner`. The command removes the Selected Artwork
+publication slot for that item/kind only. It is idempotent for an existing
+item with no current selection and returns `changed: false` in that case.
+Missing items still return `404`, and unsupported kinds return `400`.
+
+Unpublish does not delete Managed Artwork Artifact records, does not remove
+stored artifact bytes, and does not invoke artifact cleanup. The previously
+selected artifact remains visible to Admin gallery/lifecycle diagnostics and
+becomes cleanup-eligible only when no Selected Artwork rows reference it. The
+response returns a redacted summary of the unpublished selection and the
+previous first-party image reference when `changed: true`; it never returns
+`storage_uri`, `managed-artwork://...`, local paths, raw source URLs,
+`source_uri`, `cache_uri`, provider query strings, addon tokens, file contents,
+or content hash values.
+
 Public Clients can discover selected artwork through item detail and item image
 listing responses. Those responses use redacted first-party image references:
 the image `id` is `selected_artworks.id`, and `url` is a relative Taru route
@@ -1298,19 +1463,39 @@ Public Clients can fetch selected artwork bytes with:
 
 ```text
 GET  /images/{image_id}
+GET  /images/{image_id}?width=300
+GET  /images/{image_id}?height=450
+GET  /images/{image_id}?width=300&height=450
 HEAD /images/{image_id}
+HEAD /images/{image_id}?width=300&height=450
 ```
 
 `image_id` is the Selected Artwork public ID, not a Managed Artwork Artifact ID
 or storage locator. The server resolves `managed-artwork://...` only inside the
 application boundary, reads bytes from internal artifact storage, and returns
-image headers such as `Content-Type`, `Content-Length`, and a safe ETag when a
-content hash exists. `HEAD` returns the same presentation headers without a
-body. Public image references and byte-serving responses never include
+image headers such as `Content-Type`, `Content-Length`, and an opaque
+presentation ETag that is not the artifact content hash. `HEAD` returns the
+same presentation headers without a body.
+
+After the Selected Artwork slot is unpublished, the old `image_id` no longer
+resolves. `GET` and `HEAD /images/{old_image_id}` return `404`; Taru does not
+fall back to Managed Artwork Artifact IDs or storage locators.
+
+`width` and `height` request bounded on-demand variants. Either dimension may
+be omitted; when both are present, the server fits the image inside the
+bounding box while preserving aspect ratio. Variant dimensions must be positive
+and within the server artwork image limit. The server never upscales: requests
+larger than the source return the original dimensions. The first variant slice
+derives bytes on demand and does not persist thumbnail files or variant DB
+rows. Variant responses are encoded as presentation image bytes with their own
+opaque ETag. The first on-demand variant encoder returns `image/png` bytes.
+
+Public image references and byte-serving responses never include
 `source_uri`, `cache_uri`, `storage_uri`, `managed-artwork://...`, local paths,
 raw provider URLs, Source Locators, addon token material, or provider query
-strings. Thumbnail generation, durable retry/requeue, ingest cancellation, and
-orphan artifact cleanup remain separate follow-on work.
+strings, or artifact content-hash values. Persisted thumbnail caches, durable
+retry/requeue, ingest cancellation, and orphan artifact cleanup remain separate
+follow-on work.
 
 Administrators can inspect Managed Artwork Artifact lifecycle state with:
 

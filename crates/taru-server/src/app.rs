@@ -30,7 +30,7 @@ mod webhooks;
 
 use addons::AddonAppService;
 use artwork::ManagedArtworkAppService;
-pub(crate) use artwork::ManagedArtworkImageBytes;
+pub(crate) use artwork::{ImageVariantRequest, ManagedArtworkImageBytes};
 use automation::AutomationAppService;
 use catalog::CatalogAppService;
 use jobs::{JobAppService, LibraryScanAppService};
@@ -142,6 +142,11 @@ impl TaruApp {
         let startup_report = ServerStartupWorkflow::new(&config, &store, metadata.clone())
             .run()
             .await?;
+        let artwork_ingest_worker_started = config
+            .artwork
+            .ingest_worker_enabled
+            .then(|| artwork.start_ingest_worker(&runtime))
+            .unwrap_or(false);
 
         Ok(Self {
             inner: Arc::new(TaruAppInner {
@@ -159,7 +164,10 @@ impl TaruApp {
                 nfo,
                 playback,
                 user_playback,
-                startup_report,
+                startup_report: ServerStartupReport {
+                    artwork_ingest_worker_started,
+                    ..startup_report
+                },
                 config,
             }),
         })

@@ -114,10 +114,97 @@ pub struct ManagedArtworkArtifactRecord {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkGalleryCandidateRecord {
+    pub id: ArtworkCandidateId,
+    pub addon_id: AddonId,
+    pub side_effect_id: AddonSideEffectId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub source_kind: ArtworkCandidateSourceKind,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub language: Option<String>,
+    pub status: ArtworkCandidateStatus,
+    pub ingest: Option<ManagedArtworkIngestRecord>,
+    pub artifact_id: Option<ManagedArtworkArtifactId>,
+    pub selected_artwork_count: u32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl ManagedArtworkGalleryCandidateRecord {
+    #[must_use]
+    pub const fn has_stored_artifact(&self) -> bool {
+        self.artifact_id.is_some()
+    }
+
+    #[must_use]
+    pub const fn selected(&self) -> bool {
+        self.selected_artwork_count > 0
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkGalleryArtifactRecord {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub candidate_id: ArtworkCandidateId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+    pub has_content_hash: bool,
+    pub selected_artwork_count: u32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl ManagedArtworkGalleryArtifactRecord {
+    #[must_use]
+    pub const fn selected(&self) -> bool {
+        self.selected_artwork_count > 0
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkGallerySelectedRecord {
+    pub selected_artwork: SelectedArtworkRecord,
+    pub artifact: ManagedArtworkGalleryArtifactRecord,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkGallerySummary {
+    pub candidates: u32,
+    pub artifacts: u32,
+    pub selected: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkGallerySnapshot {
+    pub item_id: MediaItemId,
+    pub summary: ManagedArtworkGallerySummary,
+    pub candidates: Vec<ManagedArtworkGalleryCandidateRecord>,
+    pub artifacts: Vec<ManagedArtworkGalleryArtifactRecord>,
+    pub selected: Vec<ManagedArtworkGallerySelectedRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ManagedArtworkIngestProcessingRecord {
     pub ingest: ManagedArtworkIngestRecord,
     pub artifact: Option<ManagedArtworkArtifactRecord>,
     pub job: Job,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestRequeueRecord {
+    pub ingest: ManagedArtworkIngestRecord,
+    pub job: Job,
+    pub requeued: bool,
+    pub had_failure: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -135,6 +222,15 @@ pub struct SelectedArtworkRecord {
 pub struct SelectedArtworkPublicationRecord {
     pub selected_artwork: SelectedArtworkRecord,
     pub artifact: ManagedArtworkArtifactRecord,
+    pub changed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SelectedArtworkUnpublicationRecord {
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub unpublished: Option<SelectedArtworkRecord>,
+    pub artifact: Option<ManagedArtworkArtifactRecord>,
     pub changed: bool,
 }
 

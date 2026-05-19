@@ -40,7 +40,7 @@
     "crates/taru-api/src/openapi.rs",
     "crates/taru-client/src/lib.rs",
     "crates/taru-core/src/user_playback.rs",
-    "crates/taru-db/migrations/0029_user_playback_states.sql",
+    "crates/taru-db/migrations/0030_user_playback_states.sql",
     "crates/taru-server/src/app/user_playback.rs",
     "crates/taru-server/src/http/user_playback.rs",
     "docs/workstreams/android-device-local-playback-position/",

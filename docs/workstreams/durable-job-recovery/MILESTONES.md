@@ -19,8 +19,9 @@ Exit criteria:
 
 - `JobRepository` exposes a workflow-shaped operation for stale unfinished
   jobs.
-- SQLite marks queued/running jobs failed and leaves succeeded/failed jobs
-  unchanged.
+- SQLite originally marked queued/running jobs failed and left
+  succeeded/failed jobs unchanged. The later ownership-lease lane narrows
+  generic recovery to running jobs and preserves queued jobs.
 - Adapter-level regression test passes.
 
 Status: complete.

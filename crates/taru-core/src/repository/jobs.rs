@@ -2,8 +2,10 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    DomainEventKind, EventId, Job, JobId, JobKind, JobStatus, LibraryId, MediaSourceId, NewJob,
-    NewOutboxEvent, OutboxEventRecord, OutboxEventStatus, Result,
+    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, EventId, FailLeasedJob, Job,
+    JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
+    JobStatus, LeasedJob, LibraryId, MediaSourceId, NewJob, NewOutboxEvent, OutboxEventRecord,
+    OutboxEventStatus, RecoverExpiredJobLeases, RequestJobCancellation, Result, TaruError,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -38,6 +40,40 @@ pub trait JobRepository: Send + Sync {
     async fn get_job(&self, id: JobId) -> Result<Option<Job>>;
 
     async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>>;
+
+    async fn claim_next_job_lease(
+        &self,
+        _request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>> {
+        Err(TaruError::Unsupported("durable job leases"))
+    }
+
+    async fn heartbeat_job_lease(&self, _heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
+        Err(TaruError::Unsupported("durable job leases"))
+    }
+
+    async fn succeed_leased_job(&self, _completion: CompleteLeasedJob) -> Result<Job> {
+        Err(TaruError::Unsupported("durable job leases"))
+    }
+
+    async fn fail_leased_job(&self, _failure: FailLeasedJob) -> Result<Job> {
+        Err(TaruError::Unsupported("durable job leases"))
+    }
+
+    async fn request_job_cancellation(
+        &self,
+        _request: RequestJobCancellation,
+    ) -> Result<JobCancellationRequestRecord> {
+        Err(TaruError::Unsupported("durable job cancellation"))
+    }
+
+    async fn cancel_leased_job(&self, _cancellation: CancelLeasedJob) -> Result<Job> {
+        Err(TaruError::Unsupported("durable job cancellation"))
+    }
+
+    async fn recover_expired_job_leases(&self, _recovery: RecoverExpiredJobLeases) -> Result<u64> {
+        Err(TaruError::Unsupported("durable job leases"))
+    }
 }
 
 #[async_trait]

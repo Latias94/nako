@@ -2,18 +2,20 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
+use serde::Deserialize;
 use taru_api::{
     ADMIN_API_VERSION, API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
     AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
-    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobListItem,
-    AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
-    AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
-    AdminOutboxEventListItem, AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
-    AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
-    AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
-    AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
+    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobCancelRequestResponse,
+    AdminJobListItem, AdminJobListResponse, AdminLibraryConfigDiagnostics,
+    AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
+    AdminMetadataRuntimeConfigDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
+    AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+    AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
+    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
+    AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
     AdminPlaybackHardwareCapabilityEvidence, AdminPlaybackHardwareCapabilityReason,
     AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareSmokeProbe,
     AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackRemoteBudgetDiagnostics,
@@ -25,8 +27,10 @@ use taru_api::{
     AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
-use taru_core::ArtworkCandidateId;
-use taru_core::ManagedArtworkArtifactId;
+use taru_core::{
+    ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
+    MediaItemId, TaruError,
+};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -40,8 +44,8 @@ use super::{
     error::ApiResult,
     query::{
         ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
-        ArtworkArtifactStorageDriftQuery, CatalogGovernanceItemsQuery, JobListQuery,
-        OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
+        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
+        JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
     },
 };
 
@@ -54,6 +58,7 @@ pub(super) fn routes() -> Router<TaruApp> {
         )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
+        .route("/admin/v1/jobs/{job_id}/cancel", post(cancel_admin_job))
         .route(
             "/admin/v1/artwork/candidates/{candidate_id}/accept",
             post(accept_admin_artwork_candidate),
@@ -63,8 +68,24 @@ pub(super) fn routes() -> Router<TaruApp> {
             post(process_next_admin_artwork_ingest),
         )
         .route(
+            "/admin/v1/artwork/ingests/{ingest_id}/requeue",
+            post(requeue_admin_artwork_ingest),
+        )
+        .route(
             "/admin/v1/artwork/artifacts/{artifact_id}/publish",
             post(publish_admin_artwork_artifact),
+        )
+        .route(
+            "/admin/v1/items/{item_id}/artwork",
+            get(get_admin_item_artwork_gallery),
+        )
+        .route(
+            "/admin/v1/items/{item_id}/artwork/{kind}/select",
+            post(select_admin_item_artwork),
+        )
+        .route(
+            "/admin/v1/items/{item_id}/artwork/{kind}/selection",
+            delete(unpublish_admin_item_artwork),
         )
         .route(
             "/admin/v1/artwork/artifacts/lifecycle",
@@ -111,11 +132,57 @@ pub(super) async fn process_next_admin_artwork_ingest(
     Ok(Json(app.artwork().process_next().await?))
 }
 
+pub(super) async fn requeue_admin_artwork_ingest(
+    State(app): State<TaruApp>,
+    Path(ingest_id): Path<ManagedArtworkIngestId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().requeue_ingest(ingest_id).await?))
+}
+
 pub(super) async fn publish_admin_artwork_artifact(
     State(app): State<TaruApp>,
     Path(artifact_id): Path<ManagedArtworkArtifactId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.artwork().publish_artifact(artifact_id).await?))
+}
+
+pub(super) async fn get_admin_item_artwork_gallery(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+    Query(query): Query<ArtworkGalleryQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.artwork()
+            .item_gallery(item_id, query.into_page()?)
+            .await?,
+    ))
+}
+
+pub(super) async fn select_admin_item_artwork(
+    State(app): State<TaruApp>,
+    Path((item_id, kind)): Path<(MediaItemId, String)>,
+    Json(request): Json<SelectAdminItemArtworkRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.artwork()
+            .select_item_artwork(
+                item_id,
+                parse_admin_artwork_kind(&kind)?,
+                request.artifact_id,
+            )
+            .await?,
+    ))
+}
+
+pub(super) async fn unpublish_admin_item_artwork(
+    State(app): State<TaruApp>,
+    Path((item_id, kind)): Path<(MediaItemId, String)>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.artwork()
+            .unpublish_item_artwork(item_id, parse_admin_artwork_kind(&kind)?)
+            .await?,
+    ))
 }
 
 pub(super) async fn get_admin_artwork_artifact_lifecycle(
@@ -128,6 +195,24 @@ pub(super) async fn get_admin_artwork_artifact_lifecycle(
             .artifact_lifecycle_diagnostics(filter, page)
             .await?,
     ))
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SelectAdminItemArtworkRequest {
+    pub(super) artifact_id: ManagedArtworkArtifactId,
+}
+
+fn parse_admin_artwork_kind(value: &str) -> Result<ImageKind, TaruError> {
+    match value {
+        "poster" => Ok(ImageKind::Poster),
+        "backdrop" => Ok(ImageKind::Backdrop),
+        "logo" => Ok(ImageKind::Logo),
+        "thumbnail" => Ok(ImageKind::Thumbnail),
+        "banner" => Ok(ImageKind::Banner),
+        _ => Err(TaruError::InvalidInput {
+            message: format!("unsupported artwork kind path segment: {value}"),
+        }),
+    }
 }
 
 pub(super) async fn get_admin_artwork_artifact_storage_drift(
@@ -221,6 +306,7 @@ pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<Admin
             .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
         metadata_raw_cache_deleted: startup.metadata_raw_cache_deleted,
         metadata_lifecycle_tasks_started: usize_to_u32(startup.metadata_lifecycle_tasks_started),
+        artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
     };
     let status = overview_status(&storage, &metadata, &runtime);
 
@@ -297,6 +383,8 @@ pub(super) async fn get_admin_system_config(
             fetch_max_attempts: config.artwork.fetch_max_attempts,
             fetch_max_bytes: config.artwork.fetch_max_bytes,
             fetch_concurrency: config.artwork.fetch_concurrency,
+            ingest_worker_enabled: config.artwork.ingest_worker_enabled,
+            ingest_worker_idle_ms: config.artwork.ingest_worker_idle_ms,
             fetch_user_agent: config.artwork.fetch_user_agent.clone(),
             has_fetch_proxy: config
                 .artwork
@@ -470,6 +558,17 @@ pub(super) async fn list_admin_jobs(
     }))
 }
 
+pub(super) async fn cancel_admin_job(
+    State(app): State<TaruApp>,
+    Path(job_id): Path<JobId>,
+) -> ApiResult<impl IntoResponse> {
+    let cancellation = app.jobs().request_job_cancellation(job_id).await?;
+
+    Ok(Json(AdminJobCancelRequestResponse::from_record(
+        cancellation,
+    )))
+}
+
 pub(super) async fn list_admin_playback_sessions(
     State(app): State<TaruApp>,
     Query(query): Query<PlaybackSessionListQuery>,
@@ -632,6 +731,7 @@ fn runtime_summary(diagnostics: RuntimeSupervisorDiagnostics) -> AdminOverviewRu
         completed_tasks: diagnostics.completed_tasks,
         failed_tasks: diagnostics.failed_tasks,
         succeeded_jobs: diagnostics.succeeded_jobs,
+        cancelled_jobs: diagnostics.cancelled_jobs,
         failed_jobs: diagnostics.failed_jobs,
         shutdown_requested: diagnostics.shutdown_requested,
     }

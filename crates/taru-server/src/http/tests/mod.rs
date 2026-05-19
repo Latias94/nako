@@ -19,7 +19,7 @@ use taru_api::{
     AddonGrantAssignment, AddonGrantsResponse, AddonRegistrationResponse,
     AddonRegistrationsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
     AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
-    AdminCatalogGovernanceItemListResponse, AdminJobListResponse,
+    AdminCatalogGovernanceItemListResponse, AdminJobCancelRequestResponse, AdminJobListResponse,
     AdminManagedArtworkArtifactCleanupResponse, AdminManagedArtworkArtifactLifecycleResponse,
     AdminManagedArtworkArtifactRemediationPlanResponse,
     AdminManagedArtworkArtifactStorageDriftArtifactIssue,
@@ -27,21 +27,23 @@ use taru_api::{
     AdminManagedArtworkArtifactStorageDriftResponse,
     AdminManagedArtworkArtifactStrayFileCleanupResponse,
     AdminManagedArtworkArtifactStrayFileCleanupStatus,
-    AdminManagedArtworkArtifactStrayFileRemediationAction, AdminOutboxEventListResponse,
-    AdminOverviewResponse, AdminOverviewStatus, AdminPlaybackRuntimeDiagnosticsResponse,
-    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListResponse,
-    AdminServerConfigDiagnosticsResponse, AdminStorageStagingDiagnosticsResponse,
-    AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
-    ClientTranscodeFailureCategory, ClientTranscodeSessionState, EnqueueAutomationJobRequest,
-    EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse,
-    IgnoreIngestionFailureRequest, IngestionFailuresResponse, IssueAddonTokenRequest, JobResponse,
-    LibraryListResponse, LibraryResponse, MetadataMaintenancePlanResponse,
-    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
-    MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
-    PLAYBACK_SESSION_ID_HEADER, ProcessManagedArtworkIngestResponse,
+    AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
+    AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
+    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+    AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
+    AdminStorageStagingDiagnosticsResponse, AutomationArtifactsResponse,
+    AutomationProviderResponse, AutomationProvidersResponse, ClientTranscodeFailureCategory,
+    ClientTranscodeSessionState, EnqueueAutomationJobRequest, EnqueueMetadataMaintenanceRequest,
+    ErrorResponse, HealthResponse, IgnoreIngestionFailureRequest, IngestionFailuresResponse,
+    IssueAddonTokenRequest, JobResponse, LibraryListResponse, LibraryResponse,
+    MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
+    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
+    MetadataRawCleanupResponse, MetadataRawResponsesResponse, PLAYBACK_SESSION_ID_HEADER,
+    ProcessManagedArtworkIngestResponse,
     PublishSelectedArtworkResponse, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-    StorageBackendStatus, SubmitAddonSideEffectRequest, TranscodeSessionResponse,
+    RequeueManagedArtworkIngestResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
+    StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
+    TranscodeSessionResponse, UnpublishSelectedArtworkResponse,
     UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse,
     WebhookEndpointResponse, WebhookEndpointsResponse,
 };
@@ -104,10 +106,18 @@ async fn router_with_media_source(
     file_name: &str,
     content: &[u8],
 ) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+    router_with_media_source_config(file_name, content, |_| {}).await
+}
+
+async fn router_with_media_source_config(
+    file_name: &str,
+    content: &[u8],
+    configure: impl FnOnce(&mut TaruServerConfig),
+) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join(file_name), content).unwrap();
     let library_id = LibraryId::new();
-    let config = TaruServerConfig {
+    let mut config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -136,6 +146,7 @@ async fn router_with_media_source(
             webdav: None,
         }],
     };
+    configure(&mut config);
     let store = SqliteStore::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await

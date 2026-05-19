@@ -7,9 +7,11 @@ use taru_search::SearchIndex;
 use taru_vfs::{StorageBackend, StorageBackupPolicy, StorageWriteRequest};
 
 use super::{
-    NfoBackupPruneFailure, NfoBackupReport, NfoCodec, NfoDocument, NfoExportRequest,
-    NfoExportSourceRequest, NfoExportSourceSummary, NfoExportSummary, NfoFailure, NfoFailureKind,
-    NfoHierarchy, NfoService, workflow::nfo_uri_for_source,
+    NfoBackupPruneFailure, NfoBackupReport, NfoCancellationCheck, NfoCancellationDecision,
+    NfoCodec, NfoDocument, NfoExportRequest, NfoExportSourceRequest, NfoExportSourceSummary,
+    NfoExportSummary, NfoFailure, NfoFailureKind, NfoHierarchy, NfoLibraryRunOutcome, NfoService,
+    NfoSidecarCheckpoint, NfoSidecarOperation, NoopNfoCancellationCheck,
+    workflow::nfo_uri_for_source,
 };
 
 const DEFAULT_NFO_BACKUP_KEEP_LATEST: usize = 5;
@@ -26,6 +28,17 @@ where
     C: NfoCodec,
 {
     pub async fn export_library(&self, request: NfoExportRequest) -> Result<NfoExportSummary> {
+        Ok(self
+            .export_library_with_cancellation(request, &NoopNfoCancellationCheck)
+            .await?
+            .into_summary())
+    }
+
+    pub async fn export_library_with_cancellation(
+        &self,
+        request: NfoExportRequest,
+        cancellation: &dyn NfoCancellationCheck,
+    ) -> Result<NfoLibraryRunOutcome<NfoExportSummary>> {
         ensure_export_policy(request.policy)?;
 
         let sources = self.list_all_sources(request.library_id).await?;
@@ -45,6 +58,20 @@ where
         };
 
         for source in sources {
+            if cancellation
+                .check(NfoSidecarCheckpoint {
+                    operation: NfoSidecarOperation::Export,
+                    library_id: request.library_id,
+                    source_id: source.id,
+                    item_id: source.item_id,
+                })
+                .await?
+                == NfoCancellationDecision::Cancel
+            {
+                finalize_export_summary(&mut summary);
+                return Ok(NfoLibraryRunOutcome::Cancelled(summary));
+            }
+
             match self.export_source(source, request.force).await {
                 NfoExportOutcome::Exported { backup } => {
                     summary.exported_items += 1;
@@ -65,19 +92,8 @@ where
             }
         }
 
-        summary
-            .failures
-            .sort_by(|left, right| left.locator.cmp(&right.locator));
-        summary
-            .backups
-            .sort_by(|left, right| left.locator.cmp(&right.locator));
-        for backup in &summary.backups {
-            summary.prune_failures.extend(backup.prune_failures.clone());
-        }
-        summary
-            .prune_failures
-            .sort_by(|left, right| left.locator.cmp(&right.locator));
-        Ok(summary)
+        finalize_export_summary(&mut summary);
+        Ok(NfoLibraryRunOutcome::Completed(summary))
     }
 
     pub async fn export_media_source(
@@ -233,6 +249,21 @@ where
             Err(err) => export_failure(&source, classify_write_failure(&err), err),
         }
     }
+}
+
+fn finalize_export_summary(summary: &mut NfoExportSummary) {
+    summary
+        .failures
+        .sort_by(|left, right| left.locator.cmp(&right.locator));
+    summary
+        .backups
+        .sort_by(|left, right| left.locator.cmp(&right.locator));
+    for backup in &summary.backups {
+        summary.prune_failures.extend(backup.prune_failures.clone());
+    }
+    summary
+        .prune_failures
+        .sort_by(|left, right| left.locator.cmp(&right.locator));
 }
 
 enum NfoExportOutcome {

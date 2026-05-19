@@ -548,10 +548,23 @@ impl TaruClient {
         &self,
         image_id: impl AsRef<str>,
     ) -> Result<ClientRequest, TaruClientError> {
+        self.image_variant_request(image_id, None)
+    }
+
+    /// Build a selected artwork image byte request for an optional bounded variant.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn image_variant_request(
+        &self,
+        image_id: impl AsRef<str>,
+        variant: Option<ImageVariantQuery>,
+    ) -> Result<ClientRequest, TaruClientError> {
         self.build_streaming_request(
             Method::GET,
             &format!("/images/{}", encode_path_segment(image_id.as_ref())),
-            Option::<&NoQuery>::None,
+            variant.as_ref(),
             None,
         )
     }
@@ -565,10 +578,23 @@ impl TaruClient {
         &self,
         image_id: impl AsRef<str>,
     ) -> Result<ClientRequest, TaruClientError> {
+        self.head_image_variant_request(image_id, None)
+    }
+
+    /// Build a selected artwork image variant header preflight request.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn head_image_variant_request(
+        &self,
+        image_id: impl AsRef<str>,
+        variant: Option<ImageVariantQuery>,
+    ) -> Result<ClientRequest, TaruClientError> {
         self.build_streaming_request(
             Method::HEAD,
             &format!("/images/{}", encode_path_segment(image_id.as_ref())),
-            Option::<&NoQuery>::None,
+            variant.as_ref(),
             None,
         )
     }
@@ -905,6 +931,23 @@ impl QueryParams for PlaybackCapabilitiesQuery<'_> {
         }
         if let Some(audio_codec) = self.audio_codec {
             pairs.push(("audio_codec".to_owned(), audio_codec.to_owned()));
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ImageVariantQuery {
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
+
+impl QueryParams for ImageVariantQuery {
+    fn append_query(&self, pairs: &mut Vec<(String, String)>) {
+        if let Some(width) = self.width {
+            pairs.push(("width".to_owned(), width.to_string()));
+        }
+        if let Some(height) = self.height {
+            pairs.push(("height".to_owned(), height.to_string()));
         }
     }
 }
@@ -1442,6 +1485,24 @@ mod tests {
         let head = client.head_stream_source_request("source 1", None).unwrap();
         let image = client.image_request("image 1").unwrap();
         let image_head = client.head_image_request("image 1").unwrap();
+        let image_variant = client
+            .image_variant_request(
+                "image 1",
+                Some(ImageVariantQuery {
+                    width: Some(300),
+                    height: Some(450),
+                }),
+            )
+            .unwrap();
+        let image_variant_head = client
+            .head_image_variant_request(
+                "image 1",
+                Some(ImageVariantQuery {
+                    width: Some(300),
+                    height: None,
+                }),
+            )
+            .unwrap();
         let remux = client
             .remux_stream_source_request(
                 "source 1",
@@ -1490,6 +1551,8 @@ mod tests {
         assert_eq!(head.method, Method::HEAD);
         assert_eq!(image.method, Method::GET);
         assert_eq!(image_head.method, Method::HEAD);
+        assert_eq!(image_variant.method, Method::GET);
+        assert_eq!(image_variant_head.method, Method::HEAD);
         assert_eq!(remux.method, Method::GET);
         assert_eq!(remux_head.method, Method::HEAD);
         assert_eq!(playlist.method, Method::GET);
@@ -1509,6 +1572,14 @@ mod tests {
         assert_eq!(
             image_head.url.as_str(),
             "http://localhost:3000/api/images/image%201"
+        );
+        assert_eq!(
+            image_variant.url.as_str(),
+            "http://localhost:3000/api/images/image%201?width=300&height=450"
+        );
+        assert_eq!(
+            image_variant_head.url.as_str(),
+            "http://localhost:3000/api/images/image%201?width=300"
         );
         assert_eq!(
             remux.url.as_str(),
@@ -1532,6 +1603,8 @@ mod tests {
             &head,
             &image,
             &image_head,
+            &image_variant,
+            &image_variant_head,
             &remux,
             &remux_head,
             &playlist,

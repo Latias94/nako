@@ -26,9 +26,21 @@ options, not process-local handles or paths that bypass Taru's VFS model.
 Job lifecycle states:
 
 - `queued`: accepted and waiting for a runner
-- `running`: currently owned by a runner
+- `running`: currently owned by a runner lease
 - `succeeded`: completed successfully with optional `summary_json`
 - `failed`: completed unsuccessfully with a safe error message
+- `cancelled`: terminal cancellation acknowledged by the owning runner or by a
+  queued-job cancellation path with no side effects in flight
+
+Ownership and leases:
+
+- running jobs must be fenced by a run token, not only by job ID
+- worker identity is diagnostic; the run token is the authority for heartbeat,
+  completion, failure, and cancellation acknowledgement
+- leased jobs record heartbeat and lease expiry timestamps
+- stale running jobs are recovered by an explicit lease-aware policy
+- queued jobs must not be failed by startup recovery merely because no process
+  was alive at restart
 
 Retry policy:
 
@@ -44,8 +56,11 @@ Cancellation policy:
 - cancellation is a requested state transition, not an unsafe thread kill
 - cancellable jobs must define a checkpoint or orchestration boundary
 - external processes such as FFmpeg must be stopped by their owning runner
-- Phase 2.1 documents the policy but does not implement persisted cancellation
-  state yet
+- cancellation request and cancellation acknowledgement are distinct; running
+  jobs become terminal `cancelled` only after the current run token observes
+  and persists acknowledgement
+- queued jobs may become terminal `cancelled` immediately when no runner owns
+  them
 
 Idempotency and failure isolation:
 

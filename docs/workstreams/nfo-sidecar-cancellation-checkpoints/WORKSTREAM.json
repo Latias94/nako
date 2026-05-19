@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "slug": "nfo-sidecar-cancellation-checkpoints",
+  "title": "NFO Sidecar Cancellation Checkpoints",
+  "status": "complete",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "NFO import/export durable jobs can observe cancellation only before and after the whole NfoService call, not before each sidecar source unit.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/nfo-sidecar-cancellation-checkpoints/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/nfo-sidecar-cancellation-checkpoints/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/nfo-sidecar-cancellation-checkpoints/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/nfo-sidecar-cancellation-checkpoints/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/nfo-sidecar-cancellation-checkpoints/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/nfo-sidecar-cancellation-checkpoints/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo check -j 2 -p taru-nfo --tests",
+    "cargo nextest run -j 2 -p taru-nfo import --no-fail-fast",
+    "cargo nextest run -j 2 -p taru-nfo export --no-fail-fast",
+    "cargo nextest run -j 2 -p taru-server nfo --no-fail-fast",
+    "cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast",
+    "cargo check -j 2 -p taru-core -p taru-db -p taru-nfo -p taru-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/nfo-sidecar-cancellation-checkpoints/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-cancellation-checkpoints/TODO.md",
+    "crates/taru-nfo/src/import.rs",
+    "crates/taru-nfo/src/export.rs",
+    "crates/taru-server/src/app/nfo.rs",
+    "docs/api/HTTP_API.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md"
+  ],
+  "current_task": {
+    "id": "NSCC-060",
+    "title": "Closeout",
+    "status": "done",
+    "owner": "codex"
+  },
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "Lane closed. Split retry/backoff, lease policy, child-process cancellation, or unrelated NFO XML/storage behavior into separate lanes."
+  }
+}

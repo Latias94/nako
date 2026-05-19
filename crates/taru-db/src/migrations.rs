@@ -136,8 +136,13 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
     ),
     (
         29,
+        "job ownership leases",
+        include_str!("../migrations/0029_job_ownership_leases.sql"),
+    ),
+    (
+        30,
         "user playback states",
-        include_str!("../migrations/0029_user_playback_states.sql"),
+        include_str!("../migrations/0030_user_playback_states.sql"),
     ),
 ];
 

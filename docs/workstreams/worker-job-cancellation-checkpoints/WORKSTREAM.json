@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "slug": "worker-job-cancellation-checkpoints",
+  "title": "Worker Job Cancellation Checkpoints",
+  "status": "completed",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Running durable job cancellation is persisted as Admin intent, but typed workers cannot yet observe and acknowledge it at safe checkpoints.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/worker-job-cancellation-checkpoints/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/worker-job-cancellation-checkpoints/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/worker-job-cancellation-checkpoints/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/worker-job-cancellation-checkpoints/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/worker-job-cancellation-checkpoints/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-server job_runtime --no-fail-fast",
+    "cargo nextest run -p taru-server job_cancel --no-fail-fast",
+    "cargo nextest run -p taru-server metadata --no-fail-fast",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/worker-job-cancellation-checkpoints/DESIGN.md",
+    "docs/workstreams/worker-job-cancellation-checkpoints/TODO.md",
+    "crates/taru-server/src/app/job_runtime.rs",
+    "crates/taru-server/src/app/metadata.rs",
+    "docs/api/HTTP_API.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md"
+  ],
+  "current_task": "closed",
+  "continue_policy": {
+    "default_action": "open_follow_on",
+    "notes": "Lane closed. Open focused follow-ons for per-sidecar NFO checkpoints, webhook/addon/automation dispatch checkpoints, retry/backoff, expired-lease requeue or stealing, and child-process cancellation instead of expanding this lane."
+  }
+}

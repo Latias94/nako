@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "slug": "admin-web-console",
-  "title": "Admin Web Console Planning And First Admin API Seam",
+  "title": "Admin Web Console",
   "status": "active",
-  "updated": "2026-05-17",
-  "scope_kind": "planning_and_api_slice",
-  "problem": "Taru needs a coherent web administration console product shape and the first safe Admin API v1 seam before choosing a front-end stack or implementing UI code.",
+  "updated": "2026-05-19",
+  "scope_kind": "frontend_and_admin_api_slice",
+  "problem": "Taru needs a coherent web administration console with a safe Admin API boundary, explicit live/mock data source split, and no leakage of secrets, local paths, or Public Client SDK concerns.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -37,11 +37,10 @@
     }
   ],
   "gates": [
-    "cargo fmt --all -- --check",
-    "cargo check -p taru-api --tests",
-    "cargo nextest run -p taru-api --no-fail-fast",
-    "cargo check -p taru-server --tests",
-    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "Playwright CLI smoke at http://127.0.0.1:5174/",
     "git diff --check"
   ],
   "evidence": [
@@ -49,7 +48,12 @@
     "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
     "docs/workstreams/admin-web-console/HANDOFF.md",
-    "docs/workstreams/README.md"
+    "docs/workstreams/README.md",
+    "apps/admin-web",
+    "apps/admin-web/src/adminApi/client.ts",
+    "apps/admin-web/src/adminApi/dataSource.ts",
+    "apps/admin-web/src/adminApi/mockData.ts",
+    "apps/admin-web/README.md"
   ],
   "adr_refs": [
     "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
@@ -59,6 +63,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AWC-040/AWC-050 / M53 are complete. AWC-060 is blocked until the user accepts a front-end stack and workspace location."
+    "notes": "AWC-070 is complete. Continue by deciding generated Admin API TypeScript contract versus hand-written DTO boundary before adding route filters/detail pages."
   }
 }

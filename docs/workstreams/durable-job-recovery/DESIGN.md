@@ -1,7 +1,15 @@
 # Durable Job Recovery Design
 
-Status: Completed
+Status: Superseded By `durable-job-ownership-leases`
 Last updated: 2026-05-17
+
+## 2026-05-19 Supersession Note
+
+`docs/workstreams/durable-job-ownership-leases/` revises the generic startup
+recovery policy. Generic startup recovery now preserves queued jobs and fails
+only running jobs that have no typed recovery path. Queued rows represent
+accepted work waiting for a dispatcher or worker; they are not proof that a
+previous process abandoned side effects.
 
 ## Problem
 
@@ -17,8 +25,8 @@ maintenance, NFO import/export, or future job can therefore remain `queued` or
 
 ## Target State
 
-- Startup marks unfinished durable jobs as failed with a clear stale-startup
-  error.
+- Startup marks stale running durable jobs as failed with a clear
+  stale-startup error.
 - Startup reports include the number of recovered jobs.
 - Existing terminal jobs remain unchanged.
 - The behavior is covered at the SQLite adapter and server startup workflow
@@ -29,7 +37,8 @@ maintenance, NFO import/export, or future job can therefore remain `queued` or
 ## In Scope
 
 - `JobRepository` gains an adapter operation for stale unfinished jobs.
-- `SqliteStore` implements the operation against queued/running jobs.
+- `SqliteStore` originally implemented the operation against queued/running
+  jobs. The ownership-lease follow-on narrows generic recovery to running jobs.
 - `ServerStartupWorkflow` calls the operation after migrations.
 - Startup tests prove stale jobs do not remain unfinished after restart.
 - The obsolete `rebuild_search_projection` public helper is removed if no
@@ -48,7 +57,7 @@ maintenance, NFO import/export, or future job can therefore remain `queued` or
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | Queued and running jobs are not automatically resumed after restart. | High | Current app services spawn jobs in-process when enqueue is called. | If a future dispatcher resumes jobs, recovery must become lease-aware. |
-| Failing unfinished jobs on startup is safer than leaving them unfinished. | High | Existing job status model has only queued/running/succeeded/failed. | A future retry model may need a different terminal status. |
+| Failing running jobs on startup is safer than leaving stale owners active. | High | Running means a worker claimed side effects; queued does not. | Lease-aware recovery can become more precise after every worker uses run tokens. |
 | Startup recovery is more reliable than shutdown-time persistence. | High | `Drop` and `AbortHandle::abort` cannot await SQLite writes. | If the server gains async graceful shutdown, this can be complemented later. |
 
 ## Architecture Direction
@@ -67,7 +76,7 @@ services.
 
 This lane can close when:
 
-- unfinished jobs are failed during startup,
+- stale running jobs are failed during startup,
 - recovery is visible in `ServerStartupReport`,
 - SQLite and server startup tests pass,
 - the old unused search projection helper is removed or explicitly retained,

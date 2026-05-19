@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use taru_core::{
-    JobRepository, Result, TaruError, TransactionManager, TranscodeFailureCategory,
-    TranscodeSessionRepository,
+    JobRepository, ManagedArtworkRepository, Result, TaruError, TransactionManager,
+    TranscodeFailureCategory, TranscodeSessionRepository,
 };
 use taru_db::SqliteStore;
 use taru_vfs::StorageUri;
@@ -27,6 +27,7 @@ pub(crate) struct ServerStartupReport {
     pub staging_cleanup: Option<ServerStartupStagingCleanupReport>,
     pub metadata_raw_cache_deleted: u64,
     pub metadata_lifecycle_tasks_started: usize,
+    pub artwork_ingest_worker_started: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -77,6 +78,7 @@ impl<'a> ServerStartupWorkflow<'a> {
             staging_cleanup,
             metadata_raw_cache_deleted,
             metadata_lifecycle_tasks_started,
+            artwork_ingest_worker_started: false,
         })
     }
 
@@ -99,10 +101,32 @@ impl<'a> ServerStartupWorkflow<'a> {
     }
 
     async fn recover_unfinished_jobs(&self) -> Result<u64> {
-        let recovered_jobs = self
+        let recovered_managed_artwork = self
+            .store
+            .fail_unfinished_managed_artwork_ingests(
+                "startup_recovery".to_owned(),
+                "managed artwork ingest was unfinished during server startup".to_owned(),
+                Some(
+                    serde_json::json!({
+                        "status": "failed",
+                        "failure_code": "startup_recovery"
+                    })
+                    .to_string(),
+                ),
+            )
+            .await?;
+        if recovered_managed_artwork > 0 {
+            warn!(
+                recovered_managed_artwork,
+                "marked unfinished managed artwork ingests failed during startup"
+            );
+        }
+
+        let recovered_other_jobs = self
             .store
             .fail_unfinished_jobs("job was unfinished during server startup".to_owned())
             .await?;
+        let recovered_jobs = recovered_managed_artwork + recovered_other_jobs;
         if recovered_jobs > 0 {
             warn!(
                 recovered_jobs,

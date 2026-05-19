@@ -1,7 +1,7 @@
 # Admin Web Console Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 
 ## Planning Gates
 
@@ -70,6 +70,20 @@ implementation should provide:
 - visual checks for desktop and mobile widths;
 - redaction checks for secrets/tokens/local paths in mock fixtures and UI.
 
+AWC-060 frontend commands:
+
+```bash
+cd apps/admin-web
+npm install
+npm run check
+npm run test
+npm run build
+npm run dev -- --host 127.0.0.1 --port 5174
+npx --no-install playwright-cli open http://127.0.0.1:5174/
+npx --no-install playwright-cli resize 1440 1000
+npx --no-install playwright-cli resize 390 844
+```
+
 ## Evidence Anchors
 
 - `docs/workstreams/admin-web-console/DESIGN.md`
@@ -77,7 +91,11 @@ implementation should provide:
 - `docs/adr/0027-admin-api-boundary-for-web-console.md`
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
 - v0 prompt captured in `HANDOFF.md`
-- future web app scaffold and verification notes
+- `apps/admin-web`
+- `apps/admin-web/src/adminApi/client.ts`
+- `apps/admin-web/src/adminApi/dataSource.ts`
+- `apps/admin-web/src/adminApi/mockData.ts`
+- `apps/admin-web/README.md`
 
 ## Evidence Log
 
@@ -102,3 +120,24 @@ implementation should provide:
 - 2026-05-17: AWC-040/AWC-050 completed for M53. `V0_CONTEXT.md` records the
   first prototype data-source split, and `HANDOFF.md` captures a concise
   v0.dev prompt that keeps the prototype framework-neutral and admin-focused.
+- 2026-05-19: AWC-060 completed. The real admin web app scaffold now lives in
+  `apps/admin-web` using Vite, React, and TypeScript. The first live boundary
+  is `GET /admin/v1/overview` through `src/adminApi/client.ts`; remaining first
+  prototype data is centralized as mock/planned data under `src/adminApi`.
+  Validation passed: `npm install`, `npm run check`, `npm run test` with 5
+  tests, `npm run build`, Playwright CLI smoke at `http://127.0.0.1:5174/`,
+  desktop viewport 1440x1000 with no horizontal overflow, mobile viewport
+  390x844 with no horizontal overflow, and browser console with no errors after
+  adding the app favicon. The app README records that build-time Vite
+  environment variables must not contain admin tokens or secrets.
+- 2026-05-19: AWC-070 completed. `apps/admin-web/src/adminApi/client.ts` now
+  has typed methods for `GET /admin/v1/catalog/governance/items`,
+  `/events`, `/jobs`, `/playback/sessions`, `/playback/runtime`,
+  `/storage/staging`, and `/system/config`. `dataSource.ts` composes those
+  read models with section-level live/mock fallback instead of a whole-page
+  fallback. The UI surfaces Catalog Governance, Automation Events, playback
+  runtime/session data, storage staging rows, and system config summaries with
+  source labels and a fallback notice. Validation passed: `npm run check`,
+  `npm run test` with 9 tests, `npm run build`, `git diff --check`, and
+  Playwright CLI smoke at desktop 1440x1000 and mobile 390x844 with no
+  horizontal overflow and no browser console errors.

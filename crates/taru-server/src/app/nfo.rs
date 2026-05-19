@@ -8,15 +8,21 @@ use taru_core::{
 };
 use taru_db::SqliteStore;
 use taru_nfo::{
-    MovieNfoCodec, NfoExportRequest, NfoExportSummary, NfoImportRequest, NfoImportSummary,
-    NfoJobInput, NfoService,
+    MovieNfoCodec, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
+    NfoExportSummary, NfoImportRequest, NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome,
+    NfoService, NfoSidecarCheckpoint,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
 
 use super::{
-    job_runtime::DurableJobRuntime, runtime::RuntimeSupervisor, storage::StorageBackendRegistry,
+    job_runtime::{
+        DurableJobContext, DurableJobOperationError, DurableJobOperationResult,
+        DurableJobRunOutcome, DurableJobRuntime,
+    },
+    runtime::RuntimeSupervisor,
+    storage::StorageBackendRegistry,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -29,6 +35,18 @@ pub struct NfoImportCommandOutput {
 pub struct NfoExportCommandOutput {
     pub job: Job,
     pub export: NfoExportSummary,
+}
+
+#[derive(Clone, Debug, Serialize)]
+enum NfoImportExecution {
+    Completed(NfoImportCommandOutput),
+    Cancelled(Job),
+}
+
+#[derive(Clone, Debug, Serialize)]
+enum NfoExportExecution {
+    Completed(NfoExportCommandOutput),
+    Cancelled(Job),
 }
 
 #[derive(Clone, Debug)]
@@ -107,7 +125,7 @@ impl NfoAppService {
         library_id: LibraryId,
     ) -> Result<NfoImportCommandOutput> {
         let job = self.create_nfo_import_job(library_id).await?;
-        self.execute_nfo_import_job(job.id, library_id).await
+        self.execute_nfo_import_command(job.id, library_id).await
     }
 
     pub(crate) async fn export_library_nfo(
@@ -115,7 +133,7 @@ impl NfoAppService {
         library_id: LibraryId,
     ) -> Result<NfoExportCommandOutput> {
         let job = self.create_nfo_export_job(library_id).await?;
-        self.execute_nfo_export_job(job.id, library_id).await
+        self.execute_nfo_export_command(job.id, library_id).await
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
@@ -165,34 +183,58 @@ impl NfoAppService {
     }
 
     async fn finish_nfo_import_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
-        let output = self.execute_nfo_import_job(job_id, library_id).await?;
-        info!(
-            job_id = %output.job.id,
-            library_id = %library_id,
-            imported_items = output.import.imported_items,
-            status = ?output.job.status,
-            "NFO import job completed"
-        );
-        Ok(output.job)
+        match self.execute_nfo_import_job(job_id, library_id).await? {
+            NfoImportExecution::Completed(output) => {
+                info!(
+                    job_id = %output.job.id,
+                    library_id = %library_id,
+                    imported_items = output.import.imported_items,
+                    status = ?output.job.status,
+                    "NFO import job completed"
+                );
+                Ok(output.job)
+            }
+            NfoImportExecution::Cancelled(job) => {
+                info!(
+                    job_id = %job.id,
+                    library_id = %library_id,
+                    status = ?job.status,
+                    "NFO import job cancelled"
+                );
+                Ok(job)
+            }
+        }
     }
 
     async fn finish_nfo_export_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
-        let output = self.execute_nfo_export_job(job_id, library_id).await?;
-        info!(
-            job_id = %output.job.id,
-            library_id = %library_id,
-            exported_items = output.export.exported_items,
-            status = ?output.job.status,
-            "NFO export job completed"
-        );
-        Ok(output.job)
+        match self.execute_nfo_export_job(job_id, library_id).await? {
+            NfoExportExecution::Completed(output) => {
+                info!(
+                    job_id = %output.job.id,
+                    library_id = %library_id,
+                    exported_items = output.export.exported_items,
+                    status = ?output.job.status,
+                    "NFO export job completed"
+                );
+                Ok(output.job)
+            }
+            NfoExportExecution::Cancelled(job) => {
+                info!(
+                    job_id = %job.id,
+                    library_id = %library_id,
+                    status = ?job.status,
+                    "NFO export job cancelled"
+                );
+                Ok(job)
+            }
+        }
     }
 
     async fn execute_nfo_import_job(
         &self,
         job_id: JobId,
         library_id: LibraryId,
-    ) -> Result<NfoImportCommandOutput> {
+    ) -> Result<NfoImportExecution> {
         let permit =
             self.permits
                 .clone()
@@ -205,28 +247,34 @@ impl NfoAppService {
 
         let runtime = DurableJobRuntime::new(self.store.clone());
         let run = runtime
-            .run_job(
+            .run_job_with_context(
                 job_id,
                 "NFO import job",
-                || async { self.run_nfo_import(job_id, library_id).await },
+                |context| async { self.run_nfo_import(job_id, library_id, context).await },
                 |import| DurableJobRuntime::serialize_summary(import, "NFO import job summary"),
             )
             .await?;
-        let import = run.output;
-        self.record_nfo_imported_event(job_id, library_id, &import)
-            .await;
 
-        Ok(NfoImportCommandOutput {
-            job: run.job,
-            import,
-        })
+        match run {
+            DurableJobRunOutcome::Completed(run) => {
+                let import = run.output;
+                self.record_nfo_imported_event(job_id, library_id, &import)
+                    .await;
+
+                Ok(NfoImportExecution::Completed(NfoImportCommandOutput {
+                    job: run.job,
+                    import,
+                }))
+            }
+            DurableJobRunOutcome::Cancelled(job) => Ok(NfoImportExecution::Cancelled(job)),
+        }
     }
 
     async fn execute_nfo_export_job(
         &self,
         job_id: JobId,
         library_id: LibraryId,
-    ) -> Result<NfoExportCommandOutput> {
+    ) -> Result<NfoExportExecution> {
         let permit =
             self.permits
                 .clone()
@@ -239,21 +287,53 @@ impl NfoAppService {
 
         let runtime = DurableJobRuntime::new(self.store.clone());
         let run = runtime
-            .run_job(
+            .run_job_with_context(
                 job_id,
                 "NFO export job",
-                || async { self.run_nfo_export(job_id, library_id).await },
+                |context| async { self.run_nfo_export(job_id, library_id, context).await },
                 |export| DurableJobRuntime::serialize_summary(export, "NFO export job summary"),
             )
             .await?;
-        let export = run.output;
-        self.record_nfo_exported_event(job_id, library_id, &export)
-            .await;
 
-        Ok(NfoExportCommandOutput {
-            job: run.job,
-            export,
-        })
+        match run {
+            DurableJobRunOutcome::Completed(run) => {
+                let export = run.output;
+                self.record_nfo_exported_event(job_id, library_id, &export)
+                    .await;
+
+                Ok(NfoExportExecution::Completed(NfoExportCommandOutput {
+                    job: run.job,
+                    export,
+                }))
+            }
+            DurableJobRunOutcome::Cancelled(job) => Ok(NfoExportExecution::Cancelled(job)),
+        }
+    }
+
+    async fn execute_nfo_import_command(
+        &self,
+        job_id: JobId,
+        library_id: LibraryId,
+    ) -> Result<NfoImportCommandOutput> {
+        match self.execute_nfo_import_job(job_id, library_id).await? {
+            NfoImportExecution::Completed(output) => Ok(output),
+            NfoImportExecution::Cancelled(job) => Err(TaruError::Conflict {
+                message: format!("NFO import job {} was cancelled", job.id),
+            }),
+        }
+    }
+
+    async fn execute_nfo_export_command(
+        &self,
+        job_id: JobId,
+        library_id: LibraryId,
+    ) -> Result<NfoExportCommandOutput> {
+        match self.execute_nfo_export_job(job_id, library_id).await? {
+            NfoExportExecution::Completed(output) => Ok(output),
+            NfoExportExecution::Cancelled(job) => Err(TaruError::Conflict {
+                message: format!("NFO export job {} was cancelled", job.id),
+            }),
+        }
     }
 
     async fn record_nfo_imported_event(
@@ -317,7 +397,8 @@ impl NfoAppService {
         &self,
         job_id: JobId,
         library_id: LibraryId,
-    ) -> Result<NfoImportSummary> {
+        context: DurableJobContext,
+    ) -> DurableJobOperationResult<NfoImportSummary> {
         let library = self.library_for_nfo(library_id).await?;
         info!(
             job_id = %job_id,
@@ -331,22 +412,39 @@ impl NfoAppService {
             .backend_for_library_root(&library)
             .await?;
         let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let cancellation = DurableNfoCancellationCheck {
+            context: context.clone(),
+        };
 
-        service
-            .import_library(NfoImportRequest {
-                job_id,
-                library_id,
-                policy: library.options.metadata_profile.local_metadata_policy,
-                force: false,
-            })
-            .await
+        context.check_cancelled().await?;
+        let outcome = service
+            .import_library_with_cancellation(
+                NfoImportRequest {
+                    job_id,
+                    library_id,
+                    policy: library.options.metadata_profile.local_metadata_policy,
+                    force: false,
+                },
+                &cancellation,
+            )
+            .await?;
+        let summary = match outcome {
+            NfoLibraryRunOutcome::Completed(summary) => summary,
+            NfoLibraryRunOutcome::Cancelled(_summary) => {
+                return Err(DurableJobOperationError::Cancelled);
+            }
+        };
+        context.check_cancelled().await?;
+
+        Ok(summary)
     }
 
     async fn run_nfo_export(
         &self,
         job_id: JobId,
         library_id: LibraryId,
-    ) -> Result<NfoExportSummary> {
+        context: DurableJobContext,
+    ) -> DurableJobOperationResult<NfoExportSummary> {
         let library = self.library_for_nfo(library_id).await?;
         info!(
             job_id = %job_id,
@@ -361,15 +459,31 @@ impl NfoAppService {
             .await?;
         ensure_nfo_export_writable(backend.as_ref(), &library).await?;
         let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let cancellation = DurableNfoCancellationCheck {
+            context: context.clone(),
+        };
 
-        service
-            .export_library(NfoExportRequest {
-                job_id,
-                library_id,
-                policy: library.options.metadata_profile.local_metadata_policy,
-                force: false,
-            })
-            .await
+        context.check_cancelled().await?;
+        let outcome = service
+            .export_library_with_cancellation(
+                NfoExportRequest {
+                    job_id,
+                    library_id,
+                    policy: library.options.metadata_profile.local_metadata_policy,
+                    force: false,
+                },
+                &cancellation,
+            )
+            .await?;
+        let summary = match outcome {
+            NfoLibraryRunOutcome::Completed(summary) => summary,
+            NfoLibraryRunOutcome::Cancelled(_summary) => {
+                return Err(DurableJobOperationError::Cancelled);
+            }
+        };
+        context.check_cancelled().await?;
+
+        Ok(summary)
     }
 
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
@@ -417,5 +531,24 @@ pub(crate) async fn ensure_nfo_export_writable(
         Err(TaruError::Unsupported(
             "NFO export requires a writable storage backend",
         ))
+    }
+}
+
+#[derive(Clone, Debug)]
+struct DurableNfoCancellationCheck {
+    context: DurableJobContext,
+}
+
+#[async_trait::async_trait]
+impl NfoCancellationCheck for DurableNfoCancellationCheck {
+    async fn check(
+        &self,
+        _checkpoint: NfoSidecarCheckpoint,
+    ) -> taru_core::Result<NfoCancellationDecision> {
+        match self.context.check_cancelled().await {
+            Ok(()) => Ok(NfoCancellationDecision::Continue),
+            Err(DurableJobOperationError::Cancelled) => Ok(NfoCancellationDecision::Cancel),
+            Err(DurableJobOperationError::Failed(err)) => Err(err),
+        }
     }
 }

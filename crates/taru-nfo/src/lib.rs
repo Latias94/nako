@@ -311,6 +311,90 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nfo_service_import_can_cancel_before_next_sidecar_without_failure() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("first.mkv"), b"media").unwrap();
+        fs::write(temp.path().join("Movies").join("second.mkv"), b"media").unwrap();
+        fs::write(
+            temp.path().join("Movies").join("first.nfo"),
+            r#"<movie><title>First Imported</title></movie>"#,
+        )
+        .unwrap();
+        fs::write(
+            temp.path().join("Movies").join("second.nfo"),
+            r#"<movie><title>Second Imported</title></movie>"#,
+        )
+        .unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let first = seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/first.mkv",
+            CanonicalMetadata {
+                title: "First Original".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let second = seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/second.mkv",
+            CanonicalMetadata {
+                title: "Second Original".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+        let cancellation = CancelAfterFirstSidecar::default();
+
+        let outcome = service
+            .import_library_with_cancellation(
+                NfoImportRequest {
+                    job_id: JobId::new(),
+                    library_id,
+                    policy: LocalMetadataPolicy::LocalFirst,
+                    force: false,
+                },
+                &cancellation,
+            )
+            .await
+            .unwrap();
+
+        let NfoLibraryRunOutcome::Cancelled(summary) = outcome else {
+            panic!("NFO import should report a cancelled outcome");
+        };
+        let first_loaded = store.get_media_item(first.id).await.unwrap().unwrap();
+        let second_loaded = store.get_media_item(second.id).await.unwrap().unwrap();
+        let changed = [&first_loaded, &second_loaded]
+            .into_iter()
+            .filter(|item| item.metadata.title.ends_with("Imported"))
+            .count();
+        let checkpoints = cancellation.checkpoints();
+
+        assert_eq!(summary.scanned_sources, 2);
+        assert_eq!(summary.imported_items, 1);
+        assert_eq!(summary.failed_items, 0);
+        assert_eq!(changed, 1);
+        assert_eq!(checkpoints.len(), 2);
+        assert!(
+            checkpoints
+                .iter()
+                .all(|checkpoint| checkpoint.operation == NfoSidecarOperation::Import)
+        );
+        assert!(
+            checkpoints
+                .iter()
+                .all(|checkpoint| checkpoint.library_id == library_id)
+        );
+    }
+
+    #[tokio::test]
     async fn nfo_service_remote_first_import_only_fills_missing_fields_without_locks() {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp.path().join("Movies")).unwrap();
@@ -643,6 +727,84 @@ mod tests {
         assert_eq!(summary.exported_items, 1);
         assert!(xml.contains("<title>Exported Title</title>"));
         assert!(xml.contains("<genre>Action</genre>"));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_export_can_cancel_before_next_sidecar_without_writing_it() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("first.mkv"), b"media").unwrap();
+        fs::write(temp.path().join("Movies").join("second.mkv"), b"media").unwrap();
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/first.mkv",
+            CanonicalMetadata {
+                title: "First Exported".to_owned(),
+                overview: Some("First overview".to_owned()),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/second.mkv",
+            CanonicalMetadata {
+                title: "Second Exported".to_owned(),
+                overview: Some("Second overview".to_owned()),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+        let cancellation = CancelAfterFirstSidecar::default();
+
+        let outcome = service
+            .export_library_with_cancellation(
+                NfoExportRequest {
+                    job_id: JobId::new(),
+                    library_id,
+                    policy: LocalMetadataPolicy::WriteSidecar,
+                    force: false,
+                },
+                &cancellation,
+            )
+            .await
+            .unwrap();
+
+        let NfoLibraryRunOutcome::Cancelled(summary) = outcome else {
+            panic!("NFO export should report a cancelled outcome");
+        };
+        let first_exists = temp.path().join("Movies").join("first.nfo").exists();
+        let second_exists = temp.path().join("Movies").join("second.nfo").exists();
+        let checkpoints = cancellation.checkpoints();
+
+        assert_eq!(summary.scanned_sources, 2);
+        assert_eq!(summary.exported_items, 1);
+        assert_eq!(summary.failed_items, 0);
+        assert_eq!(
+            [first_exists, second_exists]
+                .into_iter()
+                .filter(|exists| *exists)
+                .count(),
+            1
+        );
+        assert_eq!(checkpoints.len(), 2);
+        assert!(
+            checkpoints
+                .iter()
+                .all(|checkpoint| checkpoint.operation == NfoSidecarOperation::Export)
+        );
+        assert!(
+            checkpoints
+                .iter()
+                .all(|checkpoint| checkpoint.library_id == library_id)
+        );
     }
 
     #[tokio::test]
@@ -1285,5 +1447,32 @@ mod tests {
         store.upsert_media_item(&item).await.unwrap();
         store.upsert_media_source(&source).await.unwrap();
         item
+    }
+
+    #[derive(Clone, Default)]
+    struct CancelAfterFirstSidecar {
+        checkpoints: Arc<Mutex<Vec<NfoSidecarCheckpoint>>>,
+    }
+
+    impl CancelAfterFirstSidecar {
+        fn checkpoints(&self) -> Vec<NfoSidecarCheckpoint> {
+            self.checkpoints.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl NfoCancellationCheck for CancelAfterFirstSidecar {
+        async fn check(
+            &self,
+            checkpoint: NfoSidecarCheckpoint,
+        ) -> taru_core::Result<NfoCancellationDecision> {
+            let mut checkpoints = self.checkpoints.lock().unwrap();
+            checkpoints.push(checkpoint);
+            if checkpoints.len() == 1 {
+                Ok(NfoCancellationDecision::Continue)
+            } else {
+                Ok(NfoCancellationDecision::Cancel)
+            }
+        }
     }
 }

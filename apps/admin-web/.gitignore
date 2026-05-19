@@ -1,0 +1,4 @@
+/dist
+/.vite-server.*.log
+/.playwright-cli
+*.tsbuildinfo

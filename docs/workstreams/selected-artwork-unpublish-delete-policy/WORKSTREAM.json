@@ -1,0 +1,33 @@
+{
+  "slug": "selected-artwork-unpublish-delete-policy",
+  "status": "completed",
+  "goal": "Define and implement Selected Artwork unpublish without conflating public visibility, artifact retention, or physical byte cleanup",
+  "owner": "codex",
+  "created_at": "2026-05-19",
+  "updated_at": "2026-05-19",
+  "current_task": null,
+  "first_slice": "Completed item/kind-scoped Admin unpublish command with redacted response, public image 404 behavior, and no artifact deletion side effects",
+  "non_goals": [
+    "artifact deletion or physical cleanup as part of unpublish",
+    "artifact repair or re-ingest",
+    "durable ingest retry, requeue, cancellation, or runtime controls",
+    "Public Client candidate or gallery browsing",
+    "persisted thumbnail or variant cache eviction",
+    "provider search, scraping, ranking, or automatic artwork selection"
+  ],
+  "validation_gates": [
+    "cargo nextest run -p taru-api selected_artwork_unpublish --no-fail-fast",
+    "cargo nextest run -p taru-db selected_artwork_unpublish --no-fail-fast",
+    "cargo nextest run -p taru-server selected_artwork_unpublish --no-fail-fast",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "follow_ons": [
+    "artifact deletion and physical cleanup policy changes",
+    "missing artifact repair or re-ingest",
+    "Public Client candidate or gallery browsing",
+    "persisted thumbnail or variant cache eviction",
+    "durable ingest retry, requeue, cancellation, or runtime controls"
+  ]
+}

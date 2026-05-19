@@ -75,6 +75,17 @@ impl StorageDiagnosticsAppService {
     ) -> Result<Arc<LibraryStorageBackend>> {
         self.registry.backend_for_library_root(library).await
     }
+
+    #[cfg(test)]
+    pub(crate) async fn replace_backend_for_test(
+        &self,
+        config: LocalLibraryConfig,
+        backend: Arc<dyn StorageBackend>,
+    ) {
+        self.registry
+            .replace_backend_for_test(config, backend)
+            .await;
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -230,6 +241,18 @@ impl StorageBackendRegistry {
             backend,
             self.store.clone(),
         )))
+    }
+
+    #[cfg(test)]
+    async fn replace_backend_for_test(
+        &self,
+        config: LocalLibraryConfig,
+        backend: Arc<dyn StorageBackend>,
+    ) {
+        self.backends.lock().await.insert(
+            config.id,
+            Arc::new(LibraryStorageBackend::new(config, backend, self.playback)),
+        );
     }
 }
 
