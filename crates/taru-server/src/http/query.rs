@@ -316,6 +316,37 @@ impl ArtworkArtifactStorageDriftQuery {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactRemediationQuery {
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+    pub(super) file_scan_limit: Option<String>,
+    pub(super) confirm: Option<bool>,
+}
+
+impl ArtworkArtifactRemediationQuery {
+    pub(super) fn into_page_and_file_scan_limit(self) -> Result<(PageRequest, u32), TaruError> {
+        ArtworkArtifactStorageDriftQuery {
+            limit: self.limit,
+            offset: self.offset,
+            file_scan_limit: self.file_scan_limit,
+        }
+        .into_page_and_file_scan_limit()
+    }
+
+    pub(super) fn into_confirmed_file_scan_limit(self) -> Result<u32, TaruError> {
+        if self.confirm != Some(true) {
+            return Err(TaruError::InvalidInput {
+                message: "confirm=true is required for managed artwork stray file cleanup"
+                    .to_owned(),
+            });
+        }
+
+        let (_page, file_scan_limit) = self.into_page_and_file_scan_limit()?;
+        Ok(file_scan_limit)
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct CatalogGovernanceItemsQuery {
     pub(super) library_id: Option<String>,
     pub(super) max_confidence_milli: Option<String>,

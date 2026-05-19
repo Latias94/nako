@@ -1,0 +1,24 @@
+{
+  "slug": "managed-artwork-remediation-policy",
+  "status": "completed",
+  "goal": "Managed Artwork drift remediation policy and confirmed stray cleanup",
+  "owner": "codex",
+  "created_at": "2026-05-19",
+  "updated_at": "2026-05-19",
+  "current_task": "complete",
+  "first_slice": "Redacted remediation plan and confirmed untracked artifact file cleanup",
+  "non_goals": [
+    "missing artifact repair or re-ingest",
+    "Selected Artwork unpublish or republish management",
+    "thumbnail generation or responsive variants",
+    "durable ingest retry, requeue, cancellation, or runtime controls",
+    "public gallery or candidate management"
+  ],
+  "validation_gates": [
+    "cargo nextest run -p taru-api managed_artwork_remediation --no-fail-fast",
+    "cargo nextest run -p taru-server managed_artwork_remediation --no-fail-fast",
+    "cargo check -p taru-core -p taru-api -p taru-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ]
+}

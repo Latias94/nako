@@ -447,6 +447,183 @@ pub enum AdminManagedArtworkArtifactStorageDriftFileReason {
     UnrecognizedLayout,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactRemediationPlanResponse {
+    pub summary: AdminManagedArtworkArtifactRemediationSummary,
+    pub missing_artifacts: Vec<AdminManagedArtworkArtifactRemediationMissingArtifact>,
+    pub stray_files: Vec<AdminManagedArtworkArtifactRemediationStrayFile>,
+    pub page: PageInfo,
+    pub dry_run: bool,
+}
+
+impl AdminManagedArtworkArtifactRemediationPlanResponse {
+    #[must_use]
+    pub fn new(
+        summary: AdminManagedArtworkArtifactRemediationSummary,
+        missing_artifacts: Vec<AdminManagedArtworkArtifactRemediationMissingArtifact>,
+        stray_files: Vec<AdminManagedArtworkArtifactRemediationStrayFile>,
+        page: PageInfo,
+    ) -> Self {
+        Self {
+            summary,
+            missing_artifacts,
+            stray_files,
+            page,
+            dry_run: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactRemediationSummary {
+    pub scanned_db_artifacts: u32,
+    pub missing_db_backed_artifacts: u32,
+    pub selected_missing_artifacts: u32,
+    pub cleanup_candidate_missing_artifacts: u32,
+    pub file_scan_limit: u32,
+    pub scanned_files: u32,
+    pub cleanable_stray_files: u32,
+    pub blocked_stray_files: u32,
+    pub file_scan_truncated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactRemediationMissingArtifact {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub selected_artwork_count: u32,
+    pub cleanup_candidate: bool,
+    pub issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue,
+    pub recommendation: AdminManagedArtworkArtifactMissingRemediationRecommendation,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+}
+
+impl AdminManagedArtworkArtifactRemediationMissingArtifact {
+    #[must_use]
+    pub fn from_storage_drift(artifact: AdminManagedArtworkArtifactStorageDriftArtifact) -> Self {
+        let recommendation = if artifact.selected_artwork_count > 0 {
+            AdminManagedArtworkArtifactMissingRemediationRecommendation::RestoreOrRepublishSelectedArtwork
+        } else {
+            AdminManagedArtworkArtifactMissingRemediationRecommendation::RunArtifactCleanupOrReingest
+        };
+        Self {
+            id: artifact.id,
+            ingest_id: artifact.ingest_id,
+            library_id: artifact.library_id,
+            item_id: artifact.item_id,
+            kind: artifact.kind,
+            selected_artwork_count: artifact.selected_artwork_count,
+            cleanup_candidate: artifact.cleanup_candidate,
+            issue: artifact.issue,
+            recommendation,
+            byte_len: artifact.byte_len,
+            media_type: artifact.media_type,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminManagedArtworkArtifactMissingRemediationRecommendation {
+    RestoreOrRepublishSelectedArtwork,
+    RunArtifactCleanupOrReingest,
+    InspectStorageConfiguration,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactRemediationStrayFile {
+    pub reason: AdminManagedArtworkArtifactStorageDriftFileReason,
+    pub action: AdminManagedArtworkArtifactStrayFileRemediationAction,
+    pub recognized_artifact_id: Option<ManagedArtworkArtifactId>,
+    pub extension: Option<String>,
+    pub byte_len: Option<u64>,
+}
+
+impl AdminManagedArtworkArtifactRemediationStrayFile {
+    #[must_use]
+    pub fn from_storage_drift(file: AdminManagedArtworkArtifactStorageDriftFile) -> Self {
+        let action = if file.reason
+            == AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile
+            && file.recognized_artifact_id.is_some()
+            && file.byte_len.is_some()
+        {
+            AdminManagedArtworkArtifactStrayFileRemediationAction::DeleteStrayFile
+        } else {
+            AdminManagedArtworkArtifactStrayFileRemediationAction::InspectManually
+        };
+        Self {
+            reason: file.reason,
+            action,
+            recognized_artifact_id: file.recognized_artifact_id,
+            extension: file.extension,
+            byte_len: file.byte_len,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminManagedArtworkArtifactStrayFileRemediationAction {
+    DeleteStrayFile,
+    InspectManually,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStrayFileCleanupResponse {
+    pub summary: AdminManagedArtworkArtifactStrayFileCleanupSummary,
+    pub cleaned_files: Vec<AdminManagedArtworkArtifactStrayFileCleanupItem>,
+    pub blocked_files: Vec<AdminManagedArtworkArtifactRemediationStrayFile>,
+    pub dry_run: bool,
+}
+
+impl AdminManagedArtworkArtifactStrayFileCleanupResponse {
+    #[must_use]
+    pub fn new(
+        summary: AdminManagedArtworkArtifactStrayFileCleanupSummary,
+        cleaned_files: Vec<AdminManagedArtworkArtifactStrayFileCleanupItem>,
+        blocked_files: Vec<AdminManagedArtworkArtifactRemediationStrayFile>,
+    ) -> Self {
+        Self {
+            summary,
+            cleaned_files,
+            blocked_files,
+            dry_run: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStrayFileCleanupSummary {
+    pub file_scan_limit: u32,
+    pub scanned_files: u32,
+    pub cleanable_stray_files: u32,
+    pub blocked_stray_files: u32,
+    pub deleted_files: u32,
+    pub missing_files: u32,
+    pub failed_files: u32,
+    pub file_scan_truncated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStrayFileCleanupItem {
+    pub recognized_artifact_id: ManagedArtworkArtifactId,
+    pub extension: Option<String>,
+    pub byte_len: Option<u64>,
+    pub status: AdminManagedArtworkArtifactStrayFileCleanupStatus,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminManagedArtworkArtifactStrayFileCleanupStatus {
+    Deleted,
+    Missing,
+    Failed,
+}
+
 impl SelectedArtworkSummary {
     #[must_use]
     pub fn from_record(record: SelectedArtworkRecord) -> Self {
@@ -1557,6 +1734,93 @@ mod tests {
         assert!(!body.contains("cache_uri"));
         assert!(!body.contains("private-path"));
         assert!(!body.contains("artifact_root"));
+    }
+
+    #[test]
+    fn managed_artwork_remediation_responses_redact_storage_authority_and_paths() {
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let stray_artifact_id = ManagedArtworkArtifactId::new();
+        let missing = AdminManagedArtworkArtifactRemediationMissingArtifact::from_storage_drift(
+            AdminManagedArtworkArtifactStorageDriftArtifact {
+                id: artifact_id,
+                ingest_id: ManagedArtworkIngestId::new(),
+                library_id: LibraryId::new(),
+                item_id: MediaItemId::new(),
+                kind: ImageKind::Poster,
+                selected_artwork_count: 1,
+                cleanup_candidate: false,
+                issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue::MissingFile,
+                byte_len: Some(68),
+                media_type: Some("image/png".to_owned()),
+            },
+        );
+        let plan = AdminManagedArtworkArtifactRemediationPlanResponse::new(
+            AdminManagedArtworkArtifactRemediationSummary {
+                scanned_db_artifacts: 1,
+                missing_db_backed_artifacts: 1,
+                selected_missing_artifacts: 1,
+                cleanup_candidate_missing_artifacts: 0,
+                file_scan_limit: 50,
+                scanned_files: 1,
+                cleanable_stray_files: 1,
+                blocked_stray_files: 0,
+                file_scan_truncated: false,
+            },
+            vec![missing],
+            vec![
+                AdminManagedArtworkArtifactRemediationStrayFile::from_storage_drift(
+                    AdminManagedArtworkArtifactStorageDriftFile {
+                        reason:
+                            AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile,
+                        recognized_artifact_id: Some(stray_artifact_id),
+                        extension: Some("png".to_owned()),
+                        byte_len: Some(7),
+                    },
+                ),
+            ],
+            PageInfo::new(50, 0, 1),
+        );
+        let cleanup = AdminManagedArtworkArtifactStrayFileCleanupResponse::new(
+            AdminManagedArtworkArtifactStrayFileCleanupSummary {
+                file_scan_limit: 50,
+                scanned_files: 1,
+                cleanable_stray_files: 1,
+                blocked_stray_files: 0,
+                deleted_files: 1,
+                missing_files: 0,
+                failed_files: 0,
+                file_scan_truncated: false,
+            },
+            vec![AdminManagedArtworkArtifactStrayFileCleanupItem {
+                recognized_artifact_id: stray_artifact_id,
+                extension: Some("png".to_owned()),
+                byte_len: Some(7),
+                status: AdminManagedArtworkArtifactStrayFileCleanupStatus::Deleted,
+            }],
+            Vec::new(),
+        );
+        let plan_body = serde_json::to_string(&plan).unwrap();
+        let cleanup_body = serde_json::to_string(&cleanup).unwrap();
+
+        assert!(plan.dry_run);
+        assert!(!cleanup.dry_run);
+        assert_eq!(
+            plan.missing_artifacts[0].recommendation,
+            AdminManagedArtworkArtifactMissingRemediationRecommendation::RestoreOrRepublishSelectedArtwork
+        );
+        assert_eq!(
+            plan.stray_files[0].action,
+            AdminManagedArtworkArtifactStrayFileRemediationAction::DeleteStrayFile
+        );
+        for body in [plan_body, cleanup_body] {
+            assert!(!body.contains("storage_uri"));
+            assert!(!body.contains("managed-artwork://"));
+            assert!(!body.contains("content_hash"));
+            assert!(!body.contains("source_uri"));
+            assert!(!body.contains("cache_uri"));
+            assert!(!body.contains("artifact_root"));
+            assert!(!body.contains("private-path"));
+        }
     }
 
     #[test]

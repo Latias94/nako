@@ -39,9 +39,9 @@ use crate::{
 use super::{
     error::ApiResult,
     query::{
-        ArtworkArtifactLifecycleQuery, ArtworkArtifactStorageDriftQuery,
-        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
-        StorageStagingQuery,
+        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
+        ArtworkArtifactStorageDriftQuery, CatalogGovernanceItemsQuery, JobListQuery,
+        OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
     },
 };
 
@@ -73,6 +73,14 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/artwork/artifacts/storage-drift",
             get(get_admin_artwork_artifact_storage_drift),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/remediation-plan",
+            get(get_admin_artwork_artifact_remediation_plan),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/remediate-stray-files",
+            post(remediate_admin_artwork_artifact_stray_files),
         )
         .route(
             "/admin/v1/artwork/artifacts/cleanup",
@@ -130,6 +138,30 @@ pub(super) async fn get_admin_artwork_artifact_storage_drift(
     Ok(Json(
         app.artwork()
             .artifact_storage_drift_diagnostics(page, file_scan_limit)
+            .await?,
+    ))
+}
+
+pub(super) async fn get_admin_artwork_artifact_remediation_plan(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactRemediationQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (page, file_scan_limit) = query.into_page_and_file_scan_limit()?;
+    Ok(Json(
+        app.artwork()
+            .artifact_remediation_plan(page, file_scan_limit)
+            .await?,
+    ))
+}
+
+pub(super) async fn remediate_admin_artwork_artifact_stray_files(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactRemediationQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let file_scan_limit = query.into_confirmed_file_scan_limit()?;
+    Ok(Json(
+        app.artwork()
+            .cleanup_untracked_artifact_files(file_scan_limit)
             .await?,
     ))
 }

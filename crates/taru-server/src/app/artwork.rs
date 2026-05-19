@@ -13,11 +13,19 @@ use sha2::{Digest, Sha256};
 use taru_api::{
     AcceptManagedArtworkCandidateResponse, AdminManagedArtworkArtifactCleanupResponse,
     AdminManagedArtworkArtifactFileCleanupSummary, AdminManagedArtworkArtifactLifecycleResponse,
+    AdminManagedArtworkArtifactRemediationMissingArtifact,
+    AdminManagedArtworkArtifactRemediationPlanResponse,
+    AdminManagedArtworkArtifactRemediationStrayFile, AdminManagedArtworkArtifactRemediationSummary,
     AdminManagedArtworkArtifactStorageDriftArtifact,
     AdminManagedArtworkArtifactStorageDriftArtifactIssue,
     AdminManagedArtworkArtifactStorageDriftFile, AdminManagedArtworkArtifactStorageDriftFileReason,
     AdminManagedArtworkArtifactStorageDriftResponse,
-    AdminManagedArtworkArtifactStorageDriftSummary, ProcessManagedArtworkIngestResponse,
+    AdminManagedArtworkArtifactStorageDriftSummary,
+    AdminManagedArtworkArtifactStrayFileCleanupItem,
+    AdminManagedArtworkArtifactStrayFileCleanupResponse,
+    AdminManagedArtworkArtifactStrayFileCleanupStatus,
+    AdminManagedArtworkArtifactStrayFileCleanupSummary,
+    AdminManagedArtworkArtifactStrayFileRemediationAction, ProcessManagedArtworkIngestResponse,
     PublishSelectedArtworkResponse, page_info_from_request,
 };
 use taru_core::{
@@ -327,10 +335,158 @@ impl ManagedArtworkAppService {
         ))
     }
 
+    pub(crate) async fn artifact_remediation_plan(
+        &self,
+        page: PageRequest,
+        file_scan_limit: u32,
+    ) -> Result<AdminManagedArtworkArtifactRemediationPlanResponse> {
+        let drift = self
+            .artifact_storage_drift_diagnostics(page, file_scan_limit)
+            .await?;
+        let mut summary = AdminManagedArtworkArtifactRemediationSummary {
+            scanned_db_artifacts: drift.summary.scanned_db_artifacts,
+            missing_db_backed_artifacts: u32::try_from(drift.missing_artifacts.len())
+                .unwrap_or(u32::MAX),
+            file_scan_limit: drift.summary.file_scan_limit,
+            scanned_files: drift.summary.scanned_files,
+            file_scan_truncated: drift.summary.file_scan_truncated,
+            ..AdminManagedArtworkArtifactRemediationSummary::default()
+        };
+        let mut missing_artifacts = Vec::new();
+        for artifact in drift.missing_artifacts {
+            if artifact.selected_artwork_count > 0 {
+                summary.selected_missing_artifacts =
+                    summary.selected_missing_artifacts.saturating_add(1);
+            }
+            if artifact.cleanup_candidate {
+                summary.cleanup_candidate_missing_artifacts = summary
+                    .cleanup_candidate_missing_artifacts
+                    .saturating_add(1);
+            }
+            missing_artifacts.push(
+                AdminManagedArtworkArtifactRemediationMissingArtifact::from_storage_drift(artifact),
+            );
+        }
+
+        let mut stray_files = Vec::new();
+        for file in drift.stray_files {
+            let stray = AdminManagedArtworkArtifactRemediationStrayFile::from_storage_drift(file);
+            match stray.action {
+                AdminManagedArtworkArtifactStrayFileRemediationAction::DeleteStrayFile => {
+                    summary.cleanable_stray_files = summary.cleanable_stray_files.saturating_add(1);
+                }
+                AdminManagedArtworkArtifactStrayFileRemediationAction::InspectManually => {
+                    summary.blocked_stray_files = summary.blocked_stray_files.saturating_add(1);
+                }
+            }
+            stray_files.push(stray);
+        }
+
+        Ok(AdminManagedArtworkArtifactRemediationPlanResponse::new(
+            summary,
+            missing_artifacts,
+            stray_files,
+            drift.page,
+        ))
+    }
+
+    pub(crate) async fn cleanup_untracked_artifact_files(
+        &self,
+        file_scan_limit: u32,
+    ) -> Result<AdminManagedArtworkArtifactStrayFileCleanupResponse> {
+        let inventory = self.artifact_store.discover_files(file_scan_limit).await?;
+        let mut summary = AdminManagedArtworkArtifactStrayFileCleanupSummary {
+            file_scan_limit,
+            scanned_files: inventory.scanned_files,
+            file_scan_truncated: inventory.truncated,
+            ..AdminManagedArtworkArtifactStrayFileCleanupSummary::default()
+        };
+        let mut cleaned_files = Vec::new();
+        let mut blocked_files = Vec::new();
+
+        for file in inventory.files {
+            let Some(classified) = self.classify_stray_file_record(file).await? else {
+                continue;
+            };
+            let remediation_file =
+                AdminManagedArtworkArtifactRemediationStrayFile::from_storage_drift(
+                    classified.to_drift_file(),
+                );
+            if remediation_file.action
+                != AdminManagedArtworkArtifactStrayFileRemediationAction::DeleteStrayFile
+            {
+                summary.blocked_stray_files = summary.blocked_stray_files.saturating_add(1);
+                blocked_files.push(remediation_file);
+                continue;
+            }
+
+            let Some(artifact_id) = classified.recognized_artifact_id else {
+                summary.blocked_stray_files = summary.blocked_stray_files.saturating_add(1);
+                blocked_files.push(remediation_file);
+                continue;
+            };
+            if self
+                .store
+                .get_managed_artwork_artifact(artifact_id)
+                .await?
+                .is_some()
+            {
+                summary.blocked_stray_files = summary.blocked_stray_files.saturating_add(1);
+                blocked_files.push(AdminManagedArtworkArtifactRemediationStrayFile {
+                    action: AdminManagedArtworkArtifactStrayFileRemediationAction::InspectManually,
+                    ..remediation_file
+                });
+                continue;
+            }
+
+            summary.cleanable_stray_files = summary.cleanable_stray_files.saturating_add(1);
+            let status = match self
+                .artifact_store
+                .delete_discovered_file_best_effort(&classified.path)
+                .await
+            {
+                ArtifactFileDeleteOutcome::Deleted => {
+                    summary.deleted_files = summary.deleted_files.saturating_add(1);
+                    AdminManagedArtworkArtifactStrayFileCleanupStatus::Deleted
+                }
+                ArtifactFileDeleteOutcome::Missing => {
+                    summary.missing_files = summary.missing_files.saturating_add(1);
+                    AdminManagedArtworkArtifactStrayFileCleanupStatus::Missing
+                }
+                ArtifactFileDeleteOutcome::Failed => {
+                    summary.failed_files = summary.failed_files.saturating_add(1);
+                    AdminManagedArtworkArtifactStrayFileCleanupStatus::Failed
+                }
+            };
+            cleaned_files.push(AdminManagedArtworkArtifactStrayFileCleanupItem {
+                recognized_artifact_id: artifact_id,
+                extension: classified.extension,
+                byte_len: classified.byte_len,
+                status,
+            });
+        }
+
+        Ok(AdminManagedArtworkArtifactStrayFileCleanupResponse::new(
+            summary,
+            cleaned_files,
+            blocked_files,
+        ))
+    }
+
     async fn classify_stray_file(
         &self,
         file: DiscoveredArtifactFile,
     ) -> Result<Option<AdminManagedArtworkArtifactStorageDriftFile>> {
+        Ok(self
+            .classify_stray_file_record(file)
+            .await?
+            .map(ClassifiedArtifactStoreFile::into_drift_file))
+    }
+
+    async fn classify_stray_file_record(
+        &self,
+        file: DiscoveredArtifactFile,
+    ) -> Result<Option<ClassifiedArtifactStoreFile>> {
         let reason = match &file.layout {
             DiscoveredArtifactFileLayout::Recognized {
                 artifact_id,
@@ -343,7 +499,7 @@ impl ManagedArtworkAppService {
                     .get_managed_artwork_artifact(*artifact_id)
                     .await?
                 else {
-                    return Ok(Some(file.into_drift_file(
+                    return Ok(Some(file.into_classified(
                         AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile,
                     )));
                 };
@@ -367,7 +523,7 @@ impl ManagedArtworkAppService {
             }
         };
 
-        Ok(Some(file.into_drift_file(reason)))
+        Ok(Some(file.into_classified(reason)))
     }
 
     pub(crate) async fn read_selected_image(
@@ -795,6 +951,17 @@ impl LocalManagedArtworkArtifactStore {
         }
     }
 
+    async fn delete_discovered_file_best_effort(&self, path: &Path) -> ArtifactFileDeleteOutcome {
+        if !path_has_prefix(path, &self.root) {
+            return ArtifactFileDeleteOutcome::Failed;
+        }
+        match fs::remove_file(path).await {
+            Ok(()) => ArtifactFileDeleteOutcome::Deleted,
+            Err(err) if err.kind() == ErrorKind::NotFound => ArtifactFileDeleteOutcome::Missing,
+            Err(_) => ArtifactFileDeleteOutcome::Failed,
+        }
+    }
+
     async fn file_status(&self, artifact: &ManagedArtworkArtifactRecord) -> ArtifactFileStatus {
         let Ok(path) = self.path_for_artifact(artifact) else {
             return ArtifactFileStatus::UnresolvableExpectedPath;
@@ -974,10 +1141,10 @@ struct DiscoveredArtifactFile {
 }
 
 impl DiscoveredArtifactFile {
-    fn into_drift_file(
+    fn into_classified(
         self,
         reason: AdminManagedArtworkArtifactStorageDriftFileReason,
-    ) -> AdminManagedArtworkArtifactStorageDriftFile {
+    ) -> ClassifiedArtifactStoreFile {
         let (recognized_artifact_id, extension) = match self.layout {
             DiscoveredArtifactFileLayout::Recognized {
                 artifact_id,
@@ -986,7 +1153,8 @@ impl DiscoveredArtifactFile {
             } => (Some(artifact_id), Some(extension)),
             DiscoveredArtifactFileLayout::Unrecognized => (None, None),
         };
-        AdminManagedArtworkArtifactStorageDriftFile {
+        ClassifiedArtifactStoreFile {
+            path: self.path,
             reason,
             recognized_artifact_id,
             extension,
@@ -1004,6 +1172,35 @@ enum DiscoveredArtifactFileLayout {
         shard_matches: bool,
     },
     Unrecognized,
+}
+
+#[derive(Clone, Debug)]
+struct ClassifiedArtifactStoreFile {
+    path: PathBuf,
+    reason: AdminManagedArtworkArtifactStorageDriftFileReason,
+    recognized_artifact_id: Option<ManagedArtworkArtifactId>,
+    extension: Option<String>,
+    byte_len: Option<u64>,
+}
+
+impl ClassifiedArtifactStoreFile {
+    fn to_drift_file(&self) -> AdminManagedArtworkArtifactStorageDriftFile {
+        AdminManagedArtworkArtifactStorageDriftFile {
+            reason: self.reason,
+            recognized_artifact_id: self.recognized_artifact_id,
+            extension: self.extension.clone(),
+            byte_len: self.byte_len,
+        }
+    }
+
+    fn into_drift_file(self) -> AdminManagedArtworkArtifactStorageDriftFile {
+        AdminManagedArtworkArtifactStorageDriftFile {
+            reason: self.reason,
+            recognized_artifact_id: self.recognized_artifact_id,
+            extension: self.extension,
+            byte_len: self.byte_len,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

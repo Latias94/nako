@@ -76,6 +76,10 @@ attention.
   completed follow-on for bounded, redacted Admin diagnostics of drift between
   active Managed Artwork Artifact DB records and files under the local artifact
   root, without deletion or repair.
+- [managed-artwork-remediation-policy](managed-artwork-remediation-policy/README.md):
+  completed follow-on for redacted Managed Artwork remediation planning and
+  confirmed cleanup of safe untracked artifact files, without missing-artifact
+  repair or Selected Artwork management.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

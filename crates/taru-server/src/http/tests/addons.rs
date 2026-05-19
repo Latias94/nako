@@ -2397,6 +2397,167 @@ async fn admin_managed_artwork_storage_drift_reports_missing_and_stray_files_wit
     assert!(!body.contains("private-unrecognized-file-token"));
 }
 
+#[tokio::test]
+async fn admin_managed_artwork_remediation_requires_confirmation_and_deletes_only_untracked_artifact_files()
+ {
+    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let raw_token = register_artwork_addon(&router, library_id).await;
+
+    let (remote_url, _) = tiny_artwork_server().await;
+    let (_candidate_id, _accepted) = propose_and_accept_remote_artwork_with_token(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-remediation",
+        &raw_token,
+    )
+    .await;
+    let processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let artifact = processed.artifact.as_ref().unwrap();
+    request_json::<PublishSelectedArtworkResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id),
+    )
+    .await;
+
+    let expected_path = managed_artwork_artifact_test_path(&temp, artifact.id, "png");
+    fs::remove_file(&expected_path).unwrap();
+    let unexpected_active_path = managed_artwork_artifact_test_path(&temp, artifact.id, "jpg");
+    fs::write(
+        &unexpected_active_path,
+        b"active-artifact-private-file-token",
+    )
+    .unwrap();
+
+    let stray_artifact_id = ManagedArtworkArtifactId::new();
+    let stray_path = managed_artwork_artifact_test_path(&temp, stray_artifact_id, "png");
+    fs::create_dir_all(stray_path.parent().unwrap()).unwrap();
+    fs::write(&stray_path, b"stray-remediation-private-file-token").unwrap();
+
+    let private_filename = "manual-private-remediation-token.txt";
+    let manual_path = temp
+        .path()
+        .join("taru-cache")
+        .join("artwork")
+        .join("yy")
+        .join(private_filename);
+    fs::create_dir_all(manual_path.parent().unwrap()).unwrap();
+    fs::write(&manual_path, b"manual-private-remediation-token").unwrap();
+
+    let plan = request_json::<AdminManagedArtworkArtifactRemediationPlanResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/artwork/artifacts/remediation-plan?file_scan_limit=50",
+    )
+    .await;
+    assert!(plan.dry_run);
+    assert_eq!(plan.summary.scanned_db_artifacts, 1);
+    assert_eq!(plan.summary.missing_db_backed_artifacts, 1);
+    assert_eq!(plan.summary.selected_missing_artifacts, 1);
+    assert_eq!(plan.summary.cleanup_candidate_missing_artifacts, 0);
+    assert_eq!(plan.summary.cleanable_stray_files, 1);
+    assert_eq!(plan.summary.blocked_stray_files, 2);
+    assert_eq!(plan.missing_artifacts.len(), 1);
+    assert_eq!(plan.missing_artifacts[0].id, artifact.id);
+    assert_eq!(
+        plan.missing_artifacts[0].recommendation,
+        taru_api::AdminManagedArtworkArtifactMissingRemediationRecommendation::RestoreOrRepublishSelectedArtwork
+    );
+    assert!(plan.stray_files.iter().any(|file| {
+        file.action == AdminManagedArtworkArtifactStrayFileRemediationAction::DeleteStrayFile
+            && file.recognized_artifact_id == Some(stray_artifact_id)
+    }));
+    assert!(plan.stray_files.iter().any(|file| {
+        file.action == AdminManagedArtworkArtifactStrayFileRemediationAction::InspectManually
+            && file.recognized_artifact_id == Some(artifact.id)
+    }));
+
+    let unconfirmed = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/artwork/artifacts/remediate-stray-files?file_scan_limit=50")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unconfirmed.status(), StatusCode::BAD_REQUEST);
+    assert!(stray_path.exists());
+
+    let confirmed_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/artwork/artifacts/remediate-stray-files?confirm=true&file_scan_limit=50")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let confirmed_status = confirmed_response.status();
+    let confirmed_body = to_bytes(confirmed_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(
+        confirmed_status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&confirmed_body)
+    );
+    let cleanup: AdminManagedArtworkArtifactStrayFileCleanupResponse =
+        serde_json::from_slice(&confirmed_body).unwrap();
+
+    assert!(!cleanup.dry_run);
+    assert_eq!(cleanup.summary.cleanable_stray_files, 1);
+    assert_eq!(cleanup.summary.blocked_stray_files, 2);
+    assert_eq!(cleanup.summary.deleted_files, 1);
+    assert_eq!(cleanup.summary.missing_files, 0);
+    assert_eq!(cleanup.summary.failed_files, 0);
+    assert_eq!(cleanup.cleaned_files.len(), 1);
+    assert_eq!(
+        cleanup.cleaned_files[0].recognized_artifact_id,
+        stray_artifact_id
+    );
+    assert_eq!(
+        cleanup.cleaned_files[0].status,
+        AdminManagedArtworkArtifactStrayFileCleanupStatus::Deleted
+    );
+    assert_eq!(cleanup.blocked_files.len(), 2);
+    assert!(!stray_path.exists());
+    assert!(unexpected_active_path.exists());
+    assert!(manual_path.exists());
+
+    let body = String::from_utf8_lossy(&confirmed_body);
+    assert!(!body.contains(&remote_url));
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains(&raw_token));
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("cache_uri"));
+    assert!(!body.contains("storage_uri"));
+    assert!(!body.contains("managed-artwork://"));
+    assert!(!body.contains("content_hash"));
+    if let Some(content_hash) = artifact.content_hash.as_ref() {
+        assert!(!body.contains(content_hash));
+    }
+    assert!(!body.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(!body.contains(private_filename));
+    assert!(!body.contains(&format!("{stray_artifact_id}.png")));
+    assert!(!body.contains("stray-remediation-private-file-token"));
+    assert!(!body.contains("active-artifact-private-file-token"));
+    assert!(!body.contains("manual-private-remediation-token"));
+}
+
 fn managed_artwork_artifact_test_path(
     temp: &tempfile::TempDir,
     artifact_id: ManagedArtworkArtifactId,

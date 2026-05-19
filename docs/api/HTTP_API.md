@@ -443,6 +443,8 @@ POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
 GET  /admin/v1/artwork/artifacts/lifecycle
 GET  /admin/v1/artwork/artifacts/storage-drift
+GET  /admin/v1/artwork/artifacts/remediation-plan
+POST /admin/v1/artwork/artifacts/remediate-stray-files
 POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/playback/sessions
@@ -1283,6 +1285,34 @@ server. The response includes scan counts, truncation status, redacted missing
 artifact summaries, and redacted stray-file classifications. It never deletes
 files, marks database rows deleted, repairs artifacts, reads file contents, or
 calculates file content hashes. It never returns filenames, local paths,
+`storage_uri`, `managed-artwork://...`, raw source URLs, `source_uri`,
+`cache_uri`, Source Locators, addon token material, provider query strings, or
+content-hash values.
+
+Administrators can request a remediation plan with:
+
+```text
+GET /admin/v1/artwork/artifacts/remediation-plan?limit=50&offset=0&file_scan_limit=500
+```
+
+The plan is a dry-run action policy over storage drift findings. Missing
+DB-backed artifact files are advisory only: protected Selected Artwork should be
+restored or republished, and unselected missing artifacts should be handled by
+future cleanup or re-ingest workflows. The plan marks only parseable, supported,
+regular artifact files with no active DB artifact as eligible for deletion.
+
+Administrators can explicitly clean those safe untracked artifact files with:
+
+```text
+POST /admin/v1/artwork/artifacts/remediate-stray-files?confirm=true&file_scan_limit=500
+```
+
+The command requires `confirm=true`, re-checks active artifact state before each
+delete, and never deletes files that correspond to active DB-backed artifacts,
+unsupported extensions, unexpected active-artifact paths, or unrecognized
+layouts. It never repairs missing DB-backed artifacts, unpublishes Selected
+Artwork, marks artifact rows deleted, reads file contents, or calculates file
+hashes. Remediation responses never return filenames, local paths,
 `storage_uri`, `managed-artwork://...`, raw source URLs, `source_uri`,
 `cache_uri`, Source Locators, addon token material, provider query strings, or
 content-hash values.
