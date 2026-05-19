@@ -667,6 +667,13 @@ names/presets/backend kind/root scheme, metadata runtime budgets, metadata
 provider enablement and secret-reference names, transcode hardware policy and
 slot budgets, staging budget/retention/cleanup settings, remote playback
 stream/stage budgets, and managed artwork fetch/storage budgets.
+Managed artwork ingest workers are opt-in through `[artwork]`.
+`ingest_worker_enabled = true` starts one process-local supervised worker after
+startup recovery and library reconciliation finish. The worker uses
+`artwork.ingest` resource accounting and sleeps for
+`ingest_worker_idle_ms` when no queued ingest is available. When disabled,
+accepted candidates remain queued until an administrator runs
+`POST /admin/v1/artwork/ingests/process-next` or re-enables the worker.
 
 The config diagnostics route never returns `database_url`, local library roots,
 `ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, managed artwork artifact
@@ -1169,12 +1176,18 @@ for an already accepted candidate returns the existing ingest and job.
 
 Administrators can process one queued managed artwork ingest with
 `POST /admin/v1/artwork/ingests/process-next`. This route is an internal Admin
-runtime seam for the first Taru-owned fetch/validation/storage path: it claims
-one queued `managed_artwork_ingest`, fetches the accepted remote Artwork
-Candidate source under bounded artwork fetch policy, validates static image
-content, writes bytes below Taru's internal artwork artifact root, and commits a
+runtime seam for the first Taru-owned fetch/validation/storage path. The same
+claim/fetch/validate/store/fail pipeline is also used by the optional
+process-local Managed Artwork ingest worker when
+`[artwork].ingest_worker_enabled = true`. Both execution paths claim one queued
+`managed_artwork_ingest`, fetch the accepted remote Artwork Candidate source
+under bounded artwork fetch policy, validate static image content, write bytes
+below Taru's internal artwork artifact root, and commit a
 `managed_artwork_artifacts` row with an opaque `managed-artwork://...` storage
-reference. A successful response exposes only safe IDs and artifact metadata:
+reference. The Admin `process-next` command remains a single-step manual drain;
+if the worker already drained the queue it returns `"processed": false`.
+
+A successful response exposes only safe IDs and artifact metadata:
 media type, byte length, dimensions, `has_content_hash`, ingest status, and
 the redacted job envelope. It never returns `storage_uri`, raw source URLs,
 local artifact paths, cache URIs, Source Locators, addon tokens, content hash

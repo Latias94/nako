@@ -104,10 +104,18 @@ async fn router_with_media_source(
     file_name: &str,
     content: &[u8],
 ) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+    router_with_media_source_config(file_name, content, |_| {}).await
+}
+
+async fn router_with_media_source_config(
+    file_name: &str,
+    content: &[u8],
+    configure: impl FnOnce(&mut TaruServerConfig),
+) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join(file_name), content).unwrap();
     let library_id = LibraryId::new();
-    let config = TaruServerConfig {
+    let mut config = TaruServerConfig {
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -136,6 +144,7 @@ async fn router_with_media_source(
             webdav: None,
         }],
     };
+    configure(&mut config);
     let store = SqliteStore::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await

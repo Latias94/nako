@@ -121,8 +121,28 @@ workers need it.
 Updated decision for the first implementation slice: postpone generic lease
 schema until a second queued worker needs it. Managed Artwork already has a
 typed claim transition from queued to fetching/running and a startup recovery
-path that fails unfinished jobs. The first worker should use that existing
-claim boundary and keep the design open for later generic job leases.
+path that fails unfinished jobs. The first worker uses that existing claim
+boundary and keeps the design open for later generic job leases.
+
+## `JRWCP-020` Implementation Shape
+
+The first worker slice is intentionally concrete:
+
+- `[artwork].ingest_worker_enabled` defaults to `false`.
+- `[artwork].ingest_worker_idle_ms` controls the idle sleep when no queued
+  Managed Artwork ingest is available.
+- `TaruApp` starts the worker only after startup recovery, cleanup, and
+  configured library reconciliation finish.
+- The worker is registered through `RuntimeSupervisor::spawn` as
+  `managed_artwork_ingest_worker` with resource class `artwork.ingest`.
+- Admin `process-next` and the worker both call the same internal
+  `process_next_unit` helper, so claim, fetch, validation, artifact write,
+  commit, and safe failure persistence cannot drift.
+- Public Client image shape is unchanged; successful ingest still stores a
+  Managed Artwork Artifact and does not publish Selected Artwork.
+
+This is not a full durable lease model. `JRWCP-030` still owns failure/recovery
+semantics for worker failures, stale running ingests, and restart behavior.
 
 ## Redaction Policy
 

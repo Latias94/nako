@@ -859,6 +859,8 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
             fetch_max_attempts: 4,
             fetch_max_bytes: 12_345,
             fetch_concurrency: 3,
+            ingest_worker_enabled: true,
+            ingest_worker_idle_ms: 250,
             fetch_user_agent: "taru-artwork-test/1".to_owned(),
             fetch_proxy: Some("http://user:artwork-proxy-secret@127.0.0.1:10809".into()),
             max_width: 4_000,
@@ -951,6 +953,8 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert_eq!(diagnostics.artwork.fetch_max_attempts, 4);
     assert_eq!(diagnostics.artwork.fetch_max_bytes, 12_345);
     assert_eq!(diagnostics.artwork.fetch_concurrency, 3);
+    assert!(diagnostics.artwork.ingest_worker_enabled);
+    assert_eq!(diagnostics.artwork.ingest_worker_idle_ms, 250);
     assert_eq!(diagnostics.artwork.fetch_user_agent, "taru-artwork-test/1");
     assert!(diagnostics.artwork.has_fetch_proxy);
     assert_eq!(diagnostics.artwork.max_width, 4_000);

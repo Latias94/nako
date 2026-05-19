@@ -157,6 +157,10 @@ pub struct ArtworkConfig {
     pub fetch_max_bytes: u64,
     #[serde(default = "default_artwork_fetch_concurrency")]
     pub fetch_concurrency: usize,
+    #[serde(default)]
+    pub ingest_worker_enabled: bool,
+    #[serde(default = "default_artwork_ingest_worker_idle_ms")]
+    pub ingest_worker_idle_ms: u64,
     #[serde(default = "default_artwork_fetch_user_agent")]
     pub fetch_user_agent: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -175,6 +179,8 @@ impl Default for ArtworkConfig {
             fetch_max_attempts: default_artwork_fetch_max_attempts(),
             fetch_max_bytes: default_artwork_fetch_max_bytes(),
             fetch_concurrency: default_artwork_fetch_concurrency(),
+            ingest_worker_enabled: false,
+            ingest_worker_idle_ms: default_artwork_ingest_worker_idle_ms(),
             fetch_user_agent: default_artwork_fetch_user_agent(),
             fetch_proxy: None,
             max_width: default_artwork_max_dimension(),
@@ -554,6 +560,10 @@ const fn default_artwork_fetch_concurrency() -> usize {
     2
 }
 
+const fn default_artwork_ingest_worker_idle_ms() -> u64 {
+    1_000
+}
+
 fn default_artwork_fetch_user_agent() -> String {
     format!("taru/{}", env!("CARGO_PKG_VERSION"))
 }
@@ -646,6 +656,10 @@ mod tests {
             [playback]
             remote_stream_concurrency = 7
             remote_stage_concurrency = 2
+
+            [artwork]
+            ingest_worker_enabled = true
+            ingest_worker_idle_ms = 250
 
             [[libraries]]
             id = "018f0000-0000-7000-8000-000000000001"
@@ -740,6 +754,8 @@ mod tests {
         assert!(!config.staging.cleanup_on_startup);
         assert_eq!(config.playback.remote_stream_concurrency, 7);
         assert_eq!(config.playback.remote_stage_concurrency, 2);
+        assert!(config.artwork.ingest_worker_enabled);
+        assert_eq!(config.artwork.ingest_worker_idle_ms, 250);
         assert_eq!(config.metadata.runtime.timeout_ms, 7_000);
         assert_eq!(config.metadata.runtime.max_attempts, 3);
         assert_eq!(config.metadata.runtime.min_interval_ms, 500);
@@ -935,6 +951,8 @@ mod tests {
         assert_eq!(config.staging, StagingConfig::default());
         assert_eq!(config.playback, PlaybackConfig::default());
         assert_eq!(config.auth, AuthConfig::default());
+        assert!(!config.artwork.ingest_worker_enabled);
+        assert_eq!(config.artwork.ingest_worker_idle_ms, 1_000);
         assert_eq!(
             config.metadata.runtime,
             MetadataProviderRuntimeConfig::default()

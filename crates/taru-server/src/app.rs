@@ -138,6 +138,11 @@ impl TaruApp {
         let startup_report = ServerStartupWorkflow::new(&config, &store, metadata.clone())
             .run()
             .await?;
+        let artwork_ingest_worker_started = config
+            .artwork
+            .ingest_worker_enabled
+            .then(|| artwork.start_ingest_worker(&runtime))
+            .unwrap_or(false);
 
         Ok(Self {
             inner: Arc::new(TaruAppInner {
@@ -154,7 +159,10 @@ impl TaruApp {
                 metadata,
                 nfo,
                 playback,
-                startup_report,
+                startup_report: ServerStartupReport {
+                    artwork_ingest_worker_started,
+                    ..startup_report
+                },
                 config,
             }),
         })

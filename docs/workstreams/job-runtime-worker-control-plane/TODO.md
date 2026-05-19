@@ -23,7 +23,7 @@ Last updated: 2026-05-19
 
 ## M1 - Managed Artwork Worker Tracer Bullet
 
-- [ ] JRWCP-020 [owner=codex] [deps=JRWCP-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server]
+- [x] JRWCP-020 [owner=codex] [deps=JRWCP-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server]
   Goal: Add a supervised Managed Artwork ingest worker loop that claims and
   processes queued jobs through the existing safe artifact pipeline.
   Validation: focused server/runtime test proves queued ingest is processed by
@@ -31,7 +31,14 @@ Last updated: 2026-05-19
   Review: worker loop must use bounded resource permits and must not expose raw
   source/storage/error values.
   Evidence: success path stores artifact and marks job succeeded.
-  Handoff: Continue with failure/recovery semantics.
+  Result: DONE. Added opt-in `[artwork].ingest_worker_enabled` and
+  `ingest_worker_idle_ms`, registered a concrete
+  `managed_artwork_ingest_worker` through `RuntimeSupervisor`, and shared the
+  same `process_next_unit` pipeline between the worker and Admin
+  `process-next`. Focused HTTP/runtime coverage proves a queued ingest is
+  stored by the worker without calling Admin `process-next`, with no public
+  artwork publication or locator leaks.
+  Handoff: Continue with `JRWCP-030` failure/recovery semantics.
 
 - [ ] JRWCP-030 [owner=codex] [deps=JRWCP-020] [scope=crates/taru-db,crates/taru-server]
   Goal: Prove worker failure handling and restart recovery for Managed Artwork

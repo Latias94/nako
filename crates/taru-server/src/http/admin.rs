@@ -304,6 +304,7 @@ pub(super) async fn get_admin_overview(State(app): State<TaruApp>) -> Json<Admin
             .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
         metadata_raw_cache_deleted: startup.metadata_raw_cache_deleted,
         metadata_lifecycle_tasks_started: usize_to_u32(startup.metadata_lifecycle_tasks_started),
+        artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
     };
     let status = overview_status(&storage, &metadata, &runtime);
 
@@ -380,6 +381,8 @@ pub(super) async fn get_admin_system_config(
             fetch_max_attempts: config.artwork.fetch_max_attempts,
             fetch_max_bytes: config.artwork.fetch_max_bytes,
             fetch_concurrency: config.artwork.fetch_concurrency,
+            ingest_worker_enabled: config.artwork.ingest_worker_enabled,
+            ingest_worker_idle_ms: config.artwork.ingest_worker_idle_ms,
             fetch_user_agent: config.artwork.fetch_user_agent.clone(),
             has_fetch_proxy: config
                 .artwork

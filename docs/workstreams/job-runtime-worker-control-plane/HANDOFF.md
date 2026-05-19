@@ -5,8 +5,9 @@ Last updated: 2026-05-19
 
 ## Current State
 
-This lane has been opened as the recommended follow-on after Managed Artwork
-ingest requeue. No runtime code has changed in this lane yet.
+This lane now has a first runtime implementation slice for Managed Artwork
+ingest. The lane remains active because worker failure/recovery and
+cancellation semantics are not yet proven.
 
 ## Completed In `JRWCP-010`
 
@@ -24,14 +25,30 @@ Inventory result:
 
 ## Next Task
 
-Continue with `JRWCP-020`:
+Continue with `JRWCP-030`:
 
-- add a concrete Managed Artwork ingest worker registered through
-  `RuntimeSupervisor`;
-- keep `process-next` as the manual single-step Admin command;
-- process queued work through the existing safe artifact pipeline;
-- prove success path without calling Admin `process-next`;
-- avoid broad generic scheduler or lease schema in this first slice.
+- prove worker failure handling keeps safe summaries and redacted Admin
+  responses;
+- make restart recovery behavior explicit for Managed Artwork ingests that are
+  already `fetching`/running;
+- preserve requeueability for failed ingests;
+- do not add broad generic lease schema unless the failure/recovery test proves
+  the typed Managed Artwork state machine is insufficient.
+
+## Completed In `JRWCP-020`
+
+- Added `[artwork].ingest_worker_enabled`, defaulting to `false`.
+- Added `[artwork].ingest_worker_idle_ms`, defaulting to `1000`.
+- `TaruApp` starts one `managed_artwork_ingest_worker` through
+  `RuntimeSupervisor` after startup workflow completion when the worker is
+  enabled.
+- `ManagedArtworkAppService::process_next` and the worker share
+  `process_next_unit`, keeping manual and background execution on the same safe
+  artifact pipeline.
+- Added focused HTTP/runtime coverage for worker success without Admin
+  `process-next`.
+- Public Client image shape is unchanged and worker ingest does not publish
+  Selected Artwork.
 
 ## Files To Inspect First
 
@@ -57,7 +74,7 @@ After code changes begin:
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 cargo nextest run -p taru-server job_runtime_worker --no-fail-fast
-cargo nextest run -p taru-db job_runtime_worker --no-fail-fast
+cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast
 cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
 cargo fmt --all -- --check
 git diff --check

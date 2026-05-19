@@ -39,8 +39,11 @@ use taru_core::{
 };
 use taru_db::SqliteStore;
 use tokio::{fs, io::AsyncWriteExt, sync::Semaphore};
+use tracing::{info, warn};
 
 use crate::config::ArtworkConfig;
+
+use super::runtime::RuntimeSupervisor;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ManagedArtworkAppService {
@@ -49,6 +52,7 @@ pub(crate) struct ManagedArtworkAppService {
     validator: ManagedArtworkImageValidator,
     artifact_store: LocalManagedArtworkArtifactStore,
     variant_policy: ImageVariantPolicy,
+    ingest_worker_idle: Duration,
 }
 
 impl ManagedArtworkAppService {
@@ -59,7 +63,53 @@ impl ManagedArtworkAppService {
             validator: ManagedArtworkImageValidator::new(config.clone()),
             variant_policy: ImageVariantPolicy::new(config.max_width, config.max_height),
             artifact_store: LocalManagedArtworkArtifactStore::new(config.artifact_root),
+            ingest_worker_idle: Duration::from_millis(config.ingest_worker_idle_ms.max(1)),
         })
+    }
+
+    pub(super) fn start_ingest_worker(&self, runtime: &RuntimeSupervisor) -> bool {
+        let app = self.clone();
+        let token = runtime.shutdown_token();
+        runtime.spawn(
+            "managed_artwork_ingest_worker",
+            "artwork.ingest",
+            async move {
+                loop {
+                    tokio::select! {
+                        () = token.cancelled() => break,
+                        result = app.process_next_unit() => {
+                            match result {
+                                Ok(Some(processing)) => {
+                                    info!(
+                                        ingest_id = %processing.ingest.id,
+                                        job_id = %processing.job.id,
+                                        status = ?processing.ingest.status,
+                                        "managed artwork ingest worker processed job"
+                                    );
+                                }
+                                Ok(None) => {
+                                    tokio::select! {
+                                        () = token.cancelled() => break,
+                                        () = tokio::time::sleep(app.ingest_worker_idle) => {}
+                                    }
+                                }
+                                Err(err) => {
+                                    warn!(
+                                        error = %err,
+                                        "managed artwork ingest worker iteration failed"
+                                    );
+                                    tokio::select! {
+                                        () = token.cancelled() => break,
+                                        () = tokio::time::sleep(app.ingest_worker_idle) => {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        );
+        true
     }
 
     pub(crate) async fn accept_candidate(
@@ -138,41 +188,11 @@ impl ManagedArtworkAppService {
     }
 
     pub(crate) async fn process_next(&self) -> Result<ProcessManagedArtworkIngestResponse> {
-        let Some(claim) = self
-            .store
-            .claim_next_queued_managed_artwork_ingest()
+        Ok(self
+            .process_next_unit()
             .await?
-        else {
-            return Ok(ProcessManagedArtworkIngestResponse::empty());
-        };
-
-        match self.process_claim(claim.clone()).await {
-            Ok(processing) => Ok(ProcessManagedArtworkIngestResponse::from_processing(
-                processing,
-            )),
-            Err(failure) => {
-                let summary = ManagedArtworkIngestFailureSummary {
-                    ingest_id: claim.ingest.id,
-                    candidate_id: claim.candidate.id,
-                    status: ManagedArtworkIngestStatus::Failed.as_str(),
-                    failure_code: failure.code.as_str(),
-                };
-                let summary_json = serde_json::to_string(&summary).ok();
-                let failure_code = failure.code.as_str().to_owned();
-                let processing = self
-                    .store
-                    .fail_managed_artwork_ingest(
-                        claim.ingest.id,
-                        failure_code.clone(),
-                        failure_code,
-                        summary_json,
-                    )
-                    .await?;
-                Ok(ProcessManagedArtworkIngestResponse::from_processing(
-                    processing,
-                ))
-            }
-        }
+            .map(ProcessManagedArtworkIngestResponse::from_processing)
+            .unwrap_or_else(ProcessManagedArtworkIngestResponse::empty))
     }
 
     pub(crate) async fn requeue_ingest(
@@ -727,6 +747,49 @@ impl ManagedArtworkAppService {
                 Err(ManagedArtworkFailure::new(
                     ManagedArtworkFailureCode::StorageFailed,
                 ))
+            }
+        }
+    }
+
+    async fn process_next_unit(
+        &self,
+    ) -> Result<Option<taru_core::ManagedArtworkIngestProcessingRecord>> {
+        let Some(claim) = self
+            .store
+            .claim_next_queued_managed_artwork_ingest()
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        self.process_claim_with_failure_commit(claim)
+            .await
+            .map(Some)
+    }
+
+    async fn process_claim_with_failure_commit(
+        &self,
+        claim: ManagedArtworkIngestClaimRecord,
+    ) -> Result<taru_core::ManagedArtworkIngestProcessingRecord> {
+        match self.process_claim(claim.clone()).await {
+            Ok(processing) => Ok(processing),
+            Err(failure) => {
+                let summary = ManagedArtworkIngestFailureSummary {
+                    ingest_id: claim.ingest.id,
+                    candidate_id: claim.candidate.id,
+                    status: ManagedArtworkIngestStatus::Failed.as_str(),
+                    failure_code: failure.code.as_str(),
+                };
+                let summary_json = serde_json::to_string(&summary).ok();
+                let failure_code = failure.code.as_str().to_owned();
+                self.store
+                    .fail_managed_artwork_ingest(
+                        claim.ingest.id,
+                        failure_code.clone(),
+                        failure_code,
+                        summary_json,
+                    )
+                    .await
             }
         }
     }

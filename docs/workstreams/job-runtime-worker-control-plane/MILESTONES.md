@@ -16,7 +16,7 @@ Exit criteria:
 
 ## M1 - Managed Artwork Worker Tracer Bullet
 
-Status: Ready
+Status: In progress
 
 Exit criteria:
 
@@ -25,6 +25,11 @@ Exit criteria:
   manual Admin `process-next` route.
 - Resource limits are explicit and process-local.
 - Public Client API shape is unchanged.
+
+Progress:
+
+- `JRWCP-020` adds an opt-in process-local worker for Managed Artwork ingest.
+- Failure/recovery semantics remain assigned to `JRWCP-030`.
 
 ## M2 - Recovery And Cancellation Semantics
 

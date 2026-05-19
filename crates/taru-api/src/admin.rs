@@ -1390,6 +1390,8 @@ pub struct AdminArtworkConfigDiagnostics {
     pub fetch_max_attempts: u32,
     pub fetch_max_bytes: u64,
     pub fetch_concurrency: usize,
+    pub ingest_worker_enabled: bool,
+    pub ingest_worker_idle_ms: u64,
     pub fetch_user_agent: String,
     pub has_fetch_proxy: bool,
     pub max_width: u32,
@@ -1564,6 +1566,7 @@ pub struct AdminOverviewStartupSummary {
     pub staging_deleted_files: u32,
     pub metadata_raw_cache_deleted: u64,
     pub metadata_lifecycle_tasks_started: u32,
+    pub artwork_ingest_worker_started: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2652,6 +2655,7 @@ mod tests {
                 staging_deleted_files: 0,
                 metadata_raw_cache_deleted: 0,
                 metadata_lifecycle_tasks_started: 0,
+                artwork_ingest_worker_started: false,
             },
         };
 

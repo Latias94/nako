@@ -1835,6 +1835,98 @@ async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_with
 }
 
 #[tokio::test]
+async fn job_runtime_worker_stores_managed_artwork_artifact_without_admin_process_next() {
+    let (temp, router, source, store) =
+        router_with_media_source_config("demo.mkv", b"media", |config| {
+            config.artwork.ingest_worker_enabled = true;
+            config.artwork.ingest_worker_idle_ms = 10;
+        })
+        .await;
+    let library_id = source.library_id;
+    let (remote_url, expected_byte_len) = tiny_artwork_server().await;
+    let (raw_token, _candidate_id, accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-worker-store",
+    )
+    .await;
+
+    let mut stored_ingest = None;
+    for _ in 0..100 {
+        let ingest = store
+            .get_managed_artwork_ingest(accepted.ingest.id)
+            .await
+            .unwrap()
+            .unwrap();
+        if ingest.status == ManagedArtworkIngestStatus::Stored {
+            stored_ingest = Some(ingest);
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    let stored_ingest = stored_ingest.expect("managed artwork worker should store the ingest");
+    let artifact_id = stored_ingest
+        .artifact_id
+        .expect("stored managed artwork ingest should reference an artifact");
+    let artifact = store
+        .get_managed_artwork_artifact(artifact_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let job = store.get_job(accepted.job.id).await.unwrap().unwrap();
+
+    assert_eq!(stored_ingest.id, accepted.ingest.id);
+    assert_eq!(stored_ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert_eq!(stored_ingest.failure_code, None);
+    assert_eq!(artifact.ingest_id, accepted.ingest.id);
+    assert_eq!(artifact.library_id, library_id);
+    assert_eq!(artifact.item_id, source.item_id);
+    assert_eq!(artifact.kind, ImageKind::Poster);
+    assert_eq!(artifact.byte_len, Some(expected_byte_len));
+    assert_eq!(artifact.media_type.as_deref(), Some("image/png"));
+    assert_eq!(job.status, JobStatus::Succeeded);
+    assert!(job.started_at.is_some());
+    assert!(job.completed_at.is_some());
+    assert!(job.error.is_none());
+
+    assert!(artifact.storage_uri.starts_with("managed-artwork://"));
+    assert!(
+        !artifact
+            .storage_uri
+            .contains(temp.path().to_string_lossy().as_ref())
+    );
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let empty = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    assert!(!empty.processed);
+
+    let overview =
+        request_json::<AdminOverviewResponse>(&router, Method::GET, "/admin/v1/overview").await;
+    assert!(overview.startup.artwork_ingest_worker_started);
+
+    let response_text = serde_json::to_string(&overview).unwrap();
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("storage_uri"));
+    assert!(!response_text.contains("managed-artwork://"));
+    assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
+}
+
+#[tokio::test]
 async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without_locator_leaks() {
     let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
