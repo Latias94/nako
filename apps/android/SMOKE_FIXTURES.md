@@ -144,7 +144,8 @@ Command:
 Use this as the stable local confidence gate after Android UI, browse,
 playback-launch, or smoke-harness changes. The wrapper builds the debug APK
 once, runs the stable state set through `Smoke-Emulator.ps1`, and writes a
-combined report under `apps/android/build/smoke-regression/<timestamp>/`.
+combined `report.md` and machine-readable `report.json` under
+`apps/android/build/smoke-regression/<timestamp>/`.
 
 Default states:
 
