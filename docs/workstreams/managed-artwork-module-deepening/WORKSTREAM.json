@@ -1,0 +1,32 @@
+{
+  "slug": "managed-artwork-module-deepening",
+  "status": "active",
+  "goal": "Deepen Managed Artwork app/db/api modules without changing product semantics or redaction contracts",
+  "owner": "codex",
+  "created_at": "2026-05-19",
+  "updated_at": "2026-05-19",
+  "current_task": "MAMD-050",
+  "first_slice": "Split the SQLite Managed Artwork repository adapter by concern",
+  "non_goals": [
+    "provider search, ranking, or provider payload expansion",
+    "Public Client gallery browsing",
+    "persisted thumbnail cache eviction",
+    "missing-artifact repair or re-ingest",
+    "new durable retry, cancellation, backoff, or lease semantics",
+    "addon direct fetch, cache, or publication side effects"
+  ],
+  "redaction_invariants": [
+    "raw source URLs stay out of public/Admin surfaces",
+    "managed-artwork storage URIs stay internal",
+    "local filesystem paths stay internal",
+    "cache URIs stay internal",
+    "artifact content hashes stay internal"
+  ],
+  "validation_gates": [
+    "Get-Content docs\\workstreams\\managed-artwork-module-deepening\\WORKSTREAM.json | ConvertFrom-Json | Out-Null",
+    "cargo check -j 2 -p taru-server -p taru-api --tests",
+    "cargo nextest run -j 2 -p taru-server managed_artwork_variant --no-fail-fast",
+    "cargo nextest run -j 2 -p taru-api managed_artwork_variant --no-fail-fast",
+    "git diff --check"
+  ]
+}

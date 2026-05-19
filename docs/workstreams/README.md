@@ -107,6 +107,12 @@ attention.
   completed follow-on for redacted Admin retry/requeue controls around Managed
   Artwork ingest failures without conflating fetch execution, publication,
   cleanup, repair, or cancellation.
+- [managed-artwork-module-deepening](managed-artwork-module-deepening/README.md):
+  active architecture follow-on for deepening Managed Artwork app/db/api
+  Modules around candidates, artifacts, Selected Artwork, variants,
+  lifecycle/remediation, and redaction-preserving seams without adding provider
+  search, Public Client gallery, thumbnail eviction, repair/re-ingest, or new
+  runtime retry/cancel semantics.
 - [job-runtime-worker-control-plane](job-runtime-worker-control-plane/README.md):
   completed architecture follow-on for the first durable job worker/control-plane
   slice, covering opt-in supervised Managed Artwork ingest execution and typed
