@@ -32,12 +32,12 @@ Last updated: 2026-05-19
 
 ## M3 - Android Authoritative Resume Integration
 
-- [ ] UPS-040 [owner=unassigned] [deps=UPS-030] [scope=apps/android/app/src/main/java/dev/taru/android, apps/android/app/src/test/java/dev/taru/android]
+- [x] UPS-040 [owner=codex] [deps=UPS-030] [scope=apps/android/app/src/main/java/dev/taru/android, apps/android/app/src/test/java/dev/taru/android]
   Goal: Add Android client methods and UI integration for server-authoritative resume, progress reporting, watched transitions, and Continue Watching presentation.
   Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   Review: device-local resume remains fallback/local cache and UI copy does not claim server state when routes fail.
-  Evidence: Android client/UI tests.
-  Handoff: Smoke fixture support can be split if emulator validation needs server seed changes.
+  Evidence: `TaruUserPlaybackClientTest`, `BrowseResumeStateTest`, `UserPlaybackReportingTest`, `PlayerPresentationTest`, and full Android unit gate.
+  Handoff: Complete. UPS-050 can add emulator smoke evidence for the server-backed Continue Watching path and then close or split follow-ons.
 
 ## M4 - Smoke Evidence And Closeout
 

@@ -30,7 +30,6 @@ import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.TaruPlaybackClient
-import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
 import dev.taru.android.artwork.PublicArtworkSource
@@ -41,6 +40,8 @@ import dev.taru.android.ui.screens.settings.SettingsHomeScreen
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
+import dev.taru.android.userplayback.TaruUserPlaybackClient
+import dev.taru.android.userplayback.UserPlaybackResult
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -53,6 +54,7 @@ fun TaruBrowseShell(
     tokenVault: TokenVault,
     browseClient: TaruBrowseClient,
     playbackClient: TaruPlaybackClient,
+    userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
     onChangeServer: () -> Unit,
     modifier: Modifier = Modifier,
@@ -119,6 +121,7 @@ fun TaruBrowseShell(
             profile = profile,
             tokenVault = tokenVault,
             browseClient = browseClient,
+            userPlaybackClient = userPlaybackClient,
         )
     }
 
@@ -149,9 +152,22 @@ fun TaruBrowseShell(
             )
         ) {
             is BrowseResult.Success -> {
+                val userPlaybackState = when (
+                    val stateResult = userPlaybackClient.getState(
+                        profile = profile,
+                        accessToken = accessToken,
+                        itemId = itemRoute.itemId,
+                    )
+                ) {
+                    is UserPlaybackResult.Success -> stateResult.value.state
+                    is UserPlaybackResult.Failure -> null
+                }
                 selectedSourceId = result.value.sources.firstOrNull()?.id
                 playbackRequestSourceId = null
-                ItemDetailUiState.Content(result.value)
+                ItemDetailUiState.Content(
+                    response = result.value,
+                    userPlaybackState = userPlaybackState,
+                )
             }
             is BrowseResult.Failure -> ItemDetailUiState.Failure(result.diagnostics)
         }
@@ -296,7 +312,7 @@ fun TaruBrowseShell(
                     sourceProbeState = sourceProbeState,
                     playbackState = playbackState,
                     selectedSourceId = selectedSourceId,
-                    deviceResumePositionMs = deviceResumePosition(
+                    resumePosition = detailResumePosition(
                         profileId = profile.id,
                         state = detailState,
                         selectedSourceId = selectedSourceId,
@@ -320,17 +336,20 @@ fun TaruBrowseShell(
                         playbackRefreshKey += 1
                     },
                     onStartPlayback = { target ->
-                        val detail = (detailState as? ItemDetailUiState.Content)?.response
+                        val detailContent = detailState as? ItemDetailUiState.Content
+                        val detail = detailContent?.response
                         val item = detail?.item
                         val sourceId = selectedSourceId
                             ?: detail?.sources?.firstOrNull()?.id
                             ?: playbackState.contentOrNull()?.response?.source?.id
                         if (item != null && !sourceId.isNullOrBlank()) {
                             val title = item.metadata.title.ifBlank { "Taru Playback" }
-                            val positionKey = DevicePlaybackPositionKey(
-                                serverProfileId = profile.id,
+                            val resumePosition = resolvedResumePosition(
+                                profileId = profile.id,
                                 mediaItemId = item.id,
                                 sourceId = sourceId,
+                                userPlaybackState = detailContent.userPlaybackState,
+                                positionStore = positionStore,
                             )
                             navigationState = navigationState.open(
                                 TaruRoute.Player(
@@ -346,9 +365,8 @@ fun TaruBrowseShell(
                                             ?.mode
                                             ?: ClientPlaybackMode.DirectPlay,
                                         sessionId = null,
-                                        resumePositionMs = positionKey
-                                            .let(positionStore::load)
-                                            ?.positionMs,
+                                        resumePositionMs = resumePosition?.positionMs,
+                                        resumeSource = resumePosition?.source,
                                     ),
                                 ),
                             )
@@ -369,6 +387,7 @@ fun TaruBrowseShell(
                     profile = profile,
                     tokenVault = tokenVault,
                     playbackClient = playbackClient,
+                    userPlaybackClient = userPlaybackClient,
                     positionStore = positionStore,
                     onBack = { navigationState = navigationState.navigateBack() },
                 )
@@ -396,22 +415,23 @@ fun TaruBrowseShell(
 private fun PlaybackSelectionUiState.contentOrNull(): PlaybackSelectionUiState.Content? =
     this as? PlaybackSelectionUiState.Content
 
-private fun deviceResumePosition(
+private fun detailResumePosition(
     profileId: String,
     state: ItemDetailUiState,
     selectedSourceId: String?,
     positionStore: DevicePlaybackPositionStore,
-): Long? {
-    val detail = (state as? ItemDetailUiState.Content)?.response ?: return null
+): dev.taru.android.player.ResumePlaybackPosition? {
+    val content = state as? ItemDetailUiState.Content ?: return null
+    val detail = content.response
     val source = detail.sources.firstOrNull { it.id == selectedSourceId } ?: detail.sources.firstOrNull()
     val sourceId = source?.id?.takeIf { it.isNotBlank() } ?: return null
-    return positionStore.load(
-        DevicePlaybackPositionKey(
-            serverProfileId = profileId,
-            mediaItemId = detail.item.id,
-            sourceId = sourceId,
-        ),
-    )?.positionMs
+    return resolvedResumePosition(
+        profileId = profileId,
+        mediaItemId = detail.item.id,
+        sourceId = sourceId,
+        userPlaybackState = content.userPlaybackState,
+        positionStore = positionStore,
+    )
 }
 
 private suspend fun loadSourceProbeState(
@@ -619,6 +639,7 @@ private suspend fun loadBrowseState(
     profile: ServerProfile,
     tokenVault: TokenVault,
     browseClient: TaruBrowseClient,
+    userPlaybackClient: TaruUserPlaybackClient,
 ): BrowseUiState {
     val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
     if (accessToken.isBlank()) {
@@ -648,16 +669,37 @@ private suspend fun loadBrowseState(
         return BrowseUiState.Failure(items.diagnostics)
     }
     val itemPage = (items as BrowseResult.Success).value
+    val continueWatching = when (
+        val result = userPlaybackClient.continueWatching(
+            profile = profile,
+            accessToken = accessToken,
+            page = PageRequest(limit = 12, offset = 0),
+        )
+    ) {
+        is UserPlaybackResult.Success -> result.value
+        is UserPlaybackResult.Failure -> null
+    }
+    val visibleArtwork = loadVisibleArtworkRefs(
+        profile = profile,
+        accessToken = accessToken,
+        browseClient = browseClient,
+        items = itemPage.items,
+    )
+    val continueArtwork = continueWatching
+        ?.items
+        ?.mapNotNull { row ->
+            row.images
+                .takeIf { it.isNotEmpty() }
+                ?.let { row.item.id to it }
+        }
+        ?.toMap()
+        .orEmpty()
 
     return BrowseUiState.Content(
         libraries = (libraries as BrowseResult.Success).value,
         items = itemPage,
-        artworkByItemId = loadVisibleArtworkRefs(
-            profile = profile,
-            accessToken = accessToken,
-            browseClient = browseClient,
-            items = itemPage.items,
-        ),
+        artworkByItemId = visibleArtwork + continueArtwork,
+        continueWatching = continueWatching,
     )
 }
 

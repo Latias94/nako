@@ -60,6 +60,7 @@ Exit criteria:
 Evidence:
 
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+- `TODO.md` UPS-040 complete
 
 ## M4 - Closeout
 

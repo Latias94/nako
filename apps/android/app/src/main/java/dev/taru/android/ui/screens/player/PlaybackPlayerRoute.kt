@@ -63,6 +63,8 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.player.UserPlaybackStateReport
+import dev.taru.android.player.userPlaybackStateReport
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
@@ -72,6 +74,7 @@ import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
+import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,6 +87,7 @@ internal fun PlaybackPlayerRoute(
     profile: ServerProfile,
     tokenVault: TokenVault,
     playbackClient: TaruPlaybackClient,
+    userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
     onBack: () -> Unit,
 ) {
@@ -136,6 +140,7 @@ internal fun PlaybackPlayerRoute(
                 profile = profile,
                 tokenVault = tokenVault,
                 playbackClient = playbackClient,
+                userPlaybackClient = userPlaybackClient,
                 positionStore = positionStore,
             )
             player.removeListener(listener)
@@ -248,10 +253,12 @@ private fun persistPositionAndCancelSession(
     profile: ServerProfile,
     tokenVault: TokenVault,
     playbackClient: TaruPlaybackClient,
+    userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
 ) {
     val isEnded = player.playbackState == Player.STATE_ENDED
     val positionMs = player.currentPosition
+    val durationMs = player.duration.takeIf { it > 0L }
     if (isEnded || positionMs <= 0L) {
         positionStore.clear(launch.positionKey)
     } else {
@@ -259,21 +266,44 @@ private fun persistPositionAndCancelSession(
             DevicePlaybackPosition(
                 key = launch.positionKey,
                 positionMs = positionMs,
-                durationMs = player.duration.takeIf { it > 0L },
+                durationMs = durationMs,
                 updatedAtMillis = System.currentTimeMillis(),
             ),
         )
     }
     val sessionId = launch.sessionId?.takeIf { it.isNotBlank() }
-    if (!isEnded && sessionId != null) {
+    val report = userPlaybackStateReport(
+        launch = launch,
+        isEnded = isEnded,
+        positionMs = positionMs,
+        durationMs = durationMs,
+    )
+    if (report != null || (!isEnded && sessionId != null)) {
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isNotBlank()) {
             CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-                playbackClient.cancelPlaybackSession(
-                    profile = profile,
-                    accessToken = accessToken,
-                    sessionId = sessionId,
-                )
+                when (report) {
+                    is UserPlaybackStateReport.Progress -> userPlaybackClient.updateProgress(
+                        profile = profile,
+                        accessToken = accessToken,
+                        itemId = report.itemId,
+                        request = report.request,
+                    )
+                    is UserPlaybackStateReport.Watched -> userPlaybackClient.setWatchedState(
+                        profile = profile,
+                        accessToken = accessToken,
+                        itemId = report.itemId,
+                        request = report.request,
+                    )
+                    null -> Unit
+                }
+                if (!isEnded && sessionId != null) {
+                    playbackClient.cancelPlaybackSession(
+                        profile = profile,
+                        accessToken = accessToken,
+                        sessionId = sessionId,
+                    )
+                }
             }
         }
     }

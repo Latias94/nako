@@ -5,8 +5,9 @@ Last updated: 2026-05-19
 
 ## Smallest Current Repro
 
-Current gap: no public route exists for server-authoritative **User Playback
-State** lookup/reporting, and Android only has device-local resume.
+Current gap: Android now uses the public **User Playback State** route set, but
+the emulator smoke lane still needs fresh evidence that Continue Watching is
+server-backed in the profile-with-media scenario.
 
 Useful reads:
 
@@ -170,3 +171,34 @@ Fresh gate evidence:
 - 2026-05-19: `cargo nextest run -p taru-client-protocol -p taru-api -p taru-client --no-fail-fast` - PASS, 47 tests passed. This proves protocol DTOs, OpenAPI contract, generated TypeScript SDK drift checks, and Rust SDK route/body behavior.
 - 2026-05-19: `cargo nextest run -p taru-server user_playback --no-fail-fast` - PASS, 9 tests passed. This proves server app-service behavior plus HTTP route integration for state update/read/list and source/item validation.
 - 2026-05-19: `npm run check --prefix sdk/typescript` - PASS after installing the locked TypeScript dev dependency with `npm ci --prefix sdk/typescript`. This proves the generated TypeScript SDK type-checks with `exactOptionalPropertyTypes`.
+
+## UPS-040 Evidence
+
+Claim: Android reads server-authoritative **User Playback State**, presents
+Continue Watching only from server-backed state, prefers authoritative resume
+over device-local fallback, and reports progress/watched transitions through
+the Public Client API while preserving local resume as a cache/fallback.
+
+Evidence:
+
+- `apps/android/app/src/main/java/dev/taru/android/userplayback/` adds the
+  Android Public Client API client and DTOs for
+  `/users/me/playback-state/...`.
+- `apps/android/app/src/main/java/dev/taru/android/connection/` supports JSON
+  request bodies for PUT progress/watched calls.
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
+  loads Continue Watching and item-level User Playback State from the server.
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/HomeScreen.kt`
+  renders Continue Watching only when the server response contains resume
+  candidates.
+- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseResumeState.kt`
+  encodes the priority rule: server state wins, device-local position remains
+  fallback only.
+- `apps/android/app/src/main/java/dev/taru/android/player/UserPlaybackReporting.kt`
+  maps player exit state to progress or watched updates.
+
+Fresh gate evidence:
+
+- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon` - PASS. This proves the new Android User Playback State client route, body, decoding, and diagnostics behavior.
+- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --tests dev.taru.android.ui.browse.BrowseResumeStateTest --tests dev.taru.android.player.UserPlaybackReportingTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon` - PASS. This proves the client, authoritative resume priority, playback report mapping, and server/local resume labels.
+- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` - PASS. This is the UPS-040 Android gate and proves the complete Android unit suite after UI/client integration.

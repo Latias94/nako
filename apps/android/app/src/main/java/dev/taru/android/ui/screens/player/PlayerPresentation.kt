@@ -3,6 +3,7 @@ package dev.taru.android.ui.screens.player
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.player.PlaybackResumeSource
 
 internal data class PlayerChromePresentation(
     val title: String,
@@ -31,7 +32,7 @@ internal fun playerChromePresentation(launch: PlaybackLaunchRequest): PlayerChro
         backdropTitle = launch.title.ifBlank { "Taru Playback" },
         resumeLabel = launch.resumePositionMs
             ?.takeIf { it > 0L }
-            ?.let { "Local resume ${durationLabel(it)}" },
+            ?.let { "${resumeSourceLabel(launch.resumeSource)} ${durationLabel(it)}" },
         sessionLabel = launch.sessionId
             ?.takeIf { it.isNotBlank() }
             ?.let { "Playback session active" },
@@ -62,6 +63,14 @@ internal fun playerModeLabel(mode: ClientPlaybackMode): String =
         ClientPlaybackMode.DirectPlay -> "Direct"
         ClientPlaybackMode.Remux -> "Remux"
         ClientPlaybackMode.Transcode -> "HLS"
+    }
+
+private fun resumeSourceLabel(source: PlaybackResumeSource?): String =
+    when (source) {
+        PlaybackResumeSource.UserPlaybackState -> "Server resume"
+        PlaybackResumeSource.DeviceLocal,
+        null,
+        -> "Local resume"
     }
 
 internal fun durationLabel(positionMs: Long): String {

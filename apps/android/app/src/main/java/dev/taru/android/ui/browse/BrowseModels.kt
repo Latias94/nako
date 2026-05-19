@@ -19,6 +19,8 @@ import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.userplayback.ContinueWatchingResponse
+import dev.taru.android.userplayback.UserPlaybackStateDto
 
 internal enum class TaruDestination(
     val label: String,
@@ -117,6 +119,7 @@ internal sealed interface BrowseUiState {
         val libraries: LibraryListResponse,
         val items: ItemsResponse,
         val artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
+        val continueWatching: ContinueWatchingResponse? = null,
     ) : BrowseUiState
 
     data class Failure(
@@ -130,6 +133,7 @@ internal sealed interface ItemDetailUiState {
 
     data class Content(
         val response: ItemDetailResponse,
+        val userPlaybackState: UserPlaybackStateDto? = null,
     ) : ItemDetailUiState
 
     data class Failure(

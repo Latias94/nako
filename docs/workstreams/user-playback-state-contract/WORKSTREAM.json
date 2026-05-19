@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Taru lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
-  "current_task": "UPS-040",
+  "current_task": "UPS-050",
   "authoritative_docs": [
     {
       "role": "design",
@@ -56,7 +56,7 @@
   ],
   "continue_policy": {
     "default_action": "run_next_task",
-    "next_task": "UPS-040",
-    "notes": "Implement Android client/UI integration against the public /users/me/playback-state route set. Keep device-local resume as fallback/local cache only."
+    "next_task": "UPS-050",
+    "notes": "Run server-backed Android smoke evidence for Continue Watching, then close or split follow-ons."
   }
 }

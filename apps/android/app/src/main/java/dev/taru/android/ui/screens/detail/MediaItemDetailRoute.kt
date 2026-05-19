@@ -45,6 +45,7 @@ import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.playback.PlaybackRequestTarget
+import dev.taru.android.player.ResumePlaybackPosition
 import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.artwork.TaruPosterArtwork
 import dev.taru.android.ui.browse.BrowseFacetTarget
@@ -78,7 +79,7 @@ internal fun DetailRouteContent(
     sourceProbeState: SourceProbeUiState,
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     profile: ServerProfile,
     accessToken: String,
     onBack: () -> Unit,
@@ -110,7 +111,7 @@ internal fun DetailRouteContent(
                 sourceProbeState = sourceProbeState,
                 playbackState = playbackState,
                 selectedSourceId = selectedSourceId,
-                deviceResumePositionMs = deviceResumePositionMs,
+                resumePosition = resumePosition,
                 profile = profile,
                 accessToken = accessToken,
                 onOpenFacet = onOpenFacet,
@@ -141,7 +142,7 @@ private fun MediaItemDetailScreen(
     sourceProbeState: SourceProbeUiState,
     playbackState: PlaybackSelectionUiState,
     selectedSourceId: String?,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     profile: ServerProfile,
     accessToken: String,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
@@ -160,7 +161,7 @@ private fun MediaItemDetailScreen(
         item = item,
         selectedSource = selectedSource,
         playbackState = playbackState,
-        deviceResumePositionMs = deviceResumePositionMs,
+        resumePosition = resumePosition,
         profile = profile,
         accessToken = accessToken,
         onRequestPlayback = onRequestPlayback,
@@ -172,7 +173,7 @@ private fun MediaItemDetailScreen(
         sourceProbeState = sourceProbeState,
         playbackState = playbackState,
         selectedSourceId = selectedSource?.id,
-        deviceResumePositionMs = deviceResumePositionMs,
+        resumePosition = resumePosition,
         onSelectSource = onSelectSource,
         onRetrySourceProbe = onRetrySourceProbe,
         onRetryPlayback = onRetryPlayback,
@@ -212,7 +213,7 @@ private fun DetailHero(
     item: MediaItemDto,
     selectedSource: MediaSourceDto?,
     playbackState: PlaybackSelectionUiState,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     profile: ServerProfile,
     accessToken: String,
     onRequestPlayback: (String) -> Unit,
@@ -282,7 +283,7 @@ private fun DetailHero(
                 DetailActionCluster(
                     selectedSource = selectedSource,
                     playbackState = playbackState,
-                    deviceResumePositionMs = deviceResumePositionMs,
+                    resumePosition = resumePosition,
                     onRequestPlayback = onRequestPlayback,
                     onStartPlayback = onStartPlayback,
                 )
@@ -312,7 +313,7 @@ private fun PosterAnchor(
 private fun DetailActionCluster(
     selectedSource: MediaSourceDto?,
     playbackState: PlaybackSelectionUiState,
-    deviceResumePositionMs: Long?,
+    resumePosition: ResumePlaybackPosition?,
     onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
@@ -339,7 +340,7 @@ private fun DetailActionCluster(
                 contentDescription = null,
             )
             Spacer(modifier = Modifier.width(TaruSpacing.small))
-            Text(if (deviceResumePositionMs != null) "Resume" else "Play")
+            Text(if (resumePosition != null) "Resume" else "Play")
         }
         OutlinedButton(
             onClick = { selectedSource?.id?.let(onRequestPlayback) },

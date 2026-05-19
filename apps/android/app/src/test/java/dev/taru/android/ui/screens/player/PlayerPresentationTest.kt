@@ -4,6 +4,7 @@ import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.PlaybackRequestTarget
+import dev.taru.android.player.PlaybackResumeSource
 import dev.taru.android.player.playbackLaunchRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,6 +22,18 @@ class PlayerPresentationTest {
         assertEquals("Night Harbor", chrome.backdropTitle)
         assertEquals("HLS", chrome.modeLabel)
         assertEquals("Local resume 1:32", chrome.resumeLabel)
+    }
+
+    @Test
+    fun playerChromeLabelsAuthoritativeUserPlaybackStateResume() {
+        val chrome = playerChromePresentation(
+            launch = launch(
+                resumePositionMs = 92_000,
+                resumeSource = PlaybackResumeSource.UserPlaybackState,
+            ),
+        )
+
+        assertEquals("Server resume 1:32", chrome.resumeLabel)
     }
 
     @Test
@@ -53,6 +66,7 @@ class PlayerPresentationTest {
     private fun launch(
         title: String = "Night Harbor",
         resumePositionMs: Long?,
+        resumeSource: PlaybackResumeSource? = null,
     ) =
         playbackLaunchRequest(
             title = title,
@@ -74,5 +88,6 @@ class PlayerPresentationTest {
             playbackMode = ClientPlaybackMode.Transcode,
             sessionId = "session-1",
             resumePositionMs = resumePositionMs,
+            resumeSource = resumeSource,
         )
 }

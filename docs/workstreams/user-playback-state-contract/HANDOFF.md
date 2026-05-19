@@ -8,7 +8,7 @@ Last updated: 2026-05-19
 This workstream was split from
 `docs/workstreams/android-public-client-api-coverage/` APIC-060.
 
-UPS-010, UPS-020, and UPS-030 are complete. The first public **User Playback State**
+UPS-010, UPS-020, UPS-030, and UPS-040 are complete. The first public **User Playback State**
 contract is frozen in `CONTRACT.md`, and ADR-0028 defines how
 **Single-Admin Mode** resolves to an internal stable `local-admin` principal
 without making the domain permanently single-user.
@@ -17,29 +17,27 @@ Server storage and app-service behavior now exist behind core repository
 traits, SQLite migration 0029, `UserPlaybackAppService`, and auth middleware
 principal resolution. Public HTTP/API/SDK routes now exist under
 `/users/me/playback-state/...` with protocol DTOs, OpenAPI, Rust SDK,
-TypeScript SDK, and HTTP API documentation. The current Android behavior
-remains device-local resume through
-`DevicePlaybackPositionStore`; it must not be presented as
-server-authoritative **User Playback State** or cross-device Continue Watching.
+TypeScript SDK, and HTTP API documentation. Android now has a dedicated
+`TaruUserPlaybackClient`, renders Continue Watching only from server-backed
+state, prefers authoritative resume over device-local fallback, and reports
+progress/watched transitions from player exit state. `DevicePlaybackPositionStore`
+remains local cache/fallback only.
 
 ## Next Task
 
-Run UPS-040:
+Run UPS-050:
 
-- add Android Public Client API methods for
-  `GET /users/me/playback-state/items/{item_id}`,
-  `GET /users/me/playback-state/continue-watching`,
-  `PUT /users/me/playback-state/items/{item_id}/progress`, and
-  `PUT /users/me/playback-state/items/{item_id}/watched`;
-- integrate authoritative resume and Continue Watching UI against server state;
-- keep `DevicePlaybackPositionStore` as fallback/local cache only;
-- ensure failed or unavailable server playback state does not produce
-  cross-device Continue Watching claims.
+- add or update smoke evidence proving Continue Watching is backed by server
+  **User Playback State** in `profile-with-media`;
+- update `EVIDENCE_AND_GATES.md` with the smoke report path;
+- close the workstream or split remaining follow-ons for account UI, offline
+  sync, recommendations, and richer user preferences.
 
 Recommended validation:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
+pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-with-media
+git diff --check
 ```
 
 ## Constraints To Preserve
@@ -58,5 +56,7 @@ apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
 
 ## Parallel Work
 
-Android UPS-040 is now unblocked. Keep smoke evidence and closeout in UPS-050
-until Android uses the public route set.
+UPS-050 smoke evidence and closeout are now unblocked. Keep any multi-user
+account UI, offline sync, recommendation logic, favorites, hidden state, or
+rating work out of this first route-set closeout unless explicitly split into a
+new lane.

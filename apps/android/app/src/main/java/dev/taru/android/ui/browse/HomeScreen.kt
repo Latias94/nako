@@ -37,6 +37,7 @@ import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.artwork.preferredPublicArtwork
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.connection.ServerProfile
+import dev.taru.android.userplayback.ContinueWatchingItemDto
 import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
@@ -59,7 +60,8 @@ internal fun HomeScreen(
         val content = state as? BrowseUiState.Content
         HomeHeader(
             profile = profile,
-            featuredItem = content?.items?.items?.firstOrNull(),
+            featuredItem = content?.continueWatching?.items?.firstOrNull()?.item
+                ?: content?.items?.items?.firstOrNull(),
             libraryCount = content?.libraries?.libraries?.size,
             itemCount = content?.items?.page?.returned,
             artworkSource = artworkSource,
@@ -85,6 +87,23 @@ internal fun HomeScreen(
                     onOpenLibrary = onOpenLibrary,
                     onOpenSearch = onOpenSearch,
                 )
+
+                val continueWatchingRows = state.continueWatching
+                    ?.items
+                    .orEmpty()
+                    .filter { !it.state.watched && it.state.resumePositionMs != null }
+                if (continueWatchingRows.isNotEmpty()) {
+                    SectionHeader(
+                        title = "Continue Watching",
+                        action = "${continueWatchingRows.size}",
+                    )
+                    ContinueWatchingPosterRow(
+                        rows = continueWatchingRows.take(8),
+                        artworkSource = artworkSource,
+                        artworkByItemId = state.artworkByItemId,
+                        onOpenItem = onOpenItem,
+                    )
+                }
 
                 SectionHeader(
                     title = "Media Libraries",
@@ -119,6 +138,44 @@ internal fun HomeScreen(
                         artworkByItemId = state.artworkByItemId,
                         onOpenItem = onOpenItem,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingPosterRow(
+    rows: List<ContinueWatchingItemDto>,
+    artworkSource: PublicArtworkSource,
+    artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+    ) {
+        rows.forEach { row ->
+            Surface(
+                modifier = Modifier.width(132.dp),
+                shape = TaruShape.medium,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(TaruSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
+                ) {
+                    MediaPosterCard(
+                        item = row.item,
+                        artworkSource = artworkSource,
+                        artworkRefs = artworkByItemId[row.item.id].orEmpty(),
+                        onOpenItem = onOpenItem,
+                    )
+                    StatusChip(text = continueWatchingProgressLabel(row))
                 }
             }
         }
@@ -229,6 +286,24 @@ private fun HomeHeader(
                 )
             }
         }
+    }
+}
+
+private fun continueWatchingProgressLabel(row: ContinueWatchingItemDto): String =
+    row.state.progressPercent
+        ?.takeIf { it > 0f }
+        ?.let { "%.0f%% watched".format(it.coerceIn(0f, 100f)) }
+        ?: row.state.resumePositionMs?.let { "Resume ${durationLabel(it)}" }
+        ?: "Resume"
+
+private fun durationLabel(positionMs: Long): String {
+    val totalMinutes = positionMs.coerceAtLeast(0L) / 60_000L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return if (hours > 0) {
+        "${hours}h ${minutes}m"
+    } else {
+        "${minutes}m"
     }
 }
 

@@ -12,6 +12,7 @@ import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
 import dev.taru.android.ui.theme.TaruAndroidTheme
+import dev.taru.android.userplayback.TaruUserPlaybackClient
 
 @Preview
 @Composable
@@ -91,6 +92,70 @@ private fun TaruBrowseShellPreview() {
                             }
                             """.trimIndent(),
                         )
+                },
+            ),
+            userPlaybackClient = TaruUserPlaybackClient(
+                transport = object : TaruHttpTransport {
+                    override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
+                        if (request.url.contains("/continue-watching")) {
+                            TaruHttpResponse(
+                                statusCode = 200,
+                                body = """
+                                {
+                                  "items": [
+                                    {
+                                      "item": {
+                                        "id": "item-1",
+                                        "kind": "movie",
+                                        "metadata": {
+                                          "title": "Night Harbor",
+                                          "release_date": "2024-01-01",
+                                          "runtime_minutes": 106,
+                                          "genres": ["Mystery"],
+                                          "tags": ["Lighthouse"],
+                                          "ratings": []
+                                        }
+                                      },
+                                      "state": {
+                                        "item_id": "item-1",
+                                        "source_id": "source-1",
+                                        "resume_position_ms": 92000,
+                                        "duration_ms": 6360000,
+                                        "progress_percent": 1.4,
+                                        "watched": false,
+                                        "watched_at": null,
+                                        "last_played_at": "2026-05-19T00:00:00Z",
+                                        "updated_at": "2026-05-19T00:00:00Z",
+                                        "version": 1
+                                      },
+                                      "images": []
+                                    }
+                                  ],
+                                  "page": {"limit":12,"offset":0,"returned":1}
+                                }
+                                """.trimIndent(),
+                            )
+                        } else {
+                            TaruHttpResponse(
+                                statusCode = 200,
+                                body = """
+                                {
+                                  "state": {
+                                    "item_id": "item-1",
+                                    "source_id": "source-1",
+                                    "resume_position_ms": 92000,
+                                    "duration_ms": 6360000,
+                                    "progress_percent": 1.4,
+                                    "watched": false,
+                                    "watched_at": null,
+                                    "last_played_at": "2026-05-19T00:00:00Z",
+                                    "updated_at": "2026-05-19T00:00:00Z",
+                                    "version": 1
+                                  }
+                                }
+                                """.trimIndent(),
+                            )
+                        }
                 },
             ),
             positionStore = InMemoryDevicePlaybackPositionStore(),

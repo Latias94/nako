@@ -21,6 +21,7 @@ import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
+import dev.taru.android.userplayback.TaruUserPlaybackClient
 
 @Composable
 fun TaruAndroidApp(
@@ -33,6 +34,7 @@ fun TaruAndroidApp(
     val connectionClient = remember { TaruConnectionClient(transport) }
     val browseClient = remember { TaruBrowseClient(transport) }
     val playbackClient = remember { TaruPlaybackClient(transport) }
+    val userPlaybackClient = remember { TaruUserPlaybackClient(transport) }
     val positionStore = remember { SharedPreferencesDevicePlaybackPositionStore(context) }
 
     TaruAndroidAppContent(
@@ -42,6 +44,7 @@ fun TaruAndroidApp(
         connectionClient = connectionClient,
         browseClient = browseClient,
         playbackClient = playbackClient,
+        userPlaybackClient = userPlaybackClient,
         positionStore = positionStore,
     )
 }
@@ -53,6 +56,7 @@ fun TaruAndroidAppContent(
     connectionClient: TaruConnectionClient,
     browseClient: TaruBrowseClient,
     playbackClient: TaruPlaybackClient,
+    userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
     modifier: Modifier = Modifier,
 ) {
@@ -84,6 +88,7 @@ fun TaruAndroidAppContent(
             tokenVault = tokenVault,
             browseClient = browseClient,
             playbackClient = playbackClient,
+            userPlaybackClient = userPlaybackClient,
             positionStore = positionStore,
             onSnapshotChanged = { next ->
                 store.save(next)

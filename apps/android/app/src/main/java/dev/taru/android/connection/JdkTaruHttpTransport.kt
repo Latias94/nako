@@ -2,6 +2,7 @@ package dev.taru.android.connection
 
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -17,6 +18,14 @@ class JdkTaruHttpTransport(
             connection.readTimeout = readTimeoutMillis
             request.headers.forEach { (name, value) ->
                 connection.setRequestProperty(name, value)
+            }
+            request.body?.let { body ->
+                val bodyBytes = body.toByteArray(StandardCharsets.UTF_8)
+                connection.doOutput = true
+                connection.setFixedLengthStreamingMode(bodyBytes.size)
+                connection.outputStream.use { output ->
+                    output.write(bodyBytes)
+                }
             }
 
             val statusCode = connection.responseCode

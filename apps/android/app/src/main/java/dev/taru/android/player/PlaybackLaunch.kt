@@ -5,6 +5,20 @@ import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.PlaybackRequestTarget
 
+enum class PlaybackResumeSource {
+    UserPlaybackState,
+    DeviceLocal,
+}
+
+data class ResumePlaybackPosition(
+    val positionMs: Long,
+    val source: PlaybackResumeSource,
+) {
+    init {
+        require(positionMs > 0L) { "positionMs must be positive" }
+    }
+}
+
 data class PlaybackLaunchRequest(
     val title: String,
     val request: TaruHttpRequest,
@@ -15,6 +29,7 @@ data class PlaybackLaunchRequest(
     val playbackMode: ClientPlaybackMode,
     val sessionId: String? = null,
     val resumePositionMs: Long? = null,
+    val resumeSource: PlaybackResumeSource? = null,
 ) {
     val positionKey: DevicePlaybackPositionKey =
         DevicePlaybackPositionKey(
@@ -24,7 +39,7 @@ data class PlaybackLaunchRequest(
         )
 
     override fun toString(): String =
-        "PlaybackLaunchRequest(title=$title, safeRequest=$safeRequest, serverProfileId=$serverProfileId, mediaItemId=$mediaItemId, sourceId=$sourceId, playbackMode=$playbackMode, sessionId=$sessionId, resumePositionMs=$resumePositionMs)"
+        "PlaybackLaunchRequest(title=$title, safeRequest=$safeRequest, serverProfileId=$serverProfileId, mediaItemId=$mediaItemId, sourceId=$sourceId, playbackMode=$playbackMode, sessionId=$sessionId, resumePositionMs=$resumePositionMs, resumeSource=$resumeSource)"
 }
 
 fun playbackLaunchRequest(
@@ -36,6 +51,7 @@ fun playbackLaunchRequest(
     playbackMode: ClientPlaybackMode,
     sessionId: String? = null,
     resumePositionMs: Long? = null,
+    resumeSource: PlaybackResumeSource? = null,
 ): PlaybackLaunchRequest =
     PlaybackLaunchRequest(
         title = title,
@@ -47,4 +63,7 @@ fun playbackLaunchRequest(
         playbackMode = playbackMode,
         sessionId = sessionId,
         resumePositionMs = resumePositionMs,
+        resumeSource = resumePositionMs
+            ?.takeIf { it > 0L }
+            ?.let { resumeSource ?: PlaybackResumeSource.DeviceLocal },
     )
