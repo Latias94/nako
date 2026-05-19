@@ -51,21 +51,15 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.hls.HlsMediaSource
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.PlaybackExitCoordinator
-import dev.taru.android.player.PlaybackExitSnapshot
 import dev.taru.android.player.PlaybackLaunchRequest
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
@@ -93,9 +87,8 @@ internal fun PlaybackPlayerRoute(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = LocalClipboardManager.current
-    var playerState by remember { mutableStateOf("Preparing") }
-    var playbackError by remember { mutableStateOf<PlaybackErrorPresentation?>(null) }
-    var exitEffectsStarted by remember(launch) { mutableStateOf(false) }
+    val session = remember(launch) { PlayerSession(launch) }
+    var sessionState by remember(launch) { mutableStateOf(session.state) }
     val chrome = remember(launch) { playerChromePresentation(launch) }
     val exitCoordinator = remember(playbackClient, userPlaybackClient, positionStore) {
         PlaybackExitCoordinator(
@@ -104,67 +97,74 @@ internal fun PlaybackPlayerRoute(
             positionStore = positionStore,
         )
     }
-    val player = remember(launch.request.url) {
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setDefaultRequestProperties(launch.request.headers)
-        val mediaSourceFactory = DefaultMediaSourceFactory(context)
-            .setDataSourceFactory(dataSourceFactory)
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build()
-    }
-
-    LaunchedEffect(player, launch.request.url) {
-        playbackError = null
-        playerState = "Preparing"
-        preparePlayer(player, launch)
-    }
-
-    fun runExitEffectsOnce() {
-        if (exitEffectsStarted) {
-            return
-        }
-        exitEffectsStarted = true
-        persistPositionAndCancelSession(
-            player = player,
+    val engine = remember(launch) {
+        media3PlaybackEngineController(
+            context = context,
             launch = launch,
+        )
+    }
+    val exitEffectRunner = remember(profile, tokenVault, exitCoordinator, exitEffectScope) {
+        CoroutinePlaybackExitEffectRunner(
             profile = profile,
             tokenVault = tokenVault,
             exitCoordinator = exitCoordinator,
             exitEffectScope = exitEffectScope,
         )
     }
+
+    LaunchedEffect(engine, launch) {
+        sessionState = session.dispatch(PlayerSessionEvent.Prepare).state
+        engine.prepare(launch)
+    }
+
+    fun runExitEffects() {
+        exitEffectRunner.run(
+            launch = launch,
+            snapshot = engine.snapshot(),
+        )
+    }
+    fun dispatchSessionEvent(event: PlayerSessionEvent): PlayerSessionTransition =
+        session.dispatch(event).also { transition ->
+            sessionState = transition.state
+            if (transition.requestExitEffects) {
+                runExitEffects()
+            }
+        }
     val handleBack = {
-        runExitEffectsOnce()
+        dispatchSessionEvent(PlayerSessionEvent.Back)
         onBack()
     }
     BackHandler(onBack = handleBack)
 
-    DisposableEffect(player) {
+    DisposableEffect(engine) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
-                playerState = playerStateLabel(
-                    playbackState = playbackState,
-                    isPlaying = player.isPlaying,
+                dispatchSessionEvent(
+                    PlayerSessionEvent.PlaybackStateChanged(
+                        state = playbackEngineState(playbackState),
+                        isPlaying = engine.isPlaying,
+                    ),
                 )
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                playerState = "Error"
-                playbackError = playbackErrorPresentation(error.errorCodeName, launch)
+                dispatchSessionEvent(PlayerSessionEvent.Error(error.errorCodeName))
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (player.playbackState == Player.STATE_READY) {
-                    playerState = if (isPlaying) "Playing" else "Paused"
-                }
+                dispatchSessionEvent(
+                    PlayerSessionEvent.IsPlayingChanged(
+                        isPlaying = isPlaying,
+                        currentState = playbackEngineState(engine.playbackState),
+                    ),
+                )
             }
         }
-        player.addListener(listener)
+        engine.addListener(listener)
         onDispose {
-            runExitEffectsOnce()
-            player.removeListener(listener)
-            player.release()
+            dispatchSessionEvent(PlayerSessionEvent.Dispose)
+            engine.removeListener(listener)
+            engine.release()
         }
     }
 
@@ -182,7 +182,7 @@ internal fun PlaybackPlayerRoute(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
-                    this.player = player
+                    this.player = engine.player
                     useController = true
                     setArtworkDisplayMode(PlayerView.ARTWORK_DISPLAY_MODE_OFF)
                     layoutParams = ViewGroup.LayoutParams(
@@ -193,26 +193,26 @@ internal fun PlaybackPlayerRoute(
                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
-            update = { it.player = player },
+            update = { it.player = engine.player },
         )
 
         PlayerTopOverlay(
             chrome = chrome,
-            playerState = playerState,
+            playerState = sessionState.playerStateLabel,
             onBack = handleBack,
         )
 
         AnimatedVisibility(
-            visible = playerState == "Buffering" || playerState == "Preparing",
+            visible = sessionState.isPreparingOrBuffering,
             modifier = Modifier.align(Alignment.Center),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            PlayerCenterStatus(playerState = playerState)
+            PlayerCenterStatus(playerState = sessionState.playerStateLabel)
         }
 
         AnimatedVisibility(
-            visible = playbackError == null,
+            visible = sessionState.playbackError == null,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = PlayerMedia3ControllerClearanceDp.dp),
@@ -221,17 +221,16 @@ internal fun PlaybackPlayerRoute(
         ) {
             PlayerBottomOverlay(
                 chrome = chrome,
-                playerState = playerState,
+                playerState = sessionState.playerStateLabel,
             )
         }
 
-        playbackError?.let { presentation ->
+        sessionState.playbackError?.let { presentation ->
             PlaybackErrorSheet(
                 presentation = presentation,
                 onRetry = {
-                    playbackError = null
-                    playerState = "Preparing"
-                    preparePlayer(player, launch)
+                    sessionState = session.dispatch(PlayerSessionEvent.Retry).state
+                    engine.prepare(launch)
                 },
                 onBack = handleBack,
                 onCopyDiagnostics = {
@@ -243,63 +242,13 @@ internal fun PlaybackPlayerRoute(
     }
 }
 
-@OptIn(UnstableApi::class)
-private fun preparePlayer(
-    player: ExoPlayer,
-    launch: PlaybackLaunchRequest,
-) {
-    player.stop()
-    player.clearMediaItems()
-    val mediaItem = MediaItem.fromUri(launch.request.url)
-    if (launch.request.url.contains("/stream/hls/playlist.m3u8")) {
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setDefaultRequestProperties(launch.request.headers)
-        player.setMediaSource(
-            HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem),
-        )
-    } else {
-        player.setMediaItem(mediaItem)
-    }
-    launch.resumePositionMs
-        ?.takeIf { it > 0L }
-        ?.let(player::seekTo)
-    player.prepare()
-    player.playWhenReady = true
-}
-
-private fun persistPositionAndCancelSession(
-    player: Player,
-    launch: PlaybackLaunchRequest,
-    profile: ServerProfile,
-    tokenVault: TokenVault,
-    exitCoordinator: PlaybackExitCoordinator,
-    exitEffectScope: CoroutineScope,
-) {
-    val snapshot = PlaybackExitSnapshot(
-        isEnded = player.playbackState == Player.STATE_ENDED,
-        positionMs = player.currentPosition,
-        durationMs = player.duration,
-    )
-    launchPlayerExitEffect(exitEffectScope) {
-        exitCoordinator.applyExitEffects(
-            launch = launch,
-            snapshot = snapshot,
-            profile = profile,
-            tokenVault = tokenVault,
-        )
-    }
-}
-
-private fun playerStateLabel(
-    playbackState: Int,
-    isPlaying: Boolean,
-): String =
+private fun playbackEngineState(playbackState: Int): PlayerEngineState =
     when (playbackState) {
-        Player.STATE_IDLE -> "Idle"
-        Player.STATE_BUFFERING -> "Buffering"
-        Player.STATE_READY -> if (isPlaying) "Playing" else "Ready"
-        Player.STATE_ENDED -> "Ended"
-        else -> "Unknown"
+        Player.STATE_IDLE -> PlayerEngineState.Idle
+        Player.STATE_BUFFERING -> PlayerEngineState.Buffering
+        Player.STATE_READY -> PlayerEngineState.Ready
+        Player.STATE_ENDED -> PlayerEngineState.Ended
+        else -> PlayerEngineState.Unknown
     }
 
 @Composable

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "slug": "android-player-session-architecture",
+  "title": "Android Player Session Architecture",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "architecture-refactor",
+  "problem": "PlaybackPlayerRoute owns Media3 setup, player state, retry/error policy, exit effect triggering, and release ordering in one Composable.",
+  "summary": "Deepen Android player lifecycle around a testable PlayerSession and narrow engine/exit adapters while preserving playback behavior.",
+  "current_milestone": "M0",
+  "current_milestone": "M4",
+  "current_task": null,
+  "task_prefix": "APSA",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-player-session-architecture/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-player-session-architecture/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-player-session-architecture/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-player-session-architecture/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-player-session-architecture/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "git diff --check"
+  ],
+  "dependencies": [
+    "docs/workstreams/android-presentation-runtime-adapters",
+    "docs/workstreams/android-playback-session-integrity"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Closed. Runtime long-media cancellation smoke remains separate if needed."
+  }
+}
