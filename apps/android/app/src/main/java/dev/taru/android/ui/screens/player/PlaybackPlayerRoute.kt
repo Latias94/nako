@@ -63,11 +63,10 @@ import androidx.media3.ui.PlayerView
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
-import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionStore
+import dev.taru.android.player.PlaybackExitCoordinator
 import dev.taru.android.player.PlaybackExitSnapshot
 import dev.taru.android.player.PlaybackLaunchRequest
-import dev.taru.android.player.applyPlaybackExitEffects
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
@@ -100,6 +99,13 @@ internal fun PlaybackPlayerRoute(
     var playbackError by remember { mutableStateOf<PlaybackErrorPresentation?>(null) }
     var exitEffectsStarted by remember(launch) { mutableStateOf(false) }
     val chrome = remember(launch) { playerChromePresentation(launch) }
+    val exitCoordinator = remember(playbackClient, userPlaybackClient, positionStore) {
+        PlaybackExitCoordinator(
+            playbackClient = playbackClient,
+            userPlaybackClient = userPlaybackClient,
+            positionStore = positionStore,
+        )
+    }
     val player = remember(launch.request.url) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setDefaultRequestProperties(launch.request.headers)
@@ -126,9 +132,7 @@ internal fun PlaybackPlayerRoute(
             launch = launch,
             profile = profile,
             tokenVault = tokenVault,
-            playbackClient = playbackClient,
-            userPlaybackClient = userPlaybackClient,
-            positionStore = positionStore,
+            exitCoordinator = exitCoordinator,
         )
     }
     val handleBack = {
@@ -269,9 +273,7 @@ private fun persistPositionAndCancelSession(
     launch: PlaybackLaunchRequest,
     profile: ServerProfile,
     tokenVault: TokenVault,
-    playbackClient: TaruPlaybackClient,
-    userPlaybackClient: TaruUserPlaybackClient,
-    positionStore: DevicePlaybackPositionStore,
+    exitCoordinator: PlaybackExitCoordinator,
 ) {
     val snapshot = PlaybackExitSnapshot(
         isEnded = player.playbackState == Player.STATE_ENDED,
@@ -279,29 +281,11 @@ private fun persistPositionAndCancelSession(
         durationMs = player.duration,
     )
     CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-        applyPlaybackExitEffects(
+        exitCoordinator.applyExitEffects(
             launch = launch,
             snapshot = snapshot,
             profile = profile,
-            readAccessToken = tokenVault::readToken,
-            positionStore = positionStore,
-            updateProgress = { updateProfile, accessToken, itemId, report ->
-                userPlaybackClient.updateProgress(
-                    profile = updateProfile,
-                    accessToken = accessToken,
-                    itemId = itemId,
-                    request = report.request,
-                )
-            },
-            setWatchedState = { watchedProfile, accessToken, itemId, report ->
-                userPlaybackClient.setWatchedState(
-                    profile = watchedProfile,
-                    accessToken = accessToken,
-                    itemId = itemId,
-                    request = report.request,
-                )
-            },
-            cancelPlaybackSession = playbackClient::cancelPlaybackSession,
+            tokenVault = tokenVault,
         )
     }
 }

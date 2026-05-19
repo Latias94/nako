@@ -1,0 +1,20 @@
+{
+  "slug": "android-player-exit-effects-coordinator",
+  "title": "Android Player Exit Effects Coordinator",
+  "status": "closed",
+  "current_milestone": "M2",
+  "current_task": null,
+  "last_updated": "2026-05-19",
+  "goal": "Move Android player exit side-effect client wiring out of PlaybackPlayerRoute into a focused tested coordinator.",
+  "task_prefix": "APEC",
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null
+  },
+  "paths": [
+    "docs/workstreams/android-player-exit-effects-coordinator",
+    "apps/android/app/src/main/java/dev/taru/android/player",
+    "apps/android/app/src/main/java/dev/taru/android/ui/screens/player",
+    "apps/android/app/src/test/java/dev/taru/android/player"
+  ]
+}
