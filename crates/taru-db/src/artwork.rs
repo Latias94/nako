@@ -570,6 +570,125 @@ impl ManagedArtworkRepository for SqliteStore {
         })
     }
 
+    async fn requeue_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<ManagedArtworkIngestRequeueRecord> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let ingest = get_managed_artwork_ingest_tx(&mut transaction, ingest_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_artwork_ingest",
+                id: ingest_id.to_string(),
+            })?;
+        let job = get_job_tx(&mut transaction, ingest.job_id).await?;
+
+        if job.kind != JobKind::ManagedArtworkIngest || job.resource_class != "artwork.ingest" {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(TaruError::Conflict {
+                message: "managed artwork ingest job is not an artwork ingest job".to_owned(),
+            });
+        }
+
+        if ingest.status == ManagedArtworkIngestStatus::Queued {
+            if job.status != JobStatus::Queued {
+                transaction.rollback().await.map_err(database_error)?;
+                return Err(TaruError::Conflict {
+                    message: "queued managed artwork ingest job is not queued".to_owned(),
+                });
+            }
+            transaction.commit().await.map_err(database_error)?;
+            return Ok(ManagedArtworkIngestRequeueRecord {
+                ingest,
+                job,
+                requeued: false,
+                had_failure: false,
+            });
+        }
+
+        if ingest.status != ManagedArtworkIngestStatus::Failed || ingest.artifact_id.is_some() {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(TaruError::Conflict {
+                message: "managed artwork ingest is not failed or queued for requeue".to_owned(),
+            });
+        }
+
+        if job.status != JobStatus::Failed {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(TaruError::Conflict {
+                message: "managed artwork ingest job is not failed for requeue".to_owned(),
+            });
+        }
+
+        let ingest_updated = sqlx::query(
+            r#"
+            UPDATE managed_artwork_ingests
+            SET status = ?2,
+                failure_code = NULL,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1 AND status = ?3 AND artifact_id IS NULL
+            "#,
+        )
+        .bind(ingest.id.to_string())
+        .bind(ManagedArtworkIngestStatus::Queued.as_str())
+        .bind(ManagedArtworkIngestStatus::Failed.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+        if ingest_updated.rows_affected() != 1 {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(TaruError::Conflict {
+                message: "managed artwork ingest is not failed or queued for requeue".to_owned(),
+            });
+        }
+
+        let job_updated = sqlx::query(
+            r#"
+            UPDATE jobs
+            SET status = ?2,
+                summary_json = NULL,
+                error = NULL,
+                started_at = NULL,
+                completed_at = NULL,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+                AND status = ?3
+                AND kind = ?4
+                AND resource_class = ?5
+            "#,
+        )
+        .bind(ingest.job_id.to_string())
+        .bind(JobStatus::Queued.as_str())
+        .bind(JobStatus::Failed.as_str())
+        .bind(JobKind::ManagedArtworkIngest.as_str())
+        .bind("artwork.ingest")
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+        if job_updated.rows_affected() != 1 {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(TaruError::Conflict {
+                message: "managed artwork ingest job is not failed for requeue".to_owned(),
+            });
+        }
+
+        let ingest = get_managed_artwork_ingest_tx(&mut transaction, ingest.id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_artwork_ingest",
+                id: ingest.id.to_string(),
+            })?;
+        let job = get_job_tx(&mut transaction, ingest.job_id).await?;
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(ManagedArtworkIngestRequeueRecord {
+            ingest,
+            job,
+            requeued: true,
+            had_failure: true,
+        })
+    }
+
     async fn get_managed_artwork_artifact(
         &self,
         id: ManagedArtworkArtifactId,

@@ -200,6 +200,14 @@ pub struct ManagedArtworkIngestProcessingRecord {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestRequeueRecord {
+    pub ingest: ManagedArtworkIngestRecord,
+    pub job: Job,
+    pub requeued: bool,
+    pub had_failure: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SelectedArtworkRecord {
     pub id: SelectedArtworkId,
     pub library_id: LibraryId,

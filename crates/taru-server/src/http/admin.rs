@@ -26,7 +26,10 @@ use taru_api::{
     AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
-use taru_core::{ArtworkCandidateId, ImageKind, ManagedArtworkArtifactId, MediaItemId, TaruError};
+use taru_core::{
+    ArtworkCandidateId, ImageKind, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
+    TaruError,
+};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -61,6 +64,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/artwork/ingests/process-next",
             post(process_next_admin_artwork_ingest),
+        )
+        .route(
+            "/admin/v1/artwork/ingests/{ingest_id}/requeue",
+            post(requeue_admin_artwork_ingest),
         )
         .route(
             "/admin/v1/artwork/artifacts/{artifact_id}/publish",
@@ -121,6 +128,13 @@ pub(super) async fn process_next_admin_artwork_ingest(
     State(app): State<TaruApp>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.artwork().process_next().await?))
+}
+
+pub(super) async fn requeue_admin_artwork_ingest(
+    State(app): State<TaruApp>,
+    Path(ingest_id): Path<ManagedArtworkIngestId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().requeue_ingest(ingest_id).await?))
 }
 
 pub(super) async fn publish_admin_artwork_artifact(

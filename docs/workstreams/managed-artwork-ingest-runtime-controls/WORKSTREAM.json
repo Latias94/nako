@@ -1,11 +1,11 @@
 {
   "slug": "managed-artwork-ingest-runtime-controls",
-  "status": "active",
+  "status": "completed",
   "goal": "Add redacted Admin runtime controls for Managed Artwork ingest retry/requeue without conflating fetch execution, publication, cleanup, repair, or cancellation",
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "MAIRC-020",
+  "current_task": "closed",
   "first_slice": "Implement failed-ingest requeue command and prove process-next can retry requeued work",
   "non_goals": [
     "automatic retry scheduling or background worker orchestration",

@@ -1,5 +1,9 @@
 use super::*;
 use axum::http::HeaderValue;
+use std::sync::{
+    Arc as StdArc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 fn tiny_png() -> Vec<u8> {
     png_with_size(1, 1)
@@ -47,6 +51,54 @@ async fn artwork_server(
     yield_now().await;
 
     (format!("http://{addr}/poster.png?token=secret"), byte_len)
+}
+
+async fn changing_artwork_server(
+    first_status: StatusCode,
+    first_content_type: &'static str,
+    first_bytes: Vec<u8>,
+    second_status: StatusCode,
+    second_content_type: &'static str,
+    second_bytes: Vec<u8>,
+) -> (String, u64) {
+    let second_byte_len = second_bytes.len() as u64;
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let requests = StdArc::new(AtomicUsize::new(0));
+    let router = Router::new().route(
+        "/poster.png",
+        axum::routing::get({
+            let requests = StdArc::clone(&requests);
+            move || {
+                let request_index = requests.fetch_add(1, Ordering::SeqCst);
+                let bytes = if request_index == 0 {
+                    first_bytes.clone()
+                } else {
+                    second_bytes.clone()
+                };
+                let status = if request_index == 0 {
+                    first_status
+                } else {
+                    second_status
+                };
+                let content_type = if request_index == 0 {
+                    first_content_type
+                } else {
+                    second_content_type
+                };
+                async move { (status, [(header::CONTENT_TYPE, content_type)], bytes) }
+            }
+        }),
+    );
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (
+        format!("http://{addr}/poster.png?token=secret"),
+        second_byte_len,
+    )
 }
 
 async fn propose_and_accept_remote_artwork(
@@ -3178,6 +3230,153 @@ async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summ
             .unwrap()
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn admin_managed_artwork_ingest_requeue_retries_failed_ingest_without_leaks() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let expected_png = tiny_png();
+    let (remote_url, expected_byte_len) = changing_artwork_server(
+        StatusCode::OK,
+        "text/plain",
+        b"not-an-image token=secret".to_vec(),
+        StatusCode::OK,
+        "image/png",
+        expected_png,
+    )
+    .await;
+    let (raw_token, _candidate_id, accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-requeue-retry",
+    )
+    .await;
+
+    let failed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let failed_ingest = failed.ingest.as_ref().unwrap();
+    let failed_job = failed.job.as_ref().unwrap();
+    assert!(failed.processed);
+    assert_eq!(failed_ingest.id, accepted.ingest.id);
+    assert_eq!(failed_ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert!(failed_ingest.has_failure);
+    assert!(!failed_ingest.has_artifact);
+    assert_eq!(failed_job.id, accepted.job.id);
+    assert_eq!(failed_job.status, JobStatus::Failed);
+    assert_eq!(failed_job.error.as_deref(), Some("unsupported_media_type"));
+    assert!(failed.artifact.is_none());
+
+    let requeue_path = format!("/admin/v1/artwork/ingests/{}/requeue", accepted.ingest.id);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&requeue_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let requeued: RequeueManagedArtworkIngestResponse =
+        serde_json::from_slice(&response_body).unwrap();
+    assert!(requeued.requeued);
+    assert!(requeued.had_failure);
+    assert_eq!(requeued.ingest.id, accepted.ingest.id);
+    assert_eq!(requeued.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert!(!requeued.ingest.has_failure);
+    assert!(!requeued.ingest.has_artifact);
+    assert_eq!(requeued.job.id, accepted.job.id);
+    assert_eq!(requeued.job.status, JobStatus::Queued);
+    assert!(requeued.job.has_input);
+    assert!(!requeued.job.has_summary);
+    assert!(!requeued.job.has_error);
+    assert_eq!(requeued.job.started_at, None);
+    assert_eq!(requeued.job.completed_at, None);
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("not-an-image"));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+    assert!(!response_text.contains("managed-artwork://"));
+    assert!(!response_text.contains("summary_json"));
+    assert!(!response_text.contains("input_json"));
+
+    let replay =
+        request_json::<RequeueManagedArtworkIngestResponse>(&router, Method::POST, &requeue_path)
+            .await;
+    assert!(!replay.requeued);
+    assert!(!replay.had_failure);
+    assert_eq!(replay.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(replay.job.status, JobStatus::Queued);
+
+    let stored = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let stored_ingest = stored.ingest.as_ref().unwrap();
+    let artifact = stored.artifact.as_ref().unwrap();
+    let stored_job = stored.job.as_ref().unwrap();
+    assert!(stored.processed);
+    assert_eq!(stored_ingest.id, accepted.ingest.id);
+    assert_eq!(stored_ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert!(stored_ingest.has_artifact);
+    assert!(!stored_ingest.has_failure);
+    assert_eq!(stored_job.id, accepted.job.id);
+    assert_eq!(stored_job.status, JobStatus::Succeeded);
+    assert_eq!(artifact.ingest_id, accepted.ingest.id);
+    assert_eq!(artifact.byte_len, Some(expected_byte_len));
+    assert_eq!(artifact.media_type.as_deref(), Some("image/png"));
+
+    let persisted_ingest = store
+        .get_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(persisted_ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert_eq!(persisted_ingest.artifact_id, Some(artifact.id));
+    assert_eq!(persisted_ingest.failure_code, None);
+
+    let stored_requeue_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&requeue_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stored_requeue_response.status(), StatusCode::CONFLICT);
+    let stored_requeue_body = to_bytes(stored_requeue_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let stored_requeue_text = String::from_utf8_lossy(&stored_requeue_body);
+    assert!(!stored_requeue_text.contains(&remote_url));
+    assert!(!stored_requeue_text.contains("token=secret"));
+    assert!(!stored_requeue_text.contains(&raw_token));
 }
 
 #[tokio::test]

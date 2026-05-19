@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Runtime Controls Task Ledger
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Contract
@@ -14,7 +14,7 @@ Last updated: 2026-05-19
 
 ## M1 - Failed Ingest Requeue
 
-- [ ] MAIRC-020 [owner=codex] [deps=MAIRC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAIRC-020 [owner=codex] [deps=MAIRC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
   Goal: Implement `POST /admin/v1/artwork/ingests/{ingest_id}/requeue` for
   failed Managed Artwork ingests and failed durable jobs.
   Validation: focused API/server/db tests plus relevant cargo check.
@@ -23,11 +23,11 @@ Last updated: 2026-05-19
   Evidence: failed ingest/job return to queued; replay against queued returns
   `requeued = false`; stored/running states return conflict; response is
   redacted.
-  Handoff: Continue with process-next retry regression.
+  Handoff: Completed with `MAIRC-030` in the same HTTP regression slice.
 
 ## M2 - Retry Execution Regression
 
-- [ ] MAIRC-030 [owner=codex] [deps=MAIRC-020] [scope=crates/taru-server,docs/api]
+- [x] MAIRC-030 [owner=codex] [deps=MAIRC-020] [scope=crates/taru-server,docs/api]
   Goal: Prove a failed ingest can be requeued and then processed by the existing
   `process-next` route into a stored artifact after the source becomes valid.
   Validation: focused server test and redaction inventory.
@@ -35,11 +35,12 @@ Last updated: 2026-05-19
   fetch/validation/storage.
   Evidence: first process fails with safe summary, requeue resets state, second
   process stores artifact with redacted response.
-  Handoff: Close lane or split cancellation/runtime worker controls.
+  Handoff: Cancellation, automatic scheduling, repair, public gallery browsing,
+  and cleanup policy remain follow-ons.
 
 ## M3 - Closeout
 
-- [ ] MAIRC-040 [owner=codex] [deps=MAIRC-030] [scope=workspace,docs]
+- [x] MAIRC-040 [owner=codex] [deps=MAIRC-030] [scope=workspace,docs]
   Goal: Close the lane with fresh validation evidence, HTTP docs, and explicit
   follow-ons.
   Validation: focused nextest gates; relevant cargo check; `cargo fmt --all

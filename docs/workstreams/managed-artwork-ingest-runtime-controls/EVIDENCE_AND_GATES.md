@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Runtime Controls Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Required Gates
@@ -38,8 +38,15 @@ Expected result:
 
 | Date | Gate | Result | Notes |
 | --- | --- | --- | --- |
-| 2026-05-19 | `WORKSTREAM.json` parse | Pending | Run after opening docs. |
-| 2026-05-19 | `git diff --check` | Pending | Run after opening docs. |
+| 2026-05-19 | `WORKSTREAM.json` parse | Pass | `Get-Content ... WORKSTREAM.json \| ConvertFrom-Json` succeeded after opening docs. |
+| 2026-05-19 | `git diff --check` | Pass | Opening-doc diff was whitespace-clean. |
+| 2026-05-19 | `cargo nextest run -p taru-api managed_artwork_ingest_requeue --no-fail-fast` | Pass | Redacted requeue DTO does not serialize raw job input, summary, error, source URI, or token values. |
+| 2026-05-19 | `cargo nextest run -p taru-db managed_artwork_ingest_requeue --no-fail-fast` | Pass | Failed ingest/job requeue to queued, queued replay is idempotent, retry claim works, running/stored states conflict. |
+| 2026-05-19 | `cargo nextest run -p taru-server managed_artwork_ingest_requeue --no-fail-fast` | Pass | HTTP route requeues failed ingest, redacts response, supports queued replay, and `process-next` later stores artifact after source becomes valid. |
+| 2026-05-19 | `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests` | Pass | Cross-crate trait/API changes compile across core, db, api, and server tests. |
+| 2026-05-19 | `cargo fmt --all -- --check` | Pass | Formatting clean after applying `cargo fmt --all` to this lane's Rust edits. |
+| 2026-05-19 | `git diff --check` | Pass | Diff has no whitespace errors; Git reports only line-ending normalization warnings. |
+| 2026-05-19 | Redaction inventory | Pass | Hits are expected implementation internals, docs policy text, and tests asserting forbidden values are absent from responses. |
 
 ## Review Checklist
 

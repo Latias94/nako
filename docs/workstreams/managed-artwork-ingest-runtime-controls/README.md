@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Runtime Controls
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -45,7 +45,7 @@ details.
 - `HANDOFF.md`
 - `WORKSTREAM.json`
 
-## Current Slice
+## Completed Slice
 
 `MAIRC-020` implements a failed-ingest requeue command:
 
@@ -57,3 +57,16 @@ The command moves a failed Managed Artwork ingest and its failed durable job
 back to queued state, clears safe failure state, does not delete artifacts or
 files, and lets the existing `process-next` route retry the same accepted
 Artwork Candidate through the normal bounded fetch path.
+
+`MAIRC-030` proves the retry path end to end: one process attempt can fail with
+a safe summary, Admin requeue resets the existing ingest/job to queued, and a
+later `process-next` run stores the artifact after the remote source becomes
+valid.
+
+## Follow-Ons
+
+- Active in-process Managed Artwork ingest cancellation.
+- Automatic retry scheduling or background worker orchestration.
+- Missing-artifact repair or re-ingest.
+- Public Client candidate/gallery browsing.
+- Artifact cleanup/deletion policy changes.

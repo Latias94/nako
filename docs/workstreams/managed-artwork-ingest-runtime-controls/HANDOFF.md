@@ -1,47 +1,37 @@
 # Managed Artwork Ingest Runtime Controls Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
-This lane is open. No runtime code has been changed in this lane yet.
+This lane is closed. Runtime code now exposes:
 
-The lane owns Admin runtime controls for Managed Artwork ingest after accepted
-Artwork Candidates can become queued ingest jobs and `process-next` can store or
-fail them.
+- `POST /admin/v1/artwork/ingests/{ingest_id}/requeue`
 
-## First Executable Task
+The command transactionally resets failed Managed Artwork ingests and failed
+durable managed-artwork jobs to queued, clears failure state, is idempotent for
+already queued ingests, rejects stored/running/fetching/validating states, and
+returns a redacted response. Requeue itself does not fetch, validate, write
+artifacts, publish, cleanup, repair, or delete files. The server regression
+also proves `process-next` can later retry the same accepted candidate and store
+an artifact after the source becomes valid.
 
-Start with `MAIRC-020`:
-
-```text
-POST /admin/v1/artwork/ingests/{ingest_id}/requeue
-```
-
-Implementation expectations:
-
-- only failed ingests with failed `managed_artwork_ingest` jobs are requeued;
-- already queued ingests return `requeued = false`;
-- stored/running/fetching/validating states return conflict;
-- requeue is transactional across `managed_artwork_ingests` and `jobs`;
-- response is redacted;
-- requeue itself does not fetch, validate, write artifacts, publish, cleanup, or
-  delete files.
-
-## Files To Inspect Next
+## Files Changed
 
 - `crates/taru-core/src/media/artwork.rs`
 - `crates/taru-core/src/repository/metadata.rs`
 - `crates/taru-db/src/artwork.rs`
-- `crates/taru-db/src/jobs.rs`
+- `crates/taru-db/src/lib.rs`
+- `crates/taru-db/src/tests.rs`
 - `crates/taru-api/src/admin.rs`
 - `crates/taru-server/src/app/artwork.rs`
 - `crates/taru-server/src/http/admin.rs`
 - `crates/taru-server/src/http/tests/addons.rs`
+- `crates/taru-server/src/http/tests/mod.rs`
 - `docs/api/HTTP_API.md`
 
-## Suggested Validation
+## Validation
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'

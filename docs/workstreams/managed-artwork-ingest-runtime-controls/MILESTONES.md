@@ -1,9 +1,11 @@
 # Managed Artwork Ingest Runtime Controls Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Contract
+
+Status: Done
 
 Exit criteria:
 
@@ -13,6 +15,8 @@ Exit criteria:
 - `WORKSTREAM.json` parses.
 
 ## M1 - Failed Ingest Requeue
+
+Status: Done
 
 Exit criteria:
 
@@ -24,6 +28,8 @@ Exit criteria:
 
 ## M2 - Retry Execution Regression
 
+Status: Done
+
 Exit criteria:
 
 - A failed ingest can be requeued and later processed through `process-next`.
@@ -32,6 +38,8 @@ Exit criteria:
   detail, or content hash leaks through Admin responses.
 
 ## M3 - Closeout
+
+Status: Done
 
 Exit criteria:
 

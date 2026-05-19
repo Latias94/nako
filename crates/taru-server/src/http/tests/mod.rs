@@ -40,9 +40,9 @@ use taru_api::{
     MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
     MetadataRawCleanupResponse, MetadataRawResponsesResponse, ProcessManagedArtworkIngestResponse,
     PublishSelectedArtworkResponse, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-    StorageBackendStatus, SubmitAddonSideEffectRequest, TranscodeSessionResponse,
-    UnpublishSelectedArtworkResponse, UpsertAutomationProviderRequest,
+    RequeueManagedArtworkIngestResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
+    StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
+    TranscodeSessionResponse, UnpublishSelectedArtworkResponse, UpsertAutomationProviderRequest,
     UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
     WebhookEndpointsResponse,
 };

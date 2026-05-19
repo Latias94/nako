@@ -445,6 +445,7 @@ GET  /admin/v1/events
 GET  /admin/v1/jobs
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
+POST /admin/v1/artwork/ingests/{ingest_id}/requeue
 GET  /admin/v1/artwork/artifacts/lifecycle
 GET  /admin/v1/artwork/artifacts/storage-drift
 GET  /admin/v1/artwork/artifacts/remediation-plan
@@ -1196,10 +1197,42 @@ failures use safe failure codes such as `unsupported_source`,
 `unsupported_media_type`, `too_large`, `invalid_image`,
 `dimension_limit_exceeded`, `fetch_timeout`, `fetch_failed`,
 `fetch_http_status`, or `storage_failed`. Failed job summaries include only
-safe IDs, `"status": "failed"`, and `failure_code`. Retry is limited to the
-configured in-process fetch attempts; durable requeue/cancellation APIs,
-thumbnails, selected artwork publication, and public image-serving remain
-separate follow-on work.
+safe IDs, `"status": "failed"`, and `failure_code`. In-process fetch retry is
+limited to the configured fetch attempts; durable retry is exposed separately
+as an Admin requeue command.
+
+Administrators can requeue a failed Managed Artwork ingest with:
+
+```text
+POST /admin/v1/artwork/ingests/{ingest_id}/requeue
+```
+
+The command is keyed by ingest ID. It only resets a failed
+`managed_artwork_ingest` row and its failed durable `managed_artwork_ingest`
+job back to queued state. It clears the ingest `failure_code` and job
+`error`, `summary_json`, `started_at`, and `completed_at`, while preserving the
+existing candidate, ingest, and job IDs. Requeue does not fetch, validate,
+store bytes, publish Selected Artwork, delete artifacts, cleanup files, repair
+missing artifacts, or create duplicate candidates, ingests, jobs, artifacts, or
+files.
+
+Already queued ingests return `200 OK` with `"requeued": false`. Failed ingests
+with failed managed-artwork jobs return `200 OK` with `"requeued": true`.
+Stored, fetching, validating, running, mismatched-job, or inconsistent states
+return `409 Conflict`; missing ingests return `404 Not Found`.
+
+The requeue response includes a redacted ingest summary, a redacted
+managed-artwork job summary, `requeued`, and `had_failure`. The job summary
+uses presence flags for `input`, `summary`, and `error`; it does not serialize
+raw job payloads or failure text. The response never returns raw candidate
+`source_uri`, addon payload/provenance JSON, provider query strings, addon
+tokens, `storage_uri`, `managed-artwork://...`, local artifact paths,
+artifact root paths, cache URIs, Source Locators, raw validation/fetch error
+messages, file contents, or content hash values.
+
+Active cancellation, automatic retry scheduling/background workers, missing
+artifact repair, thumbnails, and artifact cleanup/deletion policy remain
+separate runtime-control or lifecycle follow-ons.
 
 Administrators can publish a stored Managed Artwork Artifact as the current
 Selected Artwork with:

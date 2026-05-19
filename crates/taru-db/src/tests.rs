@@ -3386,6 +3386,218 @@ async fn sqlite_store_accepts_artwork_candidate_into_managed_ingest_atomically()
 }
 
 #[tokio::test]
+async fn sqlite_store_managed_artwork_ingest_requeue_resets_failed_ingest_and_job() {
+    let store = SqliteStore::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library_id = LibraryId::new();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Managed Artwork Requeue Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.artwork.requeue".to_owned(),
+            name: "Example Artwork Requeue".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "artwork requeue".to_owned(),
+            token_prefix: "taru_at_requeue".to_owned(),
+            token_hash: "sha256:artwork-requeue".to_owned(),
+        })
+        .await
+        .unwrap();
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item.id),
+            idempotency_key: "managed-artwork-ingest-requeue".to_owned(),
+            provenance_json: r#"{"origin":"reference-addon","token":"private"}"#.to_owned(),
+            payload_json: r#"{"intent":"propose_artwork","url":"https://private.test"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: side_effect.id,
+            library_id,
+            item_id: item.id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: "https://cdn.example.test/poster.png?token=secret".to_owned(),
+            width: Some(1),
+            height: Some(1),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let job_id = JobId::new();
+    let accepted = store
+        .accept_managed_artwork_candidate_ingest(
+            candidate.id,
+            NewManagedArtworkIngest {
+                id: ManagedArtworkIngestId::new(),
+                candidate_id: candidate.id,
+                job_id,
+                library_id,
+                item_id: item.id,
+                kind: ImageKind::Poster,
+                status: ManagedArtworkIngestStatus::Queued,
+                artifact_id: None,
+                failure_code: None,
+            },
+            NewJob {
+                id: job_id,
+                kind: JobKind::ManagedArtworkIngest,
+                resource_class: "artwork.ingest".to_owned(),
+                library_id: Some(library_id),
+                source_id: None,
+                input_json: Some(r#"{"candidate_id":"private"}"#.to_owned()),
+            },
+        )
+        .await
+        .unwrap();
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    let failed = store
+        .fail_managed_artwork_ingest(
+            claim.ingest.id,
+            "invalid_image".to_owned(),
+            "private failure for https://cdn.example.test/poster.png?token=secret".to_owned(),
+            Some(r#"{"private_path":"C:\\media\\poster.png"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(failed.ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert_eq!(failed.job.status, JobStatus::Failed);
+    assert!(failed.job.started_at.is_some());
+    assert!(failed.job.completed_at.is_some());
+    assert!(failed.job.error.is_some());
+    assert!(failed.job.summary_json.is_some());
+
+    let requeued = store
+        .requeue_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap();
+    assert!(requeued.requeued);
+    assert!(requeued.had_failure);
+    assert_eq!(requeued.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(requeued.ingest.failure_code, None);
+    assert_eq!(requeued.ingest.artifact_id, None);
+    assert_eq!(requeued.job.status, JobStatus::Queued);
+    assert_eq!(requeued.job.error, None);
+    assert_eq!(requeued.job.summary_json, None);
+    assert_eq!(requeued.job.started_at, None);
+    assert_eq!(requeued.job.completed_at, None);
+    assert_eq!(requeued.job.input_json, accepted.job.input_json);
+
+    let replay = store
+        .requeue_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap();
+    assert!(!replay.requeued);
+    assert!(!replay.had_failure);
+    assert_eq!(replay.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(replay.job.status, JobStatus::Queued);
+
+    let retry_claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(retry_claim.ingest.id, accepted.ingest.id);
+    assert_eq!(
+        retry_claim.ingest.status,
+        ManagedArtworkIngestStatus::Fetching
+    );
+    assert_eq!(retry_claim.job.id, accepted.job.id);
+    assert_eq!(retry_claim.job.status, JobStatus::Running);
+
+    let running_requeue = store
+        .requeue_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap_err();
+    assert!(matches!(running_requeue, TaruError::Conflict { .. }));
+
+    let artifact_id = ManagedArtworkArtifactId::new();
+    store
+        .commit_managed_artwork_artifact(
+            retry_claim.ingest.id,
+            NewManagedArtworkArtifact {
+                id: artifact_id,
+                ingest_id: retry_claim.ingest.id,
+                library_id,
+                item_id: item.id,
+                kind: ImageKind::Poster,
+                storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                content_hash: Some("sha256-requeue-stored".to_owned()),
+                width: Some(1),
+                height: Some(1),
+                byte_len: Some(68),
+                media_type: Some("image/png".to_owned()),
+            },
+            Some(r#"{"status":"stored"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    let stored_requeue = store
+        .requeue_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap_err();
+    assert!(matches!(stored_requeue, TaruError::Conflict { .. }));
+}
+
+#[tokio::test]
 async fn sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idempotently() {
     let store = SqliteStore::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

@@ -9,14 +9,15 @@ use crate::{
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
     ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
     ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
-    MediaItem, MediaItemId, MediaSourceId, MetadataAttemptFilter, MetadataFieldLock,
-    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
-    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewJob, NewManagedArtworkArtifact,
-    NewManagedArtworkIngest, NewMetadataProviderAttempt, NfoImportPersistenceCommit,
-    NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup,
-    ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
-    SelectedArtworkId, SelectedArtworkPublicationRecord, SelectedArtworkRecord,
-    SelectedArtworkUnpublicationRecord, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
+    MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
+    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
+    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
+    SelectedArtworkRecord, SelectedArtworkUnpublicationRecord, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -100,6 +101,11 @@ pub trait ManagedArtworkRepository: Send + Sync {
         job_error: String,
         job_summary_json: Option<String>,
     ) -> Result<ManagedArtworkIngestProcessingRecord>;
+
+    async fn requeue_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<ManagedArtworkIngestRequeueRecord>;
 
     async fn get_managed_artwork_artifact(
         &self,

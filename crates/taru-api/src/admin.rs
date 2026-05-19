@@ -12,8 +12,9 @@ use taru_core::{
     ManagedArtworkArtifactLifecycleSummary, ManagedArtworkArtifactRecord,
     ManagedArtworkGalleryArtifactRecord, ManagedArtworkGalleryCandidateRecord,
     ManagedArtworkGallerySelectedRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestId,
-    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, ManagedArtworkIngestStatus,
-    MediaItemId, MediaKind, MediaSourceId, OutboxEventRecord, OutboxEventStatus, ScanSnapshotId,
+    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
+    ManagedArtworkIngestRequeueRecord, ManagedArtworkIngestStatus, MediaItemId, MediaKind,
+    MediaSourceId, OutboxEventRecord, OutboxEventStatus, ScanSnapshotId,
     SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
     StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
@@ -79,6 +80,26 @@ impl ProcessManagedArtworkIngestResponse {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct RequeueManagedArtworkIngestResponse {
+    pub ingest: ManagedArtworkIngestSummary,
+    pub job: ManagedArtworkIngestJobSummary,
+    pub requeued: bool,
+    pub had_failure: bool,
+}
+
+impl RequeueManagedArtworkIngestResponse {
+    #[must_use]
+    pub fn from_requeue(requeue: ManagedArtworkIngestRequeueRecord) -> Self {
+        Self {
+            ingest: ManagedArtworkIngestSummary::from_record(requeue.ingest),
+            job: ManagedArtworkIngestJobSummary::from_job(requeue.job),
+            requeued: requeue.requeued,
+            had_failure: requeue.had_failure,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ManagedArtworkIngestSummary {
     pub id: ManagedArtworkIngestId,
@@ -109,6 +130,42 @@ impl ManagedArtworkIngestSummary {
             has_failure: record.failure_code.is_some(),
             created_at: record.created_at,
             updated_at: record.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedArtworkIngestJobSummary {
+    pub id: JobId,
+    pub kind: JobKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+    pub has_input: bool,
+    pub has_summary: bool,
+    pub has_error: bool,
+    pub queued_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl ManagedArtworkIngestJobSummary {
+    #[must_use]
+    pub fn from_job(job: Job) -> Self {
+        Self {
+            id: job.id,
+            kind: job.kind,
+            status: job.status,
+            resource_class: job.resource_class,
+            library_id: job.library_id,
+            source_id: job.source_id,
+            has_input: job.input_json.is_some(),
+            has_summary: job.summary_json.is_some(),
+            has_error: job.error.is_some(),
+            queued_at: job.queued_at,
+            started_at: job.started_at,
+            completed_at: job.completed_at,
         }
     }
 }
@@ -1776,6 +1833,64 @@ mod tests {
         assert!(!body.contains("private-storage-handle"));
         assert!(!body.contains("sha256-demo"));
         assert!(!body.contains("\"content_hash\""));
+    }
+
+    #[test]
+    fn managed_artwork_ingest_requeue_response_redacts_job_payloads_errors_and_raw_locators() {
+        let ingest_id = ManagedArtworkIngestId::new();
+        let candidate_id = ArtworkCandidateId::new();
+        let job_id = JobId::new();
+        let response =
+            RequeueManagedArtworkIngestResponse::from_requeue(ManagedArtworkIngestRequeueRecord {
+                ingest: ManagedArtworkIngestRecord {
+                    id: ingest_id,
+                    candidate_id,
+                    job_id,
+                    library_id: LibraryId::new(),
+                    item_id: MediaItemId::new(),
+                    kind: ImageKind::Poster,
+                    status: ManagedArtworkIngestStatus::Queued,
+                    artifact_id: None,
+                    failure_code: None,
+                    created_at: "2026-05-19T00:00:00Z".to_owned(),
+                    updated_at: "2026-05-19T00:00:01Z".to_owned(),
+                },
+                job: Job {
+                    id: job_id,
+                    kind: JobKind::ManagedArtworkIngest,
+                    status: JobStatus::Queued,
+                    resource_class: "artwork.ingest".to_owned(),
+                    library_id: Some(LibraryId::new()),
+                    source_id: None,
+                    input_json: Some(
+                        r#"{"source_uri":"https://cdn.example.test/poster.png?token=secret"}"#
+                            .to_owned(),
+                    ),
+                    summary_json: None,
+                    error: None,
+                    queued_at: "2026-05-19T00:00:00Z".to_owned(),
+                    started_at: None,
+                    completed_at: None,
+                },
+                requeued: true,
+                had_failure: true,
+            });
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert!(response.requeued);
+        assert!(response.had_failure);
+        assert_eq!(response.ingest.id, ingest_id);
+        assert_eq!(response.job.id, job_id);
+        assert_eq!(response.job.status, JobStatus::Queued);
+        assert!(response.job.has_input);
+        assert!(!response.job.has_summary);
+        assert!(!response.job.has_error);
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("cdn.example.test"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("error\":\""));
     }
 
     #[test]

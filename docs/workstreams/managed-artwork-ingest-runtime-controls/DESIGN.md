@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Runtime Controls Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Problem
@@ -120,3 +120,7 @@ redacted Admin command, `process-next` can process the requeued work, invalid
 states are rejected or idempotent as specified, HTTP docs describe the retry
 boundary, and fresh validation evidence proves no raw source, storage, path,
 payload, or content-hash leakage.
+
+Closeout result: implemented and verified on 2026-05-19. Cancellation,
+automatic retry scheduling, repair, Public Client gallery browsing, and cleanup
+policy changes remain separate lanes.

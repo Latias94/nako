@@ -27,7 +27,7 @@ use taru_api::{
     AdminManagedArtworkArtifactStrayFileCleanupSummary,
     AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
     ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse,
-    UnpublishSelectedArtworkResponse, page_info_from_request,
+    RequeueManagedArtworkIngestResponse, UnpublishSelectedArtworkResponse, page_info_from_request,
 };
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
@@ -173,6 +173,14 @@ impl ManagedArtworkAppService {
                 ))
             }
         }
+    }
+
+    pub(crate) async fn requeue_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<RequeueManagedArtworkIngestResponse> {
+        let requeue = self.store.requeue_managed_artwork_ingest(ingest_id).await?;
+        Ok(RequeueManagedArtworkIngestResponse::from_requeue(requeue))
     }
 
     pub(crate) async fn publish_artifact(
