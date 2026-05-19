@@ -1,6 +1,6 @@
 # NFO Sidecar Cancellation Checkpoints
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-19
 
 ## Purpose
@@ -52,7 +52,12 @@ without making `taru-nfo` depend on `taru-server` runtime types.
 - [nfo-sidecar-backup-policy](../nfo-sidecar-backup-policy/README.md)
 - [nfo-round-trip-preservation](../nfo-round-trip-preservation/README.md)
 
-## First Executable Task
+## Outcome
 
-Start with `NSCC-020`: introduce the `taru-nfo` sidecar checkpoint contract and
-prove existing import/export callers still compile with the no-op path.
+The lane shipped a server-independent `taru-nfo` sidecar checkpoint contract,
+checkpoint-aware import/export library variants, no-op compatibility wrappers,
+and durable server import/export cancellation mapping. Cancelled NFO jobs now
+stop before the next sidecar unit, persist terminal `cancelled`, and skip
+success outbox publication without exposing sidecar paths, XML payloads,
+storage URIs, source locators, or local filesystem paths in cancellation
+responses.

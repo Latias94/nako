@@ -1,6 +1,6 @@
 # NFO Sidecar Cancellation Checkpoints - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-19
 
 ## M0 - Scope And Boundary Freeze
@@ -97,3 +97,8 @@ Exit criteria:
 - Gate set is recorded with fresh evidence.
 - Workstream status matches reality.
 - Remaining NFO cancellation edge cases are completed or split.
+
+Result:
+
+- Complete. No follow-on split was required for this lane's NFO-specific
+  cancellation scope.

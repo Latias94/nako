@@ -1,33 +1,22 @@
 # NFO Sidecar Cancellation Checkpoints - Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-19
 
 ## Current State
 
-The lane is active. It follows `worker-job-cancellation-checkpoints`, which
-closed with app-level NFO cancellation checkpoints before and after the whole
-`NfoService` call, but explicitly split per-sidecar NFO cancellation into this
-follow-on.
+The lane is closed. It followed `worker-job-cancellation-checkpoints`, which
+left only the NFO service's per-sidecar loop boundary outside the previous
+runtime-level cancellation work.
 
-`NSCC-010` is complete. No code has been changed in this lane yet.
+Completed tasks:
 
-## Active Task
-
-- Task ID: `NSCC-020`
-- Owner: codex
-- Files:
-  - `crates/taru-nfo/src/summary.rs`
-  - `crates/taru-nfo/src/import.rs`
-  - `crates/taru-nfo/src/export.rs`
-  - `crates/taru-nfo/src/lib.rs`
-- Validation:
-  - `cargo check -j 2 -p taru-nfo --tests`
-  - `cargo nextest run -j 2 -p taru-nfo nfo_service --no-fail-fast`
-- Status: READY
-- Review: The checkpoint contract must remain server-independent and redacted.
-- Evidence: New or updated `taru-nfo` tests proving no-op compatibility and a
-  distinct cancelled outcome.
+- `NSCC-010`: lane opened and boundary frozen.
+- `NSCC-020`: redacted `taru-nfo` checkpoint contract and no-op wrappers.
+- `NSCC-030`: import checks before each source sidecar unit.
+- `NSCC-040`: export checks before each source sidecar unit.
+- `NSCC-050`: server durable import/export cancellation mapping and tests.
+- `NSCC-060`: closeout evidence recorded.
 
 ## Decisions Since Last Update
 
@@ -38,13 +27,29 @@ follow-on.
   an in-flight storage read/write.
 - Keep retry/backoff, lease stealing, and child-process cancellation out of
   this lane.
+- Server cancelled outcomes intentionally discard partial summaries and persist
+  terminal `cancelled` with no success summary, no error, and no success outbox
+  event.
 
 ## Blockers
 
 - None.
 
+## Validation
+
+- `cargo check -j 2 -p taru-nfo --tests`: passed.
+- `cargo nextest run -j 2 -p taru-nfo nfo_service --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p taru-nfo import --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p taru-nfo export --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p taru-server nfo --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast`: passed.
+- `cargo check -j 2 -p taru-core -p taru-db -p taru-nfo -p taru-server --tests`:
+  passed.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed with CRLF working-copy warnings only.
+
 ## Next Recommended Action
 
-Implement `NSCC-020`: add redacted sidecar checkpoint payload types and
-checkpoint-aware import/export service variants with no-op wrappers preserving
-existing callers.
+No immediate follow-on is required from this lane. Future retry/backoff, lease
+stealing, child-process cancellation, or richer NFO write policy work should
+open separate workstreams.

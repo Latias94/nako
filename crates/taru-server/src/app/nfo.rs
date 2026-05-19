@@ -8,8 +8,9 @@ use taru_core::{
 };
 use taru_db::SqliteStore;
 use taru_nfo::{
-    MovieNfoCodec, NfoExportRequest, NfoExportSummary, NfoImportRequest, NfoImportSummary,
-    NfoJobInput, NfoService,
+    MovieNfoCodec, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
+    NfoExportSummary, NfoImportRequest, NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome,
+    NfoService, NfoSidecarCheckpoint,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::Semaphore;
@@ -17,7 +18,8 @@ use tracing::{Instrument, info, info_span, warn};
 
 use super::{
     job_runtime::{
-        DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
+        DurableJobContext, DurableJobOperationError, DurableJobOperationResult,
+        DurableJobRunOutcome, DurableJobRuntime,
     },
     runtime::RuntimeSupervisor,
     storage::StorageBackendRegistry,
@@ -410,16 +412,28 @@ impl NfoAppService {
             .backend_for_library_root(&library)
             .await?;
         let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let cancellation = DurableNfoCancellationCheck {
+            context: context.clone(),
+        };
 
         context.check_cancelled().await?;
-        let summary = service
-            .import_library(NfoImportRequest {
-                job_id,
-                library_id,
-                policy: library.options.metadata_profile.local_metadata_policy,
-                force: false,
-            })
+        let outcome = service
+            .import_library_with_cancellation(
+                NfoImportRequest {
+                    job_id,
+                    library_id,
+                    policy: library.options.metadata_profile.local_metadata_policy,
+                    force: false,
+                },
+                &cancellation,
+            )
             .await?;
+        let summary = match outcome {
+            NfoLibraryRunOutcome::Completed(summary) => summary,
+            NfoLibraryRunOutcome::Cancelled(_summary) => {
+                return Err(DurableJobOperationError::Cancelled);
+            }
+        };
         context.check_cancelled().await?;
 
         Ok(summary)
@@ -445,16 +459,28 @@ impl NfoAppService {
             .await?;
         ensure_nfo_export_writable(backend.as_ref(), &library).await?;
         let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let cancellation = DurableNfoCancellationCheck {
+            context: context.clone(),
+        };
 
         context.check_cancelled().await?;
-        let summary = service
-            .export_library(NfoExportRequest {
-                job_id,
-                library_id,
-                policy: library.options.metadata_profile.local_metadata_policy,
-                force: false,
-            })
+        let outcome = service
+            .export_library_with_cancellation(
+                NfoExportRequest {
+                    job_id,
+                    library_id,
+                    policy: library.options.metadata_profile.local_metadata_policy,
+                    force: false,
+                },
+                &cancellation,
+            )
             .await?;
+        let summary = match outcome {
+            NfoLibraryRunOutcome::Completed(summary) => summary,
+            NfoLibraryRunOutcome::Cancelled(_summary) => {
+                return Err(DurableJobOperationError::Cancelled);
+            }
+        };
         context.check_cancelled().await?;
 
         Ok(summary)
@@ -505,5 +531,24 @@ pub(crate) async fn ensure_nfo_export_writable(
         Err(TaruError::Unsupported(
             "NFO export requires a writable storage backend",
         ))
+    }
+}
+
+#[derive(Clone, Debug)]
+struct DurableNfoCancellationCheck {
+    context: DurableJobContext,
+}
+
+#[async_trait::async_trait]
+impl NfoCancellationCheck for DurableNfoCancellationCheck {
+    async fn check(
+        &self,
+        _checkpoint: NfoSidecarCheckpoint,
+    ) -> taru_core::Result<NfoCancellationDecision> {
+        match self.context.check_cancelled().await {
+            Ok(()) => Ok(NfoCancellationDecision::Continue),
+            Err(DurableJobOperationError::Cancelled) => Ok(NfoCancellationDecision::Cancel),
+            Err(DurableJobOperationError::Failed(err)) => Err(err),
+        }
     }
 }

@@ -1,6 +1,73 @@
 use serde::{Deserialize, Serialize};
+use taru_core::Result;
 use taru_core::{JobId, LibraryId, LocalMetadataPolicy, MediaItemId, MediaSourceId};
 use taru_vfs::StorageUri;
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NfoSidecarOperation {
+    Import,
+    Export,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoSidecarCheckpoint {
+    pub operation: NfoSidecarOperation,
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub item_id: MediaItemId,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NfoCancellationDecision {
+    #[default]
+    Continue,
+    Cancel,
+}
+
+#[async_trait::async_trait]
+pub trait NfoCancellationCheck: Send + Sync {
+    async fn check(&self, checkpoint: NfoSidecarCheckpoint) -> Result<NfoCancellationDecision>;
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoopNfoCancellationCheck;
+
+#[async_trait::async_trait]
+impl NfoCancellationCheck for NoopNfoCancellationCheck {
+    async fn check(&self, _checkpoint: NfoSidecarCheckpoint) -> Result<NfoCancellationDecision> {
+        Ok(NfoCancellationDecision::Continue)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "status", content = "summary")]
+pub enum NfoLibraryRunOutcome<T> {
+    Completed(T),
+    Cancelled(T),
+}
+
+impl<T> NfoLibraryRunOutcome<T> {
+    #[must_use]
+    pub fn summary(&self) -> &T {
+        match self {
+            Self::Completed(summary) | Self::Cancelled(summary) => summary,
+        }
+    }
+
+    #[must_use]
+    pub fn into_summary(self) -> T {
+        match self {
+            Self::Completed(summary) | Self::Cancelled(summary) => summary,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_cancelled(&self) -> bool {
+        matches!(self, Self::Cancelled(_))
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoSidecar {

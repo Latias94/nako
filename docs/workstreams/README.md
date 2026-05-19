@@ -124,7 +124,7 @@ attention.
   NFO app boundaries while splitting retry/backoff, lease stealing, child
   process cancellation, and per-sidecar NFO checkpoints.
 - [nfo-sidecar-cancellation-checkpoints](nfo-sidecar-cancellation-checkpoints/README.md):
-  active follow-on for adding per-sidecar cooperative cancellation to NFO
+  completed follow-on for adding per-sidecar cooperative cancellation to NFO
   import/export service loops without making `taru-nfo` depend on server
   runtime types or mixing retry/backoff, lease policy, or child-process
   cancellation into the NFO boundary.

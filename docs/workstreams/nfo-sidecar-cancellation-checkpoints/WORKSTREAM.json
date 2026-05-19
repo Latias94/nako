@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "nfo-sidecar-cancellation-checkpoints",
   "title": "NFO Sidecar Cancellation Checkpoints",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "NFO import/export durable jobs can observe cancellation only before and after the whole NfoService call, not before each sidecar source unit.",
@@ -55,13 +55,13 @@
     "docs/adr/0019-server-architecture-hardening-boundaries.md"
   ],
   "current_task": {
-    "id": "NSCC-020",
-    "title": "NFO Service Checkpoint Contract",
-    "status": "ready",
+    "id": "NSCC-060",
+    "title": "Closeout",
+    "status": "done",
     "owner": "codex"
   },
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue through the taru-nfo service checkpoint contract first. Split retry/backoff, lease policy, child-process cancellation, or unrelated NFO XML/storage behavior into separate lanes."
+    "default_action": "closed",
+    "notes": "Lane closed. Split retry/backoff, lease policy, child-process cancellation, or unrelated NFO XML/storage behavior into separate lanes."
   }
 }

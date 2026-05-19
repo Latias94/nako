@@ -1,6 +1,6 @@
 # NFO Sidecar Cancellation Checkpoints Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-19
 
 ## Problem
@@ -122,3 +122,15 @@ This lane can close when:
 - success outbox events are skipped for cancelled NFO jobs;
 - focused tests prove import and export behavior;
 - docs and workstream evidence record the redaction and non-goal boundaries.
+
+## Closeout Result
+
+The lane is closed. `taru-nfo` owns the redacted checkpoint contract and
+library import/export stop before the next source sidecar unit when the
+checkpoint returns cancel. `taru-server` maps durable job cancellation through
+that contract for both import and export background jobs, persists terminal
+`cancelled`, and skips `NfoImported`/`NfoExported` outbox publication.
+
+No retry/backoff, lease stealing, child-process cancellation, Public Client API
+shape, XML preservation, backup retention, or storage write policy changes were
+added in this lane.
