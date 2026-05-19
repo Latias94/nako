@@ -1,6 +1,6 @@
 # Managed Artwork Artifact Lifecycle Cleanup
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -41,6 +41,6 @@ future cleanup must never delete artwork still referenced by Selected Artwork.
 
 ## Current Slice
 
-`MAALC-030` adds the protected cleanup command. Cleanup marks eligible
-unselected artifacts deleted in the repository, best-effort removes local
-artifact bytes, and returns only redacted counts and safe artifact facts.
+This lane completed the redacted lifecycle diagnostics and protected cleanup
+command. Artifact-root drift inventory was split to
+`managed-artwork-artifact-store-drift-inventory`.

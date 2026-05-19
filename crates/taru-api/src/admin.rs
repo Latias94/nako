@@ -341,6 +341,112 @@ impl AdminManagedArtworkArtifactCleanupItem {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStorageDriftResponse {
+    pub summary: AdminManagedArtworkArtifactStorageDriftSummary,
+    pub missing_artifacts: Vec<AdminManagedArtworkArtifactStorageDriftArtifact>,
+    pub stray_files: Vec<AdminManagedArtworkArtifactStorageDriftFile>,
+    pub page: PageInfo,
+    pub dry_run: bool,
+}
+
+impl AdminManagedArtworkArtifactStorageDriftResponse {
+    #[must_use]
+    pub fn new(
+        summary: AdminManagedArtworkArtifactStorageDriftSummary,
+        missing_artifacts: Vec<AdminManagedArtworkArtifactStorageDriftArtifact>,
+        stray_files: Vec<AdminManagedArtworkArtifactStorageDriftFile>,
+        page: PageInfo,
+    ) -> Self {
+        Self {
+            summary,
+            missing_artifacts,
+            stray_files,
+            page,
+            dry_run: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStorageDriftSummary {
+    pub scanned_db_artifacts: u32,
+    pub db_backed_present_artifacts: u32,
+    pub db_backed_missing_artifacts: u32,
+    pub db_backed_unresolvable_artifacts: u32,
+    pub db_backed_metadata_read_failed_artifacts: u32,
+    pub file_scan_limit: u32,
+    pub scanned_files: u32,
+    pub stray_files: u32,
+    pub untracked_artifact_files: u32,
+    pub unexpected_active_artifact_files: u32,
+    pub unsupported_extension_files: u32,
+    pub unrecognized_layout_files: u32,
+    pub file_scan_truncated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStorageDriftArtifact {
+    pub id: ManagedArtworkArtifactId,
+    pub ingest_id: ManagedArtworkIngestId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub kind: ImageKind,
+    pub selected_artwork_count: u32,
+    pub cleanup_candidate: bool,
+    pub issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue,
+    pub byte_len: Option<u64>,
+    pub media_type: Option<String>,
+}
+
+impl AdminManagedArtworkArtifactStorageDriftArtifact {
+    #[must_use]
+    pub fn from_lifecycle_record(
+        record: ManagedArtworkArtifactLifecycleRecord,
+        issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue,
+    ) -> Self {
+        let cleanup_candidate = record.cleanup_candidate();
+        let artifact = record.artifact;
+        Self {
+            id: artifact.id,
+            ingest_id: artifact.ingest_id,
+            library_id: artifact.library_id,
+            item_id: artifact.item_id,
+            kind: artifact.kind,
+            selected_artwork_count: record.selected_artwork_count,
+            cleanup_candidate,
+            issue,
+            byte_len: artifact.byte_len,
+            media_type: artifact.media_type,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminManagedArtworkArtifactStorageDriftArtifactIssue {
+    MissingFile,
+    UnresolvableExpectedPath,
+    MetadataReadFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminManagedArtworkArtifactStorageDriftFile {
+    pub reason: AdminManagedArtworkArtifactStorageDriftFileReason,
+    pub recognized_artifact_id: Option<ManagedArtworkArtifactId>,
+    pub extension: Option<String>,
+    pub byte_len: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminManagedArtworkArtifactStorageDriftFileReason {
+    UntrackedArtifactFile,
+    UnexpectedActiveArtifactPath,
+    UnsupportedExtension,
+    UnrecognizedLayout,
+}
+
 impl SelectedArtworkSummary {
     #[must_use]
     pub fn from_record(record: SelectedArtworkRecord) -> Self {
@@ -1398,6 +1504,59 @@ mod tests {
         assert!(!body.contains("content_hash"));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));
+    }
+
+    #[test]
+    fn managed_artwork_storage_drift_response_redacts_storage_authority_and_paths() {
+        let artifact_id = ManagedArtworkArtifactId::new();
+        let ingest_id = ManagedArtworkIngestId::new();
+        let response = AdminManagedArtworkArtifactStorageDriftResponse::new(
+            AdminManagedArtworkArtifactStorageDriftSummary {
+                scanned_db_artifacts: 1,
+                db_backed_present_artifacts: 0,
+                db_backed_missing_artifacts: 1,
+                db_backed_unresolvable_artifacts: 0,
+                db_backed_metadata_read_failed_artifacts: 0,
+                file_scan_limit: 50,
+                scanned_files: 1,
+                stray_files: 1,
+                untracked_artifact_files: 1,
+                unexpected_active_artifact_files: 0,
+                unsupported_extension_files: 0,
+                unrecognized_layout_files: 0,
+                file_scan_truncated: false,
+            },
+            vec![AdminManagedArtworkArtifactStorageDriftArtifact {
+                id: artifact_id,
+                ingest_id,
+                library_id: LibraryId::new(),
+                item_id: MediaItemId::new(),
+                kind: ImageKind::Poster,
+                selected_artwork_count: 1,
+                cleanup_candidate: false,
+                issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue::MissingFile,
+                byte_len: Some(68),
+                media_type: Some("image/png".to_owned()),
+            }],
+            vec![AdminManagedArtworkArtifactStorageDriftFile {
+                reason: AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile,
+                recognized_artifact_id: Some(ManagedArtworkArtifactId::new()),
+                extension: Some("png".to_owned()),
+                byte_len: Some(7),
+            }],
+            PageInfo::new(50, 0, 1),
+        );
+        let body = serde_json::to_string(&response).unwrap();
+
+        assert!(response.dry_run);
+        assert_eq!(response.missing_artifacts[0].id, artifact_id);
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("managed-artwork://"));
+        assert!(!body.contains("content_hash"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("cache_uri"));
+        assert!(!body.contains("private-path"));
+        assert!(!body.contains("artifact_root"));
     }
 
     #[test]

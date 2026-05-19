@@ -1,6 +1,6 @@
 # Managed Artwork Artifact Lifecycle Cleanup Task Ledger
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -46,20 +46,20 @@ Last updated: 2026-05-19
 
 ## M3 - File Store Drift And Orphan File Strategy
 
-- [ ] MAALC-040 [owner=codex] [deps=MAALC-030] [scope=crates/taru-server/src/app/artwork.rs,docs]
+- [x] MAALC-040 [owner=codex] [deps=MAALC-030] [scope=crates/taru-server/src/app/artwork.rs,docs]
   Goal: Decide and, if still in scope, implement safe artifact-root inventory
   without exposing local paths in Admin responses.
   Validation: focused tests for missing DB-backed files and stray files, if
   implemented.
   Evidence: Admin diagnostics report counts/status codes, not filesystem paths.
-  Handoff: Split if storage inventory becomes broader than artwork artifacts.
+  Handoff: Split to `managed-artwork-artifact-store-drift-inventory`.
 
 ## M4 - Validation And Closeout
 
-- [ ] MAALC-050 [owner=codex] [deps=MAALC-030] [scope=workspace,docs]
+- [x] MAALC-050 [owner=codex] [deps=MAALC-030] [scope=workspace,docs]
   Goal: Close or split the lane with fresh validation evidence and follow-ons.
   Validation: `cargo fmt --all -- --check`; focused nextest gates; relevant
   workspace `cargo check`; `git diff --check`.
   Evidence: `EVIDENCE_AND_GATES.md` and `HANDOFF.md`.
-  Handoff: Close only when cleanup is safe or explicitly split with no hidden
-  deletion risk.
+  Handoff: Completed. Cleanup is safe; drift inventory is explicitly split with
+  no hidden deletion behavior in this lane.

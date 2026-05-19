@@ -39,8 +39,9 @@ use crate::{
 use super::{
     error::ApiResult,
     query::{
-        ArtworkArtifactLifecycleQuery, CatalogGovernanceItemsQuery, JobListQuery,
-        OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
+        ArtworkArtifactLifecycleQuery, ArtworkArtifactStorageDriftQuery,
+        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
+        StorageStagingQuery,
     },
 };
 
@@ -68,6 +69,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/artwork/artifacts/lifecycle",
             get(get_admin_artwork_artifact_lifecycle),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/storage-drift",
+            get(get_admin_artwork_artifact_storage_drift),
         )
         .route(
             "/admin/v1/artwork/artifacts/cleanup",
@@ -113,6 +118,18 @@ pub(super) async fn get_admin_artwork_artifact_lifecycle(
     Ok(Json(
         app.artwork()
             .artifact_lifecycle_diagnostics(filter, page)
+            .await?,
+    ))
+}
+
+pub(super) async fn get_admin_artwork_artifact_storage_drift(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactStorageDriftQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (page, file_scan_limit) = query.into_page_and_file_scan_limit()?;
+    Ok(Json(
+        app.artwork()
+            .artifact_storage_drift_diagnostics(page, file_scan_limit)
             .await?,
     ))
 }

@@ -13,7 +13,12 @@ use sha2::{Digest, Sha256};
 use taru_api::{
     AcceptManagedArtworkCandidateResponse, AdminManagedArtworkArtifactCleanupResponse,
     AdminManagedArtworkArtifactFileCleanupSummary, AdminManagedArtworkArtifactLifecycleResponse,
-    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse, page_info_from_request,
+    AdminManagedArtworkArtifactStorageDriftArtifact,
+    AdminManagedArtworkArtifactStorageDriftArtifactIssue,
+    AdminManagedArtworkArtifactStorageDriftFile, AdminManagedArtworkArtifactStorageDriftFileReason,
+    AdminManagedArtworkArtifactStorageDriftResponse,
+    AdminManagedArtworkArtifactStorageDriftSummary, ProcessManagedArtworkIngestResponse,
+    PublishSelectedArtworkResponse, page_info_from_request,
 };
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
@@ -220,6 +225,149 @@ impl ManagedArtworkAppService {
             report,
             file_cleanup,
         ))
+    }
+
+    pub(crate) async fn artifact_storage_drift_diagnostics(
+        &self,
+        page: PageRequest,
+        file_scan_limit: u32,
+    ) -> Result<AdminManagedArtworkArtifactStorageDriftResponse> {
+        let page = page.clamped();
+        let snapshot = self
+            .store
+            .list_managed_artwork_artifact_lifecycle(
+                ManagedArtworkArtifactLifecycleFilter::All,
+                page,
+            )
+            .await?;
+        let returned = snapshot.artifacts.len();
+        let mut summary = AdminManagedArtworkArtifactStorageDriftSummary {
+            scanned_db_artifacts: u32::try_from(returned).unwrap_or(u32::MAX),
+            file_scan_limit,
+            ..AdminManagedArtworkArtifactStorageDriftSummary::default()
+        };
+        let mut missing_artifacts = Vec::new();
+
+        for record in snapshot.artifacts {
+            match self.artifact_store.file_status(&record.artifact).await {
+                ArtifactFileStatus::Present => {
+                    summary.db_backed_present_artifacts =
+                        summary.db_backed_present_artifacts.saturating_add(1);
+                }
+                ArtifactFileStatus::Missing => {
+                    summary.db_backed_missing_artifacts =
+                        summary.db_backed_missing_artifacts.saturating_add(1);
+                    missing_artifacts.push(
+                        AdminManagedArtworkArtifactStorageDriftArtifact::from_lifecycle_record(
+                            record,
+                            AdminManagedArtworkArtifactStorageDriftArtifactIssue::MissingFile,
+                        ),
+                    );
+                }
+                ArtifactFileStatus::UnresolvableExpectedPath => {
+                    summary.db_backed_unresolvable_artifacts =
+                        summary.db_backed_unresolvable_artifacts.saturating_add(1);
+                    missing_artifacts.push(
+                        AdminManagedArtworkArtifactStorageDriftArtifact::from_lifecycle_record(
+                            record,
+                            AdminManagedArtworkArtifactStorageDriftArtifactIssue::UnresolvableExpectedPath,
+                        ),
+                    );
+                }
+                ArtifactFileStatus::MetadataReadFailed => {
+                    summary.db_backed_metadata_read_failed_artifacts = summary
+                        .db_backed_metadata_read_failed_artifacts
+                        .saturating_add(1);
+                    missing_artifacts.push(
+                        AdminManagedArtworkArtifactStorageDriftArtifact::from_lifecycle_record(
+                            record,
+                            AdminManagedArtworkArtifactStorageDriftArtifactIssue::MetadataReadFailed,
+                        ),
+                    );
+                }
+            }
+        }
+
+        let inventory = self.artifact_store.discover_files(file_scan_limit).await?;
+        summary.scanned_files = inventory.scanned_files;
+        summary.file_scan_truncated = inventory.truncated;
+
+        let mut stray_files = Vec::new();
+        for file in inventory.files {
+            let Some(stray_file) = self.classify_stray_file(file).await? else {
+                continue;
+            };
+            match stray_file.reason {
+                AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile => {
+                    summary.untracked_artifact_files =
+                        summary.untracked_artifact_files.saturating_add(1);
+                }
+                AdminManagedArtworkArtifactStorageDriftFileReason::UnexpectedActiveArtifactPath => {
+                    summary.unexpected_active_artifact_files =
+                        summary.unexpected_active_artifact_files.saturating_add(1);
+                }
+                AdminManagedArtworkArtifactStorageDriftFileReason::UnsupportedExtension => {
+                    summary.unsupported_extension_files =
+                        summary.unsupported_extension_files.saturating_add(1);
+                }
+                AdminManagedArtworkArtifactStorageDriftFileReason::UnrecognizedLayout => {
+                    summary.unrecognized_layout_files =
+                        summary.unrecognized_layout_files.saturating_add(1);
+                }
+            }
+            stray_files.push(stray_file);
+        }
+        summary.stray_files = u32::try_from(stray_files.len()).unwrap_or(u32::MAX);
+
+        Ok(AdminManagedArtworkArtifactStorageDriftResponse::new(
+            summary,
+            missing_artifacts,
+            stray_files,
+            page_info_from_request(page, returned),
+        ))
+    }
+
+    async fn classify_stray_file(
+        &self,
+        file: DiscoveredArtifactFile,
+    ) -> Result<Option<AdminManagedArtworkArtifactStorageDriftFile>> {
+        let reason = match &file.layout {
+            DiscoveredArtifactFileLayout::Recognized {
+                artifact_id,
+                supported_extension: true,
+                shard_matches: true,
+                ..
+            } => {
+                let Some(artifact) = self
+                    .store
+                    .get_managed_artwork_artifact(*artifact_id)
+                    .await?
+                else {
+                    return Ok(Some(file.into_drift_file(
+                        AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile,
+                    )));
+                };
+                match self.artifact_store.path_for_artifact(&artifact) {
+                    Ok(path) if path == file.path => return Ok(None),
+                    _ => {
+                        AdminManagedArtworkArtifactStorageDriftFileReason::UnexpectedActiveArtifactPath
+                    }
+                }
+            }
+            DiscoveredArtifactFileLayout::Recognized {
+                supported_extension: false,
+                ..
+            } => AdminManagedArtworkArtifactStorageDriftFileReason::UnsupportedExtension,
+            DiscoveredArtifactFileLayout::Recognized {
+                shard_matches: false,
+                ..
+            } => AdminManagedArtworkArtifactStorageDriftFileReason::UnrecognizedLayout,
+            DiscoveredArtifactFileLayout::Unrecognized => {
+                AdminManagedArtworkArtifactStorageDriftFileReason::UnrecognizedLayout
+            }
+        };
+
+        Ok(Some(file.into_drift_file(reason)))
     }
 
     pub(crate) async fn read_selected_image(
@@ -647,6 +795,85 @@ impl LocalManagedArtworkArtifactStore {
         }
     }
 
+    async fn file_status(&self, artifact: &ManagedArtworkArtifactRecord) -> ArtifactFileStatus {
+        let Ok(path) = self.path_for_artifact(artifact) else {
+            return ArtifactFileStatus::UnresolvableExpectedPath;
+        };
+
+        match fs::metadata(&path).await {
+            Ok(metadata) if metadata.is_file() => ArtifactFileStatus::Present,
+            Ok(_) => ArtifactFileStatus::Missing,
+            Err(err) if err.kind() == ErrorKind::NotFound => ArtifactFileStatus::Missing,
+            Err(_) => ArtifactFileStatus::MetadataReadFailed,
+        }
+    }
+
+    async fn discover_files(&self, max_files: u32) -> Result<ArtifactStoreFileInventory> {
+        let mut inventory = ArtifactStoreFileInventory::default();
+        let mut directories = vec![self.root.clone()];
+
+        while let Some(directory) = directories.pop() {
+            let mut entries = match fs::read_dir(&directory).await {
+                Ok(entries) => entries,
+                Err(err) if err.kind() == ErrorKind::NotFound => continue,
+                Err(_) => return Err(managed_artwork_artifact_store_inventory_error()),
+            };
+
+            loop {
+                let entry = entries
+                    .next_entry()
+                    .await
+                    .map_err(|_| managed_artwork_artifact_store_inventory_error())?;
+                let Some(entry) = entry else {
+                    break;
+                };
+                let path = entry.path();
+                if !path_has_prefix(&path, &self.root) {
+                    continue;
+                }
+                let file_type = entry
+                    .file_type()
+                    .await
+                    .map_err(|_| managed_artwork_artifact_store_inventory_error())?;
+                if file_type.is_dir() {
+                    directories.push(path);
+                    continue;
+                }
+
+                if inventory.scanned_files >= max_files {
+                    inventory.truncated = true;
+                    return Ok(inventory);
+                }
+
+                let byte_len = if file_type.is_file() {
+                    entry.metadata().await.ok().map(|metadata| metadata.len())
+                } else {
+                    None
+                };
+                inventory.scanned_files = inventory.scanned_files.saturating_add(1);
+                inventory
+                    .files
+                    .push(self.describe_discovered_file(path, byte_len));
+            }
+        }
+
+        Ok(inventory)
+    }
+
+    fn describe_discovered_file(
+        &self,
+        path: PathBuf,
+        byte_len: Option<u64>,
+    ) -> DiscoveredArtifactFile {
+        let layout = parse_discovered_artifact_file(&self.root, &path)
+            .unwrap_or(DiscoveredArtifactFileLayout::Unrecognized);
+        DiscoveredArtifactFile {
+            path,
+            layout,
+            byte_len,
+        }
+    }
+
     async fn read(
         &self,
         selected_id: SelectedArtworkId,
@@ -724,6 +951,61 @@ enum ArtifactFileDeleteOutcome {
     Failed,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArtifactFileStatus {
+    Present,
+    Missing,
+    UnresolvableExpectedPath,
+    MetadataReadFailed,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ArtifactStoreFileInventory {
+    scanned_files: u32,
+    files: Vec<DiscoveredArtifactFile>,
+    truncated: bool,
+}
+
+#[derive(Clone, Debug)]
+struct DiscoveredArtifactFile {
+    path: PathBuf,
+    layout: DiscoveredArtifactFileLayout,
+    byte_len: Option<u64>,
+}
+
+impl DiscoveredArtifactFile {
+    fn into_drift_file(
+        self,
+        reason: AdminManagedArtworkArtifactStorageDriftFileReason,
+    ) -> AdminManagedArtworkArtifactStorageDriftFile {
+        let (recognized_artifact_id, extension) = match self.layout {
+            DiscoveredArtifactFileLayout::Recognized {
+                artifact_id,
+                extension,
+                ..
+            } => (Some(artifact_id), Some(extension)),
+            DiscoveredArtifactFileLayout::Unrecognized => (None, None),
+        };
+        AdminManagedArtworkArtifactStorageDriftFile {
+            reason,
+            recognized_artifact_id,
+            extension,
+            byte_len: self.byte_len,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum DiscoveredArtifactFileLayout {
+    Recognized {
+        artifact_id: ManagedArtworkArtifactId,
+        extension: String,
+        supported_extension: bool,
+        shard_matches: bool,
+    },
+    Unrecognized,
+}
+
 #[derive(Clone, Debug)]
 struct ManagedArtworkFailure {
     code: ManagedArtworkFailureCode,
@@ -799,6 +1081,35 @@ fn image_extension_for_media_type(media_type: &str) -> Option<&'static str> {
     image_format_for_media_type(media_type).map(|(_, extension)| extension)
 }
 
+fn parse_discovered_artifact_file(
+    root: &Path,
+    path: &Path,
+) -> Option<DiscoveredArtifactFileLayout> {
+    let relative = path.strip_prefix(root).ok()?;
+    let mut components = relative.components();
+    let shard = components.next()?.as_os_str().to_str()?;
+    let file_name = components.next()?.as_os_str().to_str()?;
+    if components.next().is_some() {
+        return Some(DiscoveredArtifactFileLayout::Unrecognized);
+    }
+
+    let (stem, extension) = file_name.rsplit_once('.')?;
+    let artifact_id = stem.parse::<ManagedArtworkArtifactId>().ok()?;
+    let expected_shard = stem.get(0..2)?;
+    let normalized_extension = extension.to_ascii_lowercase();
+
+    Some(DiscoveredArtifactFileLayout::Recognized {
+        artifact_id,
+        extension: normalized_extension.clone(),
+        supported_extension: supported_artifact_file_extension(&normalized_extension),
+        shard_matches: shard == expected_shard,
+    })
+}
+
+fn supported_artifact_file_extension(extension: &str) -> bool {
+    matches!(extension, "jpg" | "png" | "webp")
+}
+
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut output = String::with_capacity(digest.len() * 2);
@@ -810,6 +1121,14 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn path_has_prefix(path: &Path, root: &Path) -> bool {
     path.starts_with(root)
+}
+
+fn managed_artwork_artifact_store_inventory_error() -> TaruError {
+    TaruError::Storage {
+        uri: "managed-artwork://artifact".to_owned(),
+        kind: StorageErrorKind::Io,
+        message: "failed to inventory managed artwork artifact store".to_owned(),
+    }
 }
 
 fn image_kind_label(kind: &taru_core::ImageKind) -> &'static str {

@@ -2276,6 +2276,141 @@ async fn admin_managed_artwork_cleanup_removes_only_unselected_artifacts_without
 }
 
 #[tokio::test]
+async fn admin_managed_artwork_storage_drift_reports_missing_and_stray_files_without_locator_leaks()
+{
+    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let raw_token = register_artwork_addon(&router, library_id).await;
+
+    let (remote_url, _) = tiny_artwork_server().await;
+    let (_candidate_id, _accepted) = propose_and_accept_remote_artwork_with_token(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-storage-drift",
+        &raw_token,
+    )
+    .await;
+    let processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let artifact = processed.artifact.as_ref().unwrap();
+    request_json::<PublishSelectedArtworkResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id),
+    )
+    .await;
+
+    let missing_path = managed_artwork_artifact_test_path(&temp, artifact.id, "png");
+    fs::remove_file(&missing_path).unwrap();
+
+    let stray_artifact_id = ManagedArtworkArtifactId::new();
+    let stray_path = managed_artwork_artifact_test_path(&temp, stray_artifact_id, "png");
+    fs::create_dir_all(stray_path.parent().unwrap()).unwrap();
+    fs::write(&stray_path, b"stray-private-file-token").unwrap();
+
+    let private_filename = "private-filename-token.txt";
+    let unrecognized_path = temp
+        .path()
+        .join("taru-cache")
+        .join("artwork")
+        .join("zz")
+        .join(private_filename);
+    fs::create_dir_all(unrecognized_path.parent().unwrap()).unwrap();
+    fs::write(&unrecognized_path, b"private-unrecognized-file-token").unwrap();
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/artwork/artifacts/storage-drift?file_scan_limit=50")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let drift: AdminManagedArtworkArtifactStorageDriftResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert!(drift.dry_run);
+    assert_eq!(drift.summary.scanned_db_artifacts, 1);
+    assert_eq!(drift.summary.db_backed_present_artifacts, 0);
+    assert_eq!(drift.summary.db_backed_missing_artifacts, 1);
+    assert_eq!(drift.summary.db_backed_unresolvable_artifacts, 0);
+    assert_eq!(drift.summary.db_backed_metadata_read_failed_artifacts, 0);
+    assert_eq!(drift.missing_artifacts.len(), 1);
+    assert_eq!(drift.missing_artifacts[0].id, artifact.id);
+    assert_eq!(drift.missing_artifacts[0].selected_artwork_count, 1);
+    assert!(!drift.missing_artifacts[0].cleanup_candidate);
+    assert_eq!(
+        drift.missing_artifacts[0].issue,
+        AdminManagedArtworkArtifactStorageDriftArtifactIssue::MissingFile
+    );
+
+    assert_eq!(drift.summary.file_scan_limit, 50);
+    assert_eq!(drift.summary.scanned_files, 2);
+    assert_eq!(drift.summary.stray_files, 2);
+    assert_eq!(drift.summary.untracked_artifact_files, 1);
+    assert_eq!(drift.summary.unrecognized_layout_files, 1);
+    assert!(!drift.summary.file_scan_truncated);
+    assert!(drift.stray_files.iter().any(|file| {
+        file.reason == AdminManagedArtworkArtifactStorageDriftFileReason::UntrackedArtifactFile
+            && file.recognized_artifact_id == Some(stray_artifact_id)
+            && file.extension.as_deref() == Some("png")
+    }));
+    assert!(drift.stray_files.iter().any(|file| {
+        file.reason == AdminManagedArtworkArtifactStorageDriftFileReason::UnrecognizedLayout
+            && file.recognized_artifact_id.is_none()
+            && file.extension.is_none()
+    }));
+
+    let body = String::from_utf8_lossy(&response_body);
+    assert!(!body.contains(&remote_url));
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains(&raw_token));
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("cache_uri"));
+    assert!(!body.contains("storage_uri"));
+    assert!(!body.contains("managed-artwork://"));
+    assert!(!body.contains("content_hash"));
+    if let Some(content_hash) = artifact.content_hash.as_ref() {
+        assert!(!body.contains(content_hash));
+    }
+    assert!(!body.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(!body.contains(private_filename));
+    assert!(!body.contains(&format!("{stray_artifact_id}.png")));
+    assert!(!body.contains("stray-private-file-token"));
+    assert!(!body.contains("private-unrecognized-file-token"));
+}
+
+fn managed_artwork_artifact_test_path(
+    temp: &tempfile::TempDir,
+    artifact_id: ManagedArtworkArtifactId,
+    extension: &str,
+) -> PathBuf {
+    let artifact_id_text = artifact_id.to_string();
+    temp.path()
+        .join("taru-cache")
+        .join("artwork")
+        .join(artifact_id_text.get(0..2).unwrap())
+        .join(format!("{artifact_id_text}.{extension}"))
+}
+
+#[tokio::test]
 async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_unsupported_media_type()
  {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;

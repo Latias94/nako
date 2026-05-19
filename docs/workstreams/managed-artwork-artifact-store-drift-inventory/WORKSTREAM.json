@@ -1,0 +1,25 @@
+{
+  "slug": "managed-artwork-artifact-store-drift-inventory",
+  "status": "completed",
+  "goal": "Managed Artwork Artifact store drift diagnostics",
+  "owner": "codex",
+  "created_at": "2026-05-19",
+  "updated_at": "2026-05-19",
+  "current_task": "complete",
+  "first_slice": "Redacted Admin storage drift diagnostics",
+  "non_goals": [
+    "stray file deletion or repair",
+    "missing artifact re-ingest or repair",
+    "thumbnail generation or responsive variants",
+    "durable ingest retry, requeue, cancellation, or runtime controls",
+    "public gallery or candidate management",
+    "Public Client API image contract changes"
+  ],
+  "validation_gates": [
+    "cargo nextest run -p taru-api managed_artwork_storage_drift --no-fail-fast",
+    "cargo nextest run -p taru-server managed_artwork_storage_drift --no-fail-fast",
+    "cargo check -p taru-core -p taru-api -p taru-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ]
+}

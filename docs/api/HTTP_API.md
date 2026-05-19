@@ -442,6 +442,7 @@ GET  /admin/v1/jobs
 POST /admin/v1/artwork/candidates/{candidate_id}/accept
 POST /admin/v1/artwork/ingests/process-next
 GET  /admin/v1/artwork/artifacts/lifecycle
+GET  /admin/v1/artwork/artifacts/storage-drift
 POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/playback/sessions
@@ -1264,6 +1265,27 @@ includes counts and redacted cleaned-artifact summaries only. It never returns
 `storage_uri`, `managed-artwork://...`, local paths, raw source URLs,
 `source_uri`, `cache_uri`, Source Locators, addon token material, provider query
 strings, or content-hash values.
+
+Administrators can inspect local artifact-store drift with:
+
+```text
+GET /admin/v1/artwork/artifacts/storage-drift?limit=50&offset=0&file_scan_limit=500
+```
+
+The response is read-only diagnostics. It checks the requested page of active
+DB-backed Managed Artwork Artifacts against their expected internal local files
+and performs a bounded inventory of files under the configured artifact root.
+It reports missing DB-backed files, unresolvable expected artifact paths, and
+stray files that do not correspond to active DB-backed artifacts.
+
+`file_scan_limit` bounds local artifact-root inventory and is capped by the
+server. The response includes scan counts, truncation status, redacted missing
+artifact summaries, and redacted stray-file classifications. It never deletes
+files, marks database rows deleted, repairs artifacts, reads file contents, or
+calculates file content hashes. It never returns filenames, local paths,
+`storage_uri`, `managed-artwork://...`, raw source URLs, `source_uri`,
+`cache_uri`, Source Locators, addon token material, provider query strings, or
+content-hash values.
 
 `validation_status` describes Addon principal, permission, library, and target
 validation. It is not the domain write result. `apply_status` describes the

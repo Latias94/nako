@@ -1,11 +1,11 @@
 # Managed Artwork Artifact Lifecycle Cleanup Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
-This lane is open and `MAALC-030` is complete.
+This lane is complete.
 
 The implementation adds a redacted Admin diagnostics and cleanup boundary for
 Managed Artwork Artifact lifecycle state:
@@ -26,10 +26,9 @@ Managed Artwork Artifact lifecycle state:
 
 ## Next Step
 
-Decide whether `MAALC-040` should remain in this lane or split into a dedicated
-artifact-store drift inventory lane. The next design question is root inventory:
-missing DB-backed files and stray files under the artifact root require a safe
-storage inventory port that never reports local paths.
+Continue in `managed-artwork-artifact-store-drift-inventory` for root
+inventory: missing DB-backed files and stray files under the artifact root
+require a safe storage diagnostics port that never reports local paths.
 
 ## Blockers
 

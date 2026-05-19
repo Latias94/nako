@@ -1,6 +1,6 @@
 # Managed Artwork Artifact Lifecycle Cleanup Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -114,6 +114,15 @@ assertions, or documentation that states values are forbidden in responses.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
+
+2026-05-19, MAALC-040/050:
+
+- Closed this lane after splitting artifact-root drift inventory to
+  `managed-artwork-artifact-store-drift-inventory`.
+- No deletion or repair behavior remains hidden in this lane.
+- Lifecycle cleanup evidence remains the proof for shipped behavior; the new
+  drift lane owns missing DB-backed file and stray artifact-root file
+  diagnostics.
 
 2026-05-19, MAALC-030:
 

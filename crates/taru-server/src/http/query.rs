@@ -270,6 +270,51 @@ impl ArtworkArtifactLifecycleQuery {
     }
 }
 
+const DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT: u32 = 500;
+const MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT: u32 = 5_000;
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactStorageDriftQuery {
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+    pub(super) file_scan_limit: Option<String>,
+}
+
+impl ArtworkArtifactStorageDriftQuery {
+    pub(super) fn into_page_and_file_scan_limit(self) -> Result<(PageRequest, u32), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+        let file_scan_limit = self
+            .file_scan_limit
+            .map(|value| parse_u32_filter("file_scan_limit", value))
+            .transpose()?
+            .unwrap_or(DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT);
+        let file_scan_limit = if file_scan_limit == 0 {
+            DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT
+        } else {
+            file_scan_limit
+        };
+        if file_scan_limit > MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "file_scan_limit must be less than or equal to {}",
+                    MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT
+                ),
+            });
+        }
+
+        Ok((page.try_into()?, file_scan_limit))
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct CatalogGovernanceItemsQuery {
     pub(super) library_id: Option<String>,

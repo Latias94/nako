@@ -69,9 +69,13 @@ attention.
   Artwork and exposing first-party Public Client image references without
   leaking raw source URLs, cache URIs, storage URIs, or local paths.
 - [managed-artwork-artifact-lifecycle-cleanup](managed-artwork-artifact-lifecycle-cleanup/README.md):
-  active follow-on for Managed Artwork Artifact lifecycle diagnostics, orphan
-  cleanup dry-run, Selected Artwork retention protection, and later protected
+  completed follow-on for Managed Artwork Artifact lifecycle diagnostics,
+  orphan cleanup dry-run, Selected Artwork retention protection, and protected
   cleanup without leaking storage URIs or local paths.
+- [managed-artwork-artifact-store-drift-inventory](managed-artwork-artifact-store-drift-inventory/README.md):
+  completed follow-on for bounded, redacted Admin diagnostics of drift between
+  active Managed Artwork Artifact DB records and files under the local artifact
+  root, without deletion or repair.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

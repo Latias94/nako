@@ -1,6 +1,6 @@
 # Managed Artwork Artifact Lifecycle Cleanup Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Open Lane
@@ -51,9 +51,7 @@ Exit criteria:
   through a safe inventory port or split into a follow-on.
 - Diagnostics expose counts/status codes only, not local paths.
 
-Status: Split candidate. The guarded DB-backed cleanup path is complete; broad
-artifact-root inventory can be handled as a dedicated storage drift lane if
-needed.
+Status: Split to `managed-artwork-artifact-store-drift-inventory`.
 
 ## M4 - Closeout
 
@@ -63,4 +61,4 @@ Exit criteria:
 - Workstream docs record evidence and remaining splits.
 - No public client protocol leak or hidden cleanup dependency remains.
 
-Status: Pending.
+Status: Done.
