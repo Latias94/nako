@@ -59,6 +59,16 @@ cargo check --workspace --tests
 git diff --check
 ```
 
+## App Icon
+
+The Android launcher icons are generated platform resources under
+`app/src/main/res/mipmap-*` and are referenced from `app/src/main/AndroidManifest.xml`.
+
+The canonical product icon source asset lives at
+[`../../assets/brand/taru-app-icon-1024.png`](../../assets/brand/taru-app-icon-1024.png).
+Regenerate the Android launcher resources from that source asset when the product
+icon changes.
+
 ## Local Smoke
 
 Use the local validation entrypoint when you want one developer-facing handoff
