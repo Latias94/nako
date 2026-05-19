@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use taru_api::{ClientErrorCode, ErrorResponse};
-use taru_core::SecretString;
+use taru_core::{SecretString, UserPrincipalId};
 
 use crate::config::AuthConfig;
 
@@ -43,11 +43,15 @@ impl InboundAuthState {
 }
 
 pub(super) async fn require_auth(request: Request, next: Next) -> Response {
+    let mut request = request;
     let Some(auth) = request.extensions().get::<InboundAuthState>().cloned() else {
         return unauthorized_response();
     };
 
     if !auth.enabled {
+        request
+            .extensions_mut()
+            .insert(UserPrincipalId::local_admin());
         return next.run(request).await;
     }
 
@@ -58,6 +62,9 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
     });
 
     if authorized {
+        request
+            .extensions_mut()
+            .insert(UserPrincipalId::local_admin());
         next.run(request).await
     } else {
         unauthorized_response()
@@ -109,11 +116,73 @@ fn constant_time_eq(actual: &[u8], expected: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{Router, routing::get};
+    use tower::ServiceExt;
 
     #[test]
     fn constant_time_eq_checks_length_and_bytes() {
         assert!(constant_time_eq(b"token", b"token"));
         assert!(!constant_time_eq(b"token", b"other"));
         assert!(!constant_time_eq(b"token", b"token-extra"));
+    }
+
+    #[tokio::test]
+    async fn require_auth_inserts_local_admin_principal_for_valid_token() {
+        let router = Router::new()
+            .route(
+                "/principal",
+                get(|request: Request| async move {
+                    request
+                        .extensions()
+                        .get::<UserPrincipalId>()
+                        .map(ToString::to_string)
+                        .unwrap_or_default()
+                }),
+            )
+            .layer(axum::middleware::from_fn(require_auth))
+            .layer(axum::Extension(InboundAuthState::bearer_token("secret")));
+        let request = axum::http::Request::builder()
+            .uri("/principal")
+            .header(header::AUTHORIZATION, "Bearer secret")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+
+        assert_eq!(body.as_ref(), b"local-admin");
+    }
+
+    #[tokio::test]
+    async fn require_auth_inserts_local_admin_principal_when_auth_disabled() {
+        let router = Router::new()
+            .route(
+                "/principal",
+                get(|request: Request| async move {
+                    request
+                        .extensions()
+                        .get::<UserPrincipalId>()
+                        .map(ToString::to_string)
+                        .unwrap_or_default()
+                }),
+            )
+            .layer(axum::middleware::from_fn(require_auth))
+            .layer(axum::Extension(InboundAuthState {
+                enabled: false,
+                token: None,
+            }));
+        let request = axum::http::Request::builder()
+            .uri("/principal")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+
+        assert_eq!(body.as_ref(), b"local-admin");
     }
 }

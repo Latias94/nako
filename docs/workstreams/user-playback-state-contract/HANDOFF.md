@@ -8,30 +8,33 @@ Last updated: 2026-05-19
 This workstream was split from
 `docs/workstreams/android-public-client-api-coverage/` APIC-060.
 
-UPS-010 is complete. The first public **User Playback State** contract is frozen
-in `CONTRACT.md`, and ADR-0028 defines how **Single-Admin Mode** resolves to an
-internal stable `local-admin` principal without making the domain permanently
-single-user.
+UPS-010 and UPS-020 are complete. The first public **User Playback State**
+contract is frozen in `CONTRACT.md`, and ADR-0028 defines how
+**Single-Admin Mode** resolves to an internal stable `local-admin` principal
+without making the domain permanently single-user.
 
-No implementation has started. The current Android behavior remains
-device-local resume through `DevicePlaybackPositionStore`; it must not be
-presented as server-authoritative **User Playback State** or cross-device
-Continue Watching.
+Server storage and app-service behavior now exist behind core repository
+traits, SQLite migration 0029, `UserPlaybackAppService`, and auth middleware
+principal resolution. Public HTTP/API/SDK routes have not started. The current
+Android behavior remains device-local resume through
+`DevicePlaybackPositionStore`; it must not be presented as
+server-authoritative **User Playback State** or cross-device Continue Watching.
 
 ## Next Task
 
-Run UPS-020:
+Run UPS-030:
 
-- implement the explicit principal parameter through core/server storage
-  boundaries;
-- add SQLite persistence for item/source-scoped playback state;
-- implement lookup, progress, and watched/unwatched app-service behavior;
-- cover idempotent writes, source/item validation, and watched threshold policy.
+- add `taru-client-protocol` DTOs matching `CONTRACT.md`;
+- expose `/users/me/playback-state/...` HTTP routes through `taru-server`;
+- map route requests to `UserPlaybackAppService` using the resolved
+  `UserPrincipalId` request extension;
+- update OpenAPI, Rust SDK, TypeScript SDK, and API docs.
 
 Recommended validation:
 
 ```powershell
-cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast
+cargo nextest run -p taru-api -p taru-client --no-fail-fast
+npm run check --prefix sdk/typescript
 ```
 
 ## Constraints To Preserve
@@ -45,9 +48,10 @@ cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast
   state.
 - UPS-020 should not add favorites, hidden state, or user rating. They are
   deferred from the first route set.
+- UPS-030 must not expose internal principal ids in public DTOs. Routes should
+  operate on `/users/me/...` only.
 
 ## Parallel Work
 
-Parallel workers are safe after UPS-010. Keep UPS-020 storage/service work
-separate from UPS-030 public API/SDK work until repository and service behavior
-are proven.
+Parallel workers are safe for API/SDK work after UPS-020. Keep Android UPS-040
+blocked until UPS-030 route names and DTOs are implemented.

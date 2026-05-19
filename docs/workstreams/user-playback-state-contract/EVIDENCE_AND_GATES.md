@@ -27,7 +27,7 @@ Proves workstream docs and API contract edits are clean before implementation.
 ### Server Gate
 
 ```powershell
-cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast
+cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast
 ```
 
 Proves storage, repository, principal scoping, and app-service behavior.
@@ -100,3 +100,34 @@ Fresh gate evidence:
 
 - 2026-05-19: `git diff --check` - PASS. This proves the UPS-010 ADR,
   contract, task ledger, and handoff edits have no whitespace errors.
+
+## UPS-020 Evidence
+
+Claim: principal-aware **User Playback State** storage and server app-service
+behavior are implemented, while public HTTP/API/SDK exposure remains deferred
+to UPS-030.
+
+Evidence:
+
+- `crates/taru-core/src/user_playback.rs` defines `UserPrincipalId`,
+  `UserPlaybackState`, and write records.
+- `crates/taru-core/src/repository/user_playback.rs` defines the repository
+  contract for upsert, lookup, and Continue Watching state listing.
+- `crates/taru-db/migrations/0029_user_playback_states.sql` persists rows by
+  principal, item, and optional source.
+- `crates/taru-db/src/user_playback.rs` implements SQLite persistence and
+  Continue Watching filtering/sorting.
+- `crates/taru-server/src/app/user_playback.rs` implements default lookup,
+  progress reporting, watched/unwatched transitions, watched threshold policy,
+  idempotent identical progress writes, stale progress rejection, and source
+  ownership validation.
+- `crates/taru-server/src/http/auth.rs` resolves accepted or explicitly
+  disabled auth requests to the internal `local-admin` principal extension.
+
+Fresh gate evidence:
+
+- 2026-05-19: `cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast` - PASS, 2 tests passed. This original narrow UPS-020 gate proves repository and idempotent app-service behavior matching that filter.
+- 2026-05-19: `cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast` - PASS, 8 tests passed. This is the corrected UPS-020 gate and covers DB round-trip, Continue Watching filtering/sorting, default lookup, progress, watched/unwatched, stale events, and idempotency.
+- 2026-05-19: `cargo test -p taru-server require_auth_inserts_local_admin_principal --no-default-features` - PASS, 2 tests passed. This proves the inbound auth middleware resolves accepted or disabled local/test requests to the internal `local-admin` principal extension.
+- 2026-05-19: `cargo fmt --all --check` - PASS.
+- 2026-05-19: `git diff --check` - PASS.

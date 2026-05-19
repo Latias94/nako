@@ -48,7 +48,8 @@ use taru_core::{
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, Studio, StudioId,
     Tag, TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
     TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
-    TranscodeSessionState, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository, VfsCacheSummary,
+    TranscodeSessionState, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
+    UserPrincipalId, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository, VfsCacheSummary,
     VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryAttemptId,
     WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
     WebhookEndpointStatus, WebhookRepository,
@@ -82,6 +83,7 @@ mod scan;
 mod search;
 mod source_duplicate;
 mod staging;
+mod user_playback;
 mod vfs_cache;
 mod webhooks;
 

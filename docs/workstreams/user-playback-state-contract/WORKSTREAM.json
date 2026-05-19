@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Taru lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
-  "current_task": "UPS-020",
+  "current_task": "UPS-030",
   "authoritative_docs": [
     {
       "role": "design",
@@ -27,7 +27,7 @@
   ],
   "gates": [
     "git diff --check",
-    "cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast",
+    "cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast",
     "cargo nextest run -p taru-api -p taru-client --no-fail-fast",
     "npm run check --prefix sdk/typescript",
     "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon"
@@ -36,6 +36,9 @@
     "CONTEXT.md",
     "docs/api/HTTP_API.md",
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "crates/taru-core/src/user_playback.rs",
+    "crates/taru-db/migrations/0029_user_playback_states.sql",
+    "crates/taru-server/src/app/user_playback.rs",
     "docs/workstreams/android-device-local-playback-position/",
     "docs/workstreams/android-public-client-api-coverage/",
     "apps/android/app/src/main/java/dev/taru/android/player/DevicePlaybackPosition.kt"
@@ -49,7 +52,7 @@
   ],
   "continue_policy": {
     "default_action": "run_next_task",
-    "next_task": "UPS-020",
-    "notes": "Implement storage and app-service behavior against CONTRACT.md and ADR-0028. Do not add favorites, hidden state, or user rating in the first route set."
+    "next_task": "UPS-030",
+    "notes": "Expose the implemented UserPlaybackAppService through protocol DTOs, HTTP routes, OpenAPI, Rust SDK, TypeScript SDK, and API docs. Preserve /users/me semantics and do not expose internal principal ids."
   }
 }

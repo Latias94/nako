@@ -10,6 +10,7 @@ pub mod repository;
 pub mod secret;
 pub mod session;
 pub mod staging;
+pub mod user_playback;
 pub mod vfs_cache;
 pub mod webhook;
 
@@ -25,5 +26,6 @@ pub use repository::*;
 pub use secret::*;
 pub use session::*;
 pub use staging::*;
+pub use user_playback::*;
 pub use vfs_cache::*;
 pub use webhook::*;

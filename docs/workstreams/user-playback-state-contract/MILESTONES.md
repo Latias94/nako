@@ -32,7 +32,7 @@ Exit criteria:
 
 Evidence:
 
-- `cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast`
+- `cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast`
 
 ## M2 - Public Contract
 
