@@ -14,18 +14,24 @@ AATC-020 is complete. `ADMIN_CONTRACT_INVENTORY.md` records the hand-written
 wire DTO audit, the route/query inventory, and the chosen first artifact
 shape.
 
+AATC-030 is complete. `taru-api` owns an Admin API TypeScript contract
+generator and emit example. The committed app-local artifact exports the
+AWC-070 route constants, query interfaces, and wire interfaces under
+`apps/admin-web/src/adminApi/generated/contract.ts`. `client.ts` now imports
+generated response types and route constants while keeping its hand-written
+fetch/runtime boundary.
+
 ## Active Task
 
-- Task ID: AATC-030
+- Task ID: AATC-040
 - Owner: codex
-- Files: `crates/taru-api/src`, `crates/taru-api/examples`,
-  `apps/admin-web/src/adminApi`
-- Validation: `cargo check -p taru-api --examples`, focused `taru-api`
-  generator tests, generated artifact sync check, and admin-web type check
-- Status: NEEDS_CONTEXT
-- Review: run `review-workstream` before accepting implementation completion
-- Evidence: generator source, example command, generated contract artifact,
-  and Rust sync/leakage tests
+- Files: `apps/admin-web/src/adminApi`, `apps/admin-web/src`
+- Validation: `cd apps/admin-web && npm run check`, `npm run test`, and
+  `npm run build`
+- Status: READY
+- Review: review-workstream for DTO duplication and redaction fixture safety
+- Evidence: admin-web imports generated contract for covered wire DTOs; tests
+  keep source fallback and redaction behavior
 
 ## Decisions Since Last Update
 
@@ -38,13 +44,16 @@ shape.
   only and not a generated fetch client.
 - `client.ts` should remain hand-written for base URL normalization, bearer
   auth, request failure behavior, and future live/mock fallback policy.
+- The AATC-030 generator intentionally emits a narrow explicit contract rather
+  than a generated fetch client or a public/admin combined SDK.
 
 ## Blockers
 
 - None for AATC-030.
+- None for AATC-040.
 
 ## Next Recommended Action
 
-Run AATC-030: add a focused `taru-api` Admin TypeScript contract generator,
-emit `apps/admin-web/src/adminApi/generated/contract.ts`, and wire
-`client.ts` to import generated route constants and response types.
+Run AATC-040: remove durable wire DTO duplication from
+`apps/admin-web/src/adminApi/types.ts` by importing/re-exporting generated
+contract DTOs, while keeping UI-only view models local to admin-web.

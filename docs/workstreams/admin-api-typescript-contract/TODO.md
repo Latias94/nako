@@ -28,15 +28,19 @@ Last updated: 2026-05-19
 
 ## AATC.1 Generator Proof
 
-- [ ] AATC-030 [owner=codex] [deps=AATC-020] [scope=crates/taru-api/src, crates/taru-api/examples, apps/admin-web/src/adminApi]
+- [x] AATC-030 [owner=codex] [deps=AATC-020] [scope=crates/taru-api/src, crates/taru-api/examples, apps/admin-web/src/adminApi]
   Goal: Implement the first generated or mechanically synchronized Admin API
   TypeScript contract for the AWC-070 read-model routes.
   Validation: `cargo check -p taru-api --examples`, focused `taru-api`
   generator tests, and generated artifact sync check.
   Review: review-workstream for public/admin boundary leakage.
-  Evidence: generator source, example command, generated app-local artifact,
-  and Rust tests.
-  Handoff: Do not wire broader UI routes until sync and leakage tests pass.
+  Evidence: `crates/taru-api/src/admin_contract.rs`,
+  `crates/taru-api/examples/emit-admin-typescript-contract.rs`,
+  `apps/admin-web/src/adminApi/generated/contract.ts`, admin-web client route
+  imports, and Rust sync/leakage tests.
+  Handoff: AATC-040 should remove long-lived hand-written wire DTO ownership
+  from `apps/admin-web/src/adminApi/types.ts` while keeping UI view models
+  local.
 
 - [ ] AATC-040 [owner=codex] [deps=AATC-030] [scope=apps/admin-web/src/adminApi, apps/admin-web/src]
   Goal: Make admin-web consume the generated Admin API contract for covered

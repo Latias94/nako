@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AdminApiClient } from "./client";
+import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockCatalogGovernance,
   mockEvents,
@@ -29,7 +30,7 @@ describe("AdminApiClient", () => {
     const overview = await client.getOverview();
 
     expect(overview.status).toBe("degraded");
-    expect(fetcher).toHaveBeenCalledWith("http://127.0.0.1:3000/admin/v1/overview", {
+    expect(fetcher).toHaveBeenCalledWith(`http://127.0.0.1:3000${TARU_ADMIN_ROUTES.overview}`, {
       headers: {
         Authorization: "Bearer redacted-test-token",
       },
@@ -45,13 +46,13 @@ describe("AdminApiClient", () => {
 
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
-      ["/admin/v1/catalog/governance/items", mockCatalogGovernance],
-      ["/admin/v1/events", mockEvents],
-      ["/admin/v1/jobs", mockJobs],
-      ["/admin/v1/playback/sessions", mockPlaybackSessions],
-      ["/admin/v1/playback/runtime", mockPlaybackRuntime],
-      ["/admin/v1/storage/staging", mockStorageStaging],
-      ["/admin/v1/system/config", mockSystemConfig],
+      [TARU_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
+      [TARU_ADMIN_ROUTES.events, mockEvents],
+      [TARU_ADMIN_ROUTES.jobs, mockJobs],
+      [TARU_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
+      [TARU_ADMIN_ROUTES.playbackRuntime, mockPlaybackRuntime],
+      [TARU_ADMIN_ROUTES.storageStaging, mockStorageStaging],
+      [TARU_ADMIN_ROUTES.systemConfig, mockSystemConfig],
     ]);
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input.toString(), "http://127.0.0.1");
@@ -74,13 +75,13 @@ describe("AdminApiClient", () => {
     await expect(client.getSystemConfig()).resolves.toEqual(mockSystemConfig);
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
-      "/admin/v1/catalog/governance/items",
-      "/admin/v1/events",
-      "/admin/v1/jobs",
-      "/admin/v1/playback/sessions",
-      "/admin/v1/playback/runtime",
-      "/admin/v1/storage/staging",
-      "/admin/v1/system/config",
+      TARU_ADMIN_ROUTES.catalogGovernanceItems,
+      TARU_ADMIN_ROUTES.events,
+      TARU_ADMIN_ROUTES.jobs,
+      TARU_ADMIN_ROUTES.playbackSessions,
+      TARU_ADMIN_ROUTES.playbackRuntime,
+      TARU_ADMIN_ROUTES.storageStaging,
+      TARU_ADMIN_ROUTES.systemConfig,
     ]);
   });
 });

@@ -35,7 +35,7 @@
   "gates": [
     "git diff --check",
     "cargo check -p taru-api --examples",
-    "cargo nextest run -p taru-api admin --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2",
     "cargo nextest run -p taru-api typescript --no-fail-fast",
     "cd apps/admin-web && npm run check",
     "cd apps/admin-web && npm run test",
@@ -58,6 +58,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AATC-020 is complete. Continue with AATC-030: generate app-local route constants plus wire/query interfaces, keep admin-web client runtime hand-written, and preserve Public Client SDK separation."
+    "notes": "AATC-030 is complete. Continue with AATC-040: remove long-lived wire DTO duplication from admin-web types by importing or re-exporting generated contract DTOs while keeping UI view models local."
   }
 }

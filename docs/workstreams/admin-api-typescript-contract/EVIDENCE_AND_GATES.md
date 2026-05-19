@@ -95,3 +95,21 @@ schema helpers or route inventory behavior outside `taru-api`.
   route constants plus wire/query interfaces without a generated fetch client.
   Validation passed: `npm run check` in `apps/admin-web` and `git diff --check`
   with CRLF warnings only.
+- 2026-05-19: AATC-030 completed. `crates/taru-api/src/admin_contract.rs`
+  generates route constants, query interfaces, and wire interfaces for the
+  eight AWC-070 Admin API read-model routes; the emit example writes the
+  app-local artifact at
+  `apps/admin-web/src/adminApi/generated/contract.ts`; `client.ts` imports the
+  generated response types and route constants while keeping the fetch runtime
+  hand-written. Validation passed:
+  `$env:CARGO_TARGET_DIR='G:\taru-cargo-target'; cargo check -p taru-api --examples`,
+  `$env:CARGO_TARGET_DIR='G:\taru-cargo-target'; cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2`,
+  `cd apps/admin-web && npm run check`, and
+  `cd apps/admin-web && npm run test`.
+  Additional gates passed:
+  `$env:CARGO_TARGET_DIR='G:\taru-cargo-target'; cargo nextest run -p taru-api typescript --no-fail-fast -j 2`
+  and `cd apps/admin-web && npm run build`. Formatting and diff hygiene passed
+  with `cargo fmt --all -- --check` and `git diff --check`.
+  `cargo fmt --all` also mechanically formatted one existing import wrapping
+  difference in `crates/taru-server/src/http/tests/mod.rs` so the broad
+  formatting gate can remain green.

@@ -7,7 +7,8 @@ import type {
   AdminPlaybackSessionListResponse,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
-} from "./types";
+} from "./generated/contract";
+import { TARU_ADMIN_ROUTES } from "./generated/contract";
 
 export type AdminApiClientOptions = {
   baseUrl?: string;
@@ -27,37 +28,37 @@ export class AdminApiClient {
   }
 
   async getOverview(): Promise<AdminOverviewResponse> {
-    return this.getJson<AdminOverviewResponse>("/admin/v1/overview");
+    return this.getJson<AdminOverviewResponse>(TARU_ADMIN_ROUTES.overview);
   }
 
   async getCatalogGovernanceItems(): Promise<AdminCatalogGovernanceItemListResponse> {
     return this.getJson<AdminCatalogGovernanceItemListResponse>(
-      "/admin/v1/catalog/governance/items",
+      TARU_ADMIN_ROUTES.catalogGovernanceItems,
     );
   }
 
   async getEvents(): Promise<AdminOutboxEventListResponse> {
-    return this.getJson<AdminOutboxEventListResponse>("/admin/v1/events");
+    return this.getJson<AdminOutboxEventListResponse>(TARU_ADMIN_ROUTES.events);
   }
 
   async getJobs(): Promise<AdminJobListResponse> {
-    return this.getJson<AdminJobListResponse>("/admin/v1/jobs");
+    return this.getJson<AdminJobListResponse>(TARU_ADMIN_ROUTES.jobs);
   }
 
   async getPlaybackSessions(): Promise<AdminPlaybackSessionListResponse> {
-    return this.getJson<AdminPlaybackSessionListResponse>("/admin/v1/playback/sessions");
+    return this.getJson<AdminPlaybackSessionListResponse>(TARU_ADMIN_ROUTES.playbackSessions);
   }
 
   async getPlaybackRuntime(): Promise<AdminPlaybackRuntimeDiagnosticsResponse> {
-    return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>("/admin/v1/playback/runtime");
+    return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(TARU_ADMIN_ROUTES.playbackRuntime);
   }
 
   async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
-    return this.getJson<AdminStorageStagingDiagnosticsResponse>("/admin/v1/storage/staging");
+    return this.getJson<AdminStorageStagingDiagnosticsResponse>(TARU_ADMIN_ROUTES.storageStaging);
   }
 
   async getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
-    return this.getJson<AdminServerConfigDiagnosticsResponse>("/admin/v1/system/config");
+    return this.getJson<AdminServerConfigDiagnosticsResponse>(TARU_ADMIN_ROUTES.systemConfig);
   }
 
   private async getJson<T>(path: string): Promise<T> {

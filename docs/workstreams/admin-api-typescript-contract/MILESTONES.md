@@ -52,6 +52,10 @@ cargo nextest run -p taru-api admin --no-fail-fast
 cargo nextest run -p taru-api typescript --no-fail-fast
 ```
 
+Status: completed for AATC-030. `taru-api` now emits an app-local Admin API
+TypeScript contract, sync-checks the generated artifact, and keeps the Public
+Client SDK admin-route leakage guard in the focused contract test set.
+
 ## M-AATC.3 Admin-Web Consumption
 
 Exit criteria:
