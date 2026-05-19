@@ -1,6 +1,6 @@
 # Worker Job Cancellation Checkpoints - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze
@@ -73,6 +73,12 @@ cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
 Exit criteria:
 
 - Gate set is recorded with fresh evidence.
+  Result: closeout evidence is recorded in `EVIDENCE_AND_GATES.md`.
 - Remaining migrations are completed or split.
+  Result: remaining work is split by boundary type, including per-sidecar NFO
+  checkpoints, dispatch checkpoints, retry/backoff, lease requeue/stealing, and
+  child-process cancellation.
 - `WORKSTREAM.json` status matches reality.
+  Result: workstream status is `completed`.
 - `HANDOFF.md` names the next highest-leverage follow-on.
+  Result: handoff names focused follow-ons instead of keeping this lane open.

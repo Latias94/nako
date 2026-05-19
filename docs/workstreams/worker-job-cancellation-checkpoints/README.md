@@ -1,6 +1,6 @@
 # Worker Job Cancellation Checkpoints
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -26,6 +26,15 @@ have.
 - Record where cancellation cannot interrupt an in-flight provider, VFS, probe,
   or filesystem write.
 
+## Closed Result
+
+This lane closed after adding context-aware durable cancellation checkpoints to
+`DurableJobRuntime`, metadata maintenance, library scan/probe, and NFO
+import/export app boundaries. Remaining work is split by boundary type:
+per-sidecar NFO checkpoints need a `taru-nfo` service API; webhook/addon
+dispatch, retry/backoff, expired-lease requeue/stealing, and child-process
+cancellation remain follow-ons.
+
 ## Non-Goals
 
 - Automatic retry/backoff scheduling.
@@ -50,8 +59,8 @@ have.
 - [job-runtime-worker-control-plane](../job-runtime-worker-control-plane/README.md)
 - [managed-artwork-ingest-runtime-controls](../managed-artwork-ingest-runtime-controls/README.md)
 
-## First Executable Task
+## Closeout
 
-Start with `WJCC-020`: introduce the runtime cancellation context and prove that
-`DurableJobRuntime` turns a heartbeat-observed cancel request into a fenced
-terminal `cancelled` job instead of `failed` or `succeeded`.
+See [HANDOFF.md](HANDOFF.md) for residual risks and follow-ons, and
+[EVIDENCE_AND_GATES.md](EVIDENCE_AND_GATES.md) for the final verification
+evidence.

@@ -1,11 +1,11 @@
 # Worker Job Cancellation Checkpoints - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
-The lane is active. It follows `durable-job-ownership-leases`, which added
+The lane is closed. It follows `durable-job-ownership-leases`, which added
 durable job leases, heartbeats, redacted Admin cancel requests, and fenced
 `cancel_leased_job`, but deliberately split worker-side cancellation
 checkpoints.
@@ -18,19 +18,21 @@ Library scan now checks before scan, before probe, and before success
 publication. NFO import/export use app-level pre/post service checkpoints, with
 per-sidecar cancellation split to a future `taru-nfo` API boundary.
 
-## Active Task
+## Closed Task
 
 - Task ID: `WJCC-050`
 - Owner: planner
 - Files:
   - `docs/workstreams/worker-job-cancellation-checkpoints`
 - Validation:
-  - `verify-rust-workstream` final gate evidence
-  - `review-workstream` blocking findings check
-- Status: READY
-- Review: Decide whether the lane can close now or whether remaining worker
-  migrations should stay in this lane.
-- Evidence: Closeout notes must name every follow-on by boundary type.
+  - closeout gate in `EVIDENCE_AND_GATES.md`
+- Status: DONE
+- Review: no blocking workstream-compliance or code-quality findings remained
+  at closeout.
+- Evidence: `WJCC-020` proved runtime cancellation acknowledgement;
+  `WJCC-030` proved metadata maintenance item checkpoints; `WJCC-040` proved
+  library scan/probe boundaries and NFO app-level boundaries; `WJCC-050`
+  recorded fresh closeout gates.
 
 ## Decisions Since Last Update
 
@@ -62,8 +64,22 @@ per-sidecar cancellation split to a future `taru-nfo` API boundary.
 
 - None.
 
+## Follow-Ons
+
+- Per-sidecar NFO cancellation: add a `taru-nfo` service API that checks before
+  each source read/write and proves no success event is emitted after an
+  acknowledged cancellation.
+- Webhook/addon/automation dispatch checkpoints: add cooperative checkpoints
+  before each dispatch or side-effect unit.
+- Retry/backoff policy: define cancellation, failure, and retry scheduling
+  without mixing it into the checkpoint contract.
+- Expired-lease requeue/stealing: define job-kind-specific recovery semantics
+  for stale owners.
+- Child-process cancellation: decide whether ffprobe/transcode durable jobs
+  need process cancellation handles distinct from cooperative Rust checkpoints.
+
 ## Next Recommended Action
 
-Run `WJCC-050`: verify the final gate set, review the lane, and close or split
-follow-ons for webhook/addon job cancellation, retry/backoff, expired-lease
-requeue/stealing, child-process cancellation, and per-sidecar NFO checkpoints.
+Open the per-sidecar NFO cancellation follow-on first if the next priority is
+user-visible file metadata correctness. Open retry/backoff first if the next
+priority is operations reliability for failed or abandoned jobs.

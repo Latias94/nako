@@ -72,11 +72,14 @@ Last updated: 2026-05-19
 
 ## M4 - Closeout Or Split Remaining Worker Migrations
 
-- [ ] WJCC-050 [owner=planner] [deps=WJCC-040] [scope=docs/workstreams/worker-job-cancellation-checkpoints]
+- [x] WJCC-050 [owner=planner] [deps=WJCC-040] [scope=docs/workstreams/worker-job-cancellation-checkpoints]
   Goal: Close the lane or split retry/backoff, lease-stealing, child-process
   cancellation, and remaining worker migrations.
   Validation: `verify-rust-workstream` records fresh final gate evidence.
   Review: `review-workstream` has no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Follow-ons must name whether they need cooperative checkpoints,
-  process cancellation, or retry policy.
+  Result: DONE. Lane closed after fresh closeout gates and review. Remaining
+  work is split by boundary type: per-sidecar NFO cooperative checkpoints,
+  webhook/addon/automation dispatch checkpoints, retry/backoff policy,
+  expired-lease requeue/stealing, and child-process cancellation.
+  Handoff: Open focused follow-ons instead of expanding this lane.

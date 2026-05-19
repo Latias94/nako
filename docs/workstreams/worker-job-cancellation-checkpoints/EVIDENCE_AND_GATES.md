@@ -1,6 +1,6 @@
 # Worker Job Cancellation Checkpoints - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Smallest Current Repro
@@ -157,6 +157,18 @@ in `HANDOFF.md`.
   `cargo nextest run -j 2 -p taru-server nfo --no-fail-fast` (9 passed);
   `cargo nextest run -j 2 -p taru-server job_runtime --no-fail-fast`
   (5 passed);
+  `cargo fmt --all -- --check` (pass);
+  `git diff --check` (pass, CRLF warnings only);
+  WORKSTREAM JSON parse (pass).
+- `WJCC-050` (2026-05-19): Review found no blocking workstream-compliance or
+  code-quality findings. Lane closed by splitting the remaining work by
+  boundary type instead of expanding this slice. Fresh closeout gates:
+  `cargo check -j 2 -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  (pass);
+  `cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast`
+  (1 passed);
+  `cargo nextest run -j 2 -p taru-server metadata --no-fail-fast`
+  (20 passed);
   `cargo fmt --all -- --check` (pass);
   `git diff --check` (pass, CRLF warnings only);
   WORKSTREAM JSON parse (pass).

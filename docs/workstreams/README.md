@@ -118,10 +118,11 @@ attention.
   recovery, shared leased runtime execution, and truthful redacted Admin
   cancellation requests.
 - [worker-job-cancellation-checkpoints](worker-job-cancellation-checkpoints/README.md):
-  active follow-on for turning durable running-job cancel requests into
+  completed follow-on for turning durable running-job cancel requests into
   cooperative worker-side cancellation checkpoints and fenced terminal
-  cancellation acknowledgement without mixing retry/backoff or distributed
-  scheduling into the cancellation contract.
+  acknowledgement across runtime, metadata maintenance, library scan/probe, and
+  NFO app boundaries while splitting retry/backoff, lease stealing, child
+  process cancellation, and per-sidecar NFO checkpoints.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

@@ -1,6 +1,6 @@
 # Worker Job Cancellation Checkpoints Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists
@@ -194,3 +194,9 @@ This lane can close when:
   and acknowledged cancellation remain distinct;
 - HTTP/API docs describe requested versus acknowledged cancellation accurately;
 - remaining worker migrations are completed or split into follow-ons.
+
+Closeout result: complete. The runtime contract, metadata maintenance,
+library scan/probe, and app-level NFO boundaries are implemented and verified.
+Per-sidecar NFO cancellation, webhook/addon dispatch checkpoints,
+retry/backoff, lease stealing/requeue, and child-process cancellation are
+explicit follow-ons.
