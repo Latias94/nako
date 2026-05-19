@@ -1,6 +1,6 @@
 # Job Runtime Worker Control Plane Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Runtime Inventory And Contract
@@ -34,7 +34,7 @@ Progress:
 
 ## M2 - Recovery And Cancellation Semantics
 
-Status: In progress
+Status: Split
 
 Exit criteria:
 
@@ -46,12 +46,20 @@ Exit criteria:
 Progress:
 
 - Recovery policy is explicit for Managed Artwork ingest.
-- Cancellation remains undecided and belongs to `JRWCP-040` or a split follow-on.
+- Cancellation is split into a later durable job ownership/control-plane lane.
 
 ## M3 - Closeout
+
+Status: Done
 
 Exit criteria:
 
 - Required gates pass with fresh evidence.
 - Remaining job kinds are listed as follow-ons.
 - Workstream docs and HTTP/Admin docs are consistent with shipped behavior.
+
+Result:
+
+- Lane closes after `JRWCP-020` and `JRWCP-030`.
+- `JRWCP-040` cancellation is deliberately deferred because truthful
+  cancellation needs durable ownership/lease or a typed cancellation state.

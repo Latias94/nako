@@ -1,6 +1,6 @@
 # Job Runtime Worker Control Plane Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Problem
@@ -108,7 +108,7 @@ generic trait if the generic shape would hide domain invariants. A small
 internal helper that owns idle/backoff/shutdown behavior is acceptable once two
 workers need it.
 
-## Open Design Questions
+## Split Design Questions
 
 | Question | Initial Direction | Why It Matters |
 | --- | --- | --- |
@@ -177,7 +177,13 @@ Runtime worker/control-plane responses must not expose:
 
 ## Closeout Condition
 
-This lane can close only when a shared job runtime boundary has at least one
-real vertical implementation slice, fresh validation evidence, and explicit
-follow-ons for job kinds not migrated. A design-only inventory task is not
-enough to close the lane.
+This lane is closed with a real vertical implementation slice, fresh validation
+evidence, and explicit follow-ons for job kinds not migrated.
+
+Cancellation is deliberately split. The current job schema cannot represent a
+truthful `cancel_requested` state, and Managed Artwork ingest has no durable
+worker ownership token or mid-fetch checkpoint that can safely observe
+cancellation across restart. Adding an Admin cancel route now would create a
+false guarantee. The correct next design needs durable ownership/lease fields
+or a typed cancellation state machine before exposing cancellation as a
+control-plane promise.

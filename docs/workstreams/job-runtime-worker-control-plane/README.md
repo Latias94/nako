@@ -1,6 +1,6 @@
 # Job Runtime Worker Control Plane
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Purpose
@@ -11,10 +11,10 @@ feature-specific execution paths. Managed Artwork ingest now has manual
 feature-local: claim, execute, retry, cancellation, and worker supervision are
 not yet a shared control plane.
 
-This lane turns the existing ADR direction into an implementation path: a
-bounded job runtime/worker boundary that can eventually own durable execution
-for Managed Artwork, metadata maintenance, NFO export/import, webhook delivery,
-automation, scan/probe, and cleanup workloads.
+This lane turned the existing ADR direction into the first implementation path:
+a bounded Managed Artwork ingest worker and typed startup recovery boundary.
+Broader durable cancellation, generic leases, and migration of other job kinds
+are intentionally split into follow-ons.
 
 ## Goals
 
@@ -48,11 +48,17 @@ automation, scan/probe, and cleanup workloads.
 - `HANDOFF.md`
 - `WORKSTREAM.json`
 
-## Current Slice
+## Completed Slice
 
-Start with `JRWCP-010`: inventory existing runtime/job execution surfaces and
-choose the minimal shared worker contract for Managed Artwork ingest. Do not
-start by adding a broad scheduler. The first executable code slice should prove
-one supervised worker loop can claim and process Managed Artwork ingest jobs
-through the existing safe artifact pipeline without changing the public client
-surface.
+The shipped slice proves one opt-in supervised worker loop can claim and process
+Managed Artwork ingest jobs through the existing safe artifact pipeline without
+changing the Public Client surface. Startup recovery is typed: queued Managed
+Artwork work remains queued, while claimed `fetching`/`validating` work is
+failed with safe `startup_recovery` and remains requeueable.
+
+## Split Follow-Ons
+
+- Durable cancellation and ownership leases.
+- Migration of metadata, webhook, NFO, automation, scan/probe, and cleanup
+  workloads onto shared worker contracts.
+- Generic retry/backoff policy.

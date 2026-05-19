@@ -1,11 +1,11 @@
 {
   "slug": "job-runtime-worker-control-plane",
-  "status": "active",
+  "status": "completed",
   "goal": "Design and implement a shared durable job worker/control-plane boundary, starting with Managed Artwork ingest as the first supervised vertical slice",
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "JRWCP-040",
+  "current_task": "closed",
   "first_slice": "Opt-in Managed Artwork ingest worker registered through RuntimeSupervisor and sharing the safe artifact pipeline with Admin process-next",
   "non_goals": [
     "distributed multi-process scheduling",
@@ -30,6 +30,8 @@
     "NFO import/export worker migration",
     "automation worker migration",
     "scan/probe worker migration",
+    "durable job cancellation and ownership leases",
+    "generic retry/backoff policy",
     "distributed scheduler or multi-process leases"
   ]
 }

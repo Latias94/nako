@@ -1,13 +1,13 @@
 # Job Runtime Worker Control Plane Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
 
 This lane now has a first runtime implementation slice for Managed Artwork
 ingest plus typed startup recovery for claimed Managed Artwork work. The lane
-remains active because cancellation semantics are not yet decided.
+is closed; cancellation and generic leases are split follow-ons.
 
 ## Completed In `JRWCP-010`
 
@@ -23,16 +23,13 @@ Inventory result:
 - Generic job leases should wait until a second queued worker needs them; the
   first slice should reuse the typed Managed Artwork claim boundary.
 
-## Next Task
+## Closeout Decision
 
-Continue with `JRWCP-040` or split it:
-
-- decide whether Managed Artwork ingest cancellation is worth implementing
-  before a generic ownership/lease model exists;
-- if cancellation is implemented, add only a safe requested-state transition
-  that the worker can observe at a checkpoint;
-- otherwise close this lane and split cancellation into a later durable job
-  control-plane lane.
+Do not implement cancellation in this lane. The current job state model only
+has `queued`, `running`, `succeeded`, and `failed`; there is no durable
+`cancel_requested` state, worker ownership token, or mid-fetch checkpoint that
+can guarantee an in-flight Managed Artwork ingest will observe cancellation.
+Exposing a cancel route now would create a false operational promise.
 
 ## Completed In `JRWCP-020`
 
@@ -60,6 +57,16 @@ Continue with `JRWCP-040` or split it:
   - no artifact is created or duplicated.
 - Added DB and server startup tests for the recovery policy.
 
+## Follow-Ons
+
+- Durable job ownership/lease and truthful cancellation state.
+- Metadata maintenance worker migration.
+- Webhook delivery worker migration.
+- NFO import/export worker migration.
+- Automation worker migration.
+- Scan/probe worker migration.
+- Generic retry/backoff policy.
+
 ## Files To Inspect First
 
 - `docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md`
@@ -79,12 +86,14 @@ Get-Content docs\workstreams\job-runtime-worker-control-plane\WORKSTREAM.json | 
 git diff --check
 ```
 
-After code changes begin:
+Closeout validation:
 
 ```powershell
 $env:CARGO_TARGET_DIR='G:\taru-cargo-target'
 cargo nextest run -p taru-server job_runtime_worker --no-fail-fast
 cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast
+cargo nextest run -p taru-server queued_artwork_ingests --no-fail-fast
+cargo nextest run -p taru-db managed_artwork_startup_recovery --no-fail-fast
 cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
 cargo fmt --all -- --check
 git diff --check

@@ -1,6 +1,6 @@
 # Job Runtime Worker Control Plane Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Required Gates
@@ -65,6 +65,7 @@ Expected result:
 | 2026-05-19 | `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests` | Pass | Cross-crate test builds pass after adding the Managed Artwork recovery repository method. |
 | 2026-05-19 | `cargo fmt --all -- --check` | Pass | Workspace formatting remains clean after `JRWCP-030`. |
 | 2026-05-19 | `git diff --check` | Pass | Diff is whitespace-clean; Git reports only line-ending normalization warnings. |
+| 2026-05-19 | Closeout review | Pass | `JRWCP-040` cancellation is split because current jobs lack cancel-request state, durable ownership, and an observable Managed Artwork checkpoint. |
 
 ## Review Checklist
 

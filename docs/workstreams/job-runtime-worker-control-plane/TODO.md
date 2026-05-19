@@ -1,6 +1,6 @@
 # Job Runtime Worker Control Plane Task Ledger
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Runtime Inventory And Contract
@@ -57,23 +57,29 @@ Last updated: 2026-05-19
 
 ## M2 - Control Plane Semantics
 
-- [ ] JRWCP-040 [owner=codex] [deps=JRWCP-030] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] JRWCP-040 [owner=codex] [deps=JRWCP-030] [scope=docs/workstreams/job-runtime-worker-control-plane,docs/api]
   Goal: Decide and implement the first cancellable worker boundary only if the
   worker has an ownership token/checkpoint that can observe cancellation.
   Validation: cancellation test proves request is observed by worker or rejected
   as not cancellable.
   Review: no unsafe task killing; no false cancellation claims after restart.
   Evidence: Admin response is redacted and state-machine behavior is documented.
-  Handoff: Split generic cancellation if it grows beyond Managed Artwork.
+  Result: SPLIT. Cancellation is not implemented in this lane because the
+  current job schema lacks a `cancel_requested` state, durable worker ownership,
+  and a reliable cancellation checkpoint for an in-flight remote fetch. A cancel
+  API now would overclaim behavior. Split durable cancellation/lease work into a
+  later lane.
+  Handoff: Continue with closeout.
 
 ## M3 - Closeout
 
-- [ ] JRWCP-050 [owner=codex] [deps=JRWCP-020] [scope=workspace,docs]
+- [x] JRWCP-050 [owner=codex] [deps=JRWCP-020] [scope=workspace,docs]
   Goal: Close or split the lane after Managed Artwork worker semantics are
   proven and follow-ons are explicit.
   Validation: focused tests, `cargo check`, `cargo fmt --all -- --check`, and
   `git diff --check`.
   Review: no half-migrated job kind is marked complete.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and `WORKSTREAM.json`.
-  Handoff: Split metadata/webhook/NFO/automation workers as follow-on lanes if
-  needed.
+  Result: DONE. Lane closes with Managed Artwork worker success and typed
+  startup recovery proven. Remaining job kinds, generic leases, cancellation,
+  and retry/backoff are explicit follow-ons.
