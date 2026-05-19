@@ -117,6 +117,56 @@ Notes:
 - Visual review was checked against
   `docs/workstreams/android-client-foundation/CLIENT_INTERFACE_DESIGN.md`.
 
+## APIC-040 Evidence
+
+Date: 2026-05-19
+
+Decision:
+
+- Library Detail and library source inventory are now first-class Android
+  routes because the Public Client API exposes both a library summary route and
+  a paginated safe source inventory route.
+- The first Android implementation is structural. It shows the Media Library
+  summary and safe Media Source facts. It does not claim to be a full Plex or
+  Jellyfin-style library poster grid because the public route returns sources,
+  not a library-scoped Media Item browse page.
+
+Implementation:
+
+- Added Android DTOs for `LibraryResponse`, `LibrarySourcesResponse`, and
+  `LibrarySourceResponse`.
+- Added `TaruBrowseClient.libraryDetail` and
+  `TaruBrowseClient.librarySources`.
+- Added `LibraryDetailRouteContent` with library summary and safe source
+  inventory.
+- Added route-stack and save/restore support for `TaruRoute.LibraryDetail`.
+- Moved media probe DTOs into a shared `dev.taru.android.media` package so
+  browse and playback can both consume public probe facts without a package
+  dependency in the wrong direction.
+- Redacted `LibraryDto.toString` roots and `MediaSourceDto.toString` locators
+  so test failures, diagnostics, and logs do not leak local paths.
+
+Validation:
+
+```powershell
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media
+git diff --check
+```
+
+Result: PASS on 2026-05-19.
+
+Smoke report:
+
+- `apps/android/build/smoke-regression/20260519-134739/report.md`
+
+Notes:
+
+- Existing smoke does not yet click into Library Detail. APIC-040 unit tests
+  cover the route clients, navigation persistence, active profile scoping,
+  pagination, and safe string redaction. A follow-on smoke step can explicitly
+  click a library tile if the regression harness grows a Library Detail state.
+
 ## Standard Gates
 
 Docs-only changes:

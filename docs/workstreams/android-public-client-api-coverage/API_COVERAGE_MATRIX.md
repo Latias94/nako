@@ -17,8 +17,8 @@ Legend:
 | --- | --- | --- | --- |
 | `GET /health` | covered | `TaruConnectionClient.testConnection` | Keep as setup preflight and version probe. |
 | `GET /libraries?limit=&offset=` | covered | `TaruConnectionClient` auth probe; `TaruBrowseClient.listLibraries` | Keep. |
-| `GET /libraries/{library_id}` | gap | none | Add when Library Detail becomes a real screen instead of a list entry. |
-| `GET /libraries/{library_id}/sources?limit=&offset=` | gap | none | Add with Library Detail/source inventory, not before. |
+| `GET /libraries/{library_id}` | covered | `TaruBrowseClient.libraryDetail`; `LibraryDetailRouteContent` | Keep as the Library Detail summary route. |
+| `GET /libraries/{library_id}/sources?limit=&offset=` | covered | `TaruBrowseClient.librarySources`; `LibraryDetailRouteContent` | Keep as safe source inventory, not as a fake poster grid. |
 | `GET /items?limit=&offset=` | covered | `TaruBrowseClient.listItems` | Keep as Home/Libraries feed input. |
 | `GET /items/{item_id}` | covered | `TaruBrowseClient.itemDetail` | Keep as primary detail aggregate. |
 | `GET /items/{item_id}/credits` | partial | `GET /items/{item_id}` aggregate detail | Defer until credits need pagination or richer people context. |
@@ -64,13 +64,11 @@ client DTOs, but it must not become a server administration surface.
 
 ## Priority Order
 
-1. Library Detail route and library source inventory if the UI needs a true
-   library landing page.
-2. Source probe detail if Source Picker needs explicit technical media facts
+1. Source probe detail if Source Picker needs explicit technical media facts
    outside playback decision.
-3. People/genre/tag index and person detail pages if browsing beyond metadata
+2. People/genre/tag index and person detail pages if browsing beyond metadata
    chips becomes a product goal.
-4. Server contract follow-on for User Playback State before claiming
+3. Server contract follow-on for User Playback State before claiming
    cross-device Continue Watching.
 
 ## Non-Negotiable Client Rules

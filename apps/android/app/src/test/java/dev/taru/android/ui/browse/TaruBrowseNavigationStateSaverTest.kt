@@ -55,6 +55,22 @@ class TaruBrowseNavigationStateSaverTest {
     }
 
     @Test
+    fun `library detail route restores under libraries destination`() {
+        val navigation = TaruBrowseNavigationState
+            .root()
+            .selectDestination(TaruDestination.Libraries)
+            .open(TaruRoute.LibraryDetail("library-movies"))
+
+        val restored = restoreTaruBrowseNavigationState(
+            navigation.toSaveablePayload(),
+        )
+
+        assertEquals(TaruDestination.Libraries, restored.selectedDestination)
+        assertEquals(TaruRoute.LibraryDetail("library-movies"), restored.currentRoute)
+        assertFalse(restored.navigationVisible)
+    }
+
+    @Test
     fun `player route is transient and restores to previous safe detail`() {
         val detail = TaruRoute.ItemDetail("night-harbor")
         val navigation = TaruBrowseNavigationState

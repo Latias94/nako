@@ -38,15 +38,17 @@ Evidence:
 
 Exit criteria:
 
-- Library detail/source inventory is implemented or explicitly deferred.
+- Library detail/source inventory is implemented.
 - Direct source probe route consumption is implemented or explicitly deferred.
 - People/tag/genre list/detail routes remain a deliberate product backlog item,
   not an accidental omission.
 
-Expected gates:
+Evidence:
 
-- docs update for defer decisions;
-- Android unit tests for any added client method.
+- `TaruBrowseClient.libraryDetail` and `TaruBrowseClient.librarySources`
+- `LibraryDetailRouteContent`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+- `TODO.md` APIC-040 complete
 
 ## M3 - Playback State Contract Decision
 

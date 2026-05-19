@@ -393,19 +393,43 @@ private fun PosterArtworkSurface(
 }
 
 @Composable
-internal fun LibraryCardRow(libraries: List<LibraryDto>) {
+internal fun LibraryCardRow(
+    libraries: List<LibraryDto>,
+    onOpenLibrary: ((LibraryDto) -> Unit)? = null,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
         verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
     ) {
         libraries.forEach { library ->
-            LibraryTile(library = library)
+            LibraryTile(
+                library = library,
+                onOpenLibrary = onOpenLibrary,
+            )
         }
     }
 }
 
 @Composable
-internal fun LibraryTile(library: LibraryDto) {
+internal fun LibraryTile(
+    library: LibraryDto,
+    onOpenLibrary: ((LibraryDto) -> Unit)? = null,
+) {
+    if (onOpenLibrary == null) {
+        LibraryTileSurface(library = library)
+        return
+    }
+
+    PressableScale(
+        modifier = Modifier.width(156.dp),
+        onClick = { onOpenLibrary(library) },
+    ) {
+        LibraryTileSurface(library = library)
+    }
+}
+
+@Composable
+private fun LibraryTileSurface(library: LibraryDto) {
     Surface(
         modifier = Modifier.width(156.dp),
         shape = TaruShape.medium,

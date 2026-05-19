@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 private const val SaveVersion = 1
 private const val RouteTopLevel = "top_level"
 private const val RouteItemDetail = "item_detail"
+private const val RouteLibraryDetail = "library_detail"
 private const val RouteBrowseFacet = "browse_facet"
 private const val RouteServerProfile = "server_profile"
 
@@ -56,6 +57,10 @@ private fun TaruRoute.toSavedRouteOrNull(): SavedTaruRoute? =
             type = RouteItemDetail,
             itemId = itemId,
         )
+        is TaruRoute.LibraryDetail -> SavedTaruRoute(
+            type = RouteLibraryDetail,
+            libraryId = libraryId,
+        )
         is TaruRoute.BrowseFacet -> SavedTaruRoute(
             type = RouteBrowseFacet,
             facetFamily = target.family.name,
@@ -84,6 +89,9 @@ private fun SavedTaruRoute.toRouteOrNull(): TaruRoute? =
         RouteItemDetail -> itemId
             ?.takeIf(String::isNotBlank)
             ?.let(TaruRoute::ItemDetail)
+        RouteLibraryDetail -> libraryId
+            ?.takeIf(String::isNotBlank)
+            ?.let(TaruRoute::LibraryDetail)
         RouteBrowseFacet -> toBrowseFacetOrNull()
         RouteServerProfile -> TaruRoute.ServerProfile
         else -> null
@@ -116,6 +124,8 @@ private data class SavedTaruRoute(
     val type: String,
     @SerialName("item_id")
     val itemId: String? = null,
+    @SerialName("library_id")
+    val libraryId: String? = null,
     @SerialName("facet_family")
     val facetFamily: String? = null,
     @SerialName("facet_label")

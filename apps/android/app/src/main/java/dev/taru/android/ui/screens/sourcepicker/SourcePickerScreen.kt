@@ -30,11 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.MediaSourceDto
+import dev.taru.android.media.ClientMediaStreamKind
+import dev.taru.android.media.MediaProbeDto
 import dev.taru.android.playback.ClientPlaybackDecision
-import dev.taru.android.playback.ClientMediaStreamKind
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.ClientOutputContainer
-import dev.taru.android.playback.MediaProbeDto
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.ui.browse.IconBadge

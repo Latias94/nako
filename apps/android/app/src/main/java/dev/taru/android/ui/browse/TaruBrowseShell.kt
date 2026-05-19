@@ -78,6 +78,10 @@ fun TaruBrowseShell(
     var detailState by remember(profile.id, route, detailRefreshKey) {
         mutableStateOf<ItemDetailUiState>(ItemDetailUiState.Idle)
     }
+    var libraryDetailRefreshKey by remember { mutableIntStateOf(0) }
+    var libraryDetailState by remember(profile.id, route, libraryDetailRefreshKey) {
+        mutableStateOf<LibraryDetailUiState>(LibraryDetailUiState.Idle)
+    }
     var playbackRefreshKey by remember { mutableIntStateOf(0) }
     var requestedSourceId by remember(profile.id, route) { mutableStateOf<String?>(null) }
     var playbackState by remember(profile.id, route, playbackRefreshKey) {
@@ -142,6 +146,22 @@ fun TaruBrowseShell(
             is BrowseResult.Success -> ItemDetailUiState.Content(result.value)
             is BrowseResult.Failure -> ItemDetailUiState.Failure(result.diagnostics)
         }
+    }
+
+    LaunchedEffect(profile.id, route, libraryDetailRefreshKey) {
+        val libraryRoute = route as? TaruRoute.LibraryDetail
+        if (libraryRoute == null) {
+            libraryDetailState = LibraryDetailUiState.Idle
+            return@LaunchedEffect
+        }
+
+        libraryDetailState = LibraryDetailUiState.Loading
+        libraryDetailState = loadLibraryDetailState(
+            profile = profile,
+            tokenVault = tokenVault,
+            browseClient = browseClient,
+            libraryId = libraryRoute.libraryId,
+        )
     }
 
     LaunchedEffect(profile.id, route, requestedSourceId, playbackRefreshKey) {
@@ -242,6 +262,9 @@ fun TaruBrowseShell(
                     },
                     onOpenServerProfile = { navigationState = navigationState.open(TaruRoute.ServerProfile) },
                     onOpenFacet = { navigationState = navigationState.open(TaruRoute.BrowseFacet(it)) },
+                    onOpenLibraryDetail = { libraryId ->
+                        navigationState = navigationState.open(TaruRoute.LibraryDetail(libraryId))
+                    },
                 )
                 is TaruRoute.ItemDetail -> DetailRouteContent(
                     state = detailState,
@@ -298,6 +321,15 @@ fun TaruBrowseShell(
                                 ),
                             )
                         }
+                    },
+                )
+                is TaruRoute.LibraryDetail -> LibraryDetailRouteContent(
+                    state = libraryDetailState,
+                    onBack = { navigationState = navigationState.navigateBack() },
+                    onRetry = { libraryDetailRefreshKey += 1 },
+                    onChangeServer = onChangeServer,
+                    onOpenItem = { itemId ->
+                        navigationState = navigationState.open(TaruRoute.ItemDetail(itemId))
                     },
                 )
                 is TaruRoute.Player -> PlaybackPlayerRoute(
@@ -382,6 +414,44 @@ private suspend fun loadPlaybackSelectionState(
             ),
         )
         is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(result.diagnostics)
+    }
+}
+
+private suspend fun loadLibraryDetailState(
+    profile: ServerProfile,
+    tokenVault: TokenVault,
+    browseClient: TaruBrowseClient,
+    libraryId: String,
+): LibraryDetailUiState {
+    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+    if (accessToken.isBlank()) {
+        return LibraryDetailUiState.Failure(
+            SafeBrowseDiagnostics(
+                category = BrowseFailureCategory.MissingAccessToken,
+                userMessage = "Re-authenticate this server before opening library detail.",
+            ),
+        )
+    }
+
+    val detail = browseClient.libraryDetail(
+        profile = profile,
+        accessToken = accessToken,
+        libraryId = libraryId,
+    )
+    if (detail is BrowseResult.Failure) {
+        return LibraryDetailUiState.Failure(detail.diagnostics)
+    }
+
+    return when (
+        val sources = browseClient.librarySources(
+            profile = profile,
+            accessToken = accessToken,
+            libraryId = libraryId,
+            page = PageRequest(limit = 24, offset = 0),
+        )
+    ) {
+        is BrowseResult.Success -> LibraryDetailUiState.Content(sources.value)
+        is BrowseResult.Failure -> LibraryDetailUiState.Failure(sources.diagnostics)
     }
 }
 
@@ -579,6 +649,7 @@ private fun TopLevelContent(
     onOpenSearch: () -> Unit,
     onOpenServerProfile: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onOpenLibraryDetail: (String) -> Unit,
 ) {
     when (selectedDestination) {
         TaruDestination.Home -> BrowseScaffoldContent {
@@ -590,6 +661,7 @@ private fun TopLevelContent(
                 onChangeServer = onChangeServer,
                 onOpenItem = onOpenItem,
                 onOpenLibrary = onOpenLibrary,
+                onOpenLibraryDetail = onOpenLibraryDetail,
                 onOpenSearch = onOpenSearch,
                 onOpenFacet = onOpenFacet,
             )
@@ -600,6 +672,7 @@ private fun TopLevelContent(
                 artworkSource = artworkSource,
                 onRetry = onRetry,
                 onChangeServer = onChangeServer,
+                onOpenLibrary = { library -> onOpenLibraryDetail(library.id) },
                 onOpenItem = onOpenItem,
                 onOpenFacet = onOpenFacet,
             )

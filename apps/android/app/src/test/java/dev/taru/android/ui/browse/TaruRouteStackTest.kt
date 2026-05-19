@@ -67,6 +67,19 @@ class TaruRouteStackTest {
     }
 
     @Test
+    fun `library detail opened from libraries returns to top level libraries`() {
+        val navigation = TaruBrowseNavigationState
+            .root()
+            .selectDestination(TaruDestination.Libraries)
+            .open(TaruRoute.LibraryDetail("library-movies"))
+            .navigateBack()
+
+        assertEquals(TaruDestination.Libraries, navigation.selectedDestination)
+        assertEquals(TaruRoute.TopLevel, navigation.currentRoute)
+        assertTrue(navigation.navigationVisible)
+    }
+
+    @Test
     fun `item opened from facet returns to the facet list`() {
         val originalDetail = TaruRoute.ItemDetail("night-harbor")
         val facet = TaruRoute.BrowseFacet(

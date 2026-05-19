@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemsResponse
+import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.LibraryListResponse
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
@@ -31,6 +32,7 @@ internal enum class TaruDestination(
 internal sealed interface TaruRoute {
     data object TopLevel : TaruRoute
     data class ItemDetail(val itemId: String) : TaruRoute
+    data class LibraryDetail(val libraryId: String) : TaruRoute
     data class Player(val launch: PlaybackLaunchRequest) : TaruRoute
     data class BrowseFacet(val target: BrowseFacetTarget) : TaruRoute
     data object ServerProfile : TaruRoute
@@ -132,6 +134,19 @@ internal sealed interface ItemDetailUiState {
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
     ) : ItemDetailUiState
+}
+
+internal sealed interface LibraryDetailUiState {
+    data object Idle : LibraryDetailUiState
+    data object Loading : LibraryDetailUiState
+
+    data class Content(
+        val response: LibrarySourcesResponse,
+    ) : LibraryDetailUiState
+
+    data class Failure(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : LibraryDetailUiState
 }
 
 internal sealed interface PlaybackSelectionUiState {

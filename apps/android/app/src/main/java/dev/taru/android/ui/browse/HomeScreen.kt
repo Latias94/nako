@@ -51,6 +51,7 @@ internal fun HomeScreen(
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenLibraryDetail: (String) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
@@ -96,7 +97,10 @@ internal fun HomeScreen(
                         body = "This server has no visible Media Libraries for the current access token.",
                     )
                 } else {
-                    LibraryCardRow(libraries = state.libraries.libraries.take(4))
+                    LibraryCardRow(
+                        libraries = state.libraries.libraries.take(4),
+                        onOpenLibrary = { library -> onOpenLibraryDetail(library.id) },
+                    )
                 }
 
                 SectionHeader(

@@ -29,12 +29,12 @@ Last updated: 2026-05-19
 
 ## M2 - Route Gap Decisions
 
-- [ ] APIC-040 [owner=unassigned] [deps=APIC-020] [scope=docs/workstreams/android-public-client-api-coverage, apps/android/app/src/main/java/dev/taru/android/browse]
+- [x] APIC-040 [owner=codex] [deps=APIC-020] [scope=docs/workstreams/android-public-client-api-coverage, apps/android/app/src/main/java/dev/taru/android/browse]
   Goal: Decide whether Library Detail and library source inventory should become first-class Android routes in the next product slice.
   Validation: route decision notes plus focused Android tests if client methods are added.
   Review: avoid adding routes that do not produce a user-visible screen.
-  Evidence: `API_COVERAGE_MATRIX.md`, Android tests if implemented.
-  Handoff: If implemented, preserve pagination and active-server scoping.
+  Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/LibraryDetailScreen.kt`
+  Handoff: Completed in this session. Library Detail is a first-class structural route with safe source inventory; it does not pretend to be a full media poster grid and does not display roots or source locators.
 
 - [ ] APIC-050 [owner=unassigned] [deps=APIC-040] [scope=docs, apps/android/app/src/main/java/dev/taru/android/playback]
   Goal: Decide whether direct `GET /sources/{source_id}/probe` is needed for Source Picker, or whether playback decision probe data is enough.

@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import dev.taru.android.artwork.PublicArtworkSource
 import dev.taru.android.browse.MediaItemDto
+import dev.taru.android.browse.LibraryDto
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
 
@@ -20,6 +21,7 @@ internal fun LibrariesScreen(
     artworkSource: PublicArtworkSource,
     onRetry: () -> Unit,
     onChangeServer: () -> Unit,
+    onOpenLibrary: (LibraryDto) -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
@@ -56,7 +58,10 @@ internal fun LibrariesScreen(
                         body = "This server has no visible Media Libraries for the current access token.",
                     )
                 } else {
-                    LibraryCardRow(libraries = state.libraries.libraries)
+                    LibraryCardRow(
+                        libraries = state.libraries.libraries,
+                        onOpenLibrary = onOpenLibrary,
+                    )
                 }
 
                 SectionHeader(

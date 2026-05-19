@@ -8,10 +8,10 @@ Last updated: 2026-05-19
 This workstream was opened after merging `main` into the
 `android-client-foundation` worktree. The merge completed without conflicts.
 
-APIC-010, APIC-020, and APIC-030 are complete. The route coverage baseline
-lives in `API_COVERAGE_MATRIX.md`, and Android now consumes public selected
-artwork image routes for core browse/detail surfaces with a shared productized
-fallback presentation.
+APIC-010, APIC-020, APIC-030, and APIC-040 are complete. The route coverage
+baseline lives in `API_COVERAGE_MATRIX.md`, Android consumes public selected
+artwork image routes for core browse/detail surfaces, and Library Detail is now
+a first-class structural route.
 
 ## Key Findings
 
@@ -28,6 +28,10 @@ fallback presentation.
   treatment. Player stays video-first and disables Media3 embedded artwork
   rather than carrying authenticated artwork requests into playback launch
   state.
+- Android now consumes `GET /libraries/{library_id}` and
+  `GET /libraries/{library_id}/sources` through `TaruBrowseClient` and a
+  Library Detail screen. The screen shows safe source inventory, not raw roots,
+  source locators, or a fake media poster grid.
 - `HEAD /images/{image_id}` is intentionally deferred until explicit preflight
   UX or diagnostics need it.
 - Server-authoritative User Playback State is still not public. Android must
@@ -35,10 +39,11 @@ fallback presentation.
 
 ## Next Task
 
-Run APIC-040 next:
+Run APIC-050 next:
 
-- APIC-040 if the next priority is route coverage: decide whether Library
-  Detail and library source inventory should become first-class Android routes.
+- APIC-050 decides whether Source Picker needs direct
+  `GET /sources/{source_id}/probe`, or whether playback decision probe data is
+  enough for the current product surface.
 
 Recommended validation:
 
@@ -54,7 +59,7 @@ pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States profile-
 ```
 
 Result: PASS on 2026-05-19. Report:
-`apps/android/build/smoke-regression/20260519-131218/report.md`.
+`apps/android/build/smoke-regression/20260519-134739/report.md`.
 
 ## Constraints To Preserve
 
@@ -72,7 +77,5 @@ Result: PASS on 2026-05-19. Report:
 
 - Coil 3.3.0 is now the selected image-loading dependency for authenticated
   public artwork routes.
-- Whether Library Detail should become a real product route before broader
-  people/tag/genre index screens.
 - Whether Source Picker needs a direct source probe refresh route, or playback
   decision probe data is enough.

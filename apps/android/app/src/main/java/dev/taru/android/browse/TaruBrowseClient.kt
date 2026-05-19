@@ -31,6 +31,45 @@ class TaruBrowseClient(
             pathAndQuery = "/libraries?limit=${page.limit}&offset=${page.offset}",
         )
 
+    suspend fun libraryDetail(
+        profile: ServerProfile,
+        accessToken: String,
+        libraryId: String,
+    ): BrowseResult<LibraryResponse> {
+        if (libraryId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.MissingLibrary,
+                userMessage = "Choose a Media Library before opening library detail.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/libraries/${encodePathSegment(libraryId)}",
+        )
+    }
+
+    suspend fun librarySources(
+        profile: ServerProfile,
+        accessToken: String,
+        libraryId: String,
+        page: PageRequest = PageRequest(limit = 24),
+    ): BrowseResult<LibrarySourcesResponse> {
+        if (libraryId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.MissingLibrary,
+                userMessage = "Choose a Media Library before listing its Media Sources.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/libraries/${encodePathSegment(libraryId)}/sources${pageQuery(page)}",
+        )
+    }
+
     suspend fun listItems(
         profile: ServerProfile,
         accessToken: String,
@@ -279,12 +318,14 @@ class TaruBrowseClient(
         val category = when (response.statusCode) {
             401 -> BrowseFailureCategory.Unauthorized
             403 -> BrowseFailureCategory.Forbidden
-            404 -> BrowseFailureCategory.MissingItem
+            404 -> notFoundCategory(request)
             else -> BrowseFailureCategory.PublicApiError
         }
         val userMessage = when (category) {
             BrowseFailureCategory.MissingItem ->
                 "The requested Media Item is no longer available."
+            BrowseFailureCategory.MissingLibrary ->
+                "The requested Media Library is no longer available."
             BrowseFailureCategory.Unauthorized ->
                 "The access token is invalid or expired."
             BrowseFailureCategory.Forbidden ->
@@ -309,6 +350,13 @@ class TaruBrowseClient(
             userMessage = "The server response could not be understood.",
             request = safeRequest(request),
         )
+
+    private fun notFoundCategory(request: TaruHttpRequest): BrowseFailureCategory =
+        if (request.url.contains("/libraries/")) {
+            BrowseFailureCategory.MissingLibrary
+        } else {
+            BrowseFailureCategory.MissingItem
+        }
 
     private fun parsePublicError(
         body: String,
