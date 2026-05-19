@@ -90,6 +90,10 @@ attention.
   completed follow-on for redacted Managed Artwork remediation planning and
   confirmed cleanup of safe untracked artifact files, without missing-artifact
   repair or Selected Artwork management.
+- [managed-artwork-thumbnail-variants](managed-artwork-thumbnail-variants/README.md):
+  completed follow-on for bounded on-demand Selected Artwork image variants,
+  redacted public/Admin variant contracts, and cache validators that do not
+  expose artifact storage or content hashes.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target

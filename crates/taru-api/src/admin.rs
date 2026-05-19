@@ -1547,6 +1547,11 @@ mod tests {
 
     #[test]
     fn selected_artwork_publication_response_redacts_storage_uri() {
+        managed_artwork_variant_publication_response_redacts_storage_uri_and_hash();
+    }
+
+    #[test]
+    fn managed_artwork_variant_publication_response_redacts_storage_uri_and_hash() {
         let artifact_id = ManagedArtworkArtifactId::new();
         let selected = SelectedArtworkRecord {
             id: taru_core::SelectedArtworkId::new(),
@@ -1584,9 +1589,12 @@ mod tests {
         assert!(response.changed);
         assert!(response.image.url.starts_with("/images/"));
         assert_eq!(response.image.media_type.as_deref(), Some("image/png"));
+        assert_eq!(response.image.etag, None);
         assert!(!body.contains("storage_uri"));
         assert!(!body.contains("managed-artwork://"));
         assert!(!body.contains("private-storage-handle"));
+        assert!(!body.contains("sha256-public-etag"));
+        assert!(!body.contains("content_hash"));
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("cache_uri"));
     }

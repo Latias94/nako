@@ -356,7 +356,7 @@ pub fn selected_artwork_to_public_image_ref(
         height: artifact.height,
         language: None,
         media_type: artifact.media_type,
-        etag: artifact.content_hash,
+        etag: None,
     }
 }
 

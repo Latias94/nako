@@ -157,6 +157,11 @@ export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
   output_container?: "mp4" | "mkv";
 }
 
+export interface ImageVariantQuery {
+  width?: number;
+  height?: number;
+}
+
 export interface TaruClientOptions {
   baseUrl: string;
   bearerToken?: string;
@@ -222,12 +227,12 @@ export class TaruClient {
     return this.requestJson("GET", `/items/${encodeURIComponent(itemId)}/images`);
   }
 
-  image(imageId: string): Promise<Response> {
-    return this.requestRaw("GET", `/images/${encodeURIComponent(imageId)}`);
+  image(imageId: string, variant?: ImageVariantQuery): Promise<Response> {
+    return this.requestRaw("GET", `/images/${encodeURIComponent(imageId)}`, { query: variant });
   }
 
-  headImage(imageId: string): Promise<Response> {
-    return this.requestRaw("HEAD", `/images/${encodeURIComponent(imageId)}`);
+  headImage(imageId: string, variant?: ImageVariantQuery): Promise<Response> {
+    return this.requestRaw("HEAD", `/images/${encodeURIComponent(imageId)}`, { query: variant });
   }
 
   listPeople(page?: PageQuery): Promise<PeopleResponse> {
@@ -414,6 +419,11 @@ mod tests {
 
     #[test]
     fn typescript_sdk_includes_auth_version_error_and_pagination_runtime() {
+        managed_artwork_variant_typescript_sdk_accepts_bounded_dimensions();
+    }
+
+    #[test]
+    fn managed_artwork_variant_typescript_sdk_accepts_bounded_dimensions() {
         let sdk = typescript_sdk();
 
         for expected in [
@@ -424,6 +434,9 @@ mod tests {
             "ErrorResponse",
             "limit?: number",
             "offset?: number",
+            "ImageVariantQuery",
+            "image(imageId: string, variant?: ImageVariantQuery)",
+            "headImage(imageId: string, variant?: ImageVariantQuery)",
             "response.headers.get",
         ] {
             assert!(

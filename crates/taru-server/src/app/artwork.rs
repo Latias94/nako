@@ -1,13 +1,13 @@
 use std::{
     fmt::Write as _,
-    io::ErrorKind,
+    io::{Cursor, ErrorKind},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
 use futures_util::StreamExt;
-use image::GenericImageView;
+use image::{GenericImageView, imageops::FilterType};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use taru_api::{
@@ -47,6 +47,7 @@ pub(crate) struct ManagedArtworkAppService {
     fetcher: ManagedArtworkFetcher,
     validator: ManagedArtworkImageValidator,
     artifact_store: LocalManagedArtworkArtifactStore,
+    variant_policy: ImageVariantPolicy,
 }
 
 impl ManagedArtworkAppService {
@@ -55,6 +56,7 @@ impl ManagedArtworkAppService {
             store,
             fetcher: ManagedArtworkFetcher::new(config.clone())?,
             validator: ManagedArtworkImageValidator::new(config.clone()),
+            variant_policy: ImageVariantPolicy::new(config.max_width, config.max_height),
             artifact_store: LocalManagedArtworkArtifactStore::new(config.artifact_root),
         })
     }
@@ -529,7 +531,10 @@ impl ManagedArtworkAppService {
     pub(crate) async fn read_selected_image(
         &self,
         selected_id: SelectedArtworkId,
+        variant: ImageVariantRequest,
     ) -> Result<ManagedArtworkImageBytes> {
+        self.variant_policy.validate(variant)?;
+
         let selected = self
             .store
             .get_selected_artwork(selected_id)
@@ -556,24 +561,34 @@ impl ManagedArtworkAppService {
             });
         }
 
-        let media_type = artifact
+        let original_media_type = artifact
             .media_type
             .clone()
-            .unwrap_or_else(|| "application/octet-stream".to_owned());
-        let etag = artifact.content_hash.clone();
+            .ok_or_else(|| managed_artwork_variant_storage_error("media type is missing"))?;
         let bytes = self.artifact_store.read(selected_id, &artifact).await?;
-        let content_length = u64::try_from(bytes.len()).map_err(|err| TaruError::Storage {
-            uri: "managed-artwork://artifact".to_owned(),
-            kind: StorageErrorKind::Unknown,
-            message: format!("managed artwork image length is too large: {err}"),
-        })?;
+        let image = if variant.is_original() {
+            ManagedArtworkImageBytes {
+                bytes,
+                media_type: original_media_type,
+                content_length: 0,
+                etag: Some(public_selected_image_etag(
+                    selected.id,
+                    &artifact,
+                    ImageVariantKey::Original,
+                )),
+            }
+            .with_content_length()?
+        } else {
+            derive_selected_image_variant(
+                selected.id,
+                &artifact,
+                &original_media_type,
+                bytes,
+                variant,
+            )?
+        };
 
-        Ok(ManagedArtworkImageBytes {
-            bytes,
-            media_type,
-            content_length,
-            etag,
-        })
+        Ok(image)
     }
 
     async fn process_claim(
@@ -638,6 +653,208 @@ impl ManagedArtworkAppService {
                 ))
             }
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct ImageVariantRequest {
+    pub(crate) width: Option<u32>,
+    pub(crate) height: Option<u32>,
+}
+
+impl ImageVariantRequest {
+    #[must_use]
+    pub(crate) const fn original() -> Self {
+        Self {
+            width: None,
+            height: None,
+        }
+    }
+
+    pub(crate) fn bounded(width: Option<u32>, height: Option<u32>) -> Result<Self> {
+        validate_variant_edge("width", width)?;
+        validate_variant_edge("height", height)?;
+        Ok(Self { width, height })
+    }
+
+    #[must_use]
+    const fn is_original(self) -> bool {
+        self.width.is_none() && self.height.is_none()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ImageVariantKey {
+    Original,
+    Bounded { width: u32, height: u32 },
+}
+
+fn validate_variant_edge(name: &str, value: Option<u32>) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value == 0 {
+        return Err(TaruError::InvalidInput {
+            message: format!("{name} must be greater than zero"),
+        });
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ImageVariantPolicy {
+    max_width: u32,
+    max_height: u32,
+}
+
+impl ImageVariantPolicy {
+    const fn new(max_width: u32, max_height: u32) -> Self {
+        Self {
+            max_width,
+            max_height,
+        }
+    }
+
+    fn validate(self, variant: ImageVariantRequest) -> Result<()> {
+        validate_variant_edge_against_limit("width", variant.width, self.max_width)?;
+        validate_variant_edge_against_limit("height", variant.height, self.max_height)?;
+        Ok(())
+    }
+}
+
+fn validate_variant_edge_against_limit(name: &str, value: Option<u32>, limit: u32) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value > limit {
+        return Err(TaruError::InvalidInput {
+            message: format!("{name} must be less than or equal to {limit}"),
+        });
+    }
+
+    Ok(())
+}
+
+fn derive_selected_image_variant(
+    selected_id: SelectedArtworkId,
+    artifact: &ManagedArtworkArtifactRecord,
+    original_media_type: &str,
+    bytes: Vec<u8>,
+    variant: ImageVariantRequest,
+) -> Result<ManagedArtworkImageBytes> {
+    let (format, _extension) = image_format_for_media_type(original_media_type)
+        .ok_or_else(|| managed_artwork_variant_storage_error("media type is unsupported"))?;
+    let image =
+        image::load_from_memory_with_format(&bytes, format).map_err(|_err| TaruError::Storage {
+            uri: "managed-artwork://artifact".to_owned(),
+            kind: StorageErrorKind::Unknown,
+            message: "managed artwork artifact image is invalid".to_owned(),
+        })?;
+    let (original_width, original_height) = image.dimensions();
+    let (width, height) = variant_dimensions(original_width, original_height, variant)?;
+    if width == original_width && height == original_height {
+        return ManagedArtworkImageBytes {
+            bytes,
+            media_type: original_media_type.to_owned(),
+            content_length: 0,
+            etag: Some(public_selected_image_etag(
+                selected_id,
+                artifact,
+                ImageVariantKey::Original,
+            )),
+        }
+        .with_content_length();
+    }
+
+    let resized = image.resize(width, height, FilterType::Lanczos3);
+    let mut output = Cursor::new(Vec::new());
+    resized
+        .write_to(&mut output, image::ImageFormat::Png)
+        .map_err(|_err| TaruError::Storage {
+            uri: "managed-artwork://artifact".to_owned(),
+            kind: StorageErrorKind::Unknown,
+            message: "failed to encode managed artwork image variant".to_owned(),
+        })?;
+
+    ManagedArtworkImageBytes {
+        bytes: output.into_inner(),
+        media_type: "image/png".to_owned(),
+        content_length: 0,
+        etag: Some(public_selected_image_etag(
+            selected_id,
+            artifact,
+            ImageVariantKey::Bounded { width, height },
+        )),
+    }
+    .with_content_length()
+}
+
+fn variant_dimensions(
+    original_width: u32,
+    original_height: u32,
+    variant: ImageVariantRequest,
+) -> Result<(u32, u32)> {
+    if original_width == 0 || original_height == 0 {
+        return Err(managed_artwork_variant_storage_error(
+            "image dimensions are invalid",
+        ));
+    }
+
+    let target_width = variant.width.unwrap_or(original_width);
+    let target_height = variant.height.unwrap_or(original_height);
+    let width_ratio = target_width as f64 / original_width as f64;
+    let height_ratio = target_height as f64 / original_height as f64;
+    let scale = width_ratio.min(height_ratio).min(1.0);
+    let width = ((original_width as f64) * scale).round().max(1.0) as u32;
+    let height = ((original_height as f64) * scale).round().max(1.0) as u32;
+
+    Ok((width, height))
+}
+
+fn public_selected_image_etag(
+    selected_id: SelectedArtworkId,
+    artifact: &ManagedArtworkArtifactRecord,
+    variant: ImageVariantKey,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"taru-public-image-etag-v1");
+    hasher.update(selected_id.to_string().as_bytes());
+    hasher.update(artifact.id.to_string().as_bytes());
+    hasher.update(artifact.updated_at.as_bytes());
+    match variant {
+        ImageVariantKey::Original => hasher.update(b"original"),
+        ImageVariantKey::Bounded { width, height } => {
+            hasher.update(b"bounded");
+            hasher.update(width.to_be_bytes());
+            hasher.update(height.to_be_bytes());
+        }
+    }
+    let digest = hasher.finalize();
+    let mut output = String::from("taru-img-v1-");
+    for byte in digest.iter().take(16) {
+        let _ = write!(&mut output, "{byte:02x}");
+    }
+    output
+}
+
+fn managed_artwork_variant_storage_error(message: &str) -> TaruError {
+    TaruError::Storage {
+        uri: "managed-artwork://artifact".to_owned(),
+        kind: StorageErrorKind::Unknown,
+        message: format!("managed artwork artifact {message}"),
+    }
+}
+
+impl ManagedArtworkImageBytes {
+    fn with_content_length(mut self) -> Result<Self> {
+        self.content_length =
+            u64::try_from(self.bytes.len()).map_err(|err| TaruError::Storage {
+                uri: "managed-artwork://artifact".to_owned(),
+                kind: StorageErrorKind::Unknown,
+                message: format!("managed artwork image length is too large: {err}"),
+            })?;
+
+        Ok(self)
     }
 }
 

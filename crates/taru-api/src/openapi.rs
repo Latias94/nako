@@ -118,13 +118,13 @@ fn public_paths() -> Value {
                 "getImage",
                 "Serve one selected artwork image.",
                 "catalog",
-                vec![path_parameter("image_id", "Selected artwork image id.")]
+                image_parameters()
             ),
             "head": empty_head_with_tag(
                 "headImage",
                 "Preflight selected artwork image headers.",
                 "catalog",
-                vec![path_parameter("image_id", "Selected artwork image id.")]
+                image_parameters()
             )
         }),
     );
@@ -491,6 +491,24 @@ fn remux_parameters(source_id_name: &str) -> Vec<Value> {
     ));
     parameters.push(range_header_parameter());
     parameters
+}
+
+fn image_parameters() -> Vec<Value> {
+    vec![
+        path_parameter("image_id", "Selected artwork image id."),
+        query_parameter(
+            "width",
+            "Optional bounded image variant width. Must be a positive integer within the server artwork limit.",
+            integer_schema("int32"),
+            false,
+        ),
+        query_parameter(
+            "height",
+            "Optional bounded image variant height. Must be a positive integer within the server artwork limit.",
+            integer_schema("int32"),
+            false,
+        ),
+    ]
 }
 
 fn range_header_parameter() -> Value {
@@ -960,6 +978,11 @@ mod tests {
 
     #[test]
     fn public_openapi_image_contract_uses_public_refs_without_raw_locators() {
+        managed_artwork_variant_openapi_contract_uses_safe_query_parameters();
+    }
+
+    #[test]
+    fn managed_artwork_variant_openapi_contract_uses_safe_query_parameters() {
         let document = public_openapi_v1();
         let schemas = document["components"]["schemas"].as_object().unwrap();
         let serialized = public_openapi_v1_json().to_ascii_lowercase();
@@ -976,6 +999,19 @@ mod tests {
             document["paths"]["/images/{image_id}"]
                 .get("head")
                 .is_some()
+        );
+        let image_parameters = document["paths"]["/images/{image_id}"]["get"]["parameters"]
+            .as_array()
+            .unwrap();
+        assert!(
+            image_parameters
+                .iter()
+                .any(|parameter| { parameter["name"] == "width" && parameter["in"] == "query" })
+        );
+        assert!(
+            image_parameters
+                .iter()
+                .any(|parameter| { parameter["name"] == "height" && parameter["in"] == "query" })
         );
         assert_eq!(
             document["components"]["schemas"]["ItemDetailResponse"]["properties"]["images"]["items"]

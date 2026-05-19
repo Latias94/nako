@@ -8,6 +8,8 @@ use taru_core::{
     TranscodeSessionListFilter, TranscodeSessionState,
 };
 
+use crate::app::ImageVariantRequest;
+
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 pub(super) struct PageQuery {
     pub(super) limit: Option<u32>,
@@ -29,6 +31,29 @@ impl SearchPageQuery {
             limit: self.limit,
             offset: self.offset,
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ImageVariantQuery {
+    pub(super) width: Option<String>,
+    pub(super) height: Option<String>,
+}
+
+impl ImageVariantQuery {
+    pub(super) fn into_variant_request(self) -> Result<ImageVariantRequest, TaruError> {
+        if self.width.is_none() && self.height.is_none() {
+            return Ok(ImageVariantRequest::original());
+        }
+
+        ImageVariantRequest::bounded(
+            self.width
+                .map(|value| parse_u32_filter("width", value))
+                .transpose()?,
+            self.height
+                .map(|value| parse_u32_filter("height", value))
+                .transpose()?,
+        )
     }
 }
 

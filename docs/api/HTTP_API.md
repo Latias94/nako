@@ -49,7 +49,9 @@ GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
 GET  /images/{image_id}
+GET  /images/{image_id}?width=300&height=450
 HEAD /images/{image_id}
+HEAD /images/{image_id}?width=300&height=450
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -387,7 +389,9 @@ GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
 GET  /images/{image_id}
+GET  /images/{image_id}?width=300&height=450
 HEAD /images/{image_id}
+HEAD /images/{image_id}?width=300&height=450
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -1219,19 +1223,35 @@ Public Clients can fetch selected artwork bytes with:
 
 ```text
 GET  /images/{image_id}
+GET  /images/{image_id}?width=300
+GET  /images/{image_id}?height=450
+GET  /images/{image_id}?width=300&height=450
 HEAD /images/{image_id}
+HEAD /images/{image_id}?width=300&height=450
 ```
 
 `image_id` is the Selected Artwork public ID, not a Managed Artwork Artifact ID
 or storage locator. The server resolves `managed-artwork://...` only inside the
 application boundary, reads bytes from internal artifact storage, and returns
-image headers such as `Content-Type`, `Content-Length`, and a safe ETag when a
-content hash exists. `HEAD` returns the same presentation headers without a
-body. Public image references and byte-serving responses never include
+image headers such as `Content-Type`, `Content-Length`, and an opaque
+presentation ETag that is not the artifact content hash. `HEAD` returns the
+same presentation headers without a body.
+
+`width` and `height` request bounded on-demand variants. Either dimension may
+be omitted; when both are present, the server fits the image inside the
+bounding box while preserving aspect ratio. Variant dimensions must be positive
+and within the server artwork image limit. The server never upscales: requests
+larger than the source return the original dimensions. The first variant slice
+derives bytes on demand and does not persist thumbnail files or variant DB
+rows. Variant responses are encoded as presentation image bytes with their own
+opaque ETag. The first on-demand variant encoder returns `image/png` bytes.
+
+Public image references and byte-serving responses never include
 `source_uri`, `cache_uri`, `storage_uri`, `managed-artwork://...`, local paths,
 raw provider URLs, Source Locators, addon token material, or provider query
-strings. Thumbnail generation, durable retry/requeue, ingest cancellation, and
-orphan artifact cleanup remain separate follow-on work.
+strings, or artifact content-hash values. Persisted thumbnail caches, durable
+retry/requeue, ingest cancellation, and orphan artifact cleanup remain separate
+follow-on work.
 
 Administrators can inspect Managed Artwork Artifact lifecycle state with:
 

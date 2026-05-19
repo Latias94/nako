@@ -2,7 +2,18 @@ use super::*;
 use axum::http::HeaderValue;
 
 fn tiny_png() -> Vec<u8> {
-    let image = image::RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 255]));
+    png_with_size(1, 1)
+}
+
+fn png_with_size(width: u32, height: u32) -> Vec<u8> {
+    let image = image::RgbaImage::from_fn(width, height, |x, y| {
+        image::Rgba([
+            (x.saturating_mul(40) % 255) as u8,
+            (y.saturating_mul(80) % 255) as u8,
+            128,
+            255,
+        ])
+    });
     let mut cursor = std::io::Cursor::new(Vec::new());
     image::DynamicImage::ImageRgba8(image)
         .write_to(&mut cursor, image::ImageFormat::Png)
@@ -1833,6 +1844,7 @@ async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without
     assert_eq!(published.image.media_type.as_deref(), Some("image/png"));
     assert_eq!(published.image.width, Some(1));
     assert_eq!(published.image.height, Some(1));
+    assert_eq!(published.image.etag, None);
 
     let response_text = String::from_utf8_lossy(&response_body);
     assert!(!response_text.contains(&remote_url));
@@ -1843,6 +1855,10 @@ async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without
     assert!(!response_text.contains("storage_uri"));
     assert!(!response_text.contains("managed-artwork://"));
     assert!(!response_text.contains(temp.path().to_string_lossy().as_ref()));
+    if let Some(content_hash) = artifact.content_hash.as_ref() {
+        assert!(!response_text.contains(content_hash));
+    }
+    assert!(!response_text.contains("content_hash"));
 
     let replay =
         request_json::<PublishSelectedArtworkResponse>(&router, Method::POST, &publish_path).await;
@@ -1860,9 +1876,18 @@ async fn admin_publish_managed_artwork_artifact_creates_selected_artwork_without
 
 #[tokio::test]
 async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks() {
+    assert_selected_artwork_variant_serving_without_locator_or_hash_leaks().await;
+}
+
+#[tokio::test]
+async fn managed_artwork_variant_routes_resize_selected_artwork_without_locator_or_hash_leaks() {
+    assert_selected_artwork_variant_serving_without_locator_or_hash_leaks().await;
+}
+
+async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks() {
     let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
-    let expected_bytes = tiny_png();
+    let expected_bytes = png_with_size(4, 2);
     let expected_byte_len = expected_bytes.len();
     let (remote_url, _) = artwork_server(StatusCode::OK, "image/png", expected_bytes.clone()).await;
     let (raw_token, _candidate_id, _accepted) = propose_and_accept_remote_artwork(
@@ -1881,12 +1906,16 @@ async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_
     )
     .await;
     let artifact = processed.artifact.as_ref().unwrap();
+    let artifact_content_hash = artifact.content_hash.clone().unwrap();
     let published = request_json::<PublishSelectedArtworkResponse>(
         &router,
         Method::POST,
         &format!("/admin/v1/artwork/artifacts/{}/publish", artifact.id),
     )
     .await;
+    assert_eq!(published.image.width, Some(4));
+    assert_eq!(published.image.height, Some(2));
+    assert_eq!(published.image.etag, None);
 
     let images_response = router
         .clone()
@@ -1941,6 +1970,7 @@ async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_
         assert!(!text.contains("storage_uri"));
         assert!(!text.contains("managed-artwork://"));
         assert!(!text.contains(temp.path().to_string_lossy().as_ref()));
+        assert!(!text.contains(&artifact_content_hash));
     }
 
     let image_response = router
@@ -1963,7 +1993,14 @@ async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_
         image_response.headers()[header::CONTENT_LENGTH],
         HeaderValue::from_str(&expected_byte_len.to_string()).unwrap()
     );
-    assert!(image_response.headers().get(header::ETAG).is_some());
+    let original_etag = image_response
+        .headers()
+        .get(header::ETAG)
+        .expect("selected image has an ETag")
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert!(!original_etag.contains(&artifact_content_hash));
     let image_bytes = to_bytes(image_response.into_body(), usize::MAX)
         .await
         .unwrap();
@@ -1989,10 +2026,113 @@ async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_
         head_response.headers()[header::CONTENT_LENGTH],
         HeaderValue::from_str(&expected_byte_len.to_string()).unwrap()
     );
+    assert_eq!(
+        head_response.headers().get(header::ETAG).unwrap(),
+        HeaderValue::from_str(&original_etag).unwrap()
+    );
     let head_body = to_bytes(head_response.into_body(), usize::MAX)
         .await
         .unwrap();
     assert!(head_body.is_empty());
+
+    let variant_url = format!("{}?width=2", published.image.url);
+    let variant_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(variant_response.status(), StatusCode::OK);
+    assert_eq!(
+        variant_response.headers()[header::CONTENT_TYPE],
+        HeaderValue::from_static("image/png")
+    );
+    let variant_etag = variant_response
+        .headers()
+        .get(header::ETAG)
+        .expect("selected image variant has an ETag")
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert_ne!(variant_etag, original_etag);
+    assert!(!variant_etag.contains(&artifact_content_hash));
+    let variant_content_length = variant_response.headers()[header::CONTENT_LENGTH]
+        .to_str()
+        .unwrap()
+        .parse::<usize>()
+        .unwrap();
+    let variant_bytes = to_bytes(variant_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(variant_content_length, variant_bytes.len());
+    let variant_image = image::load_from_memory(&variant_bytes).unwrap();
+    assert_eq!(variant_image.width(), 2);
+    assert_eq!(variant_image.height(), 1);
+    assert_ne!(variant_bytes.as_ref(), expected_bytes.as_slice());
+
+    let variant_head_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&variant_url)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(variant_head_response.status(), StatusCode::OK);
+    assert_eq!(
+        variant_head_response.headers()[header::CONTENT_TYPE],
+        HeaderValue::from_static("image/png")
+    );
+    assert_eq!(
+        variant_head_response.headers()[header::CONTENT_LENGTH],
+        HeaderValue::from_str(&variant_content_length.to_string()).unwrap()
+    );
+    assert_eq!(
+        variant_head_response.headers().get(header::ETAG).unwrap(),
+        HeaderValue::from_str(&variant_etag).unwrap()
+    );
+    let variant_head_body = to_bytes(variant_head_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(variant_head_body.is_empty());
+
+    for invalid_url in [
+        format!("{}?width=0", published.image.url),
+        format!("{}?width=20001", published.image.url),
+    ] {
+        let invalid = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&invalid_url)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let invalid_status = invalid.status();
+        let invalid_body = to_bytes(invalid.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(invalid_status, StatusCode::BAD_REQUEST);
+        let invalid_text = String::from_utf8_lossy(&invalid_body);
+        assert!(!invalid_text.contains(&remote_url));
+        assert!(!invalid_text.contains("token=secret"));
+        assert!(!invalid_text.contains(&raw_token));
+        assert!(!invalid_text.contains("source_uri"));
+        assert!(!invalid_text.contains("cache_uri"));
+        assert!(!invalid_text.contains("storage_uri"));
+        assert!(!invalid_text.contains("managed-artwork://"));
+        assert!(!invalid_text.contains(temp.path().to_string_lossy().as_ref()));
+        assert!(!invalid_text.contains(&artifact_content_hash));
+    }
 
     let missing = router
         .clone()
