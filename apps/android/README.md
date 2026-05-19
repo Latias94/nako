@@ -48,6 +48,7 @@ From `apps/android`:
 ```powershell
 .\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:testDebugUnitTest
+.\scripts\Validate-AndroidLocal.ps1 -SkipSmoke
 .\scripts\Smoke-Emulator.ps1
 ```
 
@@ -59,6 +60,20 @@ git diff --check
 ```
 
 ## Local Smoke
+
+Use the local validation entrypoint when you want one developer-facing handoff
+command:
+
+```powershell
+.\scripts\Validate-AndroidLocal.ps1
+.\scripts\Validate-AndroidLocal.ps1 -SkipSmoke
+.\scripts\Validate-AndroidLocal.ps1 -Serial emulator-5554
+```
+
+The default command runs Android JVM tests, assembles the debug APK, then
+delegates the stable smoke state set to `Smoke-Regression.ps1`. Reports are
+written under `apps/android/build/validation/<timestamp>/`. Use `-SkipSmoke`
+when no emulator is available and you only need the local JVM/build gate.
 
 Use the smoke script when you want a repeatable emulator sanity check after a
 build:

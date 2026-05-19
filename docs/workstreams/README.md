@@ -15,6 +15,12 @@ attention.
   Android client testing lane for local emulator smoke checks, screenshot
   evidence, repeatable fixture/state assumptions, and developer-friendly QA
   commands for parallel Android work.
+- [android-developer-validation-entrypoint](android-developer-validation-entrypoint/README.md):
+  active Android developer validation lane for one local handoff command that
+  composes JVM tests, debug assemble, and smoke regression evidence.
+- [android-smoke-regression-harness](android-smoke-regression-harness/DESIGN.md):
+  closed local Android smoke regression lane for composing stable emulator
+  fixture states and preserving failure handoff evidence.
 - [android-material-expressive-ui](android-material-expressive-ui/README.md):
   completed Android UI rewrite lane for the V2 Material 3 Expressive direction,
   covering dark-first dynamic color, artwork-led media surfaces, restrained
