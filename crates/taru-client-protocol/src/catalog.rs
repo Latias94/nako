@@ -292,6 +292,55 @@ pub struct TranscodeSessionDto {
     pub completed_at: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackStateResponse {
+    pub state: UserPlaybackStateDto,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ContinueWatchingResponse {
+    pub items: Vec<ContinueWatchingItemDto>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ContinueWatchingItemDto {
+    pub item: MediaItemDto,
+    pub state: UserPlaybackStateDto,
+    pub images: Vec<PublicImageRefDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackStateDto {
+    pub item_id: String,
+    pub source_id: Option<String>,
+    pub resume_position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub progress_percent: Option<f32>,
+    pub watched: bool,
+    pub watched_at: Option<String>,
+    pub last_played_at: Option<String>,
+    pub updated_at: Option<String>,
+    pub version: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UpdatePlaybackProgressRequest {
+    pub source_id: Option<String>,
+    pub position_ms: u64,
+    pub duration_ms: Option<u64>,
+    pub reported_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SetWatchedStateRequest {
+    pub watched: bool,
+    pub source_id: Option<String>,
+    pub position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub marked_at: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientTranscodeSessionKind {

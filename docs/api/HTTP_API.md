@@ -67,6 +67,10 @@ GET  /sources/{source_id}/stream/hls/playlist.m3u8
 GET  /playback/sessions/{session_id}
 POST /playback/sessions/{session_id}/cancel
 GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
+GET  /users/me/playback-state/items/{item_id}
+GET  /users/me/playback-state/continue-watching?limit=50&offset=0
+PUT  /users/me/playback-state/items/{item_id}/progress
+PUT  /users/me/playback-state/items/{item_id}/watched
 ```
 
 Server-admin/internal routes may reuse the same baseline error envelope, but
@@ -107,8 +111,8 @@ The generated scaffold includes:
 
 - exported TypeScript interfaces for the public OpenAPI schemas;
 - `TaruClient` methods for health, library, catalog/search, source probe,
-  playback decision, direct stream, remux stream, HLS playlist/segment, and
-  playback session routes;
+  playback decision, direct stream, remux stream, HLS playlist/segment,
+  playback session routes, and User Playback State routes;
 - bearer token injection through `Authorization: Bearer <token>`;
 - `x-taru-api-version` response inspection;
 - `ErrorResponse` parsing into `TaruApiError`;
@@ -165,7 +169,9 @@ The SDK provides:
 - `PageQuery`, `SearchQuery`, and playback capability query helpers;
 - JSON methods for health, libraries, catalog items/search, source probe,
   playback decision, playback session inspection, and playback session
-  cancellation.
+  cancellation;
+- JSON methods for User Playback State lookup, Continue Watching, progress
+  reporting, and watched-state updates under `/users/me`.
 
 Public route membership is owned by the Apache-2.0 `taru-client-protocol`
 crate. `taru-api`, the TypeScript generator, and the Rust SDK consume that
@@ -184,6 +190,79 @@ than response-body ownership:
 The builders construct method, URL, bearer auth, range headers, path encoding,
 playback capability queries, and remux output-container queries. They do not
 execute streaming bodies, manage downloads, or implement an HLS player.
+
+## User Playback State
+
+User Playback State is server-authoritative and scoped to the authenticated
+current user. Public client routes always use `/users/me`; they never expose
+internal principal IDs.
+
+```http
+GET /users/me/playback-state/items/{item_id}
+```
+
+Returns the current user's state for one media item. If the item exists but no
+state was written yet, the response is an unwatched version `0` state.
+
+```json
+{
+  "state": {
+    "item_id": "00000000-0000-0000-0000-000000000000",
+    "source_id": null,
+    "resume_position_ms": null,
+    "duration_ms": null,
+    "progress_percent": null,
+    "watched": false,
+    "watched_at": null,
+    "last_played_at": null,
+    "updated_at": null,
+    "version": 0
+  }
+}
+```
+
+```http
+PUT /users/me/playback-state/items/{item_id}/progress
+Content-Type: application/json
+```
+
+```json
+{
+  "source_id": "00000000-0000-0000-0000-000000000001",
+  "position_ms": 120000,
+  "duration_ms": 600000,
+  "reported_at": "2026-05-19T00:00:00Z"
+}
+```
+
+```http
+PUT /users/me/playback-state/items/{item_id}/watched
+Content-Type: application/json
+```
+
+```json
+{
+  "watched": true,
+  "source_id": "00000000-0000-0000-0000-000000000001",
+  "position_ms": 600000,
+  "duration_ms": 600000,
+  "marked_at": "2026-05-19T00:01:00Z"
+}
+```
+
+`reported_at` and `marked_at` are optional RFC3339 UTC timestamps. When omitted,
+the server uses its current time. A source ID must belong to the target media
+item. Continue Watching returns media items plus their playback state and public
+selected image refs:
+
+```http
+GET /users/me/playback-state/continue-watching?limit=50&offset=0
+```
+
+Watched, zero-position, and completed states are excluded from Continue
+Watching. Favorites, hidden state, user rating, multi-profile identities, and
+cross-server sync are later extensions to the same domain, not part of this
+first public contract.
 
 Validate the Rust SDK boundary with:
 

@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "execution",
   "problem": "Taru lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
-  "current_task": "UPS-030",
+  "current_task": "UPS-040",
   "authoritative_docs": [
     {
       "role": "design",
@@ -36,9 +36,13 @@
     "CONTEXT.md",
     "docs/api/HTTP_API.md",
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "crates/taru-client-protocol/src/catalog.rs",
+    "crates/taru-api/src/openapi.rs",
+    "crates/taru-client/src/lib.rs",
     "crates/taru-core/src/user_playback.rs",
     "crates/taru-db/migrations/0029_user_playback_states.sql",
     "crates/taru-server/src/app/user_playback.rs",
+    "crates/taru-server/src/http/user_playback.rs",
     "docs/workstreams/android-device-local-playback-position/",
     "docs/workstreams/android-public-client-api-coverage/",
     "apps/android/app/src/main/java/dev/taru/android/player/DevicePlaybackPosition.kt"
@@ -52,7 +56,7 @@
   ],
   "continue_policy": {
     "default_action": "run_next_task",
-    "next_task": "UPS-030",
-    "notes": "Expose the implemented UserPlaybackAppService through protocol DTOs, HTTP routes, OpenAPI, Rust SDK, TypeScript SDK, and API docs. Preserve /users/me semantics and do not expose internal principal ids."
+    "next_task": "UPS-040",
+    "notes": "Implement Android client/UI integration against the public /users/me/playback-state route set. Keep device-local resume as fallback/local cache only."
   }
 }

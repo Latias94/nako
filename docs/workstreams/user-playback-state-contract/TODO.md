@@ -23,12 +23,12 @@ Last updated: 2026-05-19
 
 ## M2 - Public API And SDK Surface
 
-- [ ] UPS-030 [owner=unassigned] [deps=UPS-020] [scope=crates/taru-client-protocol, crates/taru-api, crates/taru-client, sdk/typescript, docs/api]
+- [x] UPS-030 [owner=codex] [deps=UPS-020] [scope=crates/taru-client-protocol, crates/taru-api, crates/taru-client, sdk/typescript, docs/api, crates/taru-server]
   Goal: Expose the public routes through DTOs, OpenAPI, Rust SDK, TypeScript SDK, and HTTP API docs.
   Validation: `cargo nextest run -p taru-api -p taru-client --no-fail-fast`; `npm run check --prefix sdk/typescript`
   Review: ensure route schemas do not expose local paths, source locators, session internals, or token material.
-  Evidence: API/SDK tests and generated SDK drift checks.
-  Handoff: Public route names must be final before Android implementation starts.
+  Evidence: `crates/taru-client-protocol/src/catalog.rs`, `crates/taru-api/src/openapi.rs`, `crates/taru-server/src/http/user_playback.rs`, `crates/taru-client/src/lib.rs`, `sdk/typescript/src/index.ts`, `docs/api/HTTP_API.md`, API/SDK/server route tests.
+  Handoff: Complete. UPS-040 can implement Android client/UI behavior against the final `/users/me/playback-state/...` route names and DTOs.
 
 ## M3 - Android Authoritative Resume Integration
 

@@ -5,15 +5,17 @@ use reqwest::{
     Method, StatusCode, Url,
     header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue, RANGE},
 };
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 pub use taru_client_protocol::{
     API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, ClientOutputContainer,
-    ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse,
-    ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryListResponse, LibraryResponse,
-    LibrarySourcesResponse, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
-    PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse, SourceProbeResponse,
-    TagItemsResponse, TagsResponse, TranscodeSessionResponse, public_client_json_routes,
-    public_client_paths, public_client_streaming_routes,
+    ContinueWatchingResponse, ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse,
+    ImagesResponse, ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryListResponse,
+    LibraryResponse, LibrarySourcesResponse, PageInfo, PeopleResponse, PersonItemsResponse,
+    PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse,
+    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateResponse,
+    public_client_json_routes, public_client_paths, public_client_streaming_routes,
 };
 use thiserror::Error;
 
@@ -410,6 +412,88 @@ impl TaruClient {
         .await
     }
 
+    /// Get this principal's playback state for one media item.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn get_user_playback_state(
+        &self,
+        item_id: impl AsRef<str>,
+    ) -> Result<UserPlaybackStateResponse, TaruClientError> {
+        self.request_json_no_query(
+            Method::GET,
+            &format!(
+                "/users/me/playback-state/items/{}",
+                encode_path_segment(item_id.as_ref())
+            ),
+            true,
+        )
+        .await
+    }
+
+    /// List this principal's continue-watching items.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn list_continue_watching(
+        &self,
+        page: Option<PageQuery>,
+    ) -> Result<ContinueWatchingResponse, TaruClientError> {
+        self.request_json(
+            Method::GET,
+            "/users/me/playback-state/continue-watching",
+            page.as_ref(),
+            true,
+        )
+        .await
+    }
+
+    /// Update this principal's playback progress for one media item.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn update_user_playback_progress(
+        &self,
+        item_id: impl AsRef<str>,
+        request: &UpdatePlaybackProgressRequest,
+    ) -> Result<UserPlaybackStateResponse, TaruClientError> {
+        self.request_json_body(
+            Method::PUT,
+            &format!(
+                "/users/me/playback-state/items/{}/progress",
+                encode_path_segment(item_id.as_ref())
+            ),
+            request,
+            true,
+        )
+        .await
+    }
+
+    /// Set this principal's watched state for one media item.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn set_user_watched_state(
+        &self,
+        item_id: impl AsRef<str>,
+        request: &SetWatchedStateRequest,
+    ) -> Result<UserPlaybackStateResponse, TaruClientError> {
+        self.request_json_body(
+            Method::PUT,
+            &format!(
+                "/users/me/playback-state/items/{}/watched",
+                encode_path_segment(item_id.as_ref())
+            ),
+            request,
+            true,
+        )
+        .await
+    }
+
     /// Build a direct-play byte stream request for one source.
     ///
     /// This only constructs the request. It does not execute or own the
@@ -588,6 +672,35 @@ impl TaruClient {
         })
     }
 
+    async fn request_json_body<T, B>(
+        &self,
+        method: Method,
+        path: &str,
+        body: &B,
+        auth: bool,
+    ) -> Result<T, TaruClientError>
+    where
+        T: DeserializeOwned,
+        B: Serialize + ?Sized,
+    {
+        let mut request = self.build_request(method, path, Option::<&NoQuery>::None, auth)?;
+        request.headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        request.body = serde_json::to_vec(body).map_err(|source| TaruClientError::Encode {
+            path: path.to_owned(),
+            source,
+        })?;
+        let response = self.transport.send(request).await?;
+        self.ensure_success(&response)?;
+        self.ensure_version(&response)?;
+        serde_json::from_slice(&response.body).map_err(|source| TaruClientError::Decode {
+            path: path.to_owned(),
+            source,
+        })
+    }
+
     fn build_request<Q>(
         &self,
         method: Method,
@@ -635,6 +748,7 @@ impl TaruClient {
             method,
             url,
             headers,
+            body: Vec::new(),
         })
     }
 
@@ -804,6 +918,7 @@ pub struct ClientRequest {
     pub method: Method,
     pub url: Url,
     pub headers: HeaderMap,
+    pub body: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
@@ -833,13 +948,14 @@ impl ReqwestTransport {
 #[async_trait]
 impl ClientTransport for ReqwestTransport {
     async fn send(&self, request: ClientRequest) -> Result<ClientResponse, TaruClientError> {
-        let response = self
+        let mut builder = self
             .client
             .request(request.method, request.url)
-            .headers(request.headers)
-            .send()
-            .await
-            .map_err(TaruClientError::Transport)?;
+            .headers(request.headers);
+        if !request.body.is_empty() {
+            builder = builder.body(request.body);
+        }
+        let response = builder.send().await.map_err(TaruClientError::Transport)?;
         let status = response.status();
         let headers = response.headers().clone();
         let body = response
@@ -869,6 +985,11 @@ pub enum TaruClientError {
     },
     #[error("transport error")]
     Transport(#[source] reqwest::Error),
+    #[error("failed to encode request body for {path}")]
+    Encode {
+        path: String,
+        source: serde_json::Error,
+    },
     #[error("Taru API returned {status}: {code}", code = body.code)]
     Api {
         status: StatusCode,
@@ -1150,6 +1271,138 @@ mod tests {
             "http://localhost:3000/playback/sessions/session-1/cancel"
         );
         assert_eq!(requests[1].method, Method::POST);
+    }
+
+    #[tokio::test]
+    async fn user_playback_methods_use_me_routes_json_bodies_and_pagination() {
+        let transport = MockTransport::default();
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "state": {
+                    "item_id": "item 1",
+                    "source_id": "source 1",
+                    "resume_position_ms": 120000,
+                    "duration_ms": 600000,
+                    "progress_percent": 0.2,
+                    "watched": false,
+                    "watched_at": null,
+                    "last_played_at": "2026-05-19T00:00:00Z",
+                    "updated_at": "2026-05-19T00:00:00Z",
+                    "version": 1
+                }
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "items": [],
+                "page": {"limit": 10, "offset": 20, "returned": 0}
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "state": {
+                    "item_id": "item 1",
+                    "source_id": "source 1",
+                    "resume_position_ms": 120000,
+                    "duration_ms": 600000,
+                    "progress_percent": 0.2,
+                    "watched": false,
+                    "watched_at": null,
+                    "last_played_at": "2026-05-19T00:00:00Z",
+                    "updated_at": "2026-05-19T00:00:00Z",
+                    "version": 1
+                }
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "state": {
+                    "item_id": "item 1",
+                    "source_id": "source 1",
+                    "resume_position_ms": null,
+                    "duration_ms": 600000,
+                    "progress_percent": null,
+                    "watched": true,
+                    "watched_at": "2026-05-19T00:01:00Z",
+                    "last_played_at": "2026-05-19T00:01:00Z",
+                    "updated_at": "2026-05-19T00:01:00Z",
+                    "version": 2
+                }
+            }),
+        );
+        let client = TaruClient::with_transport("http://localhost:3000", transport.clone())
+            .unwrap()
+            .bearer_token("secret");
+
+        let state = client.get_user_playback_state("item 1").await.unwrap();
+        let list = client
+            .list_continue_watching(Some(PageQuery::new(Some(10), Some(20))))
+            .await
+            .unwrap();
+        let progress = client
+            .update_user_playback_progress(
+                "item 1",
+                &UpdatePlaybackProgressRequest {
+                    source_id: Some("source 1".to_owned()),
+                    position_ms: 120_000,
+                    duration_ms: Some(600_000),
+                    reported_at: Some("2026-05-19T00:00:00Z".to_owned()),
+                },
+            )
+            .await
+            .unwrap();
+        let watched = client
+            .set_user_watched_state(
+                "item 1",
+                &SetWatchedStateRequest {
+                    watched: true,
+                    source_id: Some("source 1".to_owned()),
+                    position_ms: Some(600_000),
+                    duration_ms: Some(600_000),
+                    marked_at: Some("2026-05-19T00:01:00Z".to_owned()),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(state.state.progress_percent, Some(0.2));
+        assert_eq!(list.page, PageInfo::new(10, 20, 0));
+        assert_eq!(progress.state.resume_position_ms, Some(120_000));
+        assert!(watched.state.watched);
+        let requests = transport.requests();
+        assert_eq!(
+            requests[0].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/items/item%201"
+        );
+        assert_eq!(
+            requests[1].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/continue-watching?limit=10&offset=20"
+        );
+        assert_eq!(
+            requests[2].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/items/item%201/progress"
+        );
+        assert_eq!(
+            requests[3].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/items/item%201/watched"
+        );
+        assert_eq!(requests[2].method, Method::PUT);
+        assert_eq!(requests[3].method, Method::PUT);
+        assert_eq!(
+            requests[2]
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .unwrap(),
+            HeaderValue::from_static("application/json")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[2].body).unwrap()["position_ms"],
+            120_000
+        );
     }
 
     #[test]

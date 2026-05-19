@@ -298,6 +298,22 @@ export class TaruClient {
     return this.requestRaw("GET", `/playback/sessions/${encodeURIComponent(sessionId)}/hls/segments/${encodeURIComponent(segmentName)}`);
   }
 
+  getUserPlaybackState(itemId: string): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("GET", `/users/me/playback-state/items/${encodeURIComponent(itemId)}`);
+  }
+
+  listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {
+    return this.requestJson("GET", "/users/me/playback-state/continue-watching", { query: page });
+  }
+
+  updateUserPlaybackProgress(itemId: string, body: UpdatePlaybackProgressRequest): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("PUT", `/users/me/playback-state/items/${encodeURIComponent(itemId)}/progress`, { body });
+  }
+
+  setUserWatchedState(itemId: string, body: SetWatchedStateRequest): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("PUT", `/users/me/playback-state/items/${encodeURIComponent(itemId)}/watched`, { body });
+  }
+
   private async requestJson<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const response = await this.request(method, path, options);
     await this.ensureOk(response);
@@ -327,7 +343,15 @@ export class TaruClient {
     if (options.range) {
       headers.set("Range", options.range);
     }
-    return this.fetchImpl(this.url(path, options.query), { method, headers });
+    const init: RequestInit = {
+      method,
+      headers,
+    };
+    if (options.body !== undefined) {
+      headers.set("Content-Type", "application/json");
+      init.body = JSON.stringify(options.body);
+    }
+    return this.fetchImpl(this.url(path, options.query), init);
   }
 
   private url(path: string, query?: QueryInput): string {
@@ -376,6 +400,7 @@ export class TaruClient {
 
 interface RequestOptions {
   auth?: boolean | undefined;
+  body?: unknown | undefined;
   headers?: HeadersInit | undefined;
   query?: QueryInput | undefined;
   range?: string | undefined;
@@ -407,6 +432,10 @@ mod tests {
             "hlsPlaylist(",
             "getPlaybackSession(",
             "cancelPlaybackSession(",
+            "getUserPlaybackState(",
+            "listContinueWatching(",
+            "updateUserPlaybackProgress(",
+            "setUserWatchedState(",
         ] {
             assert!(sdk.contains(method), "SDK missing method {method}");
         }
@@ -425,6 +454,8 @@ mod tests {
             "limit?: number",
             "offset?: number",
             "response.headers.get",
+            "Content-Type",
+            "JSON.stringify",
         ] {
             assert!(
                 sdk.contains(expected),

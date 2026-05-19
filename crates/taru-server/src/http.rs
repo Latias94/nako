@@ -16,6 +16,7 @@ mod metadata;
 mod playback;
 mod query;
 mod system;
+mod user_playback;
 mod webhooks;
 
 pub fn build_router(app: TaruApp) -> Router {
@@ -31,6 +32,7 @@ fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router 
         .merge(catalog::routes())
         .merge(metadata::routes())
         .merge(playback::routes())
+        .merge(user_playback::routes())
         .merge(webhooks::routes())
         .merge(automation::routes())
         .merge(addons::routes())

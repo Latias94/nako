@@ -5,10 +5,11 @@ use taru_core::{
     MediaKind, MediaProbeResult, MediaSource, MediaStreamInfo, MediaStreamKind, MetadataProfile,
     MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person,
     SelectedArtworkRecord, Tag, TranscodeFailureCategory, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState,
+    TranscodeSessionRecord, TranscodeSessionState, UserPlaybackState,
 };
 use taru_streaming::{DirectPlayPlan, PlaybackDecision, PlaybackMode};
 use taru_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use taru_client_protocol::{
     API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, CanonicalMetadataDto,
@@ -18,15 +19,17 @@ pub use taru_client_protocol::{
     ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
     ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode,
     ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
-    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto, CreditDto,
-    ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse,
-    ImagesResponse, ItemCreditDto, ItemCreditsResponse, ItemDetailResponse, ItemGenreDto,
-    ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto,
-    LibraryResponse, LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse,
-    MediaItemDto, MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PageInfo,
-    PeopleResponse, PersonDto, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse,
-    PublicImageRefDto, SearchItemHit, SearchResponse, SourceProbeResponse, StudioRefDto, TagDto,
-    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
+    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
+    ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, ErrorResponse, ExternalIdDto,
+    GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto,
+    ItemCreditsResponse, ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto,
+    ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto, LibraryResponse,
+    LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto,
+    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PageInfo, PeopleResponse,
+    PersonDto, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicImageRefDto,
+    SearchItemHit, SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto,
+    TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
+    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse,
 };
 
 #[must_use]
@@ -247,6 +250,41 @@ pub fn transcode_session_to_dto(session: TranscodeSessionRecord) -> TranscodeSes
         started_at: session.started_at,
         completed_at: session.completed_at,
     }
+}
+
+#[must_use]
+pub fn user_playback_state_response_from_state(
+    state: UserPlaybackState,
+) -> UserPlaybackStateResponse {
+    UserPlaybackStateResponse {
+        state: user_playback_state_to_dto(state),
+    }
+}
+
+#[must_use]
+pub fn user_playback_state_to_dto(state: UserPlaybackState) -> UserPlaybackStateDto {
+    UserPlaybackStateDto {
+        item_id: state.item_id.to_string(),
+        source_id: state.source_id.map(|id| id.to_string()),
+        resume_position_ms: state.resume_position_ms,
+        duration_ms: state.duration_ms,
+        progress_percent: state.progress_percent(),
+        watched: state.watched,
+        watched_at: timestamp_ms_to_rfc3339(state.watched_at_ms),
+        last_played_at: timestamp_ms_to_rfc3339(state.last_played_at_ms),
+        updated_at: timestamp_ms_to_rfc3339(Some(state.updated_at_ms)),
+        version: state.version,
+    }
+}
+
+#[must_use]
+pub fn timestamp_ms_to_rfc3339(timestamp_ms: Option<i64>) -> Option<String> {
+    let timestamp_ms = timestamp_ms.filter(|value| *value > 0)?;
+    let nanos = i128::from(timestamp_ms).checked_mul(1_000_000)?;
+    OffsetDateTime::from_unix_timestamp_nanos(nanos)
+        .ok()?
+        .format(&Rfc3339)
+        .ok()
 }
 
 #[must_use]
@@ -583,7 +621,7 @@ mod tests {
     use super::*;
     use taru_core::{
         CanonicalMetadata, LibraryId, MediaItem, MediaItemId, MediaSource, MediaSourceId,
-        TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState,
+        TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState, UserPrincipalId,
     };
 
     #[test]
@@ -696,5 +734,35 @@ mod tests {
         assert!(value["transcode_plan"].get("input_locator").is_none());
         assert!(value.get("selected_source").is_none());
         assert!(value.get("execution").is_none());
+    }
+
+    #[test]
+    fn user_playback_state_response_hides_principal_and_formats_timestamps() {
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let state = UserPlaybackState {
+            principal_id: UserPrincipalId::local_admin(),
+            item_id,
+            source_id: Some(source_id),
+            resume_position_ms: Some(120_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(10_000),
+            updated_at_ms: 10_000,
+            version: 2,
+        };
+
+        let response = user_playback_state_response_from_state(state);
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["state"]["item_id"], item_id.to_string());
+        assert_eq!(value["state"]["source_id"], source_id.to_string());
+        let progress = value["state"]["progress_percent"].as_f64().unwrap();
+        assert!((progress - 0.2).abs() < 0.000_001);
+        assert_eq!(value["state"]["last_played_at"], "1970-01-01T00:00:10Z");
+        assert_eq!(value["state"]["updated_at"], "1970-01-01T00:00:10Z");
+        assert!(value["state"].get("principal_id").is_none());
+        assert!(value["state"].get("user_id").is_none());
     }
 }

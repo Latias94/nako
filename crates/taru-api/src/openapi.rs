@@ -267,6 +267,56 @@ fn public_paths() -> Value {
             )
         }),
     );
+    paths.insert(
+        "/users/me/playback-state/items/{item_id}".to_owned(),
+        json!({
+            "get": json_get(
+                "getUserPlaybackState",
+                "Get the current user's playback state for one media item.",
+                "user-playback",
+                vec![path_parameter("item_id", "Media item id.")],
+                schema_ref("UserPlaybackStateResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/continue-watching".to_owned(),
+        json!({
+            "get": json_get(
+                "listContinueWatching",
+                "List the current user's continue-watching items.",
+                "user-playback",
+                vec![parameter_ref("Limit"), parameter_ref("Offset")],
+                schema_ref("ContinueWatchingResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/items/{item_id}/progress".to_owned(),
+        json!({
+            "put": json_put(
+                "updateUserPlaybackProgress",
+                "Update the current user's playback progress for one media item.",
+                "user-playback",
+                vec![path_parameter("item_id", "Media item id.")],
+                schema_ref("UpdatePlaybackProgressRequest"),
+                schema_ref("UserPlaybackStateResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-state/items/{item_id}/watched".to_owned(),
+        json!({
+            "put": json_put(
+                "setUserWatchedState",
+                "Set the current user's watched state for one media item.",
+                "user-playback",
+                vec![path_parameter("item_id", "Media item id.")],
+                schema_ref("SetWatchedStateRequest"),
+                schema_ref("UserPlaybackStateResponse")
+            )
+        }),
+    );
     Value::Object(paths)
 }
 
@@ -300,6 +350,32 @@ fn json_post(
         parameters,
         json_response("OK.", response_schema),
     )
+}
+
+fn json_put(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    request_schema: Value,
+    response_schema: Value,
+) -> Value {
+    let mut value = operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json_response("OK.", response_schema),
+    );
+    value["requestBody"] = json!({
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": request_schema
+            }
+        }
+    });
+    value
 }
 
 fn binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
@@ -736,6 +812,43 @@ fn schemas() -> Value {
             "started_at": nullable_string_schema(),
             "completed_at": nullable_string_schema()
         })),
+        "UserPlaybackStateResponse": object_schema(&["state"], json!({
+            "state": schema_ref("UserPlaybackStateDto")
+        })),
+        "ContinueWatchingResponse": object_schema(&["items", "page"], json!({
+            "items": array_schema(schema_ref("ContinueWatchingItemDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "ContinueWatchingItemDto": object_schema(&["item", "state", "images"], json!({
+            "item": schema_ref("MediaItemDto"),
+            "state": schema_ref("UserPlaybackStateDto"),
+            "images": array_schema(schema_ref("PublicImageRefDto"))
+        })),
+        "UserPlaybackStateDto": object_schema(&["item_id", "source_id", "resume_position_ms", "duration_ms", "progress_percent", "watched", "watched_at", "last_played_at", "updated_at", "version"], json!({
+            "item_id": uuid_schema(),
+            "source_id": nullable_string_schema(),
+            "resume_position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "progress_percent": json!({"type": "number", "format": "float", "nullable": true}),
+            "watched": boolean_schema(),
+            "watched_at": nullable_string_schema(),
+            "last_played_at": nullable_string_schema(),
+            "updated_at": nullable_string_schema(),
+            "version": integer_schema("int64")
+        })),
+        "UpdatePlaybackProgressRequest": object_schema(&["position_ms"], json!({
+            "source_id": nullable_string_schema(),
+            "position_ms": integer_schema("int64"),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "reported_at": nullable_string_schema()
+        })),
+        "SetWatchedStateRequest": object_schema(&["watched"], json!({
+            "watched": boolean_schema(),
+            "source_id": nullable_string_schema(),
+            "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "marked_at": nullable_string_schema()
+        })),
         "MediaItemDto": object_schema(&["id", "kind", "parent_id", "metadata"], json!({
             "id": uuid_schema(),
             "kind": schema_ref("ClientMediaKind"),
@@ -1001,6 +1114,47 @@ mod tests {
             assert!(
                 !serialized.contains(forbidden),
                 "public OpenAPI image contract leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_openapi_user_playback_contract_uses_me_routes_without_principal_ids() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+        let serialized = public_openapi_v1_json().to_ascii_lowercase();
+
+        assert_eq!(
+            document["paths"]["/users/me/playback-state/items/{item_id}"]["get"]["responses"]["200"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UserPlaybackStateResponse"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-state/items/{item_id}/progress"]["put"]["requestBody"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UpdatePlaybackProgressRequest"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-state/items/{item_id}/watched"]["put"]["requestBody"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/SetWatchedStateRequest"
+        );
+        assert!(schemas.contains_key("ContinueWatchingResponse"));
+        assert!(schemas.contains_key("UserPlaybackStateDto"));
+        assert_eq!(
+            document["components"]["schemas"]["ContinueWatchingItemDto"]["properties"]["item"]["$ref"],
+            "#/components/schemas/MediaItemDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ContinueWatchingItemDto"]["properties"]["images"]["items"]
+                ["$ref"],
+            "#/components/schemas/PublicImageRefDto"
+        );
+
+        for forbidden in ["principal_id", "user_id", "local-admin"] {
+            assert!(
+                !serialized.contains(forbidden),
+                "public user playback contract leaked forbidden term: {forbidden}"
             );
         }
     }

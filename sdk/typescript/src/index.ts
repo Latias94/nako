@@ -30,6 +30,10 @@ export const TARU_PUBLIC_PATHS = [
   "/playback/sessions/{session_id}",
   "/playback/sessions/{session_id}/cancel",
   "/playback/sessions/{session_id}/hls/segments/{segment_name}",
+  "/users/me/playback-state/items/{item_id}",
+  "/users/me/playback-state/continue-watching",
+  "/users/me/playback-state/items/{item_id}/progress",
+  "/users/me/playback-state/items/{item_id}/watched",
 ] as const;
 
 export interface CanonicalMetadataDto {
@@ -87,6 +91,17 @@ export interface CollectionRefDto {
 export interface ContentRatingDto {
   source: string;
   value: string;
+}
+
+export interface ContinueWatchingItemDto {
+  images: Array<PublicImageRefDto>;
+  item: MediaItemDto;
+  state: UserPlaybackStateDto;
+}
+
+export interface ContinueWatchingResponse {
+  items: Array<ContinueWatchingItemDto>;
+  page: PageInfo;
 }
 
 export interface CreditDto {
@@ -324,6 +339,14 @@ export interface SearchResponse {
   page: PageInfo;
 }
 
+export interface SetWatchedStateRequest {
+  duration_ms?: number | null;
+  marked_at?: string | null;
+  position_ms?: number | null;
+  source_id?: string | null;
+  watched: boolean;
+}
+
 export interface SourceProbeResponse {
   probe: MediaProbeDto;
   source_id: string;
@@ -367,6 +390,30 @@ export interface TranscodeSessionDto {
 
 export interface TranscodeSessionResponse {
   session: TranscodeSessionDto;
+}
+
+export interface UpdatePlaybackProgressRequest {
+  duration_ms?: number | null;
+  position_ms: number;
+  reported_at?: string | null;
+  source_id?: string | null;
+}
+
+export interface UserPlaybackStateDto {
+  duration_ms: number | null;
+  item_id: string;
+  last_played_at: string | null;
+  progress_percent: number | null;
+  resume_position_ms: number | null;
+  source_id: string | null;
+  updated_at: string | null;
+  version: number;
+  watched: boolean;
+  watched_at: string | null;
+}
+
+export interface UserPlaybackStateResponse {
+  state: UserPlaybackStateDto;
 }
 
 export interface PageQuery {
@@ -526,6 +573,22 @@ export class TaruClient {
     return this.requestRaw("GET", `/playback/sessions/${encodeURIComponent(sessionId)}/hls/segments/${encodeURIComponent(segmentName)}`);
   }
 
+  getUserPlaybackState(itemId: string): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("GET", `/users/me/playback-state/items/${encodeURIComponent(itemId)}`);
+  }
+
+  listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {
+    return this.requestJson("GET", "/users/me/playback-state/continue-watching", { query: page });
+  }
+
+  updateUserPlaybackProgress(itemId: string, body: UpdatePlaybackProgressRequest): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("PUT", `/users/me/playback-state/items/${encodeURIComponent(itemId)}/progress`, { body });
+  }
+
+  setUserWatchedState(itemId: string, body: SetWatchedStateRequest): Promise<UserPlaybackStateResponse> {
+    return this.requestJson("PUT", `/users/me/playback-state/items/${encodeURIComponent(itemId)}/watched`, { body });
+  }
+
   private async requestJson<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const response = await this.request(method, path, options);
     await this.ensureOk(response);
@@ -555,7 +618,15 @@ export class TaruClient {
     if (options.range) {
       headers.set("Range", options.range);
     }
-    return this.fetchImpl(this.url(path, options.query), { method, headers });
+    const init: RequestInit = {
+      method,
+      headers,
+    };
+    if (options.body !== undefined) {
+      headers.set("Content-Type", "application/json");
+      init.body = JSON.stringify(options.body);
+    }
+    return this.fetchImpl(this.url(path, options.query), init);
   }
 
   private url(path: string, query?: QueryInput): string {
@@ -604,6 +675,7 @@ export class TaruClient {
 
 interface RequestOptions {
   auth?: boolean | undefined;
+  body?: unknown | undefined;
   headers?: HeadersInit | undefined;
   query?: QueryInput | undefined;
   range?: string | undefined;

@@ -96,6 +96,7 @@ mod library;
 mod metadata;
 mod playback;
 mod system;
+mod user_playback;
 mod webhooks;
 
 async fn router_with_media_source(
