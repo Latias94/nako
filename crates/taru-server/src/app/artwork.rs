@@ -184,6 +184,28 @@ impl ManagedArtworkAppService {
         ))
     }
 
+    pub(crate) async fn select_item_artwork(
+        &self,
+        item_id: MediaItemId,
+        kind: taru_core::ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<PublishSelectedArtworkResponse> {
+        self.store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+        let publication = self
+            .store
+            .publish_selected_artwork_for_item_kind(item_id, kind, artifact_id)
+            .await?;
+        Ok(PublishSelectedArtworkResponse::from_publication(
+            publication,
+        ))
+    }
+
     pub(crate) async fn item_gallery(
         &self,
         item_id: MediaItemId,

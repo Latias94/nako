@@ -53,4 +53,9 @@ current Selected Artwork, accepted/stored artifacts, and proposed candidates
 without exposing internal locators, raw source URLs, provider query strings,
 token material, or content hash values.
 
-Next up is `MAGC-030`: selection management from the gallery context.
+`MAGC-030` added item/kind-scoped selection management:
+`POST /admin/v1/items/{item_id}/artwork/{kind}/select`. The command is
+idempotent, preserves the Selected Artwork public ID when replacing the slot,
+and rejects artifacts that do not belong to the requested item/kind.
+
+Next up is `MAGC-040`: closeout and follow-on splitting.

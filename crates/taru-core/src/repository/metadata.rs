@@ -111,6 +111,13 @@ pub trait ManagedArtworkRepository: Send + Sync {
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<SelectedArtworkPublicationRecord>;
 
+    async fn publish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord>;
+
     async fn get_selected_artwork(
         &self,
         id: SelectedArtworkId,

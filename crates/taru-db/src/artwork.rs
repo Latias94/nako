@@ -581,84 +581,16 @@ impl ManagedArtworkRepository for SqliteStore {
         &self,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<SelectedArtworkPublicationRecord> {
-        let mut transaction = self.pool.begin().await.map_err(database_error)?;
-        let artifact = get_managed_artwork_artifact_tx(&mut transaction, artifact_id)
-            .await?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "managed_artwork_artifact",
-                id: artifact_id.to_string(),
-            })?;
+        publish_selected_artwork_tx(&self.pool, artifact_id, None).await
+    }
 
-        get_managed_artwork_ingest_tx(&mut transaction, artifact.ingest_id)
-            .await?
-            .filter(|ingest| ingest.artifact_id == Some(artifact.id))
-            .filter(|ingest| ingest.status == ManagedArtworkIngestStatus::Stored)
-            .ok_or_else(|| TaruError::Conflict {
-                message: "managed artwork artifact is not linked to a stored ingest".to_owned(),
-            })?;
-
-        let (kind, kind_key) = image_kind_to_parts(&artifact.kind);
-        let existing =
-            get_selected_artwork_by_slot_tx(&mut transaction, artifact.item_id, &kind, &kind_key)
-                .await?;
-        let selected_id = existing
-            .as_ref()
-            .map_or_else(SelectedArtworkId::new, |selected| selected.id);
-        let changed = existing
-            .as_ref()
-            .is_none_or(|selected| selected.artifact_id != artifact.id);
-
-        if let Some(existing) = existing {
-            sqlx::query(
-                r#"
-                UPDATE selected_artworks
-                SET library_id = ?2,
-                    artifact_id = ?3,
-                    updated_at = CASE
-                        WHEN artifact_id = ?3 THEN updated_at
-                        ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-                    END
-                WHERE id = ?1
-                "#,
-            )
-            .bind(existing.id.to_string())
-            .bind(artifact.library_id.to_string())
-            .bind(artifact.id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        } else {
-            sqlx::query(
-                r#"
-                INSERT INTO selected_artworks (
-                    id, library_id, item_id, kind, kind_key, artifact_id
-                )
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-                "#,
-            )
-            .bind(selected_id.to_string())
-            .bind(artifact.library_id.to_string())
-            .bind(artifact.item_id.to_string())
-            .bind(kind)
-            .bind(kind_key)
-            .bind(artifact.id.to_string())
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
-        }
-
-        let selected_artwork = get_selected_artwork_tx(&mut transaction, selected_id)
-            .await?
-            .ok_or_else(|| TaruError::Database {
-                message: "failed to load selected artwork publication".to_owned(),
-            })?;
-        transaction.commit().await.map_err(database_error)?;
-
-        Ok(SelectedArtworkPublicationRecord {
-            selected_artwork,
-            artifact,
-            changed,
-        })
+    async fn publish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord> {
+        publish_selected_artwork_tx(&self.pool, artifact_id, Some((item_id, kind))).await
     }
 
     async fn get_selected_artwork(
@@ -1317,6 +1249,100 @@ async fn get_managed_artwork_artifact_by_ingest_tx(
         .map_err(database_error)?;
 
     row.map(row_to_managed_artwork_artifact).transpose()
+}
+
+async fn publish_selected_artwork_tx(
+    pool: &sqlx::SqlitePool,
+    artifact_id: ManagedArtworkArtifactId,
+    expected_slot: Option<(MediaItemId, ImageKind)>,
+) -> Result<SelectedArtworkPublicationRecord> {
+    let mut transaction = pool.begin().await.map_err(database_error)?;
+    let artifact = get_managed_artwork_artifact_tx(&mut transaction, artifact_id)
+        .await?
+        .ok_or_else(|| TaruError::NotFound {
+            entity: "managed_artwork_artifact",
+            id: artifact_id.to_string(),
+        })?;
+
+    if let Some((expected_item_id, expected_kind)) = expected_slot.as_ref() {
+        if artifact.item_id != *expected_item_id || artifact.kind != *expected_kind {
+            return Err(TaruError::Conflict {
+                message: "managed artwork artifact does not match the requested item artwork slot"
+                    .to_owned(),
+            });
+        }
+    }
+
+    get_managed_artwork_ingest_tx(&mut transaction, artifact.ingest_id)
+        .await?
+        .filter(|ingest| ingest.artifact_id == Some(artifact.id))
+        .filter(|ingest| ingest.status == ManagedArtworkIngestStatus::Stored)
+        .ok_or_else(|| TaruError::Conflict {
+            message: "managed artwork artifact is not linked to a stored ingest".to_owned(),
+        })?;
+
+    let (kind, kind_key) = image_kind_to_parts(&artifact.kind);
+    let existing =
+        get_selected_artwork_by_slot_tx(&mut transaction, artifact.item_id, &kind, &kind_key)
+            .await?;
+    let selected_id = existing
+        .as_ref()
+        .map_or_else(SelectedArtworkId::new, |selected| selected.id);
+    let changed = existing
+        .as_ref()
+        .is_none_or(|selected| selected.artifact_id != artifact.id);
+
+    if let Some(existing) = existing {
+        sqlx::query(
+            r#"
+                UPDATE selected_artworks
+                SET library_id = ?2,
+                    artifact_id = ?3,
+                    updated_at = CASE
+                        WHEN artifact_id = ?3 THEN updated_at
+                        ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    END
+                WHERE id = ?1
+                "#,
+        )
+        .bind(existing.id.to_string())
+        .bind(artifact.library_id.to_string())
+        .bind(artifact.id.to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+    } else {
+        sqlx::query(
+            r#"
+                INSERT INTO selected_artworks (
+                    id, library_id, item_id, kind, kind_key, artifact_id
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                "#,
+        )
+        .bind(selected_id.to_string())
+        .bind(artifact.library_id.to_string())
+        .bind(artifact.item_id.to_string())
+        .bind(kind)
+        .bind(kind_key)
+        .bind(artifact.id.to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+    }
+
+    let selected_artwork = get_selected_artwork_tx(&mut transaction, selected_id)
+        .await?
+        .ok_or_else(|| TaruError::Database {
+            message: "failed to load selected artwork publication".to_owned(),
+        })?;
+    transaction.commit().await.map_err(database_error)?;
+
+    Ok(SelectedArtworkPublicationRecord {
+        selected_artwork,
+        artifact,
+        changed,
+    })
 }
 
 async fn managed_artwork_gallery_for_item(

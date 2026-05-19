@@ -105,3 +105,23 @@ absent.
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.
+
+2026-05-19, MAGC-030:
+
+- Implemented guarded selection command:
+  `POST /admin/v1/items/{item_id}/artwork/{kind}/select`.
+- Added repository-level item/kind guard via
+  `publish_selected_artwork_for_item_kind`.
+- Preserved idempotent replacement semantics and Public Client image listing
+  behavior.
+- Fresh focused validation so far:
+  - `cargo nextest run -p taru-db publishes_selected_artwork_with_item_kind_guard --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast`
+    passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.

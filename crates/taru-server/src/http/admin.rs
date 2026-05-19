@@ -4,6 +4,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use serde::Deserialize;
 use taru_api::{
     ADMIN_API_VERSION, API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
     AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
@@ -25,9 +26,7 @@ use taru_api::{
     AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
-use taru_core::ArtworkCandidateId;
-use taru_core::ManagedArtworkArtifactId;
-use taru_core::MediaItemId;
+use taru_core::{ArtworkCandidateId, ImageKind, ManagedArtworkArtifactId, MediaItemId, TaruError};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -70,6 +69,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/items/{item_id}/artwork",
             get(get_admin_item_artwork_gallery),
+        )
+        .route(
+            "/admin/v1/items/{item_id}/artwork/{kind}/select",
+            post(select_admin_item_artwork),
         )
         .route(
             "/admin/v1/artwork/artifacts/lifecycle",
@@ -135,6 +138,22 @@ pub(super) async fn get_admin_item_artwork_gallery(
     ))
 }
 
+pub(super) async fn select_admin_item_artwork(
+    State(app): State<TaruApp>,
+    Path((item_id, kind)): Path<(MediaItemId, String)>,
+    Json(request): Json<SelectAdminItemArtworkRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.artwork()
+            .select_item_artwork(
+                item_id,
+                parse_admin_artwork_kind(&kind)?,
+                request.artifact_id,
+            )
+            .await?,
+    ))
+}
+
 pub(super) async fn get_admin_artwork_artifact_lifecycle(
     State(app): State<TaruApp>,
     Query(query): Query<ArtworkArtifactLifecycleQuery>,
@@ -145,6 +164,24 @@ pub(super) async fn get_admin_artwork_artifact_lifecycle(
             .artifact_lifecycle_diagnostics(filter, page)
             .await?,
     ))
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SelectAdminItemArtworkRequest {
+    pub(super) artifact_id: ManagedArtworkArtifactId,
+}
+
+fn parse_admin_artwork_kind(value: &str) -> Result<ImageKind, TaruError> {
+    match value {
+        "poster" => Ok(ImageKind::Poster),
+        "backdrop" => Ok(ImageKind::Backdrop),
+        "logo" => Ok(ImageKind::Logo),
+        "thumbnail" => Ok(ImageKind::Thumbnail),
+        "banner" => Ok(ImageKind::Banner),
+        _ => Err(TaruError::InvalidInput {
+            message: format!("unsupported artwork kind path segment: {value}"),
+        }),
+    }
 }
 
 pub(super) async fn get_admin_artwork_artifact_storage_drift(

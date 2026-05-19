@@ -31,7 +31,7 @@ Last updated: 2026-05-19
 
 ## M2 - Selection Management
 
-- [ ] MAGC-030 [owner=codex] [deps=MAGC-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAGC-030 [owner=codex] [deps=MAGC-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
   Goal: Add a safe management action for selecting/replacing an item's Selected
   Artwork from an eligible Managed Artwork Artifact while preserving existing
   public image references and redaction.
@@ -41,8 +41,9 @@ Last updated: 2026-05-19
   Evidence: selected artwork changes only for the target item/kind; previous
   artifacts remain lifecycle-managed; Public Client item images return the new
   selected public image reference.
-  Handoff: Split unpublish/delete behavior if it needs separate retention
-  policy.
+  Handoff: `POST /admin/v1/items/{item_id}/artwork/{kind}/select` is the
+  item/kind-scoped command. Split unpublish/delete behavior if it needs
+  separate retention policy.
 
 ## M3 - Closeout
 

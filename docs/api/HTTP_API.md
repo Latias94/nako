@@ -452,6 +452,7 @@ POST /admin/v1/artwork/artifacts/remediate-stray-files
 POST /admin/v1/artwork/artifacts/cleanup
 POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/items/{item_id}/artwork
+POST /admin/v1/items/{item_id}/artwork/{kind}/select
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -1238,6 +1239,28 @@ provider URLs, `cache_uri`, Source Locators, addon/provider token material,
 provider query strings, file contents, or content hash values. Non-selected
 artifacts are selectable by ID through Admin commands, but they do not receive
 Public Client image URLs until they are published as Selected Artwork.
+
+Administrators can select or replace one item artwork slot from the gallery
+context with:
+
+```text
+POST /admin/v1/items/{item_id}/artwork/{kind}/select
+Content-Type: application/json
+
+{
+  "artifact_id": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+`kind` currently accepts `poster`, `backdrop`, `logo`, `thumbnail`, or
+`banner`. The command is idempotent when the requested artifact is already the
+Selected Artwork for that item/kind slot. Selecting a different eligible
+artifact replaces the slot while preserving the stable Selected Artwork public
+ID. The command rejects artifacts that belong to another item or another image
+kind, and it does not delete, clean up, unpublish, repair, re-ingest, or mutate
+artifact files. The response shape matches
+`POST /admin/v1/artwork/artifacts/{artifact_id}/publish`: a redacted Selected
+Artwork summary, first-party image reference, and `changed` flag.
 
 Public Clients can discover selected artwork through item detail and item image
 listing responses. Those responses use redacted first-party image references:

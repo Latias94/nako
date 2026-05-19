@@ -1963,6 +1963,156 @@ async fn admin_managed_artwork_gallery_lists_candidates_artifacts_and_selection_
 }
 
 #[tokio::test]
+async fn admin_managed_artwork_gallery_selects_item_kind_artifact_with_guards() {
+    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let (first_remote_url, _) = tiny_artwork_server().await;
+    let (raw_token, _first_candidate_id, _accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &first_remote_url,
+        "artwork-candidate-select-first",
+    )
+    .await;
+    let first_processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let first_artifact = first_processed.artifact.as_ref().unwrap().clone();
+
+    let (second_remote_url, _) = tiny_artwork_server().await;
+    let (_second_candidate_id, _second_accepted) = propose_and_accept_remote_artwork_with_token(
+        &router,
+        library_id,
+        source.item_id,
+        &second_remote_url,
+        "artwork-candidate-select-second",
+        &raw_token,
+    )
+    .await;
+    let second_processed = request_json::<ProcessManagedArtworkIngestResponse>(
+        &router,
+        Method::POST,
+        "/admin/v1/artwork/ingests/process-next",
+    )
+    .await;
+    let second_artifact = second_processed.artifact.as_ref().unwrap().clone();
+
+    let select_path = format!("/admin/v1/items/{}/artwork/poster/select", source.item_id);
+    let first_selected = request_body_json::<PublishSelectedArtworkResponse, _>(
+        &router,
+        Method::POST,
+        &select_path,
+        &serde_json::json!({ "artifact_id": first_artifact.id }),
+    )
+    .await;
+    assert!(first_selected.changed);
+    assert_eq!(first_selected.selected_artwork.item_id, source.item_id);
+    assert_eq!(first_selected.selected_artwork.kind, ImageKind::Poster);
+    assert_eq!(
+        first_selected.selected_artwork.artifact_id,
+        first_artifact.id
+    );
+
+    let second_selected = request_body_json::<PublishSelectedArtworkResponse, _>(
+        &router,
+        Method::POST,
+        &select_path,
+        &serde_json::json!({ "artifact_id": second_artifact.id }),
+    )
+    .await;
+    assert!(second_selected.changed);
+    assert_eq!(
+        second_selected.selected_artwork.id,
+        first_selected.selected_artwork.id
+    );
+    assert_eq!(
+        second_selected.selected_artwork.artifact_id,
+        second_artifact.id
+    );
+
+    let replay = request_body_json::<PublishSelectedArtworkResponse, _>(
+        &router,
+        Method::POST,
+        &select_path,
+        &serde_json::json!({ "artifact_id": second_artifact.id }),
+    )
+    .await;
+    assert_eq!(
+        replay.selected_artwork.id,
+        second_selected.selected_artwork.id
+    );
+    assert!(!replay.changed);
+
+    let images = request_json::<taru_api::ImagesResponse>(
+        &router,
+        Method::GET,
+        &format!("/items/{}/images", source.item_id),
+    )
+    .await;
+    assert_eq!(images.images, vec![second_selected.image.clone()]);
+
+    let wrong_kind = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/items/{}/artwork/backdrop/select",
+                    source.item_id
+                ))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&serde_json::json!({
+                        "artifact_id": second_artifact.id
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let wrong_kind_status = wrong_kind.status();
+    let wrong_kind_body = to_bytes(wrong_kind.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(wrong_kind_status, StatusCode::CONFLICT);
+    let wrong_kind_text = String::from_utf8_lossy(&wrong_kind_body);
+    assert!(!wrong_kind_text.contains(&first_remote_url));
+    assert!(!wrong_kind_text.contains(&second_remote_url));
+    assert!(!wrong_kind_text.contains("token=secret"));
+    assert!(!wrong_kind_text.contains(&raw_token));
+    assert!(!wrong_kind_text.contains("source_uri"));
+    assert!(!wrong_kind_text.contains("storage_uri"));
+    assert!(!wrong_kind_text.contains("managed-artwork://"));
+    assert!(!wrong_kind_text.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(!wrong_kind_text.contains("\"content_hash\""));
+
+    let unknown_kind = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/items/{}/artwork/custom/select",
+                    source.item_id
+                ))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&serde_json::json!({
+                        "artifact_id": second_artifact.id
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unknown_kind.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks() {
     assert_selected_artwork_variant_serving_without_locator_or_hash_leaks().await;
 }

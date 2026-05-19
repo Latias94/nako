@@ -5,8 +5,8 @@
   "owner": "codex",
   "created_at": "2026-05-19",
   "updated_at": "2026-05-19",
-  "current_task": "MAGC-030",
-  "first_slice": "Completed Admin artwork gallery read model for one Media Item",
+  "current_task": "MAGC-040",
+  "first_slice": "Completed Admin artwork gallery read model and guarded item/kind selection",
   "non_goals": [
     "persisted thumbnail or variant cache and eviction",
     "durable ingest retry, requeue, cancellation, or runtime controls",

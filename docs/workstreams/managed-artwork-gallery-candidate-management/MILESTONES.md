@@ -38,7 +38,9 @@ Exit criteria:
 - Artifact deletion, file cleanup, unpublish, retry/cancel, and repair remain
   outside the action unless explicitly split and tested.
 
-Status: Pending.
+Status: Done. Admin can select/replace an item artwork slot with
+`POST /admin/v1/items/{item_id}/artwork/{kind}/select`, guarded by item and
+image kind.
 
 ## M3 - Closeout
 
