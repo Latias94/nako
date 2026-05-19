@@ -123,6 +123,11 @@ attention.
   acknowledgement across runtime, metadata maintenance, library scan/probe, and
   NFO app boundaries while splitting retry/backoff, lease stealing, child
   process cancellation, and per-sidecar NFO checkpoints.
+- [nfo-sidecar-cancellation-checkpoints](nfo-sidecar-cancellation-checkpoints/README.md):
+  active follow-on for adding per-sidecar cooperative cancellation to NFO
+  import/export service loops without making `taru-nfo` depend on server
+  runtime types or mixing retry/backoff, lease policy, or child-process
+  cancellation into the NFO boundary.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
   proving MediaSource-targeted Taru-owned NFO Export through Taru target
