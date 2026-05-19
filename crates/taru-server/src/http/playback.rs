@@ -114,9 +114,9 @@ pub(super) async fn remux_stream_source(
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
     let remux = app
         .playback()
-        .remux_source(RemuxSourceRequest {
+        .remux_source_or_wait(RemuxSourceRequest {
             source_id,
-            client: query.capabilities.into(),
+            client: query.capabilities().into(),
             output_container,
         })
         .await?;
@@ -173,43 +173,24 @@ pub(super) async fn head_remux_stream_source(
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
     let remux = app
         .playback()
-        .remux_source(RemuxSourceRequest {
+        .start_remux_source(RemuxSourceRequest {
             source_id,
-            client: query.capabilities.into(),
+            client: query.capabilities().into(),
             output_container,
         })
         .await?;
 
-    if remux.disposition == RemuxSourceDisposition::Cancelled {
-        return Err(TaruError::Provider {
-            provider: "ffmpeg_remux".to_owned(),
-            message: "remux session was cancelled".to_owned(),
-        }
-        .into());
-    }
-
-    let total_len = tokio::fs::metadata(&remux.output_path)
-        .await
-        .map_err(|err| {
-            TaruError::storage_io(
-                remux.output_path.display().to_string(),
-                format!("failed to read remux output length: {err}"),
-            )
-        })?
-        .len();
     let response_plan = plan_direct_play_response(
-        total_len,
+        0,
         content_type_for_file_name(&format!("stream.{}", output_container.file_extension())),
         DirectPlayRangeRequest::None,
     );
     let mut response = empty_direct_play_response(&response_plan);
-    if let Some(session) = remux.session {
-        response.headers_mut().insert(
-            PLAYBACK_SESSION_ID_HEADER,
-            HeaderValue::from_str(&session.id.to_string())
-                .expect("session id is a valid header value"),
-        );
-    }
+    response.headers_mut().insert(
+        PLAYBACK_SESSION_ID_HEADER,
+        HeaderValue::from_str(&remux.session.id.to_string())
+            .expect("session id is a valid header value"),
+    );
     Ok(response)
 }
 
@@ -415,9 +396,22 @@ pub(super) struct PlaybackCapabilitiesQuery {
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct RemuxPlaybackQuery {
-    #[serde(flatten)]
-    capabilities: PlaybackCapabilitiesQuery,
+    direct_play: Option<bool>,
+    container: Option<String>,
+    video_codec: Option<String>,
+    audio_codec: Option<String>,
     output_container: Option<RemuxContainer>,
+}
+
+impl RemuxPlaybackQuery {
+    fn capabilities(self) -> PlaybackCapabilitiesQuery {
+        PlaybackCapabilitiesQuery {
+            direct_play: self.direct_play,
+            container: self.container,
+            video_codec: self.video_codec,
+            audio_codec: self.audio_codec,
+        }
+    }
 }
 
 impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {

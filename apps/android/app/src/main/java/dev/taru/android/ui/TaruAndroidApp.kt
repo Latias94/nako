@@ -17,6 +17,8 @@ import dev.taru.android.connection.SharedPreferencesServerProfileStore
 import dev.taru.android.connection.TaruConnectionClient
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.playback.PlaybackPreferencesStore
+import dev.taru.android.playback.SharedPreferencesPlaybackPreferencesStore
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
@@ -34,6 +36,7 @@ fun TaruAndroidApp(
     val connectionClient = remember { TaruConnectionClient(transport) }
     val browseClient = remember { TaruBrowseClient(transport) }
     val playbackClient = remember { TaruPlaybackClient(transport) }
+    val playbackPreferencesStore = remember { SharedPreferencesPlaybackPreferencesStore(context) }
     val userPlaybackClient = remember { TaruUserPlaybackClient(transport) }
     val positionStore = remember { SharedPreferencesDevicePlaybackPositionStore(context) }
 
@@ -44,6 +47,7 @@ fun TaruAndroidApp(
         connectionClient = connectionClient,
         browseClient = browseClient,
         playbackClient = playbackClient,
+        playbackPreferencesStore = playbackPreferencesStore,
         userPlaybackClient = userPlaybackClient,
         positionStore = positionStore,
     )
@@ -56,6 +60,7 @@ fun TaruAndroidAppContent(
     connectionClient: TaruConnectionClient,
     browseClient: TaruBrowseClient,
     playbackClient: TaruPlaybackClient,
+    playbackPreferencesStore: PlaybackPreferencesStore,
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
     modifier: Modifier = Modifier,
@@ -88,6 +93,7 @@ fun TaruAndroidAppContent(
             tokenVault = tokenVault,
             browseClient = browseClient,
             playbackClient = playbackClient,
+            playbackPreferencesStore = playbackPreferencesStore,
             userPlaybackClient = userPlaybackClient,
             positionStore = positionStore,
             onSnapshotChanged = { next ->

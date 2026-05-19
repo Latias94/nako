@@ -48,6 +48,19 @@ class DebugSmokeFixtureSeedActivityTest {
     }
 
     @Test
+    fun `seed request can force remux playback capabilities`() {
+        val request = debugSmokeFixtureSeedRequest(
+            baseUrl = "http://127.0.0.1:3018",
+            accessToken = "demo-fixture-token",
+            displayName = "Smoke Server",
+            checkedAtMillis = 42L,
+            forceRemux = true,
+        )
+
+        assertEquals(true, request.forceRemux)
+    }
+
+    @Test
     fun `seed request rejects partial or nonpositive resume input`() {
         assertThrows(IllegalArgumentException::class.java) {
             debugSmokeFixtureSeedRequest(

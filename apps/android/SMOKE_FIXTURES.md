@@ -131,6 +131,54 @@ Captured surfaces:
 - matching `*.uiautomator.xml` files
 - matching `*.criteria.txt` pass/fail files
 
+### profile-active-remux
+
+Command:
+
+```powershell
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-active-remux
+```
+
+Use this when evidence must prove active non-ended playback session
+cancellation. The script installs the debug APK, clears app data, prepares a
+fresh server-backed `Night Harbor.mkv` fixture, forces the debug profile's
+playback capabilities to choose Remux, starts playback only after source
+checking, exits the player before the slow remux wrapper completes, and reads
+the same session back through Public Client API.
+
+Expected result:
+
+- exactly one local Server Profile named `Smoke Server` is present;
+- the source picker shows `Night Harbor.mkv` and `Remux route prepared`;
+- source checking does not start a server-side session before the user starts
+  playback;
+- the Android player opens with a Public Client remux session id;
+- player exit requests `/playback/sessions/{session_id}/cancel` before
+  progress sync;
+- `/playback/sessions/{session_id}` returns terminal `cancelled` state with
+  `cancelled` failure category;
+- the cancellation readback artifact contains no bearer token, local path, or
+  server-only output field;
+- generated evidence is written under
+  `apps/android/build/smoke/<timestamp>-profile-active-remux-<serial>/`.
+
+Captured surfaces and artifacts:
+
+- `home.png`
+- `detail.png`
+- `detail-metadata.png`
+- `facet-genre.png`
+- `facet-tag.png`
+- `detail-cast-crew.png`
+- `facet-person.png`
+- `source-picker-server-resume.png`
+- `source-picker.png`
+- `player.png`
+- `detail-after-player-back.png`
+- `profile-active-remux-session-cancelled.txt`
+- matching `*.uiautomator.xml` files
+- matching `*.criteria.txt` pass/fail files
+
 ## Safety Rules
 
 - Do not commit generated screenshots or smoke reports by default.
@@ -165,10 +213,15 @@ Default states:
 - `profile-missing-token`
 - `profile-with-media`
 
+`profile-active-remux` is available as an explicit heavier state when the
+change touches playback session lifetime, remux startup, source picker start
+semantics, or player exit effects.
+
 Useful variants:
 
 ```powershell
 .\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token
+.\scripts\Smoke-Regression.ps1 -States profile-active-remux
 .\scripts\Smoke-Regression.ps1 -SkipBuild
 .\scripts\Smoke-Regression.ps1 -ContinueOnFailure
 .\scripts\Smoke-Regression.ps1 -RetriesPerState 0
@@ -188,6 +241,7 @@ These states need more work and should not be hand-waved into the smoke script:
 - `profile-empty-library`: requires a public, token-safe server/profile fixture
   that can show Home and Settings without private data.
 - `playback-ready`: the demo fixture currently prefers direct-play MP4 for a
-  player-safe launch target. Full playback quality and an active non-ended
-  HLS/remux player cancellation smoke remain deferred until they have explicit
-  long-media or non-Direct runtime gates.
+  player-safe launch target. Full playback quality gates remain deferred.
+- `profile-active-hls`: HLS active cancellation can reuse the active-remux
+  pattern when playlist startup becomes asynchronous enough to need its own
+  runtime fixture.

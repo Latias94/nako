@@ -84,6 +84,11 @@ internal suspend fun applyPlaybackExitEffects(
         )
     }
 
+    val requestedSessionCancellation = !snapshot.isEnded && sessionId != null
+    if (requestedSessionCancellation) {
+        cancelPlaybackSession(profile, accessToken, sessionId)
+    }
+
     val reportedUserPlaybackState = when (report) {
         is UserPlaybackStateReport.Progress -> {
             updateProgress(profile, accessToken, report.itemId, report)
@@ -94,10 +99,6 @@ internal suspend fun applyPlaybackExitEffects(
             true
         }
         null -> false
-    }
-    val requestedSessionCancellation = !snapshot.isEnded && sessionId != null
-    if (requestedSessionCancellation) {
-        cancelPlaybackSession(profile, accessToken, sessionId)
     }
 
     return PlaybackExitEffectResult(

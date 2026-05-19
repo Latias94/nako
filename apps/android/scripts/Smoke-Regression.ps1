@@ -193,7 +193,7 @@ function Resolve-SmokeStates {
         [string[]]$RequestedStates
     )
 
-    $allowedStates = @('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media')
+    $allowedStates = @('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media', 'profile-active-remux')
     $resolvedStates = New-Object System.Collections.Generic.List[string]
     foreach ($entry in $RequestedStates) {
         if ([string]::IsNullOrWhiteSpace($entry)) {

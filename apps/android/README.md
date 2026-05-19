@@ -87,6 +87,7 @@ build:
 .\scripts\Smoke-Emulator.ps1 -FixtureState empty-setup
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-missing-token -SkipBuild
 .\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
+.\scripts\Smoke-Emulator.ps1 -FixtureState profile-active-remux
 .\scripts\Smoke-Regression.ps1
 ```
 
@@ -121,8 +122,14 @@ screenshots, criteria files, and server readback artifacts remain local under
 `apps/android/build/smoke/`. This fixture also creates a token-safe remux
 session readback artifact with the public playback session header and
 `/playback/sessions/{session_id}` route. The visible player still uses the
-short MP4 Direct Play path; active non-ended HLS/remux cancellation smoke needs
-a dedicated runtime fixture.
+short MP4 Direct Play path.
+
+Use `-FixtureState profile-active-remux` when you need a focused playback
+session lifetime gate. It prepares a fresh MKV fixture, forces the debug
+profile to choose Remux, starts the remux session only when playback begins,
+exits the player before the slow remux wrapper completes, and records a
+token-safe `/playback/sessions/{session_id}` readback artifact showing
+terminal `cancelled` state.
 
 Fixture and state rules live in `SMOKE_FIXTURES.md`.
 
@@ -132,6 +139,7 @@ gate before handing work to another developer or agent:
 ```powershell
 .\scripts\Smoke-Regression.ps1
 .\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token
+.\scripts\Smoke-Regression.ps1 -States profile-active-remux
 .\scripts\Smoke-Regression.ps1 -SkipBuild
 .\scripts\Smoke-Regression.ps1 -RetriesPerState 0
 ```
@@ -143,6 +151,10 @@ fixture states through `Smoke-Emulator.ps1` and writes a combined report under
 `profile-missing-token`, and `profile-with-media`. If a state fails, the report
 includes the failed state, failure category, evidence path, log path, and a
 focused `Smoke-Emulator.ps1` rerun command.
+
+`profile-active-remux` is intentionally opt-in for regression because it starts
+a slow server-side remux fixture and is heavier than the default confidence
+set.
 
 ## Server-Backed Demo Fixture
 

@@ -12,6 +12,7 @@ internal data class PlayerChromePresentation(
     val backdropTitle: String,
     val resumeLabel: String?,
     val sessionLabel: String?,
+    val sessionAccessibilityLabel: String?,
 )
 
 internal const val PlayerMedia3ControllerClearanceDp = 132
@@ -36,6 +37,9 @@ internal fun playerChromePresentation(launch: PlaybackLaunchRequest): PlayerChro
         sessionLabel = launch.sessionId
             ?.takeIf { it.isNotBlank() }
             ?.let { "Playback session active" },
+        sessionAccessibilityLabel = launch.sessionId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "Playback session id $it" },
     )
 
 internal fun playbackErrorPresentation(

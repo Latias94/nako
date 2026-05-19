@@ -9,6 +9,8 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.SharedPreferencesServerProfileStore
 import dev.taru.android.connection.TaruPublicApiContract
+import dev.taru.android.playback.PlaybackCapabilities
+import dev.taru.android.playback.SharedPreferencesPlaybackPreferencesStore
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
@@ -31,6 +33,7 @@ class DebugSmokeFixtureSeedActivity : Activity() {
                 resumeSourceId = intent.getStringExtra(EXTRA_RESUME_SOURCE_ID),
                 resumePositionMs = intent.longExtraOrNull(EXTRA_RESUME_POSITION_MS),
                 resumeDurationMs = intent.longExtraOrNull(EXTRA_RESUME_DURATION_MS),
+                forceRemux = intent.booleanExtraOrNull(EXTRA_FORCE_REMUX),
             )
             seedDebugSmokeFixture(this, request)
             setResult(RESULT_OK)
@@ -52,6 +55,7 @@ class DebugSmokeFixtureSeedActivity : Activity() {
         const val EXTRA_RESUME_SOURCE_ID = "resume_source_id"
         const val EXTRA_RESUME_POSITION_MS = "resume_position_ms"
         const val EXTRA_RESUME_DURATION_MS = "resume_duration_ms"
+        const val EXTRA_FORCE_REMUX = "force_remux"
         const val EXTRA_ERROR = "error"
     }
 }
@@ -63,6 +67,20 @@ internal fun seedDebugSmokeFixture(
     val snapshot = debugSmokeFixtureProfileSnapshot(request)
     SharedPreferencesServerProfileStore(context).save(snapshot)
     AndroidSecureTokenVault(context).saveToken(request.tokenReference, request.accessToken)
+    val playbackPreferences = SharedPreferencesPlaybackPreferencesStore(context)
+    if (request.forceRemux) {
+        playbackPreferences.saveCapabilities(
+            request.profileId,
+            PlaybackCapabilities(
+                directPlay = true,
+                containers = listOf("mp4"),
+                videoCodecs = listOf("h264"),
+                audioCodecs = listOf("aac"),
+            ),
+        )
+    } else {
+        playbackPreferences.clearCapabilities(request.profileId)
+    }
     request.resumePosition?.let { resume ->
         SharedPreferencesDevicePlaybackPositionStore(context).save(
             DevicePlaybackPosition(
@@ -85,6 +103,7 @@ internal data class DebugSmokeFixtureSeedRequest(
     val displayName: String,
     val checkedAtMillis: Long,
     val resumePosition: DebugSmokeFixtureResumePosition? = null,
+    val forceRemux: Boolean = false,
 ) {
     val profileId: String = "server-1"
     val tokenReference: String = "server-token:$profileId"
@@ -106,6 +125,7 @@ internal fun debugSmokeFixtureSeedRequest(
     resumeSourceId: String? = null,
     resumePositionMs: Long? = null,
     resumeDurationMs: Long? = null,
+    forceRemux: Boolean? = null,
 ): DebugSmokeFixtureSeedRequest {
     val normalizedBaseUrl = normalizeSmokeFixtureBaseUrl(baseUrl)
     val token = accessToken?.trim().orEmpty()
@@ -116,6 +136,7 @@ internal fun debugSmokeFixtureSeedRequest(
         accessToken = token,
         displayName = displayName?.trim().takeUnless { it.isNullOrBlank() } ?: "Smoke Server",
         checkedAtMillis = checkedAtMillis,
+        forceRemux = forceRemux ?: false,
         resumePosition = debugSmokeFixtureResumePosition(
             mediaItemId = resumeMediaItemId,
             sourceId = resumeSourceId,
@@ -203,3 +224,6 @@ private fun normalizeSmokeFixtureBaseUrl(input: String?): String {
 
 private fun Intent.longExtraOrNull(name: String): Long? =
     if (hasExtra(name)) getLongExtra(name, 0L) else null
+
+private fun Intent.booleanExtraOrNull(name: String): Boolean? =
+    if (hasExtra(name)) getBooleanExtra(name, false) else null

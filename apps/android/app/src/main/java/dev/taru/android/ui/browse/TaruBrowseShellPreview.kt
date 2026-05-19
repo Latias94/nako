@@ -9,6 +9,7 @@ import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
+import dev.taru.android.playback.InMemoryPlaybackPreferencesStore
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
 import dev.taru.android.ui.theme.TaruAndroidTheme
@@ -158,6 +159,7 @@ private fun TaruBrowseShellPreview() {
                         }
                 },
             ),
+            playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
             positionStore = InMemoryDevicePlaybackPositionStore(),
             onChangeServer = {},
         )

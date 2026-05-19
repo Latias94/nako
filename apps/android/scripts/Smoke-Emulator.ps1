@@ -2,7 +2,7 @@
 param(
     [string]$Serial,
     [string]$OutputRoot,
-    [ValidateSet('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media')]
+    [ValidateSet('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media', 'profile-active-remux')]
     [string]$FixtureState = 'current-state',
     [int]$FixtureServerPort = 3018,
     [string]$FixtureAccessToken = 'demo-fixture-token',
@@ -348,7 +348,8 @@ function Start-SmokePlaybackSessionProbe {
     param(
         [string]$BaseUrl,
         [string]$AccessToken,
-        [string]$SourceId
+        [string]$SourceId,
+        [string]$RemuxQuery = 'container=mkv&video_codec=h264&audio_codec=aac&output_container=mkv'
     )
 
     if ([string]::IsNullOrWhiteSpace($AccessToken)) {
@@ -363,7 +364,7 @@ function Start-SmokePlaybackSessionProbe {
     }
     $encodedSourceId = [System.Uri]::EscapeDataString($SourceId)
     $sessionHeaderName = 'x-taru-playback-session-id'
-    $preflightUrl = "$BaseUrl/sources/$encodedSourceId/stream/remux?container=mkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+    $preflightUrl = "$BaseUrl/sources/$encodedSourceId/stream/remux?$RemuxQuery"
     $startedAt = Get-Date
     $preflightResponse = Invoke-WebRequest -Uri $preflightUrl -Method Head -Headers $headers -UseBasicParsing -TimeoutSec 60
     $sessionId = Get-HttpHeaderValue -Headers $preflightResponse.Headers -Name $sessionHeaderName
@@ -450,6 +451,75 @@ $sessionJson
     throw "Public playback session readback did not return the expected remux session before timeout. Last observed state=$finalState."
 }
 
+function Write-SmokePlaybackSessionCancelledReadbackArtifact {
+    param(
+        [string]$OutputDir,
+        [string]$BaseUrl,
+        [string]$AccessToken,
+        [string]$SessionId,
+        [int]$TimeoutSeconds = 45
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AccessToken)) {
+        throw 'Fixture access token must be non-empty.'
+    }
+    if ([string]::IsNullOrWhiteSpace($SessionId)) {
+        throw 'Fixture playback session id is required before cancellation readback.'
+    }
+
+    $headers = @{
+        Authorization = "Bearer $AccessToken"
+    }
+    $encodedSessionId = [System.Uri]::EscapeDataString($SessionId)
+    $sessionUrl = "$BaseUrl/playback/sessions/$encodedSessionId"
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $attempt = 0
+    $sessionResponse = $null
+    while ((Get-Date) -lt $deadline) {
+        $attempt += 1
+        $sessionResponse = Invoke-RestMethod -Uri $sessionUrl -Headers $headers -TimeoutSec 10
+        $observedId = [string]$sessionResponse.session.id
+        $observedKind = [string]$sessionResponse.session.kind
+        $observedState = [string]$sessionResponse.session.state
+        $observedFailure = [string]$sessionResponse.session.failure_category
+        if ($observedId -eq $SessionId -and
+            $observedKind -eq 'remux' -and
+            $observedState -eq 'cancelled' -and
+            $observedFailure -eq 'cancelled') {
+            $sessionJson = $sessionResponse | ConvertTo-Json -Depth 12
+            if ($sessionJson -match 'output_path|[A-Za-z]:\\\\|file://|local://') {
+                throw 'Public playback session cancellation readback contained a forbidden local path or server-only field.'
+            }
+
+            $readbackPath = Join-Path $OutputDir 'profile-active-remux-session-cancelled.txt'
+            Write-Utf8File -Path $readbackPath -Content @"
+Public active playback session cancellation readback:
+Session URL: $sessionUrl
+Access token: <redacted>
+Observed after Android player exit: true
+Attempts: $attempt
+Expected session id: $SessionId
+Expected kind: remux
+Expected state: cancelled
+Expected failure category: cancelled
+Observed session id: $observedId
+Observed kind: $observedKind
+Observed state: $observedState
+Observed failure category: $observedFailure
+Session response:
+$sessionJson
+"@
+            return $readbackPath
+        }
+
+        Start-Sleep -Milliseconds 750
+    }
+
+    $finalState = if ($sessionResponse -and $sessionResponse.session) { [string]$sessionResponse.session.state } else { 'n/a' }
+    $finalFailure = if ($sessionResponse -and $sessionResponse.session) { [string]$sessionResponse.session.failure_category } else { 'n/a' }
+    throw "Public playback session cancellation readback did not observe cancelled remux session before timeout. Last observed state=$finalState, failure=$finalFailure."
+}
+
 function Start-SmokeFixtureServer {
     param(
         [string]$ServerBinary,
@@ -487,7 +557,10 @@ function Start-SmokeMediaFixtureProvider {
         [string]$AndroidRoot,
         [string]$OutputDir,
         [int]$Port,
-        [bool]$SkipServerBuild
+        [bool]$SkipServerBuild,
+        [string]$FixtureRoot,
+        [string]$VideoContainer = 'mp4',
+        [bool]$SlowRemux = $false
     )
 
     $providerScript = Join-Path $ScriptDir 'Start-DemoFixtureServer.ps1'
@@ -502,13 +575,26 @@ function Start-SmokeMediaFixtureProvider {
     if ($SkipServerBuild) {
         $providerArgs.SkipBuild = $true
     }
+    if (-not [string]::IsNullOrWhiteSpace($FixtureRoot)) {
+        $providerArgs.FixtureRoot = $FixtureRoot
+    }
+    if (-not [string]::IsNullOrWhiteSpace($VideoContainer)) {
+        $providerArgs.VideoContainer = $VideoContainer
+    }
+    if ($SlowRemux) {
+        $providerArgs.SlowRemux = $true
+    }
 
     & $providerScript @providerArgs
     if ($LASTEXITCODE -ne 0) {
         throw 'Demo fixture provider preparation failed.'
     }
 
-    $summaryPath = Join-Path $AndroidRoot 'build\demo-fixtures\server-backed\summary.json'
+    $summaryPath = if ([string]::IsNullOrWhiteSpace($FixtureRoot)) {
+        Join-Path $AndroidRoot 'build\demo-fixtures\server-backed\summary.json'
+    } else {
+        Join-Path $FixtureRoot 'summary.json'
+    }
     if (-not (Test-Path -LiteralPath $summaryPath)) {
         throw "Fixture provider summary was not found at '$summaryPath'."
     }
@@ -533,7 +619,8 @@ function Install-SmokeMediaProfileFixture {
         [string]$DeviceSerial,
         [string]$OutputDir,
         [string]$BaseUrl,
-        [string]$AccessToken
+        [string]$AccessToken,
+        [bool]$ForceRemux = $false
     )
 
     if ([string]::IsNullOrWhiteSpace($AccessToken)) {
@@ -554,6 +641,9 @@ function Install-SmokeMediaProfileFixture {
             '--extra', "access_token:s:$AccessToken",
             '--extra', "checked_at_millis:l:$startedAt"
         )
+        if ($ForceRemux) {
+            $seedArguments += @('--extra', 'force_remux:b:true')
+        }
 
         $output = & $AdbPath @seedArguments 2>&1
         $seedOutput = ($output | Out-String).TrimEnd()
@@ -625,8 +715,8 @@ function Resolve-FixtureState {
             return 'empty-setup'
         }
 
-        if ($RequestedFixtureState -notin @('empty-setup', 'profile-with-media')) {
-            throw '-ResetAppData can only be combined with the default fixture state, -FixtureState empty-setup, or -FixtureState profile-with-media.'
+        if ($RequestedFixtureState -notin @('empty-setup', 'profile-with-media', 'profile-active-remux')) {
+            throw '-ResetAppData can only be combined with the default fixture state, -FixtureState empty-setup, -FixtureState profile-with-media, or -FixtureState profile-active-remux.'
         }
     }
 
@@ -785,6 +875,31 @@ function Get-UiTextValues {
     return $values.ToArray()
 }
 
+function Get-SmokePlaybackSessionIdFromUi {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$Name
+    )
+
+    $dumpPath = Get-UiDump -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name
+    [xml]$hierarchy = Get-Content -LiteralPath $dumpPath -Raw
+    $values = Get-UiTextValues -Hierarchy $hierarchy
+    $sessionId = $values |
+        ForEach-Object {
+            if ($_ -match '(?<session_id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})') {
+                $Matches.session_id
+            }
+        } |
+        Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($sessionId)) {
+        throw "Could not find a playback session id in UI hierarchy '$Name'."
+    }
+
+    return [string]$sessionId
+}
+
 function Find-UiNode {
     param(
         [xml]$Hierarchy,
@@ -879,6 +994,50 @@ function Wait-ForUiText {
     }
 
     throw "Timed out waiting for UI text '$Text'. Last UI dump error: $lastError"
+}
+
+function Wait-ForAnyUiText {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string[]]$Text,
+        [int]$TimeoutSeconds = 25
+    )
+
+    if ($Text.Count -eq 0) {
+        throw 'At least one UI text value is required.'
+    }
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastError = $null
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $dumpPath = Get-UiDump -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'wait-any'
+            [xml]$hierarchy = Get-Content -LiteralPath $dumpPath -Raw
+            $values = Get-UiTextValues -Hierarchy $hierarchy
+            foreach ($candidate in $Text) {
+                if ($values -contains $candidate) {
+                    return $candidate
+                }
+            }
+
+            if (Dismiss-SystemAnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
+                Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 750
+    }
+
+    $expected = $Text -join ', '
+    if ([string]::IsNullOrWhiteSpace($lastError)) {
+        throw "Timed out waiting for any UI text: $expected."
+    }
+
+    throw "Timed out waiting for any UI text: $expected. Last UI dump error: $lastError"
 }
 
 function Test-UiText {
@@ -1087,7 +1246,7 @@ $gradlew = Join-Path $androidRoot 'gradlew.bat'
 $adb = Resolve-AdbPath
 $deviceSerial = Get-ConnectedDeviceSerial -AdbPath $adb -RequestedSerial $Serial
 $stateMode = Resolve-FixtureState -RequestedFixtureState $FixtureState -RequestedResetAppData ([bool]$ResetAppData)
-$clearsAppData = $stateMode -in @('empty-setup', 'profile-missing-token', 'profile-with-media')
+$clearsAppData = $stateMode -in @('empty-setup', 'profile-missing-token', 'profile-with-media', 'profile-active-remux')
 $skipAndroidBuild = [bool]($SkipBuild -or $SkipAppBuild)
 $skipServerBuild = [bool]($SkipBuild -or $SkipFixtureServerBuild)
 
@@ -1103,6 +1262,7 @@ $fixtureReversePort = $null
 $fixtureBaseUrl = $null
 $playbackSessionProbe = $null
 $playbackSessionReadbackPath = $null
+$playbackSessionCancellationReadbackPath = $null
 
 try {
 
@@ -1129,13 +1289,22 @@ Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'install', '-r', '-d'
 if ($clearsAppData) {
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'pm', 'clear', 'dev.taru.android') -FailureMessage 'adb app data reset failed.'
 }
-if ($stateMode -eq 'profile-with-media') {
+if ($stateMode -in @('profile-with-media', 'profile-active-remux')) {
+    $isActiveRemuxSmoke = $stateMode -eq 'profile-active-remux'
+    $fixtureRoot = if ($isActiveRemuxSmoke) {
+        Join-Path $outputDir 'demo-fixture'
+    } else {
+        Join-Path $androidRoot 'build\demo-fixtures\server-backed'
+    }
     $fixtureProvider = Start-SmokeMediaFixtureProvider `
         -ScriptDir $scriptDir `
         -AndroidRoot $androidRoot `
         -OutputDir $outputDir `
         -Port $FixtureServerPort `
-        -SkipServerBuild $skipServerBuild
+        -SkipServerBuild $skipServerBuild `
+        -FixtureRoot $fixtureRoot `
+        -VideoContainer $(if ($isActiveRemuxSmoke) { 'mkv' } else { 'mp4' }) `
+        -SlowRemux $isActiveRemuxSmoke
     $fixtureServerProcess = $fixtureProvider.Process
     $fixtureBaseUrl = $fixtureProvider.Summary.base_url
     $resumeFixture = Resolve-SmokeMediaResumeFixture `
@@ -1156,13 +1325,14 @@ if ($stateMode -eq 'profile-with-media') {
         -DeviceSerial $deviceSerial `
         -OutputDir $outputDir `
         -BaseUrl $fixtureBaseUrl `
-        -AccessToken $FixtureAccessToken
+        -AccessToken $FixtureAccessToken `
+        -ForceRemux $isActiveRemuxSmoke
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop after profile-with-media seed failed.'
 }
 if ($stateMode -eq 'profile-missing-token') {
     Install-SmokeProfileFixture -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 }
-if ($stateMode -ne 'profile-with-media') {
+if ($stateMode -notin @('profile-with-media', 'profile-active-remux')) {
     Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop failed.'
 }
 Wake-Device -AdbPath $adb -DeviceSerial $deviceSerial
@@ -1229,7 +1399,7 @@ if ($stateMode -eq 'empty-setup') {
         'Playback',
         'Server profile'
     )
-} elseif ($stateMode -eq 'profile-with-media') {
+} elseif ($stateMode -in @('profile-with-media', 'profile-active-remux')) {
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 35
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
         'Smoke Server',
@@ -1283,7 +1453,7 @@ if ($stateMode -eq 'empty-setup') {
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume from server state'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-server-resume' -RequiredText @(
         'Source / Version',
-        'Night Harbor.mp4',
+        $(if ($stateMode -eq 'profile-active-remux') { 'Night Harbor.mkv' } else { 'Night Harbor.mp4' }),
         'Resume from server state',
         'Taru will use authoritative User Playback State after checking the selected source.',
         'Resume'
@@ -1292,46 +1462,74 @@ if ($stateMode -eq 'empty-setup') {
         'Local resume'
     )
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume'
-    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Direct' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text $(if ($stateMode -eq 'profile-active-remux') { 'Remux' } else { 'Direct' }) -TimeoutSeconds 25
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Source / Version'
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker' -RequiredText @(
         'Source / Version',
-        'Night Harbor.mp4',
-        'Direct route prepared',
+        $(if ($stateMode -eq 'profile-active-remux') { 'Night Harbor.mkv' } else { 'Night Harbor.mp4' }),
+        $(if ($stateMode -eq 'profile-active-remux') { 'Remux route prepared' } else { 'Direct route prepared' }),
         'Start resume'
     ) -ForbiddenText @(
         'Resume on this device',
         'Local resume'
     )
 
-    $playbackSessionProbe = Start-SmokePlaybackSessionProbe `
-        -BaseUrl $fixtureBaseUrl `
-        -AccessToken $FixtureAccessToken `
-        -SourceId $resumeFixture.SourceId
-
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
-    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Night Harbor' -TimeoutSeconds 25
-    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Ended' -TimeoutSeconds 25
-    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'player' -RequiredText @(
-        'Night Harbor',
-        'Direct',
-        'Server resume 0:01',
-        '00:02',
-        'Ended',
-        'Tracks and subtitles use Media3 controls in this version.'
-    ) -ForbiddenText @(
+    $activeRemuxSessionId = $null
+    if ($stateMode -eq 'profile-with-media') {
+        Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Tracks and subtitles use Media3 controls in this version.' -TimeoutSeconds 25
+        $playbackSessionProbe = Start-SmokePlaybackSessionProbe `
+            -BaseUrl $fixtureBaseUrl `
+            -AccessToken $FixtureAccessToken `
+            -SourceId $resumeFixture.SourceId
+        Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Ended' -TimeoutSeconds 25
+    } else {
+        $activeRemuxSessionProbe = Start-SmokePlaybackSessionProbe `
+            -BaseUrl $fixtureBaseUrl `
+            -AccessToken $FixtureAccessToken `
+            -SourceId $resumeFixture.SourceId `
+            -RemuxQuery 'direct_play=true&container=mp4&video_codec=h264&audio_codec=aac&output_container=mp4'
+        $activeRemuxSessionId = [string]$activeRemuxSessionProbe.SessionId
+        Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Remux' -TimeoutSeconds 25
+        Start-Sleep -Seconds 2
+    }
+    if ($stateMode -eq 'profile-with-media') {
+        $playerRequiredText = @(
+            'Night Harbor',
+            'Direct',
+            'Server resume 0:01',
+            '00:02'
+        )
+        $playerRequiredText += 'Ended'
+        $playerRequiredText += 'Tracks and subtitles use Media3 controls in this version.'
+    } else {
+        $playerRequiredText = @(
+            'Night Harbor',
+            'Remux',
+            'Back'
+        )
+    }
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'player' -RequiredText $playerRequiredText -ForbiddenText @(
         'Local resume'
     )
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
-    $playbackSessionReadbackPath = Write-SmokePlaybackSessionReadbackArtifact `
-        -OutputDir $outputDir `
-        -BaseUrl $fixtureBaseUrl `
-        -AccessToken $FixtureAccessToken `
-        -SessionProbe $playbackSessionProbe
-    $serverReadbackPath = Write-SmokeMediaServerReadbackArtifact -OutputDir $outputDir -BaseUrl $fixtureBaseUrl -AccessToken $FixtureAccessToken -MediaItemId $resumeFixture.MediaItemId
+    if ($stateMode -eq 'profile-with-media') {
+        $playbackSessionReadbackPath = Write-SmokePlaybackSessionReadbackArtifact `
+            -OutputDir $outputDir `
+            -BaseUrl $fixtureBaseUrl `
+            -AccessToken $FixtureAccessToken `
+            -SessionProbe $playbackSessionProbe
+        $serverReadbackPath = Write-SmokeMediaServerReadbackArtifact -OutputDir $outputDir -BaseUrl $fixtureBaseUrl -AccessToken $FixtureAccessToken -MediaItemId $resumeFixture.MediaItemId
+    } else {
+        $playbackSessionCancellationReadbackPath = Write-SmokePlaybackSessionCancelledReadbackArtifact `
+            -OutputDir $outputDir `
+            -BaseUrl $fixtureBaseUrl `
+            -AccessToken $FixtureAccessToken `
+            -SessionId $activeRemuxSessionId
+    }
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText @(
         'Night Harbor',
         'Resume',
@@ -1362,6 +1560,11 @@ $playbackSessionReadbackReport = if ([string]::IsNullOrWhiteSpace($playbackSessi
 } else {
     Split-Path -Leaf $playbackSessionReadbackPath
 }
+$playbackSessionCancellationReadbackReport = if ([string]::IsNullOrWhiteSpace($playbackSessionCancellationReadbackPath)) {
+    'n/a'
+} else {
+    Split-Path -Leaf $playbackSessionCancellationReadbackPath
+}
 
 $reportPath = Join-Path $outputDir 'report.md'
 $report = @"
@@ -1381,6 +1584,7 @@ $report = @"
 $surfaceReport
 - Server playback readback: $serverReadbackReport
 - Public playback session readback: $playbackSessionReadbackReport
+- Public playback session cancellation readback: $playbackSessionCancellationReadbackReport
 - Repo root: $repoRoot
 "@
 $report | Out-File -LiteralPath $reportPath -Encoding utf8

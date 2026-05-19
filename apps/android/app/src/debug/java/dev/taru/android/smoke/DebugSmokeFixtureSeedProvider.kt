@@ -37,6 +37,7 @@ class DebugSmokeFixtureSeedProvider : ContentProvider() {
                 resumeSourceId = extras?.getString(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_SOURCE_ID),
                 resumePositionMs = extras?.longOrNull(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_POSITION_MS),
                 resumeDurationMs = extras?.longOrNull(DebugSmokeFixtureSeedActivity.EXTRA_RESUME_DURATION_MS),
+                forceRemux = extras?.booleanOrNull(DebugSmokeFixtureSeedActivity.EXTRA_FORCE_REMUX),
             )
             seedDebugSmokeFixture(appContext, request)
             resultBundle(status = STATUS_OK)
@@ -94,3 +95,6 @@ class DebugSmokeFixtureSeedProvider : ContentProvider() {
 
 private fun Bundle.longOrNull(key: String): Long? =
     if (containsKey(key)) getLong(key) else null
+
+private fun Bundle.booleanOrNull(key: String): Boolean? =
+    if (containsKey(key)) getBoolean(key) else null

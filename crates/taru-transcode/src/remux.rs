@@ -5,7 +5,7 @@ use taru_core::{Result, TaruError};
 use super::{
     ffmpeg::stderr_message,
     runner_util::{
-        command_with_output_path, ffmpeg_command, join_stderr_task, kill_child,
+        abort_stderr_task, command_with_output_path, ffmpeg_command, join_stderr_task, kill_child,
         promote_temp_output, read_child_stderr, remove_file_if_exists,
     },
     runtime::{CancellationToken, RemuxRuntimeGuard},
@@ -72,7 +72,7 @@ impl FfmpegRemuxRunner {
             }
             () = cancel.cancelled() => {
                 kill_child(&mut child).await?;
-                let _ = join_stderr_task(stderr_task).await?;
+                abort_stderr_task(stderr_task);
                 manager.request_cancel(session_id)?;
                 remove_file_if_exists(&temp_output).await?;
                 manager.mark_cancelled(session_id)?;
@@ -83,7 +83,7 @@ impl FfmpegRemuxRunner {
             }
             () = tokio::time::sleep(self.guard.timeout()) => {
                 kill_child(&mut child).await?;
-                let _ = join_stderr_task(stderr_task).await?;
+                abort_stderr_task(stderr_task);
                 manager.request_cancel(session_id)?;
                 remove_file_if_exists(&temp_output).await?;
                 let message = format!(

@@ -512,6 +512,88 @@ async fn head_remux_stream_route_exposes_session_without_body() {
 }
 
 #[tokio::test]
+async fn head_remux_stream_route_exposes_active_session_before_ffmpeg_finishes() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, marker, store) =
+        router_with_remux_source(true).await;
+    let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("active remux preflight should expose a public session id")
+        .to_owned();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert!(bytes.is_empty());
+
+    wait_for_marker(&marker).await;
+
+    let active = store
+        .find_active_transcode_session(
+            source.id,
+            TranscodeSessionKind::Remux,
+            &local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
+        )
+        .await
+        .unwrap()
+        .expect("remux preflight session should still be active");
+    assert_eq!(active.id.to_string(), session_id);
+    assert!(active.state.is_active());
+
+    let cancel_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/playback/sessions/{session_id}/cancel"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+
+    let mut final_session = None;
+    let mut last_state = None;
+    for _ in 0..150 {
+        let session_response = request_json::<TranscodeSessionResponse>(
+            &router,
+            Method::GET,
+            &format!("/playback/sessions/{session_id}"),
+        )
+        .await;
+        last_state = Some(session_response.session.state);
+        if session_response.session.state == ClientTranscodeSessionState::Cancelled {
+            final_session = Some(session_response.session);
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    let final_session = final_session.unwrap_or_else(|| {
+        panic!("active remux preflight should cancel; last state: {last_state:?}")
+    });
+
+    assert_eq!(
+        final_session.failure_category,
+        Some(ClientTranscodeFailureCategory::Cancelled)
+    );
+}
+
+#[tokio::test]
 async fn playback_session_route_returns_remux_session_state() {
     let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
         router_with_remux_source(false).await;
@@ -851,7 +933,7 @@ async fn hls_segment_route_rejects_unfinished_session() {
 }
 
 #[tokio::test]
-async fn remux_stream_route_maps_in_flight_duplicate_to_conflict() {
+async fn remux_stream_route_waits_for_in_flight_duplicate_and_reuses_session() {
     let (_temp, router, source, _staging_root, _ffmpeg_path, marker, _store) =
         router_with_remux_source(true).await;
     let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
@@ -884,13 +966,25 @@ async fn remux_stream_route_maps_in_flight_duplicate_to_conflict() {
         .await
         .unwrap();
 
-    assert_eq!(duplicate.status(), StatusCode::CONFLICT);
-    let error = body_json::<ErrorResponse>(duplicate).await;
-    assert_eq!(error.code, "conflict");
-    assert!(error.message.contains("already in progress"));
+    assert_eq!(duplicate.status(), StatusCode::OK);
+    let duplicate_session_id = duplicate
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("duplicate remux stream should expose reused session id")
+        .to_owned();
+    let duplicate_bytes = to_bytes(duplicate.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&duplicate_bytes[..], b"remuxed");
 
     let first_response = first.await.unwrap();
     assert_eq!(first_response.status(), StatusCode::OK);
+    let first_session_id = first_response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("first remux stream should expose session id")
+        .to_owned();
+    assert_eq!(first_session_id, duplicate_session_id);
     let bytes = to_bytes(first_response.into_body(), usize::MAX)
         .await
         .unwrap();

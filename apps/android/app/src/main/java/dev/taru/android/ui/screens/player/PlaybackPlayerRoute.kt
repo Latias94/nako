@@ -1,6 +1,7 @@
 package dev.taru.android.ui.screens.player
 
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -44,6 +45,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,6 +98,7 @@ internal fun PlaybackPlayerRoute(
     val clipboard = LocalClipboardManager.current
     var playerState by remember { mutableStateOf("Preparing") }
     var playbackError by remember { mutableStateOf<PlaybackErrorPresentation?>(null) }
+    var exitEffectsStarted by remember(launch) { mutableStateOf(false) }
     val chrome = remember(launch) { playerChromePresentation(launch) }
     val player = remember(launch.request.url) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -111,6 +115,27 @@ internal fun PlaybackPlayerRoute(
         playerState = "Preparing"
         preparePlayer(player, launch)
     }
+
+    fun runExitEffectsOnce() {
+        if (exitEffectsStarted) {
+            return
+        }
+        exitEffectsStarted = true
+        persistPositionAndCancelSession(
+            player = player,
+            launch = launch,
+            profile = profile,
+            tokenVault = tokenVault,
+            playbackClient = playbackClient,
+            userPlaybackClient = userPlaybackClient,
+            positionStore = positionStore,
+        )
+    }
+    val handleBack = {
+        runExitEffectsOnce()
+        onBack()
+    }
+    BackHandler(onBack = handleBack)
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -134,15 +159,7 @@ internal fun PlaybackPlayerRoute(
         }
         player.addListener(listener)
         onDispose {
-            persistPositionAndCancelSession(
-                player = player,
-                launch = launch,
-                profile = profile,
-                tokenVault = tokenVault,
-                playbackClient = playbackClient,
-                userPlaybackClient = userPlaybackClient,
-                positionStore = positionStore,
-            )
+            runExitEffectsOnce()
             player.removeListener(listener)
             player.release()
         }
@@ -179,7 +196,7 @@ internal fun PlaybackPlayerRoute(
         PlayerTopOverlay(
             chrome = chrome,
             playerState = playerState,
-            onBack = onBack,
+            onBack = handleBack,
         )
 
         AnimatedVisibility(
@@ -213,7 +230,7 @@ internal fun PlaybackPlayerRoute(
                     playerState = "Preparing"
                     preparePlayer(player, launch)
                 },
-                onBack = onBack,
+                onBack = handleBack,
                 onCopyDiagnostics = {
                     clipboard.setText(AnnotatedString(presentation.diagnostics))
                 },
@@ -418,7 +435,15 @@ private fun PlayerBottomOverlay(
             ) {
                 StatusChip(text = chrome.sourceLabel)
                 chrome.resumeLabel?.let { StatusChip(text = it) }
-                chrome.sessionLabel?.let { StatusChip(text = it) }
+                chrome.sessionLabel?.let { label ->
+                    Box(
+                        modifier = chrome.sessionAccessibilityLabel
+                            ?.let { Modifier.semantics { contentDescription = it } }
+                            ?: Modifier,
+                    ) {
+                        StatusChip(text = label)
+                    }
+                }
             }
         }
     }

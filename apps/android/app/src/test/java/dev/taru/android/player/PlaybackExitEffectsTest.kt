@@ -36,14 +36,17 @@ class PlaybackExitEffectsTest {
             readAccessToken = { "secret-token" },
             positionStore = store,
             updateProgress = { updateProfile, accessToken, itemId, report ->
+                calls.order += "progress"
                 calls.progress += PlaybackProgressCall(updateProfile.id, accessToken, itemId, report.request.positionMs)
                 userPlaybackSuccess()
             },
             setWatchedState = { _, _, _, _ ->
+                calls.order += "watched"
                 calls.watched += Unit
                 userPlaybackSuccess()
             },
             cancelPlaybackSession = { cancelProfile, accessToken, sessionId ->
+                calls.order += "cancel"
                 calls.cancel += PlaybackCancelCall(cancelProfile.id, accessToken, sessionId)
                 playbackSessionSuccess(sessionId)
             },
@@ -57,6 +60,7 @@ class PlaybackExitEffectsTest {
         assertEquals(listOf(PlaybackProgressCall("server-1", "secret-token", "item-1", 92_000)), calls.progress)
         assertEquals(emptyList<Unit>(), calls.watched)
         assertEquals(listOf(PlaybackCancelCall("server-1", "secret-token", "session-1")), calls.cancel)
+        assertEquals(listOf("cancel", "progress"), calls.order)
     }
 
     @Test
@@ -243,6 +247,7 @@ private data class PlaybackCancelCall(
 )
 
 private class PlaybackExitCalls {
+    val order = mutableListOf<String>()
     val progress = mutableListOf<PlaybackProgressCall>()
     val watchedState = mutableListOf<PlaybackWatchedCall>()
     val watched = mutableListOf<Unit>()

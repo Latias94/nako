@@ -5,6 +5,9 @@ param(
     [string]$ServerBinary,
     [string]$FfmpegPath,
     [string]$FfprobePath,
+    [ValidateSet('mp4', 'mkv')]
+    [string]$VideoContainer = 'mp4',
+    [switch]$SlowRemux,
     [string]$Serial,
     [switch]$SkipBuild,
     [switch]$SkipSeed,
@@ -167,7 +170,9 @@ function Get-TaruServerBinary {
 function New-DemoVideo {
     param(
         [string]$Ffmpeg,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [ValidateSet('mp4', 'mkv')]
+        [string]$Container
     )
 
     if (Test-Path -LiteralPath $OutputPath) {
@@ -186,10 +191,12 @@ function New-DemoVideo {
         '-pix_fmt', 'yuv420p',
         '-c:v', 'libx264',
         '-preset', 'veryfast',
-        '-c:a', 'aac',
-        '-movflags', '+faststart',
-        $OutputPath
+        '-c:a', 'aac'
     )
+    if ($Container -eq 'mp4') {
+        $arguments += @('-movflags', '+faststart')
+    }
+    $arguments += $OutputPath
 
     & $Ffmpeg @arguments
     if ($LASTEXITCODE -eq 0) {
@@ -207,12 +214,67 @@ function New-DemoVideo {
         '-t', '2',
         '-pix_fmt', 'yuv420p',
         '-c:v', 'mpeg4',
-        '-c:a', 'aac',
-        '-movflags', '+faststart',
-        $OutputPath
+        '-c:a', 'aac'
     )
+    if ($Container -eq 'mp4') {
+        $fallbackArguments += @('-movflags', '+faststart')
+    }
+    $fallbackArguments += $OutputPath
 
     Invoke-Native -Command $Ffmpeg -Arguments $fallbackArguments -FailureMessage 'ffmpeg could not create the demo MP4 fixture.'
+}
+
+function New-SlowRemuxFfmpegWrapper {
+    param(
+        [string]$RealFfmpeg,
+        [string]$WrapperPath,
+        [string]$MarkerPath,
+        [string]$FallbackMediaPath
+    )
+
+    $real = (Resolve-Path -LiteralPath $RealFfmpeg).Path
+    $fallback = (Resolve-Path -LiteralPath $FallbackMediaPath).Path
+    $wrapperDir = Split-Path -Parent $WrapperPath
+    New-Item -ItemType Directory -Force -Path $wrapperDir | Out-Null
+
+    if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+        $content = @"
+@echo off
+if "%~1"=="-hide_banner" if "%~2"=="-encoders" goto encoders
+setlocal enabledelayedexpansion
+:args
+if "%~1"=="" goto run
+set out=%~1
+shift
+goto args
+:run
+for %%I in ("%out%") do if not exist "%%~dpI" mkdir "%%~dpI"
+<nul set /p dummy=started>"$MarkerPath"
+ping -n 180 127.0.0.1 > nul
+copy /Y "$fallback" "%out%" > nul
+exit /b 0
+:encoders
+"$real" -hide_banner -encoders
+exit /b %ERRORLEVEL%
+"@
+        Write-Utf8File -Path $WrapperPath -Content $content
+        return
+    }
+
+    $content = @"
+#!/bin/sh
+if [ "`$1" = "-hide_banner" ] && [ "`$2" = "-encoders" ]; then
+  exec "$real" -hide_banner -encoders
+fi
+for arg do out="`$arg"; done
+mkdir -p "`$(dirname "`$out")"
+printf started > "$MarkerPath"
+sleep 180
+cp "$fallback" "`$out"
+exit 0
+"@
+    Write-Utf8File -Path $WrapperPath -Content $content
+    chmod +x $WrapperPath
 }
 
 function Write-DemoNfo {
@@ -309,18 +371,26 @@ $ffmpeg = Resolve-CommandPath -Name 'ffmpeg' -ProvidedPath $FfmpegPath
 $ffprobe = Resolve-CommandPath -Name 'ffprobe' -ProvidedPath $FfprobePath
 $server = Get-TaruServerBinary -RepoRoot $repoRoot -ProvidedBinary $ServerBinary -SkipBuild ([bool]$SkipBuild)
 
-$videoPath = Join-Path $mediaRoot 'Night Harbor.mp4'
+$videoPath = Join-Path $mediaRoot "Night Harbor.$VideoContainer"
 $nfoPath = Join-Path $mediaRoot 'Night Harbor.nfo'
 $databasePath = Join-Path $databaseRoot 'taru-demo.db'
 $configPath = Join-Path $fixtureRootPath 'taru.toml'
 $summaryPath = Join-Path $fixtureRootPath 'summary.json'
 
-New-DemoVideo -Ffmpeg $ffmpeg -OutputPath $videoPath
+New-DemoVideo -Ffmpeg $ffmpeg -OutputPath $videoPath -Container $VideoContainer
 Write-DemoNfo -Path $nfoPath
 if (-not (Test-Path -LiteralPath $databasePath)) {
     New-Item -ItemType File -Path $databasePath | Out-Null
 }
-Write-DemoConfig -Path $configPath -DatabasePath $databasePath -MediaRoot $mediaRoot -CacheRoot $cacheRoot -Ffmpeg $ffmpeg -Ffprobe $ffprobe -ListenPort $Port
+$serverFfmpeg = $ffmpeg
+$slowRemuxMarker = $null
+if ($SlowRemux) {
+    $wrapperExtension = if ($IsWindows -or $env:OS -eq 'Windows_NT') { '.cmd' } else { '' }
+    $serverFfmpeg = Join-Path $fixtureRootPath "slow-remux-ffmpeg$wrapperExtension"
+    $slowRemuxMarker = Join-Path $fixtureRootPath 'slow-remux.started'
+    New-SlowRemuxFfmpegWrapper -RealFfmpeg $ffmpeg -WrapperPath $serverFfmpeg -MarkerPath $slowRemuxMarker -FallbackMediaPath $videoPath
+}
+Write-DemoConfig -Path $configPath -DatabasePath $databasePath -MediaRoot $mediaRoot -CacheRoot $cacheRoot -Ffmpeg $serverFfmpeg -Ffprobe $ffprobe -ListenPort $Port
 
 if (-not $SkipSeed) {
     Invoke-Native -Command $server -Arguments @('--config', $configPath, 'scan') -FailureMessage 'taru-server scan failed for the demo fixture.'
@@ -340,8 +410,13 @@ $summary = [ordered]@{
     config = $configPath
     media_root = $mediaRoot
     video = $videoPath
+    video_container = $VideoContainer
     nfo = $nfoPath
     database = $databasePath
+    slow_remux = [bool]$SlowRemux
+    slow_remux_marker = if ($slowRemuxMarker) { $slowRemuxMarker } else { $null }
+    real_ffmpeg = $ffmpeg
+    server_ffmpeg = $serverFfmpeg
     auth = 'disabled'
     android_smoke_token = 'demo-fixture-token'
     adb_reverse = [bool]$AdbReverse

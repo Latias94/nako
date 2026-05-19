@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -29,6 +30,10 @@ import dev.taru.android.playback.PlaybackResult
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackCapabilities
+import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.playback.PlaybackPreferencesStore
+import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.playbackLaunchRequest
@@ -45,6 +50,7 @@ import dev.taru.android.userplayback.UserPlaybackResult
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -54,6 +60,7 @@ fun TaruBrowseShell(
     tokenVault: TokenVault,
     browseClient: TaruBrowseClient,
     playbackClient: TaruPlaybackClient,
+    playbackPreferencesStore: PlaybackPreferencesStore,
     userPlaybackClient: TaruUserPlaybackClient,
     positionStore: DevicePlaybackPositionStore,
     onChangeServer: () -> Unit,
@@ -72,6 +79,7 @@ fun TaruBrowseShell(
     }
     val selectedDestination = navigationState.selectedDestination
     val route = navigationState.currentRoute
+    val routeScope = rememberCoroutineScope()
     var refreshKey by remember { mutableIntStateOf(0) }
     var browseState by remember(profile.id, refreshKey) {
         mutableStateOf<BrowseUiState>(BrowseUiState.Loading)
@@ -217,6 +225,7 @@ fun TaruBrowseShell(
             profile = profile,
             tokenVault = tokenVault,
             playbackClient = playbackClient,
+            playbackPreferencesStore = playbackPreferencesStore,
             sourceId = sourceId,
         )
     }
@@ -342,7 +351,8 @@ fun TaruBrowseShell(
                         val sourceId = selectedSourceId
                             ?: detail?.sources?.firstOrNull()?.id
                             ?: playbackState.contentOrNull()?.response?.source?.id
-                        if (item != null && !sourceId.isNullOrBlank()) {
+                        val playbackContent = playbackState.contentOrNull()
+                        if (item != null && !sourceId.isNullOrBlank() && playbackContent != null) {
                             val title = item.metadata.title.ifBlank { "Taru Playback" }
                             val resumePosition = resolvedResumePosition(
                                 profileId = profile.id,
@@ -351,25 +361,41 @@ fun TaruBrowseShell(
                                 userPlaybackState = detailContent.userPlaybackState,
                                 positionStore = positionStore,
                             )
-                            navigationState = navigationState.open(
-                                TaruRoute.Player(
-                                    playbackLaunchRequest(
-                                        title = title,
+                            routeScope.launch {
+                                playbackState = PlaybackSelectionUiState.Loading
+                                when (
+                                    val prepared = preparePlaybackStartTarget(
+                                        profile = profile,
+                                        tokenVault = tokenVault,
+                                        playbackClient = playbackClient,
+                                        decision = playbackContent.response,
+                                        capabilities = playbackContent.capabilities,
                                         target = target,
-                                        serverProfileId = profile.id,
-                                        mediaItemId = item.id,
-                                        sourceId = sourceId,
-                                        playbackMode = playbackState.contentOrNull()
-                                            ?.response
-                                            ?.decision
-                                            ?.mode
-                                            ?: ClientPlaybackMode.DirectPlay,
-                                        sessionId = target.sessionId,
-                                        resumePositionMs = resumePosition?.positionMs,
-                                        resumeSource = resumePosition?.source,
-                                    ),
-                                ),
-                            )
+                                    )
+                                ) {
+                                    is PlaybackResult.Success -> {
+                                        navigationState = navigationState.open(
+                                            TaruRoute.Player(
+                                                playbackLaunchRequest(
+                                                    title = title,
+                                                    target = prepared.value,
+                                                    serverProfileId = profile.id,
+                                                    mediaItemId = item.id,
+                                                    sourceId = sourceId,
+                                                    playbackMode = playbackContent.response.decision.mode,
+                                                    sessionId = prepared.value.sessionId,
+                                                    resumePositionMs = resumePosition?.positionMs,
+                                                    resumeSource = resumePosition?.source,
+                                                ),
+                                            ),
+                                        )
+                                        playbackState = playbackContent.copy(target = prepared.value)
+                                    }
+                                    is PlaybackResult.Failure -> {
+                                        playbackState = PlaybackSelectionUiState.Failure(prepared.diagnostics)
+                                    }
+                                }
+                            }
                         }
                     },
                 )
@@ -466,6 +492,7 @@ private suspend fun loadPlaybackSelectionState(
     profile: ServerProfile,
     tokenVault: TokenVault,
     playbackClient: TaruPlaybackClient,
+    playbackPreferencesStore: PlaybackPreferencesStore,
     sourceId: String,
 ): PlaybackSelectionUiState {
     val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
@@ -478,28 +505,58 @@ private suspend fun loadPlaybackSelectionState(
         )
     }
 
+    val capabilities = playbackPreferencesStore.loadCapabilities(profile.id)
+
     return when (
         val result = playbackClient.getPlaybackDecision(
             profile = profile,
             accessToken = accessToken,
             sourceId = sourceId,
+            capabilities = capabilities,
         )
     ) {
-        is PlaybackResult.Success -> when (
-            val target = playbackClient.prepareRecommendedPlaybackTarget(
+        is PlaybackResult.Success -> PlaybackSelectionUiState.Content(
+            response = result.value,
+            target = playbackClient.recommendedPlaybackTarget(
                 profile = profile,
                 accessToken = accessToken,
                 decision = result.value,
-            )
-        ) {
-            is PlaybackResult.Success -> PlaybackSelectionUiState.Content(
-                response = result.value,
-                target = target.value,
-            )
-            is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(target.diagnostics)
-        }
+                capabilities = capabilities,
+            ),
+            capabilities = capabilities,
+        )
         is PlaybackResult.Failure -> PlaybackSelectionUiState.Failure(result.diagnostics)
     }
+}
+
+private suspend fun preparePlaybackStartTarget(
+    profile: ServerProfile,
+    tokenVault: TokenVault,
+    playbackClient: TaruPlaybackClient,
+    decision: PlaybackDecisionResponse,
+    capabilities: PlaybackCapabilities,
+    target: PlaybackRequestTarget,
+): PlaybackResult<PlaybackRequestTarget> {
+    if (!target.sessionId.isNullOrBlank()) {
+        return PlaybackResult.Success(target, target.safeRequest)
+    }
+
+    val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+    if (accessToken.isBlank()) {
+        return PlaybackResult.Failure(
+            SafePlaybackDiagnostics(
+                category = PlaybackFailureCategory.MissingAccessToken,
+                userMessage = "Re-authenticate this server before requesting playback.",
+            ),
+        )
+    }
+
+    return playbackClient.prepareRecommendedPlaybackTarget(
+        profile = profile,
+        accessToken = accessToken,
+        decision = decision,
+        capabilities = capabilities,
+    )
 }
 
 private suspend fun loadLibraryDetailState(

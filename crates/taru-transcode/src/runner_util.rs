@@ -195,6 +195,10 @@ pub(crate) async fn join_stderr_task(
     })?
 }
 
+pub(crate) fn abort_stderr_task(task: tokio::task::JoinHandle<Result<Vec<u8>>>) {
+    task.abort();
+}
+
 pub(crate) fn ffmpeg_command(command: &FfmpegCommandPlan) -> Command {
     let mut child = Command::new(&command.program);
     child

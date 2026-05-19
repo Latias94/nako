@@ -37,6 +37,19 @@ class PlayerPresentationTest {
     }
 
     @Test
+    fun playerChromeKeepsSessionIdOutOfVisibleLabelButAvailableToAutomation() {
+        val chrome = playerChromePresentation(
+            launch = launch(
+                resumePositionMs = null,
+                sessionId = "session-1",
+            ),
+        )
+
+        assertEquals("Playback session active", chrome.sessionLabel)
+        assertEquals("Playback session id session-1", chrome.sessionAccessibilityLabel)
+    }
+
+    @Test
     fun playerBackdropUsesStableFallbackTitleWhenLaunchTitleIsBlank() {
         val chrome = playerChromePresentation(
             launch = launch(title = " ", resumePositionMs = null),
@@ -67,6 +80,7 @@ class PlayerPresentationTest {
         title: String = "Night Harbor",
         resumePositionMs: Long?,
         resumeSource: PlaybackResumeSource? = null,
+        sessionId: String = "session-1",
     ) =
         playbackLaunchRequest(
             title = title,
@@ -86,7 +100,7 @@ class PlayerPresentationTest {
             mediaItemId = "item-1",
             sourceId = "source-1",
             playbackMode = ClientPlaybackMode.Transcode,
-            sessionId = "session-1",
+            sessionId = sessionId,
             resumePositionMs = resumePositionMs,
             resumeSource = resumeSource,
         )

@@ -1,0 +1,20 @@
+{
+  "slug": "android-active-playback-session-cancellation",
+  "title": "Android Active Playback Session Cancellation",
+  "status": "closed",
+  "current_milestone": "M3",
+  "current_task": null,
+  "last_updated": "2026-05-19",
+  "goal": "Let Android smoke prove that exiting a non-Direct active playback session cancels the server-side remux/HLS session through Public Client API.",
+  "task_prefix": "APSC",
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null
+  },
+  "paths": [
+    "docs/workstreams/android-active-playback-session-cancellation",
+    "crates/taru-server/src/app/playback",
+    "crates/taru-server/src/http/playback.rs",
+    "apps/android"
+  ]
+}

@@ -15,6 +15,7 @@ import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.media.SourceProbeResponse
@@ -161,6 +162,7 @@ internal sealed interface PlaybackSelectionUiState {
     data class Content(
         val response: PlaybackDecisionResponse,
         val target: PlaybackRequestTarget?,
+        val capabilities: PlaybackCapabilities,
     ) : PlaybackSelectionUiState
 
     data class Failure(

@@ -195,6 +195,7 @@ class TaruPlaybackClient(
         profile: ServerProfile,
         accessToken: String,
         decision: PlaybackDecisionResponse,
+        capabilities: PlaybackCapabilities = PlaybackCapabilities(),
     ): PlaybackRequestTarget? {
         val target = when (decision.decision.mode) {
             ClientPlaybackMode.DirectPlay -> directPlaybackTarget(
@@ -206,12 +207,14 @@ class TaruPlaybackClient(
                 profile = profile,
                 accessToken = accessToken,
                 sourceId = decision.source.id,
+                capabilities = capabilities,
                 outputContainer = remuxOutputContainer(decision),
             )
             ClientPlaybackMode.Transcode -> hlsPlaylistTarget(
                 profile = profile,
                 accessToken = accessToken,
                 sourceId = decision.source.id,
+                capabilities = capabilities,
             )
         }
         return target
@@ -221,11 +224,13 @@ class TaruPlaybackClient(
         profile: ServerProfile,
         accessToken: String,
         decision: PlaybackDecisionResponse,
+        capabilities: PlaybackCapabilities = PlaybackCapabilities(),
     ): PlaybackResult<PlaybackRequestTarget> {
         val target = recommendedPlaybackTarget(
             profile = profile,
             accessToken = accessToken,
             decision = decision,
+            capabilities = capabilities,
         ) ?: return failure(
             category = PlaybackFailureCategory.UnsupportedSource,
             userMessage = "The server did not return a playable route for this source.",

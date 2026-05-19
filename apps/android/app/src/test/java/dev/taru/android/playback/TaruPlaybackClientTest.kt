@@ -493,6 +493,40 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `preparing remux playback target preserves decision capabilities`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    body = "",
+                    headers = mapOf(
+                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
+                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-forced"),
+                    ),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Remux, ClientOutputContainer.Mp4),
+            capabilities = PlaybackCapabilities(
+                directPlay = true,
+                containers = listOf("mp4"),
+                videoCodecs = listOf("h264"),
+                audioCodecs = listOf("aac"),
+            ),
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        assertEquals("session-remux-forced", (result as PlaybackResult.Success).value.sessionId)
+        assertEquals(
+            "http://home.example.test/api/sources/source%201/stream/remux?direct_play=true&container=mp4&video_codec=h264&audio_codec=aac&output_container=mp4",
+            transport.requests.single().url,
+        )
+    }
+
+    @Test
     fun `preparing hls playback target reads session id from public playlist response`() = runBlocking {
         val transport = FakePlaybackTransport(
             ResponseStep(
