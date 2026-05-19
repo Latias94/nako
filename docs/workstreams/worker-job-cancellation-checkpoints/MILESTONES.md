@@ -1,0 +1,78 @@
+# Worker Job Cancellation Checkpoints - Milestones
+
+Status: Active
+Last updated: 2026-05-19
+
+## M0 - Scope And Evidence Freeze
+
+Exit criteria:
+
+- Durable cancel-request gap is stated.
+- Runtime, worker, Admin, and non-goal boundaries are explicit.
+- First executable task is a runtime cancellation context, not broad worker
+  migration.
+
+Primary evidence:
+
+- `docs/workstreams/worker-job-cancellation-checkpoints/DESIGN.md`
+- `docs/workstreams/worker-job-cancellation-checkpoints/TODO.md`
+
+## M1 - Runtime Cancellation Context
+
+Exit criteria:
+
+- `DurableJobRuntime` has a per-run cancellation context.
+- Heartbeat-observed cancel intent can be checked by the operation closure.
+- Observed cancellation persists terminal `cancelled` through
+  `cancel_leased_job`.
+- Cancellation is not recorded as `failed`.
+
+Primary gates:
+
+```powershell
+$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+cargo nextest run -p taru-server job_runtime --no-fail-fast
+cargo check -p taru-server --tests
+```
+
+## M2 - First Real Worker Checkpoints
+
+Exit criteria:
+
+- A real typed worker checks cancellation before a new side-effect unit.
+- Admin running cancel request can move to acknowledged terminal `cancelled`.
+- Success events are not emitted for cancelled runs.
+
+Primary gates:
+
+```powershell
+$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+cargo nextest run -p taru-server job_cancel --no-fail-fast
+cargo nextest run -p taru-server metadata --no-fail-fast
+```
+
+## M3 - Additional Worker Boundaries
+
+Exit criteria:
+
+- Library scan/probe and NFO import/export either have checkpoints at safe
+  boundaries or documented follow-ons with explicit reasons.
+- Docs explain that cancellation is cooperative and boundary-based.
+- No retry/backoff or distributed scheduling behavior is hidden in this lane.
+
+Primary gates:
+
+```powershell
+$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+cargo nextest run -p taru-server job_runtime --no-fail-fast
+cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+```
+
+## M4 - Closeout
+
+Exit criteria:
+
+- Gate set is recorded with fresh evidence.
+- Remaining migrations are completed or split.
+- `WORKSTREAM.json` status matches reality.
+- `HANDOFF.md` names the next highest-leverage follow-on.
