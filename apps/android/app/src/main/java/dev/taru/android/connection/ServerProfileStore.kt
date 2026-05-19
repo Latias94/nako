@@ -42,7 +42,7 @@ class SharedPreferencesServerProfileStore(
     }
 
     override fun save(snapshot: ServerProfileSnapshot) {
-        preferences.edit().putString(snapshotKey, json.encodeToString(snapshot)).apply()
+        preferences.edit().putString(snapshotKey, json.encodeToString(snapshot)).commit()
     }
 
     private companion object {

@@ -173,6 +173,53 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `transcode playback decision decodes without internal input locator`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "source": {
+                        "id": "source-1",
+                        "library_id": "library-1",
+                        "item_id": "item-1",
+                        "file_name": "night-harbor.mkv",
+                        "size_bytes": 42,
+                        "fingerprint": null
+                      },
+                      "probe": null,
+                      "decision": {
+                        "mode": "transcode",
+                        "reason": "client needs HLS",
+                        "direct_play": null,
+                        "transcode_plan": {
+                          "output_container": "hls",
+                          "video_codec": "h264",
+                          "audio_codec": "aac",
+                          "hardware_acceleration": "none"
+                        }
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.getPlaybackDecision(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            sourceId = "source-1",
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals(ClientPlaybackMode.Transcode, success.value.decision.mode)
+        assertEquals(ClientOutputContainer.Hls, success.value.decision.transcodePlan?.outputContainer)
+        assertFalse(success.toString().contains("input_locator"))
+    }
+
+    @Test
     fun `playback session inspection and cancellation use public routes and redacted previews`() = runBlocking {
         val transport = FakePlaybackTransport(
             ResponseStep(
@@ -305,7 +352,6 @@ class TaruPlaybackClientTest {
                 mode = ClientPlaybackMode.Remux,
                 reason = "container",
                 transcodePlan = ClientTranscodePlan(
-                    inputLocator = "file:///srv/media/night-harbor.mkv",
                     outputContainer = ClientOutputContainer.Mkv,
                     videoCodec = "h264",
                     audioCodec = "aac",
@@ -318,7 +364,6 @@ class TaruPlaybackClientTest {
                 mode = ClientPlaybackMode.Transcode,
                 reason = "needs hls",
                 transcodePlan = ClientTranscodePlan(
-                    inputLocator = "file:///srv/media/night-harbor.mkv",
                     outputContainer = ClientOutputContainer.Hls,
                     videoCodec = "h264",
                     audioCodec = "aac",

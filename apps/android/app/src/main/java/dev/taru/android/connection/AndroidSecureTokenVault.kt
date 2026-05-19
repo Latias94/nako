@@ -22,12 +22,12 @@ class AndroidSecureTokenVault(
     )
 
     override fun saveToken(reference: String, token: String) {
-        preferences.edit().putString(reference, token).apply()
+        preferences.edit().putString(reference, token).commit()
     }
 
     override fun readToken(reference: String): String? = preferences.getString(reference, null)
 
     override fun deleteToken(reference: String) {
-        preferences.edit().remove(reference).apply()
+        preferences.edit().remove(reference).commit()
     }
 }

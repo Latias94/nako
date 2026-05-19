@@ -59,7 +59,6 @@ class SourcePickerDisplayModelTest {
                 mode = ClientPlaybackMode.Transcode,
                 reason = "adaptive output",
                 transcodePlan = ClientTranscodePlan(
-                    inputLocator = "file:///srv/private/media/night-harbor.mkv",
                     outputContainer = ClientOutputContainer.Hls,
                     hardwareAcceleration = ClientHardwareAcceleration.None,
                 ),

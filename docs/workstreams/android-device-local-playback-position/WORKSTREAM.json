@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "android-device-local-playback-position",
+  "title": "Android Device-Local Playback Position",
+  "status": "closed",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Android has an in-memory device-local playback position store, but local resume points do not survive process restarts.",
+  "summary": "Closed lane for persisting Android device-local playback positions without claiming server-authoritative User Playback State.",
+  "current_milestone": "M2",
+  "current_task": null,
+  "task_prefix": "ADP",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-device-local-playback-position/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-device-local-playback-position/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-device-local-playback-position/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-device-local-playback-position/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-device-local-playback-position/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Validate-AndroidLocal.ps1 -SkipSmoke",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ADP-010",
+      "path": "docs/workstreams/android-device-local-playback-position/DESIGN.md",
+      "notes": "Planning and local-state boundary freeze."
+    },
+    {
+      "task": "ADP-020",
+      "path": "apps/android/build/validation/20260519-100247/report.md",
+      "notes": "Persistent Android device-local playback position store implemented and no-emulator validation passed."
+    },
+    {
+      "task": "ADP-030",
+      "path": "docs/workstreams/android-device-local-playback-position/HANDOFF.md",
+      "notes": "Lane closed with server-authoritative User Playback State and session-envelope work split as follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "notes": "Lane is closed. Split server-authoritative User Playback State, cross-device Continue Watching, progress reporting, and playback session envelope work into separate lanes."
+  }
+}

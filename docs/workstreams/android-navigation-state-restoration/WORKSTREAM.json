@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "android-navigation-state-restoration",
+  "title": "Android Navigation State Restoration",
+  "status": "closed",
+  "updated": "2026-05-19",
+  "scope_kind": "architecture",
+  "problem": "Android browse navigation now has a route stack, but the state is held only in memory and loses safe context across Activity recreation.",
+  "summary": "Closed lane for safe save/restore of Android browse navigation state without persisting transient playback requests or sensitive headers.",
+  "current_milestone": null,
+  "current_task": null,
+  "task_prefix": "ANS",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-navigation-state-restoration/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-navigation-state-restoration/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-navigation-state-restoration/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-navigation-state-restoration/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-navigation-state-restoration/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ANS-010",
+      "path": "docs/workstreams/android-navigation-state-restoration/DESIGN.md",
+      "notes": "Boundary freeze for Android browse navigation save/restore behavior."
+    },
+    {
+      "task": "ANS-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/TaruBrowseNavigationStateSaverTest.kt",
+      "notes": "Focused saver tests and full Android debug unit suite passed on 2026-05-19."
+    },
+    {
+      "task": "ANS-030",
+      "path": "docs/workstreams/android-navigation-state-restoration/EVIDENCE_AND_GATES.md",
+      "notes": "Closeout evidence recorded on 2026-05-19."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "notes": "Workstream is closed. Open a new lane for deep links, route URI contracts, or active playback session restoration."
+  }
+}

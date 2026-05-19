@@ -35,6 +35,77 @@ internal sealed interface TaruRoute {
     data object ServerProfile : TaruRoute
 }
 
+internal class TaruRouteStack private constructor(
+    private val entries: List<TaruRoute>,
+) {
+    val current: TaruRoute = entries.last()
+    val isAtRoot: Boolean = entries.size == 1
+    val canPop: Boolean = !isAtRoot
+    val routes: List<TaruRoute> = entries
+
+    init {
+        require(entries.isNotEmpty()) { "Taru route stack cannot be empty." }
+        require(entries.first() == TaruRoute.TopLevel) {
+            "Taru route stack must be rooted at top level."
+        }
+        require(entries.drop(1).none { it == TaruRoute.TopLevel }) {
+            "Top level route cannot appear inside nested routes."
+        }
+    }
+
+    fun push(route: TaruRoute): TaruRouteStack {
+        require(route != TaruRoute.TopLevel) {
+            "Use clearToRoot() instead of pushing top level."
+        }
+        return TaruRouteStack(entries + route)
+    }
+
+    fun pop(): TaruRouteStack =
+        if (canPop) {
+            TaruRouteStack(entries.dropLast(1))
+        } else {
+            this
+        }
+
+    fun clearToRoot(): TaruRouteStack = root()
+
+    override fun equals(other: Any?): Boolean =
+        other is TaruRouteStack && entries == other.entries
+
+    override fun hashCode(): Int = entries.hashCode()
+
+    override fun toString(): String = "TaruRouteStack(entries=$entries)"
+
+    companion object {
+        fun root(): TaruRouteStack = TaruRouteStack(listOf(TaruRoute.TopLevel))
+    }
+}
+
+internal data class TaruBrowseNavigationState(
+    val selectedDestination: TaruDestination = TaruDestination.Home,
+    val routeStack: TaruRouteStack = TaruRouteStack.root(),
+) {
+    val currentRoute: TaruRoute = routeStack.current
+    val navigationVisible: Boolean = routeStack.isAtRoot
+    val canNavigateBack: Boolean = routeStack.canPop
+
+    fun selectDestination(destination: TaruDestination): TaruBrowseNavigationState =
+        copy(
+            selectedDestination = destination,
+            routeStack = routeStack.clearToRoot(),
+        )
+
+    fun open(route: TaruRoute): TaruBrowseNavigationState =
+        copy(routeStack = routeStack.push(route))
+
+    fun navigateBack(): TaruBrowseNavigationState =
+        copy(routeStack = routeStack.pop())
+
+    companion object {
+        fun root(): TaruBrowseNavigationState = TaruBrowseNavigationState()
+    }
+}
+
 internal sealed interface BrowseUiState {
     data object Loading : BrowseUiState
 
