@@ -10,6 +10,7 @@ use tokio::sync::Semaphore;
 use crate::config::TaruServerConfig;
 
 mod addons;
+mod artwork;
 mod automation;
 mod catalog;
 mod job_runtime;
@@ -27,6 +28,8 @@ mod storage;
 mod webhooks;
 
 use addons::AddonAppService;
+use artwork::ManagedArtworkAppService;
+pub(crate) use artwork::ManagedArtworkImageBytes;
 use automation::AutomationAppService;
 use catalog::CatalogAppService;
 use jobs::{JobAppService, LibraryScanAppService};
@@ -61,6 +64,7 @@ struct TaruAppInner {
     runtime: RuntimeSupervisor,
     jobs: JobAppService,
     library_scan: LibraryScanAppService,
+    artwork: ManagedArtworkAppService,
     addons: AddonAppService,
     automation: AutomationAppService,
     webhooks: WebhookAppService,
@@ -93,6 +97,7 @@ impl TaruApp {
         let metadata_permits = Arc::new(Semaphore::new(config.metadata_concurrency.max(1)));
         let metadata_providers = metadata_runtime::build_metadata_provider_registry(&config)?;
         let jobs = JobAppService::new(store.clone());
+        let artwork = ManagedArtworkAppService::new(config.artwork.clone(), store.clone())?;
         let library_scan = LibraryScanAppService::new(
             config.clone(),
             store.clone(),
@@ -100,7 +105,11 @@ impl TaruApp {
             storage_backends.clone(),
             runtime.clone(),
         );
-        let addons = AddonAppService::new(store.clone());
+        let addons = AddonAppService::new(
+            store.clone(),
+            metadata_permits.clone(),
+            storage_backends.clone(),
+        );
         let automation = AutomationAppService::new(store.clone());
         let webhooks = WebhookAppService::new(store.clone(), webhook_permits);
         let catalog = CatalogAppService::new(store.clone());
@@ -135,6 +144,7 @@ impl TaruApp {
                 runtime: runtime.clone(),
                 jobs,
                 library_scan,
+                artwork,
                 addons,
                 automation,
                 webhooks,
@@ -158,6 +168,11 @@ impl TaruApp {
     #[must_use]
     pub(crate) fn addons(&self) -> AddonAppService {
         self.inner.addons.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn artwork(&self) -> ManagedArtworkAppService {
+        self.inner.artwork.clone()
     }
 
     #[must_use]

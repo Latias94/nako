@@ -454,6 +454,15 @@ impl StorageBackend for LibraryStorageBackend {
         result
     }
 
+    async fn write(
+        &self,
+        request: taru_vfs::StorageWriteRequest,
+    ) -> Result<taru_vfs::StorageWriteReport> {
+        let result = self.inner.write(request).await;
+        self.record_result(&result);
+        result
+    }
+
     async fn stage(&self, request: taru_vfs::StageRequest) -> Result<taru_vfs::StagedFile> {
         let result = self.inner.stage(request).await;
         self.record_result(&result);
@@ -669,6 +678,7 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config.clone()],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -709,6 +719,7 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();
@@ -784,6 +795,7 @@ mod tests {
             transcode: Default::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config.clone()],
         };
         let store = SqliteStore::connect_in_memory().await.unwrap();

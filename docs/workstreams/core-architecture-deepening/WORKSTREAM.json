@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "slug": "core-architecture-deepening",
+  "title": "Core Architecture Deepening",
+  "status": "completed",
+  "updated": "2026-05-18",
+  "scope_kind": "execution",
+  "problem": "NFO import, Library indexing, playback/transcode reuse identity, and runtime diagnostics still expose shallow interfaces or caller-side ordering that will not scale to provider expansion, Addon Sidecar writes, AI enrichment, remote storage, and richer playback clients.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/core-architecture-deepening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/core-architecture-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/core-architecture-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/core-architecture-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/core-architecture-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/core-architecture-deepening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo check -p taru-core --tests",
+    "cargo check -p taru-db --tests",
+    "cargo check -p taru-nfo --tests",
+    "cargo check -p taru-library --tests",
+    "cargo check -p taru-streaming --tests",
+    "cargo check -p taru-transcode --tests",
+    "cargo check -p taru-server --tests",
+    "focused cargo nextest run for touched crates",
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo nextest run --workspace --no-fail-fast",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-nfo/src/import.rs",
+    "crates/taru-library/src/index.rs",
+    "crates/taru-db/src/metadata.rs",
+    "crates/taru-db/src/scan.rs",
+    "crates/taru-db/src/catalog.rs",
+    "crates/taru-server/src/app/nfo.rs",
+    "crates/taru-server/src/app/jobs.rs",
+    "crates/taru-server/src/app/playback",
+    "crates/taru-streaming",
+    "crates/taru-transcode"
+  ],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "current_task": null,
+  "first_slice": "Closed",
+  "non_goals": [
+    "new TMDB, Douban, Bangumi, or AI provider breadth",
+    "in-process plugin ABI",
+    "Jellyfin plugin compatibility",
+    "adaptive bitrate ladder",
+    "optimized-version workflow",
+    "client UI implementation",
+    "network traversal implementation",
+    "duplicating addon token, grant, artwork, subtitle, NFO, or Library File Write scope"
+  ],
+  "routed_from": {
+    "source": "2026-05-18 architecture review and user-requested fearless refactor",
+    "prior_lanes": [
+      "architecture-review-followups",
+      "metadata-catalog-commit-atomicity",
+      "metadata-merge-policy-unification",
+      "repository-seam-deepening",
+      "playback-source-selection-deepening",
+      "transcode-runtime"
+    ]
+  },
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "Workstream closed on 2026-05-18 after workspace check, workspace nextest, formatting, and diff gates passed. Continue addon artwork or Library File Write breadth in their dedicated workstreams."
+  }
+}

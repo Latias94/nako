@@ -22,6 +22,7 @@ async fn webdav_preview_config_builds_scanner_backend() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Remote Movies".to_owned(),
@@ -91,6 +92,7 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![
                 LocalLibraryConfig {
                     id: local_library_id,
@@ -206,6 +208,7 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
                 id: configured_id,
                 name: "Configured Movies".to_owned(),

@@ -15,37 +15,49 @@ use taru_addon_protocol::{
     AddonScope, ReqwestAddonTransport, call_addon_resource,
 };
 use taru_api::{
-    AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment, AddonGrantsResponse,
-    AddonRegistrationResponse, AddonRegistrationsResponse, AddonSideEffectResponse,
-    AddonSideEffectTargetRequest, AddonTokenIssuedResponse, AddonTokenResponse,
-    AddonTokenRotationResponse, AddonTokensResponse, AdminCatalogGovernanceItemListResponse,
-    AdminJobListResponse, AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
-    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-    AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
-    AdminStorageStagingDiagnosticsResponse, AutomationArtifactsResponse,
-    AutomationProviderResponse, AutomationProvidersResponse, ClientTranscodeFailureCategory,
-    ClientTranscodeSessionState, EnqueueAutomationJobRequest, EnqueueMetadataMaintenanceRequest,
-    ErrorResponse, HealthResponse, IgnoreIngestionFailureRequest, IngestionFailuresResponse,
-    IssueAddonTokenRequest, JobResponse, LibraryListResponse, LibraryResponse,
-    MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
-    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
-    MetadataRawCleanupResponse, MetadataRawResponsesResponse, RegisterAddonRequest,
+    AcceptManagedArtworkCandidateResponse, AddonAccessCheckRequest, AddonAccessCheckResponse,
+    AddonGrantAssignment, AddonGrantsResponse, AddonRegistrationResponse,
+    AddonRegistrationsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
+    AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
+    AdminCatalogGovernanceItemListResponse, AdminJobListResponse,
+    AdminManagedArtworkArtifactCleanupResponse, AdminManagedArtworkArtifactLifecycleResponse,
+    AdminManagedArtworkArtifactRemediationPlanResponse,
+    AdminManagedArtworkArtifactStorageDriftArtifactIssue,
+    AdminManagedArtworkArtifactStorageDriftFileReason,
+    AdminManagedArtworkArtifactStorageDriftResponse,
+    AdminManagedArtworkArtifactStrayFileCleanupResponse,
+    AdminManagedArtworkArtifactStrayFileCleanupStatus,
+    AdminManagedArtworkArtifactStrayFileRemediationAction, AdminOutboxEventListResponse,
+    AdminOverviewResponse, AdminOverviewStatus, AdminPlaybackRuntimeDiagnosticsResponse,
+    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListResponse,
+    AdminServerConfigDiagnosticsResponse, AdminStorageStagingDiagnosticsResponse,
+    AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
+    ClientTranscodeFailureCategory, ClientTranscodeSessionState, EnqueueAutomationJobRequest,
+    EnqueueMetadataMaintenanceRequest, ErrorResponse, HealthResponse,
+    IgnoreIngestionFailureRequest, IngestionFailuresResponse, IssueAddonTokenRequest, JobResponse,
+    LibraryListResponse, LibraryResponse, MetadataMaintenancePlanResponse,
+    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
+    MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse, MetadataRawResponsesResponse,
+    ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse, RegisterAddonRequest,
     ReplaceAddonGrantsRequest, StorageBackendDiagnosticsResponse, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
     TranscodeSessionResponse, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
     WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
 };
 use taru_core::{
-    AddonPermission, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
-    AddonTokenStatus, AutomationCapability, AutomationProviderStatus, CanonicalMetadata,
-    CatalogRepository, CreditRole, DomainEventKind, DomainEventSubject, EventId,
-    EventOutboxRepository, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRepository,
-    IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository,
-    JobStatus, LibraryId, LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem, MediaItemId, MediaKind,
-    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
+    AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTokenStatus, ArtworkCandidateRepository,
+    ArtworkCandidateSourceKind, ArtworkCandidateStatus, AutomationCapability,
+    AutomationProviderStatus, CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind,
+    DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Genre, GenreId,
+    ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId,
+    JobKind, JobRepository, JobStatus, LibraryId, LibraryItemRepository, LibraryItemState,
+    LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, LocalMetadataPolicy,
+    ManagedArtworkArtifactId, ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaItem,
+    MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
+    MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
     NewIngestionFailure, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
     NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, Person,
@@ -57,8 +69,13 @@ use taru_core::{
     VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::SqliteStore;
-use taru_search::{SearchDocument, SearchIndex};
-use taru_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
+use taru_search::{SearchDocument, SearchIndex, SearchQuery};
+use taru_streaming::{
+    ClientPlaybackCapabilities, DirectPlayRangeRequest, PlaybackPreferenceContext, PlaybackProfile,
+    PlaybackSelectionContext, PlaybackStorageContext, RequestedByteRange,
+    plan_direct_play_response,
+};
+use taru_transcode::{HardwareAcceleration, OutputContainer, RemuxContainer, TranscodePlan};
 use taru_vfs::{ByteRange, ReadStream, StorageUri};
 use tokio::{net::TcpListener, task::yield_now, time::sleep};
 use tower::ServiceExt;
@@ -105,6 +122,10 @@ async fn router_with_media_source(
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("taru-cache").join("artwork"),
+            ..crate::config::ArtworkConfig::default()
+        },
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -136,6 +157,14 @@ async fn router_with_media_source(
         fingerprint: None,
     };
     store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
     store.upsert_media_source(&source).await.unwrap();
     let router = build_router(app);
 
@@ -178,6 +207,7 @@ async fn router_with_remux_source(
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -252,6 +282,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Sq
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -325,6 +356,57 @@ fn compatible_probe() -> MediaProbeResult {
             },
         ],
     }
+}
+
+fn local_remux_request_key(container: RemuxContainer) -> String {
+    let profile = PlaybackProfile::from_context(
+        &ClientPlaybackCapabilities::default(),
+        PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: false,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext {
+                remux_output_container: Some(container),
+                ..Default::default()
+            },
+        },
+    );
+
+    profile
+        .remux_transcode_profile(container)
+        .identity()
+        .persisted_request_key()
+        .to_owned()
+}
+
+fn local_hls_request_key(acceleration: HardwareAcceleration) -> String {
+    let profile = PlaybackProfile::from_context(
+        &ClientPlaybackCapabilities::default(),
+        PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: false,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext {
+                transcode_output_container: Some(OutputContainer::Hls),
+                ..Default::default()
+            },
+        },
+    );
+    let plan = TranscodePlan {
+        input_locator: "local:///demo.mkv".to_owned(),
+        output_container: OutputContainer::Hls,
+        video_codec: Some("h264".to_owned()),
+        audio_codec: Some("aac".to_owned()),
+        hardware_acceleration: HardwareAcceleration::None,
+    };
+
+    profile
+        .hls_transcode_profile(&plan, acceleration)
+        .identity()
+        .persisted_request_key()
+        .to_owned()
 }
 
 fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) -> PathBuf {
@@ -457,6 +539,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -488,6 +571,7 @@ async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, toke
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

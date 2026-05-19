@@ -26,6 +26,14 @@ impl CatalogRepository for SqliteStore {
         transaction.commit().await.map_err(database_error)
     }
 
+    async fn upsert_search_projection(&self, projection: &CatalogSearchProjection) -> Result<()> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        upsert_search_projection_tx(&mut transaction, projection).await?;
+
+        transaction.commit().await.map_err(database_error)
+    }
+
     async fn upsert_person(&self, person: &Person) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
@@ -864,7 +872,7 @@ impl CatalogRepository for SqliteStore {
     }
 }
 
-async fn replace_item_catalog_graph_tx(
+pub(crate) async fn replace_item_catalog_graph_tx(
     transaction: &mut sqlx::Transaction<'_, Sqlite>,
     item_id: MediaItemId,
     replacement: &CatalogItemGraphReplacement,

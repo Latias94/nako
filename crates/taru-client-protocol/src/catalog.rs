@@ -77,7 +77,7 @@ pub struct ItemDetailResponse {
     pub tags: Vec<ItemTagDto>,
     pub collections: Vec<CollectionItemDto>,
     pub studios: Vec<ItemStudioDto>,
-    pub images: Vec<ImageAssetDto>,
+    pub images: Vec<PublicImageRefDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -90,7 +90,7 @@ pub struct ItemCreditsResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ImagesResponse {
     pub item_id: String,
-    pub images: Vec<ImageAssetDto>,
+    pub images: Vec<PublicImageRefDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -175,7 +175,6 @@ pub struct CanonicalMetadataDto {
     pub genres: Vec<String>,
     pub tags: Vec<String>,
     pub ratings: Vec<ContentRatingDto>,
-    pub images: Vec<ImageRefDto>,
     pub credits: Vec<CreditDto>,
     pub collections: Vec<CollectionRefDto>,
     pub studios: Vec<StudioRefDto>,
@@ -186,16 +185,6 @@ pub struct CanonicalMetadataDto {
 pub struct ContentRatingDto {
     pub source: String,
     pub value: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ImageRefDto {
-    pub kind: ClientImageKind,
-    pub uri: String,
-    pub provider: ClientExternalProvider,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub language: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -423,18 +412,15 @@ pub struct ItemStudioDto {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ImageAssetDto {
+pub struct PublicImageRefDto {
     pub id: String,
     pub owner: ClientImageOwner,
     pub kind: ClientImageKind,
-    pub source_uri: String,
-    pub provider: ClientExternalProvider,
-    pub cache_uri: Option<String>,
+    pub url: String,
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub language: Option<String>,
-    pub selected: bool,
-    pub content_hash: Option<String>,
+    pub media_type: Option<String>,
     pub etag: Option<String>,
 }
 
@@ -537,6 +523,7 @@ pub enum ClientMetadataSource {
     Nfo,
     Provider(ClientExternalProvider),
     User,
+    Addon(String),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

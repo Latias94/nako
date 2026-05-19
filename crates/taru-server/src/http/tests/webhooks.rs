@@ -87,6 +87,7 @@ async fn webhook_attempt_route_lists_attempts_for_existing_event() {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

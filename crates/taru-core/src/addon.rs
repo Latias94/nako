@@ -157,6 +157,41 @@ impl AddonSideEffectValidationStatus {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonSideEffectApplyStatus {
+    Pending,
+    Applied,
+    Failed,
+    Skipped,
+}
+
+impl AddonSideEffectApplyStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Applied => "applied",
+            Self::Failed => "failed",
+            Self::Skipped => "skipped",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "applied" => Ok(Self::Applied),
+            "failed" => Ok(Self::Failed),
+            "skipped" => Ok(Self::Skipped),
+            _ => Err(TaruError::Database {
+                message: format!(
+                    "unknown addon side effect apply status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonSideEffectTarget {
     pub kind: AddonSideEffectTargetKind,
@@ -280,7 +315,22 @@ pub struct AddonSideEffectRecord {
     pub payload_json: String,
     pub validation_status: AddonSideEffectValidationStatus,
     pub safe_error_code: Option<String>,
+    pub apply_status: AddonSideEffectApplyStatus,
+    pub apply_error_code: Option<String>,
+    pub applied_item_id: Option<MediaItemId>,
+    pub applied_source: Option<String>,
+    pub apply_report_json: Option<String>,
+    pub applied_at: Option<String>,
     pub created_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectApplyOutcome {
+    pub status: AddonSideEffectApplyStatus,
+    pub error_code: Option<String>,
+    pub item_id: Option<MediaItemId>,
+    pub source: Option<String>,
+    pub report_json: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

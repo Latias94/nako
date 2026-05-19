@@ -2,6 +2,7 @@ mod ffmpeg;
 mod hardware;
 mod hls;
 mod plan;
+mod profile;
 mod remux;
 mod runner_util;
 mod runtime;
@@ -11,6 +12,7 @@ pub use ffmpeg::*;
 pub use hardware::*;
 pub use hls::*;
 pub use plan::*;
+pub use profile::*;
 pub use remux::*;
 pub use runtime::*;
 pub use session::*;
@@ -172,6 +174,42 @@ mod tests {
     }
 
     #[test]
+    fn transcode_profile_identity_changes_when_hls_hardware_policy_changes() {
+        let cpu = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::None,
+            track_selection: TranscodeTrackSelection::default(),
+            max_video_bitrate: None,
+            prefer_hdr: None,
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        })
+        .identity();
+        let nvenc = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            track_selection: TranscodeTrackSelection::default(),
+            max_video_bitrate: None,
+            prefer_hdr: None,
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        })
+        .identity();
+
+        assert_ne!(cpu.persisted_request_key(), nvenc.persisted_request_key());
+        assert_ne!(cpu.storage_slug(), nvenc.storage_slug());
+        assert!(
+            cpu.persisted_request_key()
+                .contains("kind=hls_single_variant")
+        );
+        assert!(cpu.persisted_request_key().contains("hw=none"));
+        assert!(nvenc.persisted_request_key().contains("hw=nvenc"));
+        assert!(cpu.storage_slug().starts_with("hls_single_variant-v1-"));
+    }
+
+    #[test]
     fn hardware_policy_selects_available_and_falls_back_to_cpu() {
         let report = HardwareAccelerationReport::with_available([HardwareAcceleration::Nvenc]);
         let nvenc = select_hardware_acceleration(
@@ -221,6 +259,51 @@ mod tests {
                 .unwrap()
                 .contains("h264_nvenc")
         );
+    }
+
+    #[test]
+    fn ffmpeg_encoder_report_records_safe_evidence_and_operator_smoke_checks() {
+        let report = report_from_ffmpeg_encoders(" V..... h264_nvenc\n");
+        let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
+        let cpu = report.capability_for(HardwareAcceleration::None).unwrap();
+
+        assert_eq!(
+            nvenc.evidence,
+            HardwareCapabilityEvidence::FfmpegEncoderListed
+        );
+        assert_eq!(nvenc.smoke_probe.status, HardwareSmokeProbeStatus::NotRun);
+        assert!(nvenc.smoke_probe.operator_check.contains("NVENC"));
+        assert!(!nvenc.smoke_probe.operator_check.contains('\\'));
+        assert_eq!(cpu.evidence, HardwareCapabilityEvidence::CpuAlwaysAvailable);
+        assert_eq!(
+            cpu.smoke_probe.status,
+            HardwareSmokeProbeStatus::NotRequired
+        );
+    }
+
+    #[test]
+    fn ffmpeg_encoder_report_accepts_fake_smoke_probe_results() {
+        let smoke_probe = StaticHardwareSmokeProbe::new([
+            (
+                HardwareAcceleration::Nvenc,
+                HardwareSmokeProbe::passed(HardwareAcceleration::Nvenc),
+            ),
+            (
+                HardwareAcceleration::Vaapi,
+                HardwareSmokeProbe::failed(HardwareAcceleration::Vaapi, "device smoke failed"),
+            ),
+        ]);
+        let report = report_from_ffmpeg_encoders_with_smoke_probe(
+            " V..... h264_nvenc\n V..... h264_vaapi\n",
+            &smoke_probe,
+        );
+        let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert_eq!(nvenc.smoke_probe.status, HardwareSmokeProbeStatus::Passed);
+        assert_eq!(vaapi.smoke_probe.status, HardwareSmokeProbeStatus::Failed);
+        assert!(vaapi.smoke_probe.detail.is_some());
+        assert!(vaapi.smoke_probe.operator_check.contains("VAAPI"));
     }
 
     #[test]

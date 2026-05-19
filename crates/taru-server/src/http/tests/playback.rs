@@ -32,6 +32,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -278,6 +279,7 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
             remote_stream_concurrency: 1,
             remote_stage_concurrency: 1,
         },
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Remote Movies".to_owned(),
@@ -477,7 +479,11 @@ async fn playback_session_route_returns_remux_session_state() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let session = store
-        .find_latest_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
+        .find_latest_transcode_session(
+            source.id,
+            TranscodeSessionKind::Remux,
+            &local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -520,7 +526,11 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
     wait_for_marker(&marker).await;
 
     let session = store
-        .find_active_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
+        .find_active_transcode_session(
+            source.id,
+            TranscodeSessionKind::Remux,
+            &local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -596,7 +606,11 @@ async fn playback_session_cancel_route_rejects_terminal_session() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let session = store
-        .find_latest_transcode_session(source.id, TranscodeSessionKind::Remux, "remux:mp4")
+        .find_latest_transcode_session(
+            source.id,
+            TranscodeSessionKind::Remux,
+            &local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -627,7 +641,7 @@ async fn playback_session_cancel_route_rejects_process_local_stale_active_sessio
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
             output_path: temp.path().join("stale.mp4"),
             state: TranscodeSessionState::Running,
         })
@@ -678,7 +692,11 @@ async fn hls_playlist_and_segment_routes_work() {
     );
 
     let session = store
-        .find_latest_transcode_session(source.id, TranscodeSessionKind::HlsTranscode, "hls:single")
+        .find_latest_transcode_session(
+            source.id,
+            TranscodeSessionKind::HlsTranscode,
+            &local_hls_request_key(taru_transcode::HardwareAcceleration::None),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -746,7 +764,7 @@ async fn hls_segment_route_rejects_unfinished_session() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: "hls:single".to_owned(),
+            request_key: local_hls_request_key(taru_transcode::HardwareAcceleration::None),
             output_path: temp.path().join("active.m3u8"),
             state: TranscodeSessionState::Running,
         })

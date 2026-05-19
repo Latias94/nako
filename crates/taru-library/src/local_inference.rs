@@ -1,6 +1,7 @@
 use taru_core::{
-    CanonicalMetadata, LibraryId, LocalInferenceEvidence, LocalInferenceEvidenceId, MediaItem,
-    MediaItemId, MediaSource, MediaSourceId, ScanSnapshotId, SourceState,
+    CanonicalMetadata, LibraryId, LibraryItemState, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaSource, MediaSourceId, ScanSnapshotId,
+    SourceState,
 };
 
 use super::scan::DiscoveredMediaSource;
@@ -8,6 +9,8 @@ use super::scan::DiscoveredMediaSource;
 pub(crate) struct MediaItemResolution {
     pub(crate) item: MediaItem,
     pub(crate) provisional: bool,
+    pub(crate) supporting_items: Vec<MediaItem>,
+    pub(crate) supporting_library_item_states: Vec<LibraryItemState>,
 }
 
 pub(crate) fn media_item_from_discovered(

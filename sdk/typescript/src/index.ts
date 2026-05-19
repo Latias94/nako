@@ -13,6 +13,7 @@ export const TARU_PUBLIC_PATHS = [
   "/items/{item_id}",
   "/items/{item_id}/credits",
   "/items/{item_id}/images",
+  "/images/{image_id}",
   "/people",
   "/people/{person_id}",
   "/people/{person_id}/items",
@@ -36,7 +37,6 @@ export interface CanonicalMetadataDto {
   credits: Array<CreditDto>;
   external_ids: Array<ExternalIdDto>;
   genres: Array<string>;
-  images: Array<ImageRefDto>;
   original_title: string | null;
   overview: string | null;
   ratings: Array<ContentRatingDto>;
@@ -129,32 +129,8 @@ export interface HealthResponse {
   version: "v1";
 }
 
-export interface ImageAssetDto {
-  cache_uri: string | null;
-  content_hash: string | null;
-  etag: string | null;
-  height: number | null;
-  id: string;
-  kind: string;
-  language: string | null;
-  owner: string;
-  provider: string;
-  selected: boolean;
-  source_uri: string;
-  width: number | null;
-}
-
-export interface ImageRefDto {
-  height: number | null;
-  kind: string;
-  language: string | null;
-  provider: string;
-  uri: string;
-  width: number | null;
-}
-
 export interface ImagesResponse {
-  images: Array<ImageAssetDto>;
+  images: Array<PublicImageRefDto>;
   item_id: string;
 }
 
@@ -176,7 +152,7 @@ export interface ItemDetailResponse {
   collections: Array<CollectionItemDto>;
   credits: Array<ItemCreditDto>;
   genres: Array<ItemGenreDto>;
-  images: Array<ImageAssetDto>;
+  images: Array<PublicImageRefDto>;
   item: MediaItemDto;
   sources: Array<MediaSourceDto>;
   studios: Array<ItemStudioDto>;
@@ -326,6 +302,18 @@ export interface PlaybackDecisionResponse {
   source: MediaSourceDto;
 }
 
+export interface PublicImageRefDto {
+  etag: string | null;
+  height: number | null;
+  id: string;
+  kind: string;
+  language: string | null;
+  media_type: string | null;
+  owner: Record<string, unknown>;
+  url: string;
+  width: number | null;
+}
+
 export interface SearchItemHit {
   item: MediaItemDto;
   score: number;
@@ -460,6 +448,14 @@ export class TaruClient {
 
   listItemImages(itemId: string): Promise<ImagesResponse> {
     return this.requestJson("GET", `/items/${encodeURIComponent(itemId)}/images`);
+  }
+
+  image(imageId: string): Promise<Response> {
+    return this.requestRaw("GET", `/images/${encodeURIComponent(imageId)}`);
+  }
+
+  headImage(imageId: string): Promise<Response> {
+    return this.requestRaw("HEAD", `/images/${encodeURIComponent(imageId)}`);
   }
 
   listPeople(page?: PageQuery): Promise<PeopleResponse> {

@@ -14,7 +14,7 @@ use taru_streaming::PlaybackDecision;
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
     RemuxContainer, RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits,
-    TranscodeSessionManager,
+    TranscodeProfileIdentity, TranscodeSessionManager,
 };
 use tokio::sync::Mutex;
 
@@ -60,10 +60,11 @@ impl RemuxAppService {
         input_path: PathBuf,
         output_path: PathBuf,
         output_container: RemuxContainer,
+        profile_identity: TranscodeProfileIdentity,
     ) -> Result<RemuxSourceOutput> {
         let key = RemuxRequestKey {
             source_id: source.id,
-            output_container,
+            profile_identity,
         };
 
         match self.reserve(sessions, &key, &output_path).await? {
@@ -106,8 +107,8 @@ impl RemuxAppService {
         {
             return Err(TaruError::Conflict {
                 message: format!(
-                    "remux request for source {} as {:?} is already in progress in session {}",
-                    key.source_id, key.output_container, active.id
+                    "remux request for source {} is already in progress in session {}",
+                    key.source_id, active.id
                 ),
             });
         }
@@ -134,11 +135,11 @@ impl RemuxAppService {
 
         {
             let mut in_flight = self.in_flight.lock().await;
-            if !in_flight.insert(*key) {
+            if !in_flight.insert(key.clone()) {
                 return Err(TaruError::Conflict {
                     message: format!(
-                        "remux request for source {} as {:?} is already in progress",
-                        key.source_id, key.output_container
+                        "remux request for source {} is already in progress",
+                        key.source_id
                     ),
                 });
             }
@@ -263,15 +264,15 @@ impl RemuxAppService {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct RemuxRequestKey {
     pub(crate) source_id: MediaSourceId,
-    pub(crate) output_container: RemuxContainer,
+    pub(crate) profile_identity: TranscodeProfileIdentity,
 }
 
 impl RemuxRequestKey {
-    pub(crate) fn persisted_request_key(self) -> String {
-        format!("remux:{}", self.output_container.file_extension())
+    pub(crate) fn persisted_request_key(&self) -> String {
+        self.profile_identity.persisted_request_key().to_owned()
     }
 }
 

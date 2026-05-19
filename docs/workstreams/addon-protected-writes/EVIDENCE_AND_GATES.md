@@ -1,6 +1,6 @@
 # Addon Protected Writes Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Smallest Current Repro
@@ -231,3 +231,154 @@ missing gates, and residual risks here.
 
 Fresh verification is required before marking any later task, Codex goal, or
 lane complete.
+
+2026-05-18, APW-030 Canonical Metadata apply slice:
+
+- Implemented explicit Addon Side Effect apply outcome state:
+  - `crates/taru-core/src/addon.rs` adds `AddonSideEffectApplyStatus` and
+    `AddonSideEffectApplyOutcome`.
+  - `crates/taru-db/migrations/0023_addon_side_effect_apply_outcome.sql` adds
+    `apply_status`, `apply_error_code`, `applied_item_id`, `applied_source`,
+    and `applied_at`.
+  - `crates/taru-db/src/addons.rs` persists and reloads apply outcomes through
+    `set_addon_side_effect_apply_outcome`.
+- Implemented first-class Addon metadata attribution:
+  - `crates/taru-core/src/media/metadata.rs` adds
+    `MetadataSource::Addon(AddonId)`.
+  - `crates/taru-db/src/codec.rs` stores it as `source = addon` with
+    `source_key = <addon_id>`, avoiding fake provider attribution.
+  - `crates/taru-client-protocol/src/catalog.rs` and
+    `crates/taru-api/src/public_client.rs` expose a stable public Addon source
+    DTO for catalog records that include Addon-sourced genres/tags.
+- Implemented the first concrete `metadata_write` apply path:
+  - `crates/taru-server/src/app/addons.rs` still performs Addon Token
+    authentication, permission/library/target validation, idempotent intake,
+    and response redaction at the runtime route boundary.
+  - Accepted `metadata_write` side effects are normalized into a minimal
+    Canonical Metadata patch with supported fields: title-like fields,
+    overview, release date, runtime, tagline, genres, and tags.
+  - The patch merges through `MetadataMergePolicy` with
+    `MetadataSource::Addon(addon_id)`, persists through
+    `MetadataRepository::commit_metadata_item`, and hydrates catalog/search
+    through `hydrate_item_catalog`.
+  - Unknown payload fields fail apply with safe `invalid_payload` and do not
+    echo raw payload/provenance, Source Locators, filesystem paths, provider
+    bodies, token hashes, or raw Addon Tokens.
+- Tests prove:
+  - `crates/taru-db/src/tests.rs` round-trips Addon metadata source attribution
+    and records Addon Side Effect apply outcomes.
+  - `crates/taru-server/src/http/tests/addons.rs` applies an authorized
+    `metadata_write`, updates Canonical Metadata, writes Addon-sourced catalog
+    tags, updates search, returns redacted summaries, replays idempotently with
+    the known apply outcome, records rejected intake as `skipped`, and records
+    bad payload apply failures as `failed`.
+- API docs:
+  - `docs/api/HTTP_API.md` now documents `metadata_write` apply behavior,
+    supported minimal payload fields, safe apply outcome fields, and redaction
+    rules.
+- Validation run before documentation closeout:
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-metadata -p taru-catalog --tests`
+    exited 0.
+  - `cargo nextest run -p taru-db addon --no-fail-fast` exited 0 with 5 tests
+    passed.
+  - `cargo nextest run -p taru-db sqlite_store_round_trips_metadata_policy_records --no-fail-fast`
+    exited 0 with 1 test passed.
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+    exited 0 with 3 tests passed.
+  - `cargo nextest run -p taru-catalog --no-fail-fast` exited 0 with 3 tests
+    passed.
+  - `cargo fmt --all -- --check` exited 0.
+  - `git diff --check` exited 0.
+  - `Get-Content docs/workstreams/addon-protected-writes/WORKSTREAM.json | ConvertFrom-Json | Out-Null`
+    exited 0.
+- Residual consistency note:
+  - APW-030 follows the existing metadata workflow shape: metadata item
+    persistence happens before catalog hydration, while catalog graph and
+    search projection commit atomically inside `CatalogRepository`.
+  - This proves catalog/search consistency for the successful apply path, not
+    a single database transaction spanning media item update plus catalog
+    hydration. A future prepared-catalog unit-of-work remains separate design
+    scope.
+  - After `core-architecture-deepening` CAD-020, NFO import is no longer a
+    precedent for this split. Future Addon metadata-write expansion should add
+    a dedicated Addon metadata commit unit if it needs stronger atomicity,
+    instead of reusing NFO import or Library scan commit units for unrelated
+    writes.
+
+2026-05-18, APW-030 fresh resume verification:
+
+- `cargo fmt --all -- --check` exited 0.
+- `git diff --check` exited 0. Git reported Windows LF-to-CRLF working-copy
+  warnings only; no whitespace errors were reported.
+- `Get-Content docs/workstreams/addon-protected-writes/WORKSTREAM.json |
+  ConvertFrom-Json | Out-Null` exited 0.
+- `cargo nextest run -p taru-server addon_side_effect --no-fail-fast` exited 0
+  with 3 tests passed.
+- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server
+  -p taru-metadata -p taru-catalog --tests` exited 0.
+- This fresh evidence verifies the APW-030 completion claim after context
+  resume and before closing the Codex goal.
+
+2026-05-18, APW-060 closeout review and split:
+
+- Review result:
+  - Workstream compliance had no blocking findings after APW-030 because the
+    lane proved a Taru-owned protected-write apply model for Canonical
+    Metadata.
+  - Code-quality review found one important catalog provenance issue before
+    closeout: scalar Addon metadata patches could trigger full catalog
+    hydration with Addon source and rewrite existing provider/NFO genre/tag
+    graph sources.
+- Fix applied before closeout:
+  - `crates/taru-core/src/repository/catalog.rs` adds a narrow search
+    projection update seam.
+  - `crates/taru-db/src/catalog.rs` implements search-only projection update.
+  - `crates/taru-catalog/src/lib.rs` adds search-only refresh and selected
+    genre/tag hydration helpers.
+  - `crates/taru-server/src/app/addons.rs` now refreshes search for scalar
+    metadata patches and only replaces touched genre/tag label sets with
+    `MetadataSource::Addon(addon_id)`.
+  - `crates/taru-server/src/http/tests/addons.rs` proves scalar-only and
+    tags-only patches preserve unrelated catalog graph source attribution.
+- Follow-on split:
+  - `docs/workstreams/addon-managed-artwork-artifacts/` owns `artwork_write`,
+    Artwork Candidate, Managed Artwork, Taru-Managed Artifact storage, fetch
+    ownership, cache/thumbnail policy, resource budgets, and safe diagnostics.
+  - `docs/workstreams/addon-library-file-write-policy/` owns subtitle, NFO,
+    sidecar-asset Library File Write target derivation, NFO Round Trip, backup
+    policy, VFS write reports, and response redaction.
+- Fresh validation after the closeout fix:
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast` exited
+    0 with 5 tests passed.
+  - `cargo nextest run -p taru-catalog --no-fail-fast` exited 0 with 3 tests
+    passed.
+  - `cargo nextest run -p taru-db addon --no-fail-fast` exited 0 with 5 tests
+    passed.
+  - `cargo nextest run -p taru-db sqlite_store_round_trips_metadata_policy_records --no-fail-fast`
+    exited 0 with 1 test passed.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server
+    -p taru-metadata -p taru-catalog --tests` exited 0.
+- Final closeout gates after APW-060 documentation edits:
+  - `cargo fmt --all -- --check` exited 0.
+  - `git diff --check` exited 0. Git reported Windows LF-to-CRLF working-copy
+    warnings only; no whitespace errors were reported.
+  - `Get-Content docs/workstreams/addon-protected-writes/WORKSTREAM.json |
+    ConvertFrom-Json | Out-Null` exited 0.
+  - `Get-Content docs/workstreams/addon-managed-artwork-artifacts/WORKSTREAM.json |
+    ConvertFrom-Json | Out-Null` exited 0.
+  - `Get-Content docs/workstreams/addon-library-file-write-policy/WORKSTREAM.json |
+    ConvertFrom-Json | Out-Null` exited 0.
+- APW status is now completed. Continue in AMAA-020 or ALFW-020 depending on
+  the next product priority.
+
+2026-05-18, core-architecture-deepening CAD-070 alignment audit:
+
+- Existing APW runtime behavior has only one concrete Addon write path:
+  `metadata_write` in `crates/taru-server/src/app/addons.rs`.
+- No current Addon runtime path writes NFO files, subtitle files, Managed
+  Artwork, Library File Write state, Media Source scan state, or NFO import
+  field locks.
+- Follow-on documentation now points AMAA and ALFW at Taru-owned commit/service
+  boundaries so future addon writes do not recreate caller-side persistence
+  ordering replaced by `NfoImportPersistenceCommit` or
+  `LibraryScanSourcePersistenceCommit`.

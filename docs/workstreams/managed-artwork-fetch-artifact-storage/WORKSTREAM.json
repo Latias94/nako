@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "slug": "managed-artwork-fetch-artifact-storage",
+  "title": "Managed Artwork Fetch Artifact Storage",
+  "status": "completed",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Queued managed artwork ingest jobs need a Taru-owned fetch, validation, and internal artifact byte storage boundary before candidate artwork can be served, thumbnailed, selected, or published.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/managed-artwork-fetch-artifact-storage/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/managed-artwork-fetch-artifact-storage/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/managed-artwork-fetch-artifact-storage/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/managed-artwork-fetch-artifact-storage/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/managed-artwork-fetch-artifact-storage/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail\" crates docs",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/managed-artwork-fetch-artifact-storage/DESIGN.md",
+    "docs/workstreams/managed-artwork-fetch-artifact-storage/TODO.md",
+    "docs/workstreams/managed-artwork-ingest-selection/HANDOFF.md",
+    "crates/taru-core/src/media/artwork.rs",
+    "crates/taru-core/src/job.rs",
+    "crates/taru-db/migrations/0026_managed_artwork_ingest.sql",
+    "crates/taru-db/src/artwork.rs",
+    "crates/taru-server/src/app/artwork.rs",
+    "crates/taru-server/src/app/job_runtime.rs",
+    "crates/taru-vfs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": null,
+  "first_slice": "Queued managed artwork ingest fetch into internal artifact storage",
+  "non_goals": [
+    "Addon Manager lifecycle automation",
+    "direct addon database or filesystem access",
+    "artwork sidecar file export",
+    "thumbnail or resize workers",
+    "selected artwork publication",
+    "Public Client image-serving routes"
+  ],
+  "routed_from": {
+    "workstream": "managed-artwork-ingest-selection",
+    "task": "MAIS-040",
+    "source": "remote fetch/content validation and artifact byte storage split from queued candidate-ingest closeout"
+  },
+  "continue_policy": {
+    "default_action": "open_follow_on",
+    "notes": "Lane closed. Open a narrower follow-on before implementing public managed artwork serving, thumbnails, selected artwork publication, durable retry/requeue, cancellation, or orphan cleanup."
+  }
+}

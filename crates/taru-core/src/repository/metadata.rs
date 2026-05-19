@@ -2,13 +2,20 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    ArtworkTask, ArtworkTaskId, ExternalProvider, JobId, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, MediaItemId, MediaSourceId, MetadataAttemptFilter, MetadataFieldLock,
-    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
-    MetadataRefreshPersistenceSummary, NewMetadataProviderAttempt, ProviderMapping,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, Result, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId,
+    AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkCandidateStatus,
+    ArtworkTask, ArtworkTaskId, ExternalProvider, ImageKind, JobId, LibraryId,
+    LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
+    ManagedArtworkArtifactRecord, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord, MediaItem, MediaItemId,
+    MediaSourceId, MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
+    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
+    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
+    SelectedArtworkRecord, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -18,6 +25,111 @@ pub trait ArtworkTaskRepository: Send + Sync {
     async fn get_artwork_task(&self, id: ArtworkTaskId) -> Result<Option<ArtworkTask>>;
 
     async fn list_artwork_tasks(&self, page: PageRequest) -> Result<Vec<ArtworkTask>>;
+}
+
+#[async_trait]
+pub trait ArtworkCandidateRepository: Send + Sync {
+    async fn create_artwork_candidate(
+        &self,
+        candidate: NewArtworkCandidate,
+    ) -> Result<ArtworkCandidateRecord>;
+
+    async fn get_artwork_candidate(
+        &self,
+        id: crate::ArtworkCandidateId,
+    ) -> Result<Option<ArtworkCandidateRecord>>;
+
+    async fn set_artwork_candidate_status(
+        &self,
+        id: crate::ArtworkCandidateId,
+        status: ArtworkCandidateStatus,
+    ) -> Result<ArtworkCandidateRecord>;
+
+    async fn find_artwork_candidate_by_source(
+        &self,
+        addon_id: AddonId,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        kind: &ImageKind,
+        source_kind: ArtworkCandidateSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ArtworkCandidateRecord>>;
+
+    async fn list_artwork_candidates_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ArtworkCandidateRecord>>;
+}
+
+#[async_trait]
+pub trait ManagedArtworkRepository: Send + Sync {
+    async fn accept_managed_artwork_candidate_ingest(
+        &self,
+        candidate_id: crate::ArtworkCandidateId,
+        ingest: NewManagedArtworkIngest,
+        job: NewJob,
+    ) -> Result<ManagedArtworkAcceptanceRecord>;
+
+    async fn get_managed_artwork_ingest(
+        &self,
+        id: ManagedArtworkIngestId,
+    ) -> Result<Option<ManagedArtworkIngestRecord>>;
+
+    async fn find_managed_artwork_ingest_by_candidate(
+        &self,
+        candidate_id: crate::ArtworkCandidateId,
+    ) -> Result<Option<ManagedArtworkIngestRecord>>;
+
+    async fn claim_next_queued_managed_artwork_ingest(
+        &self,
+    ) -> Result<Option<ManagedArtworkIngestClaimRecord>>;
+
+    async fn commit_managed_artwork_artifact(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        artifact: NewManagedArtworkArtifact,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord>;
+
+    async fn fail_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord>;
+
+    async fn get_managed_artwork_artifact(
+        &self,
+        id: ManagedArtworkArtifactId,
+    ) -> Result<Option<ManagedArtworkArtifactRecord>>;
+
+    async fn publish_selected_artwork(
+        &self,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord>;
+
+    async fn get_selected_artwork(
+        &self,
+        id: SelectedArtworkId,
+    ) -> Result<Option<SelectedArtworkRecord>>;
+
+    async fn list_selected_artwork_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<SelectedArtworkRecord>>;
+
+    async fn list_managed_artwork_artifact_lifecycle(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactLifecycleSnapshot>;
+
+    async fn cleanup_unselected_managed_artwork_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactCleanupReport>;
 }
 
 #[async_trait]
@@ -32,6 +144,13 @@ pub trait MetadataRepository: Send + Sync {
         &self,
         commit: &MetadataRefreshPersistenceCommit,
     ) -> Result<MetadataRefreshPersistenceSummary>;
+
+    async fn commit_nfo_import(
+        &self,
+        commit: &NfoImportPersistenceCommit,
+    ) -> Result<NfoImportPersistenceSummary>;
+
+    async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()>;
 
     async fn get_provider_raw_response(
         &self,

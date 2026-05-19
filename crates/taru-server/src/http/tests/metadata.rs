@@ -21,6 +21,7 @@ async fn metadata_refresh_route_queues_background_job() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -145,6 +146,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -306,6 +308,7 @@ async fn metadata_maintenance_route_enqueues_batch_job() {
             transcode: TranscodeConfig::default(),
             staging: StagingConfig::default(),
             playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
                 id: library_id,
                 name: "Movies".to_owned(),

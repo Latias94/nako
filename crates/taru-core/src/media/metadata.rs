@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LibraryId, MediaItem, MediaItemId, MetadataProviderAttemptId, ProviderMappingId,
-    ProviderSubjectId,
+    AddonId, CatalogItemProjectionCommit, LibraryId, LibraryItemState, MediaItem, MediaItemId,
+    MetadataProviderAttemptId, ProviderMappingId, ProviderSubjectId,
 };
 
 use super::provider::{ExternalProvider, ProviderSubject};
@@ -65,6 +65,7 @@ pub enum MetadataSource {
     Nfo,
     Provider(ExternalProvider),
     User,
+    Addon(AddonId),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -97,6 +98,22 @@ pub struct MetadataRefreshPersistenceSummary {
     pub provider_subject_id: ProviderSubjectId,
     pub provider_mapping_id: ProviderMappingId,
     pub confirmed_libraries: Vec<LibraryId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoImportPersistenceCommit {
+    pub items: Vec<MediaItem>,
+    pub field_locks: Vec<MetadataFieldLock>,
+    pub library_item_states: Vec<LibraryItemState>,
+    pub catalog_projections: Vec<CatalogItemProjectionCommit>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoImportPersistenceSummary {
+    pub item_ids: Vec<MediaItemId>,
+    pub locked_fields: u64,
+    pub confirmed_items: u64,
+    pub projected_items: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

@@ -401,8 +401,29 @@ mod tests {
             .unwrap();
 
         let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+        let locks = store.list_field_locks(item.id).await.unwrap();
         assert_eq!(loaded.metadata.title, "File Title");
         assert_eq!(loaded.metadata.overview, Some("NFO overview".to_owned()));
+        assert!(locks.iter().any(|lock| {
+            lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::User
+        }));
+
+        service
+            .import_library(NfoImportRequest {
+                job_id: JobId::new(),
+                library_id,
+                policy: LocalMetadataPolicy::LocalFirst,
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+        let locks = store.list_field_locks(item.id).await.unwrap();
+        assert_eq!(loaded.metadata.title, "File Title");
+        assert!(locks.iter().any(|lock| {
+            lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::User
+        }));
     }
 
     #[tokio::test]

@@ -2,9 +2,10 @@ use serde::Deserialize;
 use taru_core::{
     AddonStatus, CatalogGovernanceItemListFilter,
     DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
-    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId, MediaSourceId,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, StagingPurpose, StagingState, TaruError,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionState,
+    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId,
+    ManagedArtworkArtifactLifecycleFilter, MediaSourceId, OutboxEventListFilter, OutboxEventStatus,
+    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionKind,
+    TranscodeSessionListFilter, TranscodeSessionState,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -235,6 +236,113 @@ impl StorageStagingQuery {
             self.state.map(parse_staging_state_filter).transpose()?,
             page.try_into()?,
         ))
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactLifecycleQuery {
+    pub(super) cleanup_candidates_only: Option<bool>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl ArtworkArtifactLifecycleQuery {
+    pub(super) fn into_filter_and_page(
+        self,
+    ) -> Result<(ManagedArtworkArtifactLifecycleFilter, PageRequest), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+        let filter = if self.cleanup_candidates_only.unwrap_or(false) {
+            ManagedArtworkArtifactLifecycleFilter::CleanupCandidates
+        } else {
+            ManagedArtworkArtifactLifecycleFilter::All
+        };
+
+        Ok((filter, page.try_into()?))
+    }
+}
+
+const DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT: u32 = 500;
+const MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT: u32 = 5_000;
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactStorageDriftQuery {
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+    pub(super) file_scan_limit: Option<String>,
+}
+
+impl ArtworkArtifactStorageDriftQuery {
+    pub(super) fn into_page_and_file_scan_limit(self) -> Result<(PageRequest, u32), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+        let file_scan_limit = self
+            .file_scan_limit
+            .map(|value| parse_u32_filter("file_scan_limit", value))
+            .transpose()?
+            .unwrap_or(DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT);
+        let file_scan_limit = if file_scan_limit == 0 {
+            DEFAULT_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT
+        } else {
+            file_scan_limit
+        };
+        if file_scan_limit > MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "file_scan_limit must be less than or equal to {}",
+                    MAX_ARTWORK_STORAGE_DRIFT_FILE_SCAN_LIMIT
+                ),
+            });
+        }
+
+        Ok((page.try_into()?, file_scan_limit))
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactRemediationQuery {
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+    pub(super) file_scan_limit: Option<String>,
+    pub(super) confirm: Option<bool>,
+}
+
+impl ArtworkArtifactRemediationQuery {
+    pub(super) fn into_page_and_file_scan_limit(self) -> Result<(PageRequest, u32), TaruError> {
+        ArtworkArtifactStorageDriftQuery {
+            limit: self.limit,
+            offset: self.offset,
+            file_scan_limit: self.file_scan_limit,
+        }
+        .into_page_and_file_scan_limit()
+    }
+
+    pub(super) fn into_confirmed_file_scan_limit(self) -> Result<u32, TaruError> {
+        if self.confirm != Some(true) {
+            return Err(TaruError::InvalidInput {
+                message: "confirm=true is required for managed artwork stray file cleanup"
+                    .to_owned(),
+            });
+        }
+
+        let (_page, file_scan_limit) = self.into_page_and_file_scan_limit()?;
+        Ok(file_scan_limit)
     }
 }
 

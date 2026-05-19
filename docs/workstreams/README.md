@@ -31,6 +31,11 @@ attention.
   unification, Media Library source-of-truth, Public Client Source Locator
   redaction, Addon side-effect seams, playback request identity, and transcode
   diagnostics follow-ups.
+- [core-architecture-deepening](core-architecture-deepening/README.md):
+  completed architecture-first execution lane for the fearless refactor across
+  NFO import atomicity, Library scan source commits, workflow-port narrowing,
+  playback/transcode profile identity, hardware capability diagnostics, Addon
+  Sidecar alignment, and deletion of replaced shallow paths.
 - [metadata-catalog-commit-atomicity](metadata-catalog-commit-atomicity/README.md):
   completed execution lane for deepening metadata/catalog commit consistency,
   starting with an atomic Catalog Item Graph and Search Projection commit before
@@ -53,10 +58,43 @@ attention.
   Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake before
   metadata, artwork, subtitle, or Library File Write behavior is enabled.
 - [addon-protected-writes](addon-protected-writes/README.md):
-  active follow-on split from the Addon Token Grants Side Effects closeout,
-  covering concrete Taru-owned Canonical Metadata, Managed Artwork, subtitle,
-  NFO, and Library File Write application after accepted Addon Side Effect
-  intake.
+  completed follow-on split from the Addon Token Grants Side Effects closeout,
+  proving concrete Taru-owned Canonical Metadata `metadata_write` application
+  with explicit apply outcome, Addon metadata source attribution, idempotency,
+  redaction, and catalog/search refresh.
+- [addon-managed-artwork-artifacts](addon-managed-artwork-artifacts/README.md):
+  completed follow-on for the first safe `artwork_write` runtime path, covering
+  MediaItem-targeted Addon Artwork Candidate proposals without exposing raw
+  source URLs as public client artwork.
+- [managed-artwork-ingest-selection](managed-artwork-ingest-selection/README.md):
+  completed follow-on for accepting Artwork Candidates into internal
+  Taru-managed ingest state through a redacted Admin API command and durable
+  `managed_artwork_ingest` job, without public artwork publication.
+- [managed-artwork-fetch-artifact-storage](managed-artwork-fetch-artifact-storage/README.md):
+  completed follow-on for processing queued managed artwork ingest jobs through
+  Taru-owned fetch/content validation and internal artifact byte storage before
+  public image serving, thumbnails, or selected artwork publication.
+- [managed-artwork-public-serving-selection](managed-artwork-public-serving-selection/README.md):
+  completed follow-on for publishing stored Managed Artwork Artifacts as Selected
+  Artwork and exposing first-party Public Client image references without
+  leaking raw source URLs, cache URIs, storage URIs, or local paths.
+- [managed-artwork-artifact-lifecycle-cleanup](managed-artwork-artifact-lifecycle-cleanup/README.md):
+  completed follow-on for Managed Artwork Artifact lifecycle diagnostics,
+  orphan cleanup dry-run, Selected Artwork retention protection, and protected
+  cleanup without leaking storage URIs or local paths.
+- [managed-artwork-artifact-store-drift-inventory](managed-artwork-artifact-store-drift-inventory/README.md):
+  completed follow-on for bounded, redacted Admin diagnostics of drift between
+  active Managed Artwork Artifact DB records and files under the local artifact
+  root, without deletion or repair.
+- [managed-artwork-remediation-policy](managed-artwork-remediation-policy/README.md):
+  completed follow-on for redacted Managed Artwork remediation planning and
+  confirmed cleanup of safe untracked artifact files, without missing-artifact
+  repair or Selected Artwork management.
+- [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
+  completed follow-on for the first addon-initiated Library File Write path,
+  proving MediaSource-targeted Taru-owned NFO Export through Taru target
+  derivation, storage/VFS, backup policy, redacted write reports, and
+  idempotent replay.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
   completed M60 Admin API read-model work, covering a redacted catalog
   governance queue for unknown and low-confidence Media Items without changing

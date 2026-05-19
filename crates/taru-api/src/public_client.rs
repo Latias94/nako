@@ -1,10 +1,11 @@
 use taru_core::{
     CanonicalMetadata, CollectionItem, Credit, CreditRole, ExternalId, ExternalProvider, Genre,
-    ImageAsset, ImageKind, ImageOwner, ImageRef, ItemCredit, ItemGenre, ItemStudio, ItemTag,
-    Library, LibraryOptions, LibraryPreset, LocalMetadataPolicy, LocalMetadataReader, MediaDomain,
-    MediaItem, MediaKind, MediaProbeResult, MediaSource, MediaStreamInfo, MediaStreamKind,
-    MetadataProfile, MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person, Tag,
-    TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    ImageKind, ItemCredit, ItemGenre, ItemStudio, ItemTag, Library, LibraryOptions, LibraryPreset,
+    LocalMetadataPolicy, LocalMetadataReader, ManagedArtworkArtifactRecord, MediaDomain, MediaItem,
+    MediaKind, MediaProbeResult, MediaSource, MediaStreamInfo, MediaStreamKind, MetadataProfile,
+    MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person,
+    SelectedArtworkRecord, Tag, TranscodeFailureCategory, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionState,
 };
 use taru_streaming::{DirectPlayPlan, PlaybackDecision, PlaybackMode};
 use taru_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
@@ -19,14 +20,13 @@ pub use taru_client_protocol::{
     ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
     ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto, CreditDto,
     ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse,
-    ImageAssetDto, ImageRefDto, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
-    ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
-    LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
-    LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto, MediaProbeDto, MediaSourceDto,
-    MediaStreamDto, MetadataProfileDto, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, SearchItemHit, SearchResponse, SourceProbeResponse,
-    StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
-    TranscodeSessionResponse,
+    ImagesResponse, ItemCreditDto, ItemCreditsResponse, ItemDetailResponse, ItemGenreDto,
+    ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto,
+    LibraryResponse, LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse,
+    MediaItemDto, MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PageInfo,
+    PeopleResponse, PersonDto, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse,
+    PublicImageRefDto, SearchItemHit, SearchResponse, SourceProbeResponse, StudioRefDto, TagDto,
+    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
 };
 
 #[must_use]
@@ -124,7 +124,6 @@ pub fn canonical_metadata_to_dto(metadata: CanonicalMetadata) -> CanonicalMetada
                 value: rating.value,
             })
             .collect(),
-        images: metadata.images.into_iter().map(image_ref_to_dto).collect(),
         credits: metadata.credits.into_iter().map(credit_to_dto).collect(),
         collections: metadata
             .collections
@@ -344,20 +343,20 @@ pub fn item_studio_to_dto(studio: ItemStudio) -> ItemStudioDto {
 }
 
 #[must_use]
-pub fn image_asset_to_dto(image: ImageAsset) -> ImageAssetDto {
-    ImageAssetDto {
-        id: image.id.to_string(),
-        owner: image_owner_to_dto(image.owner),
-        kind: image_kind_to_dto(image.kind),
-        source_uri: image.source_uri,
-        provider: external_provider_to_dto(image.provider),
-        cache_uri: image.cache_uri,
-        width: image.width,
-        height: image.height,
-        language: image.language,
-        selected: image.selected,
-        content_hash: image.content_hash,
-        etag: image.etag,
+pub fn selected_artwork_to_public_image_ref(
+    selected: SelectedArtworkRecord,
+    artifact: ManagedArtworkArtifactRecord,
+) -> PublicImageRefDto {
+    PublicImageRefDto {
+        id: selected.id.to_string(),
+        owner: ClientImageOwner::Item(selected.item_id.to_string()),
+        kind: image_kind_to_dto(selected.kind),
+        url: format!("/images/{}", selected.id),
+        width: artifact.width,
+        height: artifact.height,
+        language: None,
+        media_type: artifact.media_type,
+        etag: artifact.content_hash,
     }
 }
 
@@ -365,17 +364,6 @@ fn external_id_to_dto(id: ExternalId) -> ExternalIdDto {
     ExternalIdDto {
         provider: external_provider_to_dto(id.provider),
         value: id.value,
-    }
-}
-
-fn image_ref_to_dto(image: ImageRef) -> ImageRefDto {
-    ImageRefDto {
-        kind: image_kind_to_dto(image.kind),
-        uri: image.uri,
-        provider: external_provider_to_dto(image.provider),
-        width: image.width,
-        height: image.height,
-        language: image.language,
     }
 }
 
@@ -493,10 +481,11 @@ fn metadata_source_to_dto(source: MetadataSource) -> ClientMetadataSource {
             ClientMetadataSource::Provider(external_provider_to_dto(provider))
         }
         MetadataSource::User => ClientMetadataSource::User,
+        MetadataSource::Addon(addon_id) => ClientMetadataSource::Addon(addon_id.to_string()),
     }
 }
 
-fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
+pub(crate) fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
     match kind {
         ImageKind::Poster => ClientImageKind::Poster,
         ImageKind::Backdrop => ClientImageKind::Backdrop,
@@ -515,15 +504,6 @@ fn credit_role_to_dto(role: CreditRole) -> ClientCreditRole {
         CreditRole::Producer => ClientCreditRole::Producer,
         CreditRole::Creator => ClientCreditRole::Creator,
         CreditRole::Other(value) => ClientCreditRole::Other(value),
-    }
-}
-
-fn image_owner_to_dto(owner: ImageOwner) -> ClientImageOwner {
-    match owner {
-        ImageOwner::Item(id) => ClientImageOwner::Item(id.to_string()),
-        ImageOwner::Person(id) => ClientImageOwner::Person(id.to_string()),
-        ImageOwner::Collection(id) => ClientImageOwner::Collection(id.to_string()),
-        ImageOwner::Studio(id) => ClientImageOwner::Studio(id.to_string()),
     }
 }
 
@@ -665,7 +645,7 @@ mod tests {
             id: TranscodeSessionId::new(),
             source_id: MediaSourceId::new(),
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: "transcode-profile:v1;kind=remux;container=mp4".to_owned(),
             output_path: PathBuf::from("cache/remux/output.mp4"),
             state: TranscodeSessionState::Finished,
             failure_category: None,

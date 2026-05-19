@@ -46,12 +46,78 @@ pub struct HardwareAccelerationPolicy {
     pub fallback: HardwareAccelerationFallback,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareCapabilityEvidence {
+    CpuAlwaysAvailable,
+    FfmpegEncoderListed,
+    FfmpegEncoderMissing,
+    FfmpegProbeError,
+    StaticDetector,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareSmokeProbeStatus {
+    NotRequired,
+    NotRun,
+    Passed,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareSmokeProbe {
+    pub status: HardwareSmokeProbeStatus,
+    pub operator_check: String,
+    pub detail: Option<String>,
+}
+
+impl HardwareSmokeProbe {
+    #[must_use]
+    pub fn not_required() -> Self {
+        Self {
+            status: HardwareSmokeProbeStatus::NotRequired,
+            operator_check: "cpu encode does not require a hardware smoke probe".to_owned(),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn not_run(accelerator: HardwareAcceleration) -> Self {
+        Self {
+            status: HardwareSmokeProbeStatus::NotRun,
+            operator_check: operator_smoke_check(accelerator).to_owned(),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn passed(accelerator: HardwareAcceleration) -> Self {
+        Self {
+            status: HardwareSmokeProbeStatus::Passed,
+            operator_check: operator_smoke_check(accelerator).to_owned(),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn failed(accelerator: HardwareAcceleration, detail: impl Into<String>) -> Self {
+        Self {
+            status: HardwareSmokeProbeStatus::Failed,
+            operator_check: operator_smoke_check(accelerator).to_owned(),
+            detail: Some(detail.into()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HardwareAccelerationCapability {
     pub accelerator: HardwareAcceleration,
     pub available: bool,
     pub device: Option<String>,
     pub reason: Option<String>,
+    pub evidence: HardwareCapabilityEvidence,
+    pub smoke_probe: HardwareSmokeProbe,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -63,27 +129,14 @@ impl HardwareAccelerationReport {
     #[must_use]
     pub fn cpu_only() -> Self {
         Self {
-            capabilities: vec![HardwareAccelerationCapability {
-                accelerator: HardwareAcceleration::None,
-                available: true,
-                device: None,
-                reason: Some("cpu encode is always available".to_owned()),
-            }],
+            capabilities: vec![cpu_capability()],
         }
     }
 
     #[must_use]
     pub fn with_available(accelerators: impl IntoIterator<Item = HardwareAcceleration>) -> Self {
         Self {
-            capabilities: accelerators
-                .into_iter()
-                .map(|accelerator| HardwareAccelerationCapability {
-                    accelerator,
-                    available: true,
-                    device: None,
-                    reason: None,
-                })
-                .collect(),
+            capabilities: accelerators.into_iter().map(static_capability).collect(),
         }
     }
 
@@ -161,16 +214,74 @@ pub trait HardwareAccelerationDetector: Send + Sync {
     fn detect(&self) -> HardwareAccelerationReport;
 }
 
-#[derive(Clone, Debug)]
-pub struct FfmpegHardwareAccelerationDetector {
-    ffmpeg_path: PathBuf,
+pub trait HardwareSmokeProbeDetector: Send + Sync {
+    fn probe(&self, accelerator: HardwareAcceleration) -> HardwareSmokeProbe;
 }
 
-impl FfmpegHardwareAccelerationDetector {
+#[derive(Clone, Debug, Default)]
+pub struct OperatorHardwareSmokeProbe;
+
+impl HardwareSmokeProbeDetector for OperatorHardwareSmokeProbe {
+    fn probe(&self, accelerator: HardwareAcceleration) -> HardwareSmokeProbe {
+        if accelerator == HardwareAcceleration::None {
+            HardwareSmokeProbe::not_required()
+        } else {
+            HardwareSmokeProbe::not_run(accelerator)
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct StaticHardwareSmokeProbe {
+    probes: Vec<(HardwareAcceleration, HardwareSmokeProbe)>,
+}
+
+impl StaticHardwareSmokeProbe {
+    #[must_use]
+    pub fn new(
+        probes: impl IntoIterator<Item = (HardwareAcceleration, HardwareSmokeProbe)>,
+    ) -> Self {
+        Self {
+            probes: probes.into_iter().collect(),
+        }
+    }
+}
+
+impl HardwareSmokeProbeDetector for StaticHardwareSmokeProbe {
+    fn probe(&self, accelerator: HardwareAcceleration) -> HardwareSmokeProbe {
+        self.probes
+            .iter()
+            .find(|(candidate, _)| *candidate == accelerator)
+            .map(|(_, probe)| probe.clone())
+            .unwrap_or_else(|| OperatorHardwareSmokeProbe.probe(accelerator))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FfmpegHardwareAccelerationDetector<P = OperatorHardwareSmokeProbe> {
+    ffmpeg_path: PathBuf,
+    smoke_probe: P,
+}
+
+impl FfmpegHardwareAccelerationDetector<OperatorHardwareSmokeProbe> {
     #[must_use]
     pub fn new(ffmpeg_path: impl Into<PathBuf>) -> Self {
         Self {
             ffmpeg_path: ffmpeg_path.into(),
+            smoke_probe: OperatorHardwareSmokeProbe,
+        }
+    }
+}
+
+impl<P> FfmpegHardwareAccelerationDetector<P>
+where
+    P: HardwareSmokeProbeDetector,
+{
+    #[must_use]
+    pub fn with_smoke_probe(ffmpeg_path: impl Into<PathBuf>, smoke_probe: P) -> Self {
+        Self {
+            ffmpeg_path: ffmpeg_path.into(),
+            smoke_probe,
         }
     }
 
@@ -195,11 +306,17 @@ impl FfmpegHardwareAccelerationDetector {
         }
 
         let encoders = String::from_utf8_lossy(&output.stdout);
-        Ok(report_from_ffmpeg_encoders(&encoders))
+        Ok(report_from_ffmpeg_encoders_with_smoke_probe(
+            &encoders,
+            &self.smoke_probe,
+        ))
     }
 }
 
-impl HardwareAccelerationDetector for FfmpegHardwareAccelerationDetector {
+impl<P> HardwareAccelerationDetector for FfmpegHardwareAccelerationDetector<P>
+where
+    P: HardwareSmokeProbeDetector,
+{
     fn detect(&self) -> HardwareAccelerationReport {
         self.detect_result()
             .unwrap_or_else(|err| hardware_report_with_probe_error(err.to_string()))
@@ -219,21 +336,38 @@ impl StaticHardwareAccelerationDetector {
 }
 
 pub fn report_from_ffmpeg_encoders(encoders: &str) -> HardwareAccelerationReport {
+    report_from_ffmpeg_encoders_with_smoke_probe(encoders, &OperatorHardwareSmokeProbe)
+}
+
+pub fn report_from_ffmpeg_encoders_with_smoke_probe(
+    encoders: &str,
+    smoke_probe: &dyn HardwareSmokeProbeDetector,
+) -> HardwareAccelerationReport {
     let has_vaapi = encoders.contains("h264_vaapi");
     let has_nvenc = encoders.contains("h264_nvenc");
     let has_qsv = encoders.contains("h264_qsv");
 
     HardwareAccelerationReport {
         capabilities: vec![
-            HardwareAccelerationCapability {
-                accelerator: HardwareAcceleration::None,
-                available: true,
-                device: None,
-                reason: Some("cpu encode is always available".to_owned()),
-            },
-            encoder_capability(HardwareAcceleration::Vaapi, "h264_vaapi", has_vaapi),
-            encoder_capability(HardwareAcceleration::Nvenc, "h264_nvenc", has_nvenc),
-            encoder_capability(HardwareAcceleration::QuickSync, "h264_qsv", has_qsv),
+            cpu_capability(),
+            encoder_capability(
+                HardwareAcceleration::Vaapi,
+                "h264_vaapi",
+                has_vaapi,
+                smoke_probe,
+            ),
+            encoder_capability(
+                HardwareAcceleration::Nvenc,
+                "h264_nvenc",
+                has_nvenc,
+                smoke_probe,
+            ),
+            encoder_capability(
+                HardwareAcceleration::QuickSync,
+                "h264_qsv",
+                has_qsv,
+                smoke_probe,
+            ),
         ],
     }
 }
@@ -242,6 +376,7 @@ fn encoder_capability(
     accelerator: HardwareAcceleration,
     encoder: &'static str,
     available: bool,
+    smoke_probe: &dyn HardwareSmokeProbeDetector,
 ) -> HardwareAccelerationCapability {
     HardwareAccelerationCapability {
         accelerator,
@@ -252,18 +387,19 @@ fn encoder_capability(
         } else {
             format!("ffmpeg encoder {encoder} is not listed")
         }),
+        evidence: if available {
+            HardwareCapabilityEvidence::FfmpegEncoderListed
+        } else {
+            HardwareCapabilityEvidence::FfmpegEncoderMissing
+        },
+        smoke_probe: smoke_probe.probe(accelerator),
     }
 }
 
 fn hardware_report_with_probe_error(message: String) -> HardwareAccelerationReport {
     HardwareAccelerationReport {
         capabilities: vec![
-            HardwareAccelerationCapability {
-                accelerator: HardwareAcceleration::None,
-                available: true,
-                device: None,
-                reason: Some("cpu encode is always available".to_owned()),
-            },
+            cpu_capability(),
             probe_error_capability(HardwareAcceleration::Vaapi, &message),
             probe_error_capability(HardwareAcceleration::Nvenc, &message),
             probe_error_capability(HardwareAcceleration::QuickSync, &message),
@@ -280,6 +416,49 @@ fn probe_error_capability(
         available: false,
         device: None,
         reason: Some(message.to_owned()),
+        evidence: HardwareCapabilityEvidence::FfmpegProbeError,
+        smoke_probe: HardwareSmokeProbe::not_run(accelerator),
+    }
+}
+
+fn cpu_capability() -> HardwareAccelerationCapability {
+    HardwareAccelerationCapability {
+        accelerator: HardwareAcceleration::None,
+        available: true,
+        device: None,
+        reason: Some("cpu encode is always available".to_owned()),
+        evidence: HardwareCapabilityEvidence::CpuAlwaysAvailable,
+        smoke_probe: HardwareSmokeProbe::not_required(),
+    }
+}
+
+fn static_capability(accelerator: HardwareAcceleration) -> HardwareAccelerationCapability {
+    if accelerator == HardwareAcceleration::None {
+        return cpu_capability();
+    }
+
+    HardwareAccelerationCapability {
+        accelerator,
+        available: true,
+        device: None,
+        reason: None,
+        evidence: HardwareCapabilityEvidence::StaticDetector,
+        smoke_probe: HardwareSmokeProbe::not_run(accelerator),
+    }
+}
+
+fn operator_smoke_check(accelerator: HardwareAcceleration) -> &'static str {
+    match accelerator {
+        HardwareAcceleration::None => "cpu encode does not require a hardware smoke probe",
+        HardwareAcceleration::Vaapi => {
+            "Run a VAAPI H.264 encode smoke test on the host and verify h264_vaapi can encode one frame"
+        }
+        HardwareAcceleration::Nvenc => {
+            "Run an NVENC H.264 encode smoke test on the host and verify h264_nvenc can encode one frame"
+        }
+        HardwareAcceleration::QuickSync => {
+            "Run a Quick Sync H.264 encode smoke test on the host and verify h264_qsv can encode one frame"
+        }
     }
 }
 

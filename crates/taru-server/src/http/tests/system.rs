@@ -171,6 +171,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -389,6 +390,7 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -500,6 +502,7 @@ async fn admin_v1_events_lists_filters_and_redacts_payloads() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -635,6 +638,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
             cleanup_on_startup: true,
         },
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -849,6 +853,17 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
             remote_stream_concurrency: 9,
             remote_stage_concurrency: 10,
         },
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("artwork-secret-root"),
+            fetch_timeout_ms: 6_000,
+            fetch_max_attempts: 4,
+            fetch_max_bytes: 12_345,
+            fetch_concurrency: 3,
+            fetch_user_agent: "taru-artwork-test/1".to_owned(),
+            fetch_proxy: Some("http://user:artwork-proxy-secret@127.0.0.1:10809".into()),
+            max_width: 4_000,
+            max_height: 5_000,
+        },
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Remote Anime".to_owned(),
@@ -931,6 +946,15 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!diagnostics.staging.cleanup_on_startup);
     assert_eq!(diagnostics.playback.remote_stream_concurrency, 9);
     assert_eq!(diagnostics.playback.remote_stage_concurrency, 10);
+    assert!(diagnostics.artwork.artifact_root_configured);
+    assert_eq!(diagnostics.artwork.fetch_timeout_ms, 6_000);
+    assert_eq!(diagnostics.artwork.fetch_max_attempts, 4);
+    assert_eq!(diagnostics.artwork.fetch_max_bytes, 12_345);
+    assert_eq!(diagnostics.artwork.fetch_concurrency, 3);
+    assert_eq!(diagnostics.artwork.fetch_user_agent, "taru-artwork-test/1");
+    assert!(diagnostics.artwork.has_fetch_proxy);
+    assert_eq!(diagnostics.artwork.max_width, 4_000);
+    assert_eq!(diagnostics.artwork.max_height, 5_000);
 
     assert!(!body.contains("database_url"));
     assert!(!body.contains("secret/taru.db"));
@@ -939,6 +963,9 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!body.contains("private/ffmpeg"));
     assert!(!body.contains("remux_staging_root"));
     assert!(!body.contains("secret-cache"));
+    assert!(!body.contains("\"artifact_root\""));
+    assert!(!body.contains("artwork-secret-root"));
+    assert!(!body.contains("artwork-proxy-secret"));
     assert!(!body.contains("local-root-secret"));
     assert!(!body.contains("PrivateAnime"));
     assert!(!body.contains("https://user:webdav-secret@example.test/dav"));
@@ -973,6 +1000,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -1012,7 +1040,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: "hls:single".to_owned(),
+            request_key: local_hls_request_key(taru_transcode::HardwareAcceleration::None),
             output_path: temp
                 .path()
                 .join("taru-cache")
@@ -1040,7 +1068,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: "remux:mp4".to_owned(),
+            request_key: local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
             output_path: temp
                 .path()
                 .join("taru-cache")
@@ -1132,6 +1160,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
             remote_stream_concurrency: 7,
             remote_stage_concurrency: 3,
         },
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -1185,6 +1214,26 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         taru_transcode::HardwareAcceleration::Nvenc
     );
     assert!(!diagnostics.hardware.selection.fallback_used);
+    let nvenc_capability = diagnostics
+        .hardware
+        .capabilities
+        .iter()
+        .find(|capability| capability.accelerator == taru_transcode::HardwareAcceleration::Nvenc)
+        .unwrap();
+    assert_eq!(
+        nvenc_capability.evidence,
+        taru_api::AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
+    );
+    assert_eq!(
+        nvenc_capability.smoke_probe.status,
+        taru_api::AdminPlaybackHardwareSmokeProbeStatus::NotRun
+    );
+    assert!(
+        nvenc_capability
+            .smoke_probe
+            .operator_check
+            .contains("NVENC")
+    );
     assert_eq!(diagnostics.transcode.configured_cpu_slots, 2);
     assert_eq!(diagnostics.transcode.configured_gpu_slots, 4);
     assert_eq!(diagnostics.transcode.effective_cpu_slots, 2);

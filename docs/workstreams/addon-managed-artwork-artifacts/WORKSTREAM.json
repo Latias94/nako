@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "slug": "addon-managed-artwork-artifacts",
+  "title": "Addon Managed Artwork Artifacts",
+  "status": "completed",
+  "updated": "2026-05-19",
+  "scope_kind": "execution",
+  "problem": "Addon artwork outputs need a Taru-owned artwork/artifact apply boundary before artwork_write can create Managed Artwork, Artwork Candidates, or Taru-Managed Artifacts safely.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/addon-managed-artwork-artifacts/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-managed-artwork-artifacts/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-managed-artwork-artifacts/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-managed-artwork-artifacts/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-managed-artwork-artifacts/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri\" crates docs",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-managed-artwork-artifacts/DESIGN.md",
+    "docs/workstreams/addon-managed-artwork-artifacts/TODO.md",
+    "docs/workstreams/addon-protected-writes/HANDOFF.md",
+    "crates/taru-core/src/media/catalog.rs",
+    "crates/taru-core/src/media/artwork.rs",
+    "crates/taru-db/src/artwork.rs",
+    "crates/taru-server/src/app/addons.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "current_task": null,
+  "first_slice": "MediaItem-targeted Addon Artwork Candidate proposal",
+  "non_goals": [
+    "Addon Manager lifecycle automation",
+    "direct addon database or filesystem access",
+    "Public Client API write routes",
+    "subtitle or NFO file writes",
+    "general image pipeline rewrite"
+  ],
+  "routed_from": {
+    "workstream": "addon-protected-writes",
+    "task": "APW-060",
+    "source": "artwork_write and Managed Artwork breadth split from Canonical Metadata protected-write proof"
+  },
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "AMAA-040 closeout is complete. The first safe artwork_write path is shipped for MediaItem-targeted Addon Artwork Candidate proposals. Managed artwork fetch/cache, selected artwork, thumbnails, Taru-managed artifact intake, and public ImageAsset publication are split to docs/workstreams/managed-artwork-ingest-selection/. Artwork sidecar export remains Library File Write scope."
+  }
+}

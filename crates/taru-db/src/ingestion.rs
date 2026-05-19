@@ -220,3 +220,35 @@ impl SqliteStore {
             .await
     }
 }
+
+pub(crate) async fn resolve_ingestion_failure_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    library_id: LibraryId,
+    phase: IngestionFailurePhase,
+    target_uri: &str,
+    resolved_at_ms: i64,
+) -> Result<u64> {
+    let result = sqlx::query(
+        r#"
+            UPDATE ingestion_failures
+            SET
+                status = ?4,
+                resolved_at_ms = ?5,
+                ignored_at_ms = NULL,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE library_id = ?1 AND phase = ?2 AND target_uri = ?3
+            "#,
+    )
+    .bind(library_id.to_string())
+    .bind(ingestion_failure_phase_to_str(phase))
+    .bind(target_uri)
+    .bind(ingestion_failure_status_to_str(
+        IngestionFailureStatus::Resolved,
+    ))
+    .bind(resolved_at_ms)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(result.rows_affected())
+}

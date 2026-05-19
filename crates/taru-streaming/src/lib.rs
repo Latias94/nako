@@ -164,6 +164,59 @@ mod tests {
     }
 
     #[test]
+    fn playback_profile_identity_normalizes_capability_order_and_case() {
+        let left = PlaybackProfile::from_context(
+            &ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["MP4".to_owned(), "webm".to_owned(), "mp4".to_owned()],
+                video_codecs: vec!["H264".to_owned(), "hevc".to_owned()],
+                audio_codecs: vec!["AAC".to_owned(), "opus".to_owned()],
+            },
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: true,
+                    range_readable: Some(false),
+                },
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(2),
+                    requested_subtitle_stream: None,
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(true),
+                    remux_output_container: Some(taru_transcode::RemuxContainer::Mp4),
+                    transcode_output_container: Some(taru_transcode::OutputContainer::Hls),
+                },
+            },
+        );
+        let right = PlaybackProfile::from_context(
+            &ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["webm".to_owned(), "mp4".to_owned()],
+                video_codecs: vec!["hevc".to_owned(), "h264".to_owned()],
+                audio_codecs: vec!["opus".to_owned(), "aac".to_owned()],
+            },
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: true,
+                    range_readable: Some(false),
+                },
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(2),
+                    requested_subtitle_stream: None,
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(true),
+                    remux_output_container: Some(taru_transcode::RemuxContainer::Mp4),
+                    transcode_output_container: Some(taru_transcode::OutputContainer::Hls),
+                },
+            },
+        );
+
+        assert_eq!(left.identity_key(), right.identity_key());
+        assert!(left.identity_key().contains("containers=mp4|webm"));
+        assert!(left.identity_key().contains("audio=2"));
+        assert!(left.identity_key().contains("transcode=hls"));
+    }
+
+    #[test]
     fn direct_play_response_plan_handles_full_empty_and_partial_ranges() {
         let empty = plan_direct_play_response(0, "video/mp4", DirectPlayRangeRequest::None);
         assert_eq!(empty.status, DirectPlayResponseStatus::Ok);

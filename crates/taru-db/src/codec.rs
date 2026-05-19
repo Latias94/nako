@@ -167,6 +167,7 @@ pub(crate) fn metadata_source_to_parts(source: &MetadataSource) -> (String, Stri
         MetadataSource::Local => ("local".to_owned(), String::new()),
         MetadataSource::Nfo => ("nfo".to_owned(), String::new()),
         MetadataSource::User => ("user".to_owned(), String::new()),
+        MetadataSource::Addon(addon_id) => ("addon".to_owned(), addon_id.to_string()),
         MetadataSource::Provider(provider) => {
             let (provider, provider_key) = provider_to_parts(provider);
             (format!("provider:{provider}"), provider_key)
@@ -179,6 +180,9 @@ pub(crate) fn metadata_source_from_parts(source: String, source_key: String) -> 
         "local" => MetadataSource::Local,
         "nfo" => MetadataSource::Nfo,
         "user" => MetadataSource::User,
+        "addon" => parse_id(source_key)
+            .map(MetadataSource::Addon)
+            .unwrap_or_else(|_| MetadataSource::Provider(ExternalProvider::Other(source))),
         value if value.starts_with("provider:") => {
             let provider = value.trim_start_matches("provider:").to_owned();
             MetadataSource::Provider(provider_from_parts(provider, source_key))
@@ -711,6 +715,12 @@ pub(crate) fn row_to_addon_side_effect(row: SqliteRow) -> Result<AddonSideEffect
             "validation_status",
         )?)?,
         safe_error_code: row_get(&row, "safe_error_code")?,
+        apply_status: AddonSideEffectApplyStatus::parse(&row_get::<String>(&row, "apply_status")?)?,
+        apply_error_code: row_get(&row, "apply_error_code")?,
+        applied_item_id: parse_optional_id(row_get::<Option<String>>(&row, "applied_item_id")?)?,
+        applied_source: row_get(&row, "applied_source")?,
+        apply_report_json: row_get(&row, "apply_report_json")?,
+        applied_at: row_get(&row, "applied_at")?,
         created_at: row_get(&row, "created_at")?,
     })
 }
@@ -1047,6 +1057,84 @@ pub(crate) fn row_to_artwork_task(row: SqliteRow) -> Result<ArtworkTask> {
         attempts: i64_to_u32(row_get(&row, "attempts")?)?,
         max_attempts: i64_to_u32(row_get(&row, "max_attempts")?)?,
         error: row_get(&row, "error")?,
+    })
+}
+
+pub(crate) fn row_to_artwork_candidate(row: SqliteRow) -> Result<ArtworkCandidateRecord> {
+    Ok(ArtworkCandidateRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        side_effect_id: parse_id(row_get::<String>(&row, "side_effect_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        source_kind: ArtworkCandidateSourceKind::parse(&row_get::<String>(&row, "source_kind")?)?,
+        source_uri: row_get(&row, "source_uri")?,
+        width: optional_i64_to_u32(row_get(&row, "width")?)?,
+        height: optional_i64_to_u32(row_get(&row, "height")?)?,
+        language: row_get(&row, "language")?,
+        status: ArtworkCandidateStatus::parse(&row_get::<String>(&row, "status")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+pub(crate) fn row_to_managed_artwork_ingest(row: SqliteRow) -> Result<ManagedArtworkIngestRecord> {
+    Ok(ManagedArtworkIngestRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        candidate_id: parse_id(row_get::<String>(&row, "candidate_id")?)?,
+        job_id: parse_id(row_get::<String>(&row, "job_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        status: ManagedArtworkIngestStatus::parse(&row_get::<String>(&row, "status")?)?,
+        artifact_id: parse_optional_id(row_get::<Option<String>>(&row, "artifact_id")?)?,
+        failure_code: row_get(&row, "failure_code")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+pub(crate) fn row_to_managed_artwork_artifact(
+    row: SqliteRow,
+) -> Result<ManagedArtworkArtifactRecord> {
+    Ok(ManagedArtworkArtifactRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        ingest_id: parse_id(row_get::<String>(&row, "ingest_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        storage_uri: row_get(&row, "storage_uri")?,
+        content_hash: row_get(&row, "content_hash")?,
+        width: optional_i64_to_u32(row_get(&row, "width")?)?,
+        height: optional_i64_to_u32(row_get(&row, "height")?)?,
+        byte_len: optional_i64_to_u64(row_get(&row, "byte_len")?)?,
+        media_type: row_get(&row, "media_type")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+pub(crate) fn row_to_managed_artwork_artifact_lifecycle(
+    row: SqliteRow,
+) -> Result<ManagedArtworkArtifactLifecycleRecord> {
+    let selected_artwork_count = i64_to_u32(row_get(&row, "selected_artwork_count")?)?;
+
+    Ok(ManagedArtworkArtifactLifecycleRecord {
+        artifact: row_to_managed_artwork_artifact(row)?,
+        selected_artwork_count,
+    })
+}
+
+pub(crate) fn row_to_selected_artwork(row: SqliteRow) -> Result<SelectedArtworkRecord> {
+    Ok(SelectedArtworkRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(&row, "kind")?, row_get(&row, "kind_key")?),
+        artifact_id: parse_id(row_get::<String>(&row, "artifact_id")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
     })
 }
 

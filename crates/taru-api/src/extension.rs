@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{AddonManifest, AddonScope};
 use taru_core::{
-    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord, AddonSideEffectId,
-    AddonSideEffectRecord, AddonSideEffectTarget, AddonSideEffectTargetKind,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTokenId, AddonTokenRecord, AddonTokenStatus,
-    AutomationArtifactRecord, AutomationCapability, AutomationJobInput,
-    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, EventId,
-    LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord, WebhookDeliveryAttemptRecord,
-    WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
+    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
+    AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
+    AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
+    AddonTokenRecord, AddonTokenStatus, AutomationArtifactRecord, AutomationCapability,
+    AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
+    AutomationProviderStatus, EventId, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
+    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -257,6 +257,12 @@ pub struct AddonSideEffectSummary {
     pub idempotency_key: String,
     pub validation_status: AddonSideEffectValidationStatus,
     pub safe_error_code: Option<String>,
+    pub apply_status: AddonSideEffectApplyStatus,
+    pub apply_error_code: Option<String>,
+    pub applied_item_id: Option<MediaItemId>,
+    pub applied_source: Option<String>,
+    pub apply_report: Option<serde_json::Value>,
+    pub applied_at: Option<String>,
     pub created_at: String,
 }
 
@@ -273,6 +279,14 @@ impl AddonSideEffectSummary {
             idempotency_key: record.idempotency_key,
             validation_status: record.validation_status,
             safe_error_code: record.safe_error_code,
+            apply_status: record.apply_status,
+            apply_error_code: record.apply_error_code,
+            applied_item_id: record.applied_item_id,
+            applied_source: record.applied_source,
+            apply_report: record
+                .apply_report_json
+                .and_then(|value| serde_json::from_str(&value).ok()),
+            applied_at: record.applied_at,
             created_at: record.created_at,
         }
     }

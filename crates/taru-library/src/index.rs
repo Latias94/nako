@@ -1,11 +1,10 @@
 use taru_core::{
-    CanonicalMetadata, CatalogRepository, DirectorySnapshot, IngestionFailurePhase,
-    IngestionFailureRepository, LibraryId, LibraryItemRepository, LibraryItemState,
-    LibraryRepository, LocalInferenceRepository, MediaItem, MediaItemId, MediaRepository,
-    MediaSource, MediaSourceId, NewIngestionFailure, PageRequest, Result, ScanRepository,
-    ScanSnapshotId, ScanStatus,
+    CanonicalMetadata, CatalogRepository, CatalogSearchProjection, DirectorySnapshot,
+    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution, LibraryId,
+    LibraryItemRepository, LibraryItemState, LibraryRepository, LibraryScanSourcePersistenceCommit,
+    MediaItem, MediaItemId, MediaRepository, MediaSource, MediaSourceId, NewIngestionFailure,
+    PageRequest, Result, ScanRepository, ScanSnapshotId, ScanStatus,
 };
-use taru_search::{SearchDocument, SearchIndex};
 use taru_vfs::StorageUri;
 
 use super::{
@@ -17,6 +16,26 @@ use super::{
     scan::{DiscoveredMediaSource, LibraryScanner},
     summary::{LibraryIndexRequest, LibraryIndexSummary, LibraryScanFailure, LibraryScanRequest},
 };
+
+pub trait LibraryIndexRepository:
+    CatalogRepository
+    + IngestionFailureRepository
+    + LibraryItemRepository
+    + LibraryRepository
+    + MediaRepository
+    + ScanRepository
+{
+}
+
+impl<T> LibraryIndexRepository for T where
+    T: CatalogRepository
+        + IngestionFailureRepository
+        + LibraryItemRepository
+        + LibraryRepository
+        + MediaRepository
+        + ScanRepository
+{
+}
 
 #[derive(Debug)]
 pub struct LibraryIndexService<S, R> {
@@ -46,14 +65,7 @@ impl<S, R> LibraryIndexService<S, R> {
 impl<S, R> LibraryIndexService<S, R>
 where
     S: LibraryScanner,
-    R: CatalogRepository
-        + IngestionFailureRepository
-        + LibraryItemRepository
-        + LibraryRepository
-        + LocalInferenceRepository
-        + MediaRepository
-        + ScanRepository
-        + SearchIndex,
+    R: LibraryIndexRepository,
 {
     pub async fn index_library(&self, request: LibraryIndexRequest) -> Result<LibraryIndexSummary> {
         self.repository.upsert_library(&request.library).await?;
@@ -186,28 +198,33 @@ where
                     item_resolution.item.id,
                     discovered,
                 );
+                let search_projection = self
+                    .search_projection_for_source(&item_resolution.item, &source)
+                    .await?;
+                let mut items = item_resolution.supporting_items;
+                items.push(item_resolution.item.clone());
+                let mut library_item_states = item_resolution.supporting_library_item_states;
+                library_item_states.push(LibraryItemState {
+                    library_id: request.library.id,
+                    item_id: item_resolution.item.id,
+                    provisional: item_resolution.provisional,
+                });
 
                 self.repository
-                    .record_scanned_media_source(&item_resolution.item, &source, &state)
-                    .await?;
-                self.record_library_item_state(
-                    request.library.id,
-                    item_resolution.item.id,
-                    item_resolution.provisional,
-                )
-                .await?;
-                self.repository
-                    .upsert_local_inference_evidence(&evidence)
-                    .await?;
-                self.rebuild_search_document(item_resolution.item, source)
-                    .await?;
-                self.repository
-                    .resolve_ingestion_failure(
-                        request.library.id,
-                        IngestionFailurePhase::Scan,
-                        &locator,
-                        ingestion_failure_time_ms(),
-                    )
+                    .commit_library_scan_source(&LibraryScanSourcePersistenceCommit {
+                        items,
+                        source,
+                        source_state: state,
+                        library_item_states,
+                        local_inference_evidence: vec![evidence],
+                        search_projections: vec![search_projection],
+                        resolved_ingestion_failures: vec![IngestionFailureResolution {
+                            library_id: request.library.id,
+                            phase: IngestionFailurePhase::Scan,
+                            target_uri: locator.clone(),
+                            resolved_at_ms: ingestion_failure_time_ms(),
+                        }],
+                    })
                     .await?;
 
                 if existing.is_some() {
@@ -237,6 +254,8 @@ where
                     return Ok(MediaItemResolution {
                         item,
                         provisional: false,
+                        supporting_items: Vec::new(),
+                        supporting_library_item_states: Vec::new(),
                     });
                 }
             }
@@ -246,6 +265,8 @@ where
             return Ok(MediaItemResolution {
                 item: media_item_from_discovered(item_id, discovered),
                 provisional: true,
+                supporting_items: Vec::new(),
+                supporting_library_item_states: Vec::new(),
             });
         }
 
@@ -253,10 +274,14 @@ where
             return Ok(MediaItemResolution {
                 item: media_item_from_discovered(item_id, discovered),
                 provisional: true,
+                supporting_items: Vec::new(),
+                supporting_library_item_states: Vec::new(),
             });
         };
+        let mut supporting_items = Vec::new();
+        let mut supporting_library_item_states = Vec::new();
         let series = self
-            .find_or_create_provisional_item(
+            .plan_or_reuse_provisional_item(
                 library_id,
                 taru_core::MediaKind::Series,
                 None,
@@ -264,15 +289,31 @@ where
                 None,
             )
             .await?;
+        if series.created {
+            supporting_library_item_states.push(LibraryItemState {
+                library_id,
+                item_id: series.item.id,
+                provisional: true,
+            });
+            supporting_items.push(series.item.clone());
+        }
         let season = self
-            .find_or_create_provisional_item(
+            .plan_or_reuse_provisional_item(
                 library_id,
                 taru_core::MediaKind::Season,
-                Some(series.id),
+                Some(series.item.id),
                 &format!("Season {season_number}"),
                 None,
             )
             .await?;
+        if season.created {
+            supporting_library_item_states.push(LibraryItemState {
+                library_id,
+                item_id: season.item.id,
+                provisional: true,
+            });
+            supporting_items.push(season.item.clone());
+        }
         let episode_title = discovered
             .parsed_name
             .episode_number
@@ -283,7 +324,7 @@ where
             item: MediaItem {
                 id: item_id,
                 kind: taru_core::MediaKind::Episode,
-                parent_id: Some(season.id),
+                parent_id: Some(season.item.id),
                 metadata: CanonicalMetadata {
                     title: episode_title,
                     original_title: None,
@@ -295,23 +336,28 @@ where
                 },
             },
             provisional: true,
+            supporting_items,
+            supporting_library_item_states,
         })
     }
 
-    async fn find_or_create_provisional_item(
+    async fn plan_or_reuse_provisional_item(
         &self,
         library_id: LibraryId,
         kind: taru_core::MediaKind,
         parent_id: Option<MediaItemId>,
         title: &str,
         release_year: Option<u16>,
-    ) -> Result<MediaItem> {
+    ) -> Result<ProvisionalItemPlan> {
         if let Some(item) = self
             .repository
             .find_library_item_by_kind_parent_title(library_id, kind, parent_id, title)
             .await?
         {
-            return Ok(item);
+            return Ok(ProvisionalItemPlan {
+                item,
+                created: false,
+            });
         }
 
         let item = MediaItem {
@@ -329,26 +375,10 @@ where
             },
         };
 
-        self.repository.upsert_media_item(&item).await?;
-        self.record_library_item_state(library_id, item.id, true)
-            .await?;
-
-        Ok(item)
-    }
-
-    async fn record_library_item_state(
-        &self,
-        library_id: LibraryId,
-        item_id: MediaItemId,
-        provisional: bool,
-    ) -> Result<()> {
-        self.repository
-            .upsert_library_item_state(&LibraryItemState {
-                library_id,
-                item_id,
-                provisional,
-            })
-            .await
+        Ok(ProvisionalItemPlan {
+            item,
+            created: true,
+        })
     }
 
     async fn persist_scan_failure(
@@ -376,7 +406,11 @@ where
         Ok(())
     }
 
-    async fn rebuild_search_document(&self, item: MediaItem, source: MediaSource) -> Result<()> {
+    async fn search_projection_for_source(
+        &self,
+        item: &MediaItem,
+        source: &MediaSource,
+    ) -> Result<CatalogSearchProjection> {
         let item_credits = self.repository.list_item_credits(item.id).await?;
         let item_genres = self.repository.list_item_genres(item.id).await?;
         let item_tags = self.repository.list_item_tags(item.id).await?;
@@ -428,14 +462,12 @@ where
             }
         }
 
-        self.repository
-            .upsert(SearchDocument {
-                item_id: item.id,
-                title: item.metadata.title,
-                body: body_parts.join(" "),
-                facets,
-            })
-            .await
+        Ok(CatalogSearchProjection {
+            item_id: item.id,
+            title: item.metadata.title.clone(),
+            body: body_parts.join(" "),
+            facets,
+        })
     }
 
     async fn mark_missing_sources_tombstoned(
@@ -481,4 +513,10 @@ where
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct IndexRootsOutcome {
     complete: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ProvisionalItemPlan {
+    item: MediaItem,
+    created: bool,
 }

@@ -1,6 +1,6 @@
 # Addon Protected Writes
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Why This Lane Exists
@@ -11,9 +11,14 @@ runtime routes, and a redacted Addon Side Effect intake record. That lane
 intentionally stopped before applying canonical metadata, artwork, subtitle,
 NFO, or library sidecar writes.
 
-This lane owns the next boundary: how an accepted Addon Side Effect becomes a
+This lane owned the next boundary: how an accepted Addon Side Effect becomes a
 Taru-owned protected write without giving an Addon Sidecar admin authority,
 database access, raw Source Locators, or filesystem handles.
+
+Closeout result: APW proved the apply model with a bounded Canonical Metadata
+`metadata_write` slice. Artwork/artifact and subtitle/NFO/Library File Write
+breadth is split to dedicated follow-on lanes because those areas require
+separate storage, fetch, backup, and redaction policy.
 
 ## Relevant Authority
 
@@ -67,8 +72,7 @@ created to prevent:
 - Apply results are inspectable through safe summaries without returning raw
   token material, token hashes, payload/provenance JSON, Source Locators,
   filesystem paths, or raw provider bodies.
-- Remaining protected-write breadth is either implemented behind these rules or
-  split into narrower follow-on lanes.
+- Remaining protected-write breadth is split into narrower follow-on lanes.
 
 ## In Scope
 
@@ -132,7 +136,7 @@ Public Client API inventory and SDK generation must continue excluding
 
 ## Closeout Condition
 
-This lane can close when:
+This lane closed when:
 
 - APW-020 records the current protected-write seam audit and first apply target;
 - at least one concrete protected-write apply path is implemented or explicitly

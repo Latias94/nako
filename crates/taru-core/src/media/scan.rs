@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{LibraryId, MediaSourceId, ScanSnapshotId};
+use crate::{
+    CatalogSearchProjection, IngestionFailurePhase, LibraryId, LibraryItemState,
+    LocalInferenceEvidence, MediaItem, MediaSource, MediaSourceId, ScanSnapshotId,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ScanSnapshot {
@@ -63,4 +66,33 @@ pub struct SourceState {
     pub fingerprint: Option<String>,
     pub last_seen_scan_id: ScanSnapshotId,
     pub tombstoned: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryScanSourcePersistenceCommit {
+    pub items: Vec<MediaItem>,
+    pub source: MediaSource,
+    pub source_state: SourceState,
+    pub library_item_states: Vec<LibraryItemState>,
+    pub local_inference_evidence: Vec<LocalInferenceEvidence>,
+    pub search_projections: Vec<CatalogSearchProjection>,
+    pub resolved_ingestion_failures: Vec<IngestionFailureResolution>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct IngestionFailureResolution {
+    pub library_id: LibraryId,
+    pub phase: IngestionFailurePhase,
+    pub target_uri: String,
+    pub resolved_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryScanSourcePersistenceSummary {
+    pub item_ids: Vec<crate::MediaItemId>,
+    pub source_id: MediaSourceId,
+    pub library_item_states: u64,
+    pub local_inference_evidence: u64,
+    pub search_projections: u64,
+    pub resolved_ingestion_failures: u64,
 }

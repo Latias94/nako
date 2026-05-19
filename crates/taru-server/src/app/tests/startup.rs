@@ -19,6 +19,7 @@ fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> TaruServer
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries,
     }
 }
@@ -63,6 +64,7 @@ async fn scan_library_persists_job_success() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -130,6 +132,7 @@ async fn background_scan_job_uses_runtime_job_supervision() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -459,6 +462,7 @@ async fn app_startup_rejects_duplicate_configured_library_ids() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![
             LocalLibraryConfig {
                 id: library_id,
@@ -651,6 +655,7 @@ async fn app_startup_rejects_duplicate_metadata_provider_configs() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -677,6 +682,7 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
     let config = app.config().clone();
     let staging = RemuxStagingPolicy::new(&config.remux_staging_root).unwrap();
     let stale_id = TranscodeSessionId::new();
+    let profile_identity = local_remux_profile_identity(RemuxContainer::Mp4);
 
     store
         .create_transcode_session(NewTranscodeSession {
@@ -685,10 +691,12 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
             kind: TranscodeSessionKind::Remux,
             request_key: RemuxRequestKey {
                 source_id: source.id,
-                output_container: RemuxContainer::Mp4,
+                profile_identity: profile_identity.clone(),
             }
             .persisted_request_key(),
-            output_path: staging.output_path(source.id, RemuxContainer::Mp4).unwrap(),
+            output_path: staging
+                .output_path(source.id, &profile_identity, RemuxContainer::Mp4)
+                .unwrap(),
             state: TranscodeSessionState::Running,
         })
         .await
@@ -738,6 +746,7 @@ async fn app_startup_marks_unfinished_jobs_failed() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),
@@ -843,6 +852,7 @@ async fn startup_report_tracks_disabled_staging_cleanup() {
             ..StagingConfig::default()
         },
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

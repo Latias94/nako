@@ -29,8 +29,14 @@ use taru_core::{
 use taru_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use taru_library::{LibraryScanRequest, LibraryScanner};
 use taru_metadata::MetadataRefreshSummary;
-use taru_streaming::{ClientPlaybackCapabilities, DirectPlayRangeRequest};
-use taru_transcode::{HardwareAcceleration, HardwareAccelerationFallback, RemuxContainer};
+use taru_streaming::{
+    ClientPlaybackCapabilities, DirectPlayRangeRequest, PlaybackPreferenceContext, PlaybackProfile,
+    PlaybackSelectionContext, PlaybackStorageContext,
+};
+use taru_transcode::{
+    HardwareAcceleration, HardwareAccelerationFallback, OutputContainer, RemuxContainer,
+    TranscodePlan, TranscodeProfileIdentity,
+};
 use taru_vfs::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageCapabilities, StorageUri, VirtualFile,
@@ -90,6 +96,51 @@ fn staging_manifest_record(
         active_leases,
         validation_error: None,
     }
+}
+
+fn local_remux_profile_identity(container: RemuxContainer) -> TranscodeProfileIdentity {
+    let profile = PlaybackProfile::from_context(
+        &ClientPlaybackCapabilities::default(),
+        PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: false,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext {
+                remux_output_container: Some(container),
+                ..Default::default()
+            },
+        },
+    );
+
+    profile.remux_transcode_profile(container).identity()
+}
+
+fn local_hls_profile_identity(acceleration: HardwareAcceleration) -> TranscodeProfileIdentity {
+    let profile = PlaybackProfile::from_context(
+        &ClientPlaybackCapabilities::default(),
+        PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: false,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext {
+                transcode_output_container: Some(OutputContainer::Hls),
+                ..Default::default()
+            },
+        },
+    );
+    let plan = TranscodePlan {
+        input_locator: "local:///demo.mkv".to_owned(),
+        output_container: OutputContainer::Hls,
+        video_codec: Some("h264".to_owned()),
+        audio_codec: Some("aac".to_owned()),
+        hardware_acceleration: HardwareAcceleration::None,
+    };
+
+    profile
+        .hls_transcode_profile(&plan, acceleration)
+        .identity()
 }
 
 struct RemotePlaybackBackend {
@@ -685,6 +736,7 @@ async fn remux_app_with_source_and_transcode(
         transcode,
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

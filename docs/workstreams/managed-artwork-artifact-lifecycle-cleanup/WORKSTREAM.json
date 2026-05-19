@@ -1,0 +1,29 @@
+{
+  "slug": "managed-artwork-artifact-lifecycle-cleanup",
+  "status": "completed",
+  "goal": "Managed Artwork Artifact lifecycle diagnostics and protected cleanup",
+  "owner": "codex",
+  "created_at": "2026-05-19",
+  "updated_at": "2026-05-19",
+  "current_task": "split-to-managed-artwork-artifact-store-drift-inventory",
+  "first_slice": "Redacted Admin lifecycle diagnostics and cleanup dry-run",
+  "non_goals": [
+    "thumbnail generation or responsive variants",
+    "durable ingest retry, requeue, cancellation, or runtime controls",
+    "public gallery or candidate management",
+    "Public Client API image contract changes",
+    "Addon-side fetching or addon-owned artifact storage",
+    "Artwork Export"
+  ],
+  "validation_gates": [
+    "cargo nextest run -p taru-api managed_artwork_lifecycle --no-fail-fast",
+    "cargo nextest run -p taru-db managed_artwork_lifecycle --no-fail-fast",
+    "cargo nextest run -p taru-server managed_artwork_lifecycle --no-fail-fast",
+    "cargo nextest run -p taru-api managed_artwork_cleanup --no-fail-fast",
+    "cargo nextest run -p taru-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast",
+    "cargo nextest run -p taru-server managed_artwork_cleanup --no-fail-fast",
+    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ]
+}

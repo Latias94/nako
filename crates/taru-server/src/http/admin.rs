@@ -1,30 +1,35 @@
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
 };
 use taru_api::{
-    ADMIN_API_VERSION, API_VERSION, AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
-    AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
-    AdminConfigStagingDiagnostics, AdminJobListItem, AdminJobListResponse,
-    AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+    ADMIN_API_VERSION, API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
+    AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
+    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobListItem,
+    AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
     AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
     AdminOutboxEventListItem, AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
     AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
     AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
     AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-    AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDiagnostics,
-    AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-    AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+    AdminPlaybackHardwareCapabilityEvidence, AdminPlaybackHardwareCapabilityReason,
+    AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareSmokeProbe,
+    AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackRemoteBudgetDiagnostics,
+    AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
     AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
     AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
     AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord, AdminStorageStagingSummary,
     AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
     StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
 };
-use taru_transcode::HardwareAccelerationCapability;
+use taru_core::ArtworkCandidateId;
+use taru_core::ManagedArtworkArtifactId;
+use taru_transcode::{
+    HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
+};
 
 use crate::{
     app::{RuntimeSupervisorDiagnostics, TaruApp},
@@ -34,8 +39,9 @@ use crate::{
 use super::{
     error::ApiResult,
     query::{
-        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
-        StorageStagingQuery,
+        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
+        ArtworkArtifactStorageDriftQuery, CatalogGovernanceItemsQuery, JobListQuery,
+        OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
     },
 };
 
@@ -48,6 +54,38 @@ pub(super) fn routes() -> Router<TaruApp> {
         )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
+        .route(
+            "/admin/v1/artwork/candidates/{candidate_id}/accept",
+            post(accept_admin_artwork_candidate),
+        )
+        .route(
+            "/admin/v1/artwork/ingests/process-next",
+            post(process_next_admin_artwork_ingest),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/{artifact_id}/publish",
+            post(publish_admin_artwork_artifact),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/lifecycle",
+            get(get_admin_artwork_artifact_lifecycle),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/storage-drift",
+            get(get_admin_artwork_artifact_storage_drift),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/remediation-plan",
+            get(get_admin_artwork_artifact_remediation_plan),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/remediate-stray-files",
+            post(remediate_admin_artwork_artifact_stray_files),
+        )
+        .route(
+            "/admin/v1/artwork/artifacts/cleanup",
+            post(cleanup_admin_artwork_artifacts),
+        )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
@@ -58,6 +96,84 @@ pub(super) fn routes() -> Router<TaruApp> {
             "/admin/v1/playback/sessions",
             get(list_admin_playback_sessions),
         )
+}
+
+pub(super) async fn accept_admin_artwork_candidate(
+    State(app): State<TaruApp>,
+    Path(candidate_id): Path<ArtworkCandidateId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().accept_candidate(candidate_id).await?))
+}
+
+pub(super) async fn process_next_admin_artwork_ingest(
+    State(app): State<TaruApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().process_next().await?))
+}
+
+pub(super) async fn publish_admin_artwork_artifact(
+    State(app): State<TaruApp>,
+    Path(artifact_id): Path<ManagedArtworkArtifactId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.artwork().publish_artifact(artifact_id).await?))
+}
+
+pub(super) async fn get_admin_artwork_artifact_lifecycle(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactLifecycleQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    Ok(Json(
+        app.artwork()
+            .artifact_lifecycle_diagnostics(filter, page)
+            .await?,
+    ))
+}
+
+pub(super) async fn get_admin_artwork_artifact_storage_drift(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactStorageDriftQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (page, file_scan_limit) = query.into_page_and_file_scan_limit()?;
+    Ok(Json(
+        app.artwork()
+            .artifact_storage_drift_diagnostics(page, file_scan_limit)
+            .await?,
+    ))
+}
+
+pub(super) async fn get_admin_artwork_artifact_remediation_plan(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactRemediationQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (page, file_scan_limit) = query.into_page_and_file_scan_limit()?;
+    Ok(Json(
+        app.artwork()
+            .artifact_remediation_plan(page, file_scan_limit)
+            .await?,
+    ))
+}
+
+pub(super) async fn remediate_admin_artwork_artifact_stray_files(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactRemediationQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let file_scan_limit = query.into_confirmed_file_scan_limit()?;
+    Ok(Json(
+        app.artwork()
+            .cleanup_untracked_artifact_files(file_scan_limit)
+            .await?,
+    ))
+}
+
+pub(super) async fn cleanup_admin_artwork_artifacts(
+    State(app): State<TaruApp>,
+    Query(query): Query<ArtworkArtifactLifecycleQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (_filter, page) = query.into_filter_and_page()?;
+    Ok(Json(
+        app.artwork().cleanup_unselected_artifacts(page).await?,
+    ))
 }
 
 pub(super) async fn list_admin_catalog_governance_items(
@@ -174,6 +290,21 @@ pub(super) async fn get_admin_system_config(
         playback: AdminConfigPlaybackDiagnostics {
             remote_stream_concurrency: config.playback.remote_stream_concurrency,
             remote_stage_concurrency: config.playback.remote_stage_concurrency,
+        },
+        artwork: AdminArtworkConfigDiagnostics {
+            artifact_root_configured: !config.artwork.artifact_root.as_os_str().is_empty(),
+            fetch_timeout_ms: config.artwork.fetch_timeout_ms,
+            fetch_max_attempts: config.artwork.fetch_max_attempts,
+            fetch_max_bytes: config.artwork.fetch_max_bytes,
+            fetch_concurrency: config.artwork.fetch_concurrency,
+            fetch_user_agent: config.artwork.fetch_user_agent.clone(),
+            has_fetch_proxy: config
+                .artwork
+                .fetch_proxy
+                .as_ref()
+                .is_some_and(|proxy| !proxy.is_blank()),
+            max_width: config.artwork.max_width,
+            max_height: config.artwork.max_height,
         },
     })
 }
@@ -531,24 +662,68 @@ fn hardware_capability_diagnostic(
         accelerator: capability.accelerator,
         available: capability.available,
         reason_code: hardware_capability_reason(capability),
+        evidence: hardware_capability_evidence(capability.evidence),
+        smoke_probe: AdminPlaybackHardwareSmokeProbe {
+            status: hardware_smoke_probe_status(capability.smoke_probe.status),
+            operator_check: capability.smoke_probe.operator_check.clone(),
+            has_detail: capability.smoke_probe.detail.is_some(),
+        },
     }
 }
 
 fn hardware_capability_reason(
     capability: &HardwareAccelerationCapability,
 ) -> AdminPlaybackHardwareCapabilityReason {
-    if capability.available {
-        return AdminPlaybackHardwareCapabilityReason::Available;
+    match capability.evidence {
+        HardwareCapabilityEvidence::CpuAlwaysAvailable
+        | HardwareCapabilityEvidence::FfmpegEncoderListed
+        | HardwareCapabilityEvidence::StaticDetector
+            if capability.available =>
+        {
+            AdminPlaybackHardwareCapabilityReason::Available
+        }
+        HardwareCapabilityEvidence::FfmpegEncoderMissing => {
+            AdminPlaybackHardwareCapabilityReason::EncoderNotListed
+        }
+        HardwareCapabilityEvidence::FfmpegProbeError
+        | HardwareCapabilityEvidence::CpuAlwaysAvailable
+        | HardwareCapabilityEvidence::FfmpegEncoderListed
+        | HardwareCapabilityEvidence::StaticDetector => {
+            AdminPlaybackHardwareCapabilityReason::ProbeError
+        }
     }
+}
 
-    if capability
-        .reason
-        .as_deref()
-        .is_some_and(|reason| reason.contains("not listed"))
-    {
-        AdminPlaybackHardwareCapabilityReason::EncoderNotListed
-    } else {
-        AdminPlaybackHardwareCapabilityReason::ProbeError
+fn hardware_capability_evidence(
+    evidence: HardwareCapabilityEvidence,
+) -> AdminPlaybackHardwareCapabilityEvidence {
+    match evidence {
+        HardwareCapabilityEvidence::CpuAlwaysAvailable => {
+            AdminPlaybackHardwareCapabilityEvidence::CpuAlwaysAvailable
+        }
+        HardwareCapabilityEvidence::FfmpegEncoderListed => {
+            AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
+        }
+        HardwareCapabilityEvidence::FfmpegEncoderMissing => {
+            AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderMissing
+        }
+        HardwareCapabilityEvidence::FfmpegProbeError => {
+            AdminPlaybackHardwareCapabilityEvidence::FfmpegProbeError
+        }
+        HardwareCapabilityEvidence::StaticDetector => {
+            AdminPlaybackHardwareCapabilityEvidence::StaticDetector
+        }
+    }
+}
+
+fn hardware_smoke_probe_status(
+    status: HardwareSmokeProbeStatus,
+) -> AdminPlaybackHardwareSmokeProbeStatus {
+    match status {
+        HardwareSmokeProbeStatus::NotRequired => AdminPlaybackHardwareSmokeProbeStatus::NotRequired,
+        HardwareSmokeProbeStatus::NotRun => AdminPlaybackHardwareSmokeProbeStatus::NotRun,
+        HardwareSmokeProbeStatus::Passed => AdminPlaybackHardwareSmokeProbeStatus::Passed,
+        HardwareSmokeProbeStatus::Failed => AdminPlaybackHardwareSmokeProbeStatus::Failed,
     }
 }
 

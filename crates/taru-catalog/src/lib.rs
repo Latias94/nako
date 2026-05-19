@@ -24,6 +24,19 @@ pub struct CatalogHydrationSummary {
     pub search_indexed: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct CatalogLabelHydrationSelection {
+    pub genres: bool,
+    pub tags: bool,
+}
+
+impl CatalogLabelHydrationSelection {
+    #[must_use]
+    pub const fn any(self) -> bool {
+        self.genres || self.tags
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct CatalogHydrationSnapshot {
     pub item: MediaItem,
@@ -298,6 +311,144 @@ where
     port.hydrate_catalog(item_id, source).await
 }
 
+pub async fn plan_item_catalog_projection<R>(
+    repository: &R,
+    item: MediaItem,
+    source: MetadataSource,
+) -> Result<CatalogItemProjectionCommit>
+where
+    R: CatalogRepository + MediaRepository,
+{
+    let mut snapshot = load_hydration_snapshot(repository, item.id).await?;
+    snapshot.item = item;
+    let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
+    let mut replacement = CatalogItemGraphReplacement::default();
+    let mut summary = CatalogHydrationSummary {
+        item_id: snapshot.item.id,
+        ..CatalogHydrationSummary::default()
+    };
+
+    hydrate_credits(&lookup, &snapshot.item, &mut summary, &mut replacement)?;
+    hydrate_genres(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_tags(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_collections(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_studios(
+        &lookup,
+        &snapshot.item,
+        &source,
+        &mut summary,
+        &mut replacement,
+    )?;
+    hydrate_images(&lookup, &snapshot.item, &mut summary, &mut replacement)?;
+    let search = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
+
+    Ok(CatalogItemProjectionCommit {
+        graph: replacement,
+        search,
+    })
+}
+
+pub async fn refresh_item_search<R>(
+    repository: &R,
+    item_id: MediaItemId,
+) -> Result<CatalogHydrationSummary>
+where
+    R: CatalogRepository + MediaRepository,
+{
+    let snapshot = load_hydration_snapshot(repository, item_id).await?;
+    let replacement = replacement_from_snapshot(&snapshot);
+    let search_projection = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
+    repository
+        .upsert_search_projection(&search_projection)
+        .await?;
+
+    Ok(CatalogHydrationSummary {
+        item_id,
+        people: replacement.people.len() as u64,
+        credits: replacement.credits.len() as u64,
+        genres: replacement.genres.len() as u64,
+        tags: replacement.tags.len() as u64,
+        collections: replacement.collections.len() as u64,
+        studios: replacement.studios.len() as u64,
+        images: 0,
+        search_indexed: true,
+    })
+}
+
+pub async fn hydrate_item_catalog_labels<R>(
+    repository: &R,
+    item_id: MediaItemId,
+    source: MetadataSource,
+    selection: CatalogLabelHydrationSelection,
+) -> Result<CatalogHydrationSummary>
+where
+    R: CatalogRepository + MediaRepository,
+{
+    let snapshot = load_hydration_snapshot(repository, item_id).await?;
+    let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
+    let mut replacement = replacement_from_snapshot(&snapshot);
+    let mut unused_summary = CatalogHydrationSummary {
+        item_id,
+        ..CatalogHydrationSummary::default()
+    };
+
+    if selection.genres {
+        replacement.genres.clear();
+        replacement.item_genres.clear();
+        hydrate_genres(
+            &lookup,
+            &snapshot.item,
+            &source,
+            &mut unused_summary,
+            &mut replacement,
+        )?;
+    }
+
+    if selection.tags {
+        replacement.tags.clear();
+        replacement.item_tags.clear();
+        hydrate_tags(
+            &lookup,
+            &snapshot.item,
+            &source,
+            &mut unused_summary,
+            &mut replacement,
+        )?;
+    }
+
+    let search_projection = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
+    let mut summary = summary_from_replacement(item_id, &replacement);
+    commit_hydration(
+        repository,
+        CatalogHydrationCommit {
+            replacement,
+            search_projection,
+        },
+    )
+    .await?;
+
+    summary.search_indexed = true;
+    Ok(summary)
+}
+
 async fn hydrate_item_catalog_with_repository<R>(
     repository: &R,
     item_id: MediaItemId,
@@ -334,6 +485,57 @@ where
     summary.search_indexed = true;
 
     Ok(summary)
+}
+
+fn replacement_from_snapshot(snapshot: &CatalogHydrationSnapshot) -> CatalogItemGraphReplacement {
+    let mut replacement = CatalogItemGraphReplacement::default();
+    let mut seen_people = HashSet::new();
+
+    for (credit, person) in &snapshot.credits {
+        if seen_people.insert(person.id) {
+            replacement.people.push(person.clone());
+        }
+        replacement.credits.push(credit.clone());
+    }
+
+    for (item_genre, genre) in &snapshot.genres {
+        replacement.genres.push(genre.clone());
+        replacement.item_genres.push(item_genre.clone());
+    }
+
+    for (item_tag, tag) in &snapshot.tags {
+        replacement.tags.push(tag.clone());
+        replacement.item_tags.push(item_tag.clone());
+    }
+
+    for (collection_item, collection) in &snapshot.collections {
+        replacement.collections.push(collection.clone());
+        replacement.collection_items.push(collection_item.clone());
+    }
+
+    for (item_studio, studio) in &snapshot.studios {
+        replacement.studios.push(studio.clone());
+        replacement.item_studios.push(item_studio.clone());
+    }
+
+    replacement
+}
+
+fn summary_from_replacement(
+    item_id: MediaItemId,
+    replacement: &CatalogItemGraphReplacement,
+) -> CatalogHydrationSummary {
+    CatalogHydrationSummary {
+        item_id,
+        people: replacement.people.len() as u64,
+        credits: replacement.credits.len() as u64,
+        genres: replacement.genres.len() as u64,
+        tags: replacement.tags.len() as u64,
+        collections: replacement.collections.len() as u64,
+        studios: replacement.studios.len() as u64,
+        images: replacement.images.len() as u64,
+        search_indexed: false,
+    }
 }
 
 fn hydrate_credits(

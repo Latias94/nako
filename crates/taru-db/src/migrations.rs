@@ -104,6 +104,36 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon side effects",
         include_str!("../migrations/0022_addon_side_effects.sql"),
     ),
+    (
+        23,
+        "addon side effect apply outcome",
+        include_str!("../migrations/0023_addon_side_effect_apply_outcome.sql"),
+    ),
+    (
+        24,
+        "addon side effect apply report",
+        include_str!("../migrations/0024_addon_side_effect_apply_report.sql"),
+    ),
+    (
+        25,
+        "addon artwork candidates",
+        include_str!("../migrations/0025_addon_artwork_candidates.sql"),
+    ),
+    (
+        26,
+        "managed artwork ingest",
+        include_str!("../migrations/0026_managed_artwork_ingest.sql"),
+    ),
+    (
+        27,
+        "selected artwork publication",
+        include_str!("../migrations/0027_selected_artwork_publication.sql"),
+    ),
+    (
+        28,
+        "managed artwork artifact cleanup",
+        include_str!("../migrations/0028_managed_artwork_artifact_cleanup.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

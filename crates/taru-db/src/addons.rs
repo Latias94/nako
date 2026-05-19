@@ -473,6 +473,52 @@ impl AddonRepository for SqliteStore {
 
         row.map(row_to_addon_side_effect).transpose()
     }
+
+    async fn set_addon_side_effect_apply_outcome(
+        &self,
+        id: AddonSideEffectId,
+        outcome: AddonSideEffectApplyOutcome,
+    ) -> Result<AddonSideEffectRecord> {
+        sqlx::query(
+            r#"
+            UPDATE addon_side_effects
+            SET
+                apply_status = ?2,
+                apply_error_code = ?3,
+                applied_item_id = ?4,
+                applied_source = ?5,
+                apply_report_json = ?6,
+                applied_at = CASE
+                    WHEN ?2 = 'applied' THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    ELSE applied_at
+                END
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(outcome.status.as_str())
+        .bind(&outcome.error_code)
+        .bind(outcome.item_id.map(|id| id.to_string()))
+        .bind(&outcome.source)
+        .bind(&outcome.report_json)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let sql = addon_side_effect_select_sql("WHERE id = ?1 LIMIT 1");
+        let row = sqlx::query(&sql)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_addon_side_effect)
+            .transpose()?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "addon_side_effect",
+                id: id.to_string(),
+            })
+    }
 }
 
 fn addon_token_select_sql(where_clause: &str) -> String {
@@ -511,6 +557,12 @@ fn addon_side_effect_select_sql(where_clause: &str) -> String {
             payload_json,
             validation_status,
             safe_error_code,
+            apply_status,
+            apply_error_code,
+            applied_item_id,
+            applied_source,
+            apply_report_json,
+            applied_at,
             created_at
         FROM addon_side_effects
         {where_clause}

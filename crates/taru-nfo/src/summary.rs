@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use taru_core::{JobId, LocalMetadataPolicy, MediaItemId, MediaSourceId};
+use taru_core::{JobId, LibraryId, LocalMetadataPolicy, MediaItemId, MediaSourceId};
 use taru_vfs::StorageUri;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -28,7 +28,15 @@ pub struct NfoImportRequest {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoExportRequest {
     pub job_id: JobId,
-    pub library_id: taru_core::LibraryId,
+    pub library_id: LibraryId,
+    pub policy: LocalMetadataPolicy,
+    pub force: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoExportSourceRequest {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
     pub policy: LocalMetadataPolicy,
     pub force: bool,
 }
@@ -48,7 +56,28 @@ pub struct NfoImportSummary {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoExportSummary {
     pub job_id: JobId,
-    pub library_id: taru_core::LibraryId,
+    pub library_id: LibraryId,
+    pub scanned_sources: u64,
+    pub exported_items: u64,
+    pub skipped_items: u64,
+    pub failed_items: u64,
+    #[serde(default)]
+    pub backed_up_items: u64,
+    #[serde(default)]
+    pub backups: Vec<NfoBackupReport>,
+    #[serde(default)]
+    pub pruned_backup_items: u64,
+    #[serde(default)]
+    pub pruned_backups: u64,
+    #[serde(default)]
+    pub prune_failures: Vec<NfoBackupPruneFailure>,
+    pub failures: Vec<NfoFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoExportSourceSummary {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
     pub scanned_sources: u64,
     pub exported_items: u64,
     pub skipped_items: u64,

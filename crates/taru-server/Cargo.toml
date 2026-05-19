@@ -13,10 +13,14 @@ async-trait.workspace = true
 axum.workspace = true
 clap.workspace = true
 futures-util.workspace = true
+image.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 taru-addon-protocol = { path = "../taru-addon-protocol" }
 taru-api = { path = "../taru-api" }
+taru-catalog = { path = "../taru-catalog" }
 taru-db = { path = "../taru-db" }
 taru-core = { path = "../taru-core" }
 taru-automation = { path = "../taru-automation" }

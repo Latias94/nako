@@ -22,6 +22,7 @@ async fn nfo_import_uses_configured_webdav_backend() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Remote Movies".to_owned(),
@@ -96,6 +97,7 @@ async fn nfo_import_uses_reconciled_library_policy() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Configured Movies".to_owned(),
@@ -172,6 +174,7 @@ async fn nfo_export_rejects_read_only_webdav_backend() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Remote Movies".to_owned(),
@@ -229,6 +232,7 @@ async fn nfo_import_job_imports_sidecar_and_persists_summary() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
             id: library_id,
             name: "Movies".to_owned(),

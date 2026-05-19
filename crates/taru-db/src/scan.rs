@@ -131,19 +131,49 @@ impl ScanRepository for SqliteStore {
         transaction.commit().await.map_err(database_error)
     }
 
-    async fn record_scanned_media_source(
+    async fn commit_library_scan_source(
         &self,
-        item: &MediaItem,
-        source: &MediaSource,
-        state: &SourceState,
-    ) -> Result<()> {
+        commit: &LibraryScanSourcePersistenceCommit,
+    ) -> Result<LibraryScanSourcePersistenceSummary> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
-        crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
-        crate::media::upsert_media_source_in_transaction(&mut transaction, source).await?;
-        upsert_source_state_in_transaction(&mut transaction, state).await?;
+        for item in &commit.items {
+            crate::media::upsert_media_item_in_transaction(&mut transaction, item).await?;
+        }
+        crate::media::upsert_media_source_in_transaction(&mut transaction, &commit.source).await?;
+        upsert_source_state_in_transaction(&mut transaction, &commit.source_state).await?;
+        for state in &commit.library_item_states {
+            crate::library_item::upsert_library_item_state_tx(&mut transaction, state).await?;
+        }
+        for evidence in &commit.local_inference_evidence {
+            crate::local_inference::upsert_local_inference_evidence_tx(&mut transaction, evidence)
+                .await?;
+        }
+        for projection in &commit.search_projections {
+            crate::catalog::upsert_search_projection_tx(&mut transaction, projection).await?;
+        }
+        let mut resolved_ingestion_failures = 0;
+        for resolution in &commit.resolved_ingestion_failures {
+            resolved_ingestion_failures += crate::ingestion::resolve_ingestion_failure_tx(
+                &mut transaction,
+                resolution.library_id,
+                resolution.phase,
+                &resolution.target_uri,
+                resolution.resolved_at_ms,
+            )
+            .await?;
+        }
 
-        transaction.commit().await.map_err(database_error)
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(LibraryScanSourcePersistenceSummary {
+            item_ids: commit.items.iter().map(|item| item.id).collect(),
+            source_id: commit.source.id,
+            library_item_states: commit.library_item_states.len() as u64,
+            local_inference_evidence: commit.local_inference_evidence.len() as u64,
+            search_projections: commit.search_projections.len() as u64,
+            resolved_ingestion_failures,
+        })
     }
 
     async fn get_source_state(
@@ -238,17 +268,21 @@ async fn upsert_source_state_in_transaction(
 #[cfg(test)]
 mod tests {
     use taru_core::{
-        CanonicalMetadata, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-        IngestionFailureRepository, IngestionFailureStatus, Library, LibraryId, LibraryOptions,
-        LibraryRepository, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
+        CanonicalMetadata, CatalogSearchProjection, IngestionFailureClass, IngestionFailureFilter,
+        IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
+        IngestionFailureStatus, Library, LibraryId, LibraryItemRepository, LibraryItemState,
+        LibraryOptions, LibraryRepository, LibraryScanSourcePersistenceCommit,
+        LocalInferenceEvidence, LocalInferenceEvidenceId, LocalInferenceEvidenceSource,
+        LocalInferenceRepository, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
         MediaSourceId, NewIngestionFailure, PageRequest, ScanRepository, ScanSnapshotId,
         SourceState, TransactionManager,
     };
+    use taru_search::{SearchIndex, SearchQuery};
 
     use crate::SqliteStore;
 
     #[tokio::test]
-    async fn record_scanned_media_source_writes_item_source_and_state() {
+    async fn commit_library_scan_source_writes_full_source_unit_and_resolves_failure() {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
@@ -273,9 +307,47 @@ mod tests {
             .begin_scan_snapshot(scan_id, library_id, "local:///Movies")
             .await
             .unwrap();
+        store
+            .record_ingestion_failure(NewIngestionFailure {
+                library_id,
+                job_id: None,
+                scan_id: Some(scan_id),
+                source_id: None,
+                phase: IngestionFailurePhase::Scan,
+                target_uri: locator.to_owned(),
+                target_kind: "source".to_owned(),
+                failure_class: IngestionFailureClass::Storage,
+                message: "source was previously unreadable".to_owned(),
+                retryable: true,
+                failed_at_ms: 10,
+            })
+            .await
+            .unwrap();
 
         store
-            .record_scanned_media_source(&item, &source, &state)
+            .commit_library_scan_source(&LibraryScanSourcePersistenceCommit {
+                items: vec![item.clone()],
+                source: source.clone(),
+                source_state: state.clone(),
+                library_item_states: vec![LibraryItemState {
+                    library_id,
+                    item_id,
+                    provisional: true,
+                }],
+                local_inference_evidence: vec![local_inference_evidence(source_id)],
+                search_projections: vec![CatalogSearchProjection {
+                    item_id,
+                    title: "M19".to_owned(),
+                    body: "M19 M19.mkv".to_owned(),
+                    facets: vec!["kind:movie".to_owned(), "source:M19.mkv".to_owned()],
+                }],
+                resolved_ingestion_failures: vec![IngestionFailureResolution {
+                    library_id,
+                    phase: IngestionFailurePhase::Scan,
+                    target_uri: locator.to_owned(),
+                    resolved_at_ms: 20,
+                }],
+            })
             .await
             .unwrap();
 
@@ -288,23 +360,123 @@ mod tests {
             store.get_source_state(library_id, locator).await.unwrap(),
             Some(state)
         );
+        assert_eq!(
+            store
+                .get_library_item_state(library_id, item_id)
+                .await
+                .unwrap(),
+            Some(LibraryItemState {
+                library_id,
+                item_id,
+                provisional: true,
+            })
+        );
+        assert_eq!(
+            store
+                .list_local_inference_evidence_for_source(source_id, PageRequest::first_page())
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            store
+                .search(SearchQuery {
+                    query: "m19".to_owned(),
+                    facets: vec!["source:M19.mkv".to_owned()],
+                    limit: 10,
+                    offset: 0,
+                })
+                .await
+                .unwrap()[0]
+                .item_id,
+            item_id
+        );
+        assert_eq!(
+            store
+                .list_ingestion_failures(
+                    IngestionFailureFilter {
+                        library_id: Some(library_id),
+                        phase: Some(IngestionFailurePhase::Scan),
+                        status: Some(IngestionFailureStatus::Resolved),
+                    },
+                    PageRequest::first_page(),
+                )
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[tokio::test]
-    async fn record_scanned_media_source_rolls_back_item_when_source_write_fails() {
+    async fn commit_library_scan_source_rolls_back_when_search_projection_fails() {
         let store = SqliteStore::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let scan_id = ScanSnapshotId::new();
         let item_id = MediaItemId::new();
+        let missing_item_id = MediaItemId::new();
         let source_id = MediaSourceId::new();
-        let locator = "local:///Movies/MissingLibrary.mkv";
-        let item = media_item(item_id, "Missing Library");
+        let locator = "local:///Movies/BrokenSearch.mkv";
+        let item = media_item(item_id, "Broken Search");
         let source = media_source(library_id, item_id, source_id, locator);
         let state = source_state(library_id, source_id, scan_id, locator);
 
+        store
+            .upsert_library(&Library {
+                id: library_id,
+                name: "Movies".to_owned(),
+                roots: vec!["local:///Movies".to_owned()],
+                options: LibraryOptions::default(),
+            })
+            .await
+            .unwrap();
+        store
+            .begin_scan_snapshot(scan_id, library_id, "local:///Movies")
+            .await
+            .unwrap();
+        store
+            .record_ingestion_failure(NewIngestionFailure {
+                library_id,
+                job_id: None,
+                scan_id: Some(scan_id),
+                source_id: None,
+                phase: IngestionFailurePhase::Scan,
+                target_uri: locator.to_owned(),
+                target_kind: "source".to_owned(),
+                failure_class: IngestionFailureClass::Storage,
+                message: "source was previously unreadable".to_owned(),
+                retryable: true,
+                failed_at_ms: 10,
+            })
+            .await
+            .unwrap();
+
         let err = store
-            .record_scanned_media_source(&item, &source, &state)
+            .commit_library_scan_source(&LibraryScanSourcePersistenceCommit {
+                items: vec![item],
+                source: source.clone(),
+                source_state: state,
+                library_item_states: vec![LibraryItemState {
+                    library_id,
+                    item_id,
+                    provisional: true,
+                }],
+                local_inference_evidence: vec![local_inference_evidence(source_id)],
+                search_projections: vec![CatalogSearchProjection {
+                    item_id: missing_item_id,
+                    title: "Broken".to_owned(),
+                    body: String::new(),
+                    facets: Vec::new(),
+                }],
+                resolved_ingestion_failures: vec![IngestionFailureResolution {
+                    library_id,
+                    phase: IngestionFailurePhase::Scan,
+                    target_uri: locator.to_owned(),
+                    resolved_at_ms: 20,
+                }],
+            })
             .await
             .unwrap_err();
         assert!(!err.to_string().is_empty());
@@ -313,6 +485,35 @@ mod tests {
         assert_eq!(
             store.get_source_state(library_id, locator).await.unwrap(),
             None
+        );
+        assert_eq!(
+            store
+                .get_library_item_state(library_id, item_id)
+                .await
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            store
+                .list_local_inference_evidence_for_source(source_id, PageRequest::first_page())
+                .await
+                .unwrap(),
+            Vec::new()
+        );
+        assert_eq!(
+            store
+                .list_ingestion_failures(
+                    IngestionFailureFilter {
+                        library_id: Some(library_id),
+                        phase: Some(IngestionFailurePhase::Scan),
+                        status: Some(IngestionFailureStatus::Open),
+                    },
+                    PageRequest::first_page(),
+                )
+                .await
+                .unwrap()
+                .len(),
+            1
         );
     }
 
@@ -496,6 +697,22 @@ mod tests {
             fingerprint: Some("m19-fingerprint".to_owned()),
             last_seen_scan_id: scan_id,
             tombstoned: false,
+        }
+    }
+
+    fn local_inference_evidence(source_id: MediaSourceId) -> LocalInferenceEvidence {
+        LocalInferenceEvidence {
+            id: LocalInferenceEvidenceId::new(),
+            source_id,
+            inferred_kind: MediaKind::Movie,
+            inferred_title: Some("M19".to_owned()),
+            inferred_year: None,
+            inferred_season: None,
+            inferred_episode: None,
+            confidence_milli: Some(900),
+            evidence_source: LocalInferenceEvidenceSource::FileName,
+            evidence_value: "M19.mkv".to_owned(),
+            inference_version: "test".to_owned(),
         }
     }
 }

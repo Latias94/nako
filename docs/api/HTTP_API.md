@@ -48,6 +48,8 @@ GET  /items?limit=50&offset=0
 GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
+GET  /images/{image_id}
+HEAD /images/{image_id}
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -364,6 +366,11 @@ each item's effective providers, language, and refresh mode.
 NFO jobs use kinds `nfo_import` and `nfo_export`. Their input includes the
 library ID, local metadata policy, and force flag.
 
+Managed artwork candidate ingest jobs use kind `managed_artwork_ingest` and
+resource class `artwork.ingest`. Their input includes only redacted Taru IDs
+and image kind. It must not include the candidate's raw remote URL, source URI,
+cache URI, local path, storage handle, or validation internals.
+
 ## Current Routes
 
 ```text
@@ -379,6 +386,8 @@ GET  /items?limit=50&offset=0
 GET  /items/{item_id}
 GET  /items/{item_id}/credits
 GET  /items/{item_id}/images
+GET  /images/{image_id}
+HEAD /images/{image_id}
 GET  /people?limit=50&offset=0
 GET  /people/{person_id}
 GET  /people/{person_id}/items?limit=50&offset=0
@@ -430,6 +439,14 @@ GET  /admin/v1/overview
 GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/events
 GET  /admin/v1/jobs
+POST /admin/v1/artwork/candidates/{candidate_id}/accept
+POST /admin/v1/artwork/ingests/process-next
+GET  /admin/v1/artwork/artifacts/lifecycle
+GET  /admin/v1/artwork/artifacts/storage-drift
+GET  /admin/v1/artwork/artifacts/remediation-plan
+POST /admin/v1/artwork/artifacts/remediate-stray-files
+POST /admin/v1/artwork/artifacts/cleanup
+POST /admin/v1/artwork/artifacts/{artifact_id}/publish
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
@@ -640,15 +657,16 @@ server configuration. It includes admin/public API versions, auth enablement
 and token environment reference, concurrency settings, remux timeout, library
 names/presets/backend kind/root scheme, metadata runtime budgets, metadata
 provider enablement and secret-reference names, transcode hardware policy and
-slot budgets, staging budget/retention/cleanup settings, and remote playback
-stream/stage budgets.
+slot budgets, staging budget/retention/cleanup settings, remote playback
+stream/stage budgets, and managed artwork fetch/storage budgets.
 
 The config diagnostics route never returns `database_url`, local library roots,
-`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, WebDAV base URLs, WebDAV
-usernames, WebDAV password environment names, metadata proxy values, provider
-base URLs, literal header values, header secret environment names, resolved
-tokens, or resolved secrets. It is an Admin API route and is not part of Public
-Client OpenAPI or generated SDK artifacts.
+`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, managed artwork artifact
+roots, WebDAV base URLs, WebDAV usernames, WebDAV password environment names,
+metadata or artwork proxy values, provider base URLs, literal header values,
+header secret environment names, resolved tokens, or resolved secrets. It is an
+Admin API route and is not part of Public Client OpenAPI or generated SDK
+artifacts.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.
@@ -902,8 +920,88 @@ handling.
 `POST /addon/v1/side-effects` is the first protected Addon Side Effect intake
 route. It authenticates the Addon Token, records the addon actor, token,
 permission, Media Library, target, idempotency key, provenance snapshot,
-payload snapshot, validation result, and safe error code, but it does not yet
-apply canonical metadata or library-file writes.
+payload snapshot, validation result, safe error code, and apply outcome.
+
+The first concrete protected writes are `metadata_write`, the NFO-export
+slice of `library_file_write`, and the candidate-proposal slice of
+`artwork_write`. Accepted
+`metadata_write` side effects synchronously normalize a minimal Canonical
+Metadata patch, merge it through Taru metadata merge policy, persist the media
+item through a Taru-owned repository boundary, and refresh catalog/search
+through Taru catalog seams. Scalar metadata updates refresh search without
+rewriting existing catalog label provenance; `genres` and `tags` updates use
+the Addon metadata source only for the touched label sets.
+
+Accepted `library_file_write` side effects currently support only
+MediaSource-targeted NFO Export. The addon supplies write intent, not paths or
+file contents:
+
+```json
+{
+  "permission": "library_file_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "target": {
+    "kind": "media_source",
+    "id": "018f0000-0000-7000-8000-000000000005"
+  },
+  "idempotency_key": "nfo-export-demo-1",
+  "provenance": {
+    "origin": "reference-addon"
+  },
+  "payload": {
+    "file_role": "nfo",
+    "policy": "create_missing"
+  }
+}
+```
+
+For NFO export, `file_role` must be `nfo` and `policy` must be either
+`create_missing` or `replace_existing_preserving`. `create_missing` skips an
+existing NFO sidecar. `replace_existing_preserving` uses Taru's NFO Round Trip
+renderer, VFS atomic replace, existing-file backup, and backup retention
+diagnostics. Unknown payload fields are rejected; raw NFO XML, Source Locators,
+filesystem paths, remote handles, and backup URIs are never accepted as addon
+payload fields.
+
+Accepted `artwork_write` side effects currently support only MediaItem-targeted
+Addon Artwork Candidate proposals. The addon supplies candidate intent and an
+HTTP(S) remote image URL. Taru records an internal candidate and does not write
+public `ImageAsset` rows, selected artwork, managed cache objects, thumbnails,
+or sidecar files in this slice:
+
+```json
+{
+  "permission": "artwork_write",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "target": {
+    "kind": "media_item",
+    "id": "018f0000-0000-7000-8000-000000000007"
+  },
+  "idempotency_key": "artwork-candidate-demo-1",
+  "provenance": {
+    "origin": "reference-addon"
+  },
+  "payload": {
+    "intent": "propose_artwork",
+    "kind": "poster",
+    "source": {
+      "kind": "remote_url",
+      "url": "https://addon.example/poster.jpg"
+    },
+    "language": "en",
+    "width": 1000,
+    "height": 1500
+  }
+}
+```
+
+For artwork candidates, `intent` must be `propose_artwork`, `kind` must be one
+of `poster`, `backdrop`, `logo`, `banner`, or `thumbnail`, and `source.kind`
+must be `remote_url`. The URL must use `http` or `https`, must not contain
+credentials, and is stored only as internal candidate source data. Unknown
+payload fields are rejected; filesystem paths, Source Locators, remote storage
+handles, data URIs, raw image bytes, `cache_uri`, `selected`, and sidecar
+export fields are not accepted.
 
 ```json
 {
@@ -919,7 +1017,10 @@ apply canonical metadata or library-file writes.
     "request_id": "request-1"
   },
   "payload": {
-    "title": "Demo From Addon"
+    "title": "Demo From Addon",
+    "overview": "A safe metadata update.",
+    "genres": ["Addon Genre"],
+    "tags": ["sidecar", "metadata"]
   }
 }
 ```
@@ -927,6 +1028,15 @@ apply canonical metadata or library-file writes.
 The first target kinds are `media_source` and `media_item`. A request must
 include a concrete `library_id`; global Addon Grants allow any target library,
 but the side-effect record still stores the specific library being targeted.
+The current `metadata_write` payload accepts only these top-level fields:
+`title`, `original_title`, `sort_title`, `overview`, `release_date`,
+`runtime_minutes`, `tagline`, `genres`, and `tags`. Unknown fields are rejected
+as an apply failure and are not echoed back to the Addon Sidecar. The current
+`library_file_write` NFO export slice accepts only `media_source` targets;
+`media_item` targets are rejected until multi-source and Source Variant
+behavior is explicit. The current `artwork_write` candidate slice accepts only
+`media_item` targets; `media_source` targets are rejected until source-derived
+thumbnail ownership is explicit.
 
 Successful responses expose only the safe audit summary:
 
@@ -945,11 +1055,275 @@ Successful responses expose only the safe audit summary:
     "idempotency_key": "metadata-demo-1",
     "validation_status": "accepted",
     "safe_error_code": null,
+    "apply_status": "applied",
+    "apply_error_code": null,
+    "applied_item_id": "018f0000-0000-7000-8000-000000000007",
+    "applied_source": "addon:018f0000-0000-7000-8000-000000000002",
+    "apply_report": null,
+    "applied_at": "2026-05-18T12:00:00.000Z",
     "created_at": "2026-05-18T12:00:00.000Z"
   },
   "idempotent_replay": false
 }
 ```
+
+For an applied NFO export, `applied_source` is `nfo_export` and
+`apply_report` contains only redacted aggregate fields:
+
+```json
+{
+  "kind": "nfo_export",
+  "file_role": "nfo",
+  "policy": "replace_existing_preserving",
+  "scanned_sources": 1,
+  "exported_items": 1,
+  "skipped_items": 0,
+  "failed_items": 0,
+  "backed_up_items": 1,
+  "pruned_backup_items": 0,
+  "pruned_backups": 0,
+  "prune_failures": 0
+}
+```
+
+For an applied Artwork Candidate proposal, `applied_source` is
+`artwork_candidate` and `apply_report` contains only the candidate ID, image
+kind, proposal status, and idempotency counters. It does not include the raw
+remote URL, payload, Source Locator, filesystem path, cache URI, or selected
+artwork state:
+
+```json
+{
+  "kind": "artwork_candidate",
+  "candidate_id": "018f0000-0000-7000-8000-000000000008",
+  "image_kind": "poster",
+  "status": "proposed",
+  "candidate_created": 1,
+  "candidate_existing": 0
+}
+```
+
+Administrators can accept an internal Artwork Candidate into Taru-managed
+artwork ingest with `POST /admin/v1/artwork/candidates/{candidate_id}/accept`.
+This is the first-party acceptance boundary; it is not an Addon Side Effect
+handler. The first slice marks the candidate accepted, creates one queued
+managed artwork ingest record, and creates one durable
+`managed_artwork_ingest` job. It does not fetch remote bytes, create
+thumbnails, write public `ImageAsset` rows, select artwork, or expose a
+client-visible cache reference yet.
+
+The response includes only safe IDs, status, image kind, artifact/failure
+presence booleans, and the redacted job envelope:
+
+```json
+{
+  "candidate_id": "018f0000-0000-7000-8000-000000000008",
+  "candidate_status": "accepted",
+  "ingest": {
+    "id": "018f0000-0000-7000-8000-000000000009",
+    "candidate_id": "018f0000-0000-7000-8000-000000000008",
+    "job_id": "018f0000-0000-7000-8000-000000000010",
+    "library_id": "018f0000-0000-7000-8000-000000000003",
+    "item_id": "018f0000-0000-7000-8000-000000000007",
+    "kind": "poster",
+    "status": "queued",
+    "has_artifact": false,
+    "has_failure": false,
+    "created_at": "2026-05-18T12:00:00.000Z",
+    "updated_at": "2026-05-18T12:00:00.000Z"
+  },
+  "job": {
+    "id": "018f0000-0000-7000-8000-000000000010",
+    "kind": "managed_artwork_ingest",
+    "status": "queued",
+    "resource_class": "artwork.ingest",
+    "library_id": "018f0000-0000-7000-8000-000000000003",
+    "source_id": null,
+    "input": {
+      "candidate_id": "018f0000-0000-7000-8000-000000000008",
+      "library_id": "018f0000-0000-7000-8000-000000000003",
+      "item_id": "018f0000-0000-7000-8000-000000000007",
+      "image_kind": "poster"
+    },
+    "summary": null,
+    "error": null,
+    "queued_at": "2026-05-18T12:00:00.000Z",
+    "started_at": null,
+    "completed_at": null
+  }
+}
+```
+
+The accept response and durable job input/summary must never include raw remote
+URLs, Source Locators, filesystem paths, storage handles, cache URIs, raw
+validation failures, addon tokens, or payload/provenance JSON. Repeating accept
+for an already accepted candidate returns the existing ingest and job.
+
+Administrators can process one queued managed artwork ingest with
+`POST /admin/v1/artwork/ingests/process-next`. This route is an internal Admin
+runtime seam for the first Taru-owned fetch/validation/storage path: it claims
+one queued `managed_artwork_ingest`, fetches the accepted remote Artwork
+Candidate source under bounded artwork fetch policy, validates static image
+content, writes bytes below Taru's internal artwork artifact root, and commits a
+`managed_artwork_artifacts` row with an opaque `managed-artwork://...` storage
+reference. A successful response exposes only safe IDs and artifact metadata:
+media type, byte length, dimensions, content hash, ingest status, and the
+redacted job envelope. It never returns `storage_uri`, raw source URLs, local
+artifact paths, cache URIs, Source Locators, addon tokens, or validation
+details.
+
+If there is no queued ingest, the response is:
+
+```json
+{
+  "processed": false,
+  "ingest": null,
+  "artifact": null,
+  "job": null
+}
+```
+
+On success, the response has `"processed": true`, `ingest.status = "stored"`,
+an `artifact` summary, and `job.status = "succeeded"`. Validation or fetch
+failures use safe failure codes such as `unsupported_source`,
+`unsupported_media_type`, `too_large`, `invalid_image`,
+`dimension_limit_exceeded`, `fetch_timeout`, `fetch_failed`,
+`fetch_http_status`, or `storage_failed`. Failed job summaries include only
+safe IDs, `"status": "failed"`, and `failure_code`. Retry is limited to the
+configured in-process fetch attempts; durable requeue/cancellation APIs,
+thumbnails, selected artwork publication, and public image-serving remain
+separate follow-on work.
+
+Administrators can publish a stored Managed Artwork Artifact as the current
+Selected Artwork with:
+
+```text
+POST /admin/v1/artwork/artifacts/{artifact_id}/publish
+```
+
+The publish command is idempotent for the artifact's item and image kind. It
+creates or updates a stable Selected Artwork public ID and returns a redacted
+Selected Artwork summary plus a first-party image reference. The response never
+includes `storage_uri`, `managed-artwork://...`, local artifact paths,
+candidate `source_uri`, raw provider URLs, `cache_uri`, Source Locators, addon
+token material, or provider query strings. The returned image URL is the
+Public Client image route for the selected artwork.
+
+Public Clients can discover selected artwork through item detail and item image
+listing responses. Those responses use redacted first-party image references:
+the image `id` is `selected_artworks.id`, and `url` is a relative Taru route
+such as `/images/{image_id}`. `ImageAsset` remains an internal provenance
+record and is not serialized as the Public Client image authority.
+
+Public Clients can fetch selected artwork bytes with:
+
+```text
+GET  /images/{image_id}
+HEAD /images/{image_id}
+```
+
+`image_id` is the Selected Artwork public ID, not a Managed Artwork Artifact ID
+or storage locator. The server resolves `managed-artwork://...` only inside the
+application boundary, reads bytes from internal artifact storage, and returns
+image headers such as `Content-Type`, `Content-Length`, and a safe ETag when a
+content hash exists. `HEAD` returns the same presentation headers without a
+body. Public image references and byte-serving responses never include
+`source_uri`, `cache_uri`, `storage_uri`, `managed-artwork://...`, local paths,
+raw provider URLs, Source Locators, addon token material, or provider query
+strings. Thumbnail generation, durable retry/requeue, ingest cancellation, and
+orphan artifact cleanup remain separate follow-on work.
+
+Administrators can inspect Managed Artwork Artifact lifecycle state with:
+
+```text
+GET /admin/v1/artwork/artifacts/lifecycle?cleanup_candidates_only=false&limit=50&offset=0
+```
+
+The response is a diagnostics and cleanup dry-run view. It lists redacted
+artifact summaries, counts how many Selected Artwork rows currently protect
+each artifact, marks artifacts with zero selected-artwork references as cleanup
+candidates, and includes byte-count estimates when artifact metadata has a
+known byte length. `cleanup_candidates_only=true` restricts the returned rows
+to artifacts that are not currently referenced by Selected Artwork.
+
+This route does not delete files or database rows. It never returns
+`storage_uri`, `managed-artwork://...`, local artifact paths, raw source URLs,
+candidate `source_uri`, provider query strings, `cache_uri`, Source Locators,
+addon token material, or content-hash values. Actual cleanup is available only
+through the separate protected command below.
+
+Administrators can remove cleanup candidates with:
+
+```text
+POST /admin/v1/artwork/artifacts/cleanup?limit=50&offset=0
+```
+
+The command re-checks that each candidate has no Selected Artwork references at
+cleanup time, marks only eligible active artifacts as deleted in the database,
+and then best-effort removes the corresponding internal artifact file. Selected
+Artwork references remain the retention boundary; protected artifacts are not
+cleaned and continue to serve through `/images/{image_id}`. The cleanup response
+includes counts and redacted cleaned-artifact summaries only. It never returns
+`storage_uri`, `managed-artwork://...`, local paths, raw source URLs,
+`source_uri`, `cache_uri`, Source Locators, addon token material, provider query
+strings, or content-hash values.
+
+Administrators can inspect local artifact-store drift with:
+
+```text
+GET /admin/v1/artwork/artifacts/storage-drift?limit=50&offset=0&file_scan_limit=500
+```
+
+The response is read-only diagnostics. It checks the requested page of active
+DB-backed Managed Artwork Artifacts against their expected internal local files
+and performs a bounded inventory of files under the configured artifact root.
+It reports missing DB-backed files, unresolvable expected artifact paths, and
+stray files that do not correspond to active DB-backed artifacts.
+
+`file_scan_limit` bounds local artifact-root inventory and is capped by the
+server. The response includes scan counts, truncation status, redacted missing
+artifact summaries, and redacted stray-file classifications. It never deletes
+files, marks database rows deleted, repairs artifacts, reads file contents, or
+calculates file content hashes. It never returns filenames, local paths,
+`storage_uri`, `managed-artwork://...`, raw source URLs, `source_uri`,
+`cache_uri`, Source Locators, addon token material, provider query strings, or
+content-hash values.
+
+Administrators can request a remediation plan with:
+
+```text
+GET /admin/v1/artwork/artifacts/remediation-plan?limit=50&offset=0&file_scan_limit=500
+```
+
+The plan is a dry-run action policy over storage drift findings. Missing
+DB-backed artifact files are advisory only: protected Selected Artwork should be
+restored or republished, and unselected missing artifacts should be handled by
+future cleanup or re-ingest workflows. The plan marks only parseable, supported,
+regular artifact files with no active DB artifact as eligible for deletion.
+
+Administrators can explicitly clean those safe untracked artifact files with:
+
+```text
+POST /admin/v1/artwork/artifacts/remediate-stray-files?confirm=true&file_scan_limit=500
+```
+
+The command requires `confirm=true`, re-checks active artifact state before each
+delete, and never deletes files that correspond to active DB-backed artifacts,
+unsupported extensions, unexpected active-artifact paths, or unrecognized
+layouts. It never repairs missing DB-backed artifacts, unpublishes Selected
+Artwork, marks artifact rows deleted, reads file contents, or calculates file
+hashes. Remediation responses never return filenames, local paths,
+`storage_uri`, `managed-artwork://...`, raw source URLs, `source_uri`,
+`cache_uri`, Source Locators, addon token material, provider query strings, or
+content-hash values.
+
+`validation_status` describes Addon principal, permission, library, and target
+validation. It is not the domain write result. `apply_status` describes the
+domain apply outcome and is one of `pending`, `applied`, `failed`, or
+`skipped`. `apply_error_code` is a safe code such as `invalid_payload`,
+`forbidden`, `not_found`, `unsupported`, `storage_error`, or `database_error`.
+Rejected intake records use `validation_status: "rejected"` and
+`apply_status: "skipped"`.
 
 Repeated requests from the same addon with the same `idempotency_key` return
 the existing record with `"idempotent_replay": true`. The response never
