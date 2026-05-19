@@ -43,12 +43,12 @@ Last updated: 2026-05-19
 
 ## M4 - Playback Start Integration
 
-- [ ] AUSA-050 [owner=codex] [deps=AUSA-040] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/test/java/dev/taru/android/ui/browse]
+- [x] AUSA-050 [owner=codex] [deps=AUSA-040] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/test/java/dev/taru/android/ui/browse]
   Goal: Move playback start action handling into `BrowseSession` using
   `PlaybackStartCoordinator`, and make route opening a session state/effect.
   Validation: JVM tests prove Remux start preflight path still opens the player
   route and failure keeps playback diagnostics in state.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.BrowseSessionTest --no-daemon --no-parallel` and full `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel` passed on 2026-05-19.
   Handoff: AUSA-060 can remove local Compose orchestration.
 
 ## M5 - Compose Shell Cleanup

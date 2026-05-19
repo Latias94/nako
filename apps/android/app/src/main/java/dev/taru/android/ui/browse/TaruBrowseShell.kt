@@ -21,8 +21,6 @@ import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.PlaybackPreferencesStore
 import dev.taru.android.playback.PlaybackStartCoordinator
-import dev.taru.android.playback.PlaybackStartRequest
-import dev.taru.android.playback.PlaybackStartResult
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.resolvePlaybackResumePosition
@@ -36,7 +34,6 @@ import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 @Composable
 fun TaruBrowseShell(
@@ -57,6 +54,12 @@ fun TaruBrowseShell(
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
     val routeScope = rememberCoroutineScope()
+    val playbackStartCoordinator = remember(playbackClient, positionStore) {
+        PlaybackStartCoordinator(
+            playbackClient = playbackClient,
+            positionStore = positionStore,
+        )
+    }
     val browseDataSource = remember(profile, tokenVault, browseClient, userPlaybackClient) {
         ClientBrowseDataSource(
             profile = profile,
@@ -65,6 +68,13 @@ fun TaruBrowseShell(
             playbackClient = playbackClient,
             playbackPreferencesStore = playbackPreferencesStore,
             userPlaybackClient = userPlaybackClient,
+        )
+    }
+    val playbackStarter = remember(profile, tokenVault, playbackStartCoordinator) {
+        ClientBrowsePlaybackStarter(
+            profile = profile,
+            tokenVault = tokenVault,
+            coordinator = playbackStartCoordinator,
         )
     }
     var savedShellState by rememberSaveable(
@@ -77,6 +87,7 @@ fun TaruBrowseShell(
         BrowseSession(
             initialState = savedShellState,
             dataSource = browseDataSource,
+            playbackStarter = playbackStarter,
             scope = routeScope,
         )
     }
@@ -100,13 +111,6 @@ fun TaruBrowseShell(
         profile = profile,
         accessToken = tokenVault.readToken(profile.tokenReference).orEmpty(),
     )
-    val playbackStartCoordinator = remember(playbackClient, positionStore) {
-        PlaybackStartCoordinator(
-            playbackClient = playbackClient,
-            positionStore = positionStore,
-        )
-    }
-
     LaunchedEffect(profile.id) {
         browseSession.dispatch(BrowseAction.LoadHome)
     }
@@ -186,41 +190,7 @@ fun TaruBrowseShell(
                     onRequestPlayback = {
                         dispatchBrowseAction(BrowseAction.RequestPlayback(it))
                     },
-                    onStartPlayback = { target ->
-                        val detailContent = shellState.detailState as? ItemDetailUiState.Content
-                        val detail = detailContent?.response
-                        val item = detail?.item
-                        val sourceId = shellState.selectedSourceId
-                            ?: detail?.sources?.firstOrNull()?.id
-                            ?: shellState.playbackState.contentOrNull()?.response?.source?.id
-                        val playbackContent = shellState.playbackState.contentOrNull()
-                        if (item != null && !sourceId.isNullOrBlank() && playbackContent != null) {
-                            routeScope.launch {
-                                when (val start = playbackStartCoordinator.start(
-                                        profile = profile,
-                                        tokenVault = tokenVault,
-                                        request = PlaybackStartRequest(
-                                            title = item.metadata.title,
-                                            mediaItemId = item.id,
-                                            sourceId = sourceId,
-                                            decision = playbackContent.response,
-                                            capabilities = playbackContent.capabilities,
-                                            target = target,
-                                            userPlaybackState = detailContent.userPlaybackState,
-                                        ),
-                                    )
-                                ) {
-                                    is PlaybackStartResult.Success -> {
-                                        dispatchBrowseAction(BrowseAction.OpenPlayer(start.launch))
-                                        dispatchBrowseAction(BrowseAction.PlaybackStartPrepared(start.preparedTarget))
-                                    }
-                                    is PlaybackStartResult.Failure -> {
-                                        dispatchBrowseAction(BrowseAction.PlaybackStartFailed(start.diagnostics))
-                                    }
-                                }
-                            }
-                        }
-                    },
+                    onStartPlayback = { dispatchBrowseAction(BrowseAction.StartPlayback(it)) },
                 )
                 is TaruRoute.LibraryDetail -> LibraryDetailRouteContent(
                     state = shellState.libraryDetailState,
@@ -261,9 +231,6 @@ fun TaruBrowseShell(
         }
     }
 }
-
-private fun PlaybackSelectionUiState.contentOrNull(): PlaybackSelectionUiState.Content? =
-    this as? PlaybackSelectionUiState.Content
 
 private fun detailResumePosition(
     profileId: String,

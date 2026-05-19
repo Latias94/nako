@@ -2,7 +2,8 @@ package dev.taru.android.ui.browse
 
 import dev.taru.android.player.PlaybackLaunchRequest
 import dev.taru.android.playback.PlaybackRequestTarget
-import dev.taru.android.playback.SafePlaybackDiagnostics
+import dev.taru.android.playback.PlaybackStartRequest
+import dev.taru.android.playback.PlaybackStartResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,8 +42,7 @@ internal sealed interface BrowseAction {
     data class SearchQueryChanged(val query: String) : BrowseAction
     data class SelectSource(val sourceId: String) : BrowseAction
     data class RequestPlayback(val sourceId: String) : BrowseAction
-    data class PlaybackStartPrepared(val target: PlaybackRequestTarget) : BrowseAction
-    data class PlaybackStartFailed(val diagnostics: SafePlaybackDiagnostics) : BrowseAction
+    data class StartPlayback(val target: PlaybackRequestTarget) : BrowseAction
     data object OpenServerProfile : BrowseAction
     data object Back : BrowseAction
     data object LoadHome : BrowseAction
@@ -64,9 +64,14 @@ internal interface BrowseDataSource {
     suspend fun loadPlaybackSelection(sourceId: String): PlaybackSelectionUiState
 }
 
+internal interface BrowsePlaybackStarter {
+    suspend fun start(request: PlaybackStartRequest): PlaybackStartResult
+}
+
 internal class BrowseSession(
     initialState: BrowseShellState = BrowseShellState(),
     private val dataSource: BrowseDataSource? = null,
+    private val playbackStarter: BrowsePlaybackStarter? = null,
     private val scope: CoroutineScope? = null,
 ) {
     private val _state = MutableStateFlow(initialState)
@@ -90,6 +95,7 @@ internal class BrowseSession(
             BrowseAction.RetryCurrentRoute -> loadCurrentRoute()
             BrowseAction.RetrySourceProbe -> loadSelectedSourceProbe()
             BrowseAction.RetryPlaybackDecision -> loadRequestedPlaybackSelection()
+            is BrowseAction.StartPlayback -> startPlayback(action.target)
             is BrowseAction.RouteDisplayed -> loadRoute(action.route)
             is BrowseAction.SearchQueryChanged -> {
                 _state.update { it.copy(searchQuery = action.query) }
@@ -121,25 +127,6 @@ internal class BrowseSession(
                 }
                 loadSourceProbe(action.sourceId)
                 loadPlaybackSelection(action.sourceId)
-            }
-            is BrowseAction.PlaybackStartPrepared -> {
-                _state.update { current ->
-                    val content = current.playbackState as? PlaybackSelectionUiState.Content
-                    if (content == null) {
-                        current
-                    } else {
-                        current.copy(playbackState = content.copy(target = action.target))
-                    }
-                }
-                null
-            }
-            is BrowseAction.PlaybackStartFailed -> {
-                _state.update {
-                    it.copy(
-                        playbackState = PlaybackSelectionUiState.Failure(action.diagnostics),
-                    )
-                }
-                null
             }
             else -> {
                 _state.value = prepareRouteState(
@@ -187,8 +174,7 @@ internal class BrowseSession(
             is BrowseAction.SearchQueryChanged,
             is BrowseAction.SelectSource,
             is BrowseAction.RequestPlayback,
-            is BrowseAction.PlaybackStartPrepared,
-            is BrowseAction.PlaybackStartFailed,
+            is BrowseAction.StartPlayback,
             -> current
         }
 
@@ -288,6 +274,9 @@ internal class BrowseSession(
         next: BrowseShellState,
     ): BrowseShellState {
         if (previous.currentRoute == next.currentRoute) {
+            return next
+        }
+        if (next.currentRoute is TaruRoute.Player) {
             return next
         }
 
@@ -489,6 +478,56 @@ internal class BrowseSession(
         }
     }
 
+    private fun startPlayback(target: PlaybackRequestTarget): Job? {
+        val current = _state.value
+        val detailContent = current.detailState as? ItemDetailUiState.Content ?: return null
+        val playbackContent = current.playbackState as? PlaybackSelectionUiState.Content ?: return null
+        val detail = detailContent.response
+        val item = detail.item
+        val sourceId = current.selectedSourceId
+            ?: detail.sources.firstOrNull()?.id
+            ?: playbackContent.response.source.id
+        if (sourceId.isBlank()) {
+            return null
+        }
+
+        _state.update { it.copy(playbackState = PlaybackSelectionUiState.Loading) }
+        return requiredScope().launch {
+            when (
+                val start = requiredPlaybackStarter().start(
+                    PlaybackStartRequest(
+                        title = item.metadata.title,
+                        mediaItemId = item.id,
+                        sourceId = sourceId,
+                        decision = playbackContent.response,
+                        capabilities = playbackContent.capabilities,
+                        target = target,
+                        userPlaybackState = detailContent.userPlaybackState,
+                    ),
+                )
+            ) {
+                is PlaybackStartResult.Success -> {
+                    _state.update { beforeOpen ->
+                        beforeOpen.copy(
+                            playbackState = playbackContent.copy(target = start.preparedTarget),
+                        )
+                    }
+                    _state.value = prepareRouteState(
+                        previous = _state.value,
+                        next = reduce(_state.value, BrowseAction.OpenPlayer(start.launch)),
+                    )
+                }
+                is PlaybackStartResult.Failure -> {
+                    _state.update {
+                        it.copy(
+                            playbackState = PlaybackSelectionUiState.Failure(start.diagnostics),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private fun requiredDataSource(): BrowseDataSource =
         requireNotNull(dataSource) {
             "BrowseDataSource is required for async BrowseAction handling."
@@ -497,6 +536,11 @@ internal class BrowseSession(
     private fun requiredScope(): CoroutineScope =
         requireNotNull(scope) {
             "CoroutineScope is required for async BrowseAction handling."
+        }
+
+    private fun requiredPlaybackStarter(): BrowsePlaybackStarter =
+        requireNotNull(playbackStarter) {
+            "BrowsePlaybackStarter is required for playback start action handling."
         }
 }
 

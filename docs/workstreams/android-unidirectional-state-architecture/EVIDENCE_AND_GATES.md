@@ -37,3 +37,12 @@ Last updated: 2026-05-19
   Gates passed:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.ClientBrowseDataSourceTest --tests dev.taru.android.ui.browse.BrowseSessionTest --no-daemon --no-parallel`;
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.
+- 2026-05-19: AUSA-050 moved playback start orchestration into
+  `BrowseSession` through `BrowsePlaybackStarter` and
+  `ClientBrowsePlaybackStarter`. `TaruBrowseShell` now dispatches
+  `BrowseAction.StartPlayback` and no longer builds `PlaybackStartRequest` or
+  launches the start coroutine. Success opens the Player route; failure stores
+  playback diagnostics in session state.
+  Gates passed:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.browse.BrowseSessionTest --no-daemon --no-parallel`;
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.

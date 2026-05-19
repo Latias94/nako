@@ -20,8 +20,14 @@ import dev.taru.android.playback.ClientPlaybackDecision
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.PlaybackMediaSourceDto
 import dev.taru.android.playback.PlaybackRequestTarget
+import dev.taru.android.playback.PlaybackStartRequest
+import dev.taru.android.playback.PlaybackStartResult
+import dev.taru.android.playback.SafePlaybackDiagnostics
+import dev.taru.android.player.PlaybackResumeSource
+import dev.taru.android.player.playbackLaunchRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -202,6 +208,101 @@ class BrowseSessionLoadingTest {
     }
 
     @Test
+    fun `start playback opens player route with prepared target`() = runBlocking {
+        val target = testPlaybackTarget("source-a")
+        val preparedTarget = testPlaybackTarget("source-a", sessionId = "session-1")
+        val starter = RecordingPlaybackStarter(
+            result = PlaybackStartResult.Success(
+                launch = playbackLaunchRequest(
+                    title = "Night Harbor",
+                    target = preparedTarget,
+                    serverProfileId = "server-1",
+                    mediaItemId = "night-harbor",
+                    sourceId = "source-a",
+                    playbackMode = ClientPlaybackMode.Remux,
+                    sessionId = "session-1",
+                    resumePositionMs = 42_000,
+                    resumeSource = PlaybackResumeSource.UserPlaybackState,
+                ),
+                preparedTarget = preparedTarget,
+            ),
+        )
+        val playbackDecision = testPlaybackDecision("source-a", mode = ClientPlaybackMode.Remux)
+        val session = BrowseSession(
+            initialState = BrowseShellState(
+                navigation = TaruBrowseNavigationState.root().open(TaruRoute.ItemDetail("night-harbor")),
+                detailState = ItemDetailUiState.Content(
+                    testDetail(
+                        itemId = "night-harbor",
+                        sourceIds = listOf("source-a"),
+                    ),
+                ),
+                selectedSourceId = "source-a",
+                playbackRequestSourceId = "source-a",
+                playbackState = PlaybackSelectionUiState.Content(
+                    response = playbackDecision,
+                    target = target,
+                    capabilities = PlaybackCapabilities(containers = listOf("mp4")),
+                ),
+            ),
+            dataSource = RecordingBrowseDataSource(),
+            playbackStarter = starter,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.StartPlayback(target))?.join()
+
+        val playerRoute = session.state.value.currentRoute as TaruRoute.Player
+        val playbackState = session.state.value.playbackState as PlaybackSelectionUiState.Content
+        assertEquals("Night Harbor", starter.requests.single().title)
+        assertEquals("night-harbor", starter.requests.single().mediaItemId)
+        assertEquals("source-a", starter.requests.single().sourceId)
+        assertEquals(playbackDecision, starter.requests.single().decision)
+        assertEquals(preparedTarget, playbackState.target)
+        assertEquals("session-1", playerRoute.launch.sessionId)
+    }
+
+    @Test
+    fun `start playback failure keeps diagnostics in playback state`() = runBlocking {
+        val diagnostics = SafePlaybackDiagnostics(
+            category = PlaybackFailureCategory.MissingAccessToken,
+            userMessage = "Re-authenticate this server before requesting playback.",
+        )
+        val target = testPlaybackTarget("source-a")
+        val session = BrowseSession(
+            initialState = BrowseShellState(
+                navigation = TaruBrowseNavigationState.root().open(TaruRoute.ItemDetail("night-harbor")),
+                detailState = ItemDetailUiState.Content(
+                    testDetail(
+                        itemId = "night-harbor",
+                        sourceIds = listOf("source-a"),
+                    ),
+                ),
+                selectedSourceId = "source-a",
+                playbackRequestSourceId = "source-a",
+                playbackState = PlaybackSelectionUiState.Content(
+                    response = testPlaybackDecision("source-a"),
+                    target = target,
+                    capabilities = PlaybackCapabilities(),
+                ),
+            ),
+            dataSource = RecordingBrowseDataSource(),
+            playbackStarter = RecordingPlaybackStarter(
+                result = PlaybackStartResult.Failure(diagnostics),
+            ),
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.StartPlayback(target))?.join()
+
+        assertEquals(TaruRoute.ItemDetail("night-harbor"), session.state.value.currentRoute)
+        assertEquals(
+            diagnostics,
+            (session.state.value.playbackState as PlaybackSelectionUiState.Failure).diagnostics,
+        )
+    }
+
+    @Test
     fun `library detail route load ignores stale response after back`() = runBlocking {
         val dataSource = RecordingBrowseDataSource(
             libraryDetailState = LibraryDetailUiState.Content(testLibrarySources("library-movies")),
@@ -251,6 +352,17 @@ class BrowseSessionLoadingTest {
         assertEquals(null, gapJob)
         assertTrue(session.state.value.facetState is FacetUiState.ApiGap)
         assertEquals(listOf(backedFacet), dataSource.facetTargets)
+    }
+}
+
+private class RecordingPlaybackStarter(
+    private val result: PlaybackStartResult,
+) : BrowsePlaybackStarter {
+    val requests: MutableList<PlaybackStartRequest> = mutableListOf()
+
+    override suspend fun start(request: PlaybackStartRequest): PlaybackStartResult {
+        requests += request
+        return result
     }
 }
 
@@ -460,7 +572,10 @@ private fun testSourceProbe(sourceId: String): SourceProbeResponse =
         probe = MediaProbeDto(durationMs = 120_000),
     )
 
-private fun testPlaybackDecision(sourceId: String): PlaybackDecisionResponse =
+private fun testPlaybackDecision(
+    sourceId: String,
+    mode: ClientPlaybackMode = ClientPlaybackMode.DirectPlay,
+): PlaybackDecisionResponse =
     PlaybackDecisionResponse(
         source = PlaybackMediaSourceDto(
             id = sourceId,
@@ -468,12 +583,15 @@ private fun testPlaybackDecision(sourceId: String): PlaybackDecisionResponse =
             itemId = "night-harbor",
         ),
         decision = ClientPlaybackDecision(
-            mode = ClientPlaybackMode.DirectPlay,
+            mode = mode,
             reason = "direct",
         ),
     )
 
-private fun testPlaybackTarget(sourceId: String): PlaybackRequestTarget =
+private fun testPlaybackTarget(
+    sourceId: String,
+    sessionId: String? = null,
+): PlaybackRequestTarget =
     PlaybackRequestTarget(
         request = TaruHttpRequest(
             method = "GET",
@@ -485,6 +603,7 @@ private fun testPlaybackTarget(sourceId: String): PlaybackRequestTarget =
             url = "http://127.0.0.1:3018/sources/$sourceId/stream",
             headers = emptyMap(),
         ),
+        sessionId = sessionId,
     )
 
 private fun testPage(returned: Int): PageInfo =

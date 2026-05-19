@@ -41,6 +41,8 @@ Exit:
 
 ## M4 - Playback Start Integration
 
+Status: Complete.
+
 Exit:
 
 - Playback start is a `BrowseAction`.

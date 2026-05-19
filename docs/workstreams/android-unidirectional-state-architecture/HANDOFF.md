@@ -5,8 +5,7 @@ Last updated: 2026-05-19
 
 ## Current Task
 
-AUSA-050: move playback start action handling into `BrowseSession` using
-`PlaybackStartCoordinator`.
+AUSA-060: reduce `TaruBrowseShell` to state rendering and action dispatch.
 
 ## Notes
 
@@ -24,5 +23,7 @@ AUSA-050: move playback start action handling into `BrowseSession` using
   debug unit tests pass.
 - AUSA-040 is complete. Media Item Detail, selected Media Source, source probe,
   playback decision, and related retry state now live in `BrowseSession`.
-  `TaruBrowseShell` still owns playback-start orchestration and should hand
-  that to the session in AUSA-050.
+- AUSA-050 is complete. Playback start now runs through `BrowseSession` and
+  `BrowsePlaybackStarter`; `TaruBrowseShell` only dispatches `StartPlayback`.
+  Success opens the Player route, and failure leaves playback diagnostics in
+  session state.
