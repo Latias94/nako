@@ -1178,7 +1178,9 @@ an `artifact` summary, and `job.status = "succeeded"`. Validation or fetch
 failures use safe failure codes such as `unsupported_source`,
 `unsupported_media_type`, `too_large`, `invalid_image`,
 `dimension_limit_exceeded`, `fetch_timeout`, `fetch_failed`,
-`fetch_http_status`, or `storage_failed`; failure hardening, retry semantics,
+`fetch_http_status`, or `storage_failed`. Failed job summaries include only
+safe IDs, `"status": "failed"`, and `failure_code`. Retry is limited to the
+configured in-process fetch attempts; durable requeue/cancellation APIs,
 thumbnails, selected artwork publication, and public image-serving remain
 separate follow-on work.
 

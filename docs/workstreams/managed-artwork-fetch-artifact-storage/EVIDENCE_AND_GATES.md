@@ -169,3 +169,29 @@ ports, public API contracts, or durable job behavior.
   - `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`
     produced 675 current inventory lines for the managed artwork/storage/public
     image seams.
+
+2026-05-19, MAFA-040 failure/redaction hardening:
+
+- Added a bounded internal `ManagedArtworkFailureCode` enum for process-next
+  failures before serialization to safe public strings.
+- `fail_managed_artwork_ingest` now persists safe `summary_json` alongside the
+  failed job error. Failed job summaries include safe IDs, `status`, and
+  `failure_code`; they do not include raw source URLs, response bodies, local
+  paths, storage URIs, cache URIs, provider tokens, or decoder internals.
+- Added Admin process-next failure tests for:
+  - unsupported remote media type (`unsupported_media_type`),
+  - invalid image bytes under an image media type (`invalid_image`).
+- Retry/cancellation decision:
+  - fetch retry remains bounded inside one process-next execution by
+    `[artwork].fetch_max_attempts`;
+  - failed `managed_artwork_ingests` are terminal in this lane;
+  - durable retry/requeue, cancellation, timeout-specific tests, and orphan
+    artifact cleanup should be split from MAFA-050 if needed.
+- MAFA-040 validation:
+  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 6 tests.
+  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
+  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with only Git CRLF normalization warnings for
+    edited files.

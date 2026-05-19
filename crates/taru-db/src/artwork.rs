@@ -492,6 +492,7 @@ impl ManagedArtworkRepository for SqliteStore {
         ingest_id: ManagedArtworkIngestId,
         failure_code: String,
         job_error: String,
+        job_summary_json: Option<String>,
     ) -> Result<ManagedArtworkIngestProcessingRecord> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         let ingest = get_managed_artwork_ingest_tx(&mut transaction, ingest_id)
@@ -530,14 +531,16 @@ impl ManagedArtworkRepository for SqliteStore {
             UPDATE jobs
             SET status = ?2,
                 error = ?3,
+                summary_json = ?4,
                 completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            WHERE id = ?1 AND status = ?4
+            WHERE id = ?1 AND status = ?5
             "#,
         )
         .bind(ingest.job_id.to_string())
         .bind(JobStatus::Failed.as_str())
         .bind(job_error)
+        .bind(job_summary_json)
         .bind(JobStatus::Running.as_str())
         .execute(&mut *transaction)
         .await

@@ -99,6 +99,20 @@ Primary gates:
 - `cargo nextest run -p taru-server artwork --no-fail-fast`
 - `cargo nextest run -p taru-db artwork --no-fail-fast`
 
+Result:
+
+- Managed artwork process failures now use an internal bounded failure-code
+  enum before being serialized as safe strings.
+- Failed process-next responses include safe job summaries with `status` and
+  `failure_code`, and job errors are the same safe code.
+- Redaction tests cover unsupported media type and invalid image bodies,
+  proving failed responses do not expose raw source URLs, response bodies,
+  addon tokens, `source_uri`, `cache_uri`, `storage_uri`, public
+  `ImageAsset`, or decoder internals.
+- Retry remains limited to the configured in-process fetch attempts. Durable
+  requeue/cancellation APIs are not introduced in this lane and should be
+  split explicitly if needed.
+
 ## M4 - Closeout Or Split
 
 Outcome: internal managed artwork artifact storage is complete enough to close,

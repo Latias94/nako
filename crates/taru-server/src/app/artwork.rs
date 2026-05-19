@@ -129,12 +129,21 @@ impl ManagedArtworkAppService {
                 processing,
             )),
             Err(failure) => {
+                let summary = ManagedArtworkIngestFailureSummary {
+                    ingest_id: claim.ingest.id,
+                    candidate_id: claim.candidate.id,
+                    status: ManagedArtworkIngestStatus::Failed.as_str(),
+                    failure_code: failure.code.as_str(),
+                };
+                let summary_json = serde_json::to_string(&summary).ok();
+                let failure_code = failure.code.as_str().to_owned();
                 let processing = self
                     .store
                     .fail_managed_artwork_ingest(
                         claim.ingest.id,
-                        failure.code.to_owned(),
-                        failure.code.to_owned(),
+                        failure_code.clone(),
+                        failure_code,
+                        summary_json,
                     )
                     .await?;
                 Ok(ProcessManagedArtworkIngestResponse::from_processing(
@@ -150,7 +159,9 @@ impl ManagedArtworkAppService {
     ) -> std::result::Result<taru_core::ManagedArtworkIngestProcessingRecord, ManagedArtworkFailure>
     {
         if claim.candidate.source_kind != ArtworkCandidateSourceKind::RemoteUrl {
-            return Err(ManagedArtworkFailure::new("unsupported_source"));
+            return Err(ManagedArtworkFailure::new(
+                ManagedArtworkFailureCode::UnsupportedSource,
+            ));
         }
 
         let fetched = self.fetcher.fetch(&claim.candidate.source_uri).await?;
@@ -173,7 +184,7 @@ impl ManagedArtworkAppService {
             content_hash: validated.content_hash.clone(),
         };
         let summary_json = serde_json::to_string(&summary)
-            .map_err(|_| ManagedArtworkFailure::new("storage_failed"))?;
+            .map_err(|_| ManagedArtworkFailure::new(ManagedArtworkFailureCode::StorageFailed))?;
         let result = self
             .store
             .commit_managed_artwork_artifact(
@@ -199,7 +210,9 @@ impl ManagedArtworkAppService {
             Ok(processing) => Ok(processing),
             Err(_) => {
                 self.artifact_store.delete_best_effort(&stored).await;
-                Err(ManagedArtworkFailure::new("storage_failed"))
+                Err(ManagedArtworkFailure::new(
+                    ManagedArtworkFailureCode::StorageFailed,
+                ))
             }
         }
     }
@@ -224,6 +237,14 @@ struct ManagedArtworkIngestJobSummary {
     width: u32,
     height: u32,
     content_hash: String,
+}
+
+#[derive(Serialize)]
+struct ManagedArtworkIngestFailureSummary {
+    ingest_id: ManagedArtworkIngestId,
+    candidate_id: ArtworkCandidateId,
+    status: &'static str,
+    failure_code: &'static str,
 }
 
 #[derive(Clone, Debug)]
@@ -273,18 +294,19 @@ impl ManagedArtworkFetcher {
         &self,
         source_uri: &str,
     ) -> std::result::Result<FetchedManagedArtwork, ManagedArtworkFailure> {
-        let url = reqwest::Url::parse(source_uri)
-            .map_err(|_| ManagedArtworkFailure::new("unsupported_source"))?;
+        let url = reqwest::Url::parse(source_uri).map_err(|_| {
+            ManagedArtworkFailure::new(ManagedArtworkFailureCode::UnsupportedSource)
+        })?;
         if !matches!(url.scheme(), "http" | "https") {
-            return Err(ManagedArtworkFailure::new("unsupported_source"));
+            return Err(ManagedArtworkFailure::new(
+                ManagedArtworkFailureCode::UnsupportedSource,
+            ));
         }
 
-        let _permit = self
-            .permits
-            .acquire()
-            .await
-            .map_err(|_| ManagedArtworkFailure::new("resource_budget_closed"))?;
-        let mut last_failure = ManagedArtworkFailure::new("fetch_failed");
+        let _permit = self.permits.acquire().await.map_err(|_| {
+            ManagedArtworkFailure::new(ManagedArtworkFailureCode::ResourceBudgetClosed)
+        })?;
+        let mut last_failure = ManagedArtworkFailure::new(ManagedArtworkFailureCode::FetchFailed);
         let attempts = self.config.fetch_max_attempts.max(1);
 
         for _ in 0..attempts {
@@ -304,21 +326,25 @@ impl ManagedArtworkFetcher {
     ) -> std::result::Result<FetchedManagedArtwork, ManagedArtworkFailure> {
         let response = self.client.get(url).send().await.map_err(|err| {
             if err.is_timeout() {
-                ManagedArtworkFailure::retryable("fetch_timeout")
+                ManagedArtworkFailure::retryable(ManagedArtworkFailureCode::FetchTimeout)
             } else {
-                ManagedArtworkFailure::retryable("fetch_failed")
+                ManagedArtworkFailure::retryable(ManagedArtworkFailureCode::FetchFailed)
             }
         })?;
 
         if !response.status().is_success() {
-            return Err(ManagedArtworkFailure::retryable("fetch_http_status"));
+            return Err(ManagedArtworkFailure::retryable(
+                ManagedArtworkFailureCode::FetchHttpStatus,
+            ));
         }
 
         if response
             .content_length()
             .is_some_and(|len| len > self.config.fetch_max_bytes)
         {
-            return Err(ManagedArtworkFailure::new("too_large"));
+            return Err(ManagedArtworkFailure::new(
+                ManagedArtworkFailureCode::TooLarge,
+            ));
         }
 
         let media_type = response
@@ -326,7 +352,9 @@ impl ManagedArtworkFetcher {
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .and_then(normalize_media_type)
-            .ok_or_else(|| ManagedArtworkFailure::new("unsupported_media_type"))?;
+            .ok_or_else(|| {
+                ManagedArtworkFailure::new(ManagedArtworkFailureCode::UnsupportedMediaType)
+            })?;
 
         let mut bytes = Vec::new();
         let mut total_len = 0_u64;
@@ -334,18 +362,20 @@ impl ManagedArtworkFetcher {
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|err| {
                 if err.is_timeout() {
-                    ManagedArtworkFailure::retryable("fetch_timeout")
+                    ManagedArtworkFailure::retryable(ManagedArtworkFailureCode::FetchTimeout)
                 } else {
-                    ManagedArtworkFailure::retryable("fetch_failed")
+                    ManagedArtworkFailure::retryable(ManagedArtworkFailureCode::FetchFailed)
                 }
             })?;
-            let chunk_len =
-                u64::try_from(chunk.len()).map_err(|_| ManagedArtworkFailure::new("too_large"))?;
+            let chunk_len = u64::try_from(chunk.len())
+                .map_err(|_| ManagedArtworkFailure::new(ManagedArtworkFailureCode::TooLarge))?;
             total_len = total_len
                 .checked_add(chunk_len)
-                .ok_or_else(|| ManagedArtworkFailure::new("too_large"))?;
+                .ok_or_else(|| ManagedArtworkFailure::new(ManagedArtworkFailureCode::TooLarge))?;
             if total_len > self.config.fetch_max_bytes {
-                return Err(ManagedArtworkFailure::new("too_large"));
+                return Err(ManagedArtworkFailure::new(
+                    ManagedArtworkFailureCode::TooLarge,
+                ));
             }
             bytes.extend_from_slice(&chunk);
         }
@@ -382,16 +412,22 @@ impl ManagedArtworkImageValidator {
         &self,
         fetched: &FetchedManagedArtwork,
     ) -> std::result::Result<ValidatedManagedArtwork, ManagedArtworkFailure> {
-        let (format, extension) = image_format_for_media_type(&fetched.media_type)
-            .ok_or_else(|| ManagedArtworkFailure::new("unsupported_media_type"))?;
+        let (format, extension) =
+            image_format_for_media_type(&fetched.media_type).ok_or_else(|| {
+                ManagedArtworkFailure::new(ManagedArtworkFailureCode::UnsupportedMediaType)
+            })?;
         let image = image::load_from_memory_with_format(&fetched.bytes, format)
-            .map_err(|_| ManagedArtworkFailure::new("invalid_image"))?;
+            .map_err(|_| ManagedArtworkFailure::new(ManagedArtworkFailureCode::InvalidImage))?;
         let (width, height) = image.dimensions();
         if width == 0 || height == 0 {
-            return Err(ManagedArtworkFailure::new("invalid_image"));
+            return Err(ManagedArtworkFailure::new(
+                ManagedArtworkFailureCode::InvalidImage,
+            ));
         }
         if width > self.max_width || height > self.max_height {
-            return Err(ManagedArtworkFailure::new("dimension_limit_exceeded"));
+            return Err(ManagedArtworkFailure::new(
+                ManagedArtworkFailureCode::DimensionLimitExceeded,
+            ));
         }
 
         Ok(ValidatedManagedArtwork {
@@ -400,7 +436,7 @@ impl ManagedArtworkImageValidator {
             width,
             height,
             byte_len: u64::try_from(fetched.bytes.len())
-                .map_err(|_| ManagedArtworkFailure::new("too_large"))?,
+                .map_err(|_| ManagedArtworkFailure::new(ManagedArtworkFailureCode::TooLarge))?,
             content_hash: sha256_hex(&fetched.bytes),
         })
     }
@@ -431,7 +467,7 @@ impl LocalManagedArtworkArtifactStore {
         let artifact_id_text = artifact_id.to_string();
         let shard = artifact_id_text
             .get(0..2)
-            .ok_or_else(|| ManagedArtworkFailure::new("storage_failed"))?;
+            .ok_or_else(|| ManagedArtworkFailure::new(ManagedArtworkFailureCode::StorageFailed))?;
         let directory = self.root.join(shard);
         let final_path = directory.join(format!("{artifact_id_text}.{extension}"));
         let temp_path = directory.join(format!("{artifact_id_text}.tmp"));
@@ -453,7 +489,9 @@ impl LocalManagedArtworkArtifactStore {
 
         if result.is_err() {
             let _ = fs::remove_file(&temp_path).await;
-            return Err(ManagedArtworkFailure::new("storage_failed"));
+            return Err(ManagedArtworkFailure::new(
+                ManagedArtworkFailureCode::StorageFailed,
+            ));
         }
 
         Ok(StoredManagedArtworkArtifact {
@@ -471,22 +509,53 @@ impl LocalManagedArtworkArtifactStore {
 
 #[derive(Clone, Debug)]
 struct ManagedArtworkFailure {
-    code: &'static str,
+    code: ManagedArtworkFailureCode,
     retryable: bool,
 }
 
 impl ManagedArtworkFailure {
-    const fn new(code: &'static str) -> Self {
+    const fn new(code: ManagedArtworkFailureCode) -> Self {
         Self {
             code,
             retryable: false,
         }
     }
 
-    const fn retryable(code: &'static str) -> Self {
+    const fn retryable(code: ManagedArtworkFailureCode) -> Self {
         Self {
             code,
             retryable: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ManagedArtworkFailureCode {
+    UnsupportedSource,
+    UnsupportedMediaType,
+    TooLarge,
+    InvalidImage,
+    DimensionLimitExceeded,
+    FetchTimeout,
+    FetchFailed,
+    FetchHttpStatus,
+    StorageFailed,
+    ResourceBudgetClosed,
+}
+
+impl ManagedArtworkFailureCode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::UnsupportedSource => "unsupported_source",
+            Self::UnsupportedMediaType => "unsupported_media_type",
+            Self::TooLarge => "too_large",
+            Self::InvalidImage => "invalid_image",
+            Self::DimensionLimitExceeded => "dimension_limit_exceeded",
+            Self::FetchTimeout => "fetch_timeout",
+            Self::FetchFailed => "fetch_failed",
+            Self::FetchHttpStatus => "fetch_http_status",
+            Self::StorageFailed => "storage_failed",
+            Self::ResourceBudgetClosed => "resource_budget_closed",
         }
     }
 }

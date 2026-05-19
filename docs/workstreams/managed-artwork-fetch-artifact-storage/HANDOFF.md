@@ -12,21 +12,22 @@ MAFA-030 now adds the first Taru-owned process-next path: one queued ingest can
 be claimed, fetched from an accepted HTTP(S) Artwork Candidate source,
 validated as static image content, written to internal local artifact storage,
 and committed as `managed_artwork_artifacts` metadata without public artwork
-publication.
+publication. MAFA-040 adds safe failed-job summaries and bounded internal
+failure codes, with redaction tests for unsupported media type and invalid
+image failures.
 
 ## Active Task
 
-- Task ID: MAFA-040
+- Task ID: MAFA-050
 - Owner: codex
-- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-server`,
-  `crates/taru-api`, `docs/api`,
-  `docs/workstreams/managed-artwork-fetch-artifact-storage`
-- Validation: focused failure/redaction tests; `cargo nextest run -p taru-server artwork --no-fail-fast`; `cargo nextest run -p taru-db artwork --no-fail-fast`; `git diff --check`
+- Files: `docs/workstreams/managed-artwork-fetch-artifact-storage`,
+  `docs/api`
+- Validation: verify-rust-workstream records fresh final gate evidence
 - Status: READY
-- Review: harden retry/cancellation, safe failure codes, job summaries, and
-  admin diagnostics without leaking raw URLs, paths, storage URIs, provider
-  tokens, or decoder internals
-- Evidence: add failure tests and update `EVIDENCE_AND_GATES.md`
+- Review: close the fetch/artifact lane or split public serving, thumbnails,
+  selected artwork publication, durable retry, and cancellation into narrower
+  follow-ons
+- Evidence: update closeout notes and final gate evidence
 
 ## Blockers
 
@@ -34,12 +35,11 @@ publication.
 
 ## Next Recommended Action
 
-- Run MAFA-040. Add explicit tests for unsupported media type, invalid image,
-  too-large responses, fetch timeout/status failures, and redacted failure
-  responses/job errors.
-- Decide whether failed `managed_artwork_ingest` rows should be retryable in
-  place, re-queued through a new job, or left terminal until a later retry API.
+- Run MAFA-050. Review MAFA-030/040 evidence, decide whether this workstream is
+  ready to close, and split follow-ons for public image serving, thumbnails,
+  selected artwork publication, durable retry/requeue, cancellation, and orphan
+  artifact cleanup.
 - Keep `managed-artwork://...` as an opaque internal storage reference. Do not
   expose raw artifact paths or `storage_uri` in Admin DTOs.
 - Do not create public `ImageAsset` rows, selected artwork, thumbnails, public
-  image references, or Addon Side Effect fetch/cache behavior in MAFA-040.
+  image references, or Addon Side Effect fetch/cache behavior during closeout.

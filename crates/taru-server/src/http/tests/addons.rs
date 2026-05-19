@@ -10,7 +10,14 @@ fn tiny_png() -> Vec<u8> {
 }
 
 async fn tiny_artwork_server() -> (String, u64) {
-    let bytes = tiny_png();
+    artwork_server(StatusCode::OK, "image/png", tiny_png()).await
+}
+
+async fn artwork_server(
+    status: StatusCode,
+    content_type: &'static str,
+    bytes: Vec<u8>,
+) -> (String, u64) {
     let byte_len = bytes.len() as u64;
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -19,7 +26,7 @@ async fn tiny_artwork_server() -> (String, u64) {
         "/poster.png",
         axum::routing::get(move || {
             let bytes = served_bytes.clone();
-            async move { (StatusCode::OK, [(header::CONTENT_TYPE, "image/png")], bytes) }
+            async move { (status, [(header::CONTENT_TYPE, content_type)], bytes) }
         }),
     );
     tokio::spawn(async move {
@@ -28,6 +35,94 @@ async fn tiny_artwork_server() -> (String, u64) {
     yield_now().await;
 
     (format!("http://{addr}/poster.png?token=secret"), byte_len)
+}
+
+async fn propose_and_accept_remote_artwork(
+    router: &Router,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    remote_url: &str,
+    idempotency_key: &str,
+) -> (
+    String,
+    taru_core::ArtworkCandidateId,
+    AcceptManagedArtworkCandidateResponse,
+) {
+    let registered = request_body_json::<AddonRegistrationResponse, _>(
+        router,
+        Method::POST,
+        "/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("artwork runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::ArtworkWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::ArtworkWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaItem,
+            id: item_id.to_string(),
+        },
+        idempotency_key: idempotency_key.to_owned(),
+        provenance: serde_json::json!({
+            "origin": "reference-addon",
+            "token": issued.raw_token.clone()
+        }),
+        payload: serde_json::json!({
+            "intent": "propose_artwork",
+            "kind": "poster",
+            "source": {
+                "kind": "remote_url",
+                "url": remote_url
+            },
+            "language": "en"
+        }),
+    };
+    let proposed = addon_side_effect(router, Some(&issued.raw_token), &request).await;
+    assert_eq!(proposed.status(), StatusCode::OK);
+    let proposed = body_json::<AddonSideEffectResponse>(proposed).await;
+    let candidate_id: taru_core::ArtworkCandidateId =
+        proposed.side_effect.apply_report.as_ref().unwrap()["candidate_id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+    let accept_path = format!("/admin/v1/artwork/candidates/{candidate_id}/accept");
+    let accepted =
+        request_json::<AcceptManagedArtworkCandidateResponse>(router, Method::POST, &accept_path)
+            .await;
+
+    (issued.raw_token, candidate_id, accepted)
 }
 
 #[tokio::test]
@@ -1574,6 +1669,173 @@ async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_with
             .contains(temp.path().to_string_lossy().as_ref())
     );
     assert!(temp.path().join("taru-cache").join("artwork").exists());
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_unsupported_media_type()
+ {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let (remote_url, _) = artwork_server(
+        StatusCode::OK,
+        "text/plain",
+        b"not-an-image token=secret".to_vec(),
+    )
+    .await;
+    let (raw_token, _candidate_id, accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-process-next-unsupported-media-type",
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/artwork/ingests/process-next")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&response_body)
+    );
+    let processed: ProcessManagedArtworkIngestResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert!(processed.processed);
+    let ingest = processed.ingest.as_ref().unwrap();
+    let job = processed.job.as_ref().unwrap();
+    assert_eq!(ingest.id, accepted.ingest.id);
+    assert_eq!(ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert!(!ingest.has_artifact);
+    assert!(ingest.has_failure);
+    assert!(processed.artifact.is_none());
+    assert_eq!(job.id, accepted.job.id);
+    assert_eq!(job.kind, JobKind::ManagedArtworkIngest);
+    assert_eq!(job.status, JobStatus::Failed);
+    assert_eq!(job.error.as_deref(), Some("unsupported_media_type"));
+    assert_eq!(
+        job.summary.as_ref().unwrap()["failure_code"],
+        "unsupported_media_type"
+    );
+    assert_eq!(job.summary.as_ref().unwrap()["status"], "failed");
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("not-an-image"));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+
+    let stored_ingest = store
+        .get_managed_artwork_ingest(ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert_eq!(stored_ingest.artifact_id, None);
+    assert_eq!(
+        stored_ingest.failure_code.as_deref(),
+        Some("unsupported_media_type")
+    );
+    assert!(
+        store
+            .list_item_images(source.item_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_invalid_image()
+ {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let (remote_url, _) = artwork_server(
+        StatusCode::OK,
+        "image/png",
+        b"not-an-image token=secret".to_vec(),
+    )
+    .await;
+    let (raw_token, _candidate_id, accepted) = propose_and_accept_remote_artwork(
+        &router,
+        library_id,
+        source.item_id,
+        &remote_url,
+        "artwork-candidate-process-next-invalid-image",
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/artwork/ingests/process-next")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let processed: ProcessManagedArtworkIngestResponse =
+        serde_json::from_slice(&response_body).unwrap();
+
+    assert!(processed.processed);
+    let ingest = processed.ingest.as_ref().unwrap();
+    let job = processed.job.as_ref().unwrap();
+    assert_eq!(ingest.id, accepted.ingest.id);
+    assert_eq!(ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert!(!ingest.has_artifact);
+    assert!(ingest.has_failure);
+    assert!(processed.artifact.is_none());
+    assert_eq!(job.status, JobStatus::Failed);
+    assert_eq!(job.error.as_deref(), Some("invalid_image"));
+    assert_eq!(
+        job.summary.as_ref().unwrap()["failure_code"],
+        "invalid_image"
+    );
+    assert_eq!(job.summary.as_ref().unwrap()["status"], "failed");
+
+    let response_text = String::from_utf8_lossy(&response_body);
+    assert!(!response_text.contains(&remote_url));
+    assert!(!response_text.contains("token=secret"));
+    assert!(!response_text.contains(&raw_token));
+    assert!(!response_text.contains("not-an-image"));
+    assert!(!response_text.contains("source_uri"));
+    assert!(!response_text.contains("cache_uri"));
+    assert!(!response_text.contains("storage_uri"));
+
+    let stored_ingest = store
+        .get_managed_artwork_ingest(ingest.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert_eq!(stored_ingest.artifact_id, None);
+    assert_eq!(stored_ingest.failure_code.as_deref(), Some("invalid_image"));
     assert!(
         store
             .list_item_images(source.item_id)

@@ -57,13 +57,20 @@ Last updated: 2026-05-19
 
 ## M3 - Failure, Retry, And Redaction Hardening
 
-- [ ] MAFA-040 [owner=codex] [deps=MAFA-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,docs/api]
+- [x] MAFA-040 [owner=codex] [deps=MAFA-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,docs/api]
   Goal: Harden retry/cancellation, safe failure codes, job summaries, and admin
   diagnostics for managed artwork ingest failures.
   Validation: focused failure/redaction tests; `cargo nextest run -p taru-server artwork --no-fail-fast`; `cargo nextest run -p taru-db artwork --no-fail-fast`; `git diff --check`.
   Review: failure reports must be actionable for admins without leaking raw
   URLs, local paths, storage URIs, provider tokens, or decoder internals.
   Evidence: tests and `EVIDENCE_AND_GATES.md`.
+  Result: DONE. Internal failure codes are now a bounded enum mapped to safe
+  strings, failed ingests write safe job summaries with `failure_code` and
+  `status`, and Admin process-next failure tests cover unsupported media type
+  and invalid image bodies without leaking source URLs, response bodies, token
+  material, cache URIs, storage URIs, or public `ImageAsset` state. Retry is
+  limited to the configured in-process fetch attempts; failed ingest requeue
+  and durable cancellation APIs remain deferred for MAFA-050 closeout/split.
   Handoff: Continue with MAFA-050 closeout or split public image-serving if
   internal artifacts are stable.
 
