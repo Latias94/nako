@@ -21,8 +21,8 @@ Last updated: 2026-05-20
     tests for request construction, decoding, bearer auth redaction, safe
     diagnostics, and unsupported API version rejection.
 
-- [ ] ATI-020 - Reuse relationship index route state for Tags.
-  - Owner: unassigned
+- [x] ATI-020 - Reuse relationship index route state for Tags.
+  - Owner: Codex
   - Dependencies: ATI-010.
   - Scope:
     - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
@@ -32,6 +32,12 @@ Last updated: 2026-05-20
       the Tags Index route.
     - Tag rows open existing Tag related Media Items routes.
   - Evidence: focused UI browse tests.
+    Completed on 2026-05-20:
+    `RelationshipIndexFamily.Tags`, `TagListResponse.toRelationshipIndexContent`,
+    route save/restore, `BrowseSession` loading, and
+    `ClientBrowseDataSource.loadRelationshipIndex(Tags)` are covered by
+    focused UI browse tests. Relationship index presentation copy is now
+    family-aware for Genres and Tags.
 
 - [ ] ATI-030 - Productize Tags Index screen entry.
   - Owner: unassigned

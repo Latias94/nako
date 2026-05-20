@@ -211,6 +211,16 @@ internal class ClientBrowseDataSource(
                 is BrowseResult.Success -> result.value.toRelationshipIndexContent()
                 is BrowseResult.Failure -> RelationshipIndexUiState.Failure(result.diagnostics)
             }
+            RelationshipIndexFamily.Tags -> when (
+                val result = browseClient.listTags(
+                    profile = profile,
+                    accessToken = accessToken,
+                    page = PageRequest(limit = 50, offset = 0),
+                )
+            ) {
+                is BrowseResult.Success -> result.value.toRelationshipIndexContent()
+                is BrowseResult.Failure -> RelationshipIndexUiState.Failure(result.diagnostics)
+            }
         }
     }
 

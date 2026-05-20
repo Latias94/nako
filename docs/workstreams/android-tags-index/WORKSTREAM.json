@@ -7,8 +7,8 @@
   "scope_kind": "execution",
   "problem": "Android can open Tag related Media Items from known IDs but lacks a first-class server-backed Tags Index.",
   "summary": "Reuse the proven relationship index architecture to productize Tags Index as the second accepted index family.",
-  "current_milestone": "M2",
-  "current_task": "ATI-020",
+  "current_milestone": "M3",
+  "current_task": "ATI-030",
   "task_prefix": "ATI",
   "authoritative_docs": [
     {
@@ -45,6 +45,11 @@
       "task": "ATI-010",
       "path": "apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt",
       "notes": "Focused tests cover TaruBrowseClient.listTags request construction, decoding, bearer auth redaction, and unsupported API version diagnostics."
+    },
+    {
+      "task": "ATI-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseSessionLoadingTest.kt",
+      "notes": "Focused UI browse tests cover Tags relationship index route state, data-source mapping, save/restore, and row targets into existing Tag related Media Items routes."
     }
   ],
   "adr_refs": [
@@ -56,6 +61,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ATI-020"
+    "next_task": "ATI-030"
   }
 }

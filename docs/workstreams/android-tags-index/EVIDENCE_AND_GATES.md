@@ -51,6 +51,25 @@ git diff --check
   - Fresh validation:
     `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
     passed.
+- ATI-020 completed on 2026-05-20:
+  - Added `RelationshipIndexFamily.Tags` and
+    `TagListResponse.toRelationshipIndexContent`.
+  - `BrowseSession` opens and loads Tags Index through the existing
+    relationship index route state; Tag rows open existing Tag related Media
+    Items routes.
+  - `ClientBrowseDataSource.loadRelationshipIndex(Tags)` calls
+    `TaruBrowseClient.listTags` and maps rows to stable Tag facet targets.
+  - Navigation save/restore preserves Tags Index as a safe nested route.
+  - `RelationshipIndexRoute` presentation copy is family-aware for Genres and
+    Tags.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.relationship.RelationshipIndexRouteTest --no-daemon --rerun-tasks`
+    passed.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
+    passed.
+  - Note: an earlier parallel Gradle run hit Kotlin incremental cache
+    contention; rerunning the same gates serially passed.
 
 ## Notes
 

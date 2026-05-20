@@ -101,6 +101,20 @@ class TaruBrowseNavigationStateSaverTest {
     }
 
     @Test
+    fun `tag relationship index route restores as safe nested route`() {
+        val navigation = TaruBrowseNavigationState
+            .root()
+            .open(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Tags))
+
+        val payload = navigation.toSaveablePayload()
+        val restored = restoreTaruBrowseNavigationState(payload)
+
+        assertEquals(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Tags), restored.currentRoute)
+        assertFalse(restored.navigationVisible)
+        assertFalse(payload.contains("Bearer"))
+    }
+
+    @Test
     fun `player route is transient and restores to previous safe detail`() {
         val detail = TaruRoute.ItemDetail("night-harbor")
         val navigation = TaruBrowseNavigationState

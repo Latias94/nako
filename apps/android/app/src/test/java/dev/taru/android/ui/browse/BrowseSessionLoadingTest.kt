@@ -16,6 +16,8 @@ import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.SearchItemHit
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.browse.ItemDetailResponse
+import dev.taru.android.browse.TagDto
+import dev.taru.android.browse.TagListResponse
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.media.MediaProbeDto
@@ -404,6 +406,31 @@ class BrowseSessionLoadingTest {
     }
 
     @Test
+    fun `relationship index route loads tag rows into tag facet route`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            relationshipIndexState = testTagIndexContent(),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Tags)))?.join()
+
+        val content = session.state.value.relationshipIndexState as RelationshipIndexUiState.Content
+        val row = content.rows.single()
+        assertEquals(RelationshipIndexFamily.Tags, content.family)
+        assertEquals("Lighthouse", row.title)
+        assertEquals(BrowseFacetUiFamily.Tag, row.target.family)
+        assertEquals("tag-lighthouse", row.target.id)
+        assertEquals(listOf(RelationshipIndexFamily.Tags), dataSource.relationshipIndexRequests)
+
+        session.dispatch(BrowseAction.OpenFacet(row.target))
+        assertEquals(TaruRoute.BrowseFacet(row.target), session.state.value.currentRoute)
+    }
+
+    @Test
     fun `relationship index route load ignores stale response after back`() = runBlocking {
         val dataSource = RecordingBrowseDataSource(
             relationshipIndexState = testGenreIndexContent(),
@@ -704,6 +731,17 @@ private fun testGenreIndexContent(): RelationshipIndexUiState.Content =
             GenreDto(
                 id = "genre-mystery",
                 name = "Mystery",
+            ),
+        ),
+        page = testPage(returned = 1),
+    ).toRelationshipIndexContent()
+
+private fun testTagIndexContent(): RelationshipIndexUiState.Content =
+    TagListResponse(
+        tags = listOf(
+            TagDto(
+                id = "tag-lighthouse",
+                name = "Lighthouse",
             ),
         ),
         page = testPage(returned = 1),

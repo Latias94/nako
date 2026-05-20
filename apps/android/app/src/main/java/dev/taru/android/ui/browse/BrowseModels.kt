@@ -17,6 +17,7 @@ import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
+import dev.taru.android.browse.TagListResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackRequestTarget
@@ -252,6 +253,7 @@ internal enum class RelationshipIndexFamily(
     val label: String,
 ) {
     Genres("Genres"),
+    Tags("Tags"),
 }
 
 internal data class RelationshipIndexRow(
@@ -308,6 +310,25 @@ internal fun GenreListResponse.toRelationshipIndexContent(): RelationshipIndexUi
                         family = BrowseFacetUiFamily.Genre,
                         label = genre.name,
                         id = genre.id,
+                    ),
+                )
+            },
+        page = page,
+    )
+
+internal fun TagListResponse.toRelationshipIndexContent(): RelationshipIndexUiState.Content =
+    RelationshipIndexUiState.Content(
+        family = RelationshipIndexFamily.Tags,
+        rows = tags
+            .filter { tag -> tag.id.isNotBlank() && tag.name.isNotBlank() }
+            .map { tag ->
+                RelationshipIndexRow(
+                    title = tag.name,
+                    subtitle = "Tag",
+                    target = BrowseFacetTarget(
+                        family = BrowseFacetUiFamily.Tag,
+                        label = tag.name,
+                        id = tag.id,
                     ),
                 )
             },

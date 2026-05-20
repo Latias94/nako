@@ -34,10 +34,40 @@ class RelationshipIndexRouteTest {
 
         assertEquals("Genres", presentation.title)
         assertEquals("Server Genres Index", presentation.subtitle)
+        assertEquals("Browse By Genre", presentation.sectionTitle)
         assertEquals("1 visible", presentation.resultLabel)
         assertEquals("12 returned", presentation.returnedLabel)
         assertEquals(BrowseFacetUiFamily.Genre, presentation.rows.single().target.family)
         assertEquals("genre-mystery", presentation.rows.single().target.id)
         assertFalse(presentation.toString().contains("Bearer"))
+    }
+
+    @Test
+    fun presentationUsesTagCopyForTagIndex() {
+        val target = BrowseFacetTarget(
+            family = BrowseFacetUiFamily.Tag,
+            label = "Lighthouse",
+            id = "tag-lighthouse",
+        )
+        val presentation = relationshipIndexPresentation(
+            RelationshipIndexUiState.Content(
+                family = RelationshipIndexFamily.Tags,
+                rows = listOf(
+                    RelationshipIndexRow(
+                        title = "Lighthouse",
+                        subtitle = "Tag",
+                        target = target,
+                    ),
+                ),
+                page = PageInfo(limit = 50, offset = 0, returned = 1),
+            ),
+        )
+
+        assertEquals("Tags", presentation.title)
+        assertEquals("Server Tags Index", presentation.subtitle)
+        assertEquals("Browse By Tag", presentation.sectionTitle)
+        assertEquals("No Tags", presentation.emptyTitle)
+        assertEquals(BrowseFacetUiFamily.Tag, presentation.rows.single().target.family)
+        assertEquals("tag-lighthouse", presentation.rows.single().target.id)
     }
 }

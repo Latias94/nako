@@ -10,17 +10,20 @@ This lane is the follow-on from the closed
 relationship index shape end to end. Tags Index should reuse that shape as the
 second accepted relationship index family. ATI-010 is complete:
 `TagListResponse` and `TaruBrowseClient.listTags` cover
-`GET /tags?limit=&offset=`.
+`GET /tags?limit=&offset=`. ATI-020 is complete: Tags now reuse the
+relationship index route state, data-source mapping, and safe navigation
+restore path.
 
 ## Active Task
 
-- Task ID: ATI-020
+- Task ID: ATI-030
 - Owner: unassigned
 - Files:
-  - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
-  - focused browse session/navigation/data-source tests.
+  - relationship index screen family.
+  - `HomeScreen` and `TaruBrowseShell`.
+  - focused presentation tests where practical.
 - Validation:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
+  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -35,12 +38,15 @@ second accepted relationship index family. ATI-010 is complete:
 - Top-level People Index remains outside this lane.
 - `TaruBrowseClient.listTags` is the Android typed contract for
   `GET /tags?limit=&offset=`.
+- `RelationshipIndexFamily.Tags` is in place and maps to existing Tag related
+  Media Items targets.
+- Relationship index presentation copy is family-aware for Genres and Tags.
 
 ## Blockers
 
-- None for ATI-020.
+- None for ATI-030.
 
 ## Next Recommended Action
 
-- Execute ATI-020: extend the relationship index route state and data-source
-  mapping to Tags, reusing the proven Genres shape.
+- Execute ATI-030: add the Home Tags entry point and ensure the shared
+  relationship index screen works as the user-facing Tags Index route.

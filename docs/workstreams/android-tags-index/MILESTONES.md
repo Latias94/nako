@@ -23,7 +23,7 @@ Evidence:
 
 ## M2 - Route Reuse
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
@@ -31,9 +31,21 @@ Exit criteria:
   state model.
 - Rows open the existing Tag related Media Items route with stable server IDs.
 
+Evidence:
+
+- `RelationshipIndexFamily.Tags` and
+  `TagListResponse.toRelationshipIndexContent` map server-backed Tag rows to
+  existing Tag related Media Items targets.
+- `BrowseSession` opens, loads, retries through the existing route state, and
+  opens Tag rows as `TaruRoute.BrowseFacet`.
+- `TaruBrowseNavigationStateSaver` restores Tags Index as a safe nested route.
+- `ClientBrowseDataSource.loadRelationshipIndex(Tags)` calls
+  `TaruBrowseClient.listTags(limit=50, offset=0)`.
+- Relationship index presentation copy is family-aware for Genres and Tags.
+
 ## M3 - Screen And Home Entry
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 

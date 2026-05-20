@@ -100,6 +100,52 @@ class ClientBrowseDataSourceTest {
     }
 
     @Test
+    fun `tag relationship index loads public tag list into facet targets`() = runBlocking {
+        val transport = QueuedTransport(
+            ok(
+                """
+                {
+                  "tags": [
+                    {"id": "tag-lighthouse", "name": "Lighthouse", "source": "nfo"},
+                    {"id": "tag-empty-name", "name": "", "source": "nfo"}
+                  ],
+                  "page": {"limit": 50, "offset": 0, "returned": 2}
+                }
+                """.trimIndent(),
+            ),
+        )
+        val vault = InMemoryTokenVault()
+        val profile = testProfile()
+        vault.saveToken(profile.tokenReference, "secret-token")
+        val dataSource = ClientBrowseDataSource(
+            profile = profile,
+            tokenVault = vault,
+            browseClient = TaruBrowseClient(transport),
+            playbackClient = TaruPlaybackClient(transport),
+            playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
+            userPlaybackClient = TaruUserPlaybackClient(transport),
+        )
+
+        val state = dataSource.loadRelationshipIndex(RelationshipIndexFamily.Tags)
+
+        val content = state as RelationshipIndexUiState.Content
+        val row = content.rows.single()
+        assertEquals(RelationshipIndexFamily.Tags, content.family)
+        assertEquals("Lighthouse", row.title)
+        assertEquals("Tag", row.subtitle)
+        assertEquals(BrowseFacetUiFamily.Tag, row.target.family)
+        assertEquals("tag-lighthouse", row.target.id)
+        assertEquals(
+            listOf("http://127.0.0.1:3018/tags?limit=50&offset=0"),
+            transport.requests.map { it.url },
+        )
+        assertEquals(
+            listOf("Bearer secret-token"),
+            transport.requests.map { it.headers["Authorization"] },
+        )
+    }
+
+    @Test
     fun `person detail loads person and related media items through public client routes`() = runBlocking {
         val transport = QueuedTransport(
             ok(

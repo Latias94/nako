@@ -46,6 +46,9 @@ import dev.taru.android.ui.theme.TaruTextSecondary
 internal data class RelationshipIndexPresentation(
     val title: String,
     val subtitle: String,
+    val sectionTitle: String,
+    val emptyTitle: String,
+    val emptyBody: String,
     val resultLabel: String,
     val returnedLabel: String,
     val rows: List<RelationshipIndexRow>,
@@ -58,6 +61,19 @@ internal fun relationshipIndexPresentation(
         title = content.family.label,
         subtitle = when (content.family) {
             RelationshipIndexFamily.Genres -> "Server Genres Index"
+            RelationshipIndexFamily.Tags -> "Server Tags Index"
+        },
+        sectionTitle = when (content.family) {
+            RelationshipIndexFamily.Genres -> "Browse By Genre"
+            RelationshipIndexFamily.Tags -> "Browse By Tag"
+        },
+        emptyTitle = when (content.family) {
+            RelationshipIndexFamily.Genres -> "No Genres"
+            RelationshipIndexFamily.Tags -> "No Tags"
+        },
+        emptyBody = when (content.family) {
+            RelationshipIndexFamily.Genres -> "The active server returned no visible Genre labels for this access token."
+            RelationshipIndexFamily.Tags -> "The active server returned no visible Tag labels for this access token."
         },
         resultLabel = "${content.rows.size} visible",
         returnedLabel = "${content.page.returned} returned",
@@ -109,13 +125,13 @@ private fun RelationshipIndexScreen(
     RelationshipIndexHeader(presentation = presentation)
 
     SectionHeader(
-        title = "Browse By Genre",
+        title = presentation.sectionTitle,
         action = presentation.resultLabel,
     )
     if (presentation.rows.isEmpty()) {
         EmptyCard(
-            title = "No Genres",
-            body = "The active server returned no visible Genre labels for this access token.",
+            title = presentation.emptyTitle,
+            body = presentation.emptyBody,
         )
     } else {
         RelationshipIndexRows(
