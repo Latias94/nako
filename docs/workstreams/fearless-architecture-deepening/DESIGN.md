@@ -1,6 +1,6 @@
 # Fearless Architecture Deepening
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## Why This Lane Exists
@@ -183,3 +183,14 @@ This lane can close when:
 - no public/admin/addon DTO leaks Source Locator, storage URI, local path, raw
   source URL, cache URI, content hash, secret, or raw database detail as part
   of the refactor.
+
+Closeout result:
+
+- FAD-020 through FAD-090 are complete.
+- The final workspace gates passed on 2026-05-20.
+- PostgreSQL opt-in contracts were skipped only because
+  `TARU_TEST_POSTGRES_URL` was unset; the relevant contract pairs remain
+  present for environments with a PostgreSQL test URL.
+- No unowned architecture tail remains inside this lane. Existing independent
+  tails stay in their named workstreams, especially
+  `managed-artwork-postgresql-parity` and `admin-api-typescript-contract`.

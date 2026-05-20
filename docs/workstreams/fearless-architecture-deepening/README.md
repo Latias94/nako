@@ -1,6 +1,6 @@
 # Fearless Architecture Deepening
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 This workstream owns the next architecture-first fearless refactor pass after
@@ -25,9 +25,22 @@ identity, hardware diagnostics, search semantics, and test-locality cleanup.
 - [HANDOFF.md](HANDOFF.md)
 - [WORKSTREAM.json](WORKSTREAM.json)
 
-## Current Task
+## Closeout
 
-- FAD-020 — Addon Side Effect Module depth.
+- FAD-090 completed the final verification and closeout for M63.
+- Full workspace validation passed with 498 tests run and 19 skipped.
+- PostgreSQL opt-in contracts were not run because `TARU_TEST_POSTGRES_URL` was
+  not available in this environment.
+
+## Recommended Next Steps
+
+- Continue the already-active `admin-api-typescript-contract` lane when Admin
+  Web contract drift is the next priority.
+- Pick up `managed-artwork-postgresql-parity` when Managed Artwork needs
+  PostgreSQL runtime enablement.
+- Open a new named product lane for provider breadth, AI/vector search, network
+  traversal, adaptive playback, or client UX rather than reopening this
+  architecture-deepening lane.
 
 ## Non-Goals
 

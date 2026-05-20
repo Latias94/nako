@@ -1,6 +1,6 @@
 # Fearless Architecture Deepening — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## M0 — Scope And Evidence Freeze
@@ -153,7 +153,7 @@ Evidence:
 
 ## M5 — Closeout Or Split
 
-Status: planned.
+Status: completed.
 
 Exit criteria:
 
@@ -164,6 +164,16 @@ Exit criteria:
 - The next implementation goal is recommended from evidence, not from a vague
   backlog note.
 
+Evidence:
+
+- FAD-090 closed the lane after final workspace validation.
+- No hidden follow-up text remains in this lane. Existing independent tails are
+  already named workstreams:
+  - `docs/workstreams/managed-artwork-postgresql-parity/`
+  - `docs/workstreams/admin-api-typescript-contract/`
+- Future provider breadth, AI/vector search, network traversal, adaptive
+  playback, and client UX should open separate product lanes when prioritized.
+
 Primary gates:
 
 - `cargo fmt --all -- --check`
@@ -171,3 +181,13 @@ Primary gates:
 - `cargo nextest run --workspace --no-fail-fast`
 - PostgreSQL opt-in contracts for touched persistence seams when available
 - `git diff --check`
+
+Result:
+
+- `cargo fmt --all -- --check` passed.
+- `cargo check --workspace --tests` passed.
+- `cargo nextest run --workspace --no-fail-fast` passed with 498 tests run and
+  19 skipped.
+- `git diff --check` passed.
+- PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+  unset.

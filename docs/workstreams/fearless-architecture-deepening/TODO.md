@@ -1,6 +1,6 @@
 # Fearless Architecture Deepening — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 Task IDs use the `FAD` prefix.
@@ -206,7 +206,7 @@ Task IDs use the `FAD` prefix.
 
 ## M5 — Closeout Or Split
 
-- [ ] FAD-090 [owner=planner] [deps=FAD-080] [scope=docs/workstreams/fearless-architecture-deepening,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md]
+- [x] FAD-090 [owner=planner] [deps=FAD-080] [scope=docs/workstreams/fearless-architecture-deepening,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md]
   Goal: Verify the fearless refactor lane, close it, and split any remaining
   independent tails into named workstreams.
   Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`;
@@ -216,5 +216,17 @@ Task IDs use the `FAD` prefix.
   Review: Use review/verify workstream discipline before marking the goal
   complete. Remaining work must not hide inside vague "follow up" text.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
+  Progress: Closed M63 after final workspace verification. No new follow-on
+  workstream was created from this closeout because the remaining independent
+  tails already have named lanes: `managed-artwork-postgresql-parity` for
+  Managed Artwork PostgreSQL runtime parity and
+  `admin-api-typescript-contract` for Admin Web contract synchronization.
+  Provider breadth, AI/vector search, network traversal, adaptive playback, and
+  client UX remain out of this lane and should open as named product lanes when
+  prioritized.
+  Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`;
+  `cargo nextest run --workspace --no-fail-fast`; `git diff --check`.
+  PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+  unset in this environment.
   Handoff: Recommend the next product lane only after architecture debt is
   either closed or explicitly split.

@@ -26,9 +26,26 @@ proposed milestone.
 
 ## Current Goal
 
-### M63: Fearless Architecture Deepening
+### Admin API TypeScript Contract
 
 Status: active.
+
+Objective:
+
+- Finish synchronizing the Admin API TypeScript contract consumed by
+  `apps/admin-web` while keeping it separate from the Public Client SDK and
+  `taru-client-protocol`.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-api-typescript-contract/`.
+
+## Completed Goals
+
+### M63: Fearless Architecture Deepening
+
+Status: completed.
 
 Objective:
 
@@ -84,8 +101,14 @@ Evidence:
 
 - Workstream docs:
   `docs/workstreams/fearless-architecture-deepening/`.
-
-## Completed Goals
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo check --workspace --tests`;
+  - `cargo nextest run --workspace --no-fail-fast`: 498 tests passed and 19
+    skipped;
+  - `git diff --check`.
+- PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+  unset in the closeout environment.
 
 ### M62: PostgreSQL Production Readiness
 

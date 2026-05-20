@@ -7,8 +7,8 @@ attention.
 ## Current Workstreams
 
 - [fearless-architecture-deepening](fearless-architecture-deepening/README.md):
-  active M63 architecture-first lane for deepening Addon Side Effect Modules,
-  Addon metadata commit atomicity, Library ingestion workflow seams,
+  completed M63 architecture-first lane for deepening Addon Side Effect
+  Modules, Addon metadata commit atomicity, Library ingestion workflow seams,
   playback/transcode request identity, hardware diagnostics, search semantics,
   and test locality before new feature breadth hardens shallow Interfaces.
 - [postgresql-production-readiness](postgresql-production-readiness/README.md):

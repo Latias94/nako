@@ -1,6 +1,6 @@
 # Fearless Architecture Deepening — Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## Current State
@@ -22,10 +22,11 @@ Completed tasks:
 - FAD-060 — Hardware acceleration diagnostics.
 - FAD-070 — Search semantics.
 - FAD-080 — Test locality for touched search semantics tests.
+- FAD-090 — Final closeout.
 
 Current executable task:
 
-- FAD-090 — Final closeout or split remaining tails.
+- None. The workstream is closed.
 
 Why FAD-020 comes first:
 
@@ -293,13 +294,36 @@ Environment note:
 
 ## Blockers
 
-- None for FAD-090.
+- None.
 
 ## Next Recommended Action
 
-1. Start FAD-090 closeout.
-2. Run final lane verification, including full workspace nextest if local disk
-   and time permit.
-3. Check whether any remaining tails deserve explicit new workstreams rather
-   than vague follow-up notes.
-4. Only mark the active goal complete after FAD-090 docs and gates are done.
+1. Continue the already-active `admin-api-typescript-contract` lane if Admin
+   Web contract drift is the next priority.
+2. Pick up `managed-artwork-postgresql-parity` when Managed Artwork PostgreSQL
+   runtime enablement is needed.
+3. Open a new product workstream for provider breadth, AI/vector search,
+   network traversal, adaptive playback, or client UX rather than reopening
+   M63.
+
+## FAD-090 Summary
+
+FAD-090 closed M63 after final verification.
+
+Validation passed:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `cargo nextest run --workspace --no-fail-fast` — 498 passed, 19 skipped
+- `git diff --check`
+
+PostgreSQL opt-in:
+
+- Skipped because `TARU_TEST_POSTGRES_URL` was unset in this environment.
+
+Closeout split decision:
+
+- No new follow-on workstream was created from this closeout. The remaining
+  independent tails are already named:
+  - `managed-artwork-postgresql-parity`
+  - `admin-api-typescript-contract`

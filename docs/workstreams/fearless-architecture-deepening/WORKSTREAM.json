@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "fearless-architecture-deepening",
   "title": "Fearless Architecture Deepening",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
   "problem": "Taru's core architecture is strong after M62, but Addon Side Effects, Addon metadata commits, Library ingestion, playback/transcode identity, hardware diagnostics, search semantics, and large test families need deeper Modules before feature breadth hardens shallow Interfaces.",
@@ -69,7 +69,7 @@
     "test_locality",
     "closeout_or_split"
   ],
-  "current_task": "FAD-090",
+  "current_task": null,
   "first_slice": "Addon Side Effect Module depth",
   "non_goals": [
     "new TMDB, Douban, Bangumi, or AI provider breadth",
@@ -83,7 +83,7 @@
     "copying or translating reference project source"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with FAD-090 closeout while the current target state and gates remain valid. Split a follow-on when a remaining tail is independent product breadth or a separately valuable architecture lane."
+    "default_action": "close",
+    "notes": "M63 is complete. Do not reopen this lane for provider breadth, AI/vector search, network traversal, adaptive playback, or UI work; open named follow-on workstreams instead. Existing independent tails include managed-artwork-postgresql-parity and admin-api-typescript-contract."
   }
 }

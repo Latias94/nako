@@ -9,13 +9,13 @@ Goal numbers are historical identifiers. Earlier gaps such as M10-M12 and M17
 are not reused; new work uses the next number after the highest documented
 milestone.
 
-## Current Architecture Focus: M63
+## Current Architecture Focus
 
-Status: active.
+Status: completed for M63.
 
-M63 is the fearless architecture-deepening lane after M62 PostgreSQL Production
-Readiness. It intentionally prioritizes deeper Modules and workflow seams before
-new feature breadth:
+M63 was the fearless architecture-deepening lane after M62 PostgreSQL
+Production Readiness. It intentionally prioritized deeper Modules and workflow
+seams before new feature breadth:
 
 - Addon Side Effect Module depth;
 - Addon Canonical Metadata commit atomicity;
@@ -28,6 +28,17 @@ new feature breadth:
 Authoritative lane:
 
 - `docs/workstreams/fearless-architecture-deepening/`
+
+Closeout:
+
+- Completed on 2026-05-20.
+- Final workspace nextest passed with 498 tests run and 19 skipped.
+- PostgreSQL opt-in contracts were skipped because no
+  `TARU_TEST_POSTGRES_URL` was available.
+
+Current active follow-on:
+
+- `docs/workstreams/admin-api-typescript-contract/`
 
 ## Phase Bands
 
@@ -850,6 +861,37 @@ Completed:
   URL.
 - Managed Artwork PostgreSQL parity is intentionally split to
   `docs/workstreams/managed-artwork-postgresql-parity/`.
+
+### Fearless Architecture Deepening: M63
+
+Status: completed.
+
+This phase deepened high-leverage Modules before new provider, plugin, AI,
+playback, and remote-access breadth could harden shallow Interfaces:
+
+- split Addon Side Effect behavior into deeper principal, intake, apply-router,
+  metadata-write, library-file-write, artwork-write, and target Modules;
+- added transactional Addon Canonical Metadata write commits for
+  metadata/catalog/search/apply-outcome consistency;
+- narrowed Library ingestion behind a workflow-shaped seam;
+- stabilized playback/transcode request/cache identity around source revision
+  and profile identity;
+- separated hardware encoder discovery, device initialization, and smoke-probe
+  diagnostics;
+- added shared search semantics and projection-version discipline;
+- improved test locality around focused SearchIndex semantics tests.
+
+Authoritative workstream:
+
+- `docs/workstreams/fearless-architecture-deepening/`
+
+Completed:
+
+- FAD-020 through FAD-090 are complete.
+- Full workspace nextest passed with 498 tests run and 19 skipped.
+- Existing independent tails remain in named lanes:
+  - `docs/workstreams/managed-artwork-postgresql-parity/`
+  - `docs/workstreams/admin-api-typescript-contract/`
 
 ## Workstream Split Direction
 

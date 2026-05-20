@@ -1,6 +1,6 @@
 # Fearless Architecture Deepening — Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 This file records evidence for M63. Do not claim the fearless refactor lane is
@@ -513,6 +513,51 @@ Broader gates not run:
   workspace nextest remains the FAD-090 closeout gate.
 - PostgreSQL opt-in contracts were not applicable because FAD-080 changed no
   persistence seam or SQL behavior.
+
+### 2026-05-20 — FAD-090 Closeout
+
+Status: complete.
+
+Closeout evidence:
+
+- FAD-020 through FAD-090 are complete.
+- M4 Search Semantics and Test Locality is complete.
+- M5 Closeout Or Split is complete.
+- No new follow-on workstream was required during closeout because the remaining
+  independent tails already exist as named lanes:
+  - `docs/workstreams/managed-artwork-postgresql-parity/`
+  - `docs/workstreams/admin-api-typescript-contract/`
+- Provider breadth, AI/vector search, network traversal, adaptive playback, and
+  client UX remain outside M63 and should be opened as separate product lanes
+  when prioritized.
+
+Validation:
+
+```bash
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo fmt --all -- --check
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check --workspace --tests
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run --workspace --no-fail-fast
+git diff --check
+```
+
+Result:
+
+- `cargo fmt --all -- --check` passed.
+- `cargo check --workspace --tests` passed.
+- Full workspace nextest passed: 498 tests run, 498 passed, 19 skipped.
+- `git diff --check` passed.
+
+PostgreSQL opt-in:
+
+- Skipped because `TARU_TEST_POSTGRES_URL` was unset in this environment.
+- SQLite always-on coverage and backend-neutral contract pairs remain present.
+- PostgreSQL opt-in contract pairs should be run in an environment that provides
+  a disposable PostgreSQL test URL.
+
+Environment note:
+
+- Cargo commands used `TMP`/`TEMP=F:\Temp` because the default user temp
+  directory had no free space during this workstream.
 
 ## Evidence To Add During Execution
 
