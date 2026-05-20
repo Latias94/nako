@@ -83,8 +83,9 @@ command:
 The default command runs Android JVM tests, assembles the debug APK, then
 delegates the stable smoke state set to `Smoke-Regression.ps1`. Reports are
 written under `apps/android/build/validation/<timestamp>/` as `report.md` for
-human handoff and `report.json` for automation. Use `-SkipSmoke` when no
-emulator is available and you only need the local JVM/build gate.
+human handoff, `report.json` for automation, and `report.junit.xml` for CI
+test reporting. Use `-SkipSmoke` when no emulator is available and you only
+need the local JVM/build gate.
 
 Use the smoke script when you want a repeatable emulator sanity check after a
 build:
@@ -156,8 +157,8 @@ gate before handing work to another developer or agent:
 
 The wrapper builds the debug APK once by default, then runs the selected smoke
 fixture states through `Smoke-Emulator.ps1` and writes a combined report under
-`apps/android/build/smoke-regression/<timestamp>/` as `report.md` and
-`report.json`. The default state set is `empty-setup`,
+`apps/android/build/smoke-regression/<timestamp>/` as `report.md`,
+`report.json`, and `report.junit.xml`. The default state set is `empty-setup`,
 `profile-missing-token`, and `profile-with-media`. If a state fails, the report
 includes the failed state, failure category, evidence path, log path, and a
 focused `Smoke-Emulator.ps1` rerun command.

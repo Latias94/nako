@@ -9,20 +9,22 @@ This lane follows the closed `android-structured-validation-reports` workstream.
 Markdown and JSON reports already exist for smoke regression and local Android
 validation. AJVR-010 is complete: the JUnit XML contract is frozen in
 `DESIGN.md`. AJVR-020 is complete: `Smoke-Regression.ps1` now writes
-`report.junit.xml` next to `report.md` and `report.json`.
+`report.junit.xml` next to `report.md` and `report.json`. AJVR-030 is
+complete: `Validate-AndroidLocal.ps1` now writes local validation
+`report.junit.xml` and links delegated smoke JUnit paths.
 
 ## Active Task
 
-- Task ID: AJVR-030
+- Task ID: AJVR-040
 - Owner: Codex
 - Files:
-  - `apps/android/scripts/Validate-AndroidLocal.ps1`
-  - `apps/android/README.md`
   - `docs/workstreams/android-junit-validation-reports/`
 - Validation:
-  - `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"`
+  - `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Android-JUnitReport.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"`
+  - `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States empty-setup -SkipBuild -RetriesPerState 0`
   - `pwsh -NoProfile -File apps/android/scripts/Validate-AndroidLocal.ps1 -SkipSmoke`
-  - parse generated `report.junit.xml`
+  - parse generated JUnit XML reports
+  - `git diff --check`
 - Status: READY
 
 ## Decisions
@@ -38,12 +40,16 @@ validation. AJVR-010 is complete: the JUnit XML contract is frozen in
 - Local validation suite name is `taru.android.local-validation`.
 - Smoke JUnit includes `step.android-build` and `state.<state-name>`
   testcases.
+- Local validation JUnit includes `step.android-unit-tests`,
+  `step.android-build`, and `step.smoke-regression` testcases.
+- Shared JUnit XML helper lives in `apps/android/scripts/Android-JUnitReport.ps1`.
 
 ## Blockers
 
-- None for AJVR-030.
+- None for AJVR-040.
 
 ## Next Recommended Action
 
-- Execute AJVR-030: add `Validate-AndroidLocal.ps1` JUnit XML output and link
-  delegated smoke JUnit paths instead of duplicating smoke state detail.
+- Execute AJVR-040: verify both generated JUnit report paths, update closeout
+  docs, and close the lane. CI upload/artifact retention and golden visual
+  diffing remain separate follow-ons.

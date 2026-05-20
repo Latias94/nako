@@ -40,10 +40,12 @@ Last updated: 2026-05-20
     parseable JUnit report with `step.android-build` and `state.empty-setup`
     testcases while preserving Markdown and JSON outputs.
 
-- [ ] AJVR-030 - Add local validation JUnit report.
+- [x] AJVR-030 - Add local validation JUnit report.
   - Owner: Codex
   - Dependencies: AJVR-020.
   - Scope:
+    - `apps/android/scripts/Android-JUnitReport.ps1`
+    - `apps/android/scripts/Smoke-Regression.ps1`
     - `apps/android/scripts/Validate-AndroidLocal.ps1`
     - `apps/android/README.md`
     - focused local validation report validation.
@@ -53,6 +55,13 @@ Last updated: 2026-05-20
     - generated XML parses and records build/unit/smoke step testcases.
     - delegated smoke reports are linked, not duplicated.
   - Evidence: generated local validation report path.
+    Completed on 2026-05-20:
+    `Validate-AndroidLocal.ps1` now writes `report.junit.xml`, prints the
+    JUnit report path, records `report_junit` in `report.json`, and links
+    delegated smoke Markdown/JSON/JUnit paths when smoke runs. Focused
+    `-SkipSmoke` validation generated a parseable local validation JUnit report
+    with `step.android-unit-tests`, `step.android-build`, and
+    `step.smoke-regression` testcases.
 
 - [ ] AJVR-040 - Verify and close.
   - Owner: Codex

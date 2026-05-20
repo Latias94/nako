@@ -40,7 +40,7 @@ Evidence:
 
 ## M3 - Local Validation XML
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
@@ -49,9 +49,19 @@ Exit criteria:
 - Delegated smoke Markdown/JSON/JUnit paths are linked as text metadata rather
   than copied into local validation XML.
 
+Evidence:
+
+- `Validate-AndroidLocal.ps1` writes `report.junit.xml` and prints the JUnit
+  report path.
+- Local validation JSON includes `report_junit` and delegated
+  `smoke_junit`.
+- Focused `-SkipSmoke` validation generated parseable JUnit XML with
+  `step.android-unit-tests`, `step.android-build`, and
+  `step.smoke-regression` testcases.
+
 ## M4 - Closeout
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 

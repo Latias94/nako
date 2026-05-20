@@ -8,7 +8,7 @@ Last updated: 2026-05-20
 Script parse gate:
 
 ```powershell
-pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"
+pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Android-JUnitReport.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"
 ```
 
 Focused smoke report gate:
@@ -70,6 +70,36 @@ git diff --check
     `git diff --check` passed.
   - Generated evidence:
     `apps/android/build/smoke-regression-ajvr/20260520-201331/report.junit.xml`.
+- AJVR-030 completed on 2026-05-20:
+  - Added shared `Android-JUnitReport.ps1` helpers used by both smoke
+    regression and local validation report adapters.
+  - `Validate-AndroidLocal.ps1` writes `report.junit.xml`, prints
+    `JUnit report:`, includes `report_junit` in `report.json`, and links
+    delegated `smoke_junit` when smoke runs.
+  - JUnit XML uses suite `taru.android.local-validation`, testcase classname
+    `taru.android.validation`, and step testcases `step.android-unit-tests`,
+    `step.android-build`, and `step.smoke-regression`.
+  - Fresh validation:
+    `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Android-JUnitReport.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"`
+    passed.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup -SkipBuild -RetriesPerState 0 -OutputRoot apps\android\build\smoke-regression-ajvr`
+    passed after the shared helper extraction.
+  - Fresh validation:
+    `[xml](Get-Content -LiteralPath 'apps/android/build/smoke-regression-ajvr/20260520-212823/report.junit.xml' -Raw) | Out-Null`
+    passed.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps\android\scripts\Validate-AndroidLocal.ps1 -SkipSmoke -OutputRoot apps\android\build\validation-ajvr`
+    passed.
+  - Fresh validation:
+    `[xml](Get-Content -LiteralPath 'apps/android/build/validation-ajvr/20260520-212603/report.junit.xml' -Raw) | Out-Null`
+    passed.
+  - Fresh validation:
+    `git diff --check` passed.
+  - Generated evidence:
+    `apps/android/build/smoke-regression-ajvr/20260520-212823/report.junit.xml`.
+  - Generated evidence:
+    `apps/android/build/validation-ajvr/20260520-212603/report.junit.xml`.
 
 ## Notes
 
