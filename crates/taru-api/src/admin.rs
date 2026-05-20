@@ -567,7 +567,8 @@ pub struct AdminPlaybackHardwareCapability {
     pub accelerator: HardwareAcceleration,
     pub available: bool,
     pub reason_code: AdminPlaybackHardwareCapabilityReason,
-    pub evidence: AdminPlaybackHardwareCapabilityEvidence,
+    pub encoder_discovery: AdminPlaybackHardwareEncoderDiscovery,
+    pub device_initialization: AdminPlaybackHardwareDeviceInitialization,
     pub smoke_probe: AdminPlaybackHardwareSmokeProbe,
 }
 
@@ -576,17 +577,9 @@ pub struct AdminPlaybackHardwareCapability {
 pub enum AdminPlaybackHardwareCapabilityReason {
     Available,
     EncoderNotListed,
+    DeviceInitializationFailed,
+    SmokeProbeFailed,
     ProbeError,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AdminPlaybackHardwareCapabilityEvidence {
-    CpuAlwaysAvailable,
-    FfmpegEncoderListed,
-    FfmpegEncoderMissing,
-    FfmpegProbeError,
-    StaticDetector,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -599,6 +592,39 @@ pub struct AdminPlaybackHardwareSmokeProbe {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AdminPlaybackHardwareSmokeProbeStatus {
+    NotRequired,
+    NotRun,
+    Passed,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackHardwareEncoderDiscovery {
+    pub status: AdminPlaybackHardwareEncoderDiscoveryStatus,
+    pub encoder: Option<String>,
+    pub has_detail: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHardwareEncoderDiscoveryStatus {
+    NotRequired,
+    Listed,
+    Missing,
+    ProbeError,
+    Static,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackHardwareDeviceInitialization {
+    pub status: AdminPlaybackHardwareDeviceInitializationStatus,
+    pub operator_check: String,
+    pub has_detail: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHardwareDeviceInitializationStatus {
     NotRequired,
     NotRun,
     Passed,
@@ -1138,7 +1164,17 @@ mod tests {
                     accelerator: HardwareAcceleration::Nvenc,
                     available: false,
                     reason_code: AdminPlaybackHardwareCapabilityReason::ProbeError,
-                    evidence: AdminPlaybackHardwareCapabilityEvidence::FfmpegProbeError,
+                    encoder_discovery: AdminPlaybackHardwareEncoderDiscovery {
+                        status: AdminPlaybackHardwareEncoderDiscoveryStatus::ProbeError,
+                        encoder: None,
+                        has_detail: true,
+                    },
+                    device_initialization: AdminPlaybackHardwareDeviceInitialization {
+                        status: AdminPlaybackHardwareDeviceInitializationStatus::NotRun,
+                        operator_check: "Verify the NVIDIA driver and FFmpeg can initialize NVENC"
+                            .to_owned(),
+                        has_detail: false,
+                    },
                     smoke_probe: AdminPlaybackHardwareSmokeProbe {
                         status: AdminPlaybackHardwareSmokeProbeStatus::NotRun,
                         operator_check: "Run an NVENC H.264 encode smoke test on the host"
@@ -1187,8 +1223,12 @@ mod tests {
             "probe_error"
         );
         assert_eq!(
-            value["hardware"]["capabilities"][0]["evidence"],
-            "ffmpeg_probe_error"
+            value["hardware"]["capabilities"][0]["encoder_discovery"]["status"],
+            "probe_error"
+        );
+        assert_eq!(
+            value["hardware"]["capabilities"][0]["device_initialization"]["status"],
+            "not_run"
         );
         assert_eq!(
             value["hardware"]["capabilities"][0]["smoke_probe"]["status"],

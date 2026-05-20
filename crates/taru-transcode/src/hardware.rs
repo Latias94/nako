@@ -48,12 +48,120 @@ pub struct HardwareAccelerationPolicy {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum HardwareCapabilityEvidence {
-    CpuAlwaysAvailable,
-    FfmpegEncoderListed,
-    FfmpegEncoderMissing,
-    FfmpegProbeError,
-    StaticDetector,
+pub enum HardwareEncoderDiscoveryStatus {
+    NotRequired,
+    Listed,
+    Missing,
+    ProbeError,
+    Static,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareEncoderDiscovery {
+    pub status: HardwareEncoderDiscoveryStatus,
+    pub encoder: Option<String>,
+    pub detail: Option<String>,
+}
+
+impl HardwareEncoderDiscovery {
+    #[must_use]
+    pub fn not_required() -> Self {
+        Self {
+            status: HardwareEncoderDiscoveryStatus::NotRequired,
+            encoder: None,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn listed(encoder: impl Into<String>) -> Self {
+        Self {
+            status: HardwareEncoderDiscoveryStatus::Listed,
+            encoder: Some(encoder.into()),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn missing(encoder: impl Into<String>) -> Self {
+        Self {
+            status: HardwareEncoderDiscoveryStatus::Missing,
+            encoder: Some(encoder.into()),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn probe_error(detail: impl Into<String>) -> Self {
+        Self {
+            status: HardwareEncoderDiscoveryStatus::ProbeError,
+            encoder: None,
+            detail: Some(detail.into()),
+        }
+    }
+
+    #[must_use]
+    pub fn static_detector() -> Self {
+        Self {
+            status: HardwareEncoderDiscoveryStatus::Static,
+            encoder: None,
+            detail: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareDeviceInitializationStatus {
+    NotRequired,
+    NotRun,
+    Passed,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareDeviceInitialization {
+    pub status: HardwareDeviceInitializationStatus,
+    pub operator_check: String,
+    pub detail: Option<String>,
+}
+
+impl HardwareDeviceInitialization {
+    #[must_use]
+    pub fn not_required() -> Self {
+        Self {
+            status: HardwareDeviceInitializationStatus::NotRequired,
+            operator_check: "cpu encode does not require hardware device initialization".to_owned(),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn not_run(accelerator: HardwareAcceleration) -> Self {
+        Self {
+            status: HardwareDeviceInitializationStatus::NotRun,
+            operator_check: operator_device_initialization_check(accelerator).to_owned(),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn passed(accelerator: HardwareAcceleration) -> Self {
+        Self {
+            status: HardwareDeviceInitializationStatus::Passed,
+            operator_check: operator_device_initialization_check(accelerator).to_owned(),
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn failed(accelerator: HardwareAcceleration, detail: impl Into<String>) -> Self {
+        Self {
+            status: HardwareDeviceInitializationStatus::Failed,
+            operator_check: operator_device_initialization_check(accelerator).to_owned(),
+            detail: Some(detail.into()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -116,7 +224,8 @@ pub struct HardwareAccelerationCapability {
     pub available: bool,
     pub device: Option<String>,
     pub reason: Option<String>,
-    pub evidence: HardwareCapabilityEvidence,
+    pub encoder_discovery: HardwareEncoderDiscovery,
+    pub device_initialization: HardwareDeviceInitialization,
     pub smoke_probe: HardwareSmokeProbe,
 }
 
@@ -218,6 +327,49 @@ pub trait HardwareSmokeProbeDetector: Send + Sync {
     fn probe(&self, accelerator: HardwareAcceleration) -> HardwareSmokeProbe;
 }
 
+pub trait HardwareDeviceInitializationDetector: Send + Sync {
+    fn initialize(&self, accelerator: HardwareAcceleration) -> HardwareDeviceInitialization;
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct OperatorHardwareDeviceInitialization;
+
+impl HardwareDeviceInitializationDetector for OperatorHardwareDeviceInitialization {
+    fn initialize(&self, accelerator: HardwareAcceleration) -> HardwareDeviceInitialization {
+        if accelerator == HardwareAcceleration::None {
+            HardwareDeviceInitialization::not_required()
+        } else {
+            HardwareDeviceInitialization::not_run(accelerator)
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct StaticHardwareDeviceInitialization {
+    results: Vec<(HardwareAcceleration, HardwareDeviceInitialization)>,
+}
+
+impl StaticHardwareDeviceInitialization {
+    #[must_use]
+    pub fn new(
+        results: impl IntoIterator<Item = (HardwareAcceleration, HardwareDeviceInitialization)>,
+    ) -> Self {
+        Self {
+            results: results.into_iter().collect(),
+        }
+    }
+}
+
+impl HardwareDeviceInitializationDetector for StaticHardwareDeviceInitialization {
+    fn initialize(&self, accelerator: HardwareAcceleration) -> HardwareDeviceInitialization {
+        self.results
+            .iter()
+            .find(|(candidate, _)| *candidate == accelerator)
+            .map(|(_, initialization)| initialization.clone())
+            .unwrap_or_else(|| OperatorHardwareDeviceInitialization.initialize(accelerator))
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct OperatorHardwareSmokeProbe;
 
@@ -306,8 +458,9 @@ where
         }
 
         let encoders = String::from_utf8_lossy(&output.stdout);
-        Ok(report_from_ffmpeg_encoders_with_smoke_probe(
+        Ok(report_from_ffmpeg_encoders_with_diagnostics(
             &encoders,
+            &OperatorHardwareDeviceInitialization,
             &self.smoke_probe,
         ))
     }
@@ -343,6 +496,18 @@ pub fn report_from_ffmpeg_encoders_with_smoke_probe(
     encoders: &str,
     smoke_probe: &dyn HardwareSmokeProbeDetector,
 ) -> HardwareAccelerationReport {
+    report_from_ffmpeg_encoders_with_diagnostics(
+        encoders,
+        &OperatorHardwareDeviceInitialization,
+        smoke_probe,
+    )
+}
+
+pub fn report_from_ffmpeg_encoders_with_diagnostics(
+    encoders: &str,
+    device_initialization: &dyn HardwareDeviceInitializationDetector,
+    smoke_probe: &dyn HardwareSmokeProbeDetector,
+) -> HardwareAccelerationReport {
     let has_vaapi = encoders.contains("h264_vaapi");
     let has_nvenc = encoders.contains("h264_nvenc");
     let has_qsv = encoders.contains("h264_qsv");
@@ -354,18 +519,21 @@ pub fn report_from_ffmpeg_encoders_with_smoke_probe(
                 HardwareAcceleration::Vaapi,
                 "h264_vaapi",
                 has_vaapi,
+                device_initialization,
                 smoke_probe,
             ),
             encoder_capability(
                 HardwareAcceleration::Nvenc,
                 "h264_nvenc",
                 has_nvenc,
+                device_initialization,
                 smoke_probe,
             ),
             encoder_capability(
                 HardwareAcceleration::QuickSync,
                 "h264_qsv",
                 has_qsv,
+                device_initialization,
                 smoke_probe,
             ),
         ],
@@ -375,24 +543,49 @@ pub fn report_from_ffmpeg_encoders_with_smoke_probe(
 fn encoder_capability(
     accelerator: HardwareAcceleration,
     encoder: &'static str,
-    available: bool,
+    encoder_listed: bool,
+    device_initialization: &dyn HardwareDeviceInitializationDetector,
     smoke_probe: &dyn HardwareSmokeProbeDetector,
 ) -> HardwareAccelerationCapability {
+    let initialization = if encoder_listed {
+        device_initialization.initialize(accelerator)
+    } else {
+        HardwareDeviceInitialization::not_run(accelerator)
+    };
+    let smoke = if encoder_listed {
+        smoke_probe.probe(accelerator)
+    } else {
+        HardwareSmokeProbe::not_run(accelerator)
+    };
+    let available = encoder_listed
+        && initialization.status != HardwareDeviceInitializationStatus::Failed
+        && smoke.status != HardwareSmokeProbeStatus::Failed;
+    let encoder_discovery = if encoder_listed {
+        HardwareEncoderDiscovery::listed(encoder)
+    } else {
+        HardwareEncoderDiscovery::missing(encoder)
+    };
+
     HardwareAccelerationCapability {
         accelerator,
         available,
         device: None,
-        reason: Some(if available {
-            format!("ffmpeg encoder {encoder} is available")
+        reason: Some(if encoder_listed {
+            if available {
+                format!("ffmpeg encoder {encoder} is available")
+            } else if smoke.status == HardwareSmokeProbeStatus::Failed {
+                format!("ffmpeg encoder {encoder} is listed but hardware smoke probe failed")
+            } else {
+                format!(
+                    "ffmpeg encoder {encoder} is listed but hardware device initialization failed"
+                )
+            }
         } else {
             format!("ffmpeg encoder {encoder} is not listed")
         }),
-        evidence: if available {
-            HardwareCapabilityEvidence::FfmpegEncoderListed
-        } else {
-            HardwareCapabilityEvidence::FfmpegEncoderMissing
-        },
-        smoke_probe: smoke_probe.probe(accelerator),
+        encoder_discovery,
+        device_initialization: initialization,
+        smoke_probe: smoke,
     }
 }
 
@@ -416,7 +609,8 @@ fn probe_error_capability(
         available: false,
         device: None,
         reason: Some(message.to_owned()),
-        evidence: HardwareCapabilityEvidence::FfmpegProbeError,
+        encoder_discovery: HardwareEncoderDiscovery::probe_error(message),
+        device_initialization: HardwareDeviceInitialization::not_run(accelerator),
         smoke_probe: HardwareSmokeProbe::not_run(accelerator),
     }
 }
@@ -427,7 +621,8 @@ fn cpu_capability() -> HardwareAccelerationCapability {
         available: true,
         device: None,
         reason: Some("cpu encode is always available".to_owned()),
-        evidence: HardwareCapabilityEvidence::CpuAlwaysAvailable,
+        encoder_discovery: HardwareEncoderDiscovery::not_required(),
+        device_initialization: HardwareDeviceInitialization::not_required(),
         smoke_probe: HardwareSmokeProbe::not_required(),
     }
 }
@@ -442,8 +637,24 @@ fn static_capability(accelerator: HardwareAcceleration) -> HardwareAccelerationC
         available: true,
         device: None,
         reason: None,
-        evidence: HardwareCapabilityEvidence::StaticDetector,
+        encoder_discovery: HardwareEncoderDiscovery::static_detector(),
+        device_initialization: HardwareDeviceInitialization::not_run(accelerator),
         smoke_probe: HardwareSmokeProbe::not_run(accelerator),
+    }
+}
+
+fn operator_device_initialization_check(accelerator: HardwareAcceleration) -> &'static str {
+    match accelerator {
+        HardwareAcceleration::None => "cpu encode does not require hardware device initialization",
+        HardwareAcceleration::Vaapi => {
+            "Verify the host exposes a VAAPI render device to Taru and FFmpeg can initialize VAAPI before enabling VAAPI acceleration"
+        }
+        HardwareAcceleration::Nvenc => {
+            "Verify the NVIDIA driver, container runtime, and FFmpeg can initialize NVENC before enabling NVENC acceleration"
+        }
+        HardwareAcceleration::QuickSync => {
+            "Verify the host exposes Intel Quick Sync devices to Taru and FFmpeg can initialize QSV before enabling Quick Sync acceleration"
+        }
     }
 }
 

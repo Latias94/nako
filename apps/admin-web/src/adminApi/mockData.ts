@@ -264,7 +264,16 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
         accelerator: "vaapi",
         available: false,
         reason_code: "encoder_not_listed",
-        evidence: "ffmpeg_encoder_missing",
+        encoder_discovery: {
+          status: "missing",
+          encoder: "h264_vaapi",
+          has_detail: false,
+        },
+        device_initialization: {
+          status: "not_run",
+          operator_check: "Verify the host exposes a VAAPI render device to Taru",
+          has_detail: false,
+        },
         smoke_probe: {
           status: "not_run",
           operator_check: "Run a VAAPI encode smoke test on the host",
@@ -275,7 +284,16 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
         accelerator: "nvenc",
         available: true,
         reason_code: "available",
-        evidence: "ffmpeg_encoder_listed",
+        encoder_discovery: {
+          status: "listed",
+          encoder: "h264_nvenc",
+          has_detail: false,
+        },
+        device_initialization: {
+          status: "passed",
+          operator_check: "NVIDIA driver and FFmpeg can initialize NVENC",
+          has_detail: false,
+        },
         smoke_probe: {
           status: "passed",
           operator_check: "NVENC encode smoke test passed",
@@ -286,7 +304,16 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
         accelerator: "quick_sync",
         available: false,
         reason_code: "encoder_not_listed",
-        evidence: "ffmpeg_encoder_missing",
+        encoder_discovery: {
+          status: "missing",
+          encoder: "h264_qsv",
+          has_detail: false,
+        },
+        device_initialization: {
+          status: "not_run",
+          operator_check: "Verify Intel Quick Sync devices are exposed to Taru",
+          has_detail: false,
+        },
         smoke_probe: {
           status: "not_run",
           operator_check: "Run a QuickSync encode smoke test on the host",
@@ -384,6 +411,32 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
   auth: {
     enabled: true,
     token_env: "TARU_ADMIN_TOKEN",
+  },
+  database: {
+    configured_backend_kind: "sqlite",
+    active_backend_kind: "sqlite",
+    url_scheme: "sqlite",
+    runtime_supported: true,
+    migrated_on_startup: true,
+    capabilities: {
+      lifecycle: true,
+      libraries: true,
+      jobs: true,
+      job_leases: true,
+      media: true,
+      scan_commits: true,
+      metadata: true,
+      catalog: true,
+      playback_state: true,
+      transcode_sessions: true,
+      event_outbox: true,
+      addons: true,
+      automation: true,
+      managed_artwork: true,
+      vfs_cache: true,
+      webhooks: true,
+      search_index: true,
+    },
   },
   runtime: {
     listen_addr: "127.0.0.1:3000",

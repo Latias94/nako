@@ -19,10 +19,11 @@ Completed tasks:
 - FAD-030 — Addon metadata commit atomicity.
 - FAD-040 — Library ingestion workflow depth.
 - FAD-050 — Playback/transcode request and cache identity.
+- FAD-060 — Hardware acceleration diagnostics.
 
 Current executable task:
 
-- FAD-060 — Hardware acceleration diagnostics.
+- FAD-070 — Search semantics.
 
 Why FAD-020 comes first:
 
@@ -182,14 +183,54 @@ Validation passed:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+## FAD-060 Summary
+
+FAD-060 separated the **Hardware Capability Report** diagnostics layers:
+
+- `taru-transcode` now models:
+  - `HardwareEncoderDiscovery` for static FFmpeg encoder discovery;
+  - `HardwareDeviceInitialization` for device initialization evidence;
+  - `HardwareSmokeProbe` for optional encode smoke-probe results.
+- Default runtime detection still uses `ffmpeg -encoders`; normal tests do not
+  open privileged GPU devices or require host hardware access.
+- A new `HardwareDeviceInitializationDetector` seam plus static fake detector
+  lets tests prove device initialization pass/fail outcomes separately from
+  encoder discovery and smoke probes.
+- Explicit device-initialization failures and smoke-probe failures make an
+  accelerator unavailable. Missing encoders and FFmpeg probe errors remain
+  distinct diagnostic reasons.
+- Admin playback runtime diagnostics now expose safe per-accelerator summaries:
+  encoder discovery status and encoder name, device initialization status and
+  operator guidance, smoke-probe status and operator guidance, and `has_detail`
+  booleans. Raw FFmpeg errors, local paths, device paths, and probe detail text
+  are not returned.
+- Admin TypeScript contract and admin-web mock playback runtime data were
+  updated to the new shape.
+
+Validation passed:
+
+- `cargo check -p taru-transcode -p taru-api -p taru-server --tests`
+- `cargo nextest run -p taru-transcode hardware --no-fail-fast`
+- `cargo nextest run -p taru-transcode --no-fail-fast`
+- `cargo nextest run -p taru-api --lib
+  admin_playback_runtime_diagnostics_serializes_safe_summary_fields
+  --no-fail-fast`
+- `cargo nextest run -p taru-api --lib admin_contract --no-fail-fast`
+- `cargo nextest run -p taru-server
+  admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast`
+- `npm run check` in `apps/admin-web`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
 ## Blockers
 
-- None for FAD-060.
+- None for FAD-070.
 
 ## Next Recommended Action
 
-1. Start FAD-060.
-2. Inspect `taru-transcode::hardware` and admin playback diagnostics.
-3. Separate static FFmpeg encoder discovery, device initialization evidence,
-   and optional smoke-probe results in the diagnostics model.
-4. Keep normal tests unprivileged and avoid leaking local paths.
+1. Start FAD-070.
+2. Inspect `taru-search`, `taru-catalog`, and search projection callers.
+3. Add a small search semantics evaluation harness for title, alias,
+   provider-title, and CJK-friendly query behavior.
+4. Keep AI/vector search out of this workstream unless split into a separate
+   product lane.

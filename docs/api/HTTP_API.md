@@ -762,7 +762,10 @@ the **Playback Runtime**. It includes:
 - FFmpeg probe status, hardware capability counts, and available GPU count;
 - configured hardware acceleration policy and selected HLS acceleration;
 - sanitized hardware capability reason codes such as `available`,
-  `encoder_not_listed`, and `probe_error`;
+  `encoder_not_listed`, `device_initialization_failed`,
+  `smoke_probe_failed`, and `probe_error`;
+- per-accelerator diagnostics split into static FFmpeg encoder discovery,
+  hardware device initialization evidence, and optional smoke-probe summary;
 - transcode CPU/GPU slot budgets and selected HLS slot budget;
 - remux concurrency and timeout;
 - aggregate remote stream/stage budget state;
@@ -771,8 +774,11 @@ the **Playback Runtime**. It includes:
 
 The runtime diagnostics route does not return `ffmpeg_path`,
 `remux_staging_root`, local library roots, staged output paths, raw FFmpeg probe
-errors, secrets, tokens, runner handles, or cancellation tokens. It is an Admin
-API route and is not part of Public Client OpenAPI or generated SDK artifacts.
+errors, device paths, smoke-probe detail text, secrets, tokens, runner handles,
+or cancellation tokens. Device initialization and smoke-probe detail are exposed
+only as boolean `has_detail` flags plus safe operator-check guidance. It is an
+Admin API route and is not part of Public Client OpenAPI or generated SDK
+artifacts.
 
 `GET /admin/v1/system/config` returns a sanitized Admin API diagnostics view of
 server configuration. It includes admin/public API versions, auth enablement

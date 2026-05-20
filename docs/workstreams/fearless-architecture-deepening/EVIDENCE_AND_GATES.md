@@ -322,6 +322,74 @@ Broader gates not run:
   covered by focused streaming/transcode/server playback identity tests. The
   full workspace nextest remains a M63 closeout gate.
 
+### 2026-05-20 — FAD-060 Hardware Diagnostics
+
+Status: complete.
+
+Implementation evidence:
+
+- Replaced the single `HardwareCapabilityEvidence` field with separate
+  diagnostics records in `taru-transcode`:
+  - `HardwareEncoderDiscovery` for static FFmpeg encoder discovery;
+  - `HardwareDeviceInitialization` for device initialization evidence;
+  - `HardwareSmokeProbe` for optional encode smoke-probe results.
+- Added `HardwareDeviceInitializationDetector`,
+  `OperatorHardwareDeviceInitialization`, and
+  `StaticHardwareDeviceInitialization` so tests can prove device-init outcomes
+  without opening privileged host devices.
+- Kept normal FFmpeg capability detection based on `ffmpeg -encoders`; default
+  device initialization and smoke probes remain operator-guidance `not_run`
+  records rather than implicit privileged probes.
+- Made explicit device-initialization failures and smoke-probe failures mark
+  the accelerator unavailable, while missing encoders and FFmpeg probe errors
+  remain distinct reasons.
+- Updated Admin playback runtime DTOs to expose safe summaries for encoder
+  discovery, device initialization, and smoke probes. Raw FFmpeg errors, device
+  paths, local paths, and detail text remain hidden behind `has_detail` booleans
+  plus safe `operator_check` guidance.
+- Updated the Admin TypeScript contract and admin-web mock playback runtime
+  data. The mock system config also gained the already-required database
+  diagnostics block so TypeScript checking remains aligned with the generated
+  contract.
+- Updated `docs/api/HTTP_API.md` for the separate hardware diagnostics layers
+  and redaction guarantees.
+
+Validation:
+
+```bash
+cargo fmt --all
+cargo check -p taru-transcode -p taru-api -p taru-server --tests
+cargo nextest run -p taru-transcode hardware --no-fail-fast
+cargo nextest run -p taru-transcode --no-fail-fast
+cargo nextest run -p taru-api --lib admin_playback_runtime_diagnostics_serializes_safe_summary_fields --no-fail-fast
+cargo nextest run -p taru-api --lib admin_contract --no-fail-fast
+cargo nextest run -p taru-server admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast
+npm run check
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `cargo check -p taru-transcode -p taru-api -p taru-server --tests` passed.
+- Focused hardware nextest passed: 6 passed, 20 skipped.
+- Full `taru-transcode` nextest passed: 26 passed, 0 skipped.
+- Admin playback runtime DTO serialization test passed: 1 passed, 40 skipped.
+- Admin TypeScript contract tests passed: 4 passed, 37 skipped.
+- Admin playback runtime HTTP diagnostics test passed: 1 passed, 175 skipped.
+- `npm run check` in `apps/admin-web` passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Broader gates not run:
+
+- Full workspace nextest was not run for FAD-060 because the touched behavior is
+  covered by full `taru-transcode`, focused Admin API DTO/contract tests, the
+  focused server Admin playback runtime route test, and admin-web TypeScript
+  checking. The full workspace nextest remains a M63 closeout gate.
+- PostgreSQL opt-in contracts were not applicable because FAD-060 changed no
+  persistence schema or database commit seam.
+
 ## Evidence To Add During Execution
 
 Each task should add:

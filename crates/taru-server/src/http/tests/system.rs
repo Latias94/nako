@@ -1500,8 +1500,22 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         .find(|capability| capability.accelerator == taru_transcode::HardwareAcceleration::Nvenc)
         .unwrap();
     assert_eq!(
-        nvenc_capability.evidence,
-        taru_api::admin::AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
+        nvenc_capability.encoder_discovery.status,
+        taru_api::admin::AdminPlaybackHardwareEncoderDiscoveryStatus::Listed
+    );
+    assert_eq!(
+        nvenc_capability.encoder_discovery.encoder.as_deref(),
+        Some("h264_nvenc")
+    );
+    assert_eq!(
+        nvenc_capability.device_initialization.status,
+        taru_api::admin::AdminPlaybackHardwareDeviceInitializationStatus::NotRun
+    );
+    assert!(
+        nvenc_capability
+            .device_initialization
+            .operator_check
+            .contains("NVENC")
     );
     assert_eq!(
         nvenc_capability.smoke_probe.status,

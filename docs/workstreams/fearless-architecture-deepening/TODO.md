@@ -124,7 +124,7 @@ Task IDs use the `FAD` prefix.
   `cargo fmt --all -- --check`; `git diff --check`.
   Handoff: Continue with hardware diagnostics.
 
-- [ ] FAD-060 [owner=codex] [deps=FAD-050] [scope=crates/taru-transcode,crates/taru-server/src/app/playback,docs/api,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-060 [owner=codex] [deps=FAD-050] [scope=crates/taru-transcode,crates/taru-api,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests/system.rs,apps/admin-web/src/adminApi,docs/api,docs/workstreams/fearless-architecture-deepening]
   Goal: Deepen hardware acceleration diagnostics so static FFmpeg encoder
   discovery, device initialization evidence, and optional smoke-probe results
   are represented separately and reported safely.
@@ -133,8 +133,26 @@ Task IDs use the `FAD` prefix.
   Review: Diagnostics must not require privileged devices in normal tests and
   must not leak local paths beyond safe operator diagnostics.
   Evidence: diagnostics model/tests and Admin diagnostics docs if surfaced.
-  Handoff: Continue with search semantics unless playback findings require a
-  split follow-on.
+  Progress: Replaced the single hardware evidence enum with separate
+  `HardwareEncoderDiscovery`, `HardwareDeviceInitialization`, and
+  `HardwareSmokeProbe` records. FFmpeg encoder discovery, optional device
+  initialization, and optional smoke probes are now modeled independently;
+  explicit device-init or smoke failures make an accelerator unavailable while
+  normal startup tests remain unprivileged. Admin playback runtime diagnostics
+  expose safe summaries for encoder discovery, device initialization, and smoke
+  probes with detail booleans instead of raw probe text or device paths.
+  Validation: `cargo check -p taru-transcode -p taru-api -p taru-server
+  --tests`; `cargo nextest run -p taru-transcode --no-fail-fast`; `cargo
+  nextest run -p taru-transcode hardware --no-fail-fast`; `cargo nextest run -p
+  taru-api --lib admin_playback_runtime_diagnostics_serializes_safe_summary_fields
+  --no-fail-fast`; `cargo nextest run -p taru-api --lib admin_contract
+  --no-fail-fast`; `cargo nextest run -p taru-server
+  admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast`; `npm run
+  check` in `apps/admin-web`; `cargo fmt --all -- --check`; `git diff
+  --check`.
+  Handoff: Continue with FAD-070 search semantics unless hardware diagnostics
+  review finds an independent follow-on for real privileged smoke-probe
+  execution.
 
 ## M4 — Search Semantics And Test Locality
 

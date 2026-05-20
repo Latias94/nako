@@ -83,7 +83,7 @@ Evidence:
 
 ## M3 — Playback And Transcode Readiness
 
-Status: active.
+Status: completed.
 
 Exit criteria:
 
@@ -97,7 +97,8 @@ Exit criteria:
   Preserved: no adaptive bitrate or multi-profile HLS behavior was added.
 - Hardware diagnostics distinguish static FFmpeg encoder discovery from device
   initialization and optional smoke-probe results.
-  Planned for FAD-060.
+  Completed by FAD-060 with separate encoder discovery, device initialization,
+  and smoke-probe diagnostics records plus safe Admin API summaries.
 
 Primary gates:
 
@@ -110,7 +111,9 @@ Evidence:
 
 - FAD-050 request/cache identity tests passed for streaming/transcode/server
   playback.
-- Hardware diagnostics remains the active M3 tail and next task.
+- FAD-060 hardware diagnostics tests passed for `taru-transcode`, Admin API
+  DTO/contract serialization, the Admin playback runtime HTTP route, and
+  admin-web TypeScript checking.
 
 ## M4 — Search Semantics And Test Locality
 

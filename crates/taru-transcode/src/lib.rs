@@ -336,13 +336,24 @@ mod tests {
         let cpu = report.capability_for(HardwareAcceleration::None).unwrap();
 
         assert_eq!(
-            nvenc.evidence,
-            HardwareCapabilityEvidence::FfmpegEncoderListed
+            nvenc.encoder_discovery.status,
+            HardwareEncoderDiscoveryStatus::Listed
+        );
+        assert_eq!(
+            nvenc.device_initialization.status,
+            HardwareDeviceInitializationStatus::NotRun
         );
         assert_eq!(nvenc.smoke_probe.status, HardwareSmokeProbeStatus::NotRun);
         assert!(nvenc.smoke_probe.operator_check.contains("NVENC"));
         assert!(!nvenc.smoke_probe.operator_check.contains('\\'));
-        assert_eq!(cpu.evidence, HardwareCapabilityEvidence::CpuAlwaysAvailable);
+        assert_eq!(
+            cpu.encoder_discovery.status,
+            HardwareEncoderDiscoveryStatus::NotRequired
+        );
+        assert_eq!(
+            cpu.device_initialization.status,
+            HardwareDeviceInitializationStatus::NotRequired
+        );
         assert_eq!(
             cpu.smoke_probe.status,
             HardwareSmokeProbeStatus::NotRequired
@@ -369,9 +380,78 @@ mod tests {
         let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
 
         assert_eq!(nvenc.smoke_probe.status, HardwareSmokeProbeStatus::Passed);
+        assert!(nvenc.available);
         assert_eq!(vaapi.smoke_probe.status, HardwareSmokeProbeStatus::Failed);
+        assert!(!vaapi.available);
         assert!(vaapi.smoke_probe.detail.is_some());
         assert!(vaapi.smoke_probe.operator_check.contains("VAAPI"));
+    }
+
+    #[test]
+    fn hardware_diagnostics_separate_encoder_device_initialization_and_smoke_probe() {
+        let initialization = StaticHardwareDeviceInitialization::new([
+            (
+                HardwareAcceleration::Nvenc,
+                HardwareDeviceInitialization::passed(HardwareAcceleration::Nvenc),
+            ),
+            (
+                HardwareAcceleration::Vaapi,
+                HardwareDeviceInitialization::failed(
+                    HardwareAcceleration::Vaapi,
+                    "device initialization failed",
+                ),
+            ),
+        ]);
+        let smoke_probe = StaticHardwareSmokeProbe::new([
+            (
+                HardwareAcceleration::Nvenc,
+                HardwareSmokeProbe::passed(HardwareAcceleration::Nvenc),
+            ),
+            (
+                HardwareAcceleration::Vaapi,
+                HardwareSmokeProbe::passed(HardwareAcceleration::Vaapi),
+            ),
+        ]);
+        let report = report_from_ffmpeg_encoders_with_diagnostics(
+            " V..... h264_nvenc\n V..... h264_vaapi\n",
+            &initialization,
+            &smoke_probe,
+        );
+        let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert!(nvenc.available);
+        assert_eq!(
+            nvenc.encoder_discovery.status,
+            HardwareEncoderDiscoveryStatus::Listed
+        );
+        assert_eq!(
+            nvenc.encoder_discovery.encoder.as_deref(),
+            Some("h264_nvenc")
+        );
+        assert_eq!(
+            nvenc.device_initialization.status,
+            HardwareDeviceInitializationStatus::Passed
+        );
+        assert_eq!(nvenc.smoke_probe.status, HardwareSmokeProbeStatus::Passed);
+
+        assert!(!vaapi.available);
+        assert_eq!(
+            vaapi.encoder_discovery.status,
+            HardwareEncoderDiscoveryStatus::Listed
+        );
+        assert_eq!(
+            vaapi.device_initialization.status,
+            HardwareDeviceInitializationStatus::Failed
+        );
+        assert_eq!(vaapi.smoke_probe.status, HardwareSmokeProbeStatus::Passed);
+        assert!(
+            vaapi
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("device initialization failed")
+        );
     }
 
     #[test]
@@ -382,6 +462,14 @@ mod tests {
         assert!(!report.is_available(HardwareAcceleration::Nvenc));
         assert!(!report.is_available(HardwareAcceleration::Vaapi));
         assert!(!report.is_available(HardwareAcceleration::QuickSync));
+        assert!(
+            report
+                .capability_for(HardwareAcceleration::QuickSync)
+                .unwrap()
+                .encoder_discovery
+                .status
+                == HardwareEncoderDiscoveryStatus::Missing
+        );
         assert!(
             report
                 .capability_for(HardwareAcceleration::QuickSync)

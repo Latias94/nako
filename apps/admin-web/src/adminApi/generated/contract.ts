@@ -223,7 +223,16 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
       accelerator: string;
       available: boolean;
       reason_code: string;
-      evidence: string;
+      encoder_discovery: {
+        status: string;
+        encoder: string | null;
+        has_detail: boolean;
+      };
+      device_initialization: {
+        status: string;
+        operator_check: string;
+        has_detail: boolean;
+      };
       smoke_probe: {
         status: string;
         operator_check: string;
