@@ -5,12 +5,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -20,7 +21,6 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.PlaybackPreferencesStore
-import dev.taru.android.playback.PlaybackStartCoordinator
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
@@ -30,8 +30,6 @@ import dev.taru.android.ui.screens.player.PlayerRouteRenderer
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
 import dev.taru.android.ui.screens.settings.SettingsAction
 import dev.taru.android.ui.screens.settings.SettingsHomeScreen
-import dev.taru.android.ui.screens.settings.SettingsRuntime
-import dev.taru.android.ui.screens.settings.SettingsSession
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
@@ -56,56 +54,53 @@ internal fun TaruBrowseShell(
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
     val routeScope = rememberCoroutineScope()
-    val playbackStartCoordinator = remember(playbackClient, positionStore) {
-        PlaybackStartCoordinator(
-            playbackClient = playbackClient,
-            positionStore = positionStore,
-        )
-    }
-    val browseDataSource = remember(profile, tokenVault, browseClient, userPlaybackClient) {
-        ClientBrowseDataSource(
-            profile = profile,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            playbackClient = playbackClient,
-            playbackPreferencesStore = playbackPreferencesStore,
-            userPlaybackClient = userPlaybackClient,
-        )
-    }
-    val playbackStarter = remember(profile, tokenVault, playbackStartCoordinator) {
-        ClientBrowsePlaybackStarter(
-            profile = profile,
-            tokenVault = tokenVault,
-            coordinator = playbackStartCoordinator,
-        )
-    }
-    val resumeResolver = remember(profile.id, positionStore) {
-        ClientBrowseResumeResolver(
-            serverProfileId = profile.id,
-            positionStore = positionStore,
-        )
-    }
+    val currentOnChangeServer by rememberUpdatedState(onChangeServer)
+    val currentOnSnapshotChanged by rememberUpdatedState(onSnapshotChanged)
     var savedShellState by rememberSaveable(
         profile.id,
         stateSaver = BrowseShellStateSaver,
     ) {
         mutableStateOf(BrowseShellState())
     }
-    val browseSession = remember(profile.id, browseDataSource, routeScope) {
-        BrowseSession(
-            initialState = savedShellState,
-            dataSource = browseDataSource,
-            playbackStarter = playbackStarter,
-            resumeResolver = resumeResolver,
-            scope = routeScope,
+    val runtime = remember(
+        tokenVault,
+        browseClient,
+        playbackClient,
+        playbackPreferencesStore,
+        userPlaybackClient,
+        positionStore,
+    ) {
+        ClientBrowseShellRuntime(
+            tokenVault = tokenVault,
+            browseClient = browseClient,
+            playbackClient = playbackClient,
+            playbackPreferencesStore = playbackPreferencesStore,
+            userPlaybackClient = userPlaybackClient,
+            positionStore = positionStore,
+            onChangeServer = { currentOnChangeServer() },
+            onSnapshotChanged = { currentOnSnapshotChanged(it) },
         )
     }
-    val shellState by browseSession.state.collectAsState()
+    val browseHost = remember(profile.id, snapshot, runtime, routeScope) {
+        BrowseShellHost(
+            profile = profile,
+            snapshot = snapshot,
+            initialState = savedShellState,
+            runtime = runtime,
+            parentScope = routeScope,
+            saveState = { savedShellState = it },
+        )
+    }
+    DisposableEffect(browseHost) {
+        onDispose {
+            browseHost.close()
+        }
+    }
+    val shellState by browseHost.state.collectAsState()
     val selectedDestination = shellState.selectedDestination
     val route = shellState.currentRoute
     fun dispatchBrowseAction(action: BrowseAction) {
-        browseSession.dispatch(action)
-        savedShellState = browseSession.state.value
+        browseHost.dispatch(action)
     }
     val shellDestinations = remember {
         TaruDestination.entries.map { destination ->
@@ -121,31 +116,6 @@ internal fun TaruBrowseShell(
             profile = profile,
             tokenVault = tokenVault,
         )
-    }
-    val settingsSession = remember(snapshot, tokenVault, onChangeServer, onSnapshotChanged) {
-        SettingsSession(
-            initialSnapshot = snapshot,
-            runtime = object : SettingsRuntime {
-                override fun saveSnapshot(snapshot: ServerProfileSnapshot) {
-                    onSnapshotChanged(snapshot)
-                }
-
-                override fun deleteToken(reference: String) {
-                    tokenVault.deleteToken(reference)
-                }
-
-                override fun requestConnection() {
-                    onChangeServer()
-                }
-            },
-        )
-    }
-    LaunchedEffect(profile.id) {
-        browseSession.dispatch(BrowseAction.LoadHome)
-    }
-
-    LaunchedEffect(profile.id, route) {
-        browseSession.dispatch(BrowseAction.RouteDisplayed(route))
     }
 
     BackHandler(enabled = shellState.canNavigateBack) {
@@ -242,10 +212,10 @@ internal fun TaruBrowseShell(
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onChangeServer = onChangeServer,
                     onSwitchProfile = { profileId ->
-                        settingsSession.dispatch(SettingsAction.SwitchProfile(profileId))
+                        browseHost.dispatchSettings(SettingsAction.SwitchProfile(profileId))
                     },
                     onSignOut = {
-                        settingsSession.dispatch(SettingsAction.SignOutActiveProfile)
+                        browseHost.dispatchSettings(SettingsAction.SignOutActiveProfile)
                     },
                 )
             }
