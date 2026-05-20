@@ -1,6 +1,10 @@
 # Rust build output
 /target/
 
+# Local generated evidence and scratch files
+/output/
+/tmp/
+
 # Reference checkouts
 /repo-ref/
 
