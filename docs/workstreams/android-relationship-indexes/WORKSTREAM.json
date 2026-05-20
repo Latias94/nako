@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "slug": "android-relationship-indexes",
+  "title": "Android Relationship Indexes",
+  "status": "active",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Android can open server-backed relationship details from known IDs but lacks first-class People, Tags, and Genres index pages.",
+  "summary": "Decide and productize Android relationship index pages without mixing index IA into the completed Person Detail API contract lane.",
+  "current_milestone": "M1",
+  "current_task": "ARI-010",
+  "task_prefix": "ARI",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-relationship-indexes/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-relationship-indexes/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-relationship-indexes/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-relationship-indexes/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-relationship-indexes/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "Get-Content -LiteralPath 'docs/workstreams/android-relationship-indexes/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests \"dev.taru.android.ui.browse.*\" --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ARI-010",
+      "path": "docs/workstreams/android-relationship-indexes/DESIGN.md",
+      "notes": "Lane split from APICI-060 after Person Detail was completed and smoke-proven."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "upstream_workstreams": [
+    "docs/workstreams/android-api-contract-integration"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "ARI-010"
+  }
+}

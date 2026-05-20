@@ -30,6 +30,13 @@ attention.
   completed Android UI rewrite lane for the V2 Material 3 Expressive direction,
   covering dark-first dynamic color, artwork-led media surfaces, restrained
   motion, adaptive phone/tablet chrome, and clean Compose UI boundaries.
+- [android-api-contract-integration](android-api-contract-integration/DESIGN.md):
+  closed Android Public Client API integration lane for productizing and
+  smoke-proving Person Detail from Cast & Crew, with broad relationship indexes
+  split to `android-relationship-indexes`.
+- [android-relationship-indexes](android-relationship-indexes/DESIGN.md):
+  active follow-on for deciding and productizing Android People, Tags, and
+  Genres index pages without local filtering or Admin/internal API use.
 - [architecture-review-followups](architecture-review-followups/README.md):
   completed planning and routing lane for the 2026-05-18 architecture review
   findings, covering metadata/catalog atomicity, metadata merge-policy

@@ -71,6 +71,9 @@ git diff --check
   The `person-detail` criteria proves `Mira Vale`, `Person`, `1 related`,
   `Related Media Items`, and `Night Harbor` are visible after opening the
   Cast & Crew row.
+- APICI-060: People, Tags, and Genres index pages were split on 2026-05-20 to
+  `docs/workstreams/android-relationship-indexes/`. This closes the API
+  contract lane without forcing broad index IA into the Person Detail proof.
 
 ## Notes
 

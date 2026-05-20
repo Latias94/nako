@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "android-api-contract-integration",
   "title": "Android API Contract Integration",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
   "problem": "Android has real server-backed Public Client API coverage, but the next route gaps and productized relationship browsing slices are not owned by one current execution lane.",
   "summary": "Track Android Public Client API route status and productize the next relationship browsing routes without consuming admin/internal APIs.",
   "current_milestone": "M4",
-  "current_task": "APICI-060",
+  "current_task": null,
   "task_prefix": "APICI",
   "authoritative_docs": [
     {
@@ -68,6 +68,11 @@
       "task": "APICI-050",
       "path": "apps/android/scripts/Smoke-Emulator.ps1",
       "notes": "profile-with-media smoke now proves Cast & Crew opens server-backed Person Detail with related Media Items; focused smoke gate passed."
+    },
+    {
+      "task": "APICI-060",
+      "path": "docs/workstreams/android-relationship-indexes/WORKSTREAM.json",
+      "notes": "People, Tags, and Genres index pages split to android-relationship-indexes follow-on."
     }
   ],
   "adr_refs": [
@@ -75,7 +80,8 @@
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "APICI-060"
+    "default_action": "stop",
+    "next_task": null,
+    "follow_on": "docs/workstreams/android-relationship-indexes"
   }
 }

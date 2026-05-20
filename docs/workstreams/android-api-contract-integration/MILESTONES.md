@@ -50,3 +50,7 @@ Exit criteria:
 
 - Focused media smoke proves a real server-backed Person Detail path.
 - Follow-on scope for People/Tags/Genres index pages is explicit.
+
+Primary follow-on:
+
+- `docs/workstreams/android-relationship-indexes/`

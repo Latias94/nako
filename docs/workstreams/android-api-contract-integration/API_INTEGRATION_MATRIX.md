@@ -8,7 +8,7 @@ Legend:
 - `connected`: Android production code calls or builds the route.
 - `productized`: Android exposes the route through a user-facing route/screen.
 - `partial`: Android consumes related data but not the route itself.
-- `next`: first-class target for this workstream.
+- `split`: first-class target for a named follow-on workstream.
 - `defer`: public route exists, but it is not needed for the current Android
   phone/tablet product slice.
 - `out-of-scope`: route is not a Public Client API route for Android.
@@ -27,12 +27,12 @@ Legend:
 | `GET /items/{item_id}/images` | connected | `TaruBrowseClient.itemImages` | Keep as visible-page artwork enrichment. |
 | `GET /images/{image_id}` | productized | `PublicArtworkSource`, Coil | Keep as authenticated selected artwork bytes. |
 | `HEAD /images/{image_id}` | defer | none | Add only if artwork diagnostics or cache preflight needs it. |
-| `GET /people?limit=&offset=` | next | none | Productize after Person Detail if People index is still valuable. |
-| `GET /people/{person_id}` | connected | `TaruBrowseClient.personDetail` | Productize next as Person Detail route state and UI. |
+| `GET /people?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Decide and productize only if People index belongs in the Android browse IA. |
+| `GET /people/{person_id}` | productized | `TaruBrowseClient.personDetail`, `TaruRoute.PersonDetail` | Keep as Cast & Crew Person Detail. |
 | `GET /people/{person_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listPersonItems` | Keep and reuse for Person Detail related Media Items. |
-| `GET /tags?limit=&offset=` | next | none | Productize as a Browse Tags index after Person Detail. |
+| `GET /tags?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Decide and productize only if Tags index belongs in the Android browse IA. |
 | `GET /tags/{tag_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listTagItems` | Keep for tag chips and future Tags index. |
-| `GET /genres?limit=&offset=` | next | none | Productize as a Browse Genres index after Person Detail. |
+| `GET /genres?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Decide and productize only if Genres index belongs in the Android browse IA. |
 | `GET /genres/{genre_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listGenreItems` | Keep for genre chips and future Genres index. |
 | `GET /search?q=&facet=&limit=&offset=` | productized | `TaruBrowseClient.searchItems` | Keep; advanced filters are later UX scope. |
 | `GET /sources/{source_id}/probe` | productized | `TaruPlaybackClient.getSourceProbe` | Keep for source facts. |
@@ -60,14 +60,18 @@ the Admin/internal route directly.
 
 ## First Product Gap
 
-The cleanest next productization gap is Person Detail route state and UI
-because:
+The cleanest productization gap for this lane was Person Detail route state
+and UI because:
 
 - item detail already has Cast & Crew rows with stable person IDs;
-- `GET /people/{person_id}` is now connected through
-  `TaruBrowseClient.personDetail`;
+- `GET /people/{person_id}` is connected through
+  `TaruBrowseClient.personDetail` and productized as `TaruRoute.PersonDetail`;
 - `GET /people/{person_id}/items` is already connected and smoke-covered as a
   facet route;
 - Person Detail is a natural user workflow in Jellyfin/Plex-style browsing;
 - it exercises a new route/state/UI shape without requiring broad indexes,
   advanced search filters, or server API changes.
+
+People, Tags, and Genres index pages are split to
+`docs/workstreams/android-relationship-indexes/` because their value depends on
+browse information architecture, not on the Person Detail API contract proof.

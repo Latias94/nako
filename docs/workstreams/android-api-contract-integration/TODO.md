@@ -66,7 +66,7 @@ Last updated: 2026-05-20
   - Evidence: Focused `profile-with-media` smoke passed on 2026-05-20 with
     `person-detail` surface evidence.
 
-- [ ] APICI-060 - Decide People/Tags/Genres indexes.
+- [x] APICI-060 - Decide People/Tags/Genres indexes.
   - Owner: Codex
   - Dependencies: APICI-050.
   - Scope:
@@ -74,3 +74,5 @@ Last updated: 2026-05-20
   - Validation:
     - either productize index pages with explicit tasks or mark them deferred
       with rationale.
+  - Evidence: Split to `docs/workstreams/android-relationship-indexes/` and
+    API integration matrix updated on 2026-05-20.

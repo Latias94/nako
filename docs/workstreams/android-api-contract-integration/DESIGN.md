@@ -1,6 +1,6 @@
 # Android API Contract Integration
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Problem
@@ -32,6 +32,13 @@ for these surfaces instead of adding one-off screens or keeping
   recorded as server/API follow-ons.
 - Smoke and unit validation prove at least one real server-backed relationship
   browsing path end to end.
+
+## Closeout
+
+Closed on 2026-05-20 after Person Detail was connected, productized, and
+smoke-proven. People, Tags, and Genres index pages are split to
+`docs/workstreams/android-relationship-indexes/` because they are a separate
+browse information architecture lane.
 
 ## Scope
 
