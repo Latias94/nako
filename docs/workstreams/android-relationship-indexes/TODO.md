@@ -1,6 +1,6 @@
 # Android Relationship Indexes - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Task Ledger
@@ -64,8 +64,8 @@ Last updated: 2026-05-20
     `RelationshipIndexRouteContent` replaced the temporary placeholder,
     Home exposes a Genres anchor, and the full Android debug unit gate passed.
 
-- [ ] ARI-050 - Prove Genre index smoke or split closeout.
-  - Owner: planner
+- [x] ARI-050 - Prove Genre index smoke or split closeout.
+  - Owner: Codex
   - Dependencies: ARI-040.
   - Scope:
     - `apps/android/scripts/Smoke-Emulator.ps1`
@@ -76,3 +76,8 @@ Last updated: 2026-05-20
     - Tags are scheduled as the next reuse slice or deferred with rationale.
     - People index remains deferred unless a richer People IA is accepted.
   - Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
+    Completed on 2026-05-20:
+    `profile-with-media` smoke proves Home -> Genres -> Mystery -> Related
+    Media Items with server-backed fixture data. Tags Index is split to
+    `docs/workstreams/android-tags-index/`; top-level People Index remains
+    deferred.

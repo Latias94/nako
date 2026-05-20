@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "android-relationship-indexes",
   "title": "Android Relationship Indexes",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
   "problem": "Android can open server-backed relationship details from known IDs but lacks first-class People, Tags, and Genres index pages.",
   "summary": "Decide and productize Android relationship index pages without mixing index IA into the completed Person Detail API contract lane.",
   "current_milestone": "M4",
-  "current_task": "ARI-050",
+  "current_task": null,
   "task_prefix": "ARI",
   "authoritative_docs": [
     {
@@ -60,6 +60,11 @@
       "task": "ARI-040",
       "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/relationship/RelationshipIndexRoute.kt",
       "notes": "Genre Index screen and Home anchor are implemented; full Android debug unit gate passed."
+    },
+    {
+      "task": "ARI-050",
+      "path": "apps/android/scripts/Smoke-Emulator.ps1",
+      "notes": "profile-with-media smoke proves Home -> Genres -> Mystery -> Related Media Items; Tags Index split to android-tags-index."
     }
   ],
   "adr_refs": [
@@ -70,7 +75,8 @@
     "docs/workstreams/android-api-contract-integration"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "ARI-050"
+    "default_action": "stop",
+    "next_task": null,
+    "follow_on": "docs/workstreams/android-tags-index"
   }
 }

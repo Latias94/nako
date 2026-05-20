@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "slug": "android-tags-index",
+  "title": "Android Tags Index",
+  "status": "active",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Android can open Tag related Media Items from known IDs but lacks a first-class server-backed Tags Index.",
+  "summary": "Reuse the proven relationship index architecture to productize Tags Index as the second accepted index family.",
+  "current_milestone": "M1",
+  "current_task": "ATI-010",
+  "task_prefix": "ATI",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-tags-index/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-tags-index/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-tags-index/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-tags-index/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-tags-index/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "Get-Content -LiteralPath 'docs/workstreams/android-tags-index/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests \"dev.taru.android.ui.browse.*\" --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
+    "git diff --check"
+  ],
+  "evidence": [],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "upstream_workstreams": [
+    "docs/workstreams/android-relationship-indexes"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "ATI-010"
+  }
+}

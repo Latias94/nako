@@ -1,6 +1,6 @@
 # Android Relationship Indexes
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Why This Lane Exists
@@ -48,11 +48,11 @@ settled.
 
 | Index | Decision | Rationale | Route placement |
 | --- | --- | --- | --- |
-| Genres | Accept as first slice. | Genres are stable editorial browsing labels, already visible on item detail, and the existing genre-items route is smoke-proven through the detail facet path. | Add a Home browse anchor that opens a nested Genres Index route; rows open existing Genre related Media Items. |
-| Tags | Accept as second slice after Genres. | Tags use the same list-to-related-items shape, but can be noisier and more library-specific than genres. Implement after the shared index route shape is proven. | Reuse the same relationship index screen family; expose as a secondary Home browse anchor only after Genres is stable. |
+| Genres | Complete. | Genres are stable editorial browsing labels, already visible on item detail, and the existing genre-items route is smoke-proven through the detail facet path. | Home exposes a nested Genres Index route; rows open existing Genre related Media Items. |
+| Tags | Split follow-on. | Tags use the same list-to-related-items shape, but can be noisier and more library-specific than genres. Implement after the shared index route shape is proven. | `docs/workstreams/android-tags-index/` owns the next reuse slice. |
 | People | Defer top-level People index for the initial slice. | Person Detail is already reachable from Cast & Crew, while a useful People index needs stronger role/search semantics to avoid becoming a flat actor-name list. | Keep Person Detail as the primary People path; revisit People index after Genres/Tags and search/filter decisions. |
 
-The first implementation slice is Genres Index. It should not add a new bottom
+The first implementation slice was Genres Index. It did not add a new bottom
 navigation destination. The current bottom navigation remains Home, Libraries,
 Search, and Settings; relationship indexes open as nested browse routes from
 Home so the shell does not become cluttered before the IA is proven.
@@ -92,17 +92,20 @@ and `ClientBrowseDataSource` should be the only UI-facing layer that calls the
 Public Client API. Index rows should carry stable server IDs and open existing
 facet or Person Detail routes; they must not filter cached item lists locally.
 
-The first implementation slice is Genres Index. Once the Genre list route,
-route state, and screen are clean, Tags should reuse the same index route
-shape. People remains a Person Detail workflow until a richer top-level People
-experience is justified.
+The first implementation slice is Genres Index and is complete. Tags should
+reuse the same index route shape in
+`docs/workstreams/android-tags-index/`. People remains a Person Detail
+workflow until a richer top-level People experience is justified.
 
 ## Closeout Condition
 
-This lane can close when:
+This lane closed on 2026-05-20 because:
 
-- the accepted index family set is implemented or explicitly deferred,
-- focused Android unit gates cover client contracts and route state,
-- at least one accepted index path has smoke or manual evidence,
-- docs reflect the shipped behavior,
-- and remaining relationship browsing ambitions are split or deferred.
+- Genres Index is implemented from typed client contract through route state,
+  screen, Home entry point, and smoke proof.
+- focused Android unit gates cover the client contract and route state.
+- `profile-with-media` smoke proves Home -> Genres -> Mystery -> Related
+  Media Items against the server-backed fixture.
+- Tags Index is split to `docs/workstreams/android-tags-index/`.
+- top-level People Index remains deferred while Person Detail stays the
+  primary People path.

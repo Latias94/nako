@@ -28,10 +28,10 @@ Legend:
 | `GET /people?limit=&offset=` | defer | none | Defer until Browse People index exists. |
 | `GET /people/{person_id}` | defer | none | Add with Person Detail if productizes actor/director pages. |
 | `GET /people/{person_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listPersonItems` | Keep as current cast/crew facet result path. |
-| `GET /tags?limit=&offset=` | defer | none | Defer until Browse Tags index exists. |
-| `GET /tags/{tag_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listTagItems` | Keep as current tag facet result path. |
-| `GET /genres?limit=&offset=` | covered | `TaruBrowseClient.listGenres` | Typed client contract exists; Browse Genres index UI remains in `docs/workstreams/android-relationship-indexes/`. |
-| `GET /genres/{genre_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listGenreItems` | Keep as current genre facet result path. |
+| `GET /tags?limit=&offset=` | defer | `docs/workstreams/android-tags-index/` | Accepted as the next relationship index reuse slice outside this closed matrix lane. |
+| `GET /tags/{tag_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listTagItems` | Keep as current tag facet result path and future Tags Index destination. |
+| `GET /genres?limit=&offset=` | covered | `TaruBrowseClient.listGenres`; `TaruRoute.RelationshipIndex(Genres)` | Browse Genres index is implemented and smoke-proven. |
+| `GET /genres/{genre_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listGenreItems` | Keep as current genre facet result path and Genres Index destination. |
 | `GET /search?q=&facet=&limit=&offset=` | covered | `TaruBrowseClient.searchItems` | Keep; broaden only when advanced filters become product scope. |
 | `GET /sources/{source_id}/probe` | covered | `TaruPlaybackClient.getSourceProbe`; `SourcePickerSurface` source facts | Keep as the Source Picker source-facts route, separate from playback decision. |
 | `GET /sources/{source_id}/playback/decision` | covered | `TaruPlaybackClient.getPlaybackDecision` | Keep as playback launch gate. |

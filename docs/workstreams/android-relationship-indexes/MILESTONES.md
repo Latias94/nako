@@ -1,6 +1,6 @@
 # Android Relationship Indexes - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## M1 - Index Decision
@@ -55,10 +55,21 @@ Evidence:
 
 ## M4 - Evidence And Closeout
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
 - Full Android unit gate passes.
 - Smoke or explicit non-smoke rationale is recorded.
 - Remaining index families are complete, split, or deferred.
+
+Evidence:
+
+- Full Android debug unit gate passed under ARI-040.
+- Focused smoke passed on 2026-05-20:
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`.
+- Smoke surfaces include `genre-index` and `genre-index-facet`, proving Home
+  -> Genres -> Mystery -> Related Media Items against the server-backed
+  `Night Harbor` fixture.
+- Tags Index is split to `docs/workstreams/android-tags-index/`.
+- Top-level People Index remains deferred.

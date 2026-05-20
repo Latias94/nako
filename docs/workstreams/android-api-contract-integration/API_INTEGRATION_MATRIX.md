@@ -30,10 +30,10 @@ Legend:
 | `GET /people?limit=&offset=` | defer | `docs/workstreams/android-relationship-indexes/` | Top-level People Index deferred; Person Detail remains the primary People path. |
 | `GET /people/{person_id}` | productized | `TaruBrowseClient.personDetail`, `TaruRoute.PersonDetail` | Keep as Cast & Crew Person Detail. |
 | `GET /people/{person_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listPersonItems` | Keep and reuse for Person Detail related Media Items. |
-| `GET /tags?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Accepted after Genres as the second relationship index slice. |
-| `GET /tags/{tag_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listTagItems` | Keep for tag chips and future Tags index. |
-| `GET /genres?limit=&offset=` | connected | `TaruBrowseClient.listGenres`; `docs/workstreams/android-relationship-indexes/` | Typed Android contract is in place; route state and screen remain active in the relationship index lane. |
-| `GET /genres/{genre_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listGenreItems` | Keep for genre chips and future Genres index. |
+| `GET /tags?limit=&offset=` | split | `docs/workstreams/android-tags-index/` | Accepted after Genres as the second relationship index slice. |
+| `GET /tags/{tag_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listTagItems` | Keep for tag chips and Tags Index. |
+| `GET /genres?limit=&offset=` | productized | `TaruBrowseClient.listGenres`; `TaruRoute.RelationshipIndex(Genres)` | Genres Index is implemented and smoke-proven. |
+| `GET /genres/{genre_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listGenreItems` | Keep for genre chips and Genres Index rows. |
 | `GET /search?q=&facet=&limit=&offset=` | productized | `TaruBrowseClient.searchItems` | Keep; advanced filters are later UX scope. |
 | `GET /sources/{source_id}/probe` | productized | `TaruPlaybackClient.getSourceProbe` | Keep for source facts. |
 | `GET /sources/{source_id}/playback/decision` | productized | `TaruPlaybackClient.getPlaybackDecision` | Keep as playback launch gate. |
@@ -72,6 +72,8 @@ and UI because:
 - it exercises a new route/state/UI shape without requiring broad indexes,
   advanced search filters, or server API changes.
 
-People, Tags, and Genres index pages are split to
+People, Tags, and Genres index pages were split to
 `docs/workstreams/android-relationship-indexes/` because their value depends on
 browse information architecture, not on the Person Detail API contract proof.
+Genres Index is now complete there; Tags Index continues in
+`docs/workstreams/android-tags-index/`.

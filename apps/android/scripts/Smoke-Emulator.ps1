@@ -1076,6 +1076,15 @@ function Swipe-Up {
     Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'swipe', '540', '1500', '540', '520', '450') -FailureMessage 'adb swipe up failed.'
 }
 
+function Swipe-Down {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial
+    )
+
+    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'swipe', '540', '520', '540', '1500', '450') -FailureMessage 'adb swipe down failed.'
+}
+
 function Swipe-UntilUiText {
     param(
         [string]$AdbPath,
@@ -1148,6 +1157,24 @@ function Return-ToSmokeMediaDetail {
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
 }
 
+function Return-ToSmokeHomeFromRelationshipIndex {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Browse By Genre' -TimeoutSeconds 25
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Smoke Server' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Media Libraries' -TimeoutSeconds 25
+    Swipe-Down -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+    Swipe-Down -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Night Harbor' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail' -TimeoutSeconds 25
+}
+
 function Assert-SmokeFacetRoute {
     param(
         [string]$AdbPath,
@@ -1172,6 +1199,35 @@ function Assert-SmokeFacetRoute {
         'Night Harbor'
     ) + $AdditionalRequiredText
     return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
+}
+
+function Assert-SmokeGenreIndexRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Genres' -MaxSwipes 3
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Genres'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Browse By Genre' -TimeoutSeconds 25
+
+    $evidence = @()
+    $evidence += Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'genre-index' -RequiredText @(
+        'Genres',
+        'Server Genres Index',
+        'Public API',
+        '1 visible',
+        '1 returned',
+        'Browse By Genre',
+        'Mystery',
+        'Genre',
+        'API backed'
+    )
+    $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Mystery' -FacetLabel 'Mystery' -FamilyLabel 'Genre' -Name 'genre-index-facet'
+    Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir
+
+    return $evidence
 }
 
 function Assert-SmokePersonDetailRoute {
@@ -1437,12 +1493,14 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
         'Smoke Server',
         'Night Harbor',
-        'Continue Watching',
         'Media Libraries',
+        'Search',
+        'Genres',
         '1 visible',
         'Open detail'
     )
 
+    $surfaceEvidence += Assert-SmokeGenreIndexRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
         'Night Harbor',

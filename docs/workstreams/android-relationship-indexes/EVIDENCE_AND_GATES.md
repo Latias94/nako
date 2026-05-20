@@ -1,6 +1,6 @@
 # Android Relationship Indexes - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Gates
@@ -81,6 +81,20 @@ git diff --check
   - Fresh validation:
     `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
     passed.
+- ARI-050 completed on 2026-05-20:
+  - Extended `profile-with-media` smoke to prove the Home Genres anchor,
+    server-backed Genres Index, and Genre Index row into the existing Genre
+    related Media Items route.
+  - Smoke evidence directory:
+    `apps/android/build/smoke-regression/20260520-141446/states/profile-with-media/20260520-141503-profile-with-media-emulator-5554/`.
+  - Smoke surfaces include `genre-index.png` and
+    `genre-index-facet.png`; the structured regression report is
+    `apps/android/build/smoke-regression/20260520-141446/report.json`.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`
+    passed.
+  - Tags Index is split to `docs/workstreams/android-tags-index/`; top-level
+    People Index remains deferred.
 
 ## Notes
 
