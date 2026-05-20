@@ -42,6 +42,15 @@ git diff --check
   - JSON and Markdown report contracts remain compatible.
   - CI upload/artifact retention and golden visual diffing are explicit
     follow-ons.
+- AJVR-010 completed on 2026-05-20:
+  - `DESIGN.md` freezes `report.junit.xml`, `<testsuites>`, suite names,
+    testcase names, pass/fail/skipped mapping, allowed properties, and
+    token-safety constraints.
+  - Fresh validation:
+    `Get-Content -LiteralPath 'docs/workstreams/android-junit-validation-reports/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null`
+    passed.
+  - Fresh validation:
+    `git diff --check` passed.
 
 ## Notes
 

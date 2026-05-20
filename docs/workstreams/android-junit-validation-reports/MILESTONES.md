@@ -5,7 +5,7 @@ Last updated: 2026-05-20
 
 ## M1 - Contract
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
@@ -13,9 +13,15 @@ Exit criteria:
 - Suite and testcase naming are stable enough for CI history.
 - Token-safety constraints are explicit.
 
+Evidence:
+
+- `DESIGN.md` defines `report.junit.xml`, `<testsuites>` root shape, suite
+  names, testcase names, pass/fail/skipped mapping, allowed properties, and
+  token-safety constraints.
+
 ## M2 - Smoke Regression XML
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 

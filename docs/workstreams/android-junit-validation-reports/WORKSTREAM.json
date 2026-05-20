@@ -7,8 +7,8 @@
   "scope_kind": "execution",
   "problem": "Android validation scripts emit Markdown and JSON reports, but CI-friendly JUnit XML is still missing.",
   "summary": "Add token-safe JUnit XML report adapters to the existing Android smoke regression and local validation commands.",
-  "current_milestone": "M1",
-  "current_task": "AJVR-010",
+  "current_milestone": "M2",
+  "current_task": "AJVR-020",
   "task_prefix": "AJVR",
   "authoritative_docs": [
     {
@@ -43,7 +43,7 @@
     {
       "task": "AJVR-010",
       "path": "docs/workstreams/android-junit-validation-reports/DESIGN.md",
-      "notes": "Planning and JUnit report contract freeze."
+      "notes": "Planning and JUnit report contract freeze: file name, XML root, suite names, testcase names, result mapping, allowed properties, and token-safety constraints."
     }
   ],
   "adr_refs": [
@@ -56,6 +56,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AJVR-010"
+    "next_task": "AJVR-020"
   }
 }

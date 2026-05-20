@@ -5,7 +5,7 @@ Last updated: 2026-05-20
 
 ## Task Ledger
 
-- [ ] AJVR-010 - Freeze JUnit report contract.
+- [x] AJVR-010 - Freeze JUnit report contract.
   - Owner: Codex
   - Dependencies: closed `docs/workstreams/android-structured-validation-reports/`.
   - Scope:
@@ -15,9 +15,13 @@ Last updated: 2026-05-20
     - Workstream docs define suite names, testcase names, pass/fail mapping,
       and token-safety constraints.
   - Evidence: planning docs.
+    Completed on 2026-05-20:
+    `DESIGN.md` now freezes file name, root XML shape, suite names, testcase
+    names, pass/fail/skipped mapping, allowed properties, and token-safety
+    constraints for smoke regression and local validation JUnit XML reports.
 
 - [ ] AJVR-020 - Add smoke regression JUnit report.
-  - Owner: unassigned
+  - Owner: Codex
   - Dependencies: AJVR-010.
   - Scope:
     - `apps/android/scripts/Smoke-Regression.ps1`
@@ -31,7 +35,7 @@ Last updated: 2026-05-20
   - Evidence: generated smoke regression report path.
 
 - [ ] AJVR-030 - Add local validation JUnit report.
-  - Owner: unassigned
+  - Owner: Codex
   - Dependencies: AJVR-020.
   - Scope:
     - `apps/android/scripts/Validate-AndroidLocal.ps1`
@@ -45,7 +49,7 @@ Last updated: 2026-05-20
   - Evidence: generated local validation report path.
 
 - [ ] AJVR-040 - Verify and close.
-  - Owner: unassigned
+  - Owner: Codex
   - Dependencies: AJVR-030.
   - Scope:
     - `docs/workstreams/android-junit-validation-reports/`

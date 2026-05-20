@@ -53,6 +53,69 @@ status/category/path values already used by Markdown and JSON reports. The XML
 must be conservative: stable suite names, stable case names, escaped text, no
 secrets, and no embedded screenshots or UI hierarchy payloads.
 
+## JUnit Contract
+
+File name:
+
+- `report.junit.xml` next to each command's existing `report.md` and
+  `report.json`.
+
+XML shape:
+
+- Root element: `<testsuites>`.
+- One top-level `<testsuite>` per validation command invocation.
+- A suite may include `<properties>` with path metadata.
+- A testcase may include `<failure>` or `<skipped>`, but should not include
+  screenshots, full UI hierarchy XML, bearer tokens, or source locators.
+
+Smoke regression suite:
+
+- Suite name: `taru.android.smoke-regression`.
+- Suite properties:
+  - `report.markdown`
+  - `report.json`
+  - `fixture_server_port`
+  - `requested_serial`
+  - `started_at`
+  - `finished_at`
+- Testcase classname: `taru.android.smoke`.
+- Testcase name: `state.<state-name>`, for example
+  `state.profile-with-media`.
+- Passing smoke state: testcase has no child result element.
+- Failed smoke state: testcase has `<failure type="<category>">` with a
+  token-safe message and report/evidence paths.
+- Skipped or not-run state: testcase has `<skipped>` with a token-safe reason.
+
+Local validation suite:
+
+- Suite name: `taru.android.local-validation`.
+- Suite properties:
+  - `report.markdown`
+  - `report.json`
+  - `started_at`
+  - `finished_at`
+  - `smoke.report.markdown` when present
+  - `smoke.report.json` when present
+  - `smoke.report.junit` when present
+- Testcase classname: `taru.android.validation`.
+- Testcase names:
+  - `step.android-build`
+  - `step.android-unit-tests`
+  - `step.smoke-regression`
+- Passing validation step: testcase has no child result element.
+- Failed validation step: testcase has `<failure type="<step-status>">` with a
+  token-safe message and log/report paths.
+- Intentionally skipped smoke: `step.smoke-regression` has `<skipped>` with
+  `SkipSmoke` as the reason.
+
+Escaping and safety:
+
+- Use XML APIs or explicit XML escaping for attribute values and text nodes.
+- Paths are allowed because they already appear in Markdown and JSON reports.
+- Never include raw command output inline. Link log/report paths instead.
+- Preserve existing Markdown and JSON outputs byte-for-byte where practical;
+  JUnit generation should be additive.
+
 ## Closeout Condition
 
 This lane can close when both Android validation scripts emit parseable JUnit
