@@ -70,6 +70,17 @@ class BrowseSessionTest {
         assertEquals(TaruRoute.ItemDetail("night-harbor"), personState.navigation.navigateBack().currentRoute)
     }
 
+    @Test
+    fun `relationship index route opens as nested home route`() {
+        val indexState = session.reduce(
+            BrowseShellState(),
+            BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres),
+        )
+
+        assertEquals(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres), indexState.currentRoute)
+        assertFalse(indexState.navigationVisible)
+        assertEquals(TaruRoute.TopLevel, indexState.navigation.navigateBack().currentRoute)
+    }
 
     @Test
     fun `library detail route preserves libraries top level owner`() {

@@ -59,6 +59,17 @@ git diff --check
   - Fresh validation:
     `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
     passed.
+- ARI-030 completed on 2026-05-20:
+  - Added `RelationshipIndexFamily.Genres`, `TaruRoute.RelationshipIndex`, and
+    `RelationshipIndexUiState`.
+  - `BrowseSession` can open, save, restore, load, retry, and back out of the
+    Genre Index route.
+  - `ClientBrowseDataSource.loadRelationshipIndex` calls
+    `TaruBrowseClient.listGenres` and maps Genre rows to existing
+    server-backed Genre related Media Items route targets.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
+    passed.
 
 ## Notes
 

@@ -13,13 +13,13 @@ remains the primary People path.
 
 ## Active Task
 
-- Task ID: ARI-030
+- Task ID: ARI-040
 - Owner: unassigned
 - Files:
-  - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
-  - focused session/navigation tests
+  - `apps/android/app/src/main/java/dev/taru/android/ui/screens/`
+  - `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
 - Validation:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
+  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -33,16 +33,17 @@ remains the primary People path.
   not as a new bottom navigation destination.
 - `TaruBrowseClient.listGenres` is the Android typed contract for
   `GET /genres?limit=&offset=`.
+- `TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres)` and
+  `RelationshipIndexUiState` are in place; ARI-040 should replace the
+  temporary route placeholder with a real screen and Home anchor.
 - Tags Index is accepted but waits for the Genre index shape.
 - Top-level People Index is deferred until the app has a richer role/search IA.
 
 ## Blockers
 
-- None for ARI-020. Public server list routes already exist; Android needs the
-  typed client contract.
+- None for ARI-040. Route state and client data are in place.
 
 ## Next Recommended Action
 
-- Execute ARI-030: add Genre Index route state to `BrowseSession`, including
-  open/save/restore/load/retry/back behavior and row actions into existing
-  Genre related Media Items routes.
+- Execute ARI-040: build the Genre Index screen, add the Home entry point, and
+  make each row open the existing Genre related Media Items route.

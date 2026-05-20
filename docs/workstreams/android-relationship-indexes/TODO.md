@@ -33,8 +33,8 @@ Last updated: 2026-05-20
     `TaruBrowseClient.listGenres` and `GenreListResponse` are covered by
     `dev.taru.android.browse.TaruBrowseClientTest`.
 
-- [ ] ARI-030 - Productize Genre index route state.
-  - Owner: unassigned
+- [x] ARI-030 - Productize Genre index route state.
+  - Owner: Codex
   - Dependencies: ARI-020.
   - Scope:
     - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
@@ -44,6 +44,9 @@ Last updated: 2026-05-20
       the Genre Index route.
     - Genre rows open existing Genre related Media Items routes.
   - Evidence: focused UI browse tests.
+    Completed on 2026-05-20:
+    `RelationshipIndexFamily.Genres`, `TaruRoute.RelationshipIndex`, and
+    `RelationshipIndexUiState` are covered by focused UI browse tests.
 
 - [ ] ARI-040 - Build Genre index screen.
   - Owner: unassigned

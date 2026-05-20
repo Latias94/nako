@@ -189,6 +189,31 @@ internal class ClientBrowseDataSource(
         }
     }
 
+    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            return RelationshipIndexUiState.Failure(
+                SafeBrowseDiagnostics(
+                    category = BrowseFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before browsing relationship indexes.",
+                ),
+            )
+        }
+
+        return when (family) {
+            RelationshipIndexFamily.Genres -> when (
+                val result = browseClient.listGenres(
+                    profile = profile,
+                    accessToken = accessToken,
+                    page = PageRequest(limit = 50, offset = 0),
+                )
+            ) {
+                is BrowseResult.Success -> result.value.toRelationshipIndexContent()
+                is BrowseResult.Failure -> RelationshipIndexUiState.Failure(result.diagnostics)
+            }
+        }
+    }
+
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isBlank()) {

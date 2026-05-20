@@ -30,12 +30,17 @@ class ClientBrowseDataSourceTest {
         )
 
         val detailState = dataSource.loadItemDetail("night-harbor")
+        val relationshipIndexState = dataSource.loadRelationshipIndex(RelationshipIndexFamily.Genres)
         val probeState = dataSource.loadSourceProbe("source-a")
         val playbackState = dataSource.loadPlaybackSelection("source-a")
 
         assertEquals(
             BrowseFailureCategory.MissingAccessToken,
             (detailState as ItemDetailUiState.Failure).diagnostics.category,
+        )
+        assertEquals(
+            BrowseFailureCategory.MissingAccessToken,
+            (relationshipIndexState as RelationshipIndexUiState.Failure).diagnostics.category,
         )
         assertEquals(
             PlaybackFailureCategory.MissingAccessToken,
@@ -46,6 +51,52 @@ class ClientBrowseDataSourceTest {
             (playbackState as PlaybackSelectionUiState.Failure).diagnostics.category,
         )
         assertEquals(emptyList<TaruHttpRequest>(), transport.requests)
+    }
+
+    @Test
+    fun `genre relationship index loads public genre list into facet targets`() = runBlocking {
+        val transport = QueuedTransport(
+            ok(
+                """
+                {
+                  "genres": [
+                    {"id": "genre-mystery", "name": "Mystery", "source": "nfo"},
+                    {"id": "genre-empty-name", "name": "", "source": "nfo"}
+                  ],
+                  "page": {"limit": 50, "offset": 0, "returned": 2}
+                }
+                """.trimIndent(),
+            ),
+        )
+        val vault = InMemoryTokenVault()
+        val profile = testProfile()
+        vault.saveToken(profile.tokenReference, "secret-token")
+        val dataSource = ClientBrowseDataSource(
+            profile = profile,
+            tokenVault = vault,
+            browseClient = TaruBrowseClient(transport),
+            playbackClient = TaruPlaybackClient(transport),
+            playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
+            userPlaybackClient = TaruUserPlaybackClient(transport),
+        )
+
+        val state = dataSource.loadRelationshipIndex(RelationshipIndexFamily.Genres)
+
+        val content = state as RelationshipIndexUiState.Content
+        val row = content.rows.single()
+        assertEquals(RelationshipIndexFamily.Genres, content.family)
+        assertEquals("Mystery", row.title)
+        assertEquals("Genre", row.subtitle)
+        assertEquals(BrowseFacetUiFamily.Genre, row.target.family)
+        assertEquals("genre-mystery", row.target.id)
+        assertEquals(
+            listOf("http://127.0.0.1:3018/genres?limit=50&offset=0"),
+            transport.requests.map { it.url },
+        )
+        assertEquals(
+            listOf("Bearer secret-token"),
+            transport.requests.map { it.headers["Authorization"] },
+        )
     }
 
     @Test

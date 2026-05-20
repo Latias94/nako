@@ -46,6 +46,12 @@ Exit criteria:
 - Genre Index has route state, save/restore, loading, retry, and UI.
 - Rows open server-backed Genre related Media Items routes.
 
+Progress:
+
+- Route state, save/restore, loading, retry, back behavior, and row targets
+  are complete under ARI-030.
+- The Material Expressive screen and Home entry point remain ARI-040.
+
 ## M4 - Evidence And Closeout
 
 Status: Pending

@@ -228,6 +228,13 @@ private class RecordingHostBrowseDataSource(
             ),
         )
 
+    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState =
+        RelationshipIndexUiState.Content(
+            family = family,
+            rows = emptyList(),
+            page = testPage(0),
+        )
+
     override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
         PersonDetailUiState.Content(
             response = PersonResponse(

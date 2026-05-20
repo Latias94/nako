@@ -205,6 +205,12 @@ internal fun TaruBrowseShell(
                     onChangeServer = onChangeServer,
                     onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                 )
+                is TaruRoute.RelationshipIndex -> PlaceholderRoute(
+                    title = currentRoute.family.label,
+                    subtitle = "Relationship Index",
+                    body = "Browse server-backed relationship labels before opening their related Media Items.",
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
+                )
                 is TaruRoute.Player -> playerRouteRenderer.Render(
                     launch = currentRoute.launch,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
