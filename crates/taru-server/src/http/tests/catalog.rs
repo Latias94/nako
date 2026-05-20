@@ -33,6 +33,7 @@ async fn search_route_returns_indexed_items() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -104,6 +105,7 @@ async fn browse_routes_return_catalog_graph() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),

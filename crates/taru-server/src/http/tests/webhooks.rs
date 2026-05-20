@@ -71,6 +71,7 @@ async fn webhook_attempt_route_lists_attempts_for_existing_event() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),

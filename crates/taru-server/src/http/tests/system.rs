@@ -162,6 +162,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -381,6 +382,7 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -492,6 +494,7 @@ async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -643,6 +646,7 @@ async fn admin_v1_events_lists_filters_and_redacts_payloads() {
     let library_id = LibraryId::new();
     let source_id = MediaSourceId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -775,6 +779,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -982,6 +987,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         runtime: Some(MetadataProviderRuntimeConfig::default()),
     }];
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite://F:/secret/taru.db".to_owned(),
         auth: crate::config::AuthConfig {
@@ -1077,6 +1083,31 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         diagnostics.auth.token_env.as_deref(),
         Some("TARU_ADMIN_TOKEN")
     );
+    assert_eq!(
+        diagnostics.database.configured_backend_kind.as_str(),
+        "sqlite"
+    );
+    assert_eq!(diagnostics.database.active_backend_kind.as_str(), "sqlite");
+    assert_eq!(diagnostics.database.url_scheme.as_str(), "sqlite");
+    assert!(diagnostics.database.runtime_supported);
+    assert!(diagnostics.database.migrated_on_startup);
+    assert!(diagnostics.database.capabilities.lifecycle);
+    assert!(diagnostics.database.capabilities.libraries);
+    assert!(diagnostics.database.capabilities.jobs);
+    assert!(diagnostics.database.capabilities.job_leases);
+    assert!(diagnostics.database.capabilities.media);
+    assert!(diagnostics.database.capabilities.scan_commits);
+    assert!(diagnostics.database.capabilities.metadata);
+    assert!(diagnostics.database.capabilities.catalog);
+    assert!(diagnostics.database.capabilities.playback_state);
+    assert!(diagnostics.database.capabilities.transcode_sessions);
+    assert!(diagnostics.database.capabilities.event_outbox);
+    assert!(diagnostics.database.capabilities.addons);
+    assert!(diagnostics.database.capabilities.automation);
+    assert!(diagnostics.database.capabilities.managed_artwork);
+    assert!(diagnostics.database.capabilities.vfs_cache);
+    assert!(diagnostics.database.capabilities.webhooks);
+    assert!(diagnostics.database.capabilities.search_index);
     assert_eq!(diagnostics.runtime.scan_concurrency, 2);
     assert_eq!(diagnostics.runtime.webhook_concurrency, 6);
     assert_eq!(diagnostics.libraries.len(), 1);
@@ -1125,6 +1156,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
 
     assert!(!body.contains("database_url"));
     assert!(!body.contains("secret/taru.db"));
+    assert!(!body.contains("F:/secret"));
     assert!(!body.contains("ffmpeg_path"));
     assert!(!body.contains("ffprobe_path"));
     assert!(!body.contains("private/ffmpeg"));
@@ -1147,10 +1179,83 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
 }
 
 #[tokio::test]
+async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_store() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: taru_db::DatabaseBackendKind::Postgres,
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "postgres://user:secret@db.example.test/taru?sslmode=require".to_owned(),
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 1,
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig {
+            cleanup_on_startup: false,
+            ..StagingConfig::default()
+        },
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    let router = build_router(app);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/system/config")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let diagnostics: AdminServerConfigDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.database.configured_backend_kind.as_str(),
+        "postgres"
+    );
+    assert_eq!(diagnostics.database.active_backend_kind.as_str(), "sqlite");
+    assert_eq!(diagnostics.database.url_scheme.as_str(), "postgres");
+    assert!(!diagnostics.database.runtime_supported);
+    assert!(diagnostics.database.capabilities.managed_artwork);
+    assert!(diagnostics.database.capabilities.vfs_cache);
+    assert!(!body.contains("database_url"));
+    assert!(!body.contains("secret"));
+    assert!(!body.contains("db.example.test"));
+    assert!(!body.contains("sslmode"));
+}
+
+#[tokio::test]
 async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -1299,6 +1404,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     let marker = temp.path().join("unused.marker");
     let ffmpeg_path = fake_ffmpeg_script(temp.path(), "runtime", false, &marker);
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),

@@ -4,7 +4,7 @@ use std::{
 };
 
 use taru_core::{Result, TaruError};
-use taru_db::TaruDatabase;
+use taru_db::{DatabaseConnectOptions, TaruDatabase};
 
 use crate::config::TaruServerConfig;
 
@@ -62,7 +62,12 @@ pub struct TaruApp {
 
 impl TaruApp {
     pub async fn new(config: TaruServerConfig) -> Result<Self> {
-        let store = TaruDatabase::connect(&config.database_url).await?;
+        let store = TaruDatabase::connect_with_options(DatabaseConnectOptions {
+            backend: config.database_backend,
+            url: config.database_url.clone(),
+            sqlite_runtime: None,
+        })
+        .await?;
         Self::new_with_store(config, store).await
     }
 
@@ -75,6 +80,11 @@ impl TaruApp {
     #[must_use]
     pub fn config(&self) -> &TaruServerConfig {
         &self.inner.config
+    }
+
+    #[must_use]
+    pub(crate) fn store(&self) -> &TaruDatabase {
+        &self.inner.store
     }
 
     fn services(&self) -> &TaruAppServices {

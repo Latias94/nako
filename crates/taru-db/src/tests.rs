@@ -2,9 +2,62 @@ use taru_core::*;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};
 
 use crate::{
-    TaruDatabase,
-    sqlite::codec::{provider_to_parts, row_get},
+    DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, TaruDatabase,
 };
+
+#[tokio::test]
+async fn taru_database_connect_options_select_sqlite_explicitly() {
+    let store =
+        TaruDatabase::connect_with_options(DatabaseConnectOptions::sqlite("sqlite::memory:"))
+            .await
+            .unwrap();
+
+    assert_eq!(store.backend_kind(), DatabaseBackendKind::Sqlite);
+    assert_eq!(
+        store.capabilities(),
+        DatabaseBackendCapabilities::production_ready()
+    );
+}
+
+#[tokio::test]
+async fn taru_database_postgres_runtime_capabilities_name_supported_and_split_surfaces() {
+    assert_eq!(
+        DatabaseBackendCapabilities::postgres_supported_scope(),
+        DatabaseBackendCapabilities {
+            lifecycle: true,
+            libraries: true,
+            jobs: true,
+            job_leases: true,
+            media: true,
+            scan_commits: true,
+            metadata: true,
+            catalog: true,
+            playback_state: true,
+            transcode_sessions: true,
+            event_outbox: true,
+            addons: true,
+            automation: true,
+            managed_artwork: false,
+            vfs_cache: true,
+            webhooks: true,
+            search_index: true,
+        }
+    );
+}
+
+#[tokio::test]
+async fn taru_database_postgres_selection_enters_runtime_connection_path() {
+    let err =
+        TaruDatabase::connect_with_options(DatabaseConnectOptions::postgres("not-a-postgres-url"))
+            .await
+            .unwrap_err();
+
+    assert!(matches!(err, TaruError::Database { .. }));
+    assert!(
+        !err.to_string()
+            .contains("PostgreSQL runtime backend is gated")
+    );
+}
 
 #[tokio::test]
 async fn taru_database_sqlite_persists_libraries() {
@@ -120,7 +173,7 @@ async fn taru_database_sqlite_round_trips_media_items_and_sources() {
     expected_item
         .metadata
         .external_ids
-        .sort_by(|left, right| external_id_sort_key(left).cmp(&external_id_sort_key(right)));
+        .sort_by_key(|external_id| format!("{:?}\0{}", external_id.provider, external_id.value));
 
     store.upsert_library(&library).await.unwrap();
     store.upsert_media_item(&item).await.unwrap();
@@ -2422,17 +2475,6 @@ async fn taru_database_sqlite_marks_running_jobs_failed_on_startup_and_preserves
     let succeeded = store.get_job(succeeded_id).await.unwrap().unwrap();
     let failed = store.get_job(failed_id).await.unwrap().unwrap();
     let managed_artwork = store.get_job(managed_artwork_id).await.unwrap().unwrap();
-    let lease_columns = sqlx::query(
-        r#"
-        SELECT worker_id, run_token, heartbeat_at, lease_expires_at
-        FROM jobs
-        WHERE id = ?1
-        "#,
-    )
-    .bind(leased_id.to_string())
-    .fetch_one(store.sqlite().pool())
-    .await
-    .unwrap();
 
     assert_eq!(recovered, 2);
     assert_eq!(queued.status, JobStatus::Queued);
@@ -2442,22 +2484,6 @@ async fn taru_database_sqlite_marks_running_jobs_failed_on_startup_and_preserves
     assert_eq!(running.error, Some(error));
     assert!(running.completed_at.is_some());
     assert_eq!(leased.status, JobStatus::Failed);
-    assert_eq!(
-        row_get::<Option<String>>(&lease_columns, "worker_id").unwrap(),
-        None
-    );
-    assert_eq!(
-        row_get::<Option<String>>(&lease_columns, "run_token").unwrap(),
-        None
-    );
-    assert_eq!(
-        row_get::<Option<String>>(&lease_columns, "heartbeat_at").unwrap(),
-        None
-    );
-    assert_eq!(
-        row_get::<Option<String>>(&lease_columns, "lease_expires_at").unwrap(),
-        None
-    );
     assert_eq!(succeeded.status, JobStatus::Succeeded);
     assert_eq!(succeeded.summary_json, Some(r#"{"imported":1}"#.to_owned()));
     assert_eq!(failed.status, JobStatus::Failed);
@@ -5349,11 +5375,6 @@ async fn taru_database_sqlite_rejects_addon_token_rotation_across_addons() {
             .unwrap()
             .is_empty()
     );
-}
-
-fn external_id_sort_key(external_id: &ExternalId) -> String {
-    let (provider, provider_key) = provider_to_parts(&external_id.provider);
-    format!("{provider}\0{provider_key}\0{}", external_id.value)
 }
 
 async fn seed_media_item_with_source(

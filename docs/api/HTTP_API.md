@@ -776,11 +776,17 @@ API route and is not part of Public Client OpenAPI or generated SDK artifacts.
 
 `GET /admin/v1/system/config` returns a sanitized Admin API diagnostics view of
 server configuration. It includes admin/public API versions, auth enablement
-and token environment reference, concurrency settings, remux timeout, library
-names/presets/backend kind/root scheme, metadata runtime budgets, metadata
-provider enablement and secret-reference names, transcode hardware policy and
-slot budgets, staging budget/retention/cleanup settings, remote playback
-stream/stage budgets, and managed artwork fetch/storage budgets.
+and token environment reference, database backend diagnostics, concurrency
+settings, remux timeout, library names/presets/backend kind/root scheme,
+metadata runtime budgets, metadata provider enablement and secret-reference
+names, transcode hardware policy and slot budgets,
+staging budget/retention/cleanup settings, remote playback stream/stage
+budgets, and managed artwork fetch/storage budgets.
+The database block reports only the configured backend kind, active backend
+kind, URL scheme, startup migration flag, runtime support flag, and backend
+capability booleans such as lifecycle, libraries, jobs, media, scan commits,
+metadata, catalog, playback state, transcode sessions, event outbox, Addons,
+Automation, Managed Artwork, VFS cache, webhooks, and search index.
 Managed artwork ingest workers are opt-in through `[artwork]`.
 `ingest_worker_enabled = true` starts one process-local supervised worker after
 startup recovery and library reconciliation finish. The worker uses
@@ -789,13 +795,14 @@ startup recovery and library reconciliation finish. The worker uses
 accepted candidates remain queued until an administrator runs
 `POST /admin/v1/artwork/ingests/process-next` or re-enables the worker.
 
-The config diagnostics route never returns `database_url`, local library roots,
-`ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, managed artwork artifact
-roots, WebDAV base URLs, WebDAV usernames, WebDAV password environment names,
-metadata or artwork proxy values, provider base URLs, literal header values,
-header secret environment names, resolved tokens, or resolved secrets. It is an
-Admin API route and is not part of Public Client OpenAPI or generated SDK
-artifacts.
+The config diagnostics route never returns `database_url`, database
+credentials, database host/path/query details, raw database errors, local
+library roots, `ffmpeg_path`, `ffprobe_path`, `remux_staging_root`, managed
+artwork artifact roots, WebDAV base URLs, WebDAV usernames, WebDAV password
+environment names, metadata or artwork proxy values, provider base URLs,
+literal header values, header secret environment names, resolved tokens, or
+resolved secrets. It is an Admin API route and is not part of Public Client
+OpenAPI or generated SDK artifacts.
 
 `GET /sources/{source_id}/stream/hls/playlist.m3u8` starts or reuses a minimal
 single-variant HLS transcode session and returns a rewritten media playlist.

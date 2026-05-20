@@ -5,6 +5,7 @@ async fn metadata_refresh_route_queues_background_job() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -112,6 +113,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         runtime: None,
     }];
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -274,6 +276,7 @@ async fn metadata_maintenance_route_enqueues_batch_job() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),

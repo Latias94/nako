@@ -10,6 +10,7 @@ use taru_api::{
         ADMIN_API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
         AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
         AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
+        AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
         AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
         AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
         AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
@@ -37,6 +38,7 @@ use taru_core::{
     ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
     MediaItemId, TaruError,
 };
+use taru_db::{DatabaseBackendCapabilities, TaruDatabase};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareCapabilityEvidence, HardwareSmokeProbeStatus,
 };
@@ -339,6 +341,11 @@ pub(super) async fn get_admin_system_config(
             enabled: config.auth.enabled,
             token_env: config.auth.token_env.clone(),
         },
+        database: database_config_diagnostics(
+            config,
+            app.store(),
+            app.startup_report().database_migrated,
+        ),
         runtime: AdminRuntimeConfigDiagnostics {
             listen_addr: config.listen_addr.to_string(),
             scan_concurrency: config.scan_concurrency,
@@ -454,6 +461,59 @@ pub(super) async fn list_admin_storage_staging(
         records,
         page: page_info_from_request(page, returned),
     }))
+}
+
+fn database_config_diagnostics(
+    config: &crate::config::TaruServerConfig,
+    store: &TaruDatabase,
+    migrated_on_startup: bool,
+) -> AdminDatabaseConfigDiagnostics {
+    let configured_backend = config.database_backend;
+    let active_backend = store.backend_kind();
+
+    AdminDatabaseConfigDiagnostics {
+        configured_backend_kind: configured_backend.as_str().to_owned(),
+        active_backend_kind: active_backend.as_str().to_owned(),
+        url_scheme: database_url_scheme(&config.database_url),
+        runtime_supported: configured_backend == active_backend,
+        migrated_on_startup,
+        capabilities: database_backend_capabilities_diagnostics(store.capabilities()),
+    }
+}
+
+fn database_backend_capabilities_diagnostics(
+    capabilities: DatabaseBackendCapabilities,
+) -> AdminDatabaseBackendCapabilitiesDiagnostics {
+    AdminDatabaseBackendCapabilitiesDiagnostics {
+        lifecycle: capabilities.lifecycle,
+        libraries: capabilities.libraries,
+        jobs: capabilities.jobs,
+        job_leases: capabilities.job_leases,
+        media: capabilities.media,
+        scan_commits: capabilities.scan_commits,
+        metadata: capabilities.metadata,
+        catalog: capabilities.catalog,
+        playback_state: capabilities.playback_state,
+        transcode_sessions: capabilities.transcode_sessions,
+        event_outbox: capabilities.event_outbox,
+        addons: capabilities.addons,
+        automation: capabilities.automation,
+        managed_artwork: capabilities.managed_artwork,
+        vfs_cache: capabilities.vfs_cache,
+        webhooks: capabilities.webhooks,
+        search_index: capabilities.search_index,
+    }
+}
+
+fn database_url_scheme(database_url: &str) -> String {
+    let scheme = database_url
+        .split_once("://")
+        .or_else(|| database_url.split_once("::"))
+        .map(|(scheme, _)| scheme)
+        .filter(|scheme| !scheme.trim().is_empty())
+        .unwrap_or("unknown");
+
+    scheme.to_ascii_lowercase()
 }
 
 fn library_config_diagnostics(config: &LocalLibraryConfig) -> AdminLibraryConfigDiagnostics {

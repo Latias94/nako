@@ -20,6 +20,7 @@ use crate::config::{LocalLibraryConfig, TaruServerConfig, libraries_from_config}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ServerStartupReport {
+    pub database_migrated: bool,
     pub configured_libraries: usize,
     pub library_reconciliation: ConfiguredLibraryReconciliationReport,
     pub recovered_transcode_sessions: u64,
@@ -71,6 +72,7 @@ impl<'a> ServerStartupWorkflow<'a> {
         let metadata_lifecycle_tasks_started = self.metadata.start_metadata_lifecycle_tasks();
 
         Ok(ServerStartupReport {
+            database_migrated: true,
             configured_libraries,
             library_reconciliation,
             recovered_transcode_sessions,

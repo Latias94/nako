@@ -29,6 +29,7 @@ async fn nfo_import_uses_configured_webdav_backend() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -99,6 +100,7 @@ async fn nfo_import_job_acknowledges_cancellation_before_next_sidecar() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -231,6 +233,7 @@ async fn nfo_export_job_acknowledges_cancellation_before_next_sidecar() {
         webdav: None,
     };
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -363,6 +366,7 @@ async fn nfo_import_uses_reconciled_library_policy() {
     .unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -440,6 +444,7 @@ async fn nfo_export_rejects_read_only_webdav_backend() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -498,6 +503,7 @@ async fn nfo_import_job_imports_sidecar_and_persists_summary() {
     .unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),

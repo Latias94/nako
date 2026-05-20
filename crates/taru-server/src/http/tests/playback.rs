@@ -16,6 +16,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
     fs::write(temp.path().join("demo.mp4"), b"0123456789").unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -260,6 +261,7 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),

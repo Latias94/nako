@@ -797,6 +797,40 @@ Completed:
 - closed with `cargo check --workspace --tests` and
   `cargo nextest run --workspace --no-fail-fast`.
 
+### PostgreSQL Production Readiness: M62
+
+Status: completed.
+
+This phase turned the M61 PostgreSQL proof into a production-shaped database
+backend:
+
+- expanded backend-neutral contract tests beyond jobs and leases;
+- added PostgreSQL migration/schema parity for supported repository and workflow
+  families;
+- added explicit runtime backend selection through `TaruDatabase` and server
+  configuration;
+- removed or isolated SQLite-only assumptions above the adapter seam;
+- documented repeatable SQLite always-on and PostgreSQL opt-in verification
+  commands.
+
+Authoritative workstream:
+
+- `docs/workstreams/postgresql-production-readiness/`
+
+Completed:
+
+- `PostgresStore` is available in runtime code for the supported backend scope.
+- `TaruDatabase` dispatches through an internal backend adapter trait and can
+  select SQLite or PostgreSQL through explicit `DatabaseConnectOptions`.
+- Backend-neutral contract families now cover lifecycle, jobs/leases,
+  library/media, scan commits, metadata/catalog, playback runtime,
+  event/webhook/addon/automation, runtime-promotion gap surfaces, and
+  VFS/Staging.
+- PostgreSQL opt-in full contract gates passed against a local test PostgreSQL
+  URL.
+- Managed Artwork PostgreSQL parity is intentionally split to
+  `docs/workstreams/managed-artwork-postgresql-parity/`.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split

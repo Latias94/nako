@@ -685,6 +685,7 @@ mod tests {
             webdav: None,
         };
         let config = TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),
@@ -726,6 +727,7 @@ mod tests {
             webdav: None,
         };
         let config = TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),
@@ -802,6 +804,7 @@ mod tests {
             webdav: None,
         };
         let config = TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),

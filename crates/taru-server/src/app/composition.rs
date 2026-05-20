@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use taru_core::Result;
-use taru_db::TaruDatabase;
+use taru_core::{Result, TaruError};
+use taru_db::{DatabaseBackendKind, TaruDatabase};
 use taru_metadata::MetadataProviderRegistry;
 use tokio::sync::Semaphore;
 
@@ -28,6 +28,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct TaruAppComposition {
     pub(super) config: TaruServerConfig,
+    pub(super) store: TaruDatabase,
     pub(super) runtime: RuntimeSupervisor,
     pub(super) services: TaruAppServices,
     pub(super) startup_report: ServerStartupReport,
@@ -35,6 +36,7 @@ pub(super) struct TaruAppComposition {
 
 impl TaruAppComposition {
     pub(super) async fn build(config: TaruServerConfig, store: TaruDatabase) -> Result<Self> {
+        validate_configured_backend_runtime_scope(&config, &store)?;
         let runtime_resources = TaruRuntimeResources::build(&config, store.clone())?;
         let runtime = runtime_resources.supervisor.clone();
         let services = TaruAppServices::build(&config, store.clone(), runtime_resources)?;
@@ -50,6 +52,7 @@ impl TaruAppComposition {
 
         Ok(Self {
             config,
+            store,
             runtime,
             services,
             startup_report: ServerStartupReport {
@@ -62,6 +65,24 @@ impl TaruAppComposition {
     pub(super) fn shutdown_runtime(&self) {
         self.runtime.shutdown();
     }
+}
+
+fn validate_configured_backend_runtime_scope(
+    config: &TaruServerConfig,
+    store: &TaruDatabase,
+) -> Result<()> {
+    if store.backend_kind() != DatabaseBackendKind::Postgres {
+        return Ok(());
+    }
+
+    let capabilities = store.capabilities();
+    if config.artwork.ingest_worker_enabled && !capabilities.managed_artwork {
+        return Err(TaruError::Unsupported(
+            "PostgreSQL backend cannot enable Managed Artwork ingest worker until managed-artwork-postgresql-parity lands",
+        ));
+    }
+
+    Ok(())
 }
 
 impl Drop for TaruAppComposition {

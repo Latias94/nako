@@ -398,6 +398,7 @@ pub struct AdminServerConfigDiagnosticsResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub auth: AdminAuthConfigDiagnostics,
+    pub database: AdminDatabaseConfigDiagnostics,
     pub runtime: AdminRuntimeConfigDiagnostics,
     pub libraries: Vec<AdminLibraryConfigDiagnostics>,
     pub metadata: AdminMetadataConfigDiagnostics,
@@ -411,6 +412,37 @@ pub struct AdminServerConfigDiagnosticsResponse {
 pub struct AdminAuthConfigDiagnostics {
     pub enabled: bool,
     pub token_env: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminDatabaseConfigDiagnostics {
+    pub configured_backend_kind: String,
+    pub active_backend_kind: String,
+    pub url_scheme: String,
+    pub runtime_supported: bool,
+    pub migrated_on_startup: bool,
+    pub capabilities: AdminDatabaseBackendCapabilitiesDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminDatabaseBackendCapabilitiesDiagnostics {
+    pub lifecycle: bool,
+    pub libraries: bool,
+    pub jobs: bool,
+    pub job_leases: bool,
+    pub media: bool,
+    pub scan_commits: bool,
+    pub metadata: bool,
+    pub catalog: bool,
+    pub playback_state: bool,
+    pub transcode_sessions: bool,
+    pub event_outbox: bool,
+    pub addons: bool,
+    pub automation: bool,
+    pub managed_artwork: bool,
+    pub vfs_cache: bool,
+    pub webhooks: bool,
+    pub search_index: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

@@ -371,6 +371,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),
@@ -479,6 +480,7 @@ async fn app_startup_cleans_expired_staging_inputs() {
 
     let _app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),

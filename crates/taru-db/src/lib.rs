@@ -1,9 +1,10 @@
+mod backend;
 mod facade;
-#[cfg(test)]
 mod postgres;
 mod sqlite;
 
-pub use facade::TaruDatabase;
+pub use backend::{DatabaseBackendKind, DatabaseConnectOptions};
+pub use facade::{DatabaseBackendCapabilities, TaruDatabase};
 pub use sqlite::SqliteRuntimeOptions;
 
 #[cfg(test)]

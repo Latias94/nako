@@ -6,6 +6,7 @@ async fn webdav_preview_config_builds_scanner_backend() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -76,6 +77,7 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),
@@ -192,6 +194,7 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
         .unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),

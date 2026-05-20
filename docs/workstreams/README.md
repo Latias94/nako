@@ -6,6 +6,16 @@ attention.
 
 ## Current Workstreams
 
+- [postgresql-production-readiness](postgresql-production-readiness/README.md):
+  completed M62 execution lane that turned PostgreSQL from the M61 job-lease
+  proof into a production-shaped backend through backend-neutral contracts,
+  migration/schema parity, runtime backend selection, SQLite assumption
+  cleanup, and repeatable verification.
+- [managed-artwork-postgresql-parity](managed-artwork-postgresql-parity/README.md):
+  proposed follow-on split from M62 PGR-090 for PostgreSQL parity across
+  Managed Artwork candidates, ingest jobs, artifacts, Selected Artwork,
+  galleries, lifecycle cleanup, drift/remediation diagnostics, thumbnail
+  variants, and redaction-safe runtime enablement.
 - [future-ready-architecture-refactor](future-ready-architecture-refactor/README.md):
   completed M61 fearless architecture refactor lane for PostgreSQL-ready
   persistence, deeper runtime/domain/search/API seams, and deletion of

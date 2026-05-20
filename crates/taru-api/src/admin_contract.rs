@@ -325,6 +325,32 @@ export interface AdminServerConfigDiagnosticsResponse {
     enabled: boolean;
     token_env: string | null;
   };
+  database: {
+    configured_backend_kind: string;
+    active_backend_kind: string;
+    url_scheme: string;
+    runtime_supported: boolean;
+    migrated_on_startup: boolean;
+    capabilities: {
+      lifecycle: boolean;
+      libraries: boolean;
+      jobs: boolean;
+      job_leases: boolean;
+      media: boolean;
+      scan_commits: boolean;
+      metadata: boolean;
+      catalog: boolean;
+      playback_state: boolean;
+      transcode_sessions: boolean;
+      event_outbox: boolean;
+      addons: boolean;
+      automation: boolean;
+      managed_artwork: boolean;
+      vfs_cache: boolean;
+      webhooks: boolean;
+      search_index: boolean;
+    };
+  };
   runtime: {
     listen_addr: string;
     scan_concurrency: number;
@@ -446,6 +472,7 @@ mod tests {
             "source_uri",
             "cache_uri",
             "storage_uri",
+            "database_url",
             "output_path",
             "local_path",
             "raw_source_url",

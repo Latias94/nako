@@ -368,6 +368,7 @@ async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
     fs::create_dir_all(&library_root).unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -561,6 +562,7 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
+            database_backend: Default::default(),
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             database_url: "sqlite::memory:".to_owned(),
             auth: crate::config::AuthConfig::disabled(),

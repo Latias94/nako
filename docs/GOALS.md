@@ -26,9 +26,79 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is open after M61 closeout.
+No active implementation goal is recorded in this file after M62 closeout.
+Recommended next candidates are activating
+`docs/workstreams/managed-artwork-postgresql-parity/` or opening a narrower
+PostgreSQL production hardening/CI lane.
 
 ## Completed Goals
+
+### M62: PostgreSQL Production Readiness
+
+Status: completed.
+
+Objective:
+
+- Move PostgreSQL from the M61 job-lease proof into a production-ready database
+  backend shape.
+- Expand backend-neutral contract tests beyond jobs/leases.
+- Add PostgreSQL migration/schema parity for the supported backend scope.
+- Add explicit runtime backend selection through `TaruDatabase` and server
+  configuration.
+- Remove or isolate SQLite assumptions above the adapter seam.
+- Document repeatable local/CI verification for SQLite always-on and
+  PostgreSQL opt-in gates.
+
+Deliverables:
+
+- `docs/workstreams/postgresql-production-readiness/` as the authoritative
+  execution lane.
+- Backend contract-test matrix and reusable contract harness.
+- Production-shaped backend kind/config selection for SQLite and PostgreSQL.
+- PostgreSQL migrations for contract-proven repository/workflow families.
+- Safe database backend diagnostics and config/API documentation.
+- Final closeout evidence covering workspace gates and PostgreSQL opt-in gates
+  when available.
+
+Non-goals:
+
+- No sharding, read replicas, multi-tenant schema management, or online
+  zero-downtime migration tooling.
+- No replacement of SQLite as the default local backend.
+- No broad performance tuning before functional parity is proven.
+- No Network Tunnel Provider, AI runtime, or new Admin UI feature expansion
+  except database diagnostics needed for this lane.
+
+Exit criteria:
+
+- `TaruDatabase` can select SQLite or PostgreSQL through explicit production
+  configuration without server code depending on concrete adapters.
+- Required backend-neutral contract families pass against SQLite and
+  PostgreSQL, or remaining broad families are split into named follow-ons with
+  expiry gates.
+- PostgreSQL migrations cover the supported production backend scope.
+- SQLite-specific assumptions above the adapter seam are deleted or isolated.
+- Local/CI verification commands are documented.
+- Final workspace gates pass, and PostgreSQL opt-in gate evidence is recorded
+  or explicitly skipped because no PostgreSQL URL is available.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/postgresql-production-readiness/`.
+- Existing persistence ADRs:
+  `docs/adr/0029-postgresql-ready-persistence-boundary.md`;
+  `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`.
+- Starting proof:
+  `crates/taru-db/src/contract_tests.rs`;
+  `crates/taru-db/src/postgres.rs`;
+  `crates/taru-db/migrations/postgres/0001_contract_jobs.sql`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo check --workspace --tests`;
+  - `cargo nextest run --workspace --no-fail-fast`;
+  - `TARU_TEST_POSTGRES_URL=<local-test-url> cargo nextest run -p taru-db contract --run-ignored ignored-only --no-fail-fast`;
+  - `git diff --check`.
 
 ### M61: Future-Ready Architecture Refactor
 

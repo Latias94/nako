@@ -128,6 +128,7 @@ async fn router_with_media_source_config(
     fs::write(temp.path().join(file_name), content).unwrap();
     let library_id = LibraryId::new();
     let mut config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -214,6 +215,7 @@ async fn router_with_remux_source(
     fs::write(library_root.join("demo.mkv"), b"media").unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -289,6 +291,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Ta
     fs::write(library_root.join("demo.mkv"), b"media").unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -546,6 +549,7 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
 
 async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -578,6 +582,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
 
 async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, token: &str) -> Router {
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),

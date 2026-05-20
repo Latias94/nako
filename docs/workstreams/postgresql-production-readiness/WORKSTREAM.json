@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "slug": "postgresql-production-readiness",
+  "title": "PostgreSQL Production Readiness",
+  "status": "completed",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "M61 made Taru PostgreSQL-ready, but PostgreSQL is still a job-lease proof rather than a production-shaped backend selected by runtime configuration and proven by broad backend-neutral contracts.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/postgresql-production-readiness/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/postgresql-production-readiness/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/postgresql-production-readiness/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/postgresql-production-readiness/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/postgresql-production-readiness/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/postgresql-production-readiness/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-db --tests",
+    "cargo check -p taru-server --tests",
+    "cargo check --workspace --tests",
+    "cargo nextest run --workspace --no-fail-fast",
+    "TARU_TEST_POSTGRES_URL=<url> cargo nextest run -p taru-db contract --run-ignored ignored-only --no-fail-fast",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/postgresql-production-readiness/DESIGN.md",
+    "docs/workstreams/postgresql-production-readiness/TODO.md",
+    "docs/workstreams/postgresql-production-readiness/EVIDENCE_AND_GATES.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0029-postgresql-ready-persistence-boundary.md",
+    "docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md"
+  ],
+  "priority_order": [
+    "contract_test_matrix",
+    "schema_migration_parity",
+    "runtime_backend_selection",
+    "sqlite_assumption_cleanup",
+    "repeatable_verification"
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "M62 is complete for the supported PostgreSQL backend scope. Managed Artwork PostgreSQL parity is split to docs/workstreams/managed-artwork-postgresql-parity/ and must not be partially enabled under PostgreSQL until that follow-on proves parity. Future PostgreSQL CI/performance/operational hardening should be opened as a separate lane if prioritized."
+  }
+}

@@ -7,7 +7,11 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
+- Proposed follow-on workstream:
+  [Managed Artwork PostgreSQL parity](workstreams/managed-artwork-postgresql-parity/README.md)
 - Latest completed workstream:
+  [PostgreSQL production readiness](workstreams/postgresql-production-readiness/README.md)
+- Previous completed workstream:
   [Future-ready architecture refactor](workstreams/future-ready-architecture-refactor/README.md)
 - Previous completed workstream:
   [Admin catalog governance read model](workstreams/admin-catalog-governance-read-model/README.md)

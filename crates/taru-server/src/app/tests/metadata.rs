@@ -64,6 +64,7 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
         runtime: None,
     }];
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -141,6 +142,7 @@ async fn metadata_refresh_uses_reconciled_library_profile() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -235,6 +237,7 @@ async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
         runtime: None,
     }];
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -314,6 +317,7 @@ async fn background_metadata_refresh_job_uses_runtime_job_supervision() {
         runtime: None,
     }];
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -385,6 +389,7 @@ async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavaila
         runtime: None,
     }];
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -453,6 +458,7 @@ async fn metadata_refresh_resolves_provider_order_from_library_profile() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -515,6 +521,7 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -607,6 +614,7 @@ async fn metadata_maintenance_job_acknowledges_cancellation_before_next_item() {
     let control = BlockingBangumiControl::new();
     let provider_server = BlockingBangumiServer::start(control.clone()).await;
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -720,6 +728,7 @@ async fn metadata_lifecycle_config_maps_policy_and_cleans_raw_cache_on_startup()
     let library_id = LibraryId::new();
     let item_id = MediaItemId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -827,6 +836,7 @@ async fn metadata_raw_cache_cleanup_worker_is_supervised_and_stops_on_shutdown()
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -880,6 +890,7 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),
@@ -964,6 +975,7 @@ async fn metadata_refresh_requires_persisted_media_source_for_library_resolution
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = TaruServerConfig {
+        database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         auth: crate::config::AuthConfig::disabled(),

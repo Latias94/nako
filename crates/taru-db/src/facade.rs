@@ -1,25 +1,174 @@
+use std::sync::Arc;
+
 use taru_core::*;
 use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
-use crate::sqlite::{SqliteRuntimeOptions, SqliteStore};
+use crate::{
+    backend::{DatabaseBackendKind, DatabaseConnectOptions},
+    postgres::PostgresStore,
+    sqlite::SqliteStore,
+};
+
+trait DatabaseBackendAdapter:
+    AddonRepository
+    + AutomationRepository
+    + CatalogRepository
+    + CatalogGovernanceRepository
+    + IngestionFailureRepository
+    + JobRepository
+    + JobLeaseRepository
+    + EventOutboxRepository
+    + LibraryRepository
+    + LibraryItemRepository
+    + MediaRepository
+    + MediaProbeRepository
+    + ArtworkTaskRepository
+    + ArtworkCandidateRepository
+    + ManagedArtworkRepository
+    + MetadataRepository
+    + ProviderMappingRepository
+    + SourceDuplicateRepository
+    + LocalInferenceRepository
+    + ScanRepository
+    + DatabaseLifecycle
+    + TranscodeSessionRepository
+    + UserPlaybackStateRepository
+    + VfsCacheRepository
+    + StagingManifestRepository
+    + WebhookRepository
+    + SearchIndex
+    + std::fmt::Debug
+    + Send
+    + Sync
+{
+}
+
+impl<T> DatabaseBackendAdapter for T where
+    T: AddonRepository
+        + AutomationRepository
+        + CatalogRepository
+        + CatalogGovernanceRepository
+        + IngestionFailureRepository
+        + JobRepository
+        + JobLeaseRepository
+        + EventOutboxRepository
+        + LibraryRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + MediaProbeRepository
+        + ArtworkTaskRepository
+        + ArtworkCandidateRepository
+        + ManagedArtworkRepository
+        + MetadataRepository
+        + ProviderMappingRepository
+        + SourceDuplicateRepository
+        + LocalInferenceRepository
+        + ScanRepository
+        + DatabaseLifecycle
+        + TranscodeSessionRepository
+        + UserPlaybackStateRepository
+        + VfsCacheRepository
+        + StagingManifestRepository
+        + WebhookRepository
+        + SearchIndex
+        + std::fmt::Debug
+        + Send
+        + Sync
+{
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DatabaseBackendCapabilities {
+    pub lifecycle: bool,
+    pub libraries: bool,
+    pub jobs: bool,
+    pub job_leases: bool,
+    pub media: bool,
+    pub scan_commits: bool,
+    pub metadata: bool,
+    pub catalog: bool,
+    pub playback_state: bool,
+    pub transcode_sessions: bool,
+    pub event_outbox: bool,
+    pub addons: bool,
+    pub automation: bool,
+    pub managed_artwork: bool,
+    pub vfs_cache: bool,
+    pub webhooks: bool,
+    pub search_index: bool,
+}
+
+impl DatabaseBackendCapabilities {
+    #[must_use]
+    pub const fn production_ready() -> Self {
+        Self {
+            lifecycle: true,
+            libraries: true,
+            jobs: true,
+            job_leases: true,
+            media: true,
+            scan_commits: true,
+            metadata: true,
+            catalog: true,
+            playback_state: true,
+            transcode_sessions: true,
+            event_outbox: true,
+            addons: true,
+            automation: true,
+            managed_artwork: true,
+            vfs_cache: true,
+            webhooks: true,
+            search_index: true,
+        }
+    }
+
+    #[must_use]
+    pub const fn postgres_supported_scope() -> Self {
+        Self {
+            lifecycle: true,
+            libraries: true,
+            jobs: true,
+            job_leases: true,
+            media: true,
+            scan_commits: true,
+            metadata: true,
+            catalog: true,
+            playback_state: true,
+            transcode_sessions: true,
+            event_outbox: true,
+            addons: true,
+            automation: true,
+            managed_artwork: false,
+            vfs_cache: true,
+            webhooks: true,
+            search_index: true,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct TaruDatabase {
-    sqlite: SqliteStore,
+    backend: Arc<dyn DatabaseBackendAdapter>,
+    backend_kind: DatabaseBackendKind,
+    capabilities: DatabaseBackendCapabilities,
 }
 
 impl TaruDatabase {
-    pub async fn connect(database_url: &str) -> Result<Self> {
-        Ok(Self::from_sqlite(SqliteStore::connect(database_url).await?))
-    }
-
-    pub async fn connect_with_sqlite_runtime(
-        database_url: &str,
-        runtime: SqliteRuntimeOptions,
-    ) -> Result<Self> {
-        Ok(Self::from_sqlite(
-            SqliteStore::connect_with_runtime(database_url, runtime).await?,
-        ))
+    pub async fn connect_with_options(options: DatabaseConnectOptions) -> Result<Self> {
+        match options.backend {
+            DatabaseBackendKind::Sqlite => {
+                let sqlite = match options.sqlite_runtime {
+                    Some(runtime) => {
+                        SqliteStore::connect_with_runtime(&options.url, runtime).await?
+                    }
+                    None => SqliteStore::connect(&options.url).await?,
+                };
+                Ok(Self::from_sqlite(sqlite))
+            }
+            DatabaseBackendKind::Postgres => Ok(Self::from_postgres(
+                PostgresStore::connect(&options.url).await?,
+            )),
+        }
     }
 
     pub async fn connect_in_memory() -> Result<Self> {
@@ -27,12 +176,34 @@ impl TaruDatabase {
     }
 
     fn from_sqlite(sqlite: SqliteStore) -> Self {
-        Self { sqlite }
+        Self {
+            backend: Arc::new(sqlite),
+            backend_kind: DatabaseBackendKind::Sqlite,
+            capabilities: DatabaseBackendCapabilities::production_ready(),
+        }
+    }
+
+    fn from_postgres(postgres: PostgresStore) -> Self {
+        Self {
+            backend: Arc::new(postgres),
+            backend_kind: DatabaseBackendKind::Postgres,
+            capabilities: DatabaseBackendCapabilities::postgres_supported_scope(),
+        }
     }
 
     #[must_use]
-    pub(crate) fn sqlite(&self) -> &SqliteStore {
-        &self.sqlite
+    pub const fn backend_kind(&self) -> DatabaseBackendKind {
+        self.backend_kind
+    }
+
+    #[must_use]
+    pub const fn capabilities(&self) -> DatabaseBackendCapabilities {
+        self.capabilities
+    }
+
+    #[must_use]
+    fn backend(&self) -> &dyn DatabaseBackendAdapter {
+        self.backend.as_ref()
     }
 }
 
@@ -42,18 +213,18 @@ impl AddonRepository for TaruDatabase {
         &self,
         addon: NewAddonRegistration,
     ) -> Result<AddonRegistrationRecord> {
-        self.sqlite().upsert_addon_registration(addon).await
+        self.backend().upsert_addon_registration(addon).await
     }
 
     async fn get_addon_registration(&self, id: AddonId) -> Result<Option<AddonRegistrationRecord>> {
-        self.sqlite().get_addon_registration(id).await
+        self.backend().get_addon_registration(id).await
     }
 
     async fn find_addon_registration_by_manifest_id(
         &self,
         manifest_id: &str,
     ) -> Result<Option<AddonRegistrationRecord>> {
-        self.sqlite()
+        self.backend()
             .find_addon_registration_by_manifest_id(manifest_id)
             .await
     }
@@ -62,27 +233,27 @@ impl AddonRepository for TaruDatabase {
         &self,
         status: Option<AddonStatus>,
     ) -> Result<Vec<AddonRegistrationRecord>> {
-        self.sqlite().list_addon_registrations(status).await
+        self.backend().list_addon_registrations(status).await
     }
 
     async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord> {
-        self.sqlite().create_addon_token(token).await
+        self.backend().create_addon_token(token).await
     }
 
     async fn get_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
-        self.sqlite().get_addon_token(id).await
+        self.backend().get_addon_token(id).await
     }
 
     async fn find_addon_token_by_hash(&self, token_hash: &str) -> Result<Option<AddonTokenRecord>> {
-        self.sqlite().find_addon_token_by_hash(token_hash).await
+        self.backend().find_addon_token_by_hash(token_hash).await
     }
 
     async fn list_addon_tokens(&self, addon_id: AddonId) -> Result<Vec<AddonTokenRecord>> {
-        self.sqlite().list_addon_tokens(addon_id).await
+        self.backend().list_addon_tokens(addon_id).await
     }
 
     async fn mark_addon_token_used(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
-        self.sqlite().mark_addon_token_used(id).await
+        self.backend().mark_addon_token_used(id).await
     }
 
     async fn rotate_addon_token(
@@ -90,13 +261,13 @@ impl AddonRepository for TaruDatabase {
         rotated_token_id: AddonTokenId,
         new_token: NewAddonToken,
     ) -> Result<(AddonTokenRecord, AddonTokenRecord)> {
-        self.sqlite()
+        self.backend()
             .rotate_addon_token(rotated_token_id, new_token)
             .await
     }
 
     async fn revoke_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
-        self.sqlite().revoke_addon_token(id).await
+        self.backend().revoke_addon_token(id).await
     }
 
     async fn replace_addon_grants(
@@ -104,18 +275,18 @@ impl AddonRepository for TaruDatabase {
         addon_id: AddonId,
         grants: Vec<NewAddonGrant>,
     ) -> Result<Vec<AddonGrantRecord>> {
-        self.sqlite().replace_addon_grants(addon_id, grants).await
+        self.backend().replace_addon_grants(addon_id, grants).await
     }
 
     async fn list_addon_grants(&self, addon_id: AddonId) -> Result<Vec<AddonGrantRecord>> {
-        self.sqlite().list_addon_grants(addon_id).await
+        self.backend().list_addon_grants(addon_id).await
     }
 
     async fn create_addon_side_effect(
         &self,
         side_effect: NewAddonSideEffect,
     ) -> Result<AddonSideEffectRecord> {
-        self.sqlite().create_addon_side_effect(side_effect).await
+        self.backend().create_addon_side_effect(side_effect).await
     }
 
     async fn find_addon_side_effect_by_idempotency_key(
@@ -123,7 +294,7 @@ impl AddonRepository for TaruDatabase {
         addon_id: AddonId,
         idempotency_key: &str,
     ) -> Result<Option<AddonSideEffectRecord>> {
-        self.sqlite()
+        self.backend()
             .find_addon_side_effect_by_idempotency_key(addon_id, idempotency_key)
             .await
     }
@@ -133,7 +304,7 @@ impl AddonRepository for TaruDatabase {
         id: AddonSideEffectId,
         outcome: AddonSideEffectApplyOutcome,
     ) -> Result<AddonSideEffectRecord> {
-        self.sqlite()
+        self.backend()
             .set_addon_side_effect_apply_outcome(id, outcome)
             .await
     }
@@ -145,27 +316,27 @@ impl AutomationRepository for TaruDatabase {
         &self,
         provider: NewAutomationProviderConfig,
     ) -> Result<AutomationProviderConfigRecord> {
-        self.sqlite().upsert_automation_provider(provider).await
+        self.backend().upsert_automation_provider(provider).await
     }
 
     async fn get_automation_provider(
         &self,
         id: AutomationProviderId,
     ) -> Result<Option<AutomationProviderConfigRecord>> {
-        self.sqlite().get_automation_provider(id).await
+        self.backend().get_automation_provider(id).await
     }
 
     async fn list_enabled_automation_providers(
         &self,
     ) -> Result<Vec<AutomationProviderConfigRecord>> {
-        self.sqlite().list_enabled_automation_providers().await
+        self.backend().list_enabled_automation_providers().await
     }
 
     async fn create_automation_artifact(
         &self,
         artifact: NewAutomationArtifact,
     ) -> Result<AutomationArtifactRecord> {
-        self.sqlite().create_automation_artifact(artifact).await
+        self.backend().create_automation_artifact(artifact).await
     }
 
     async fn set_automation_artifact_status(
@@ -173,7 +344,7 @@ impl AutomationRepository for TaruDatabase {
         id: AutomationArtifactId,
         status: AutomationArtifactStatus,
     ) -> Result<AutomationArtifactRecord> {
-        self.sqlite()
+        self.backend()
             .set_automation_artifact_status(id, status)
             .await
     }
@@ -182,7 +353,7 @@ impl AutomationRepository for TaruDatabase {
         &self,
         job_id: JobId,
     ) -> Result<Vec<AutomationArtifactRecord>> {
-        self.sqlite()
+        self.backend()
             .list_automation_artifacts_for_job(job_id)
             .await
     }
@@ -192,7 +363,7 @@ impl AutomationRepository for TaruDatabase {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<AutomationArtifactRecord>> {
-        self.sqlite()
+        self.backend()
             .list_automation_artifacts_for_item(item_id, page)
             .await
     }
@@ -205,53 +376,53 @@ impl CatalogRepository for TaruDatabase {
         item_id: MediaItemId,
         replacement: &CatalogItemGraphReplacement,
     ) -> Result<()> {
-        self.sqlite()
+        self.backend()
             .replace_item_catalog_graph(item_id, replacement)
             .await
     }
 
     async fn commit_item_projection(&self, commit: &CatalogItemProjectionCommit) -> Result<()> {
-        self.sqlite().commit_item_projection(commit).await
+        self.backend().commit_item_projection(commit).await
     }
 
     async fn upsert_search_projection(&self, projection: &CatalogSearchProjection) -> Result<()> {
-        self.sqlite().upsert_search_projection(projection).await
+        self.backend().upsert_search_projection(projection).await
     }
 
     async fn upsert_person(&self, person: &Person) -> Result<()> {
-        self.sqlite().upsert_person(person).await
+        self.backend().upsert_person(person).await
     }
 
     async fn get_person(&self, id: PersonId) -> Result<Option<Person>> {
-        self.sqlite().get_person(id).await
+        self.backend().get_person(id).await
     }
 
     async fn find_person_by_external_id(&self, external_id: &ExternalId) -> Result<Option<Person>> {
-        self.sqlite().find_person_by_external_id(external_id).await
+        self.backend().find_person_by_external_id(external_id).await
     }
 
     async fn find_person_by_name(&self, name: &str) -> Result<Option<Person>> {
-        self.sqlite().find_person_by_name(name).await
+        self.backend().find_person_by_name(name).await
     }
 
     async fn list_people(&self, page: PageRequest) -> Result<Vec<Person>> {
-        self.sqlite().list_people(page).await
+        self.backend().list_people(page).await
     }
 
     async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()> {
-        self.sqlite().upsert_item_credit(credit).await
+        self.backend().upsert_item_credit(credit).await
     }
 
     async fn clear_item_credits(&self, item_id: MediaItemId) -> Result<()> {
-        self.sqlite().clear_item_credits(item_id).await
+        self.backend().clear_item_credits(item_id).await
     }
 
     async fn list_item_credits(&self, item_id: MediaItemId) -> Result<Vec<ItemCredit>> {
-        self.sqlite().list_item_credits(item_id).await
+        self.backend().list_item_credits(item_id).await
     }
 
     async fn list_person_credits(&self, person_id: PersonId) -> Result<Vec<ItemCredit>> {
-        self.sqlite().list_person_credits(person_id).await
+        self.backend().list_person_credits(person_id).await
     }
 
     async fn list_person_items(
@@ -259,15 +430,15 @@ impl CatalogRepository for TaruDatabase {
         person_id: PersonId,
         page: PageRequest,
     ) -> Result<Vec<MediaItem>> {
-        self.sqlite().list_person_items(person_id, page).await
+        self.backend().list_person_items(person_id, page).await
     }
 
     async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
-        self.sqlite().upsert_genre(genre).await
+        self.backend().upsert_genre(genre).await
     }
 
     async fn get_genre(&self, id: GenreId) -> Result<Option<Genre>> {
-        self.sqlite().get_genre(id).await
+        self.backend().get_genre(id).await
     }
 
     async fn find_genre_by_name_source(
@@ -275,23 +446,23 @@ impl CatalogRepository for TaruDatabase {
         name: &str,
         source: &MetadataSource,
     ) -> Result<Option<Genre>> {
-        self.sqlite().find_genre_by_name_source(name, source).await
+        self.backend().find_genre_by_name_source(name, source).await
     }
 
     async fn list_genres(&self, page: PageRequest) -> Result<Vec<Genre>> {
-        self.sqlite().list_genres(page).await
+        self.backend().list_genres(page).await
     }
 
     async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()> {
-        self.sqlite().upsert_item_genre(item_genre).await
+        self.backend().upsert_item_genre(item_genre).await
     }
 
     async fn clear_item_genres(&self, item_id: MediaItemId) -> Result<()> {
-        self.sqlite().clear_item_genres(item_id).await
+        self.backend().clear_item_genres(item_id).await
     }
 
     async fn list_item_genres(&self, item_id: MediaItemId) -> Result<Vec<ItemGenre>> {
-        self.sqlite().list_item_genres(item_id).await
+        self.backend().list_item_genres(item_id).await
     }
 
     async fn list_genre_items(
@@ -299,15 +470,15 @@ impl CatalogRepository for TaruDatabase {
         genre_id: GenreId,
         page: PageRequest,
     ) -> Result<Vec<MediaItem>> {
-        self.sqlite().list_genre_items(genre_id, page).await
+        self.backend().list_genre_items(genre_id, page).await
     }
 
     async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
-        self.sqlite().upsert_tag(tag).await
+        self.backend().upsert_tag(tag).await
     }
 
     async fn get_tag(&self, id: TagId) -> Result<Option<Tag>> {
-        self.sqlite().get_tag(id).await
+        self.backend().get_tag(id).await
     }
 
     async fn find_tag_by_name_source(
@@ -315,42 +486,42 @@ impl CatalogRepository for TaruDatabase {
         name: &str,
         source: &MetadataSource,
     ) -> Result<Option<Tag>> {
-        self.sqlite().find_tag_by_name_source(name, source).await
+        self.backend().find_tag_by_name_source(name, source).await
     }
 
     async fn list_tags(&self, page: PageRequest) -> Result<Vec<Tag>> {
-        self.sqlite().list_tags(page).await
+        self.backend().list_tags(page).await
     }
 
     async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()> {
-        self.sqlite().upsert_item_tag(item_tag).await
+        self.backend().upsert_item_tag(item_tag).await
     }
 
     async fn clear_item_tags(&self, item_id: MediaItemId) -> Result<()> {
-        self.sqlite().clear_item_tags(item_id).await
+        self.backend().clear_item_tags(item_id).await
     }
 
     async fn list_item_tags(&self, item_id: MediaItemId) -> Result<Vec<ItemTag>> {
-        self.sqlite().list_item_tags(item_id).await
+        self.backend().list_item_tags(item_id).await
     }
 
     async fn list_tag_items(&self, tag_id: TagId, page: PageRequest) -> Result<Vec<MediaItem>> {
-        self.sqlite().list_tag_items(tag_id, page).await
+        self.backend().list_tag_items(tag_id, page).await
     }
 
     async fn upsert_collection(&self, collection: &Collection) -> Result<()> {
-        self.sqlite().upsert_collection(collection).await
+        self.backend().upsert_collection(collection).await
     }
 
     async fn get_collection(&self, id: CollectionId) -> Result<Option<Collection>> {
-        self.sqlite().get_collection(id).await
+        self.backend().get_collection(id).await
     }
 
     async fn find_collection_by_external_id(
         &self,
         external_id: &ExternalId,
     ) -> Result<Option<Collection>> {
-        self.sqlite()
+        self.backend()
             .find_collection_by_external_id(external_id)
             .await
     }
@@ -360,44 +531,44 @@ impl CatalogRepository for TaruDatabase {
         name: &str,
         source: &MetadataSource,
     ) -> Result<Option<Collection>> {
-        self.sqlite()
+        self.backend()
             .find_collection_by_name_source(name, source)
             .await
     }
 
     async fn list_collections(&self, page: PageRequest) -> Result<Vec<Collection>> {
-        self.sqlite().list_collections(page).await
+        self.backend().list_collections(page).await
     }
 
     async fn upsert_collection_item(&self, item: &CollectionItem) -> Result<()> {
-        self.sqlite().upsert_collection_item(item).await
+        self.backend().upsert_collection_item(item).await
     }
 
     async fn clear_item_collections(&self, item_id: MediaItemId) -> Result<()> {
-        self.sqlite().clear_item_collections(item_id).await
+        self.backend().clear_item_collections(item_id).await
     }
 
     async fn list_item_collections(&self, item_id: MediaItemId) -> Result<Vec<CollectionItem>> {
-        self.sqlite().list_item_collections(item_id).await
+        self.backend().list_item_collections(item_id).await
     }
 
     async fn list_collection_items(
         &self,
         collection_id: CollectionId,
     ) -> Result<Vec<CollectionItem>> {
-        self.sqlite().list_collection_items(collection_id).await
+        self.backend().list_collection_items(collection_id).await
     }
 
     async fn upsert_studio(&self, studio: &Studio) -> Result<()> {
-        self.sqlite().upsert_studio(studio).await
+        self.backend().upsert_studio(studio).await
     }
 
     async fn get_studio(&self, id: StudioId) -> Result<Option<Studio>> {
-        self.sqlite().get_studio(id).await
+        self.backend().get_studio(id).await
     }
 
     async fn find_studio_by_external_id(&self, external_id: &ExternalId) -> Result<Option<Studio>> {
-        self.sqlite().find_studio_by_external_id(external_id).await
+        self.backend().find_studio_by_external_id(external_id).await
     }
 
     async fn find_studio_by_name_source(
@@ -405,31 +576,33 @@ impl CatalogRepository for TaruDatabase {
         name: &str,
         source: &MetadataSource,
     ) -> Result<Option<Studio>> {
-        self.sqlite().find_studio_by_name_source(name, source).await
+        self.backend()
+            .find_studio_by_name_source(name, source)
+            .await
     }
 
     async fn list_studios(&self, page: PageRequest) -> Result<Vec<Studio>> {
-        self.sqlite().list_studios(page).await
+        self.backend().list_studios(page).await
     }
 
     async fn upsert_item_studio(&self, item_studio: &ItemStudio) -> Result<()> {
-        self.sqlite().upsert_item_studio(item_studio).await
+        self.backend().upsert_item_studio(item_studio).await
     }
 
     async fn clear_item_studios(&self, item_id: MediaItemId) -> Result<()> {
-        self.sqlite().clear_item_studios(item_id).await
+        self.backend().clear_item_studios(item_id).await
     }
 
     async fn list_item_studios(&self, item_id: MediaItemId) -> Result<Vec<ItemStudio>> {
-        self.sqlite().list_item_studios(item_id).await
+        self.backend().list_item_studios(item_id).await
     }
 
     async fn upsert_image_asset(&self, image: &ImageAsset) -> Result<()> {
-        self.sqlite().upsert_image_asset(image).await
+        self.backend().upsert_image_asset(image).await
     }
 
     async fn get_image_asset(&self, id: ImageAssetId) -> Result<Option<ImageAsset>> {
-        self.sqlite().get_image_asset(id).await
+        self.backend().get_image_asset(id).await
     }
 
     async fn find_image_asset_by_source(
@@ -438,13 +611,13 @@ impl CatalogRepository for TaruDatabase {
         kind: &ImageKind,
         source_uri: &str,
     ) -> Result<Option<ImageAsset>> {
-        self.sqlite()
+        self.backend()
             .find_image_asset_by_source(owner, kind, source_uri)
             .await
     }
 
     async fn list_item_images(&self, item_id: MediaItemId) -> Result<Vec<ImageAsset>> {
-        self.sqlite().list_item_images(item_id).await
+        self.backend().list_item_images(item_id).await
     }
 }
 
@@ -455,7 +628,7 @@ impl CatalogGovernanceRepository for TaruDatabase {
         filter: CatalogGovernanceItemListFilter,
         page: PageRequest,
     ) -> Result<Vec<CatalogGovernanceItemRecord>> {
-        self.sqlite()
+        self.backend()
             .list_catalog_governance_items(filter, page)
             .await
     }
@@ -467,7 +640,7 @@ impl IngestionFailureRepository for TaruDatabase {
         &self,
         failure: NewIngestionFailure,
     ) -> Result<IngestionFailureRecord> {
-        self.sqlite().record_ingestion_failure(failure).await
+        self.backend().record_ingestion_failure(failure).await
     }
 
     async fn resolve_ingestion_failure(
@@ -477,7 +650,7 @@ impl IngestionFailureRepository for TaruDatabase {
         target_uri: &str,
         resolved_at_ms: i64,
     ) -> Result<Option<IngestionFailureRecord>> {
-        self.sqlite()
+        self.backend()
             .resolve_ingestion_failure(library_id, phase, target_uri, resolved_at_ms)
             .await
     }
@@ -489,7 +662,7 @@ impl IngestionFailureRepository for TaruDatabase {
         target_uri: &str,
         ignored_at_ms: i64,
     ) -> Result<Option<IngestionFailureRecord>> {
-        self.sqlite()
+        self.backend()
             .ignore_ingestion_failure(library_id, phase, target_uri, ignored_at_ms)
             .await
     }
@@ -499,7 +672,7 @@ impl IngestionFailureRepository for TaruDatabase {
         filter: IngestionFailureFilter,
         page: PageRequest,
     ) -> Result<Vec<IngestionFailureRecord>> {
-        self.sqlite().list_ingestion_failures(filter, page).await
+        self.backend().list_ingestion_failures(filter, page).await
     }
 
     async fn count_ingestion_failures(
@@ -508,7 +681,7 @@ impl IngestionFailureRepository for TaruDatabase {
         phase: Option<IngestionFailurePhase>,
         status: IngestionFailureStatus,
     ) -> Result<u64> {
-        self.sqlite()
+        self.backend()
             .count_ingestion_failures(library_id, phase, status)
             .await
     }
@@ -517,31 +690,31 @@ impl IngestionFailureRepository for TaruDatabase {
 #[async_trait::async_trait]
 impl JobRepository for TaruDatabase {
     async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
-        self.sqlite().enqueue_job(job).await
+        self.backend().enqueue_job(job).await
     }
 
     async fn start_job(&self, id: JobId) -> Result<Job> {
-        self.sqlite().start_job(id).await
+        self.backend().start_job(id).await
     }
 
     async fn succeed_job(&self, id: JobId, summary_json: Option<String>) -> Result<Job> {
-        self.sqlite().succeed_job(id, summary_json).await
+        self.backend().succeed_job(id, summary_json).await
     }
 
     async fn fail_job(&self, id: JobId, error: String) -> Result<Job> {
-        self.sqlite().fail_job(id, error).await
+        self.backend().fail_job(id, error).await
     }
 
     async fn fail_unfinished_jobs(&self, error: String) -> Result<u64> {
-        self.sqlite().fail_unfinished_jobs(error).await
+        self.backend().fail_unfinished_jobs(error).await
     }
 
     async fn get_job(&self, id: JobId) -> Result<Option<Job>> {
-        self.sqlite().get_job(id).await
+        self.backend().get_job(id).await
     }
 
     async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>> {
-        self.sqlite().list_jobs(filter, page).await
+        self.backend().list_jobs(filter, page).await
     }
 }
 
@@ -551,45 +724,45 @@ impl JobLeaseRepository for TaruDatabase {
         &self,
         request: JobLeaseClaimRequest,
     ) -> Result<Option<LeasedJob>> {
-        self.sqlite().claim_next_job_lease(request).await
+        self.backend().claim_next_job_lease(request).await
     }
 
     async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
-        self.sqlite().heartbeat_job_lease(heartbeat).await
+        self.backend().heartbeat_job_lease(heartbeat).await
     }
 
     async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job> {
-        self.sqlite().succeed_leased_job(completion).await
+        self.backend().succeed_leased_job(completion).await
     }
 
     async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job> {
-        self.sqlite().fail_leased_job(failure).await
+        self.backend().fail_leased_job(failure).await
     }
 
     async fn request_job_cancellation(
         &self,
         request: RequestJobCancellation,
     ) -> Result<JobCancellationRequestRecord> {
-        self.sqlite().request_job_cancellation(request).await
+        self.backend().request_job_cancellation(request).await
     }
 
     async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job> {
-        self.sqlite().cancel_leased_job(cancellation).await
+        self.backend().cancel_leased_job(cancellation).await
     }
 
     async fn recover_expired_job_leases(&self, recovery: RecoverExpiredJobLeases) -> Result<u64> {
-        self.sqlite().recover_expired_job_leases(recovery).await
+        self.backend().recover_expired_job_leases(recovery).await
     }
 }
 
 #[async_trait::async_trait]
 impl EventOutboxRepository for TaruDatabase {
     async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
-        self.sqlite().enqueue_outbox_event(event).await
+        self.backend().enqueue_outbox_event(event).await
     }
 
     async fn get_outbox_event(&self, id: EventId) -> Result<Option<OutboxEventRecord>> {
-        self.sqlite().get_outbox_event(id).await
+        self.backend().get_outbox_event(id).await
     }
 
     async fn find_outbox_event_by_idempotency_key(
@@ -597,7 +770,7 @@ impl EventOutboxRepository for TaruDatabase {
         kind: DomainEventKind,
         idempotency_key: &str,
     ) -> Result<Option<OutboxEventRecord>> {
-        self.sqlite()
+        self.backend()
             .find_outbox_event_by_idempotency_key(kind, idempotency_key)
             .await
     }
@@ -607,29 +780,29 @@ impl EventOutboxRepository for TaruDatabase {
         filter: OutboxEventListFilter,
         page: PageRequest,
     ) -> Result<Vec<OutboxEventRecord>> {
-        self.sqlite().list_outbox_events(filter, page).await
+        self.backend().list_outbox_events(filter, page).await
     }
 }
 
 #[async_trait::async_trait]
 impl LibraryRepository for TaruDatabase {
     async fn upsert_library(&self, library: &Library) -> Result<()> {
-        self.sqlite().upsert_library(library).await
+        self.backend().upsert_library(library).await
     }
 
     async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
-        self.sqlite().get_library(id).await
+        self.backend().get_library(id).await
     }
 
     async fn list_libraries(&self, page: PageRequest) -> Result<Vec<Library>> {
-        self.sqlite().list_libraries(page).await
+        self.backend().list_libraries(page).await
     }
 }
 
 #[async_trait::async_trait]
 impl LibraryItemRepository for TaruDatabase {
     async fn upsert_library_item_state(&self, state: &LibraryItemState) -> Result<()> {
-        self.sqlite().upsert_library_item_state(state).await
+        self.backend().upsert_library_item_state(state).await
     }
 
     async fn get_library_item_state(
@@ -637,7 +810,7 @@ impl LibraryItemRepository for TaruDatabase {
         library_id: LibraryId,
         item_id: MediaItemId,
     ) -> Result<Option<LibraryItemState>> {
-        self.sqlite()
+        self.backend()
             .get_library_item_state(library_id, item_id)
             .await
     }
@@ -646,7 +819,7 @@ impl LibraryItemRepository for TaruDatabase {
         &self,
         item_id: MediaItemId,
     ) -> Result<Vec<LibraryItemState>> {
-        self.sqlite()
+        self.backend()
             .list_library_item_states_for_item(item_id)
             .await
     }
@@ -658,7 +831,7 @@ impl LibraryItemRepository for TaruDatabase {
         parent_id: Option<MediaItemId>,
         title: &str,
     ) -> Result<Option<MediaItem>> {
-        self.sqlite()
+        self.backend()
             .find_library_item_by_kind_parent_title(library_id, kind, parent_id, title)
             .await
     }
@@ -667,15 +840,15 @@ impl LibraryItemRepository for TaruDatabase {
 #[async_trait::async_trait]
 impl MediaRepository for TaruDatabase {
     async fn upsert_media_item(&self, item: &MediaItem) -> Result<()> {
-        self.sqlite().upsert_media_item(item).await
+        self.backend().upsert_media_item(item).await
     }
 
     async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
-        self.sqlite().get_media_item(id).await
+        self.backend().get_media_item(id).await
     }
 
     async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>> {
-        self.sqlite().list_media_items(page).await
+        self.backend().list_media_items(page).await
     }
 
     async fn list_media_items_for_library(
@@ -683,17 +856,17 @@ impl MediaRepository for TaruDatabase {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<MediaItem>> {
-        self.sqlite()
+        self.backend()
             .list_media_items_for_library(library_id, page)
             .await
     }
 
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
-        self.sqlite().upsert_media_source(source).await
+        self.backend().upsert_media_source(source).await
     }
 
     async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
-        self.sqlite().get_media_source(id).await
+        self.backend().get_media_source(id).await
     }
 
     async fn get_media_source_by_locator(
@@ -701,7 +874,7 @@ impl MediaRepository for TaruDatabase {
         library_id: LibraryId,
         locator: &str,
     ) -> Result<Option<MediaSource>> {
-        self.sqlite()
+        self.backend()
             .get_media_source_by_locator(library_id, locator)
             .await
     }
@@ -711,7 +884,7 @@ impl MediaRepository for TaruDatabase {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<MediaSource>> {
-        self.sqlite().list_item_sources(item_id, page).await
+        self.backend().list_item_sources(item_id, page).await
     }
 
     async fn list_media_sources(
@@ -719,7 +892,7 @@ impl MediaRepository for TaruDatabase {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<MediaSource>> {
-        self.sqlite().list_media_sources(library_id, page).await
+        self.backend().list_media_sources(library_id, page).await
     }
 }
 
@@ -730,26 +903,26 @@ impl MediaProbeRepository for TaruDatabase {
         source_id: MediaSourceId,
         result: &MediaProbeResult,
     ) -> Result<()> {
-        self.sqlite().upsert_media_probe(source_id, result).await
+        self.backend().upsert_media_probe(source_id, result).await
     }
 
     async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>> {
-        self.sqlite().get_media_probe(source_id).await
+        self.backend().get_media_probe(source_id).await
     }
 }
 
 #[async_trait::async_trait]
 impl ArtworkTaskRepository for TaruDatabase {
     async fn enqueue_artwork_task(&self, task: &ArtworkTask) -> Result<()> {
-        self.sqlite().enqueue_artwork_task(task).await
+        self.backend().enqueue_artwork_task(task).await
     }
 
     async fn get_artwork_task(&self, id: ArtworkTaskId) -> Result<Option<ArtworkTask>> {
-        self.sqlite().get_artwork_task(id).await
+        self.backend().get_artwork_task(id).await
     }
 
     async fn list_artwork_tasks(&self, page: PageRequest) -> Result<Vec<ArtworkTask>> {
-        self.sqlite().list_artwork_tasks(page).await
+        self.backend().list_artwork_tasks(page).await
     }
 }
 
@@ -759,14 +932,14 @@ impl ArtworkCandidateRepository for TaruDatabase {
         &self,
         candidate: NewArtworkCandidate,
     ) -> Result<ArtworkCandidateRecord> {
-        self.sqlite().create_artwork_candidate(candidate).await
+        self.backend().create_artwork_candidate(candidate).await
     }
 
     async fn get_artwork_candidate(
         &self,
         id: ArtworkCandidateId,
     ) -> Result<Option<ArtworkCandidateRecord>> {
-        self.sqlite().get_artwork_candidate(id).await
+        self.backend().get_artwork_candidate(id).await
     }
 
     async fn set_artwork_candidate_status(
@@ -774,7 +947,9 @@ impl ArtworkCandidateRepository for TaruDatabase {
         id: ArtworkCandidateId,
         status: ArtworkCandidateStatus,
     ) -> Result<ArtworkCandidateRecord> {
-        self.sqlite().set_artwork_candidate_status(id, status).await
+        self.backend()
+            .set_artwork_candidate_status(id, status)
+            .await
     }
 
     async fn find_artwork_candidate_by_source(
@@ -786,7 +961,7 @@ impl ArtworkCandidateRepository for TaruDatabase {
         source_kind: ArtworkCandidateSourceKind,
         source_uri: &str,
     ) -> Result<Option<ArtworkCandidateRecord>> {
-        self.sqlite()
+        self.backend()
             .find_artwork_candidate_by_source(
                 addon_id,
                 library_id,
@@ -803,7 +978,7 @@ impl ArtworkCandidateRepository for TaruDatabase {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<ArtworkCandidateRecord>> {
-        self.sqlite()
+        self.backend()
             .list_artwork_candidates_for_item(item_id, page)
             .await
     }
@@ -817,7 +992,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         ingest: NewManagedArtworkIngest,
         job: NewJob,
     ) -> Result<ManagedArtworkAcceptanceRecord> {
-        self.sqlite()
+        self.backend()
             .accept_managed_artwork_candidate_ingest(candidate_id, ingest, job)
             .await
     }
@@ -826,14 +1001,14 @@ impl ManagedArtworkRepository for TaruDatabase {
         &self,
         id: ManagedArtworkIngestId,
     ) -> Result<Option<ManagedArtworkIngestRecord>> {
-        self.sqlite().get_managed_artwork_ingest(id).await
+        self.backend().get_managed_artwork_ingest(id).await
     }
 
     async fn find_managed_artwork_ingest_by_candidate(
         &self,
         candidate_id: ArtworkCandidateId,
     ) -> Result<Option<ManagedArtworkIngestRecord>> {
-        self.sqlite()
+        self.backend()
             .find_managed_artwork_ingest_by_candidate(candidate_id)
             .await
     }
@@ -841,7 +1016,7 @@ impl ManagedArtworkRepository for TaruDatabase {
     async fn claim_next_queued_managed_artwork_ingest(
         &self,
     ) -> Result<Option<ManagedArtworkIngestClaimRecord>> {
-        self.sqlite()
+        self.backend()
             .claim_next_queued_managed_artwork_ingest()
             .await
     }
@@ -852,7 +1027,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         artifact: NewManagedArtworkArtifact,
         job_summary_json: Option<String>,
     ) -> Result<ManagedArtworkIngestProcessingRecord> {
-        self.sqlite()
+        self.backend()
             .commit_managed_artwork_artifact(ingest_id, artifact, job_summary_json)
             .await
     }
@@ -864,7 +1039,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         job_error: String,
         job_summary_json: Option<String>,
     ) -> Result<ManagedArtworkIngestProcessingRecord> {
-        self.sqlite()
+        self.backend()
             .fail_managed_artwork_ingest(ingest_id, failure_code, job_error, job_summary_json)
             .await
     }
@@ -875,7 +1050,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         job_error: String,
         job_summary_json: Option<String>,
     ) -> Result<u64> {
-        self.sqlite()
+        self.backend()
             .fail_unfinished_managed_artwork_ingests(failure_code, job_error, job_summary_json)
             .await
     }
@@ -884,7 +1059,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         &self,
         ingest_id: ManagedArtworkIngestId,
     ) -> Result<ManagedArtworkIngestRequeueRecord> {
-        self.sqlite()
+        self.backend()
             .requeue_managed_artwork_ingest(ingest_id)
             .await
     }
@@ -893,14 +1068,14 @@ impl ManagedArtworkRepository for TaruDatabase {
         &self,
         id: ManagedArtworkArtifactId,
     ) -> Result<Option<ManagedArtworkArtifactRecord>> {
-        self.sqlite().get_managed_artwork_artifact(id).await
+        self.backend().get_managed_artwork_artifact(id).await
     }
 
     async fn publish_selected_artwork(
         &self,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<SelectedArtworkPublicationRecord> {
-        self.sqlite().publish_selected_artwork(artifact_id).await
+        self.backend().publish_selected_artwork(artifact_id).await
     }
 
     async fn publish_selected_artwork_for_item_kind(
@@ -909,7 +1084,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         kind: ImageKind,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<SelectedArtworkPublicationRecord> {
-        self.sqlite()
+        self.backend()
             .publish_selected_artwork_for_item_kind(item_id, kind, artifact_id)
             .await
     }
@@ -919,7 +1094,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         item_id: MediaItemId,
         kind: ImageKind,
     ) -> Result<SelectedArtworkUnpublicationRecord> {
-        self.sqlite()
+        self.backend()
             .unpublish_selected_artwork_for_item_kind(item_id, kind)
             .await
     }
@@ -928,14 +1103,14 @@ impl ManagedArtworkRepository for TaruDatabase {
         &self,
         id: SelectedArtworkId,
     ) -> Result<Option<SelectedArtworkRecord>> {
-        self.sqlite().get_selected_artwork(id).await
+        self.backend().get_selected_artwork(id).await
     }
 
     async fn list_selected_artwork_for_item(
         &self,
         item_id: MediaItemId,
     ) -> Result<Vec<SelectedArtworkRecord>> {
-        self.sqlite().list_selected_artwork_for_item(item_id).await
+        self.backend().list_selected_artwork_for_item(item_id).await
     }
 
     async fn get_managed_artwork_gallery_for_item(
@@ -943,7 +1118,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<ManagedArtworkGallerySnapshot> {
-        self.sqlite()
+        self.backend()
             .get_managed_artwork_gallery_for_item(item_id, page)
             .await
     }
@@ -953,7 +1128,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         filter: ManagedArtworkArtifactLifecycleFilter,
         page: PageRequest,
     ) -> Result<ManagedArtworkArtifactLifecycleSnapshot> {
-        self.sqlite()
+        self.backend()
             .list_managed_artwork_artifact_lifecycle(filter, page)
             .await
     }
@@ -962,7 +1137,7 @@ impl ManagedArtworkRepository for TaruDatabase {
         &self,
         page: PageRequest,
     ) -> Result<ManagedArtworkArtifactCleanupReport> {
-        self.sqlite()
+        self.backend()
             .cleanup_unselected_managed_artwork_artifacts(page)
             .await
     }
@@ -971,33 +1146,33 @@ impl ManagedArtworkRepository for TaruDatabase {
 #[async_trait::async_trait]
 impl MetadataRepository for TaruDatabase {
     async fn upsert_field_lock(&self, lock: &MetadataFieldLock) -> Result<()> {
-        self.sqlite().upsert_field_lock(lock).await
+        self.backend().upsert_field_lock(lock).await
     }
 
     async fn list_field_locks(&self, item_id: MediaItemId) -> Result<Vec<MetadataFieldLock>> {
-        self.sqlite().list_field_locks(item_id).await
+        self.backend().list_field_locks(item_id).await
     }
 
     async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()> {
-        self.sqlite().upsert_provider_raw_response(response).await
+        self.backend().upsert_provider_raw_response(response).await
     }
 
     async fn commit_metadata_refresh(
         &self,
         commit: &MetadataRefreshPersistenceCommit,
     ) -> Result<MetadataRefreshPersistenceSummary> {
-        self.sqlite().commit_metadata_refresh(commit).await
+        self.backend().commit_metadata_refresh(commit).await
     }
 
     async fn commit_nfo_import(
         &self,
         commit: &NfoImportPersistenceCommit,
     ) -> Result<NfoImportPersistenceSummary> {
-        self.sqlite().commit_nfo_import(commit).await
+        self.backend().commit_nfo_import(commit).await
     }
 
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
-        self.sqlite().commit_metadata_item(item).await
+        self.backend().commit_metadata_item(item).await
     }
 
     async fn get_provider_raw_response(
@@ -1006,7 +1181,7 @@ impl MetadataRepository for TaruDatabase {
         provider: &ExternalProvider,
         provider_key: &str,
     ) -> Result<Option<ProviderRawResponse>> {
-        self.sqlite()
+        self.backend()
             .get_provider_raw_response(item_id, provider, provider_key)
             .await
     }
@@ -1017,7 +1192,7 @@ impl MetadataRepository for TaruDatabase {
         filter: ProviderRawResponseFilter,
         page: PageRequest,
     ) -> Result<Vec<ProviderRawResponse>> {
-        self.sqlite()
+        self.backend()
             .list_provider_raw_responses(item_id, filter, page)
             .await
     }
@@ -1027,7 +1202,7 @@ impl MetadataRepository for TaruDatabase {
         filter: ProviderRawResponseFilter,
         fetched_before: &str,
     ) -> Result<ProviderRawResponseCleanup> {
-        self.sqlite()
+        self.backend()
             .cleanup_provider_raw_responses(filter, fetched_before)
             .await
     }
@@ -1036,7 +1211,7 @@ impl MetadataRepository for TaruDatabase {
         &self,
         attempt: NewMetadataProviderAttempt,
     ) -> Result<()> {
-        self.sqlite()
+        self.backend()
             .insert_metadata_provider_attempt(attempt)
             .await
     }
@@ -1045,7 +1220,7 @@ impl MetadataRepository for TaruDatabase {
         &self,
         job_id: JobId,
     ) -> Result<Vec<MetadataProviderAttemptRecord>> {
-        self.sqlite().list_metadata_provider_attempts(job_id).await
+        self.backend().list_metadata_provider_attempts(job_id).await
     }
 
     async fn list_metadata_provider_attempts_for_item(
@@ -1054,7 +1229,7 @@ impl MetadataRepository for TaruDatabase {
         filter: MetadataAttemptFilter,
         page: PageRequest,
     ) -> Result<Vec<MetadataProviderAttemptRecord>> {
-        self.sqlite()
+        self.backend()
             .list_metadata_provider_attempts_for_item(item_id, filter, page)
             .await
     }
@@ -1063,11 +1238,11 @@ impl MetadataRepository for TaruDatabase {
 #[async_trait::async_trait]
 impl ProviderMappingRepository for TaruDatabase {
     async fn upsert_provider_subject(&self, subject: &ProviderSubject) -> Result<()> {
-        self.sqlite().upsert_provider_subject(subject).await
+        self.backend().upsert_provider_subject(subject).await
     }
 
     async fn get_provider_subject(&self, id: ProviderSubjectId) -> Result<Option<ProviderSubject>> {
-        self.sqlite().get_provider_subject(id).await
+        self.backend().get_provider_subject(id).await
     }
 
     async fn find_provider_subject(
@@ -1076,7 +1251,7 @@ impl ProviderMappingRepository for TaruDatabase {
         subject_kind: &ProviderSubjectKind,
         subject_key: &str,
     ) -> Result<Option<ProviderSubject>> {
-        self.sqlite()
+        self.backend()
             .find_provider_subject(provider, subject_kind, subject_key)
             .await
     }
@@ -1086,13 +1261,13 @@ impl ProviderMappingRepository for TaruDatabase {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<ProviderSubject>> {
-        self.sqlite()
+        self.backend()
             .list_provider_subjects_for_item(item_id, page)
             .await
     }
 
     async fn upsert_provider_mapping(&self, mapping: &ProviderMapping) -> Result<()> {
-        self.sqlite().upsert_provider_mapping(mapping).await
+        self.backend().upsert_provider_mapping(mapping).await
     }
 
     async fn list_provider_mappings_for_item(
@@ -1100,7 +1275,7 @@ impl ProviderMappingRepository for TaruDatabase {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<ProviderMapping>> {
-        self.sqlite()
+        self.backend()
             .list_provider_mappings_for_item(item_id, page)
             .await
     }
@@ -1112,7 +1287,7 @@ impl SourceDuplicateRepository for TaruDatabase {
         &self,
         relationship: &SourceDuplicateRelationship,
     ) -> Result<()> {
-        self.sqlite()
+        self.backend()
             .upsert_source_duplicate_relationship(relationship)
             .await
     }
@@ -1121,7 +1296,7 @@ impl SourceDuplicateRepository for TaruDatabase {
         &self,
         id: SourceDuplicateRelationshipId,
     ) -> Result<Option<SourceDuplicateRelationship>> {
-        self.sqlite().get_source_duplicate_relationship(id).await
+        self.backend().get_source_duplicate_relationship(id).await
     }
 
     async fn list_source_duplicate_relationships(
@@ -1129,7 +1304,7 @@ impl SourceDuplicateRepository for TaruDatabase {
         source_id: MediaSourceId,
         page: PageRequest,
     ) -> Result<Vec<SourceDuplicateRelationship>> {
-        self.sqlite()
+        self.backend()
             .list_source_duplicate_relationships(source_id, page)
             .await
     }
@@ -1141,7 +1316,7 @@ impl LocalInferenceRepository for TaruDatabase {
         &self,
         evidence: &LocalInferenceEvidence,
     ) -> Result<()> {
-        self.sqlite()
+        self.backend()
             .upsert_local_inference_evidence(evidence)
             .await
     }
@@ -1150,7 +1325,7 @@ impl LocalInferenceRepository for TaruDatabase {
         &self,
         id: LocalInferenceEvidenceId,
     ) -> Result<Option<LocalInferenceEvidence>> {
-        self.sqlite().get_local_inference_evidence(id).await
+        self.backend().get_local_inference_evidence(id).await
     }
 
     async fn list_local_inference_evidence_for_source(
@@ -1158,7 +1333,7 @@ impl LocalInferenceRepository for TaruDatabase {
         source_id: MediaSourceId,
         page: PageRequest,
     ) -> Result<Vec<LocalInferenceEvidence>> {
-        self.sqlite()
+        self.backend()
             .list_local_inference_evidence_for_source(source_id, page)
             .await
     }
@@ -1172,7 +1347,7 @@ impl ScanRepository for TaruDatabase {
         library_id: LibraryId,
         root: &str,
     ) -> Result<ScanSnapshot> {
-        self.sqlite()
+        self.backend()
             .begin_scan_snapshot(id, library_id, root)
             .await
     }
@@ -1183,35 +1358,35 @@ impl ScanRepository for TaruDatabase {
         status: ScanStatus,
         error: Option<String>,
     ) -> Result<ScanSnapshot> {
-        self.sqlite()
+        self.backend()
             .complete_scan_snapshot(id, status, error)
             .await
     }
 
     async fn get_scan_snapshot(&self, id: ScanSnapshotId) -> Result<Option<ScanSnapshot>> {
-        self.sqlite().get_scan_snapshot(id).await
+        self.backend().get_scan_snapshot(id).await
     }
 
     async fn upsert_directory_snapshot(&self, snapshot: &DirectorySnapshot) -> Result<()> {
-        self.sqlite().upsert_directory_snapshot(snapshot).await
+        self.backend().upsert_directory_snapshot(snapshot).await
     }
 
     async fn list_directory_snapshots(
         &self,
         scan_id: ScanSnapshotId,
     ) -> Result<Vec<DirectorySnapshot>> {
-        self.sqlite().list_directory_snapshots(scan_id).await
+        self.backend().list_directory_snapshots(scan_id).await
     }
 
     async fn upsert_source_state(&self, state: &SourceState) -> Result<()> {
-        self.sqlite().upsert_source_state(state).await
+        self.backend().upsert_source_state(state).await
     }
 
     async fn commit_library_scan_source(
         &self,
         commit: &LibraryScanSourcePersistenceCommit,
     ) -> Result<LibraryScanSourcePersistenceSummary> {
-        self.sqlite().commit_library_scan_source(commit).await
+        self.backend().commit_library_scan_source(commit).await
     }
 
     async fn get_source_state(
@@ -1219,7 +1394,7 @@ impl ScanRepository for TaruDatabase {
         library_id: LibraryId,
         uri: &str,
     ) -> Result<Option<SourceState>> {
-        self.sqlite().get_source_state(library_id, uri).await
+        self.backend().get_source_state(library_id, uri).await
     }
 
     async fn list_source_states(
@@ -1227,14 +1402,14 @@ impl ScanRepository for TaruDatabase {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<SourceState>> {
-        self.sqlite().list_source_states(library_id, page).await
+        self.backend().list_source_states(library_id, page).await
     }
 }
 
 #[async_trait::async_trait]
 impl DatabaseLifecycle for TaruDatabase {
     async fn migrate(&self) -> Result<()> {
-        self.sqlite().migrate().await
+        self.backend().migrate().await
     }
 }
 
@@ -1244,14 +1419,14 @@ impl TranscodeSessionRepository for TaruDatabase {
         &self,
         session: NewTranscodeSession,
     ) -> Result<TranscodeSessionRecord> {
-        self.sqlite().create_transcode_session(session).await
+        self.backend().create_transcode_session(session).await
     }
 
     async fn get_transcode_session(
         &self,
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>> {
-        self.sqlite().get_transcode_session(id).await
+        self.backend().get_transcode_session(id).await
     }
 
     async fn list_transcode_sessions(
@@ -1259,7 +1434,7 @@ impl TranscodeSessionRepository for TaruDatabase {
         filter: TranscodeSessionListFilter,
         page: PageRequest,
     ) -> Result<Vec<TranscodeSessionRecord>> {
-        self.sqlite().list_transcode_sessions(filter, page).await
+        self.backend().list_transcode_sessions(filter, page).await
     }
 
     async fn find_latest_transcode_session(
@@ -1268,7 +1443,7 @@ impl TranscodeSessionRepository for TaruDatabase {
         kind: TranscodeSessionKind,
         request_key: &str,
     ) -> Result<Option<TranscodeSessionRecord>> {
-        self.sqlite()
+        self.backend()
             .find_latest_transcode_session(source_id, kind, request_key)
             .await
     }
@@ -1279,7 +1454,7 @@ impl TranscodeSessionRepository for TaruDatabase {
         kind: TranscodeSessionKind,
         request_key: &str,
     ) -> Result<Option<TranscodeSessionRecord>> {
-        self.sqlite()
+        self.backend()
             .find_active_transcode_session(source_id, kind, request_key)
             .await
     }
@@ -1291,7 +1466,7 @@ impl TranscodeSessionRepository for TaruDatabase {
         failure_category: Option<TranscodeFailureCategory>,
         failure_message: Option<String>,
     ) -> Result<TranscodeSessionRecord> {
-        self.sqlite()
+        self.backend()
             .set_transcode_session_state(id, state, failure_category, failure_message)
             .await
     }
@@ -1301,7 +1476,7 @@ impl TranscodeSessionRepository for TaruDatabase {
         id: TranscodeSessionId,
         failure_message: String,
     ) -> Result<Option<TranscodeSessionRecord>> {
-        self.sqlite()
+        self.backend()
             .request_transcode_session_cancellation(id, failure_message)
             .await
     }
@@ -1311,7 +1486,7 @@ impl TranscodeSessionRepository for TaruDatabase {
         failure_category: TranscodeFailureCategory,
         failure_message: String,
     ) -> Result<u64> {
-        self.sqlite()
+        self.backend()
             .fail_stale_transcode_sessions(failure_category, failure_message)
             .await
     }
@@ -1323,7 +1498,7 @@ impl UserPlaybackStateRepository for TaruDatabase {
         &self,
         state: UserPlaybackStateWrite,
     ) -> Result<UserPlaybackState> {
-        self.sqlite().upsert_user_playback_state(state).await
+        self.backend().upsert_user_playback_state(state).await
     }
 
     async fn get_user_playback_state(
@@ -1331,7 +1506,7 @@ impl UserPlaybackStateRepository for TaruDatabase {
         principal_id: &UserPrincipalId,
         item_id: MediaItemId,
     ) -> Result<Option<UserPlaybackState>> {
-        self.sqlite()
+        self.backend()
             .get_user_playback_state(principal_id, item_id)
             .await
     }
@@ -1341,7 +1516,7 @@ impl UserPlaybackStateRepository for TaruDatabase {
         principal_id: &UserPrincipalId,
         page: PageRequest,
     ) -> Result<Vec<UserPlaybackState>> {
-        self.sqlite()
+        self.backend()
             .list_continue_watching_states(principal_id, page)
             .await
     }
@@ -1350,26 +1525,26 @@ impl UserPlaybackStateRepository for TaruDatabase {
 #[async_trait::async_trait]
 impl VfsCacheRepository for TaruDatabase {
     async fn upsert_vfs_cache_object(&self, object: &VfsCachedObject) -> Result<()> {
-        self.sqlite().upsert_vfs_cache_object(object).await
+        self.backend().upsert_vfs_cache_object(object).await
     }
 
     async fn upsert_vfs_cache_listing(&self, listing: &VfsCachedListing) -> Result<()> {
-        self.sqlite().upsert_vfs_cache_listing(listing).await
+        self.backend().upsert_vfs_cache_listing(listing).await
     }
 
     async fn get_vfs_cache_object(&self, uri: &str) -> Result<Option<VfsCachedObject>> {
-        self.sqlite().get_vfs_cache_object(uri).await
+        self.backend().get_vfs_cache_object(uri).await
     }
 
     async fn get_vfs_cache_listing(&self, uri: &str) -> Result<Option<VfsCachedListing>> {
-        self.sqlite().get_vfs_cache_listing(uri).await
+        self.backend().get_vfs_cache_listing(uri).await
     }
 
     async fn record_vfs_cache_failure(
         &self,
         failure: NewVfsCacheFailure,
     ) -> Result<VfsCacheFailure> {
-        self.sqlite().record_vfs_cache_failure(failure).await
+        self.backend().record_vfs_cache_failure(failure).await
     }
 
     async fn get_vfs_cache_failure(
@@ -1377,11 +1552,11 @@ impl VfsCacheRepository for TaruDatabase {
         uri: &str,
         operation: VfsCacheOperation,
     ) -> Result<Option<VfsCacheFailure>> {
-        self.sqlite().get_vfs_cache_failure(uri, operation).await
+        self.backend().get_vfs_cache_failure(uri, operation).await
     }
 
     async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
-        self.sqlite().summarize_vfs_cache(now_ms).await
+        self.backend().summarize_vfs_cache(now_ms).await
     }
 }
 
@@ -1391,7 +1566,7 @@ impl StagingManifestRepository for TaruDatabase {
         &self,
         record: NewStagingManifestRecord,
     ) -> Result<StagingManifestRecord> {
-        self.sqlite().upsert_staging_manifest_record(record).await
+        self.backend().upsert_staging_manifest_record(record).await
     }
 
     async fn reserve_staging_manifest_record(
@@ -1400,7 +1575,7 @@ impl StagingManifestRepository for TaruDatabase {
         max_total_bytes: u64,
         now_ms: i64,
     ) -> Result<StagingManifestRecord> {
-        self.sqlite()
+        self.backend()
             .reserve_staging_manifest_record(record, max_total_bytes, now_ms)
             .await
     }
@@ -1410,7 +1585,7 @@ impl StagingManifestRepository for TaruDatabase {
         id: StagingManifestId,
         started_at_ms: i64,
     ) -> Result<StagingManifestRecord> {
-        self.sqlite()
+        self.backend()
             .start_staging_manifest_record(id, started_at_ms)
             .await
     }
@@ -1419,7 +1594,9 @@ impl StagingManifestRepository for TaruDatabase {
         &self,
         record: NewStagingManifestRecord,
     ) -> Result<StagingManifestRecord> {
-        self.sqlite().complete_staging_manifest_record(record).await
+        self.backend()
+            .complete_staging_manifest_record(record)
+            .await
     }
 
     async fn fail_staging_manifest_record(
@@ -1428,7 +1605,7 @@ impl StagingManifestRepository for TaruDatabase {
         failed_at_ms: i64,
         validation_error: String,
     ) -> Result<Option<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .fail_staging_manifest_record(id, failed_at_ms, validation_error)
             .await
     }
@@ -1438,7 +1615,7 @@ impl StagingManifestRepository for TaruDatabase {
         id: StagingManifestId,
         expired_at_ms: i64,
     ) -> Result<Option<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .expire_staging_manifest_record(id, expired_at_ms)
             .await
     }
@@ -1448,7 +1625,7 @@ impl StagingManifestRepository for TaruDatabase {
         id: StagingManifestId,
         deleted_at_ms: i64,
     ) -> Result<Option<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .mark_deleted_staging_manifest_record(id, deleted_at_ms)
             .await
     }
@@ -1458,7 +1635,7 @@ impl StagingManifestRepository for TaruDatabase {
         id: StagingManifestId,
         leased_at_ms: i64,
     ) -> Result<StagingManifestRecord> {
-        self.sqlite()
+        self.backend()
             .acquire_staging_manifest_lease(id, leased_at_ms)
             .await
     }
@@ -1468,7 +1645,7 @@ impl StagingManifestRepository for TaruDatabase {
         id: StagingManifestId,
         released_at_ms: i64,
     ) -> Result<StagingManifestRecord> {
-        self.sqlite()
+        self.backend()
             .release_staging_manifest_lease(id, released_at_ms)
             .await
     }
@@ -1477,14 +1654,14 @@ impl StagingManifestRepository for TaruDatabase {
         &self,
         id: StagingManifestId,
     ) -> Result<Option<StagingManifestRecord>> {
-        self.sqlite().get_staging_manifest_record(id).await
+        self.backend().get_staging_manifest_record(id).await
     }
 
     async fn find_staging_manifest_record_by_path(
         &self,
         local_path: &str,
     ) -> Result<Option<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .find_staging_manifest_record_by_path(local_path)
             .await
     }
@@ -1495,7 +1672,7 @@ impl StagingManifestRepository for TaruDatabase {
         state: Option<StagingState>,
         page: PageRequest,
     ) -> Result<Vec<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .list_staging_manifest_records(purpose, state, page)
             .await
     }
@@ -1505,7 +1682,7 @@ impl StagingManifestRepository for TaruDatabase {
         now_ms: i64,
         page: PageRequest,
     ) -> Result<Vec<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .list_staging_cleanup_candidates(now_ms, page)
             .await
     }
@@ -1515,17 +1692,17 @@ impl StagingManifestRepository for TaruDatabase {
         id: StagingManifestId,
         accessed_at_ms: i64,
     ) -> Result<Option<StagingManifestRecord>> {
-        self.sqlite()
+        self.backend()
             .touch_staging_manifest_record(id, accessed_at_ms)
             .await
     }
 
     async fn delete_staging_manifest_record(&self, id: StagingManifestId) -> Result<()> {
-        self.sqlite().delete_staging_manifest_record(id).await
+        self.backend().delete_staging_manifest_record(id).await
     }
 
     async fn sum_staging_manifest_bytes(&self) -> Result<u64> {
-        self.sqlite().sum_staging_manifest_bytes().await
+        self.backend().sum_staging_manifest_bytes().await
     }
 }
 
@@ -1535,25 +1712,27 @@ impl WebhookRepository for TaruDatabase {
         &self,
         endpoint: NewWebhookEndpoint,
     ) -> Result<WebhookEndpointRecord> {
-        self.sqlite().upsert_webhook_endpoint(endpoint).await
+        self.backend().upsert_webhook_endpoint(endpoint).await
     }
 
     async fn get_webhook_endpoint(
         &self,
         id: WebhookEndpointId,
     ) -> Result<Option<WebhookEndpointRecord>> {
-        self.sqlite().get_webhook_endpoint(id).await
+        self.backend().get_webhook_endpoint(id).await
     }
 
     async fn list_enabled_webhook_endpoints(&self) -> Result<Vec<WebhookEndpointRecord>> {
-        self.sqlite().list_enabled_webhook_endpoints().await
+        self.backend().list_enabled_webhook_endpoints().await
     }
 
     async fn create_webhook_delivery_attempt(
         &self,
         attempt: NewWebhookDeliveryAttempt,
     ) -> Result<WebhookDeliveryAttemptRecord> {
-        self.sqlite().create_webhook_delivery_attempt(attempt).await
+        self.backend()
+            .create_webhook_delivery_attempt(attempt)
+            .await
     }
 
     async fn set_webhook_delivery_attempt_result(
@@ -1564,7 +1743,7 @@ impl WebhookRepository for TaruDatabase {
         error: Option<String>,
         next_retry_at: Option<String>,
     ) -> Result<WebhookDeliveryAttemptRecord> {
-        self.sqlite()
+        self.backend()
             .set_webhook_delivery_attempt_result(id, status, http_status, error, next_retry_at)
             .await
     }
@@ -1573,21 +1752,23 @@ impl WebhookRepository for TaruDatabase {
         &self,
         event_id: EventId,
     ) -> Result<Vec<WebhookDeliveryAttemptRecord>> {
-        self.sqlite().list_webhook_delivery_attempts(event_id).await
+        self.backend()
+            .list_webhook_delivery_attempts(event_id)
+            .await
     }
 }
 
 #[async_trait::async_trait]
 impl SearchIndex for TaruDatabase {
     async fn upsert(&self, document: SearchDocument) -> Result<()> {
-        self.sqlite().upsert(document).await
+        self.backend().upsert(document).await
     }
 
     async fn delete(&self, item_id: MediaItemId) -> Result<()> {
-        self.sqlite().delete(item_id).await
+        self.backend().delete(item_id).await
     }
 
     async fn search(&self, query: SearchQuery) -> Result<Vec<SearchHit>> {
-        self.sqlite().search(query).await
+        self.backend().search(query).await
     }
 }

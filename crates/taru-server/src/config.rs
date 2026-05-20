@@ -9,6 +9,7 @@ use taru_core::{
     ExternalProvider, Library, LibraryId, LibraryOptions, LibraryPreset, MediaItemId, MediaKind,
     MetadataProfile, MetadataRefreshMode, Result, SecretString, TaruError,
 };
+use taru_db::DatabaseBackendKind;
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
     TranscodeResourceBudget,
@@ -18,6 +19,8 @@ use taru_transcode::{
 pub struct TaruServerConfig {
     #[serde(default = "default_listen_addr")]
     pub listen_addr: SocketAddr,
+    #[serde(default)]
+    pub database_backend: DatabaseBackendKind,
     pub database_url: String,
     #[serde(default)]
     pub auth: AuthConfig,
@@ -377,6 +380,7 @@ pub fn load_config(path: &Path) -> Result<TaruServerConfig> {
 pub fn example_config() -> Result<String> {
     let config = TaruServerConfig {
         listen_addr: default_listen_addr(),
+        database_backend: DatabaseBackendKind::Sqlite,
         database_url: "sqlite://taru.db".to_owned(),
         auth: AuthConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
@@ -627,6 +631,7 @@ mod tests {
         let config = toml::from_str::<TaruServerConfig>(
             r#"
             listen_addr = "127.0.0.1:4000"
+            database_backend = "sqlite"
             database_url = "sqlite://taru.db"
             ffprobe_path = "ffprobe"
             ffmpeg_path = "ffmpeg"
@@ -713,6 +718,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(config.listen_addr, "127.0.0.1:4000".parse().unwrap());
+        assert_eq!(config.database_backend, DatabaseBackendKind::Sqlite);
         assert_eq!(config.database_url, "sqlite://taru.db");
         assert!(config.auth.enabled);
         assert_eq!(config.auth.token_env.as_deref(), Some("TARU_ADMIN_TOKEN"));
@@ -929,6 +935,7 @@ mod tests {
             config.listen_addr,
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000)
         );
+        assert_eq!(config.database_backend, DatabaseBackendKind::Sqlite);
         assert_eq!(config.ffprobe_path, PathBuf::from("ffprobe"));
         assert_eq!(config.ffmpeg_path, PathBuf::from("ffmpeg"));
         assert_eq!(config.scan_concurrency, 1);
@@ -964,6 +971,28 @@ mod tests {
         assert_eq!(
             default_library_from_config(&config).unwrap().roots,
             vec!["local:///"]
+        );
+    }
+
+    #[test]
+    fn config_accepts_explicit_postgres_backend_without_inferring_from_url() {
+        let config = toml::from_str::<TaruServerConfig>(
+            r#"
+            database_backend = "postgres"
+            database_url = "postgres://taru:secret@db.example.test/taru"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(config.database_backend, DatabaseBackendKind::Postgres);
+        assert_eq!(
+            config.database_url,
+            "postgres://taru:secret@db.example.test/taru"
         );
     }
 
