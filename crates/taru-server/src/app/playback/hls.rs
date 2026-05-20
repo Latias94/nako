@@ -11,7 +11,7 @@ use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
     HardwareAccelerationSelection, HlsRequest, HlsRunOutcome, RemuxRuntimeGuard,
-    RemuxRuntimeLimits, TranscodeProfileIdentity, TranscodeSessionManager,
+    RemuxRuntimeLimits, TranscodeRequestIdentity, TranscodeSessionManager,
     select_hardware_acceleration,
 };
 use tokio::sync::Mutex;
@@ -85,11 +85,11 @@ impl HlsAppService {
         decision: PlaybackDecision,
         input_path: PathBuf,
         layout: HlsOutputLayout,
-        profile_identity: TranscodeProfileIdentity,
+        request_identity: TranscodeRequestIdentity,
     ) -> Result<HlsSourceOutput> {
         let key = HlsRequestKey {
             source_id: source.id,
-            profile_identity,
+            request_identity,
         };
 
         match self.reserve(sessions, &key, &layout).await? {
@@ -285,12 +285,12 @@ impl HlsAppService {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct HlsRequestKey {
     source_id: MediaSourceId,
-    profile_identity: TranscodeProfileIdentity,
+    request_identity: TranscodeRequestIdentity,
 }
 
 impl HlsRequestKey {
     fn persisted_request_key(&self) -> String {
-        self.profile_identity.persisted_request_key().to_owned()
+        self.request_identity.persisted_request_key().to_owned()
     }
 }
 

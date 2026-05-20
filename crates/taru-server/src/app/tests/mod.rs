@@ -38,7 +38,7 @@ use taru_streaming::{
 };
 use taru_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, OutputContainer, RemuxContainer,
-    TranscodePlan, TranscodeProfileIdentity,
+    TranscodePlan, TranscodeRequestIdentity,
 };
 use taru_vfs::{
     ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest,
@@ -106,7 +106,10 @@ fn staging_manifest_record(
     }
 }
 
-fn local_remux_profile_identity(container: RemuxContainer) -> TranscodeProfileIdentity {
+fn local_remux_request_identity(
+    source: &MediaSource,
+    container: RemuxContainer,
+) -> TranscodeRequestIdentity {
     let profile = PlaybackProfile::from_context(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
@@ -121,10 +124,18 @@ fn local_remux_profile_identity(container: RemuxContainer) -> TranscodeProfileId
         },
     );
 
-    profile.remux_transcode_profile(container).identity()
+    profile
+        .remux_transcode_profile(container)
+        .identity()
+        .bind_source(&taru_transcode::TranscodeSourceIdentity::from_media_source(
+            source,
+        ))
 }
 
-fn local_hls_profile_identity(acceleration: HardwareAcceleration) -> TranscodeProfileIdentity {
+fn local_hls_request_identity(
+    source: &MediaSource,
+    acceleration: HardwareAcceleration,
+) -> TranscodeRequestIdentity {
     let profile = PlaybackProfile::from_context(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
@@ -149,6 +160,9 @@ fn local_hls_profile_identity(acceleration: HardwareAcceleration) -> TranscodePr
     profile
         .hls_transcode_profile(&plan, acceleration)
         .identity()
+        .bind_source(&taru_transcode::TranscodeSourceIdentity::from_media_source(
+            source,
+        ))
 }
 
 struct RemotePlaybackBackend {

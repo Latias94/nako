@@ -83,16 +83,21 @@ Evidence:
 
 ## M3 — Playback And Transcode Readiness
 
-Status: planned.
+Status: active.
 
 Exit criteria:
 
 - Playback request/cache identity composes Playback Source Selection identity,
   Transcode Profile identity, source fingerprint/version, and runtime capability
   inputs intentionally.
+  Completed by FAD-050 with `PlaybackProfileIdentity`,
+  `TranscodeProfileIdentity`, `TranscodeSourceIdentity`, and
+  `TranscodeRequestIdentity`.
 - Multi-profile HLS reuse is not widened until the identity Interface is stable.
+  Preserved: no adaptive bitrate or multi-profile HLS behavior was added.
 - Hardware diagnostics distinguish static FFmpeg encoder discovery from device
   initialization and optional smoke-probe results.
+  Planned for FAD-060.
 
 Primary gates:
 
@@ -100,6 +105,12 @@ Primary gates:
 - focused playback/profile identity nextest
 - focused hardware diagnostics nextest
 - `git diff --check`
+
+Evidence:
+
+- FAD-050 request/cache identity tests passed for streaming/transcode/server
+  playback.
+- Hardware diagnostics remains the active M3 tail and next task.
 
 ## M4 — Search Semantics And Test Locality
 

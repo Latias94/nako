@@ -14,7 +14,7 @@ use taru_streaming::PlaybackDecision;
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
     RemuxContainer, RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits,
-    TranscodeProfileIdentity, TranscodeSessionManager,
+    TranscodeRequestIdentity, TranscodeSessionManager,
 };
 use tokio::sync::Mutex;
 
@@ -60,11 +60,11 @@ impl RemuxAppService {
         input_path: PathBuf,
         output_path: PathBuf,
         output_container: RemuxContainer,
-        profile_identity: TranscodeProfileIdentity,
+        request_identity: TranscodeRequestIdentity,
     ) -> Result<RemuxSourceOutput> {
         let key = RemuxRequestKey {
             source_id: source.id,
-            profile_identity,
+            request_identity,
         };
 
         match self.reserve(sessions, &key, &output_path).await? {
@@ -267,12 +267,12 @@ impl RemuxAppService {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct RemuxRequestKey {
     pub(crate) source_id: MediaSourceId,
-    pub(crate) profile_identity: TranscodeProfileIdentity,
+    pub(crate) request_identity: TranscodeRequestIdentity,
 }
 
 impl RemuxRequestKey {
     pub(crate) fn persisted_request_key(&self) -> String {
-        self.profile_identity.persisted_request_key().to_owned()
+        self.request_identity.persisted_request_key().to_owned()
     }
 }
 

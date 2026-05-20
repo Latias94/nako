@@ -89,26 +89,33 @@ impl PlaybackProfile {
     }
 
     #[must_use]
+    pub fn identity(&self) -> PlaybackProfileIdentity {
+        PlaybackProfileIdentity {
+            request_key: format!(
+                "playback-profile:v1;direct={};containers={};vcodecs={};acodecs={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux={};transcode={}",
+                self.direct_play,
+                list_key(&self.containers),
+                list_key(&self.video_codecs),
+                list_key(&self.audio_codecs),
+                self.storage.remote,
+                optional_bool(self.storage.range_readable),
+                optional_u32(self.preferences.requested_audio_stream),
+                optional_u32(self.preferences.requested_subtitle_stream),
+                optional_u64(self.preferences.max_video_bitrate),
+                optional_bool(self.preferences.prefer_hdr),
+                self.preferences
+                    .remux_output_container
+                    .map_or("auto", RemuxContainer::file_extension),
+                self.preferences
+                    .transcode_output_container
+                    .map_or("auto", OutputContainer::as_str),
+            ),
+        }
+    }
+
+    #[must_use]
     pub fn identity_key(&self) -> String {
-        format!(
-            "playback-profile:v1;direct={};containers={};vcodecs={};acodecs={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux={};transcode={}",
-            self.direct_play,
-            list_key(&self.containers),
-            list_key(&self.video_codecs),
-            list_key(&self.audio_codecs),
-            self.storage.remote,
-            optional_bool(self.storage.range_readable),
-            optional_u32(self.preferences.requested_audio_stream),
-            optional_u32(self.preferences.requested_subtitle_stream),
-            optional_u64(self.preferences.max_video_bitrate),
-            optional_bool(self.preferences.prefer_hdr),
-            self.preferences
-                .remux_output_container
-                .map_or("auto", RemuxContainer::file_extension),
-            self.preferences
-                .transcode_output_container
-                .map_or("auto", OutputContainer::as_str),
-        )
+        self.identity().persisted_request_key().to_owned()
     }
 
     #[must_use]
@@ -125,7 +132,7 @@ impl PlaybackProfile {
             output_container,
             track_selection: self.track_selection(),
             remote_input: self.storage.remote,
-            playback_profile_key: self.identity_key(),
+            playback_profile_key: self.identity().persisted_request_key().to_owned(),
         })
     }
 
@@ -143,8 +150,20 @@ impl PlaybackProfile {
             max_video_bitrate: self.preferences.max_video_bitrate,
             prefer_hdr: self.preferences.prefer_hdr,
             remote_input: self.storage.remote,
-            playback_profile_key: self.identity_key(),
+            playback_profile_key: self.identity().persisted_request_key().to_owned(),
         })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct PlaybackProfileIdentity {
+    request_key: String,
+}
+
+impl PlaybackProfileIdentity {
+    #[must_use]
+    pub fn persisted_request_key(&self) -> &str {
+        &self.request_key
     }
 }
 

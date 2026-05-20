@@ -83,10 +83,10 @@ async fn remux_source_rejects_persisted_active_duplicate() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
-    let profile_identity = local_remux_profile_identity(RemuxContainer::Mp4);
+    let request_identity = local_remux_request_identity(&source, RemuxContainer::Mp4);
     let key = RemuxRequestKey {
         source_id: source.id,
-        profile_identity: profile_identity.clone(),
+        request_identity: request_identity.clone(),
     };
     let staging = RemuxStagingPolicy::new(&app.config().remux_staging_root).unwrap();
     let active = store
@@ -96,7 +96,7 @@ async fn remux_source_rejects_persisted_active_duplicate() {
             kind: TranscodeSessionKind::Remux,
             request_key: key.persisted_request_key(),
             output_path: staging
-                .output_path(source.id, &profile_identity, RemuxContainer::Mp4)
+                .output_path(source.id, &request_identity, RemuxContainer::Mp4)
                 .unwrap(),
             state: TranscodeSessionState::Running,
         })
@@ -127,7 +127,7 @@ async fn remux_source_persists_runner_failure() {
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
     let request_key = RemuxRequestKey {
         source_id: source.id,
-        profile_identity: local_remux_profile_identity(RemuxContainer::Mp4),
+        request_identity: local_remux_request_identity(&source, RemuxContainer::Mp4),
     }
     .persisted_request_key();
 
@@ -171,7 +171,7 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
     let config = app.config().clone();
     let staging = RemuxStagingPolicy::new(&config.remux_staging_root).unwrap();
     let stale_id = TranscodeSessionId::new();
-    let profile_identity = local_remux_profile_identity(RemuxContainer::Mp4);
+    let request_identity = local_remux_request_identity(&source, RemuxContainer::Mp4);
 
     store
         .create_transcode_session(NewTranscodeSession {
@@ -180,11 +180,11 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
             kind: TranscodeSessionKind::Remux,
             request_key: RemuxRequestKey {
                 source_id: source.id,
-                profile_identity: profile_identity.clone(),
+                request_identity: request_identity.clone(),
             }
             .persisted_request_key(),
             output_path: staging
-                .output_path(source.id, &profile_identity, RemuxContainer::Mp4)
+                .output_path(source.id, &request_identity, RemuxContainer::Mp4)
                 .unwrap(),
             state: TranscodeSessionState::Running,
         })
@@ -341,9 +341,9 @@ async fn hls_source_request_identity_separates_selected_hardware_profiles() {
         cpu_output
             .session
             .request_key
-            .contains("kind=hls_single_variant")
+            .contains("kind%3Dhls_single_variant")
     );
-    assert!(cpu_output.session.request_key.contains("hw=none"));
+    assert!(cpu_output.session.request_key.contains("hw%3Dnone"));
 
     let mut config = app.config().clone();
     config.ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_nvenc_profile");
@@ -356,7 +356,43 @@ async fn hls_source_request_identity_separates_selected_hardware_profiles() {
     assert_eq!(gpu_output.disposition, HlsSourceDisposition::Finished);
     assert_ne!(gpu_output.session.id, cpu_output.session.id);
     assert_ne!(gpu_output.playlist_path, cpu_output.playlist_path);
-    assert!(gpu_output.session.request_key.contains("hw=nvenc"));
+    assert!(gpu_output.session.request_key.contains("hw%3Dnvenc"));
+}
+
+#[tokio::test]
+async fn hls_source_request_identity_changes_when_source_revision_changes() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_source_revision");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let request = HlsSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities::default(),
+    };
+
+    let first = app.playback().hls_source(request.clone()).await.unwrap();
+    let mut changed_source = source.clone();
+    changed_source.size_bytes = Some(6);
+    changed_source.fingerprint = Some("local:changed".to_owned());
+    store.upsert_media_source(&changed_source).await.unwrap();
+    let second = app.playback().hls_source(request).await.unwrap();
+
+    assert_eq!(first.disposition, HlsSourceDisposition::Finished);
+    assert_eq!(second.disposition, HlsSourceDisposition::Finished);
+    assert_ne!(first.session.id, second.session.id);
+    assert_ne!(first.session.request_key, second.session.request_key);
+    assert_ne!(first.playlist_path, second.playlist_path);
+    assert!(
+        first
+            .session
+            .request_key
+            .starts_with("transcode-request:v1;source=source-revision:v1;")
+    );
+    assert!(
+        first
+            .session
+            .request_key
+            .contains(";profile=transcode-profile:v1")
+    );
 }
 
 #[tokio::test]
@@ -413,16 +449,16 @@ async fn hls_source_rejects_persisted_active_duplicate() {
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_success");
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
     let staging = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls")).unwrap();
-    let profile_identity = local_hls_profile_identity(HardwareAcceleration::None);
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
     let layout = staging
-        .single_variant_layout(source.id, &profile_identity)
+        .single_variant_layout(source.id, &request_identity)
         .unwrap();
     let active = store
         .create_transcode_session(NewTranscodeSession {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: profile_identity.persisted_request_key().to_owned(),
+            request_key: request_identity.persisted_request_key().to_owned(),
             output_path: layout.playlist_path,
             state: TranscodeSessionState::Running,
         })
@@ -480,7 +516,7 @@ async fn hls_source_persists_runner_failure() {
         .find_latest_transcode_session(
             source.id,
             TranscodeSessionKind::HlsTranscode,
-            local_hls_profile_identity(HardwareAcceleration::None).persisted_request_key(),
+            local_hls_request_identity(&source, HardwareAcceleration::None).persisted_request_key(),
         )
         .await
         .unwrap()
@@ -662,9 +698,10 @@ fn remux_staging_policy_rejects_escaping_roots() {
     assert!(RemuxStagingPolicy::new(PathBuf::from("cache/../outside")).is_err());
 
     let policy = RemuxStagingPolicy::new(PathBuf::from("cache/remux")).unwrap();
-    let profile_identity = local_remux_profile_identity(RemuxContainer::Mkv);
+    let source = remote_media_source("local:///demo.mkv");
+    let request_identity = local_remux_request_identity(&source, RemuxContainer::Mkv);
     let output = policy
-        .output_path(MediaSourceId::new(), &profile_identity, RemuxContainer::Mkv)
+        .output_path(MediaSourceId::new(), &request_identity, RemuxContainer::Mkv)
         .unwrap();
 
     assert!(output.starts_with(PathBuf::from("cache/remux")));
@@ -680,9 +717,10 @@ fn hls_staging_policy_rejects_escaping_roots() {
     assert!(HlsStagingPolicy::new(PathBuf::from("cache/../outside")).is_err());
 
     let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
-    let profile_identity = local_hls_profile_identity(HardwareAcceleration::None);
+    let source = remote_media_source("local:///demo.mkv");
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
     let layout = policy
-        .single_variant_layout(MediaSourceId::new(), &profile_identity)
+        .single_variant_layout(MediaSourceId::new(), &request_identity)
         .unwrap();
 
     assert!(layout.output_dir.starts_with(PathBuf::from("cache/hls")));

@@ -210,6 +210,74 @@ mod tests {
     }
 
     #[test]
+    fn transcode_request_identity_includes_source_revision_and_profile() {
+        let source = taru_core::MediaSource {
+            id: MediaSourceId::new(),
+            library_id: taru_core::LibraryId::new(),
+            item_id: taru_core::MediaItemId::new(),
+            locator: "local:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:demo".to_owned()),
+        };
+        let changed_source = taru_core::MediaSource {
+            fingerprint: Some("sha256:changed".to_owned()),
+            ..source.clone()
+        };
+        let playback_profile_key = "playback-profile:v1;client=default".to_owned();
+        let remux = TranscodeProfile::remux(RemuxTranscodeProfile {
+            output_container: RemuxContainer::Mp4,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: playback_profile_key.clone(),
+        })
+        .identity();
+        let hls = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::None,
+            track_selection: TranscodeTrackSelection::default(),
+            max_video_bitrate: None,
+            prefer_hdr: None,
+            remote_input: false,
+            playback_profile_key,
+        })
+        .identity();
+
+        let remux_request = remux.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
+        let same_remux_request =
+            remux.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
+        let changed_source_request =
+            remux.bind_source(&TranscodeSourceIdentity::from_media_source(&changed_source));
+        let hls_request = hls.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
+
+        assert_eq!(remux_request, same_remux_request);
+        assert_ne!(
+            remux_request.persisted_request_key(),
+            changed_source_request.persisted_request_key()
+        );
+        assert_ne!(
+            remux_request.persisted_request_key(),
+            hls_request.persisted_request_key()
+        );
+        assert_ne!(
+            remux_request.storage_slug(),
+            changed_source_request.storage_slug()
+        );
+        assert_ne!(remux_request.storage_slug(), hls_request.storage_slug());
+        assert!(
+            remux_request
+                .persisted_request_key()
+                .starts_with("transcode-request:v1;source=source-revision:v1;")
+        );
+        assert!(
+            remux_request
+                .persisted_request_key()
+                .contains(";profile=transcode-profile:v1")
+        );
+    }
+
+    #[test]
     fn hardware_policy_selects_available_and_falls_back_to_cpu() {
         let report = HardwareAccelerationReport::with_available([HardwareAcceleration::Nvenc]);
         let nvenc = select_hardware_acceleration(

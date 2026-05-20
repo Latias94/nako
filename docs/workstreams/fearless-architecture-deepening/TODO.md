@@ -101,7 +101,7 @@ Task IDs use the `FAD` prefix.
 
 ## M3 — Playback And Transcode Readiness
 
-- [ ] FAD-050 [owner=codex] [deps=FAD-040] [scope=crates/taru-streaming,crates/taru-transcode,crates/taru-server/src/app/playback,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-050 [owner=codex] [deps=FAD-040] [scope=crates/taru-streaming,crates/taru-transcode,crates/taru-server/src/app/playback,docs/workstreams/fearless-architecture-deepening]
   Goal: Define and test the Playback Source Selection + Transcode Profile
   request/cache identity before multi-profile HLS reuse, subtitles, HDR/SDR
   variants, or adaptive ladders widen the reuse surface.
@@ -110,6 +110,18 @@ Task IDs use the `FAD` prefix.
   Review: Do not add adaptive bitrate behavior in this task. The deliverable is
   a stable identity Interface and tests.
   Evidence: profile/request identity tests and docs.
+  Progress: Added an explicit `PlaybackProfileIdentity` and a deeper
+  `TranscodeRequestIdentity` that binds a `TranscodeProfileIdentity` to a
+  `TranscodeSourceIdentity`. Remux and HLS session request keys and staging
+  paths now use request identity instead of profile-only identity, so source
+  revision changes, selected hardware policy, client capability/preferences,
+  storage context, and transcode profile facts all participate in reuse/cache
+  identity. Added tests for source-revision separation and hardware-profile
+  separation without adding adaptive bitrate behavior.
+  Validation: `cargo check -p taru-streaming -p taru-transcode -p taru-server
+  --tests`; `cargo nextest run -p taru-streaming -p taru-transcode
+  --no-fail-fast`; `cargo nextest run -p taru-server playback --no-fail-fast`;
+  `cargo fmt --all -- --check`; `git diff --check`.
   Handoff: Continue with hardware diagnostics.
 
 - [ ] FAD-060 [owner=codex] [deps=FAD-050] [scope=crates/taru-transcode,crates/taru-server/src/app/playback,docs/api,docs/workstreams/fearless-architecture-deepening]

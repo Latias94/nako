@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use taru_core::MediaSource;
+
 use super::{HardwareAcceleration, OutputContainer, RemuxContainer};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -158,6 +160,104 @@ impl TranscodeProfileIdentity {
     #[must_use]
     pub fn storage_slug(&self) -> &str {
         &self.storage_slug
+    }
+
+    #[must_use]
+    pub fn bind_source(
+        &self,
+        source_identity: &TranscodeSourceIdentity,
+    ) -> TranscodeRequestIdentity {
+        TranscodeRequestIdentity::new(source_identity.clone(), self.clone())
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct TranscodeSourceIdentity {
+    revision_key: String,
+    storage_slug: String,
+}
+
+impl TranscodeSourceIdentity {
+    #[must_use]
+    pub fn from_media_source(source: &MediaSource) -> Self {
+        let material = format!(
+            "transcode-source-revision-input:v1;library={};source={};locator={};file_name={};size={};fingerprint={}",
+            source.library_id,
+            source.id,
+            source.locator,
+            source.file_name,
+            optional_u64(source.size_bytes),
+            source.fingerprint.as_deref().unwrap_or("unknown"),
+        );
+        let digest = lowercase_hex(&Sha256::digest(material.as_bytes()));
+
+        Self {
+            revision_key: format!("source-revision:v1;digest={}", &digest[..32]),
+            storage_slug: format!("source-v1-{}", &digest[..16]),
+        }
+    }
+
+    #[must_use]
+    pub fn revision_key(&self) -> &str {
+        &self.revision_key
+    }
+
+    #[must_use]
+    pub fn storage_slug(&self) -> &str {
+        &self.storage_slug
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct TranscodeRequestIdentity {
+    source_identity: TranscodeSourceIdentity,
+    profile_identity: TranscodeProfileIdentity,
+    request_key: String,
+    storage_slug: String,
+}
+
+impl TranscodeRequestIdentity {
+    #[must_use]
+    pub fn new(
+        source_identity: TranscodeSourceIdentity,
+        profile_identity: TranscodeProfileIdentity,
+    ) -> Self {
+        let request_key = format!(
+            "transcode-request:v1;source={};profile={}",
+            source_identity.revision_key(),
+            escaped_component(profile_identity.persisted_request_key()),
+        );
+
+        Self {
+            storage_slug: format!(
+                "{}-{}",
+                profile_identity.storage_slug(),
+                source_identity.storage_slug()
+            ),
+            source_identity,
+            profile_identity,
+            request_key,
+        }
+    }
+
+    #[must_use]
+    pub fn persisted_request_key(&self) -> &str {
+        &self.request_key
+    }
+
+    #[must_use]
+    pub fn storage_slug(&self) -> &str {
+        &self.storage_slug
+    }
+
+    #[must_use]
+    pub fn source_identity(&self) -> &TranscodeSourceIdentity {
+        &self.source_identity
+    }
+
+    #[must_use]
+    pub fn profile_identity(&self) -> &TranscodeProfileIdentity {
+        &self.profile_identity
     }
 }
 

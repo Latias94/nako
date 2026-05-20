@@ -18,10 +18,11 @@ Completed tasks:
 - FAD-020 — Addon Side Effect Module depth.
 - FAD-030 — Addon metadata commit atomicity.
 - FAD-040 — Library ingestion workflow depth.
+- FAD-050 — Playback/transcode request and cache identity.
 
 Current executable task:
 
-- FAD-050 — Playback/transcode request and cache identity.
+- FAD-060 — Hardware acceleration diagnostics.
 
 Why FAD-020 comes first:
 
@@ -146,17 +147,49 @@ PostgreSQL opt-in:
 - Existing PostgreSQL scan commit contract pair remains available as ignored
   opt-in parity coverage.
 
+## FAD-050 Summary
+
+FAD-050 stabilized playback/transcode request identity before widening HLS or
+profile reuse:
+
+- `taru-streaming` now exposes `PlaybackProfileIdentity` while keeping
+  `PlaybackProfile::identity_key()` for compatibility.
+- `taru-transcode` now models:
+  - `TranscodeProfileIdentity` for execution/profile facts;
+  - `TranscodeSourceIdentity` for Media Source revision facts;
+  - `TranscodeRequestIdentity` for the source-bound request/cache key.
+- Remux and HLS app services now use `TranscodeRequestIdentity` for persisted
+  session request keys, in-flight duplicate keys, finished-output reuse, and
+  staging output slugs.
+- Source revision changes now create a different HLS/remux cache/session
+  identity even when the source id and playback profile are unchanged.
+- Selected hardware acceleration remains part of the HLS profile identity, so
+  CPU fallback and GPU runs do not reuse each other's output.
+- No adaptive bitrate ladder, subtitles, HDR/SDR variant behavior, or
+  multi-profile HLS reuse was added.
+
+Validation passed:
+
+- `cargo check -p taru-streaming -p taru-transcode -p taru-server --tests`
+- `cargo nextest run -p taru-transcode transcode_request_identity
+  --no-fail-fast`
+- `cargo nextest run -p taru-streaming playback_profile_identity
+  --no-fail-fast`
+- `cargo nextest run -p taru-server hls_source_request_identity
+  --no-fail-fast`
+- `cargo nextest run -p taru-streaming -p taru-transcode --no-fail-fast`
+- `cargo nextest run -p taru-server playback --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
 ## Blockers
 
-- None for FAD-050.
+- None for FAD-060.
 
 ## Next Recommended Action
 
-1. Start FAD-050.
-2. Inspect playback source selection and transcode profile/request identity
-   code before broadening HLS reuse, subtitles, HDR/SDR variants, or adaptive
-   ladders.
-3. Define a stable identity Interface and tests without adding adaptive bitrate
-   behavior in this task.
-4. Continue to FAD-060 hardware diagnostics only after identity semantics are
-   proven.
+1. Start FAD-060.
+2. Inspect `taru-transcode::hardware` and admin playback diagnostics.
+3. Separate static FFmpeg encoder discovery, device initialization evidence,
+   and optional smoke-probe results in the diagnostics model.
+4. Keep normal tests unprivileged and avoid leaking local paths.

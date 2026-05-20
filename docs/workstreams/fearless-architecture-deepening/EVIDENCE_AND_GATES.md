@@ -262,6 +262,66 @@ Broader gates not run:
   covered by the `taru-library` focused run plus backend-neutral scan commit
   contracts. The full workspace nextest remains a M63 closeout gate.
 
+### 2026-05-20 — FAD-050 Playback And Transcode Identity
+
+Status: complete.
+
+Implementation evidence:
+
+- Added `PlaybackProfileIdentity` in `taru-streaming` while preserving
+  `PlaybackProfile::identity_key()` as a compatibility helper.
+- Added source-bound transcode identity in `taru-transcode`:
+  - `TranscodeSourceIdentity` hashes source revision inputs;
+  - `TranscodeRequestIdentity` binds source revision to
+    `TranscodeProfileIdentity`;
+  - request identity has its own persisted request key and storage slug.
+- Updated remux and HLS app services so persisted session request keys,
+  duplicate detection, finished-output reuse, and staging paths use
+  `TranscodeRequestIdentity` instead of profile-only identity.
+- Updated app and HTTP tests to compute expected request keys from the actual
+  `MediaSource` revision.
+- Added tests proving:
+  - transcode request identity changes when source revision changes;
+  - HLS selected hardware policy still separates cache/session identity;
+  - existing playback route/session behavior remains compatible.
+
+Validation:
+
+```bash
+cargo fmt --all
+cargo check -p taru-streaming -p taru-transcode -p taru-server --tests
+cargo nextest run -p taru-transcode transcode_request_identity --no-fail-fast
+cargo nextest run -p taru-streaming playback_profile_identity --no-fail-fast
+cargo nextest run -p taru-server hls_source_request_identity --no-fail-fast
+cargo nextest run -p taru-streaming -p taru-transcode --no-fail-fast
+cargo nextest run -p taru-server playback --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `cargo check -p taru-streaming -p taru-transcode -p taru-server --tests`
+  passed.
+- Focused transcode request identity test passed:
+  1 passed, 24 skipped.
+- Focused playback profile identity test passed:
+  1 passed, 8 skipped.
+- Focused server HLS request identity tests passed:
+  2 passed, 174 skipped.
+- Focused `taru-streaming` + `taru-transcode` nextest passed:
+  34 passed, 0 skipped.
+- Focused `taru-server playback` nextest passed:
+  48 passed, 128 skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Broader gates not run:
+
+- Full workspace nextest was not run for FAD-050 because the touched behavior is
+  covered by focused streaming/transcode/server playback identity tests. The
+  full workspace nextest remains a M63 closeout gate.
+
 ## Evidence To Add During Execution
 
 Each task should add:

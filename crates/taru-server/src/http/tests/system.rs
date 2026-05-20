@@ -1312,7 +1312,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::HlsTranscode,
-            request_key: local_hls_request_key(taru_transcode::HardwareAcceleration::None),
+            request_key: local_hls_request_key(&source, taru_transcode::HardwareAcceleration::None),
             output_path: temp
                 .path()
                 .join("taru-cache")
@@ -1340,7 +1340,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             id: TranscodeSessionId::new(),
             source_id: source.id,
             kind: TranscodeSessionKind::Remux,
-            request_key: local_remux_request_key(taru_transcode::RemuxContainer::Mp4),
+            request_key: local_remux_request_key(&source, taru_transcode::RemuxContainer::Mp4),
             output_path: temp
                 .path()
                 .join("taru-cache")

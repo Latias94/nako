@@ -19,8 +19,8 @@ use taru_streaming::{
 };
 use taru_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
-    OutputContainer, RemuxContainer, TranscodePlan, TranscodeProfileIdentity,
-    TranscodeResourceBudget,
+    OutputContainer, RemuxContainer, TranscodePlan, TranscodeRequestIdentity,
+    TranscodeResourceBudget, TranscodeSourceIdentity,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tracing::{error, warn};
@@ -165,13 +165,13 @@ impl RemuxStagingPolicy {
     pub fn output_path(
         &self,
         source_id: MediaSourceId,
-        profile_identity: &TranscodeProfileIdentity,
+        request_identity: &TranscodeRequestIdentity,
         container: RemuxContainer,
     ) -> Result<PathBuf> {
         let output = self
             .root
             .join(source_id.to_string())
-            .join(profile_identity.storage_slug())
+            .join(request_identity.storage_slug())
             .join(format!("stream.{}", container.file_extension()));
 
         if !output.starts_with(&self.root) {
@@ -222,12 +222,12 @@ impl HlsStagingPolicy {
     pub fn single_variant_layout(
         &self,
         source_id: MediaSourceId,
-        profile_identity: &TranscodeProfileIdentity,
+        request_identity: &TranscodeRequestIdentity,
     ) -> Result<HlsOutputLayout> {
         let output_dir = self
             .root
             .join(source_id.to_string())
-            .join(profile_identity.storage_slug());
+            .join(request_identity.storage_slug());
         let playlist_path = output_dir.join("playlist.m3u8");
         let segment_pattern = output_dir.join("segment_%05d.ts");
 
@@ -429,7 +429,7 @@ impl PlaybackAppService {
                 input.path.clone(),
                 context.output_path,
                 context.output_container,
-                context.profile_identity,
+                context.request_identity,
             )
             .await;
         match result {
@@ -576,11 +576,13 @@ impl PlaybackAppService {
         let profile_identity = playback_profile
             .remux_transcode_profile(output_container)
             .identity();
+        let request_identity =
+            profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
         let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
-        let output_path = staging.output_path(source.id, &profile_identity, output_container)?;
+        let output_path = staging.output_path(source.id, &request_identity, output_container)?;
         let request_key = RemuxRequestKey {
             source_id: source.id,
-            profile_identity: profile_identity.clone(),
+            request_identity: request_identity.clone(),
         }
         .persisted_request_key();
 
@@ -591,7 +593,7 @@ impl PlaybackAppService {
             backend,
             output_path,
             output_container,
-            profile_identity,
+            request_identity,
             request_key,
         })
     }
@@ -613,12 +615,14 @@ impl PlaybackAppService {
         let profile_identity = playback_profile
             .hls_transcode_profile(transcode_plan, self.hls.hardware_selection.acceleration)
             .identity();
+        let request_identity =
+            profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
         let input = self
             .input
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.single_variant_layout(source.id, &profile_identity)?;
+        let layout = staging.single_variant_layout(source.id, &request_identity)?;
         let result = self
             .hls
             .run(
@@ -627,7 +631,7 @@ impl PlaybackAppService {
                 decision,
                 input.path.clone(),
                 layout,
-                profile_identity,
+                request_identity,
             )
             .await;
         match result {
@@ -849,7 +853,7 @@ struct RemuxSourceContext {
     backend: Arc<super::storage::LibraryStorageBackend>,
     output_path: PathBuf,
     output_container: RemuxContainer,
-    profile_identity: TranscodeProfileIdentity,
+    request_identity: TranscodeRequestIdentity,
     request_key: String,
 }
 

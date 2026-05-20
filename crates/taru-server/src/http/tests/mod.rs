@@ -384,7 +384,7 @@ fn compatible_probe() -> MediaProbeResult {
     }
 }
 
-fn local_remux_request_key(container: RemuxContainer) -> String {
+fn local_remux_request_key(source: &MediaSource, container: RemuxContainer) -> String {
     let profile = PlaybackProfile::from_context(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
@@ -402,11 +402,14 @@ fn local_remux_request_key(container: RemuxContainer) -> String {
     profile
         .remux_transcode_profile(container)
         .identity()
+        .bind_source(&taru_transcode::TranscodeSourceIdentity::from_media_source(
+            source,
+        ))
         .persisted_request_key()
         .to_owned()
 }
 
-fn local_hls_request_key(acceleration: HardwareAcceleration) -> String {
+fn local_hls_request_key(source: &MediaSource, acceleration: HardwareAcceleration) -> String {
     let profile = PlaybackProfile::from_context(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
@@ -431,6 +434,9 @@ fn local_hls_request_key(acceleration: HardwareAcceleration) -> String {
     profile
         .hls_transcode_profile(&plan, acceleration)
         .identity()
+        .bind_source(&taru_transcode::TranscodeSourceIdentity::from_media_source(
+            source,
+        ))
         .persisted_request_key()
         .to_owned()
 }
