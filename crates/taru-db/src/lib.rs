@@ -1,98 +1,13 @@
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+mod facade;
+#[cfg(test)]
+mod postgres;
+mod sqlite;
 
-use sqlx::{Decode, Row, Sqlite, SqlitePool, Type, sqlite::SqliteRow};
-use taru_core::{
-    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord, AddonRepository,
-    AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
-    AddonSideEffectRecord, AddonSideEffectTarget, AddonSideEffectTargetKind,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTokenId, AddonTokenRecord, AddonTokenStatus,
-    ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository,
-    ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId,
-    ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactId, AutomationArtifactKind,
-    AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus,
-    AutomationRepository, CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
-    CatalogGovernanceItemRecord, CatalogGovernanceRepository, CatalogItemGraphReplacement,
-    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection, Collection,
-    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DirectorySnapshot,
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-    IngestionFailureRecord, IngestionFailureRepository, IngestionFailureStatus, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobCancellationRequestRecord, JobId, JobKind,
-    JobLeaseClaimRequest, JobLeaseHeartbeat, JobLeaseRecord, JobListFilter, JobRepository,
-    JobRunToken, JobStatus, LeasedJob, Library, LibraryId, LibraryItemRepository, LibraryItemState,
-    LibraryOptions, LibraryRepository, LibraryScanSourcePersistenceCommit,
-    LibraryScanSourcePersistenceSummary, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleRecord,
-    ManagedArtworkArtifactLifecycleSnapshot, ManagedArtworkArtifactLifecycleSummary,
-    ManagedArtworkArtifactRecord, ManagedArtworkGalleryArtifactRecord,
-    ManagedArtworkGalleryCandidateRecord, ManagedArtworkGallerySelectedRecord,
-    ManagedArtworkGallerySnapshot, ManagedArtworkGallerySummary, ManagedArtworkIngestClaimRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
-    ManagedArtworkIngestRequeueRecord, ManagedArtworkIngestStatus, ManagedArtworkRepository,
-    MediaDomain, MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult,
-    MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
-    MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
-    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, MetadataRepository,
-    MetadataSource, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
-    NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
-    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
-    NewOutboxEvent, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoImportPersistenceSummary,
-    OutboxEventListFilter, OutboxEventRecord, OutboxEventStatus, PageRequest, Person, PersonId,
-    ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation,
-    Result, ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus, SelectedArtworkId,
-    SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, Studio, StudioId,
-    Tag, TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
-    TranscodeSessionState, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
-    UserPrincipalId, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository, VfsCacheSummary,
-    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryAttemptId,
-    WebhookDeliveryAttemptRecord, WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointRecord,
-    WebhookEndpointStatus, WebhookRepository,
-};
-use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
+pub use facade::TaruDatabase;
+pub use sqlite::SqliteRuntimeOptions;
 
-#[derive(Clone, Debug)]
-pub struct SqliteStore {
-    pool: SqlitePool,
-}
-
-mod addons;
-mod artwork;
-mod automation;
-mod catalog;
-mod catalog_governance;
-mod codec;
-mod event_outbox;
-mod ingestion;
-mod jobs;
-mod library;
-mod library_item;
-mod local_inference;
-mod media;
-mod metadata;
-mod migrations;
-mod playback;
-mod provider_mapping;
-mod runtime;
-mod scan;
-mod search;
-mod source_duplicate;
-mod staging;
-mod user_playback;
-mod vfs_cache;
-mod webhooks;
-
-pub(crate) use codec::*;
+#[cfg(test)]
+mod contract_tests;
 
 #[cfg(test)]
 mod tests;

@@ -1,21 +1,14 @@
-use taru_core::{
-    AddonGrantId, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
-    AddonSideEffectTarget, AddonSideEffectValidationStatus, ArtworkCandidateId,
-    ArtworkCandidateSourceKind, ArtworkCandidateStatus, AutomationJobInput, CancelLeasedJob,
-    CatalogItemProjectionCommit, CatalogSearchProjection, CompleteLeasedJob, ContentRating, Credit,
-    CreditRole, FailLeasedJob, ImageKind, ImageOwner, ImageRef, JobLeaseClaimFilter,
-    JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobRunToken, JobWorkerId,
-    LibraryItemState, LibraryOptions, LibraryPreset, MediaSourceId, MetadataRefreshMode,
-    NewVfsCacheFailure, ProviderMappingId, ProviderSubjectId, RecoverExpiredJobLeases,
-    RequestJobCancellation, TransactionManager, VfsCacheOperation, VfsCachedListing,
-    VfsCachedObject, VfsCachedObjectKind,
+use taru_core::*;
+use taru_search::{SearchDocument, SearchIndex, SearchQuery};
+
+use crate::{
+    TaruDatabase,
+    sqlite::codec::{provider_to_parts, row_get},
 };
 
-use super::*;
-
 #[tokio::test]
-async fn sqlite_store_persists_libraries() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_persists_libraries() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -32,8 +25,8 @@ async fn sqlite_store_persists_libraries() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_library_profiles() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_library_profiles() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let mut options = LibraryOptions::from_preset(LibraryPreset::Anime);
@@ -56,8 +49,8 @@ async fn sqlite_store_round_trips_library_profiles() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_media_items_and_sources() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_media_items_and_sources() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -159,8 +152,8 @@ async fn sqlite_store_round_trips_media_items_and_sources() {
 }
 
 #[tokio::test]
-async fn sqlite_store_persists_user_playback_state_by_principal() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_persists_user_playback_state_by_principal() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -240,8 +233,8 @@ async fn sqlite_store_persists_user_playback_state_by_principal() {
 }
 
 #[tokio::test]
-async fn sqlite_store_continue_watching_filters_watched_zero_and_other_principals() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_continue_watching_filters_watched_zero_and_other_principals() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -301,8 +294,8 @@ async fn sqlite_store_continue_watching_filters_watched_zero_and_other_principal
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_video_item_hierarchy_and_multiple_sources() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_video_item_hierarchy_and_multiple_sources() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -408,8 +401,8 @@ async fn sqlite_store_round_trips_video_item_hierarchy_and_multiple_sources() {
 }
 
 #[tokio::test]
-async fn sqlite_store_tracks_source_less_library_items() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_tracks_source_less_library_items() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -466,8 +459,8 @@ async fn sqlite_store_tracks_source_less_library_items() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_transcode_sessions() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_transcode_sessions() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -561,8 +554,8 @@ async fn sqlite_store_round_trips_transcode_sessions() {
 }
 
 #[tokio::test]
-async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_lists_transcode_sessions_with_filters_and_pagination() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -692,8 +685,8 @@ async fn sqlite_store_lists_transcode_sessions_with_filters_and_pagination() {
 }
 
 #[tokio::test]
-async fn sqlite_store_marks_stale_transcode_sessions_failed() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_marks_stale_transcode_sessions_failed() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -782,8 +775,8 @@ async fn sqlite_store_marks_stale_transcode_sessions_failed() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_metadata_policy_records() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_metadata_policy_records() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -903,8 +896,8 @@ async fn sqlite_store_round_trips_metadata_policy_records() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_metadata_provider_attempts() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_metadata_provider_attempts() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1030,8 +1023,8 @@ async fn sqlite_store_round_trips_metadata_provider_attempts() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_provider_subjects_and_mappings() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_provider_subjects_and_mappings() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1122,8 +1115,8 @@ async fn sqlite_store_round_trips_provider_subjects_and_mappings() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_source_duplicate_relationships_without_merging_items() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_source_duplicate_relationships_without_merging_items() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1231,8 +1224,8 @@ async fn sqlite_store_round_trips_source_duplicate_relationships_without_merging
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_local_inference_evidence_without_confirming_metadata() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_local_inference_evidence_without_confirming_metadata() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1326,8 +1319,8 @@ async fn sqlite_store_round_trips_local_inference_evidence_without_confirming_me
 }
 
 #[tokio::test]
-async fn sqlite_store_lists_catalog_governance_items_for_unknown_and_low_confidence() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_lists_catalog_governance_items_for_unknown_and_low_confidence() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1505,8 +1498,8 @@ async fn sqlite_store_lists_catalog_governance_items_for_unknown_and_low_confide
 }
 
 #[tokio::test]
-async fn sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_rolls_back_catalog_graph_when_search_projection_commit_fails() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let item_id = MediaItemId::new();
@@ -1529,24 +1522,20 @@ async fn sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fai
             }],
             ..CatalogItemGraphReplacement::default()
         },
-        search: CatalogSearchProjection {
+        search: CatalogSearchProjection::try_from_facet_labels(
             item_id,
-            title: "Missing Item".to_owned(),
-            body: "should not be committed".to_owned(),
-            facets: vec!["genre:rollback".to_owned()],
-        },
+            "Missing Item",
+            "should not be committed",
+            vec!["genre:rollback".to_owned()],
+        )
+        .unwrap(),
     };
 
     let err = store.commit_item_projection(&commit).await.unwrap_err();
     let people = store.list_people(PageRequest::first_page()).await.unwrap();
     let credits = store.list_item_credits(item_id).await.unwrap();
     let hits = store
-        .search(SearchQuery {
-            query: "missing".to_owned(),
-            facets: Vec::new(),
-            limit: 10,
-            offset: 0,
-        })
+        .search(SearchQuery::from_facet_labels("missing", Vec::new(), 10, 0).unwrap())
         .await
         .unwrap();
 
@@ -1557,8 +1546,8 @@ async fn sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fai
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_media_probe_results() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_media_probe_results() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1641,8 +1630,8 @@ async fn sqlite_store_round_trips_media_probe_results() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_vfs_cache_records_and_failures() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_vfs_cache_records_and_failures() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let directory = VfsCachedObject {
@@ -1725,8 +1714,8 @@ async fn sqlite_store_round_trips_vfs_cache_records_and_failures() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_catalog_graph_records() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_catalog_graph_records() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1872,8 +1861,8 @@ async fn sqlite_store_round_trips_catalog_graph_records() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_scan_state_search_and_artwork_tasks() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_scan_state_search_and_artwork_tasks() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -1976,12 +1965,15 @@ async fn sqlite_store_round_trips_scan_state_search_and_artwork_tasks() {
         .await
         .unwrap();
     store
-        .upsert(SearchDocument {
-            item_id: item.id,
-            title: item.metadata.title.clone(),
-            body: item.metadata.overview.clone().unwrap(),
-            facets: vec!["genre:sci-fi".to_owned()],
-        })
+        .upsert(
+            SearchDocument::from_facet_labels(
+                item.id,
+                item.metadata.title.clone(),
+                item.metadata.overview.clone().unwrap(),
+                vec!["genre:sci-fi".to_owned()],
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
     store.upsert_image_asset(&image).await.unwrap();
@@ -2007,12 +1999,7 @@ async fn sqlite_store_round_trips_scan_state_search_and_artwork_tasks() {
     );
     assert_eq!(
         store
-            .search(SearchQuery {
-                query: "searchable".to_owned(),
-                facets: Vec::new(),
-                limit: 10,
-                offset: 0,
-            })
+            .search(SearchQuery::from_facet_labels("searchable", Vec::new(), 10, 0,).unwrap())
             .await
             .unwrap()[0]
             .item_id,
@@ -2022,8 +2009,102 @@ async fn sqlite_store_round_trips_scan_state_search_and_artwork_tasks() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_job_lifecycle() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_matches_browse_facets_exactly() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Exact Facet Fixture".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                item.id,
+                "Exact Facet Fixture",
+                "semantic search fixture",
+                vec!["genre:Science Fiction".to_owned()],
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let partial = store
+        .search(
+            SearchQuery::from_facet_labels("fixture", vec!["genre:Science".to_owned()], 10, 0)
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let exact = store
+        .search(
+            SearchQuery::from_facet_labels(
+                "fixture",
+                vec!["genre:Science Fiction".to_owned()],
+                10,
+                0,
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert!(partial.is_empty());
+    assert_eq!(exact[0].item_id, item.id);
+}
+
+#[tokio::test]
+async fn taru_database_sqlite_searches_aliases_but_keeps_them_structured() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Alias Fixture".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let mut document = SearchDocument::from_facet_labels(
+        item.id,
+        "Alias Fixture",
+        "primary body",
+        vec!["genre:Drama".to_owned()],
+    )
+    .unwrap();
+    document.aliases.push("Hidden Original Title".to_owned());
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert(document).await.unwrap();
+
+    let hits = store
+        .search(
+            SearchQuery::from_facet_labels(
+                "hidden original",
+                vec!["genre:Drama".to_owned()],
+                10,
+                0,
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(hits[0].item_id, item.id);
+}
+
+#[tokio::test]
+async fn taru_database_sqlite_round_trips_job_lifecycle() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -2091,454 +2172,8 @@ async fn sqlite_store_round_trips_job_lifecycle() {
 }
 
 #[tokio::test]
-async fn sqlite_store_job_lease_claims_next_with_worker_token_and_filter() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
-    store.migrate().await.unwrap();
-
-    let library = Library {
-        id: LibraryId::new(),
-        name: "Movies".to_owned(),
-        roots: vec!["local:///Movies".to_owned()],
-        options: LibraryOptions::from_preset(LibraryPreset::Movies),
-    };
-    store.upsert_library(&library).await.unwrap();
-
-    let skipped = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::MetadataRefresh,
-            resource_class: "metadata.refresh".to_owned(),
-            library_id: Some(library.id),
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-    let target = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::LibraryScan,
-            resource_class: "disk.scan".to_owned(),
-            library_id: Some(library.id),
-            source_id: None,
-            input_json: Some(r#"{"library_id":"movies"}"#.to_owned()),
-        })
-        .await
-        .unwrap();
-    let decoy = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::LibraryScan,
-            resource_class: "disk.scan".to_owned(),
-            library_id: Some(library.id),
-            source_id: None,
-            input_json: Some(r#"{"library_id":"movies","slot":"decoy"}"#.to_owned()),
-        })
-        .await
-        .unwrap();
-
-    let worker_id = JobWorkerId::new();
-    let exact_claim = store
-        .claim_next_job_lease(JobLeaseClaimRequest {
-            worker_id,
-            lease_duration_ms: 30_000,
-            filter: JobLeaseClaimFilter {
-                job_id: Some(target.id),
-                kind: Some(JobKind::LibraryScan),
-                resource_class: Some("disk.scan".to_owned()),
-                library_id: Some(library.id),
-                source_id: None,
-            },
-        })
-        .await
-        .unwrap()
-        .expect("target library scan job should be claimable by id");
-
-    assert_eq!(exact_claim.job.id, target.id);
-    assert_eq!(exact_claim.job.input_json, target.input_json);
-    assert_eq!(exact_claim.lease.job_id, target.id);
-    assert_eq!(exact_claim.lease.worker_id, worker_id);
-    assert_eq!(exact_claim.lease.cancel_requested_at, None);
-    assert_eq!(exact_claim.lease.cancel_reason, None);
-
-    let claimed = store
-        .claim_next_job_lease(JobLeaseClaimRequest {
-            worker_id,
-            lease_duration_ms: 30_000,
-            filter: JobLeaseClaimFilter {
-                job_id: None,
-                kind: Some(JobKind::LibraryScan),
-                resource_class: Some("disk.scan".to_owned()),
-                library_id: Some(library.id),
-                source_id: None,
-            },
-        })
-        .await
-        .unwrap()
-        .expect("remaining library scan job should be claimable");
-
-    assert_eq!(claimed.job.id, decoy.id);
-    assert_eq!(claimed.job.status, JobStatus::Running);
-    assert_eq!(claimed.job.input_json, decoy.input_json);
-    assert!(claimed.job.started_at.is_some());
-    assert_eq!(claimed.job.completed_at, None);
-    assert_eq!(claimed.job.error, None);
-    assert_eq!(claimed.lease.job_id, decoy.id);
-    assert_eq!(claimed.lease.worker_id, worker_id);
-    assert_eq!(claimed.lease.cancel_requested_at, None);
-    assert_eq!(claimed.lease.cancel_reason, None);
-    assert!(!claimed.lease.heartbeat_at.is_empty());
-    assert!(!claimed.lease.lease_expires_at.is_empty());
-
-    let loaded = store.get_job(target.id).await.unwrap().unwrap();
-    let decoy_loaded = store.get_job(decoy.id).await.unwrap().unwrap();
-    assert_eq!(loaded.status, JobStatus::Running);
-    assert_eq!(decoy_loaded.status, JobStatus::Running);
-    assert_eq!(
-        store.get_job(skipped.id).await.unwrap().unwrap().status,
-        JobStatus::Queued
-    );
-    assert!(
-        store
-            .claim_next_job_lease(JobLeaseClaimRequest {
-                worker_id,
-                lease_duration_ms: 30_000,
-                filter: JobLeaseClaimFilter {
-                    job_id: None,
-                    kind: Some(JobKind::LibraryScan),
-                    resource_class: Some("disk.scan".to_owned()),
-                    library_id: Some(library.id),
-                    source_id: None,
-                },
-            })
-            .await
-            .unwrap()
-            .is_none()
-    );
-}
-
-#[tokio::test]
-async fn sqlite_store_job_lease_heartbeats_and_completes_with_run_token_fence() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
-    store.migrate().await.unwrap();
-
-    let job = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::LibraryScan,
-            resource_class: "disk.scan".to_owned(),
-            library_id: None,
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-    let claimed = store
-        .claim_next_job_lease(JobLeaseClaimRequest {
-            worker_id: JobWorkerId::new(),
-            lease_duration_ms: 10_000,
-            filter: JobLeaseClaimFilter {
-                kind: Some(JobKind::LibraryScan),
-                ..JobLeaseClaimFilter::default()
-            },
-        })
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(claimed.job.id, job.id);
-
-    let stale_guard = JobLeaseGuard {
-        job_id: claimed.job.id,
-        run_token: JobRunToken::new(),
-    };
-    let stale_heartbeat = store
-        .heartbeat_job_lease(JobLeaseHeartbeat {
-            guard: stale_guard,
-            lease_duration_ms: 10_000,
-        })
-        .await
-        .unwrap_err();
-    assert!(matches!(stale_heartbeat, TaruError::Conflict { .. }));
-
-    let heartbeat = store
-        .heartbeat_job_lease(JobLeaseHeartbeat {
-            guard: claimed.lease.guard(),
-            lease_duration_ms: 20_000,
-        })
-        .await
-        .unwrap();
-    assert_eq!(heartbeat.job.id, claimed.job.id);
-    assert_eq!(heartbeat.job.status, JobStatus::Running);
-    assert_eq!(heartbeat.lease.run_token, claimed.lease.run_token);
-    assert_ne!(
-        heartbeat.lease.lease_expires_at,
-        claimed.lease.lease_expires_at
-    );
-
-    let stale_success = store
-        .succeed_leased_job(CompleteLeasedJob {
-            guard: stale_guard,
-            summary_json: Some(r#"{"ignored":true}"#.to_owned()),
-        })
-        .await
-        .unwrap_err();
-    assert!(matches!(stale_success, TaruError::Conflict { .. }));
-    assert_eq!(
-        store.get_job(job.id).await.unwrap().unwrap().status,
-        JobStatus::Running
-    );
-
-    let succeeded = store
-        .succeed_leased_job(CompleteLeasedJob {
-            guard: claimed.lease.guard(),
-            summary_json: Some(r#"{"done":true}"#.to_owned()),
-        })
-        .await
-        .unwrap();
-    assert_eq!(succeeded.status, JobStatus::Succeeded);
-    assert_eq!(succeeded.summary_json, Some(r#"{"done":true}"#.to_owned()));
-    assert_eq!(succeeded.error, None);
-    assert!(succeeded.completed_at.is_some());
-
-    let stale_failure = store
-        .fail_leased_job(FailLeasedJob {
-            guard: claimed.lease.guard(),
-            error: "too late".to_owned(),
-        })
-        .await
-        .unwrap_err();
-    assert!(matches!(stale_failure, TaruError::Conflict { .. }));
-}
-
-#[tokio::test]
-async fn sqlite_store_job_cancel_requests_are_durable_and_acknowledged_by_owner() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
-    store.migrate().await.unwrap();
-
-    let queued = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::MetadataRefresh,
-            resource_class: "metadata.refresh".to_owned(),
-            library_id: None,
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-    let queued_cancel = store
-        .request_job_cancellation(RequestJobCancellation {
-            job_id: queued.id,
-            reason: Some("operator request".to_owned()),
-        })
-        .await
-        .unwrap();
-    assert!(queued_cancel.requested);
-    assert!(queued_cancel.terminal);
-    assert_eq!(queued_cancel.job.status, JobStatus::Cancelled);
-    assert_eq!(queued_cancel.job.error, None);
-    assert!(queued_cancel.job.completed_at.is_some());
-    assert!(queued_cancel.cancel_requested_at.is_some());
-
-    let running = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::LibraryScan,
-            resource_class: "disk.scan".to_owned(),
-            library_id: None,
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-    let claimed = store
-        .claim_next_job_lease(JobLeaseClaimRequest {
-            worker_id: JobWorkerId::new(),
-            lease_duration_ms: 10_000,
-            filter: JobLeaseClaimFilter {
-                kind: Some(JobKind::LibraryScan),
-                ..JobLeaseClaimFilter::default()
-            },
-        })
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(claimed.job.id, running.id);
-
-    let running_cancel = store
-        .request_job_cancellation(RequestJobCancellation {
-            job_id: running.id,
-            reason: Some("operator stop".to_owned()),
-        })
-        .await
-        .unwrap();
-    assert!(running_cancel.requested);
-    assert!(!running_cancel.terminal);
-    assert_eq!(running_cancel.job.status, JobStatus::Running);
-    assert!(running_cancel.cancel_requested_at.is_some());
-
-    let refreshed = store
-        .heartbeat_job_lease(JobLeaseHeartbeat {
-            guard: claimed.lease.guard(),
-            lease_duration_ms: 10_000,
-        })
-        .await
-        .unwrap();
-    assert!(refreshed.lease.cancel_requested_at.is_some());
-    assert_eq!(
-        refreshed.lease.cancel_reason.as_deref(),
-        Some("operator stop")
-    );
-
-    let stale_cancel = store
-        .cancel_leased_job(CancelLeasedJob {
-            guard: JobLeaseGuard {
-                job_id: running.id,
-                run_token: JobRunToken::new(),
-            },
-            summary_json: Some(r#"{"ignored":true}"#.to_owned()),
-        })
-        .await
-        .unwrap_err();
-    assert!(matches!(stale_cancel, TaruError::Conflict { .. }));
-
-    let cancelled = store
-        .cancel_leased_job(CancelLeasedJob {
-            guard: claimed.lease.guard(),
-            summary_json: Some(r#"{"cancelled":true}"#.to_owned()),
-        })
-        .await
-        .unwrap();
-    assert_eq!(cancelled.status, JobStatus::Cancelled);
-    assert_eq!(
-        cancelled.summary_json,
-        Some(r#"{"cancelled":true}"#.to_owned())
-    );
-    assert_eq!(cancelled.error, None);
-    assert!(cancelled.completed_at.is_some());
-
-    let terminal_cancel = store
-        .request_job_cancellation(RequestJobCancellation {
-            job_id: cancelled.id,
-            reason: None,
-        })
-        .await
-        .unwrap_err();
-    assert!(matches!(terminal_cancel, TaruError::Conflict { .. }));
-}
-
-#[tokio::test]
-async fn sqlite_store_job_lease_recovery_fails_only_expired_running_leases() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
-    store.migrate().await.unwrap();
-
-    let queued = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::MetadataRefresh,
-            resource_class: "metadata.refresh".to_owned(),
-            library_id: None,
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-    let running = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::LibraryScan,
-            resource_class: "disk.scan".to_owned(),
-            library_id: None,
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-    let active = store
-        .enqueue_job(NewJob {
-            id: JobId::new(),
-            kind: JobKind::LibraryProbe,
-            resource_class: "media.probe".to_owned(),
-            library_id: None,
-            source_id: None,
-            input_json: None,
-        })
-        .await
-        .unwrap();
-
-    let expired_claim = store
-        .claim_next_job_lease(JobLeaseClaimRequest {
-            worker_id: JobWorkerId::new(),
-            lease_duration_ms: 10_000,
-            filter: JobLeaseClaimFilter {
-                kind: Some(JobKind::LibraryScan),
-                ..JobLeaseClaimFilter::default()
-            },
-        })
-        .await
-        .unwrap()
-        .unwrap();
-    let active_claim = store
-        .claim_next_job_lease(JobLeaseClaimRequest {
-            worker_id: JobWorkerId::new(),
-            lease_duration_ms: 10_000,
-            filter: JobLeaseClaimFilter {
-                kind: Some(JobKind::LibraryProbe),
-                ..JobLeaseClaimFilter::default()
-            },
-        })
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(expired_claim.job.id, running.id);
-    assert_eq!(active_claim.job.id, active.id);
-
-    let exact_recovery = store
-        .recover_expired_job_leases(RecoverExpiredJobLeases {
-            filter: JobLeaseClaimFilter {
-                job_id: Some(running.id),
-                ..JobLeaseClaimFilter::default()
-            },
-            expired_before: "9999-01-01T00:00:00.000Z".to_owned(),
-            error: "lease expired during startup recovery".to_owned(),
-        })
-        .await
-        .unwrap();
-    assert_eq!(exact_recovery, 1);
-
-    let running = store.get_job(running.id).await.unwrap().unwrap();
-    let active = store.get_job(active.id).await.unwrap().unwrap();
-    assert_eq!(running.status, JobStatus::Failed);
-    assert_eq!(active.status, JobStatus::Running);
-
-    let recovered = store
-        .recover_expired_job_leases(RecoverExpiredJobLeases {
-            filter: JobLeaseClaimFilter::default(),
-            expired_before: "9999-01-01T00:00:00.000Z".to_owned(),
-            error: "lease expired during startup recovery".to_owned(),
-        })
-        .await
-        .unwrap();
-    assert_eq!(recovered, 1);
-
-    let queued = store.get_job(queued.id).await.unwrap().unwrap();
-    let running = store.get_job(running.id).await.unwrap().unwrap();
-    let active = store.get_job(active.id).await.unwrap().unwrap();
-
-    assert_eq!(queued.status, JobStatus::Queued);
-    assert_eq!(running.status, JobStatus::Failed);
-    assert_eq!(
-        running.error.as_deref(),
-        Some("lease expired during startup recovery")
-    );
-    assert_eq!(active.status, JobStatus::Failed);
-    assert!(running.completed_at.is_some());
-    assert!(active.completed_at.is_some());
-}
-
-#[tokio::test]
-async fn sqlite_store_lists_jobs_with_filters_and_pagination() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_lists_jobs_with_filters_and_pagination() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -2663,8 +2298,8 @@ async fn sqlite_store_lists_jobs_with_filters_and_pagination() {
 }
 
 #[tokio::test]
-async fn sqlite_store_marks_running_jobs_failed_on_startup_and_preserves_queued_jobs() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_marks_running_jobs_failed_on_startup_and_preserves_queued_jobs() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -2795,7 +2430,7 @@ async fn sqlite_store_marks_running_jobs_failed_on_startup_and_preserves_queued_
         "#,
     )
     .bind(leased_id.to_string())
-    .fetch_one(&store.pool)
+    .fetch_one(store.sqlite().pool())
     .await
     .unwrap();
 
@@ -2832,8 +2467,8 @@ async fn sqlite_store_marks_running_jobs_failed_on_startup_and_preserves_queued_
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_outbox_events_idempotently() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_outbox_events_idempotently() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -2881,8 +2516,8 @@ async fn sqlite_store_round_trips_outbox_events_idempotently() {
 }
 
 #[tokio::test]
-async fn sqlite_store_lists_outbox_events_with_filters_and_pagination() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_lists_outbox_events_with_filters_and_pagination() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -3037,8 +2672,8 @@ async fn sqlite_store_lists_outbox_events_with_filters_and_pagination() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_webhook_endpoint_and_attempts() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_webhook_endpoint_and_attempts() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -3119,8 +2754,8 @@ async fn sqlite_store_round_trips_webhook_endpoint_and_attempts() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_automation_provider_and_artifacts() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_automation_provider_and_artifacts() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library = Library {
@@ -3232,8 +2867,8 @@ async fn sqlite_store_round_trips_automation_provider_and_artifacts() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_addon_registration() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_addon_registration() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let addon_id = AddonId::new();
@@ -3291,8 +2926,8 @@ async fn sqlite_store_round_trips_addon_registration() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_addon_tokens_and_grants() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_addon_tokens_and_grants() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let addon_id = AddonId::new();
@@ -3437,8 +3072,8 @@ async fn sqlite_store_round_trips_addon_tokens_and_grants() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_addon_side_effects_idempotently() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_addon_side_effects_idempotently() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -3554,8 +3189,8 @@ async fn sqlite_store_round_trips_addon_side_effects_idempotently() {
 }
 
 #[tokio::test]
-async fn sqlite_store_records_addon_side_effect_apply_outcome() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_records_addon_side_effect_apply_outcome() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -3650,8 +3285,8 @@ async fn sqlite_store_records_addon_side_effect_apply_outcome() {
 }
 
 #[tokio::test]
-async fn sqlite_store_round_trips_addon_artwork_candidates_idempotently() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_round_trips_addon_artwork_candidates_idempotently() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -3803,8 +3438,8 @@ async fn sqlite_store_round_trips_addon_artwork_candidates_idempotently() {
 }
 
 #[tokio::test]
-async fn sqlite_store_accepts_artwork_candidate_into_managed_ingest_atomically() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_accepts_artwork_candidate_into_managed_ingest_atomically() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let library_id = LibraryId::new();
     store
@@ -4049,8 +3684,8 @@ async fn sqlite_store_accepts_artwork_candidate_into_managed_ingest_atomically()
 }
 
 #[tokio::test]
-async fn sqlite_store_managed_artwork_ingest_requeue_resets_failed_ingest_and_job() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_managed_artwork_ingest_requeue_resets_failed_ingest_and_job() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -4261,8 +3896,8 @@ async fn sqlite_store_managed_artwork_ingest_requeue_resets_failed_ingest_and_jo
 }
 
 #[tokio::test]
-async fn sqlite_store_managed_artwork_startup_recovery_fails_only_claimed_ingests() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_managed_artwork_startup_recovery_fails_only_claimed_ingests() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -4322,7 +3957,7 @@ async fn sqlite_store_managed_artwork_startup_recovery_fails_only_claimed_ingest
         .unwrap();
 
     async fn accepted_ingest(
-        store: &SqliteStore,
+        store: &TaruDatabase,
         addon_id: AddonId,
         token_id: AddonTokenId,
         library_id: LibraryId,
@@ -4464,8 +4099,8 @@ async fn sqlite_store_managed_artwork_startup_recovery_fails_only_claimed_ingest
 }
 
 #[tokio::test]
-async fn sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idempotently() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_publishes_stored_managed_artifact_as_selected_artwork_idempotently() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -4635,8 +4270,8 @@ async fn sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idem
 }
 
 #[tokio::test]
-async fn sqlite_store_publishes_selected_artwork_with_item_kind_guard() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_publishes_selected_artwork_with_item_kind_guard() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -4821,8 +4456,8 @@ async fn sqlite_store_publishes_selected_artwork_with_item_kind_guard() {
 }
 
 #[tokio::test]
-async fn sqlite_store_selected_artwork_unpublish_without_deleting_artifact() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_selected_artwork_unpublish_without_deleting_artifact() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -5025,8 +4660,8 @@ async fn sqlite_store_selected_artwork_unpublish_without_deleting_artifact() {
 }
 
 #[tokio::test]
-async fn sqlite_store_lists_managed_artwork_gallery_for_item_without_raw_locators() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_lists_managed_artwork_gallery_for_item_without_raw_locators() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -5213,8 +4848,8 @@ async fn sqlite_store_lists_managed_artwork_gallery_for_item_without_raw_locator
 }
 
 #[tokio::test]
-async fn sqlite_store_lists_managed_artwork_lifecycle_with_selected_artwork_protection() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_lists_managed_artwork_lifecycle_with_selected_artwork_protection() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -5450,8 +5085,8 @@ async fn sqlite_store_lists_managed_artwork_lifecycle_with_selected_artwork_prot
 }
 
 #[tokio::test]
-async fn sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let library_id = LibraryId::new();
@@ -5644,8 +5279,8 @@ async fn sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_de
 }
 
 #[tokio::test]
-async fn sqlite_store_rejects_addon_token_rotation_across_addons() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn taru_database_sqlite_rejects_addon_token_rotation_across_addons() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let first_addon_id = AddonId::new();
@@ -5722,7 +5357,7 @@ fn external_id_sort_key(external_id: &ExternalId) -> String {
 }
 
 async fn seed_media_item_with_source(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     library_id: LibraryId,
     title: &str,
 ) -> MediaSource {

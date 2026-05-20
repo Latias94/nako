@@ -41,7 +41,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -104,7 +104,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
         .unwrap();
     let router = build_router(app);
 
-    let decision = request_json::<taru_api::PlaybackDecisionResponse>(
+    let decision = request_json::<taru_api::public_client::PlaybackDecisionResponse>(
         &router,
         Method::GET,
         &format!("/sources/{}/playback/decision", source.id),
@@ -130,7 +130,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
 
     assert_eq!(
         decision.decision.mode,
-        taru_api::ClientPlaybackMode::DirectPlay
+        taru_api::public_client::ClientPlaybackMode::DirectPlay
     );
     assert!(decision_json["source"].get("locator").is_none());
     assert!(
@@ -295,7 +295,7 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -1012,8 +1012,8 @@ async fn missing_source_probe_returns_404() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let error = body_json::<ErrorResponse>(response).await;
     assert_eq!(
-        taru_api::ClientErrorCode::from_code(&error.code),
-        Some(taru_api::ClientErrorCode::NotFound)
+        taru_api::public_client::ClientErrorCode::from_code(&error.code),
+        Some(taru_api::public_client::ClientErrorCode::NotFound)
     );
     assert!(error.message.contains("not found"));
 }
@@ -1025,8 +1025,12 @@ async fn paginated_routes_echo_page_info_and_reject_large_limits() {
     let router = test_router(temp.path().to_path_buf(), library_id).await;
     let sources_path = format!("/libraries/{library_id}/sources?limit=10&offset=20");
 
-    let sources =
-        request_json::<taru_api::LibrarySourcesResponse>(&router, Method::GET, &sources_path).await;
+    let sources = request_json::<taru_api::public_client::LibrarySourcesResponse>(
+        &router,
+        Method::GET,
+        &sources_path,
+    )
+    .await;
     assert_eq!(sources.page.limit, 10);
     assert_eq!(sources.page.offset, 20);
 
@@ -1043,7 +1047,10 @@ async fn paginated_routes_echo_page_info_and_reject_large_limits() {
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     let error = body_json::<ErrorResponse>(response).await;
-    assert_eq!(error.code, taru_api::ClientErrorCode::InvalidInput.as_str());
+    assert_eq!(
+        error.code,
+        taru_api::public_client::ClientErrorCode::InvalidInput.as_str()
+    );
     assert!(
         error
             .message

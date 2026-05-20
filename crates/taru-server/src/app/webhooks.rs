@@ -1,6 +1,6 @@
 use std::{collections::HashSet, env};
 
-use taru_api::{
+use taru_api::extension::{
     UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookDispatchResponse,
     WebhookEndpointResponse, WebhookEndpointsResponse,
 };
@@ -9,7 +9,7 @@ use taru_core::{
     OutboxEventRecord, PageRequest, Result, TaruError, WebhookDeliveryStatus, WebhookEndpointId,
     WebhookEndpointRecord, WebhookRepository,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_events::{ReqwestWebhookTransport, WebhookDeliveryService, endpoint_subscribes_to};
 use tokio::sync::Semaphore;
 use tracing::warn;
@@ -29,12 +29,12 @@ fn resolve_webhook_secret(endpoint: &WebhookEndpointRecord) -> Result<Option<Str
 
 #[derive(Clone, Debug)]
 pub(crate) struct WebhookAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
     permits: std::sync::Arc<Semaphore>,
 }
 
 impl WebhookAppService {
-    pub(crate) fn new(store: SqliteStore, permits: std::sync::Arc<Semaphore>) -> Self {
+    pub(crate) fn new(store: TaruDatabase, permits: std::sync::Arc<Semaphore>) -> Self {
         Self { store, permits }
     }
 

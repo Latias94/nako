@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use taru_api::{
+use taru_api::extension::{
     AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
     EnqueueAutomationJobRequest, UpsertAutomationProviderRequest,
 };
@@ -8,7 +8,7 @@ use taru_core::{
     AutomationCapability, AutomationProviderId, AutomationRepository, Job, JobId, JobRepository,
     MediaItemId, MediaRepository, NewAutomationProviderConfig, PageRequest, Result, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 
 #[derive(Clone, Debug)]
 struct UnavailableAutomationProvider;
@@ -41,11 +41,11 @@ impl taru_automation::AutomationProvider for UnavailableAutomationProvider {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AutomationAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
 }
 
 impl AutomationAppService {
-    pub(crate) fn new(store: SqliteStore) -> Self {
+    pub(crate) fn new(store: TaruDatabase) -> Self {
         Self { store }
     }
 

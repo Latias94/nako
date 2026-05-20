@@ -204,11 +204,8 @@ where
             return NfoExportOutcome::Skipped;
         }
 
-        let document = NfoDocument {
-            metadata: item.metadata,
-            external_ids: Vec::new(),
-            hierarchy: NfoHierarchy::default(),
-        };
+        let document =
+            NfoDocument::from_metadata(item.kind, item.metadata, NfoHierarchy::default());
         let xml = match existing_xml {
             Some(existing_xml) => match self.codec.render_preserving(&document, &existing_xml) {
                 Ok(rendered) => rendered.xml,

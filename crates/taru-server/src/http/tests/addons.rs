@@ -932,12 +932,10 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
     assert_eq!(genres.len(), 1);
     assert_eq!(genres[0].source, MetadataSource::Addon(addon_id));
     let hits = store
-        .search(SearchQuery {
-            query: "safe metadata".to_owned(),
-            facets: vec!["tag:sidecar".to_owned()],
-            limit: 10,
-            offset: 0,
-        })
+        .search(
+            SearchQuery::from_facet_labels("safe metadata", vec!["tag:sidecar".to_owned()], 10, 0)
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(hits[0].item_id, source.item_id);
@@ -1621,11 +1619,9 @@ async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_art
     assert_eq!(accepted.job.kind, JobKind::ManagedArtworkIngest);
     assert_eq!(accepted.job.status, JobStatus::Queued);
     assert_eq!(accepted.job.resource_class, "artwork.ingest");
-    assert_eq!(
-        accepted.job.input.as_ref().unwrap()["candidate_id"],
-        candidate_id.to_string()
-    );
-    assert_eq!(accepted.job.input.as_ref().unwrap()["image_kind"], "poster");
+    assert!(accepted.job.has_input);
+    assert!(!accepted.job.has_summary);
+    assert!(!accepted.job.has_error);
 
     let response_body = String::from_utf8_lossy(&response_body);
     assert!(!response_body.contains(remote_url));
@@ -2191,7 +2187,7 @@ async fn admin_managed_artwork_gallery_selects_item_kind_artifact_with_guards() 
     );
     assert!(!replay.changed);
 
-    let images = request_json::<taru_api::ImagesResponse>(
+    let images = request_json::<taru_api::public_client::ImagesResponse>(
         &router,
         Method::GET,
         &format!("/items/{}/images", source.item_id),
@@ -2295,7 +2291,7 @@ async fn admin_selected_artwork_unpublish_hides_public_image_without_deleting_ar
     )
     .await;
     assert_eq!(
-        request_json::<taru_api::ImagesResponse>(
+        request_json::<taru_api::public_client::ImagesResponse>(
             &router,
             Method::GET,
             &format!("/items/{}/images", source.item_id),
@@ -2351,7 +2347,7 @@ async fn admin_selected_artwork_unpublish_hides_public_image_without_deleting_ar
     assert!(artifact.has_content_hash);
     assert!(!response_text.contains("\"content_hash\""));
 
-    let images = request_json::<taru_api::ImagesResponse>(
+    let images = request_json::<taru_api::public_client::ImagesResponse>(
         &router,
         Method::GET,
         &format!("/items/{}/images", source.item_id),
@@ -2473,7 +2469,8 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         "{}",
         String::from_utf8_lossy(&images_body)
     );
-    let images: taru_api::ImagesResponse = serde_json::from_slice(&images_body).unwrap();
+    let images: taru_api::public_client::ImagesResponse =
+        serde_json::from_slice(&images_body).unwrap();
     assert_eq!(images.item_id, source.item_id.to_string());
     assert_eq!(images.images, vec![published.image.clone()]);
 
@@ -2491,7 +2488,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
     let item_detail_body = to_bytes(item_detail_response.into_body(), usize::MAX)
         .await
         .unwrap();
-    let item_detail: taru_api::ItemDetailResponse =
+    let item_detail: taru_api::public_client::ItemDetailResponse =
         serde_json::from_slice(&item_detail_body).unwrap();
     assert_eq!(item_detail.images, vec![published.image.clone()]);
 
@@ -3135,7 +3132,7 @@ async fn admin_managed_artwork_remediation_requires_confirmation_and_deletes_onl
     assert_eq!(plan.missing_artifacts[0].id, artifact.id);
     assert_eq!(
         plan.missing_artifacts[0].recommendation,
-        taru_api::AdminManagedArtworkArtifactMissingRemediationRecommendation::RestoreOrRepublishSelectedArtwork
+        taru_api::admin::AdminManagedArtworkArtifactMissingRemediationRecommendation::RestoreOrRepublishSelectedArtwork
     );
     assert!(plan.stray_files.iter().any(|file| {
         file.action == AdminManagedArtworkArtifactStrayFileRemediationAction::DeleteStrayFile
@@ -3284,16 +3281,17 @@ async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summ
     assert_eq!(ingest.status, ManagedArtworkIngestStatus::Failed);
     assert!(!ingest.has_artifact);
     assert!(ingest.has_failure);
+    assert_eq!(
+        ingest.failure_code.as_deref(),
+        Some("unsupported_media_type")
+    );
     assert!(processed.artifact.is_none());
     assert_eq!(job.id, accepted.job.id);
     assert_eq!(job.kind, JobKind::ManagedArtworkIngest);
     assert_eq!(job.status, JobStatus::Failed);
-    assert_eq!(job.error.as_deref(), Some("unsupported_media_type"));
-    assert_eq!(
-        job.summary.as_ref().unwrap()["failure_code"],
-        "unsupported_media_type"
-    );
-    assert_eq!(job.summary.as_ref().unwrap()["status"], "failed");
+    assert!(job.has_input);
+    assert!(job.has_summary);
+    assert!(job.has_error);
 
     let response_text = String::from_utf8_lossy(&response_body);
     assert!(!response_text.contains(&remote_url));
@@ -3359,10 +3357,16 @@ async fn admin_managed_artwork_ingest_requeue_retries_failed_ingest_without_leak
     assert_eq!(failed_ingest.id, accepted.ingest.id);
     assert_eq!(failed_ingest.status, ManagedArtworkIngestStatus::Failed);
     assert!(failed_ingest.has_failure);
+    assert_eq!(
+        failed_ingest.failure_code.as_deref(),
+        Some("unsupported_media_type")
+    );
     assert!(!failed_ingest.has_artifact);
     assert_eq!(failed_job.id, accepted.job.id);
     assert_eq!(failed_job.status, JobStatus::Failed);
-    assert_eq!(failed_job.error.as_deref(), Some("unsupported_media_type"));
+    assert!(failed_job.has_input);
+    assert!(failed_job.has_summary);
+    assert!(failed_job.has_error);
     assert!(failed.artifact.is_none());
 
     let requeue_path = format!("/admin/v1/artwork/ingests/{}/requeue", accepted.ingest.id);
@@ -3514,14 +3518,12 @@ async fn admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summ
     assert_eq!(ingest.status, ManagedArtworkIngestStatus::Failed);
     assert!(!ingest.has_artifact);
     assert!(ingest.has_failure);
+    assert_eq!(ingest.failure_code.as_deref(), Some("invalid_image"));
     assert!(processed.artifact.is_none());
     assert_eq!(job.status, JobStatus::Failed);
-    assert_eq!(job.error.as_deref(), Some("invalid_image"));
-    assert_eq!(
-        job.summary.as_ref().unwrap()["failure_code"],
-        "invalid_image"
-    );
-    assert_eq!(job.summary.as_ref().unwrap()["status"], "failed");
+    assert!(job.has_input);
+    assert!(job.has_summary);
+    assert!(job.has_error);
 
     let response_text = String::from_utf8_lossy(&response_body);
     assert!(!response_text.contains(&remote_url));
@@ -3793,15 +3795,18 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
         .await
         .unwrap();
     store
-        .upsert(SearchDocument {
-            item_id: source.item_id,
-            title: "demo.mkv".to_owned(),
-            body: "demo.mkv Existing Genre existing-tag".to_owned(),
-            facets: vec![
-                "genre:Existing Genre".to_owned(),
-                "tag:existing-tag".to_owned(),
-            ],
-        })
+        .upsert(
+            SearchDocument::from_facet_labels(
+                source.item_id,
+                "demo.mkv",
+                "demo.mkv Existing Genre existing-tag",
+                vec![
+                    "genre:Existing Genre".to_owned(),
+                    "tag:existing-tag".to_owned(),
+                ],
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -3899,15 +3904,18 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
     assert_eq!(genres, vec![tmdb_genre]);
     assert_eq!(tags, vec![tmdb_tag]);
     let hits = store
-        .search(SearchQuery {
-            query: "Scalar-only".to_owned(),
-            facets: vec![
-                "genre:Existing Genre".to_owned(),
-                "tag:existing-tag".to_owned(),
-            ],
-            limit: 10,
-            offset: 0,
-        })
+        .search(
+            SearchQuery::from_facet_labels(
+                "Scalar-only",
+                vec![
+                    "genre:Existing Genre".to_owned(),
+                    "tag:existing-tag".to_owned(),
+                ],
+                10,
+                0,
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(hits[0].item_id, source.item_id);
@@ -4012,12 +4020,15 @@ async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_cata
     assert_eq!(tags[0].name, "addon-tag");
     assert_eq!(tags[0].source, MetadataSource::Addon(addon_id));
     let hits = store
-        .search(SearchQuery {
-            query: "addon-tag".to_owned(),
-            facets: vec!["genre:Existing Genre".to_owned()],
-            limit: 10,
-            offset: 0,
-        })
+        .search(
+            SearchQuery::from_facet_labels(
+                "addon-tag",
+                vec!["genre:Existing Genre".to_owned()],
+                10,
+                0,
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(hits[0].item_id, source.item_id);

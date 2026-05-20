@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [future-ready-architecture-refactor](future-ready-architecture-refactor/README.md):
+  completed M61 fearless architecture refactor lane for PostgreSQL-ready
+  persistence, deeper runtime/domain/search/API seams, and deletion of
+  redundant MVP paths before Taru's SQLite, metadata, Addon, AI automation,
+  and client contracts harden.
 - [android-client-foundation](android-client-foundation/README.md): completed
   Android-first client foundation work, covering native Android implementation
   order, playback-first mobile scope, Public Client API connection/browse/search
@@ -172,10 +177,14 @@ attention.
   NFO storage write policy work, covering local atomic sidecar writes, explicit
   VFS write modes, internal NFO export diagnostics, and separation between XML
   preservation and storage persistence mechanics.
-- [admin-web-console](admin-web-console/README.md): active web admin console
-  work, covering Taru's administration-first web surface, media governance page
-  families, Admin API implications, brand direction, the `apps/admin-web`
+- [admin-web-console](admin-web-console/README.md): completed web admin console
+  baseline, covering Taru's administration-first web surface, media governance
+  page families, Admin API implications, brand direction, the `apps/admin-web`
   scaffold, and the live/mock Admin API data-source boundary.
+- [admin-api-typescript-contract](admin-api-typescript-contract/README.md):
+  active follow-on for generating or mechanically synchronizing the
+  `/admin/v1/*` TypeScript contract consumed by `apps/admin-web` while keeping
+  it separate from the Public Client SDK and `taru-client-protocol`.
 - [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
   completed M47 NFO Round Trip preservation work, covering preservation-aware
   movie NFO update, unknown XML field retention, conflict reporting, forced

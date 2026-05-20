@@ -1,6 +1,6 @@
 # Admin Web Console TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## AWC.0 Planning Baseline
@@ -96,3 +96,10 @@ Last updated: 2026-05-19
   boundary. Future work should choose between a generated Admin API TypeScript
   contract and continued hand-written DTOs before adding more routes. Secrets
   and local paths must stay redacted in UI and test fixtures.
+
+## Closeout
+
+All planned AWC tasks are complete. The Admin API TypeScript contract decision
+and implementation are split to
+`docs/workstreams/admin-api-typescript-contract/` rather than extending this
+lane with a separate contract-generation concern.

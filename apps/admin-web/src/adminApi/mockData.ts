@@ -1,14 +1,16 @@
 import type {
   AdminCatalogGovernanceItemListResponse,
-  AdminConsoleData,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
   AdminServerConfigDiagnosticsResponse,
-  AdminSourceMap,
   AdminStorageStagingDiagnosticsResponse,
+} from "./generated/contract";
+import type {
+  AdminConsoleData,
+  AdminSourceMap,
 } from "./types";
 
 export const mockOverview: AdminOverviewResponse = {

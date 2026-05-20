@@ -27,7 +27,11 @@ pub use strategy::{
     MetadataProviderAttempt, MetadataRefreshJobInput, MetadataRefreshRequest,
     MetadataRefreshService, MetadataRefreshSummary, MetadataStrategyExecutor,
 };
-pub use taru_core::MetadataMergePolicy;
+pub use taru_core::{
+    MetadataCandidateGraph, MetadataCandidateRecord, MetadataCandidateRelationship,
+    MetadataCandidateRelationshipKind, MetadataCandidateSource, MetadataCandidateSubject,
+    MetadataMergePolicy,
+};
 pub use types::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataLookup, MetadataProvider,
 };

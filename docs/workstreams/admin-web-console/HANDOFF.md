@@ -1,6 +1,6 @@
 # Admin Web Console Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Current State
@@ -43,6 +43,9 @@ and system config. `dataSource.ts` composes them through section-level
 live/mock fallback, so one failed route does not force the whole console back
 to mock data. The UI shows source labels plus a safe fallback summary.
 
+This workstream is closed as the admin web baseline. The next contract concern
+is split to `docs/workstreams/admin-api-typescript-contract/`.
+
 ## v0.dev Prompt
 
 ```text
@@ -74,11 +77,9 @@ describe a front-end framework; produce the UI prototype only.
 
 ## Next Recommended Task
 
-The next task should decide the Admin API TypeScript contract strategy before
-adding more routes: either generate a separate Admin API contract from
-`taru-api`, or keep a narrow hand-written frontend DTO boundary with explicit
-tests. After that, the most useful UI slice is detail pages and filters for
-Jobs, Catalog Governance, and Playback.
+Continue with the `admin-api-typescript-contract` workstream. Do not add deeper
+admin-web route filters, detail pages, or mutations until the Admin API
+TypeScript contract strategy is settled.
 
 ## Constraints
 
@@ -91,7 +92,5 @@ Jobs, Catalog Governance, and Playback.
 ## Open Questions
 
 - Editable settings versus read-only diagnostics in the first release.
-- Whether AWC-070 should use hand-written DTO types first or generate a
-  separate Admin API TypeScript contract after the next API inventory pass.
-- Whether the next admin-web task should add a generated Admin API TypeScript
-  contract before building deeper route filters and detail pages.
+- Whether the first generated Admin API TypeScript contract should stay
+  app-local under `apps/admin-web` or later become a separate package.

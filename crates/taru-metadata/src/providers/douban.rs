@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
-use taru_core::{ExternalProvider, MediaKind, Result, SecretString, TaruError};
+use taru_core::{
+    ExternalProvider, MediaKind, MetadataCandidateGraph, ProviderSubjectKind, Result, SecretString,
+    TaruError,
+};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -114,13 +117,22 @@ impl MetadataProvider for DoubanMetadataProvider {
             .into_iter()
             .map(|subject| {
                 let score = douban_search_score(&lookup, &subject);
+                let provider_key = subject.id.clone();
                 MetadataCandidate {
                     provider: ExternalProvider::Douban,
-                    provider_key: subject.id.clone(),
+                    provider_key: provider_key.clone(),
                     score,
-                    metadata: crate::mapping::douban_subject_to_metadata(
-                        subject,
-                        self.config.image_base_url.as_deref(),
+                    graph: MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Douban,
+                        lookup.kind.unwrap_or(MediaKind::Unknown),
+                        provider_subject_kind_for_media_kind(
+                            lookup.kind.unwrap_or(MediaKind::Unknown),
+                        ),
+                        provider_key,
+                        crate::mapping::douban_subject_to_metadata(
+                            subject,
+                            self.config.image_base_url.as_deref(),
+                        ),
                     ),
                 }
             })
@@ -157,13 +169,22 @@ impl MetadataProvider for DoubanMetadataProvider {
         let details: DoubanSubject = serde_json::from_value(value)
             .map_err(|err| provider_parse_error(DOUBAN_PROVIDER_NAME, "movie details", err))?;
 
-        Ok(MetadataFetchResult {
-            provider: ExternalProvider::Douban,
-            provider_key: details.id.clone(),
-            metadata: crate::mapping::douban_subject_to_metadata(
+        let provider_key = details.id.clone();
+        let graph = MetadataCandidateGraph::for_provider(
+            ExternalProvider::Douban,
+            request.kind,
+            provider_subject_kind_for_media_kind(request.kind),
+            provider_key.clone(),
+            crate::mapping::douban_subject_to_metadata(
                 details,
                 self.config.image_base_url.as_deref(),
             ),
+        );
+
+        Ok(MetadataFetchResult {
+            provider: ExternalProvider::Douban,
+            provider_key,
+            graph,
             raw_json,
         })
     }
@@ -254,4 +275,15 @@ fn douban_search_score(lookup: &MetadataLookup, subject: &DoubanSubject) -> f32 
             .and_then(|rating| rating.average)
             .unwrap_or(0.0)
             / 200.0
+}
+
+fn provider_subject_kind_for_media_kind(kind: MediaKind) -> ProviderSubjectKind {
+    match kind {
+        MediaKind::Movie => ProviderSubjectKind::Movie,
+        MediaKind::Series => ProviderSubjectKind::Series,
+        MediaKind::Season => ProviderSubjectKind::Season,
+        MediaKind::Episode => ProviderSubjectKind::Episode,
+        MediaKind::Collection => ProviderSubjectKind::Collection,
+        MediaKind::Extra | MediaKind::Unknown => ProviderSubjectKind::Subject,
+    }
 }

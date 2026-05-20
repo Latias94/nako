@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use taru_core::{CanonicalMetadata, ExternalId, ExternalProvider, MediaKind, Result};
+use taru_core::{
+    CanonicalMetadata, ExternalId, ExternalProvider, MediaKind, MetadataCandidateGraph, Result,
+};
 
 use crate::runtime::MetadataHttpRuntimeStatus;
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -17,7 +19,14 @@ pub struct MetadataCandidate {
     pub provider: ExternalProvider,
     pub provider_key: String,
     pub score: f32,
-    pub metadata: CanonicalMetadata,
+    pub graph: MetadataCandidateGraph,
+}
+
+impl MetadataCandidate {
+    #[must_use]
+    pub fn metadata(&self) -> CanonicalMetadata {
+        self.graph.canonical_metadata()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -31,8 +40,15 @@ pub struct MetadataFetchRequest {
 pub struct MetadataFetchResult {
     pub provider: ExternalProvider,
     pub provider_key: String,
-    pub metadata: CanonicalMetadata,
+    pub graph: MetadataCandidateGraph,
     pub raw_json: String,
+}
+
+impl MetadataFetchResult {
+    #[must_use]
+    pub fn metadata(&self) -> CanonicalMetadata {
+        self.graph.canonical_metadata()
+    }
 }
 
 #[async_trait]

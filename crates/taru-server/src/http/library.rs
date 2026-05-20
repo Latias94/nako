@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use taru_api::{IgnoreIngestionFailureRequest, JobResponse};
+use taru_api::admin::{IgnoreIngestionFailureRequest, JobResponse};
 use taru_core::{IngestionFailureStatus, LibraryId};
 use tracing::instrument;
 

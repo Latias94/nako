@@ -751,6 +751,52 @@ Recommended next goal after M42:
   workstream, or continue server-side playback/transcode seam deepening if
   server architecture remains the priority.
 
+### Future-Ready Architecture Refactor: M61
+
+Status: completed.
+
+This phase reopens server-side architecture work with an explicit fearless
+refactor mandate before Taru has production compatibility burden:
+
+- make persistence PostgreSQL-ready instead of SQLite-shaped;
+- replace the `SqliteStore` god-adapter shape with backend-neutral persistence
+  contracts, contract tests, and explicit transaction/unit-of-work seams;
+- slim `TaruApp` through cohesive runtime modules where they hide real
+  construction or policy complexity;
+- separate Media Source discovery from Local Inference and provisional
+  hierarchy planning;
+- introduce a provider-neutral Metadata Candidate Graph before deeper TMDB,
+  Douban, Bangumi, Addon, or AI automation writes;
+- deepen search semantics beyond a thin storage trait;
+- keep Admin API read models and generated frontend/SDK contracts explicit and
+  redacted;
+- delete obsolete helpers, compatibility shims, generated noise, and replaced
+  production paths.
+
+Authoritative workstream:
+
+- `docs/workstreams/future-ready-architecture-refactor/`
+
+Completed:
+
+- accepted ADR 0029 and ADR 0030 for the PostgreSQL-ready persistence boundary,
+  SQL dialect, migration, row-codec, and fixture policy;
+- moved `taru-db` toward a facade plus SQLite-owned adapter modules, with
+  backend-neutral job lease contract tests and an optional PostgreSQL proof
+  harness;
+- extracted server runtime/service construction into `app::composition`;
+- split source discovery from Local Inference planning;
+- introduced provider-neutral Metadata Candidate Graph records and provider/NFO
+  proof slices;
+- deepened search projection semantics with Browse Facets, aliases, Sort Keys,
+  provider identifiers, and projection versioning;
+- preserved redacted Admin/Public API boundaries and reproducible Admin/Public
+  TypeScript generation;
+- deleted the `taru-api` root-level compatibility re-export shim and updated
+  callers to explicit module boundaries;
+- closed with `cargo check --workspace --tests` and
+  `cargo nextest run --workspace --no-fail-fast`.
+
 ## Workstream Split Direction
 
 `server-foundation` was the initial planning hub. M5 split

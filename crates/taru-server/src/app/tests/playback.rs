@@ -398,7 +398,7 @@ async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
 
     let err = TaruApp::new_with_store(config, store).await.unwrap_err();
 
@@ -558,7 +558,7 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
     let temp = tempfile::tempdir().unwrap();
     let staging_root = temp.path().join("cache").join("remux");
     let library_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),

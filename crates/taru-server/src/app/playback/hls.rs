@@ -5,7 +5,7 @@ use taru_core::{
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
     TranscodeSessionState,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_streaming::PlaybackDecision;
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
@@ -80,7 +80,7 @@ impl HlsAppService {
 
     pub(super) async fn run(
         &self,
-        sessions: &SqliteStore,
+        sessions: &TaruDatabase,
         source: MediaSource,
         decision: PlaybackDecision,
         input_path: PathBuf,
@@ -113,7 +113,7 @@ impl HlsAppService {
 
     async fn reserve(
         &self,
-        sessions: &SqliteStore,
+        sessions: &TaruDatabase,
         key: &HlsRequestKey,
         layout: &HlsOutputLayout,
     ) -> Result<HlsRequestAdmission> {
@@ -188,7 +188,7 @@ impl HlsAppService {
 
     async fn run_reserved(
         &self,
-        sessions: &SqliteStore,
+        sessions: &TaruDatabase,
         persisted_session: TranscodeSessionRecord,
         source: MediaSource,
         decision: PlaybackDecision,

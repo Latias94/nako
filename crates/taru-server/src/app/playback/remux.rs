@@ -9,7 +9,7 @@ use taru_core::{
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
     TranscodeSessionState,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_streaming::PlaybackDecision;
 use taru_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
@@ -54,7 +54,7 @@ impl RemuxAppService {
 
     pub(super) async fn run(
         &self,
-        sessions: &SqliteStore,
+        sessions: &TaruDatabase,
         source: MediaSource,
         decision: PlaybackDecision,
         input_path: PathBuf,
@@ -96,7 +96,7 @@ impl RemuxAppService {
 
     async fn reserve(
         &self,
-        sessions: &SqliteStore,
+        sessions: &TaruDatabase,
         key: &RemuxRequestKey,
         output_path: &Path,
     ) -> Result<RemuxRequestAdmission> {
@@ -167,7 +167,7 @@ impl RemuxAppService {
 
     async fn run_reserved(
         &self,
-        sessions: &SqliteStore,
+        sessions: &TaruDatabase,
         persisted_session: TranscodeSessionRecord,
         source: MediaSource,
         decision: PlaybackDecision,

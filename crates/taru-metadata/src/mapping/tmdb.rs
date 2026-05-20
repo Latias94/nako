@@ -1,6 +1,6 @@
 use taru_core::{
-    CanonicalMetadata, CollectionRef, ContentRating, Credit, CreditRole, ExternalId,
-    ExternalProvider, ImageKind, ImageRef, StudioRef,
+    CollectionRef, ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
+    ImageRef, MetadataCandidateRecord, StudioRef,
 };
 
 use crate::providers::{
@@ -12,7 +12,7 @@ use crate::providers::{
 pub(crate) fn tmdb_search_result_to_metadata(
     result: TmdbMovieSearchResult,
     image_base_url: &str,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut images = Vec::new();
     push_provider_image_uri(
         &mut images,
@@ -38,8 +38,8 @@ pub(crate) fn tmdb_search_result_to_metadata(
     let original_title = result_original_title(&result);
     let release_date = result_release_date(&result);
 
-    CanonicalMetadata {
-        title,
+    MetadataCandidateRecord {
+        title: non_empty(title),
         original_title,
         overview: result.overview,
         release_date,
@@ -48,14 +48,14 @@ pub(crate) fn tmdb_search_result_to_metadata(
             provider: ExternalProvider::Tmdb,
             value: result.id.to_string(),
         }],
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 
 pub(crate) fn tmdb_movie_details_to_metadata(
     details: TmdbMovieDetails,
     image_base_url: &str,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut external_ids = vec![ExternalId {
         provider: ExternalProvider::Tmdb,
         value: details.id.to_string(),
@@ -131,8 +131,8 @@ pub(crate) fn tmdb_movie_details_to_metadata(
         }
     }
 
-    CanonicalMetadata {
-        title: details.title,
+    MetadataCandidateRecord {
+        title: non_empty(details.title),
         original_title: details.original_title,
         overview: details.overview,
         release_date: details.release_date,
@@ -174,14 +174,14 @@ pub(crate) fn tmdb_movie_details_to_metadata(
             })
             .collect(),
         external_ids,
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 
 pub(crate) fn tmdb_series_details_to_metadata(
     details: TmdbSeriesDetails,
     image_base_url: &str,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut external_ids = vec![ExternalId {
         provider: ExternalProvider::Tmdb,
         value: details.id.to_string(),
@@ -231,8 +231,8 @@ pub(crate) fn tmdb_series_details_to_metadata(
         }
     }
 
-    CanonicalMetadata {
-        title: details.name,
+    MetadataCandidateRecord {
+        title: non_empty(details.name),
         original_title: details.original_name,
         overview: details.overview,
         release_date: details.first_air_date,
@@ -259,14 +259,14 @@ pub(crate) fn tmdb_series_details_to_metadata(
             })
             .collect(),
         external_ids,
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 
 pub(crate) fn tmdb_season_details_to_metadata(
     details: TmdbSeasonDetails,
     image_base_url: &str,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut images = Vec::new();
     push_provider_image_uri(
         &mut images,
@@ -284,15 +284,15 @@ pub(crate) fn tmdb_season_details_to_metadata(
         }
     }
 
-    CanonicalMetadata {
-        title: if details.name.trim().is_empty() {
+    MetadataCandidateRecord {
+        title: Some(if details.name.trim().is_empty() {
             details
                 .season_number
                 .map(|season| format!("Season {season}"))
                 .unwrap_or_else(|| "Season".to_owned())
         } else {
             details.name
-        },
+        }),
         overview: details.overview,
         release_date: details.air_date,
         images,
@@ -301,14 +301,14 @@ pub(crate) fn tmdb_season_details_to_metadata(
             provider: ExternalProvider::Tmdb,
             value: details.id.to_string(),
         }],
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 
 pub(crate) fn tmdb_episode_details_to_metadata(
     details: TmdbEpisodeDetails,
     image_base_url: &str,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut images = Vec::new();
     push_provider_image_uri(
         &mut images,
@@ -331,15 +331,15 @@ pub(crate) fn tmdb_episode_details_to_metadata(
         tags.push(format!("tmdb:season:{season}"));
     }
 
-    CanonicalMetadata {
-        title: if details.name.trim().is_empty() {
+    MetadataCandidateRecord {
+        title: Some(if details.name.trim().is_empty() {
             match details.episode_number {
                 Some(episode) => format!("Episode {episode}"),
                 None => "Episode".to_owned(),
             }
         } else {
             details.name
-        },
+        }),
         overview: details.overview,
         release_date: details.air_date,
         runtime_minutes: details.runtime,
@@ -350,7 +350,7 @@ pub(crate) fn tmdb_episode_details_to_metadata(
             provider: ExternalProvider::Tmdb,
             value: details.id.to_string(),
         }],
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 
@@ -433,4 +433,8 @@ fn push_tmdb_image(
         image.height,
         image.iso_639_1.clone(),
     );
+}
+
+fn non_empty(value: String) -> Option<String> {
+    (!value.trim().is_empty()).then_some(value)
 }

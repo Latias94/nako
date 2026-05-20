@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "slug": "admin-api-typescript-contract",
+  "title": "Admin API TypeScript Contract",
+  "status": "active",
+  "updated": "2026-05-20",
+  "scope_kind": "contract_generation",
+  "problem": "Admin web currently hand-writes Admin API wire DTOs, creating drift risk before deeper web console workflows are built.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-api-typescript-contract/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-api-typescript-contract/DESIGN.md"
+    },
+    {
+      "role": "inventory",
+      "path": "docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-api-typescript-contract/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-api-typescript-contract/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-api-typescript-contract/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo check -p taru-api --examples",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2",
+    "cargo nextest run -p taru-api typescript --no-fail-fast",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build"
+  ],
+  "evidence": [
+    "docs/workstreams/admin-api-typescript-contract",
+    "docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md",
+    "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "crates/taru-api/src/sdk.rs",
+    "crates/taru-api/src/openapi.rs",
+    "apps/admin-web/src/adminApi",
+    "sdk/typescript"
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "AATC-040 is complete. Continue with AATC-050: close the Public/Admin separation contract, document generation commands, refresh evidence, and split detail-page UI work as follow-ons."
+  }
+}

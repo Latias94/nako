@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use taru_addon_protocol::{ensure_scope_grant, validate_manifest};
-use taru_api::{
+use taru_api::extension::{
     AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment, AddonGrantsResponse,
     AddonRegistrationResponse, AddonRegistrationsResponse, AddonSideEffectResponse,
     AddonSideEffectSummary, AddonSideEffectTargetRequest, AddonTokenIssuedResponse,
@@ -23,7 +23,7 @@ use taru_core::{
     MetadataRepository, MetadataSource, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect,
     NewAddonToken, NewArtworkCandidate, Result, StorageErrorKind, TaruError, hash_addon_token,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_nfo::{MovieNfoCodec, NfoExportSourceRequest, NfoExportSourceSummary, NfoFailureKind};
 use tokio::sync::Semaphore;
 
@@ -31,14 +31,14 @@ use super::{nfo::ensure_nfo_export_writable, storage::StorageBackendRegistry};
 
 #[derive(Clone, Debug)]
 pub(crate) struct AddonAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
 }
 
 impl AddonAppService {
     pub(super) fn new(
-        store: SqliteStore,
+        store: TaruDatabase,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
     ) -> Self {

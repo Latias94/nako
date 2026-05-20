@@ -15,37 +15,47 @@ use taru_addon_protocol::{
     AddonScope, ReqwestAddonTransport, call_addon_resource,
 };
 use taru_api::{
-    AcceptManagedArtworkCandidateResponse, AddonAccessCheckRequest, AddonAccessCheckResponse,
-    AddonGrantAssignment, AddonGrantsResponse, AddonRegistrationResponse,
-    AddonRegistrationsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
-    AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
-    AdminCatalogGovernanceItemListResponse, AdminJobCancelRequestResponse, AdminJobListResponse,
-    AdminManagedArtworkArtifactCleanupResponse, AdminManagedArtworkArtifactLifecycleResponse,
-    AdminManagedArtworkArtifactRemediationPlanResponse,
-    AdminManagedArtworkArtifactStorageDriftArtifactIssue,
-    AdminManagedArtworkArtifactStorageDriftFileReason,
-    AdminManagedArtworkArtifactStorageDriftResponse,
-    AdminManagedArtworkArtifactStrayFileCleanupResponse,
-    AdminManagedArtworkArtifactStrayFileCleanupStatus,
-    AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
-    AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
-    AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-    AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
-    AdminStorageStagingDiagnosticsResponse, AutomationArtifactsResponse,
-    AutomationProviderResponse, AutomationProvidersResponse, ClientTranscodeFailureCategory,
-    ClientTranscodeSessionState, EnqueueAutomationJobRequest, EnqueueMetadataMaintenanceRequest,
-    ErrorResponse, HealthResponse, IgnoreIngestionFailureRequest, IngestionFailuresResponse,
-    IssueAddonTokenRequest, JobResponse, LibraryListResponse, LibraryResponse,
-    MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
-    MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
-    MetadataRawCleanupResponse, MetadataRawResponsesResponse, PLAYBACK_SESSION_ID_HEADER,
-    ProcessManagedArtworkIngestResponse,
-    PublishSelectedArtworkResponse, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    RequeueManagedArtworkIngestResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
-    StorageBackendRuntimeStateScope, StorageBackendStatus, SubmitAddonSideEffectRequest,
-    TranscodeSessionResponse, UnpublishSelectedArtworkResponse,
-    UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse,
-    WebhookEndpointResponse, WebhookEndpointsResponse,
+    admin::{
+        AcceptManagedArtworkCandidateResponse, AdminCatalogGovernanceItemListResponse,
+        AdminJobCancelRequestResponse, AdminJobListResponse,
+        AdminManagedArtworkArtifactCleanupResponse, AdminManagedArtworkArtifactLifecycleResponse,
+        AdminManagedArtworkArtifactRemediationPlanResponse,
+        AdminManagedArtworkArtifactStorageDriftArtifactIssue,
+        AdminManagedArtworkArtifactStorageDriftFileReason,
+        AdminManagedArtworkArtifactStorageDriftResponse,
+        AdminManagedArtworkArtifactStrayFileCleanupResponse,
+        AdminManagedArtworkArtifactStrayFileCleanupStatus,
+        AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
+        AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
+        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+        AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
+        AdminStorageStagingDiagnosticsResponse, IgnoreIngestionFailureRequest,
+        IngestionFailuresResponse, JobResponse, ProcessManagedArtworkIngestResponse,
+        PublishSelectedArtworkResponse, RequeueManagedArtworkIngestResponse,
+        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+        StorageBackendStatus, UnpublishSelectedArtworkResponse,
+    },
+    extension::{
+        AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment,
+        AddonGrantsResponse, AddonRegistrationResponse, AddonRegistrationsResponse,
+        AddonSideEffectResponse, AddonSideEffectTargetRequest, AddonTokenIssuedResponse,
+        AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
+        AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
+        EnqueueAutomationJobRequest, IssueAddonTokenRequest, RegisterAddonRequest,
+        ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpsertAutomationProviderRequest,
+        UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
+        WebhookEndpointsResponse,
+    },
+    metadata_diagnostics::{
+        EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanResponse,
+        MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
+        MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse,
+        MetadataRawResponsesResponse,
+    },
+    public_client::{
+        ClientTranscodeFailureCategory, ClientTranscodeSessionState, ErrorResponse, HealthResponse,
+        LibraryListResponse, LibraryResponse, PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse,
+    },
 };
 use taru_core::{
     AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
@@ -71,7 +81,7 @@ use taru_core::{
     TranscodeSessionState, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
     VfsCachedObjectKind, WebhookEndpointStatus,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, PlaybackPreferenceContext, PlaybackProfile,
@@ -105,7 +115,7 @@ mod webhooks;
 async fn router_with_media_source(
     file_name: &str,
     content: &[u8],
-) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+) -> (tempfile::TempDir, Router, MediaSource, TaruDatabase) {
     router_with_media_source_config(file_name, content, |_| {}).await
 }
 
@@ -113,7 +123,7 @@ async fn router_with_media_source_config(
     file_name: &str,
     content: &[u8],
     configure: impl FnOnce(&mut TaruServerConfig),
-) -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+) -> (tempfile::TempDir, Router, MediaSource, TaruDatabase) {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join(file_name), content).unwrap();
     let library_id = LibraryId::new();
@@ -147,7 +157,7 @@ async fn router_with_media_source_config(
         }],
     };
     configure(&mut config);
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -193,7 +203,7 @@ async fn router_with_remux_source(
     PathBuf,
     PathBuf,
     PathBuf,
-    SqliteStore,
+    TaruDatabase,
 ) {
     let temp = tempfile::tempdir().unwrap();
     let marker = temp.path().join("remux.started");
@@ -229,7 +239,7 @@ async fn router_with_remux_source(
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -270,7 +280,7 @@ async fn router_with_remux_source(
     )
 }
 
-async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, SqliteStore) {
+async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, TaruDatabase) {
     let temp = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(temp.path(), "hls");
     let library_root = temp.path().join("library");
@@ -304,7 +314,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Sq
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -561,7 +571,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     build_router(app)
 }
@@ -593,7 +603,7 @@ async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, toke
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     build_router_with_auth(app, auth::InboundAuthState::bearer_token(token))
 }

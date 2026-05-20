@@ -9,11 +9,11 @@ async fn user_playback_routes_update_read_and_list_current_principal_state() {
     let continue_path = "/users/me/playback-state/continue-watching?limit=10&offset=0";
     let watched_path = format!("/users/me/playback-state/items/{item_id}/watched");
 
-    let updated = request_body_json::<taru_api::UserPlaybackStateResponse, _>(
+    let updated = request_body_json::<taru_api::public_client::UserPlaybackStateResponse, _>(
         &router,
         Method::PUT,
         &progress_path,
-        &taru_api::UpdatePlaybackProgressRequest {
+        &taru_api::public_client::UpdatePlaybackProgressRequest {
             source_id: Some(source.id.to_string()),
             position_ms: 120_000,
             duration_ms: Some(600_000),
@@ -21,18 +21,24 @@ async fn user_playback_routes_update_read_and_list_current_principal_state() {
         },
     )
     .await;
-    let read =
-        request_json::<taru_api::UserPlaybackStateResponse>(&router, Method::GET, &state_path)
-            .await;
-    let continue_watching =
-        request_json::<taru_api::ContinueWatchingResponse>(&router, Method::GET, continue_path)
-            .await;
+    let read = request_json::<taru_api::public_client::UserPlaybackStateResponse>(
+        &router,
+        Method::GET,
+        &state_path,
+    )
+    .await;
+    let continue_watching = request_json::<taru_api::public_client::ContinueWatchingResponse>(
+        &router,
+        Method::GET,
+        continue_path,
+    )
+    .await;
     let raw = request_json::<serde_json::Value>(&router, Method::GET, &state_path).await;
-    let watched = request_body_json::<taru_api::UserPlaybackStateResponse, _>(
+    let watched = request_body_json::<taru_api::public_client::UserPlaybackStateResponse, _>(
         &router,
         Method::PUT,
         &watched_path,
-        &taru_api::SetWatchedStateRequest {
+        &taru_api::public_client::SetWatchedStateRequest {
             watched: true,
             source_id: Some(source.id.to_string()),
             position_ms: Some(600_000),
@@ -99,7 +105,7 @@ async fn user_playback_route_rejects_source_from_another_item() {
                 ))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&taru_api::UpdatePlaybackProgressRequest {
+                    serde_json::to_vec(&taru_api::public_client::UpdatePlaybackProgressRequest {
                         source_id: Some(first.id.to_string()),
                         position_ms: 10_000,
                         duration_ms: Some(100_000),
@@ -112,7 +118,7 @@ async fn user_playback_route_rejects_source_from_another_item() {
         .await
         .unwrap();
     let status = response.status();
-    let body = body_json::<taru_api::ErrorResponse>(response).await;
+    let body = body_json::<taru_api::public_client::ErrorResponse>(response).await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body.code, "invalid_input");

@@ -2,7 +2,8 @@ use serde_json::Value;
 use taru_client_protocol::public_client_paths;
 
 use crate::{
-    API_VERSION, API_VERSION_HEADER, PLAYBACK_SESSION_ID_HEADER, openapi::public_openapi_v1,
+    openapi::public_openapi_v1,
+    public_client::{API_VERSION, API_VERSION_HEADER, PLAYBACK_SESSION_ID_HEADER},
 };
 
 #[must_use]

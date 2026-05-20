@@ -13,7 +13,7 @@ use crate::config::{
     LocalLibraryConfig, PlaybackConfig, TaruServerConfig, WebDavLibraryConfig,
     configured_library_config_for,
 };
-use taru_api::{
+use taru_api::admin::{
     StorageBackendDiagnostic, StorageBackendDiagnosticsResponse, StorageBackendHealthDiagnostic,
     StorageBackendKind, StorageBackendRegistryDiagnostic, StorageBackendRuntimeStateScope,
     StorageBackendStatus,
@@ -23,7 +23,7 @@ use taru_core::{
     StagingManifestRepository, StagingPurpose, StagingState, TaruError, VfsCacheRepository,
     VfsCacheSummary,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_vfs::{LocalFsBackend, StorageBackend, StorageUri};
 
 use super::current_time_ms;
@@ -91,13 +91,13 @@ impl StorageDiagnosticsAppService {
 #[derive(Clone, Debug)]
 pub(super) struct StorageBackendRegistry {
     config: TaruServerConfig,
-    store: SqliteStore,
+    store: TaruDatabase,
     playback: PlaybackConfig,
     backends: Arc<Mutex<HashMap<LibraryId, Arc<LibraryStorageBackend>>>>,
 }
 
 impl StorageBackendRegistry {
-    pub(super) fn new(config: &TaruServerConfig, store: SqliteStore) -> Self {
+    pub(super) fn new(config: &TaruServerConfig, store: TaruDatabase) -> Self {
         Self {
             config: config.clone(),
             store,
@@ -659,8 +659,8 @@ mod tests {
 
     use async_trait::async_trait;
     use taru_core::{
-        LibraryOptions, LibraryPreset, MediaItemId, MediaSourceId, Result, TaruError,
-        TransactionManager,
+        DatabaseLifecycle, LibraryOptions, LibraryPreset, MediaItemId, MediaSourceId, Result,
+        TaruError,
     };
     use taru_vfs::{
         ByteRange, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend,
@@ -704,7 +704,7 @@ mod tests {
             artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config.clone()],
         };
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         let registry = StorageBackendRegistry::new(&config, store);
         let library = library_from_library_config(&library_config);
 
@@ -745,7 +745,7 @@ mod tests {
             artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config],
         };
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         let registry = StorageBackendRegistry::new(&config, store);
         let source = MediaSource {
             id: MediaSourceId::new(),
@@ -821,7 +821,7 @@ mod tests {
             artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![library_config.clone()],
         };
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         store
             .upsert_library(&Library {

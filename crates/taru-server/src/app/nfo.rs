@@ -6,7 +6,7 @@ use taru_core::{
     JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent, Result,
     TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_nfo::{
     MovieNfoCodec, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
     NfoExportSummary, NfoImportRequest, NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome,
@@ -51,7 +51,7 @@ enum NfoExportExecution {
 
 #[derive(Clone, Debug)]
 pub(crate) struct NfoAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
@@ -59,7 +59,7 @@ pub(crate) struct NfoAppService {
 
 impl NfoAppService {
     pub(super) fn new(
-        store: SqliteStore,
+        store: TaruDatabase,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,

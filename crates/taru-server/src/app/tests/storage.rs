@@ -38,7 +38,7 @@ async fn webdav_preview_config_builds_scanner_backend() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -73,7 +73,7 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
     let temp = tempfile::tempdir().unwrap();
     let local_library_id = LibraryId::new();
     let remote_library_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -179,7 +179,7 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
     fs::create_dir_all(&configured_root).unwrap();
     let configured_id = LibraryId::new();
     let retained_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     store
         .upsert_library(&Library {
@@ -227,7 +227,7 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
     assert_eq!(diagnostics.backends.len(), 2);
     assert!(diagnostics.backends.iter().any(|backend| {
         backend.library_id == configured_id
-            && backend.status == taru_api::StorageBackendStatus::Ready
+            && backend.status == taru_api::admin::StorageBackendStatus::Ready
     }));
     let retained = diagnostics
         .backends
@@ -236,7 +236,10 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
         .expect("retained library diagnostic");
     assert_eq!(retained.library_name, "Retained Historical Library");
     assert_eq!(retained.root_uri, "local:///Retained");
-    assert_eq!(retained.status, taru_api::StorageBackendStatus::Unavailable);
+    assert_eq!(
+        retained.status,
+        taru_api::admin::StorageBackendStatus::Unavailable
+    );
     assert_eq!(
         retained.reason.as_deref(),
         Some("configured library backend was not found")

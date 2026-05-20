@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAdminDataSource } from "./dataSource";
+import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockCatalogGovernance,
   mockEvents,
@@ -16,14 +17,14 @@ describe("Admin data source", () => {
   it("composes live Admin API read models into console data", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        "/admin/v1/overview": mockOverview,
-        "/admin/v1/catalog/governance/items": mockCatalogGovernance,
-        "/admin/v1/events": mockEvents,
-        "/admin/v1/jobs": mockJobs,
-        "/admin/v1/playback/sessions": mockPlaybackSessions,
-        "/admin/v1/playback/runtime": mockPlaybackRuntime,
-        "/admin/v1/storage/staging": mockStorageStaging,
-        "/admin/v1/system/config": mockSystemConfig,
+        [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [TARU_ADMIN_ROUTES.events]: mockEvents,
+        [TARU_ADMIN_ROUTES.jobs]: mockJobs,
+        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
       }),
     });
 
@@ -52,14 +53,14 @@ describe("Admin data source", () => {
   it("falls back per section when one Admin API read model fails", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        "/admin/v1/overview": mockOverview,
-        "/admin/v1/catalog/governance/items": mockCatalogGovernance,
-        "/admin/v1/events": mockEvents,
-        "/admin/v1/jobs": new Response("offline", { status: 503 }),
-        "/admin/v1/playback/sessions": mockPlaybackSessions,
-        "/admin/v1/playback/runtime": mockPlaybackRuntime,
-        "/admin/v1/storage/staging": mockStorageStaging,
-        "/admin/v1/system/config": mockSystemConfig,
+        [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [TARU_ADMIN_ROUTES.events]: mockEvents,
+        [TARU_ADMIN_ROUTES.jobs]: new Response("offline", { status: 503 }),
+        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
       }),
     });
 

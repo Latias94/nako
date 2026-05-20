@@ -17,16 +17,17 @@ use axum::{
     routing::any,
 };
 use serde_json::json;
-use taru_api::EnqueueMetadataMaintenanceRequest;
+use taru_api::metadata_diagnostics::EnqueueMetadataMaintenanceRequest;
 use taru_core::{
-    CanonicalMetadata, DomainEventKind, DomainEventSubject, EventOutboxRepository, JobId, JobKind,
-    JobRepository, JobStatus, Library, LibraryId, LibraryOptions, LibraryRepository,
-    LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult,
-    MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataField,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob, NewStagingManifestRecord,
-    NewTranscodeSession, PageRequest, ProviderRawResponse, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
+    CanonicalMetadata, DatabaseLifecycle, DomainEventKind, DomainEventSubject,
+    EventOutboxRepository, JobId, JobKind, JobRepository, JobStatus, Library, LibraryId,
+    LibraryOptions, LibraryRepository, LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository,
+    MetadataSource, NewJob, NewStagingManifestRecord, NewTranscodeSession, PageRequest,
+    ProviderRawResponse, StagingManifestId, StagingManifestRepository, StagingPurpose,
+    StagingState, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRepository, TranscodeSessionState,
 };
 use taru_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use taru_library::{LibraryScanRequest, LibraryScanner};
@@ -44,7 +45,10 @@ use taru_vfs::{
     StagedFile, StorageBackend, StorageCapabilities, StorageUri, StorageWriteReport,
     StorageWriteRequest, VirtualFile,
 };
-use tokio::{net::TcpListener, sync::Notify};
+use tokio::{
+    net::TcpListener,
+    sync::{Notify, Semaphore},
+};
 
 use super::playback::{
     HlsSourceDisposition, HlsStagingPolicy, RemuxRequestKey, RemuxSourceDisposition,
@@ -1164,14 +1168,14 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
 
 async fn remux_app_with_source(
     ffmpeg_path: PathBuf,
-) -> (tempfile::TempDir, TaruApp, SqliteStore, MediaSource) {
+) -> (tempfile::TempDir, TaruApp, TaruDatabase, MediaSource) {
     remux_app_with_source_and_transcode(ffmpeg_path, TranscodeConfig::default()).await
 }
 
 async fn remux_app_with_source_and_transcode(
     ffmpeg_path: PathBuf,
     transcode: TranscodeConfig,
-) -> (tempfile::TempDir, TaruApp, SqliteStore, MediaSource) {
+) -> (tempfile::TempDir, TaruApp, TaruDatabase, MediaSource) {
     let temp = tempfile::tempdir().unwrap();
     let library_root = temp.path().join("library");
     let staging_root = temp.path().join("cache").join("remux");
@@ -1204,7 +1208,7 @@ async fn remux_app_with_source_and_transcode(
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();

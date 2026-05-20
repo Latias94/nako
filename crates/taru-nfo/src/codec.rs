@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use taru_core::{
     CanonicalMetadata, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind, ImageRef,
-    MediaKind, Result, TaruError,
+    MediaKind, MetadataCandidateGraph, MetadataCandidateRecord, Result, TaruError,
 };
 
 type XmlNode<'a, 'input> = roxmltree::Node<'a, 'input>;
@@ -37,9 +37,32 @@ pub enum NfoFieldConflictReason {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoDocument {
-    pub metadata: CanonicalMetadata,
+    pub candidate_graph: MetadataCandidateGraph,
     pub external_ids: Vec<ExternalId>,
     pub hierarchy: NfoHierarchy,
+}
+
+impl NfoDocument {
+    #[must_use]
+    pub fn from_metadata(
+        kind: MediaKind,
+        metadata: CanonicalMetadata,
+        hierarchy: NfoHierarchy,
+    ) -> Self {
+        Self {
+            candidate_graph: MetadataCandidateGraph::for_nfo(
+                kind,
+                MetadataCandidateRecord::from(metadata.clone()),
+            ),
+            external_ids: Vec::new(),
+            hierarchy,
+        }
+    }
+
+    #[must_use]
+    pub fn metadata(&self) -> CanonicalMetadata {
+        self.candidate_graph.canonical_metadata()
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -95,11 +118,11 @@ impl NfoCodec for MovieNfoCodec {
             ..CanonicalMetadata::default()
         };
 
-        Ok(NfoDocument {
+        Ok(NfoDocument::from_metadata(
+            hierarchy.kind.unwrap_or(MediaKind::Unknown),
             metadata,
-            external_ids: Vec::new(),
             hierarchy,
-        })
+        ))
     }
 
     fn render(&self, document: &NfoDocument) -> Result<String> {
@@ -228,7 +251,7 @@ fn render_movie_xml(
     document: &NfoDocument,
     preserved_fragments: &[PreservedXmlFragment],
 ) -> NfoPreservedRender {
-    let metadata = &document.metadata;
+    let metadata = document.metadata();
     let mut output = String::from("<movie>\n");
     let mut updated_owned_fields = Vec::new();
 
@@ -393,7 +416,7 @@ fn is_release_date_alias(name: &str) -> bool {
 }
 
 fn replacement_value_for_field(document: &NfoDocument, field: &str) -> Option<String> {
-    let metadata = &document.metadata;
+    let metadata = document.metadata();
     match field {
         "title" => Some(metadata.title.clone()),
         "original_title" => metadata.original_title.clone(),

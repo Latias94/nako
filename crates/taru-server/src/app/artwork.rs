@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use serde::Serialize;
-use taru_api::{
+use taru_api::admin::{
     AcceptManagedArtworkCandidateResponse, AdminManagedArtworkArtifactCleanupResponse,
     AdminManagedArtworkArtifactFileCleanupSummary, AdminManagedArtworkArtifactLifecycleResponse,
     AdminManagedArtworkArtifactRemediationMissingArtifact,
@@ -18,8 +18,9 @@ use taru_api::{
     AdminManagedArtworkArtifactStrayFileCleanupSummary,
     AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
     ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse,
-    RequeueManagedArtworkIngestResponse, UnpublishSelectedArtworkResponse, page_info_from_request,
+    RequeueManagedArtworkIngestResponse, UnpublishSelectedArtworkResponse,
 };
+use taru_api::public_client::page_info_from_request;
 use taru_core::{
     ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateStatus, JobId, JobKind,
     LibraryItemRepository, ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter,
@@ -27,7 +28,7 @@ use taru_core::{
     ManagedArtworkRepository, MediaItemId, MediaRepository, NewJob, NewManagedArtworkIngest,
     PageRequest, Result, SelectedArtworkId, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use tracing::{info, warn};
 
 use crate::config::ArtworkConfig;
@@ -49,7 +50,7 @@ pub(crate) use variant::{ImageVariantRequest, ManagedArtworkImageBytes};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ManagedArtworkAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
     ingest_pipeline: ManagedArtworkIngestPipeline,
     artifact_store: LocalManagedArtworkArtifactStore,
     variant_policy: ImageVariantPolicy,
@@ -57,7 +58,7 @@ pub(crate) struct ManagedArtworkAppService {
 }
 
 impl ManagedArtworkAppService {
-    pub(crate) fn new(config: ArtworkConfig, store: SqliteStore) -> Result<Self> {
+    pub(crate) fn new(config: ArtworkConfig, store: TaruDatabase) -> Result<Self> {
         Ok(Self {
             store,
             ingest_pipeline: ManagedArtworkIngestPipeline::new(config.clone())?,

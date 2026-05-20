@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "slug": "future-ready-architecture-refactor",
+  "title": "Future-Ready Architecture Refactor",
+  "status": "completed",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Taru needs a fearless architecture refactor that removes SQLite-shaped persistence assumptions, shallow module seams, and redundant MVP paths before PostgreSQL, richer metadata, search, Addons, AI automation, and clients deepen.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/future-ready-architecture-refactor/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/future-ready-architecture-refactor/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/future-ready-architecture-refactor/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/future-ready-architecture-refactor/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/future-ready-architecture-refactor/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/future-ready-architecture-refactor/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo check -p taru-db --tests",
+    "cargo nextest run -p taru-db --no-fail-fast",
+    "cargo check --workspace --tests",
+    "cargo nextest run --workspace --no-fail-fast"
+  ],
+  "evidence": [
+    "docs/workstreams/future-ready-architecture-refactor/DESIGN.md",
+    "docs/workstreams/future-ready-architecture-refactor/TODO.md",
+    "docs/workstreams/future-ready-architecture-refactor/EVIDENCE_AND_GATES.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0001-modular-monolith-rust-workspace.md",
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0029-postgresql-ready-persistence-boundary.md",
+    "docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md"
+  ],
+  "priority_order": [
+    "persistence_postgresql_readiness",
+    "server_runtime_composition",
+    "local_inference_engine",
+    "metadata_candidate_graph",
+    "search_semantics",
+    "admin_api_generated_contract_hygiene",
+    "deletion_sweep",
+    "closeout"
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "M61/FRA is complete. Future PostgreSQL production operations, backend crate extraction, richer search backends, network tunneling, AI automation runtime, and further Admin UI surfaces should be opened as separate focused workstreams when prioritized."
+  }
+}

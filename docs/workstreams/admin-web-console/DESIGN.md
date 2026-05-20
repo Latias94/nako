@@ -1,7 +1,7 @@
 # Admin Web Console Design Baseline
 
-Status: Proposed
-Last updated: 2026-05-17
+Status: Completed
+Last updated: 2026-05-19
 
 ## Problem
 
@@ -24,7 +24,8 @@ The console needs to express Taru's actual domain:
 ## Target State
 
 Create a durable planning lane that lets Taru hand a clear product brief to a
-front-end generator such as v0.dev, while keeping implementation choices open.
+front-end generator such as v0.dev, then land the first real admin web
+scaffold and live/mock data boundary once the product direction is accepted.
 
 The target output is:
 
@@ -33,7 +34,8 @@ The target output is:
 - a brand direction;
 - an Admin API gap list;
 - a v0.dev context document that can be copied into a design-generation flow;
-- a task ledger for turning the generated UI into a real Taru web surface.
+- a task ledger for turning the generated UI into a real Taru web surface;
+- the first `apps/admin-web` scaffold with safe Admin API reads.
 
 ## Product Positioning
 
@@ -297,10 +299,17 @@ The recommended implementation sequence is:
 5. Keep redaction and public-route inventory checks as required gates for API
    implementation slices.
 
-M52 / AWC-035 implements the first slice in that sequence:
+M52 / AWC-035 implemented the first slice in that sequence:
 `GET /admin/v1/overview`. It is a read-only summary route backed by existing
 safe diagnostics. It does not add frontend UI, write mutations, public client
 routes, or `taru-client-protocol` changes.
+
+AWC-060 and AWC-070 implemented the first real web app follow-on in
+`apps/admin-web`. The app uses Vite, React, and TypeScript, keeps Admin API
+reads behind `src/adminApi`, and composes existing `/admin/v1/*` read models
+with section-level live/mock fallback. It still needs a generated Admin API
+TypeScript contract before deeper route filters, detail pages, or mutations
+are added.
 
 ## Non-Goals
 
@@ -312,12 +321,16 @@ routes, or `taru-client-protocol` changes.
 - No new backend behavior under this workstream without a follow-up task.
 - No copying Jellyfin, Plex, or other reference project UI/source/assets.
 
-## Open Questions
+## Closeout And Splits
 
-- Should the first web implementation live under `apps/admin-web`,
-  `web/admin`, or another workspace path?
-- Should generated UI start with static mocked data or connect immediately to
-  a generated admin SDK?
-- Which settings are editable in v1 versus read-only diagnostics?
-- How much catalog repair belongs in the first web slice versus a later
-  media-governance milestone?
+- The first web implementation lives under `apps/admin-web`.
+- The first implementation uses a deliberate live/mock split: existing
+  `/admin/v1/*` reads are live-capable, while missing surfaces stay safe
+  deterministic fixtures.
+- The generated Admin API TypeScript contract is split to
+  `docs/workstreams/admin-api-typescript-contract/`.
+- Editable settings remain out of scope until Taru has accepted runtime
+  configuration mutation semantics.
+- Catalog repair remains out of scope; the current console reads governance
+  queues and should add repair workflows only after Admin API mutations are
+  explicitly designed.

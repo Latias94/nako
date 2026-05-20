@@ -12,17 +12,18 @@ import {
 } from "./mockData";
 import type {
   AdminCatalogGovernanceItemListResponse,
-  AdminConsoleData,
-  AdminErrorMap,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
-  AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
-  AdminSectionKey,
   AdminServerConfigDiagnosticsResponse,
-  AdminSourceMap,
   AdminStorageStagingDiagnosticsResponse,
+} from "./generated/contract";
+import type {
+  AdminConsoleData,
+  AdminErrorMap,
+  AdminSectionKey,
+  AdminSourceMap,
   CatalogGovernanceSummary,
   DataSourceMode,
   EventSummary,

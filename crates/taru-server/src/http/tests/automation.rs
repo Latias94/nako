@@ -62,9 +62,9 @@ async fn automation_routes_configure_provider_and_enqueue_jobs_without_secrets()
     let job = body_json::<JobResponse>(job_response).await;
     assert_eq!(job.kind, JobKind::Automation);
     assert_eq!(job.resource_class, "automation.external_api");
-    let input = job.input.unwrap();
-    assert_eq!(input["capability"], "summary");
-    assert!(!input.to_string().contains("TARU_AUTOMATION_SECRET"));
+    assert!(job.has_input);
+    assert!(!job.has_summary);
+    assert!(!job.has_error);
 
     let artifacts_path = format!("/automation/jobs/{}/artifacts", job.id);
     let artifacts =

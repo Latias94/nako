@@ -1,11 +1,52 @@
 use taru_core::{
     CanonicalMetadata, LibraryId, LibraryItemState, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaSource, MediaSourceId, ScanSnapshotId,
-    SourceState,
+    LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaKind, MediaSource, MediaSourceId,
+    ScanSnapshotId, SourceState,
 };
+use taru_naming::{DefaultNameParser, NameParser, ParsedName};
 
 use super::scan::DiscoveredMediaSource;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LocalInferenceRequest<'a> {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub item_id: MediaItemId,
+    pub scan_id: ScanSnapshotId,
+    pub discovered: &'a DiscoveredMediaSource,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LocalInferencePlan {
+    pub media_item: MediaItem,
+    pub source_state: SourceState,
+    pub media_source: MediaSource,
+    pub evidence: LocalInferenceEvidence,
+    pub hierarchy: ProvisionalHierarchyPlan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProvisionalHierarchyPlan {
+    pub primary_item_id: MediaItemId,
+    pub primary_provisional: bool,
+    pub required_ancestors: Vec<ProvisionalAncestorPlan>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProvisionalAncestorPlan {
+    pub role: ProvisionalAncestorRole,
+    pub kind: MediaKind,
+    pub title: String,
+    pub release_year: Option<u16>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ProvisionalAncestorRole {
+    Series,
+    Season,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct MediaItemResolution {
     pub(crate) item: MediaItem,
     pub(crate) provisional: bool,
@@ -13,27 +54,171 @@ pub(crate) struct MediaItemResolution {
     pub(crate) supporting_library_item_states: Vec<LibraryItemState>,
 }
 
-pub(crate) fn media_item_from_discovered(
-    id: MediaItemId,
-    discovered: &DiscoveredMediaSource,
-) -> MediaItem {
-    MediaItem {
-        id,
-        kind: discovered.parsed_name.kind_hint,
-        parent_id: None,
-        metadata: CanonicalMetadata {
-            title: discovered.parsed_name.title.clone(),
-            original_title: None,
-            sort_title: None,
-            overview: None,
-            release_date: discovered.parsed_name.year.map(|year| year.to_string()),
-            external_ids: Vec::new(),
-            ..CanonicalMetadata::default()
-        },
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ProvisionalItemPlan {
+    pub(crate) item: MediaItem,
+    pub(crate) created: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct LocalInferenceEngine<P = DefaultNameParser> {
+    name_parser: P,
+}
+
+impl Default for LocalInferenceEngine<DefaultNameParser> {
+    fn default() -> Self {
+        Self::new(DefaultNameParser)
     }
 }
 
-pub(crate) fn source_state_from_discovered(
+impl LocalInferenceEngine<DefaultNameParser> {
+    #[must_use]
+    pub fn with_default_parser() -> Self {
+        Self::default()
+    }
+}
+
+impl<P> LocalInferenceEngine<P>
+where
+    P: NameParser,
+{
+    pub fn new(name_parser: P) -> Self {
+        Self { name_parser }
+    }
+
+    pub fn plan_source(&self, request: LocalInferenceRequest<'_>) -> LocalInferencePlan {
+        let parsed_name = self
+            .name_parser
+            .parse_path(request.discovered.uri.path_part());
+        let hierarchy = self.plan_hierarchy(request.item_id, &parsed_name);
+        let media_item = self.primary_media_item(request.item_id, &parsed_name, &hierarchy);
+        let source_state = source_state_from_discovered(
+            request.library_id,
+            request.source_id,
+            request.scan_id,
+            request.discovered,
+        );
+        let media_source = media_source_from_discovered(
+            request.source_id,
+            request.library_id,
+            request.item_id,
+            request.discovered,
+        );
+        let evidence = local_inference_evidence_from_parsed(request.source_id, &parsed_name);
+
+        LocalInferencePlan {
+            media_item,
+            source_state,
+            media_source,
+            evidence,
+            hierarchy,
+        }
+    }
+
+    fn plan_hierarchy(
+        &self,
+        primary_item_id: MediaItemId,
+        parsed_name: &ParsedName,
+    ) -> ProvisionalHierarchyPlan {
+        let required_ancestors =
+            if parsed_name.kind_hint == MediaKind::Episode && parsed_name.season_number.is_some() {
+                vec![
+                    ProvisionalAncestorPlan {
+                        role: ProvisionalAncestorRole::Series,
+                        kind: MediaKind::Series,
+                        title: parsed_name.title.clone(),
+                        release_year: None,
+                    },
+                    ProvisionalAncestorPlan {
+                        role: ProvisionalAncestorRole::Season,
+                        kind: MediaKind::Season,
+                        title: format!("Season {}", parsed_name.season_number.unwrap()),
+                        release_year: None,
+                    },
+                ]
+            } else {
+                Vec::new()
+            };
+
+        ProvisionalHierarchyPlan {
+            primary_item_id,
+            primary_provisional: true,
+            required_ancestors,
+        }
+    }
+
+    fn primary_media_item(
+        &self,
+        id: MediaItemId,
+        parsed_name: &ParsedName,
+        _hierarchy: &ProvisionalHierarchyPlan,
+    ) -> MediaItem {
+        let (kind, title) =
+            if parsed_name.kind_hint == MediaKind::Episode && parsed_name.season_number.is_some() {
+                (
+                    MediaKind::Episode,
+                    parsed_name
+                        .episode_number
+                        .map(|episode| format!("Episode {episode}"))
+                        .unwrap_or_else(|| parsed_name.title.clone()),
+                )
+            } else {
+                (parsed_name.kind_hint, parsed_name.title.clone())
+            };
+
+        MediaItem {
+            id,
+            kind,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title,
+                original_title: None,
+                sort_title: None,
+                overview: None,
+                release_date: parsed_name.year.map(|year| year.to_string()),
+                external_ids: Vec::new(),
+                ..CanonicalMetadata::default()
+            },
+        }
+    }
+}
+
+pub(crate) fn resolve_local_inference_plan(
+    plan: LocalInferencePlan,
+    supporting_items: Vec<ProvisionalItemPlan>,
+) -> MediaItemResolution {
+    let mut item = plan.media_item;
+
+    if item.kind == MediaKind::Episode {
+        item.parent_id = supporting_items
+            .iter()
+            .rev()
+            .find(|candidate| candidate.item.kind == MediaKind::Season)
+            .map(|candidate| candidate.item.id);
+    }
+
+    let mut resolved_supporting_items = Vec::new();
+    let mut supporting_library_item_states = Vec::new();
+    for supporting_item in supporting_items {
+        if supporting_item.created {
+            supporting_library_item_states.push(LibraryItemState {
+                library_id: plan.source_state.library_id,
+                item_id: supporting_item.item.id,
+                provisional: true,
+            });
+            resolved_supporting_items.push(supporting_item.item);
+        }
+    }
+
+    MediaItemResolution {
+        item,
+        provisional: plan.hierarchy.primary_provisional,
+        supporting_items: resolved_supporting_items,
+        supporting_library_item_states,
+    }
+}
+
+fn source_state_from_discovered(
     library_id: LibraryId,
     source_id: MediaSourceId,
     scan_id: ScanSnapshotId,
@@ -52,38 +237,128 @@ pub(crate) fn source_state_from_discovered(
     }
 }
 
-pub(crate) fn media_source_from_discovered(
+fn media_source_from_discovered(
     id: MediaSourceId,
     library_id: LibraryId,
     item_id: MediaItemId,
-    discovered: DiscoveredMediaSource,
+    discovered: &DiscoveredMediaSource,
 ) -> MediaSource {
     MediaSource {
         id,
         library_id,
         item_id,
         locator: discovered.uri.as_str().to_owned(),
-        file_name: discovered.file_name,
+        file_name: discovered.file_name.clone(),
         size_bytes: discovered.size_bytes,
-        fingerprint: discovered.fingerprint,
+        fingerprint: discovered.fingerprint.clone(),
     }
 }
 
-pub(crate) fn local_inference_evidence_from_discovered(
+fn local_inference_evidence_from_parsed(
     source_id: MediaSourceId,
-    discovered: &DiscoveredMediaSource,
+    parsed_name: &ParsedName,
 ) -> LocalInferenceEvidence {
     LocalInferenceEvidence {
         id: LocalInferenceEvidenceId::new(),
         source_id,
-        inferred_kind: discovered.parsed_name.kind_hint,
-        inferred_title: Some(discovered.parsed_name.title.clone()),
-        inferred_year: discovered.parsed_name.year.map(i32::from),
-        inferred_season: discovered.parsed_name.season_number.map(u32::from),
-        inferred_episode: discovered.parsed_name.episode_number.map(u32::from),
-        confidence_milli: Some(discovered.parsed_name.confidence_milli),
-        evidence_source: discovered.parsed_name.evidence_source.clone(),
-        evidence_value: discovered.parsed_name.evidence_value.clone(),
-        inference_version: discovered.parsed_name.parser_version.clone(),
+        inferred_kind: parsed_name.kind_hint,
+        inferred_title: Some(parsed_name.title.clone()),
+        inferred_year: parsed_name.year.map(i32::from),
+        inferred_season: parsed_name.season_number.map(u32::from),
+        inferred_episode: parsed_name.episode_number.map(u32::from),
+        confidence_milli: Some(parsed_name.confidence_milli),
+        evidence_source: parsed_name.evidence_source.clone(),
+        evidence_value: parsed_name.evidence_value.clone(),
+        inference_version: parsed_name.parser_version.clone(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use taru_core::{LocalInferenceEvidenceSource, MediaKind};
+    use taru_vfs::StorageUri;
+
+    use super::*;
+
+    #[test]
+    fn local_inference_engine_plans_episode_hierarchy_from_file_name() {
+        let library_id = LibraryId::new();
+        let source_id = MediaSourceId::new();
+        let item_id = MediaItemId::new();
+        let scan_id = ScanSnapshotId::new();
+        let discovered = discovered_media_source("local:///TV/Firefly/S01/Firefly.S01E02.mkv");
+        let engine = LocalInferenceEngine::with_default_parser();
+
+        let plan = engine.plan_source(LocalInferenceRequest {
+            library_id,
+            source_id,
+            item_id,
+            scan_id,
+            discovered: &discovered,
+        });
+
+        assert_eq!(plan.media_item.kind, MediaKind::Episode);
+        assert_eq!(plan.media_item.metadata.title, "Episode 2");
+        assert_eq!(plan.hierarchy.primary_item_id, item_id);
+        assert_eq!(plan.hierarchy.required_ancestors.len(), 2);
+        assert_eq!(plan.hierarchy.required_ancestors[0].kind, MediaKind::Series);
+        assert_eq!(plan.hierarchy.required_ancestors[0].title, "Firefly");
+        assert_eq!(plan.hierarchy.required_ancestors[1].kind, MediaKind::Season);
+        assert_eq!(plan.hierarchy.required_ancestors[1].title, "Season 1");
+        assert_eq!(plan.evidence.inferred_kind, MediaKind::Episode);
+        assert_eq!(plan.evidence.inferred_title, Some("Firefly".to_owned()));
+        assert_eq!(plan.evidence.inferred_season, Some(1));
+        assert_eq!(plan.evidence.inferred_episode, Some(2));
+        assert_eq!(
+            plan.evidence.evidence_source,
+            LocalInferenceEvidenceSource::FileName
+        );
+        assert_eq!(plan.source_state.uri, discovered.uri.as_str());
+        assert_eq!(plan.media_source.item_id, item_id);
+    }
+
+    #[test]
+    fn local_inference_engine_keeps_unknown_source_flat_with_evidence() {
+        let library_id = LibraryId::new();
+        let source_id = MediaSourceId::new();
+        let item_id = MediaItemId::new();
+        let scan_id = ScanSnapshotId::new();
+        let discovered = discovered_media_source("local:///Uploads/random.clip.mkv");
+        let engine = LocalInferenceEngine::with_default_parser();
+
+        let plan = engine.plan_source(LocalInferenceRequest {
+            library_id,
+            source_id,
+            item_id,
+            scan_id,
+            discovered: &discovered,
+        });
+
+        assert_eq!(plan.media_item.kind, MediaKind::Unknown);
+        assert_eq!(plan.media_item.parent_id, None);
+        assert_eq!(plan.media_item.metadata.title, "random clip");
+        assert!(plan.hierarchy.required_ancestors.is_empty());
+        assert_eq!(plan.evidence.inferred_kind, MediaKind::Unknown);
+        assert_eq!(plan.evidence.confidence_milli, Some(350));
+    }
+
+    fn discovered_media_source(locator: &str) -> DiscoveredMediaSource {
+        let uri = StorageUri::parse(locator).unwrap();
+        let file_name = uri
+            .path_part()
+            .rsplit_once('/')
+            .map(|(_parent, file_name)| file_name)
+            .unwrap_or_else(|| uri.path_part())
+            .to_owned();
+
+        DiscoveredMediaSource {
+            uri,
+            file_name,
+            size_bytes: Some(1),
+            modified_at: None,
+            etag: None,
+            fingerprint: None,
+            stale: false,
+        }
     }
 }

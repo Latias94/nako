@@ -4,7 +4,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, put},
 };
-use taru_api::{
+use taru_api::public_client::{
     ContinueWatchingItemDto, ContinueWatchingResponse, SetWatchedStateRequest,
     UpdatePlaybackProgressRequest, page_info_from_request, user_playback_state_response_from_state,
     user_playback_state_to_dto,

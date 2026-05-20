@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use taru_api::{EnqueueMetadataMaintenanceRequest, JobResponse};
+use taru_api::{admin::JobResponse, metadata_diagnostics::EnqueueMetadataMaintenanceRequest};
 use taru_core::{
     ExternalProvider, MediaItemId, MetadataAttemptFilter, MetadataProviderAttemptStatus,
     ProviderRawResponseFilter,

@@ -55,7 +55,7 @@ async fn wait_for_runtime_jobs(
 }
 
 async fn create_startup_managed_artwork_ingest(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     library_id: LibraryId,
     item_id: MediaItemId,
     idempotency_key: &str,
@@ -185,7 +185,7 @@ async fn scan_library_persists_job_success() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -253,7 +253,7 @@ async fn background_scan_job_uses_runtime_job_supervision() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
 
     let job = app
@@ -307,7 +307,7 @@ async fn background_scan_job_acknowledges_cancellation_before_probe_stage() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -392,7 +392,7 @@ async fn app_startup_persists_all_configured_libraries_with_library_scoped_roots
             },
         ],
     );
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -420,7 +420,7 @@ async fn app_startup_persists_all_configured_libraries_with_library_scoped_roots
 async fn app_startup_overwrites_persisted_library_with_configured_desired_state() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     store
         .upsert_library(&Library {
@@ -465,7 +465,7 @@ async fn app_startup_retains_persisted_library_missing_from_config() {
     let temp = tempfile::tempdir().unwrap();
     let retained_id = LibraryId::new();
     let configured_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     store
         .upsert_library(&Library {
@@ -520,7 +520,7 @@ async fn app_startup_reports_configured_library_reconciliation() {
         roots: vec!["local:///".to_owned()],
         options: LibraryOptions::from_preset(taru_core::LibraryPreset::Movies),
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     store.upsert_library(&unchanged).await.unwrap();
     store
@@ -617,7 +617,7 @@ async fn scan_library_uses_reconciled_library_row_after_startup() {
             webdav: None,
         }],
     );
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -684,7 +684,7 @@ async fn app_startup_rejects_duplicate_configured_library_ids() {
             },
         ],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
 
     let err = TaruApp::new_with_store(config, store).await.unwrap_err();
 
@@ -718,7 +718,7 @@ async fn app_startup_rejects_duplicate_configured_library_roots() {
             },
         ],
     );
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
 
     let err = TaruApp::new_with_store(config, store).await.unwrap_err();
 
@@ -749,7 +749,7 @@ async fn app_startup_rejects_unsupported_configured_webdav_root_scheme() {
             }),
         }],
     );
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
 
     let err = TaruApp::new_with_store(config, store).await.unwrap_err();
 
@@ -800,7 +800,7 @@ async fn app_startup_allows_same_webdav_root_on_different_endpoints() {
             },
         ],
     );
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
 
     let app = TaruApp::new_with_store(config, store.clone())
         .await
@@ -868,7 +868,7 @@ async fn app_startup_rejects_duplicate_metadata_provider_configs() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
 
     let err = TaruApp::new_with_store(config, store).await.unwrap_err();
 
@@ -959,7 +959,7 @@ async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_inges
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -1144,7 +1144,7 @@ async fn startup_report_tracks_disabled_staging_cleanup() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
 
     assert_eq!(app.startup_report().configured_libraries, 1);

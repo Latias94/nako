@@ -24,7 +24,7 @@ async fn wait_for_runtime_jobs(
 }
 
 async fn upsert_item_with_source(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     library_id: LibraryId,
     item: &MediaItem,
 ) -> MediaSource {
@@ -89,7 +89,7 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -166,7 +166,7 @@ async fn metadata_refresh_uses_reconciled_library_profile() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -260,7 +260,7 @@ async fn metadata_refresh_job_records_disabled_profile_provider_for_executor() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -339,7 +339,7 @@ async fn background_metadata_refresh_job_uses_runtime_job_supervision() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -410,7 +410,7 @@ async fn metadata_refresh_falls_back_from_unimplemented_bangumi_to_tmdb_unavaila
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -478,7 +478,7 @@ async fn metadata_refresh_resolves_provider_order_from_library_profile() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -540,7 +540,7 @@ async fn metadata_maintenance_job_refreshes_library_items_and_summarizes_attempt
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -646,7 +646,7 @@ async fn metadata_maintenance_job_acknowledges_cancellation_before_next_item() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -766,7 +766,7 @@ async fn metadata_lifecycle_config_maps_policy_and_cleans_raw_cache_on_startup()
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = MediaItem {
         id: item_id,
@@ -859,7 +859,7 @@ async fn metadata_raw_cache_cleanup_worker_is_supervised_and_stops_on_shutdown()
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     let runtime = app.runtime_diagnostics();
 
@@ -905,7 +905,7 @@ async fn metadata_refresh_event_payload_uses_ids_not_secrets() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -989,7 +989,7 @@ async fn metadata_refresh_requires_persisted_media_source_for_library_resolution
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();

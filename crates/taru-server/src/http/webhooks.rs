@@ -4,7 +4,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use taru_api::UpsertWebhookEndpointRequest;
+use taru_api::extension::UpsertWebhookEndpointRequest;
 use taru_core::{EventId, WebhookEndpointId};
 use tracing::instrument;
 

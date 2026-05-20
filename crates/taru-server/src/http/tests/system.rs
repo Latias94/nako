@@ -19,8 +19,8 @@ async fn health_and_libraries_routes_work() {
         .unwrap();
     assert_eq!(health_response.status(), StatusCode::OK);
     assert_eq!(
-        health_response.headers()[taru_api::API_VERSION_HEADER],
-        taru_api::API_VERSION
+        health_response.headers()[taru_api::public_client::API_VERSION_HEADER],
+        taru_api::public_client::API_VERSION
     );
     let health = body_json::<HealthResponse>(health_response).await;
     let libraries = request_json::<LibraryListResponse>(&router, Method::GET, "/libraries").await;
@@ -29,7 +29,7 @@ async fn health_and_libraries_routes_work() {
             .await;
 
     assert_eq!(health.status, "ok");
-    assert_eq!(health.version, taru_api::API_VERSION);
+    assert_eq!(health.version, taru_api::public_client::API_VERSION);
     assert_eq!(libraries.libraries.len(), 1);
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
     assert_eq!(library.library.id, library_id.to_string());
@@ -97,16 +97,22 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers()[taru_api::API_VERSION_HEADER],
-        taru_api::API_VERSION
+        response.headers()[taru_api::public_client::API_VERSION_HEADER],
+        taru_api::public_client::API_VERSION
     );
 
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let body = String::from_utf8(bytes.to_vec()).unwrap();
     let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
 
-    assert_eq!(overview.admin_api_version, taru_api::ADMIN_API_VERSION);
-    assert_eq!(overview.public_api_version, taru_api::API_VERSION);
+    assert_eq!(
+        overview.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        overview.public_api_version,
+        taru_api::public_client::API_VERSION
+    );
     assert_eq!(overview.status, AdminOverviewStatus::Healthy);
     assert_eq!(overview.storage.total_backends, 1);
     assert_eq!(overview.storage.ready_backends, 1);
@@ -181,7 +187,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -400,7 +406,7 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -511,7 +517,7 @@ async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -627,7 +633,7 @@ async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
     let terminal_error = body_json::<ErrorResponse>(terminal_response).await;
     assert_eq!(
         terminal_error.code,
-        taru_api::ClientErrorCode::Conflict.as_str()
+        taru_api::public_client::ClientErrorCode::Conflict.as_str()
     );
 }
 
@@ -662,7 +668,7 @@ async fn admin_v1_events_lists_filters_and_redacts_payloads() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -798,7 +804,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -905,7 +911,10 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert_eq!(status, StatusCode::OK, "{body}");
     let diagnostics: AdminStorageStagingDiagnosticsResponse = serde_json::from_str(&body).unwrap();
 
-    assert_eq!(diagnostics.admin_api_version, taru_api::ADMIN_API_VERSION);
+    assert_eq!(
+        diagnostics.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
     assert_eq!(diagnostics.summary.configured_max_bytes, 9_999);
     assert_eq!(diagnostics.summary.used_manifest_bytes, 52);
     assert!(diagnostics.summary.cleanup_on_startup);
@@ -1032,7 +1041,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     let router = build_router(app);
 
@@ -1059,7 +1068,10 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert_eq!(status, StatusCode::OK, "{body}");
     let diagnostics: AdminServerConfigDiagnosticsResponse = serde_json::from_str(&body).unwrap();
 
-    assert_eq!(diagnostics.admin_api_version, taru_api::ADMIN_API_VERSION);
+    assert_eq!(
+        diagnostics.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
     assert!(!diagnostics.auth.enabled);
     assert_eq!(
         diagnostics.auth.token_env.as_deref(),
@@ -1164,7 +1176,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -1324,7 +1336,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
     let router = build_router(app);
 
@@ -1351,8 +1363,14 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(status, StatusCode::OK, "{body}");
     let diagnostics: AdminPlaybackRuntimeDiagnosticsResponse = serde_json::from_str(&body).unwrap();
 
-    assert_eq!(diagnostics.admin_api_version, taru_api::ADMIN_API_VERSION);
-    assert_eq!(diagnostics.public_api_version, taru_api::API_VERSION);
+    assert_eq!(
+        diagnostics.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        diagnostics.public_api_version,
+        taru_api::public_client::API_VERSION
+    );
     assert_eq!(
         diagnostics.ffmpeg.probe_status,
         AdminPlaybackRuntimeStatus::Ready
@@ -1377,11 +1395,11 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         .unwrap();
     assert_eq!(
         nvenc_capability.evidence,
-        taru_api::AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
+        taru_api::admin::AdminPlaybackHardwareCapabilityEvidence::FfmpegEncoderListed
     );
     assert_eq!(
         nvenc_capability.smoke_probe.status,
-        taru_api::AdminPlaybackHardwareSmokeProbeStatus::NotRun
+        taru_api::admin::AdminPlaybackHardwareSmokeProbeStatus::NotRun
     );
     assert!(
         nvenc_capability
@@ -1445,14 +1463,14 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .unwrap();
     assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(
-        missing.headers()[taru_api::API_VERSION_HEADER],
-        taru_api::API_VERSION
+        missing.headers()[taru_api::public_client::API_VERSION_HEADER],
+        taru_api::public_client::API_VERSION
     );
     assert_eq!(missing.headers()[header::WWW_AUTHENTICATE], "Bearer");
     let missing_error = body_json::<ErrorResponse>(missing).await;
     assert_eq!(
         missing_error.code,
-        taru_api::ClientErrorCode::Unauthorized.as_str()
+        taru_api::public_client::ClientErrorCode::Unauthorized.as_str()
     );
     assert_eq!(missing_error.message, "authentication required");
 
@@ -1473,7 +1491,7 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
     let wrong_error_json = serde_json::to_string(&wrong_error).unwrap();
     assert_eq!(
         wrong_error.code,
-        taru_api::ClientErrorCode::Unauthorized.as_str()
+        taru_api::public_client::ClientErrorCode::Unauthorized.as_str()
     );
     assert!(!wrong_error_json.contains("wrong-token"));
     assert!(!wrong_error_json.contains(token));
@@ -1618,7 +1636,10 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .unwrap();
     assert_eq!(admin_ok.status(), StatusCode::OK);
     let overview = body_json::<AdminOverviewResponse>(admin_ok).await;
-    assert_eq!(overview.admin_api_version, taru_api::ADMIN_API_VERSION);
+    assert_eq!(
+        overview.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
 }
 
 #[tokio::test]
@@ -1631,7 +1652,7 @@ async fn api_errors_map_playback_storage_categories() {
                 "used=10, additional=4, max=12",
             ),
             StatusCode::INSUFFICIENT_STORAGE,
-            taru_api::ClientErrorCode::StagingBudgetExhausted,
+            taru_api::public_client::ClientErrorCode::StagingBudgetExhausted,
             "staging disk budget exhausted",
         ),
         (
@@ -1641,7 +1662,7 @@ async fn api_errors_map_playback_storage_categories() {
                 "staged WebDAV file did not match expected size",
             ),
             StatusCode::BAD_GATEWAY,
-            taru_api::ClientErrorCode::StagingValidationMismatch,
+            taru_api::public_client::ClientErrorCode::StagingValidationMismatch,
             "staged input validation failed",
         ),
         (
@@ -1651,7 +1672,7 @@ async fn api_errors_map_playback_storage_categories() {
                 "WebDAV request failed: operation timed out",
             ),
             StatusCode::GATEWAY_TIMEOUT,
-            taru_api::ClientErrorCode::StorageTimeout,
+            taru_api::public_client::ClientErrorCode::StorageTimeout,
             "storage backend timed out",
         ),
         (
@@ -1661,7 +1682,7 @@ async fn api_errors_map_playback_storage_categories() {
                 "WebDAV GET returned 401 Unauthorized",
             ),
             StatusCode::BAD_GATEWAY,
-            taru_api::ClientErrorCode::StorageUnauthorized,
+            taru_api::public_client::ClientErrorCode::StorageUnauthorized,
             "storage backend rejected credentials",
         ),
         (
@@ -1671,7 +1692,7 @@ async fn api_errors_map_playback_storage_categories() {
                 "WebDAV GET returned 429 Too Many Requests",
             ),
             StatusCode::SERVICE_UNAVAILABLE,
-            taru_api::ClientErrorCode::StorageRateLimited,
+            taru_api::public_client::ClientErrorCode::StorageRateLimited,
             "storage backend rate limited the request",
         ),
         (
@@ -1680,7 +1701,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "hls runner failed".to_owned(),
             },
             StatusCode::BAD_GATEWAY,
-            taru_api::ClientErrorCode::FfmpegError,
+            taru_api::public_client::ClientErrorCode::FfmpegError,
             "ffmpeg operation failed",
         ),
         (
@@ -1688,7 +1709,7 @@ async fn api_errors_map_playback_storage_categories() {
                 message: "raw sqlite path F:\\secret\\taru.db failed".to_owned(),
             },
             StatusCode::INTERNAL_SERVER_ERROR,
-            taru_api::ClientErrorCode::DatabaseError,
+            taru_api::public_client::ClientErrorCode::DatabaseError,
             "database operation failed",
         ),
     ];
@@ -1699,7 +1720,10 @@ async fn api_errors_map_playback_storage_categories() {
         assert_eq!(response.status(), status);
         let body = body_json::<ErrorResponse>(response).await;
         assert_eq!(body.code, code.as_str());
-        assert_eq!(taru_api::ClientErrorCode::from_code(&body.code), Some(code));
+        assert_eq!(
+            taru_api::public_client::ClientErrorCode::from_code(&body.code),
+            Some(code)
+        );
         assert_eq!(body.message, message);
     }
 }

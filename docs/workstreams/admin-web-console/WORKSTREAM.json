@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "admin-web-console",
   "title": "Admin Web Console",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "frontend_and_admin_api_slice",
   "problem": "Taru needs a coherent web administration console with a safe Admin API boundary, explicit live/mock data source split, and no leakage of secrets, local paths, or Public Client SDK concerns.",
@@ -62,7 +62,7 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "AWC-070 is complete. Continue by deciding generated Admin API TypeScript contract versus hand-written DTO boundary before adding route filters/detail pages."
+    "default_action": "close",
+    "notes": "AWC-010 through AWC-070 are complete. Continue Admin API TypeScript contract work in docs/workstreams/admin-api-typescript-contract before adding deeper admin-web route filters, detail pages, or mutations."
   }
 }

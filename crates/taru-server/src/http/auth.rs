@@ -5,7 +5,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use taru_api::{ClientErrorCode, ErrorResponse};
+use taru_api::public_client::{ClientErrorCode, ErrorResponse};
 use taru_core::{SecretString, UserPrincipalId};
 
 use crate::config::AuthConfig;

@@ -5,7 +5,10 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use taru_api::{EnqueueAutomationJobRequest, JobResponse, UpsertAutomationProviderRequest};
+use taru_api::{
+    admin::JobResponse,
+    extension::{EnqueueAutomationJobRequest, UpsertAutomationProviderRequest},
+};
 use taru_core::{AutomationProviderId, JobId, MediaItemId};
 use tracing::instrument;
 

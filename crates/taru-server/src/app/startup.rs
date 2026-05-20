@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
 use taru_core::{
-    JobRepository, ManagedArtworkRepository, Result, TaruError, TransactionManager,
+    DatabaseLifecycle, JobRepository, ManagedArtworkRepository, Result, TaruError,
     TranscodeFailureCategory, TranscodeSessionRepository,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_vfs::StorageUri;
 use tracing::warn;
 
@@ -39,14 +39,14 @@ pub(crate) struct ServerStartupStagingCleanupReport {
 #[derive(Debug)]
 pub(crate) struct ServerStartupWorkflow<'a> {
     config: &'a TaruServerConfig,
-    store: &'a SqliteStore,
+    store: &'a TaruDatabase,
     metadata: MetadataAppService,
 }
 
 impl<'a> ServerStartupWorkflow<'a> {
     pub(crate) fn new(
         config: &'a TaruServerConfig,
-        store: &'a SqliteStore,
+        store: &'a TaruDatabase,
         metadata: MetadataAppService,
     ) -> Self {
         Self {

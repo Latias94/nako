@@ -2,13 +2,14 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use taru_core::{BrowseFacet, BrowseFacetKind};
 use taru_core::{
     CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogRepository,
     CatalogSearchProjection, Collection, CollectionId, CollectionItem, CollectionRef, Credit,
     CreditRole, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
     ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem, MediaItemId,
-    MediaRepository, MetadataSource, PageRequest, Person, PersonId, Result, Studio, StudioId, Tag,
-    TagId, TaruError,
+    MediaRepository, MetadataSource, PageRequest, Person, PersonId, Result, SortKey, SortKeyKind,
+    Studio, StudioId, Tag, TagId, TaruError,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -860,33 +861,56 @@ fn search_projection_from_graph(
     replacement: &CatalogItemGraphReplacement,
 ) -> CatalogSearchProjection {
     let mut body_parts = Vec::new();
-    let mut facets = Vec::new();
+    let mut aliases = Vec::new();
+    let mut browse_facets = Vec::new();
+    let mut sort_keys = Vec::new();
 
-    add_search_item_metadata(item, &mut body_parts, &mut facets);
+    add_search_item_metadata(
+        item,
+        &mut body_parts,
+        &mut aliases,
+        &mut browse_facets,
+        &mut sort_keys,
+    );
 
     for source in &snapshot.sources {
         push_body(&mut body_parts, &source.file_name);
-        push_unique_facet(&mut facets, format!("source:{}", source.file_name));
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(BrowseFacetKind::Source, source.file_name.clone()),
+        );
     }
 
     for genre in &replacement.genres {
         push_body(&mut body_parts, &genre.name);
-        push_unique_facet(&mut facets, format!("genre:{}", genre.name));
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(BrowseFacetKind::Genre, genre.name.clone()),
+        );
     }
 
     for tag in &replacement.tags {
         push_body(&mut body_parts, &tag.name);
-        push_unique_facet(&mut facets, format!("tag:{}", tag.name));
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(BrowseFacetKind::Tag, tag.name.clone()),
+        );
     }
 
     for collection in &replacement.collections {
         push_body(&mut body_parts, &collection.name);
-        push_unique_facet(&mut facets, format!("collection:{}", collection.name));
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(BrowseFacetKind::Collection, collection.name.clone()),
+        );
     }
 
     for studio in &replacement.studios {
         push_body(&mut body_parts, &studio.name);
-        push_unique_facet(&mut facets, format!("studio:{}", studio.name));
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(BrowseFacetKind::Studio, studio.name.clone()),
+        );
     }
 
     for credit in &replacement.credits {
@@ -895,47 +919,84 @@ fn search_projection_from_graph(
             .iter()
             .find(|person| person.id == credit.person_id)
         {
-            let role = credit_role_label(&credit.role);
             push_body(&mut body_parts, &person.name);
             push_optional_body(&mut body_parts, credit.character.as_deref());
-            push_unique_facet(&mut facets, format!("credit:{}", person.name));
-            push_unique_facet(&mut facets, format!("{role}:{}", person.name));
+            push_unique_facet(
+                &mut browse_facets,
+                BrowseFacet::new(BrowseFacetKind::Credit, person.name.clone()),
+            );
+            push_unique_facet(
+                &mut browse_facets,
+                BrowseFacet::new(credit_role_facet_kind(&credit.role), person.name.clone()),
+            );
         }
     }
-    facets.sort();
+    browse_facets.sort_by_key(BrowseFacet::label);
 
-    CatalogSearchProjection {
-        item_id: item.id,
-        title: item.metadata.title.clone(),
-        body: body_parts.join(" "),
-        facets,
-    }
+    let mut projection =
+        CatalogSearchProjection::new(item.id, item.metadata.title.clone(), body_parts.join(" "));
+    projection.aliases = aliases;
+    projection.browse_facets = browse_facets;
+    projection.sort_keys = sort_keys;
+    projection.provider_identifiers = item.metadata.external_ids.clone();
+    projection
 }
 
 fn add_search_item_metadata(
     item: &MediaItem,
     body_parts: &mut Vec<String>,
-    facets: &mut Vec<String>,
+    aliases: &mut Vec<String>,
+    browse_facets: &mut Vec<BrowseFacet>,
+    sort_keys: &mut Vec<SortKey>,
 ) {
     push_body(body_parts, &item.metadata.title);
-    push_optional_body(body_parts, item.metadata.original_title.as_deref());
-    push_optional_body(body_parts, item.metadata.sort_title.as_deref());
+    if let Some(original_title) = item.metadata.original_title.as_deref() {
+        push_body(body_parts, original_title);
+        push_unique_string(aliases, original_title.to_owned());
+    }
+    if let Some(sort_title) = item.metadata.sort_title.as_deref() {
+        push_body(body_parts, sort_title);
+        sort_keys.push(SortKey::new(SortKeyKind::SortTitle, sort_title.to_owned()));
+    } else if !item.metadata.title.trim().is_empty() {
+        sort_keys.push(SortKey::new(
+            SortKeyKind::Title,
+            item.metadata.title.clone(),
+        ));
+    }
     push_optional_body(body_parts, item.metadata.overview.as_deref());
     push_optional_body(body_parts, item.metadata.tagline.as_deref());
-    push_unique_facet(facets, format!("kind:{}", item.kind.as_str()));
+    push_unique_facet(
+        browse_facets,
+        BrowseFacet::new(BrowseFacetKind::Kind, item.kind.as_str()),
+    );
 
     if let Some(value) = item.metadata.release_date.as_deref() {
-        push_unique_facet(facets, format!("release_date:{value}"));
+        sort_keys.push(SortKey::new(SortKeyKind::ReleaseDate, value.to_owned()));
+        if let Some(year) = value
+            .get(0..4)
+            .filter(|year| year.chars().all(|character| character.is_ascii_digit()))
+        {
+            push_unique_facet(
+                browse_facets,
+                BrowseFacet::new(BrowseFacetKind::ReleaseYear, year.to_owned()),
+            );
+        }
     }
 
     for external_id in &item.metadata.external_ids {
         push_body(body_parts, &external_id.value);
         push_unique_facet(
-            facets,
-            format!(
-                "external_id:{}:{}",
+            browse_facets,
+            BrowseFacet::new(
+                BrowseFacetKind::Provider,
                 provider_label(&external_id.provider),
-                external_id.value
+            ),
+        );
+        push_unique_facet(
+            browse_facets,
+            BrowseFacet::new(
+                BrowseFacetKind::ExternalId(provider_label(&external_id.provider)),
+                external_id.value.clone(),
             ),
         );
     }
@@ -1016,20 +1077,26 @@ fn push_optional_body(parts: &mut Vec<String>, value: Option<&str>) {
     }
 }
 
-fn push_unique_facet(facets: &mut Vec<String>, value: String) {
+fn push_unique_facet(facets: &mut Vec<BrowseFacet>, value: BrowseFacet) {
     if !facets.contains(&value) {
         facets.push(value);
     }
 }
 
-fn credit_role_label(role: &CreditRole) -> String {
+fn push_unique_string(values: &mut Vec<String>, value: String) {
+    if !values.contains(&value) {
+        values.push(value);
+    }
+}
+
+fn credit_role_facet_kind(role: &CreditRole) -> BrowseFacetKind {
     match role {
-        CreditRole::Actor => "actor".to_owned(),
-        CreditRole::Director => "director".to_owned(),
-        CreditRole::Writer => "writer".to_owned(),
-        CreditRole::Producer => "producer".to_owned(),
-        CreditRole::Creator => "creator".to_owned(),
-        CreditRole::Other(value) => format!("credit_role:{value}"),
+        CreditRole::Actor => BrowseFacetKind::Actor,
+        CreditRole::Director => BrowseFacetKind::Director,
+        CreditRole::Writer => BrowseFacetKind::Writer,
+        CreditRole::Producer => BrowseFacetKind::Producer,
+        CreditRole::Creator => BrowseFacetKind::Creator,
+        CreditRole::Other(value) => BrowseFacetKind::CreditRole(value.clone()),
     }
 }
 
@@ -1059,12 +1126,12 @@ fn provider_label(provider: &ExternalProvider) -> String {
 mod tests {
     use async_trait::async_trait;
     use taru_core::{
-        CanonicalMetadata, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind, ImageRef,
-        Library, LibraryId, LibraryOptions, LibraryPreset, MediaItem, MediaKind, MediaRepository,
-        MediaSource, MediaSourceId, MetadataSource, TransactionManager,
+        CanonicalMetadata, Credit, CreditRole, DatabaseLifecycle, ExternalId, ExternalProvider,
+        ImageKind, ImageRef, Library, LibraryId, LibraryOptions, LibraryPreset, MediaItem,
+        MediaKind, MediaRepository, MediaSource, MediaSourceId, MetadataSource,
         repository::{CatalogRepository, LibraryRepository},
     };
-    use taru_db::SqliteStore;
+    use taru_db::TaruDatabase;
     use taru_search::{SearchIndex, SearchQuery};
 
     use super::*;
@@ -1126,7 +1193,7 @@ mod tests {
 
     #[tokio::test]
     async fn hydration_populates_graph_and_search_projection() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -1194,12 +1261,15 @@ mod tests {
         let tags = store.list_tags(PageRequest::first_page()).await.unwrap();
         let images = store.list_item_images(item.id).await.unwrap();
         let hits = store
-            .search(SearchQuery {
-                query: "keanu".to_owned(),
-                facets: vec!["genre:Science Fiction".to_owned()],
-                limit: 10,
-                offset: 0,
-            })
+            .search(
+                SearchQuery::from_facet_labels(
+                    "keanu",
+                    vec!["genre:Science Fiction".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -1213,7 +1283,7 @@ mod tests {
 
     #[tokio::test]
     async fn hydration_keeps_same_locator_sources_isolated_by_item_and_library() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let first_library = Library {
             id: LibraryId::new(),
@@ -1291,21 +1361,27 @@ mod tests {
         let first_genres = store.list_item_genres(first_item.id).await.unwrap();
         let second_genres = store.list_item_genres(second_item.id).await.unwrap();
         let first_hits = store
-            .search(SearchQuery {
-                query: "shared".to_owned(),
-                facets: vec!["genre:First Genre".to_owned()],
-                limit: 10,
-                offset: 0,
-            })
+            .search(
+                SearchQuery::from_facet_labels(
+                    "shared",
+                    vec!["genre:First Genre".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap(),
+            )
             .await
             .unwrap();
         let second_hits = store
-            .search(SearchQuery {
-                query: "shared".to_owned(),
-                facets: vec!["genre:Second Genre".to_owned()],
-                limit: 10,
-                offset: 0,
-            })
+            .search(
+                SearchQuery::from_facet_labels(
+                    "shared",
+                    vec!["genre:Second Genre".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -1319,5 +1395,79 @@ mod tests {
         assert_eq!(first_hits[0].item_id, first_item.id);
         assert_eq!(second_hits.len(), 1);
         assert_eq!(second_hits[0].item_id, second_item.id);
+    }
+
+    #[tokio::test]
+    async fn hydration_builds_semantic_search_projection() {
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Semantic Search Fixture".to_owned(),
+                original_title: Some("Original Semantic Title".to_owned()),
+                sort_title: Some("Semantic Search Fixture".to_owned()),
+                release_date: Some("1999-03-31".to_owned()),
+                genres: vec!["Science Fiction".to_owned()],
+                external_ids: vec![ExternalId {
+                    provider: ExternalProvider::Tmdb,
+                    value: "603".to_owned(),
+                }],
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: library.id,
+            item_id: item.id,
+            locator: "local:///Movies/Semantic.mkv".to_owned(),
+            file_name: "Semantic.mkv".to_owned(),
+            size_bytes: Some(1),
+            fingerprint: None,
+        };
+
+        store.upsert_library(&library).await.unwrap();
+        store.upsert_media_item(&item).await.unwrap();
+        store.upsert_media_source(&source).await.unwrap();
+
+        hydrate_item_catalog(&store, item.id, MetadataSource::Local)
+            .await
+            .unwrap();
+
+        let by_alias = store
+            .search(
+                SearchQuery::from_facet_labels(
+                    "original semantic",
+                    vec!["release_year:1999".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        let by_external_id = store
+            .search(
+                SearchQuery::from_facet_labels(
+                    "fixture",
+                    vec!["external_id:tmdb:603".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(by_alias[0].item_id, item.id);
+        assert_eq!(by_external_id[0].item_id, item.id);
     }
 }
