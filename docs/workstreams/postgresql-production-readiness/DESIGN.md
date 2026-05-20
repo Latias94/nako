@@ -168,7 +168,7 @@ intentionally SQLite-only.
 | P1 | Transcode sessions | session lifecycle, stale startup recovery, list/filter | SQLite tests only | Required |
 | P1 | Event outbox and webhooks | idempotent event enqueue, list/filter, webhook attempts | SQLite tests only | Required |
 | P2 | Addons/Automation | registration, tokens/grants, side effects, automation providers/artifacts | SQLite tests only | Required if Addon/Automation remain enabled with PostgreSQL |
-| P2 | Managed Artwork | candidates, ingest, artifacts, selected artwork, lifecycle/remediation/gallery | SQLite tests only | Split by PGR-090 to `docs/workstreams/managed-artwork-postgresql-parity/`; runtime must remain explicitly gated until parity lands |
+| P2 | Managed Artwork | candidates, ingest, artifacts, selected artwork, lifecycle/remediation/gallery | SQLite tests only at M62 closeout; later covered by MAPG contracts | Split by PGR-090 to `docs/workstreams/managed-artwork-postgresql-parity/`; MAPG later landed PostgreSQL parity and runtime capability enablement |
 | P3 | VFS cache/staging | cache records and staging manifest/lease behavior | SQLite + PostgreSQL `VfsStaging` contracts added in PGR-120 | Required; completed for supported runtime scope |
 
 ## Architecture Direction

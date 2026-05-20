@@ -57,9 +57,9 @@ backend scope:
 - PostgreSQL proof schema now includes VFS Cache and Staging Manifest state.
 - `PostgresStore` implements `VfsCacheRepository` and
   `StagingManifestRepository`; PostgreSQL `vfs_cache` capability is true.
-- Managed Artwork PostgreSQL parity is intentionally split to
-  `docs/workstreams/managed-artwork-postgresql-parity/`; PostgreSQL runtime must
-  not partially enable Managed Artwork until that follow-on proves support.
+- Managed Artwork PostgreSQL parity was intentionally split to
+  `docs/workstreams/managed-artwork-postgresql-parity/`; that follow-on later
+  proved support and enabled the PostgreSQL Managed Artwork runtime capability.
 - Admin system config diagnostics now include a sanitized database block for
   configured backend kind, active backend kind, URL scheme, startup migration
   status, runtime support, and active backend capabilities without exposing

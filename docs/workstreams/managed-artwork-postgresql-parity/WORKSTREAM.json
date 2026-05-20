@@ -2,10 +2,10 @@
   "schema_version": 1,
   "slug": "managed-artwork-postgresql-parity",
   "title": "Managed Artwork PostgreSQL Parity",
-  "status": "proposed",
+  "status": "completed",
   "updated": "2026-05-20",
   "scope_kind": "follow_on",
-  "problem": "Managed Artwork remains SQLite-only while M62 PostgreSQL readiness splits it out to avoid partial runtime enablement.",
+  "problem": "Managed Artwork was SQLite-only when M62 PostgreSQL readiness split it out to avoid partial runtime enablement.",
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/managed-artwork-postgresql-parity/README.md" },
     { "role": "design", "path": "docs/workstreams/managed-artwork-postgresql-parity/DESIGN.md" },
@@ -17,9 +17,9 @@
   "parent_refs": [
     "docs/workstreams/postgresql-production-readiness/"
   ],
-  "current_task": "MAPG-010",
+  "current_task": null,
   "continue_policy": {
-    "default_action": "do_not_start_from_m62",
-    "notes": "Begin only when Managed Artwork PostgreSQL parity becomes the active goal or after M62 closeout explicitly reopens this follow-on."
+    "default_action": "close",
+    "notes": "MAPG is complete. PostgreSQL now has Managed Artwork repository parity and runtime capability enablement. Future work should open a separate lane for PostgreSQL CI hardening, image-processing policy changes, or artifact-store backend expansion."
   }
 }

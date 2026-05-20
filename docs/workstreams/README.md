@@ -17,7 +17,7 @@ attention.
   migration/schema parity, runtime backend selection, SQLite assumption
   cleanup, and repeatable verification.
 - [managed-artwork-postgresql-parity](managed-artwork-postgresql-parity/README.md):
-  proposed follow-on split from M62 PGR-090 for PostgreSQL parity across
+  completed follow-on split from M62 PGR-090 for PostgreSQL parity across
   Managed Artwork candidates, ingest jobs, artifacts, Selected Artwork,
   galleries, lifecycle cleanup, drift/remediation diagnostics, thumbnail
   variants, and redaction-safe runtime enablement.

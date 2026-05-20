@@ -20,7 +20,7 @@ async fn taru_database_connect_options_select_sqlite_explicitly() {
 }
 
 #[tokio::test]
-async fn taru_database_postgres_runtime_capabilities_name_supported_and_split_surfaces() {
+async fn taru_database_postgres_runtime_capabilities_include_managed_artwork() {
     assert_eq!(
         DatabaseBackendCapabilities::postgres_supported_scope(),
         DatabaseBackendCapabilities {
@@ -37,7 +37,7 @@ async fn taru_database_postgres_runtime_capabilities_name_supported_and_split_su
             event_outbox: true,
             addons: true,
             automation: true,
-            managed_artwork: false,
+            managed_artwork: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,

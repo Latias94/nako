@@ -36,8 +36,8 @@ identity, hardware diagnostics, search semantics, and test-locality cleanup.
 
 - Continue the already-active `admin-api-typescript-contract` lane when Admin
   Web contract drift is the next priority.
-- Pick up `managed-artwork-postgresql-parity` when Managed Artwork needs
-  PostgreSQL runtime enablement.
+- `managed-artwork-postgresql-parity` has closed; open a new named lane for
+  any future PostgreSQL CI hardening or Managed Artwork storage policy work.
 - Open a new named product lane for provider breadth, AI/vector search, network
   traversal, adaptive playback, or client UX rather than reopening this
   architecture-deepening lane.
@@ -49,5 +49,5 @@ identity, hardware diagnostics, search semantics, and test-locality cleanup.
 - Network traversal.
 - Adaptive bitrate ladder implementation.
 - AI runtime features.
-- Managed Artwork PostgreSQL parity, which remains a separate proposed
+- Further Managed Artwork PostgreSQL hardening after the completed parity
   follow-on.

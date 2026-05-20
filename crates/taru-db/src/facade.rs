@@ -138,7 +138,7 @@ impl DatabaseBackendCapabilities {
             event_outbox: true,
             addons: true,
             automation: true,
-            managed_artwork: false,
+            managed_artwork: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,

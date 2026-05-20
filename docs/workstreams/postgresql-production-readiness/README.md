@@ -12,8 +12,9 @@ selection, a backend-adapter facade dispatch, broad backend-neutral contract
 families, PostgreSQL migration/schema parity for the supported runtime
 surfaces, sanitized database diagnostics, SQLite assumption cleanup, and
 repeatable SQLite/PostgreSQL verification gates. Managed Artwork PostgreSQL
-parity remains intentionally split to
-`docs/workstreams/managed-artwork-postgresql-parity/`.
+parity was intentionally split to
+`docs/workstreams/managed-artwork-postgresql-parity/`, which later closed with
+runtime capability support.
 
 M61 made Taru PostgreSQL-ready by introducing the `TaruDatabase` facade,
 SQLite-owned adapter modules, backend-neutral job lease contract tests, and an

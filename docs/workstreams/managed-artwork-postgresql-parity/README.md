@@ -1,10 +1,10 @@
 # Managed Artwork PostgreSQL Parity
 
-Status: Proposed
+Status: Completed
 Last updated: 2026-05-20
 
-This follow-on owns PostgreSQL parity for the full Managed Artwork subsystem
-that M62 deliberately splits out of `postgresql-production-readiness`.
+This completed follow-on owns PostgreSQL parity for the full Managed Artwork
+subsystem that M62 deliberately split out of `postgresql-production-readiness`.
 
 The M62 PostgreSQL lane proves the core media, metadata, playback, event,
 Addon, Automation, and runtime repository families needed to make PostgreSQL a

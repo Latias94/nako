@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use taru_core::{Result, TaruError};
-use taru_db::{DatabaseBackendKind, TaruDatabase};
+use taru_db::TaruDatabase;
 use taru_metadata::MetadataProviderRegistry;
 use tokio::sync::Semaphore;
 
@@ -71,14 +71,10 @@ fn validate_configured_backend_runtime_scope(
     config: &TaruServerConfig,
     store: &TaruDatabase,
 ) -> Result<()> {
-    if store.backend_kind() != DatabaseBackendKind::Postgres {
-        return Ok(());
-    }
-
     let capabilities = store.capabilities();
     if config.artwork.ingest_worker_enabled && !capabilities.managed_artwork {
         return Err(TaruError::Unsupported(
-            "PostgreSQL backend cannot enable Managed Artwork ingest worker until managed-artwork-postgresql-parity lands",
+            "Configured database backend cannot enable Managed Artwork ingest worker without Managed Artwork repository support",
         ));
     }
 

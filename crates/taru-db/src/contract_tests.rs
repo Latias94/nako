@@ -1,31 +1,37 @@
 use std::{future::Future, sync::OnceLock};
 
 use taru_core::{
-    AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit, AddonPermission,
-    AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
+    AddonId, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit, AddonPermission,
+    AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
     AddonSideEffectTarget, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
-    AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
-    CatalogGovernanceItemListFilter, CatalogGovernanceRepository, CatalogItemGraphReplacement,
-    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection, Collection,
-    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
-    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobRepository, JobRunToken, JobStatus,
-    JobWorkerId, Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions,
-    LibraryPreset, LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem,
-    MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
-    MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter, MetadataField,
-    MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
+    ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository,
+    ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId,
+    ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind, AutomationArtifactStatus,
+    AutomationCapability, AutomationProviderStatus, AutomationRepository, CancelLeasedJob,
+    CanonicalMetadata, CatalogGovernanceItemListFilter, CatalogGovernanceRepository,
+    CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogRepository,
+    CatalogSearchProjection, Collection, CollectionId, CollectionItem, CompleteLeasedJob,
+    CreditRole, DatabaseLifecycle, DirectorySnapshot, DomainEventKind, DomainEventSubject,
+    EventOutboxRepository, ExternalId, ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset,
+    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
+    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
+    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
+    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
+    JobLeaseRepository, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library, LibraryId,
+    LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaItem, MediaItemId, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
+    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
     MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit, MetadataRepository,
     MetadataSource, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
-    NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
-    NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
+    NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
+    NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
     OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
     ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
     ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
@@ -54,6 +60,7 @@ enum ContractFamily {
     LibraryMedia,
     ScanCommit,
     MetadataCatalog,
+    ManagedArtwork,
     PlaybackRuntime,
     EventAddonAutomation,
     RuntimePromotion,
@@ -68,6 +75,7 @@ impl ContractFamily {
             Self::LibraryMedia => "library_media",
             Self::ScanCommit => "scan_commit",
             Self::MetadataCatalog => "metadata_catalog",
+            Self::ManagedArtwork => "managed_artwork",
             Self::PlaybackRuntime => "playback_runtime",
             Self::EventAddonAutomation => "event_addon_automation",
             Self::RuntimePromotion => "runtime_promotion",
@@ -186,6 +194,34 @@ impl<T> MetadataCatalogContractBackend for T where
         + MetadataRepository
         + ProviderMappingRepository
         + SearchIndex
+{
+}
+
+trait ManagedArtworkContractBackend:
+    LifecycleContractBackend
+    + AddonRepository
+    + ArtworkTaskRepository
+    + ArtworkCandidateRepository
+    + CatalogRepository
+    + JobRepository
+    + LibraryRepository
+    + LibraryItemRepository
+    + ManagedArtworkRepository
+    + MediaRepository
+{
+}
+
+impl<T> ManagedArtworkContractBackend for T where
+    T: LifecycleContractBackend
+        + AddonRepository
+        + ArtworkTaskRepository
+        + ArtworkCandidateRepository
+        + CatalogRepository
+        + JobRepository
+        + LibraryRepository
+        + LibraryItemRepository
+        + ManagedArtworkRepository
+        + MediaRepository
 {
 }
 
@@ -3005,6 +3041,719 @@ where
     assert_eq!(rejected.accepted_at, None);
 }
 
+async fn seed_managed_artwork_contract_item<S>(store: &S) -> (LibraryId, MediaItemId)
+where
+    S: LibraryRepository + LibraryItemRepository + MediaRepository + ?Sized,
+{
+    let library = seed_contract_library(store).await;
+    let item = contract_media_item(MediaItemId::new(), "Managed Artwork Contract");
+
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+
+    (library.id, item.id)
+}
+
+async fn seed_managed_artwork_addon_side_effect<S>(
+    store: &S,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    idempotency_key: &str,
+) -> (AddonId, AddonSideEffectId)
+where
+    S: AddonRepository + ?Sized,
+{
+    let addon_id = AddonId::new();
+    let token_id = AddonTokenId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: format!("dev.taru.contract.{idempotency_key}"),
+            name: "Managed Artwork Contract Addon".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: r#"{"id":"dev.taru.contract.managed-artwork"}"#.to_owned(),
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "managed artwork contract".to_owned(),
+            token_prefix: "taru_at_managed_artwork".to_owned(),
+            token_hash: format!("sha256:{idempotency_key}"),
+        })
+        .await
+        .unwrap();
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: idempotency_key.to_owned(),
+            provenance_json: r#"{"origin":"contract"}"#.to_owned(),
+            payload_json: r#"{"intent":"propose_artwork"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+
+    (addon_id, side_effect.id)
+}
+
+async fn addon_artwork_candidate_intake_contract<S>(store: S)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (library_id, item_id) = seed_managed_artwork_contract_item(&store).await;
+    let (addon_id, side_effect_id) = seed_managed_artwork_addon_side_effect(
+        &store,
+        library_id,
+        item_id,
+        "managed-artwork-candidate-intake",
+    )
+    .await;
+    let source_uri = "https://cdn.example.test/managed-artwork/poster.png";
+
+    let candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id,
+            library_id,
+            item_id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: source_uri.to_owned(),
+            width: Some(1000),
+            height: Some(1500),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(candidate.addon_id, addon_id);
+    assert_eq!(candidate.side_effect_id, side_effect_id);
+    assert_eq!(candidate.library_id, library_id);
+    assert_eq!(candidate.item_id, item_id);
+    assert_eq!(candidate.kind, ImageKind::Poster);
+    assert_eq!(candidate.source_kind, ArtworkCandidateSourceKind::RemoteUrl);
+    assert_eq!(candidate.source_uri, source_uri);
+    assert_eq!(candidate.width, Some(1000));
+    assert_eq!(candidate.height, Some(1500));
+    assert_eq!(candidate.language.as_deref(), Some("en"));
+    assert_eq!(candidate.status, ArtworkCandidateStatus::Proposed);
+    assert!(!candidate.created_at.is_empty());
+    assert!(!candidate.updated_at.is_empty());
+
+    let duplicate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id,
+            library_id,
+            item_id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: source_uri.to_owned(),
+            width: Some(999),
+            height: Some(1499),
+            language: Some("fr".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(duplicate, candidate);
+    assert_eq!(
+        store.get_artwork_candidate(candidate.id).await.unwrap(),
+        Some(candidate.clone())
+    );
+    assert_eq!(
+        store
+            .find_artwork_candidate_by_source(
+                addon_id,
+                library_id,
+                item_id,
+                &ImageKind::Poster,
+                ArtworkCandidateSourceKind::RemoteUrl,
+                source_uri,
+            )
+            .await
+            .unwrap(),
+        Some(candidate.clone())
+    );
+    assert_eq!(
+        store
+            .list_artwork_candidates_for_item(item_id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![candidate.clone()]
+    );
+
+    let rejected = store
+        .set_artwork_candidate_status(candidate.id, ArtworkCandidateStatus::Rejected)
+        .await
+        .unwrap();
+    assert_eq!(rejected.status, ArtworkCandidateStatus::Rejected);
+    assert_eq!(
+        store.get_artwork_candidate(candidate.id).await.unwrap(),
+        Some(rejected)
+    );
+}
+
+async fn artwork_task_queue_contract<S>(store: S)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (_library_id, item_id) = seed_managed_artwork_contract_item(&store).await;
+    let image = ImageAsset {
+        id: ImageAssetId::new(),
+        owner: ImageOwner::Item(item_id),
+        kind: ImageKind::Thumbnail,
+        source_uri: "local:///Contract Movies/Managed Artwork Contract.mkv#preview=10".to_owned(),
+        provider: ExternalProvider::Local,
+        cache_uri: None,
+        width: Some(320),
+        height: Some(180),
+        language: None,
+        selected: false,
+        content_hash: None,
+        etag: Some("preview-etag".to_owned()),
+    };
+    store.upsert_image_asset(&image).await.unwrap();
+
+    let queued = ArtworkTask {
+        id: ArtworkTaskId::new(),
+        image_id: image.id,
+        kind: ArtworkTaskKind::Preview,
+        status: JobStatus::Queued,
+        resource_class: ArtworkTaskKind::Preview.resource_class().to_owned(),
+        attempts: 0,
+        max_attempts: 3,
+        error: None,
+    };
+    store.enqueue_artwork_task(&queued).await.unwrap();
+    assert_eq!(
+        store.get_artwork_task(queued.id).await.unwrap(),
+        Some(queued.clone())
+    );
+    assert_eq!(
+        store
+            .list_artwork_tasks(PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![queued.clone()]
+    );
+
+    let running = ArtworkTask {
+        status: JobStatus::Running,
+        attempts: 1,
+        error: Some("retrying after transient image decode failure".to_owned()),
+        ..queued
+    };
+    store.enqueue_artwork_task(&running).await.unwrap();
+
+    assert_eq!(
+        store.get_artwork_task(running.id).await.unwrap(),
+        Some(running.clone())
+    );
+    assert_eq!(
+        store
+            .list_artwork_tasks(PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![running]
+    );
+}
+
+async fn seed_accepted_managed_artwork_ingest<S>(
+    store: &S,
+    idempotency_key: &str,
+    kind: ImageKind,
+    source_uri: &str,
+) -> (
+    LibraryId,
+    MediaItemId,
+    ArtworkCandidateRecord,
+    ManagedArtworkAcceptanceRecord,
+)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (library_id, item_id) = seed_managed_artwork_contract_item(store).await;
+    let (candidate, accepted) = seed_accepted_managed_artwork_ingest_for_item(
+        store,
+        library_id,
+        item_id,
+        idempotency_key,
+        kind,
+        source_uri,
+    )
+    .await;
+
+    (library_id, item_id, candidate, accepted)
+}
+
+async fn seed_accepted_managed_artwork_ingest_for_item<S>(
+    store: &S,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    idempotency_key: &str,
+    kind: ImageKind,
+    source_uri: &str,
+) -> (ArtworkCandidateRecord, ManagedArtworkAcceptanceRecord)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (addon_id, side_effect_id) =
+        seed_managed_artwork_addon_side_effect(store, library_id, item_id, idempotency_key).await;
+    let candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id,
+            library_id,
+            item_id,
+            kind: kind.clone(),
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: source_uri.to_owned(),
+            width: Some(1000),
+            height: Some(1500),
+            language: Some("en".to_owned()),
+        })
+        .await
+        .unwrap();
+    let ingest_id = ManagedArtworkIngestId::new();
+    let job_id = JobId::new();
+
+    let accepted = store
+        .accept_managed_artwork_candidate_ingest(
+            candidate.id,
+            NewManagedArtworkIngest {
+                id: ingest_id,
+                candidate_id: candidate.id,
+                job_id,
+                library_id,
+                item_id,
+                kind: kind.clone(),
+                status: ManagedArtworkIngestStatus::Queued,
+                artifact_id: None,
+                failure_code: None,
+            },
+            NewJob {
+                id: job_id,
+                kind: JobKind::ManagedArtworkIngest,
+                resource_class: "artwork.ingest".to_owned(),
+                library_id: Some(library_id),
+                source_id: None,
+                input_json: Some(
+                    serde_json::json!({
+                        "candidate_id": candidate.id,
+                        "library_id": library_id,
+                        "item_id": item_id,
+                        "image_kind": image_kind_contract_label(&kind)
+                    })
+                    .to_string(),
+                ),
+            },
+        )
+        .await
+        .unwrap();
+
+    (candidate, accepted)
+}
+
+fn image_kind_contract_label(kind: &ImageKind) -> &'static str {
+    match kind {
+        ImageKind::Poster => "poster",
+        ImageKind::Backdrop => "backdrop",
+        ImageKind::Logo => "logo",
+        ImageKind::Thumbnail => "thumbnail",
+        ImageKind::Banner => "banner",
+        ImageKind::Other(_) => "other",
+    }
+}
+
+async fn managed_artwork_acceptance_creates_ingest_job_contract<S>(store: S)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (library_id, item_id, candidate, accepted) = seed_accepted_managed_artwork_ingest(
+        &store,
+        "managed-artwork-acceptance",
+        ImageKind::Poster,
+        "https://cdn.example.test/poster.jpg?token=secret",
+    )
+    .await;
+    let ingest_id = accepted.ingest.id;
+    let job_id = accepted.job.id;
+
+    assert_eq!(accepted.candidate.id, candidate.id);
+    assert_eq!(accepted.candidate.status, ArtworkCandidateStatus::Accepted);
+    assert_eq!(accepted.ingest.id, ingest_id);
+    assert_eq!(accepted.ingest.candidate_id, candidate.id);
+    assert_eq!(accepted.ingest.job_id, job_id);
+    assert_eq!(accepted.ingest.library_id, library_id);
+    assert_eq!(accepted.ingest.item_id, item_id);
+    assert_eq!(accepted.ingest.kind, ImageKind::Poster);
+    assert_eq!(accepted.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(accepted.ingest.artifact_id, None);
+    assert_eq!(accepted.ingest.failure_code, None);
+    assert_eq!(accepted.job.id, job_id);
+    assert_eq!(accepted.job.kind, JobKind::ManagedArtworkIngest);
+    assert_eq!(accepted.job.status, JobStatus::Queued);
+    assert_eq!(accepted.job.resource_class, "artwork.ingest");
+    assert!(
+        !accepted
+            .job
+            .input_json
+            .as_ref()
+            .unwrap()
+            .contains("token=secret")
+    );
+    assert_eq!(
+        store
+            .find_managed_artwork_ingest_by_candidate(candidate.id)
+            .await
+            .unwrap(),
+        Some(accepted.ingest.clone())
+    );
+    assert_eq!(
+        store.get_managed_artwork_ingest(ingest_id).await.unwrap(),
+        Some(accepted.ingest.clone())
+    );
+    assert_eq!(
+        store.get_job(job_id).await.unwrap(),
+        Some(accepted.job.clone())
+    );
+
+    let replay = store
+        .accept_managed_artwork_candidate_ingest(
+            candidate.id,
+            NewManagedArtworkIngest {
+                id: ManagedArtworkIngestId::new(),
+                candidate_id: candidate.id,
+                job_id: JobId::new(),
+                library_id,
+                item_id,
+                kind: ImageKind::Poster,
+                status: ManagedArtworkIngestStatus::Queued,
+                artifact_id: None,
+                failure_code: None,
+            },
+            NewJob {
+                id: JobId::new(),
+                kind: JobKind::ManagedArtworkIngest,
+                resource_class: "artwork.ingest".to_owned(),
+                library_id: Some(library_id),
+                source_id: None,
+                input_json: Some("{}".to_owned()),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(replay.ingest.id, accepted.ingest.id);
+    assert_eq!(replay.job.id, accepted.job.id);
+    assert_eq!(replay.candidate.status, ArtworkCandidateStatus::Accepted);
+}
+
+async fn managed_artwork_ingest_processing_contract<S>(store: S)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (library_id, item_id, candidate, accepted) = seed_accepted_managed_artwork_ingest(
+        &store,
+        "managed-artwork-processing",
+        ImageKind::Poster,
+        "https://cdn.example.test/processing.jpg",
+    )
+    .await;
+
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(claim.candidate.id, candidate.id);
+    assert_eq!(claim.ingest.id, accepted.ingest.id);
+    assert_eq!(claim.ingest.status, ManagedArtworkIngestStatus::Fetching);
+    assert_eq!(claim.job.id, accepted.job.id);
+    assert_eq!(claim.job.status, JobStatus::Running);
+    assert!(
+        store
+            .claim_next_queued_managed_artwork_ingest()
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let artifact_id = ManagedArtworkArtifactId::new();
+    let committed = store
+        .commit_managed_artwork_artifact(
+            claim.ingest.id,
+            NewManagedArtworkArtifact {
+                id: artifact_id,
+                ingest_id: claim.ingest.id,
+                library_id,
+                item_id,
+                kind: ImageKind::Poster,
+                storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                content_hash: Some("sha256-processing".to_owned()),
+                width: Some(1),
+                height: Some(1),
+                byte_len: Some(68),
+                media_type: Some("image/png".to_owned()),
+            },
+            Some(r#"{"status":"stored","byte_len":68}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(committed.ingest.status, ManagedArtworkIngestStatus::Stored);
+    assert_eq!(committed.ingest.artifact_id, Some(artifact_id));
+    assert_eq!(committed.artifact.as_ref().unwrap().id, artifact_id);
+    assert_eq!(committed.job.status, JobStatus::Succeeded);
+    assert_eq!(
+        store
+            .get_managed_artwork_artifact(artifact_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .ingest_id,
+        claim.ingest.id
+    );
+}
+
+async fn managed_artwork_failure_recovery_requeue_contract<S>(store: S)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (_, _, _, accepted) = seed_accepted_managed_artwork_ingest(
+        &store,
+        "managed-artwork-requeue",
+        ImageKind::Poster,
+        "https://cdn.example.test/requeue.jpg",
+    )
+    .await;
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    let failed = store
+        .fail_managed_artwork_ingest(
+            claim.ingest.id,
+            "fetch_failed".to_owned(),
+            "safe fetch failure".to_owned(),
+            Some(r#"{"status":"failed"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(failed.ingest.status, ManagedArtworkIngestStatus::Failed);
+    assert_eq!(failed.ingest.failure_code.as_deref(), Some("fetch_failed"));
+    assert_eq!(failed.job.status, JobStatus::Failed);
+
+    let requeued = store
+        .requeue_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap();
+    assert_eq!(requeued.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert_eq!(requeued.job.status, JobStatus::Queued);
+    assert!(requeued.requeued);
+    assert!(requeued.had_failure);
+
+    let replay = store
+        .requeue_managed_artwork_ingest(accepted.ingest.id)
+        .await
+        .unwrap();
+    assert_eq!(replay.ingest.status, ManagedArtworkIngestStatus::Queued);
+    assert!(!replay.requeued);
+    assert!(!replay.had_failure);
+
+    let refetched = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        refetched.ingest.status,
+        ManagedArtworkIngestStatus::Fetching
+    );
+    let recovered = store
+        .fail_unfinished_managed_artwork_ingests(
+            "startup_recovery".to_owned(),
+            "managed artwork ingest was unfinished during server startup".to_owned(),
+            Some(r#"{"status":"failed"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recovered, 1);
+    assert_eq!(
+        store
+            .get_managed_artwork_ingest(refetched.ingest.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        ManagedArtworkIngestStatus::Failed
+    );
+}
+
+async fn selected_artwork_gallery_lifecycle_contract<S>(store: S)
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (library_id, item_id, first_candidate, first_accepted) =
+        seed_accepted_managed_artwork_ingest(
+            &store,
+            "managed-artwork-selected-first",
+            ImageKind::Poster,
+            "https://cdn.example.test/selected-first.jpg",
+        )
+        .await;
+    let (_, second_accepted) = seed_accepted_managed_artwork_ingest_for_item(
+        &store,
+        library_id,
+        item_id,
+        "managed-artwork-selected-second",
+        ImageKind::Backdrop,
+        "https://cdn.example.test/selected-second.jpg",
+    )
+    .await;
+
+    let mut artifact_ids = Vec::new();
+    for (accepted, kind, byte_len) in [
+        (first_accepted, ImageKind::Poster, 68_u64),
+        (second_accepted, ImageKind::Backdrop, 102_u64),
+    ] {
+        let claim = store
+            .claim_next_queued_managed_artwork_ingest()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(claim.ingest.id, accepted.ingest.id);
+        let artifact_id = ManagedArtworkArtifactId::new();
+        store
+            .commit_managed_artwork_artifact(
+                claim.ingest.id,
+                NewManagedArtworkArtifact {
+                    id: artifact_id,
+                    ingest_id: claim.ingest.id,
+                    library_id,
+                    item_id,
+                    kind,
+                    storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                    content_hash: Some(format!("sha256-{artifact_id}")),
+                    width: Some(1),
+                    height: Some(1),
+                    byte_len: Some(byte_len),
+                    media_type: Some("image/png".to_owned()),
+                },
+                Some(r#"{"status":"stored"}"#.to_owned()),
+            )
+            .await
+            .unwrap();
+        artifact_ids.push(artifact_id);
+    }
+
+    let published = store
+        .publish_selected_artwork(artifact_ids[0])
+        .await
+        .unwrap();
+    assert_eq!(published.selected_artwork.item_id, item_id);
+    assert_eq!(published.selected_artwork.kind, ImageKind::Poster);
+    assert_eq!(published.selected_artwork.artifact_id, artifact_ids[0]);
+    assert!(published.changed);
+    let replay = store
+        .publish_selected_artwork(artifact_ids[0])
+        .await
+        .unwrap();
+    assert_eq!(replay.selected_artwork.id, published.selected_artwork.id);
+    assert!(!replay.changed);
+    assert_eq!(
+        store.list_selected_artwork_for_item(item_id).await.unwrap(),
+        vec![published.selected_artwork.clone()]
+    );
+
+    let gallery = store
+        .get_managed_artwork_gallery_for_item(item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(gallery.summary.candidates, 2);
+    assert_eq!(gallery.summary.artifacts, 2);
+    assert_eq!(gallery.summary.selected, 1);
+    assert!(
+        gallery
+            .candidates
+            .iter()
+            .any(|candidate| candidate.id == first_candidate.id && candidate.selected())
+    );
+    assert!(
+        !serde_json::to_string(&taru_api_safety_projection(&gallery))
+            .unwrap()
+            .contains("managed-artwork://")
+    );
+
+    let lifecycle = store
+        .list_managed_artwork_artifact_lifecycle(
+            ManagedArtworkArtifactLifecycleFilter::All,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(lifecycle.summary.total_artifacts, 2);
+    assert_eq!(lifecycle.summary.protected_artifacts, 1);
+    assert_eq!(lifecycle.summary.cleanup_candidate_artifacts, 1);
+    assert_eq!(lifecycle.summary.known_total_bytes, 170);
+
+    let cleanup = store
+        .cleanup_unselected_managed_artwork_artifacts(PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(cleanup.cleaned_artifacts.len(), 1);
+    assert_eq!(cleanup.cleaned_artifacts[0].id, artifact_ids[1]);
+    assert!(
+        store
+            .get_managed_artwork_artifact(artifact_ids[0])
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert_eq!(
+        store
+            .get_managed_artwork_artifact(artifact_ids[1])
+            .await
+            .unwrap(),
+        None
+    );
+}
+
+fn taru_api_safety_projection(
+    gallery: &taru_core::ManagedArtworkGallerySnapshot,
+) -> (u32, u32, u32) {
+    (
+        gallery.summary.candidates,
+        gallery.summary.artifacts,
+        gallery.summary.selected,
+    )
+}
+
 async fn runtime_promotion_contract_covers_facade_dispatch_gap_surfaces<S>(store: S)
 where
     S: RuntimePromotionContractBackend,
@@ -3553,6 +4302,54 @@ database_contract_pair!(
         "addon_metadata_write_updates_projection_apply_outcome_and_rolls_back"
     ),
     contract = addon_metadata_write_commit_updates_projection_apply_outcome_and_rolls_back_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_artwork_contract_addon_artwork_candidate_intake,
+    postgres = postgres_managed_artwork_contract_addon_artwork_candidate_intake,
+    case = ContractCase::migrated(
+        ContractFamily::ManagedArtwork,
+        "addon_artwork_candidate_intake"
+    ),
+    contract = addon_artwork_candidate_intake_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_artwork_contract_artwork_task_queue,
+    postgres = postgres_managed_artwork_contract_artwork_task_queue,
+    case = ContractCase::migrated(ContractFamily::ManagedArtwork, "artwork_task_queue"),
+    contract = artwork_task_queue_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_artwork_contract_acceptance_creates_ingest_job,
+    postgres = postgres_managed_artwork_contract_acceptance_creates_ingest_job,
+    case = ContractCase::migrated(
+        ContractFamily::ManagedArtwork,
+        "acceptance_creates_ingest_job"
+    ),
+    contract = managed_artwork_acceptance_creates_ingest_job_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_artwork_contract_ingest_processing,
+    postgres = postgres_managed_artwork_contract_ingest_processing,
+    case = ContractCase::migrated(ContractFamily::ManagedArtwork, "ingest_processing"),
+    contract = managed_artwork_ingest_processing_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_artwork_contract_failure_recovery_requeue,
+    postgres = postgres_managed_artwork_contract_failure_recovery_requeue,
+    case = ContractCase::migrated(ContractFamily::ManagedArtwork, "failure_recovery_requeue"),
+    contract = managed_artwork_failure_recovery_requeue_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_artwork_contract_selected_gallery_lifecycle,
+    postgres = postgres_managed_artwork_contract_selected_gallery_lifecycle,
+    case = ContractCase::migrated(ContractFamily::ManagedArtwork, "selected_gallery_lifecycle"),
+    contract = selected_artwork_gallery_lifecycle_contract,
 );
 
 database_contract_pair!(

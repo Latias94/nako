@@ -42,8 +42,8 @@ Why FAD-020 comes first:
 
 - Keep the lane architecture-first. Do not add provider breadth, network
   traversal, native plugin ABI, adaptive bitrate, or AI runtime features here.
-- Managed Artwork PostgreSQL parity remains a separate proposed follow-on:
-  `docs/workstreams/managed-artwork-postgresql-parity/`.
+- Managed Artwork PostgreSQL parity was split to
+  `docs/workstreams/managed-artwork-postgresql-parity/` and later completed.
 - Prefer deep workflow seams over mechanical trait splits.
 - New persistence commit seams must prove SQLite and PostgreSQL behavior
   through backend-neutral contracts.
