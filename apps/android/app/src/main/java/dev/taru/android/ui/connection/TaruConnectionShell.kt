@@ -20,11 +20,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -36,9 +35,7 @@ import dev.taru.android.connection.ConnectionFailureCategory
 import dev.taru.android.connection.InMemoryServerProfileStore
 import dev.taru.android.connection.InMemoryTokenVault
 import dev.taru.android.connection.JdkTaruHttpTransport
-import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.ServerProfile
-import dev.taru.android.connection.ServerProfileRepository
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.ServerProfileStore
 import dev.taru.android.connection.SharedPreferencesServerProfileStore
@@ -50,7 +47,6 @@ import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
-import kotlinx.coroutines.launch
 
 @Composable
 fun TaruConnectionShell(
@@ -80,18 +76,22 @@ fun TaruConnectionShellContent(
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    var snapshot by remember(initialSnapshot) { mutableStateOf(initialSnapshot ?: store.load()) }
-    var displayName by remember { mutableStateOf("") }
-    var serverUrl by remember { mutableStateOf(snapshot.profiles.firstOrNull()?.baseUrl.orEmpty()) }
-    var accessToken by remember { mutableStateOf("") }
-    var isChecking by remember { mutableStateOf(false) }
-    var checkResult by remember { mutableStateOf<ConnectionCheckResult?>(null) }
-
-    fun updateSnapshot(next: ServerProfileSnapshot) {
-        store.save(next)
-        snapshot = next
-        onSnapshotChanged(next)
+    val runtime = remember(store, tokenVault, client) {
+        ClientConnectionRuntime(
+            store = store,
+            tokenVault = tokenVault,
+            client = client,
+        )
     }
+    val session = remember(initialSnapshot, runtime, scope) {
+        ConnectionSession(
+            initialSnapshot = initialSnapshot ?: store.load(),
+            runtime = runtime,
+            onSnapshotChanged = onSnapshotChanged,
+            scope = scope,
+        )
+    }
+    val state by session.state.collectAsState()
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -129,28 +129,22 @@ fun TaruConnectionShellContent(
                 ) {
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = displayName,
-                        onValueChange = { displayName = it },
+                        value = state.displayName,
+                        onValueChange = { session.dispatch(ConnectionAction.DisplayNameChanged(it)) },
                         label = { Text("Display name") },
                         singleLine = true,
                     )
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = serverUrl,
-                        onValueChange = {
-                            serverUrl = it
-                            checkResult = null
-                        },
+                        value = state.serverUrl,
+                        onValueChange = { session.dispatch(ConnectionAction.ServerUrlChanged(it)) },
                         label = { Text("Server URL") },
                         singleLine = true,
                     )
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = accessToken,
-                        onValueChange = {
-                            accessToken = it
-                            checkResult = null
-                        },
+                        value = state.accessToken,
+                        onValueChange = { session.dispatch(ConnectionAction.AccessTokenChanged(it)) },
                         label = { Text("Access Token") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -161,65 +155,34 @@ fun TaruConnectionShellContent(
                         verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                     ) {
                         Button(
-                            enabled = !isChecking,
+                            enabled = !state.isChecking,
                             onClick = {
-                                scope.launch {
-                                    isChecking = true
-                                    val result = client.testConnection(serverUrl, accessToken)
-                                    checkResult = result
-                                    if (result is ConnectionCheckResult.Failure) {
-                                        val repository = ServerProfileRepository(snapshot)
-                                        val matchedProfile = repository
-                                            .listProfiles()
-                                            .firstOrNull { it.baseUrl == result.normalizedBaseUrl }
-                                        if (matchedProfile != null) {
-                                            repository.recordFailure(matchedProfile.id, result)
-                                            updateSnapshot(repository.snapshot())
-                                        }
-                                    }
-                                    isChecking = false
-                                }
+                                session.dispatch(ConnectionAction.TestConnection)
                             },
                         ) {
-                            Text(if (isChecking) "Testing" else "Test Connection")
+                            Text(if (state.isChecking) "Testing" else "Test Connection")
                         }
 
-                        val success = checkResult as? ConnectionCheckResult.Success
                         Button(
-                            enabled = success != null,
+                            enabled = state.canSave,
                             onClick = {
-                                if (success != null) {
-                                    val repository = ServerProfileRepository(snapshot)
-                                    val profile = repository.upsertConnectedProfile(
-                                        displayName = displayName,
-                                        tokenReference = null,
-                                        result = success,
-                                    )
-                                    tokenVault.saveToken(profile.tokenReference, accessToken)
-                                    updateSnapshot(repository.snapshot())
-                                    accessToken = ""
-                                    displayName = ""
-                                }
+                                session.dispatch(ConnectionAction.SaveProfile)
                             },
                         ) {
                             Text("Save")
                         }
                     }
 
-                    checkResult?.let { result ->
+                    state.checkResult?.let { result ->
                         ConnectionResultSummary(result)
                     }
                 }
             }
 
             SavedServerProfiles(
-                snapshot = snapshot,
+                snapshot = state.snapshot,
                 onSwitch = { profile ->
-                    val repository = ServerProfileRepository(snapshot)
-                    repository.switchActive(profile.id)
-                    updateSnapshot(repository.snapshot())
-                    serverUrl = profile.baseUrl
-                    checkResult = null
+                    session.dispatch(ConnectionAction.SwitchProfile(profile))
                 },
             )
         }

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "slug": "android-settings-connection-state-architecture",
+  "title": "Android Settings Connection State Architecture",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "architecture-refactor",
+  "problem": "Android connection setup, settings, and root app connection visibility still keep state and side effects directly inside Composables.",
+  "summary": "Move Android connection and settings state into tested sessions so Compose renders state and dispatches actions consistently with Browse and Player architecture.",
+  "current_milestone": "M4",
+  "current_task": null,
+  "task_prefix": "ASCSA",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-settings-connection-state-architecture/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-settings-connection-state-architecture/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-settings-connection-state-architecture/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-settings-connection-state-architecture/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-settings-connection-state-architecture/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "git diff --check"
+  ],
+  "dependencies": [
+    "docs/workstreams/android-unidirectional-state-architecture",
+    "docs/workstreams/android-presentation-runtime-adapters",
+    "docs/workstreams/android-player-session-architecture"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Closed. Auth/session/RBAC and token refresh are separate future work."
+  }
+}

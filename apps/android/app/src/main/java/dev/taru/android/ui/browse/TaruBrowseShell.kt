@@ -28,7 +28,10 @@ import dev.taru.android.ui.artwork.TokenVaultArtworkRequestResolver
 import dev.taru.android.ui.screens.detail.DetailRouteContent
 import dev.taru.android.ui.screens.player.PlayerRouteRenderer
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
+import dev.taru.android.ui.screens.settings.SettingsAction
 import dev.taru.android.ui.screens.settings.SettingsHomeScreen
+import dev.taru.android.ui.screens.settings.SettingsRuntime
+import dev.taru.android.ui.screens.settings.SettingsSession
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
 import dev.taru.android.ui.shell.TaruShellDestination
@@ -117,6 +120,24 @@ internal fun TaruBrowseShell(
         TokenVaultArtworkRequestResolver(
             profile = profile,
             tokenVault = tokenVault,
+        )
+    }
+    val settingsSession = remember(snapshot, tokenVault, onChangeServer, onSnapshotChanged) {
+        SettingsSession(
+            initialSnapshot = snapshot,
+            runtime = object : SettingsRuntime {
+                override fun saveSnapshot(snapshot: ServerProfileSnapshot) {
+                    onSnapshotChanged(snapshot)
+                }
+
+                override fun deleteToken(reference: String) {
+                    tokenVault.deleteToken(reference)
+                }
+
+                override fun requestConnection() {
+                    onChangeServer()
+                }
+            },
         )
     }
     LaunchedEffect(profile.id) {
@@ -218,10 +239,14 @@ internal fun TaruBrowseShell(
                 TaruRoute.ServerProfile -> ServerProfileScreen(
                     activeProfile = profile,
                     snapshot = snapshot,
-                    tokenVault = tokenVault,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onChangeServer = onChangeServer,
-                    onSnapshotChanged = onSnapshotChanged,
+                    onSwitchProfile = { profileId ->
+                        settingsSession.dispatch(SettingsAction.SwitchProfile(profileId))
+                    },
+                    onSignOut = {
+                        settingsSession.dispatch(SettingsAction.SignOutActiveProfile)
+                    },
                 )
             }
         }

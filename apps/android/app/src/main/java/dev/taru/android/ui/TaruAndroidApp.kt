@@ -1,18 +1,15 @@
 package dev.taru.android.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.AndroidSecureTokenVault
 import dev.taru.android.connection.JdkTaruHttpTransport
-import dev.taru.android.connection.ServerProfileRepository
-import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.ServerProfileStore
 import dev.taru.android.connection.SharedPreferencesServerProfileStore
 import dev.taru.android.connection.TaruConnectionClient
@@ -71,27 +68,35 @@ fun TaruAndroidAppContent(
     playerExitEffectScope: CoroutineScope,
     modifier: Modifier = Modifier,
 ) {
-    var snapshot by remember { mutableStateOf(store.load()) }
-    var showConnection by remember {
-        mutableStateOf(activeProfile(snapshot) == null)
+    val appRuntime = remember(store) {
+        object : TaruAppRuntime {
+            override fun saveSnapshot(snapshot: dev.taru.android.connection.ServerProfileSnapshot) {
+                store.save(snapshot)
+            }
+        }
     }
-    val activeProfile = activeProfile(snapshot)
+    val appSession = remember(store, appRuntime) {
+        TaruAppSession(
+            initialSnapshot = store.load(),
+            runtime = appRuntime,
+        )
+    }
+    val appState by appSession.state.collectAsState()
+    val activeProfile = appState.activeProfile
 
-    if (activeProfile == null || showConnection) {
+    if (appState.shouldShowConnection) {
         TaruConnectionShellContent(
             modifier = modifier,
             store = store,
             tokenVault = tokenVault,
             client = connectionClient,
-            initialSnapshot = snapshot,
+            initialSnapshot = appState.snapshot,
             onSnapshotChanged = { next ->
-                snapshot = next
-                if (activeProfile(next) != null) {
-                    showConnection = false
-                }
+                appSession.dispatch(TaruAppAction.SnapshotChanged(next))
             },
         )
     } else {
+        requireNotNull(activeProfile)
         val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(
             profile = activeProfile,
             tokenVault = tokenVault,
@@ -103,7 +108,7 @@ fun TaruAndroidAppContent(
         TaruBrowseShell(
             modifier = modifier,
             profile = activeProfile,
-            snapshot = snapshot,
+            snapshot = appState.snapshot,
             tokenVault = tokenVault,
             browseClient = browseClient,
             playbackClient = playbackClient,
@@ -112,13 +117,11 @@ fun TaruAndroidAppContent(
             positionStore = positionStore,
             playerRouteRenderer = playerRouteRenderer,
             onSnapshotChanged = { next ->
-                store.save(next)
-                snapshot = next
+                appSession.dispatch(TaruAppAction.SnapshotChanged(next))
             },
-            onChangeServer = { showConnection = true },
+            onChangeServer = {
+                appSession.dispatch(TaruAppAction.RequestConnection)
+            },
         )
     }
 }
-
-private fun activeProfile(snapshot: ServerProfileSnapshot) =
-    ServerProfileRepository(snapshot).activeProfile()
