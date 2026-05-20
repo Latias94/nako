@@ -39,22 +39,23 @@ Evidence:
 
 ## M3 - Genre Route And Screen
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
 - Genre Index has route state, save/restore, loading, retry, and UI.
 - Rows open server-backed Genre related Media Items routes.
 
-Progress:
+Evidence:
 
 - Route state, save/restore, loading, retry, back behavior, and row targets
   are complete under ARI-030.
-- The Material Expressive screen and Home entry point remain ARI-040.
+- Material Expressive screen and Home entry point are complete under ARI-040.
+- Full Android debug unit gate passed after the screen landed.
 
 ## M4 - Evidence And Closeout
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 

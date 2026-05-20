@@ -48,8 +48,8 @@ Last updated: 2026-05-20
     `RelationshipIndexFamily.Genres`, `TaruRoute.RelationshipIndex`, and
     `RelationshipIndexUiState` are covered by focused UI browse tests.
 
-- [ ] ARI-040 - Build Genre index screen.
-  - Owner: unassigned
+- [x] ARI-040 - Build Genre index screen.
+  - Owner: Codex
   - Dependencies: ARI-030.
   - Scope:
     - `apps/android/app/src/main/java/dev/taru/android/ui/screens/`
@@ -60,6 +60,9 @@ Last updated: 2026-05-20
     - full Android debug unit gate passes.
   - Evidence: screen implementation and focused presentation tests where
     practical.
+    Completed on 2026-05-20:
+    `RelationshipIndexRouteContent` replaced the temporary placeholder,
+    Home exposes a Genres anchor, and the full Android debug unit gate passed.
 
 - [ ] ARI-050 - Prove Genre index smoke or split closeout.
   - Owner: planner

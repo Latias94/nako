@@ -28,6 +28,7 @@ import dev.taru.android.ui.artwork.TokenVaultArtworkRequestResolver
 import dev.taru.android.ui.screens.detail.DetailRouteContent
 import dev.taru.android.ui.screens.person.PersonDetailRouteContent
 import dev.taru.android.ui.screens.player.PlayerRouteRenderer
+import dev.taru.android.ui.screens.relationship.RelationshipIndexRouteContent
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
 import dev.taru.android.ui.screens.settings.SettingsAction
 import dev.taru.android.ui.screens.settings.SettingsHomeScreen
@@ -159,6 +160,9 @@ internal fun TaruBrowseShell(
                     onOpenSearch = {
                         dispatchBrowseAction(BrowseAction.SelectDestination(TaruDestination.Search))
                     },
+                    onOpenGenres = {
+                        dispatchBrowseAction(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres))
+                    },
                     onOpenServerProfile = { dispatchBrowseAction(BrowseAction.OpenServerProfile) },
                     onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                     onOpenLibraryDetail = { libraryId ->
@@ -205,11 +209,13 @@ internal fun TaruBrowseShell(
                     onChangeServer = onChangeServer,
                     onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                 )
-                is TaruRoute.RelationshipIndex -> PlaceholderRoute(
-                    title = currentRoute.family.label,
-                    subtitle = "Relationship Index",
-                    body = "Browse server-backed relationship labels before opening their related Media Items.",
+                is TaruRoute.RelationshipIndex -> RelationshipIndexRouteContent(
+                    family = currentRoute.family,
+                    state = shellState.relationshipIndexState,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
+                    onChangeServer = onChangeServer,
+                    onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                 )
                 is TaruRoute.Player -> playerRouteRenderer.Render(
                     launch = currentRoute.launch,
@@ -257,6 +263,7 @@ private fun TopLevelContent(
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenGenres: () -> Unit,
     onOpenServerProfile: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onOpenLibraryDetail: (String) -> Unit,
@@ -273,6 +280,7 @@ private fun TopLevelContent(
                 onOpenLibrary = onOpenLibrary,
                 onOpenLibraryDetail = onOpenLibraryDetail,
                 onOpenSearch = onOpenSearch,
+                onOpenGenres = onOpenGenres,
                 onOpenFacet = onOpenFacet,
             )
         }

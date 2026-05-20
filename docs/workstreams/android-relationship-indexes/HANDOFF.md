@@ -13,13 +13,13 @@ remains the primary People path.
 
 ## Active Task
 
-- Task ID: ARI-040
+- Task ID: ARI-050
 - Owner: unassigned
 - Files:
-  - `apps/android/app/src/main/java/dev/taru/android/ui/screens/`
-  - `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
+  - `apps/android/scripts/Smoke-Emulator.ps1`
+  - `docs/workstreams/android-relationship-indexes/`
 - Validation:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+  - `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -34,16 +34,18 @@ remains the primary People path.
 - `TaruBrowseClient.listGenres` is the Android typed contract for
   `GET /genres?limit=&offset=`.
 - `TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres)` and
-  `RelationshipIndexUiState` are in place; ARI-040 should replace the
-  temporary route placeholder with a real screen and Home anchor.
+  `RelationshipIndexUiState` are in place.
+- `RelationshipIndexRouteContent` replaced the temporary placeholder and Home
+  now exposes a Genres anchor into the nested route.
 - Tags Index is accepted but waits for the Genre index shape.
 - Top-level People Index is deferred until the app has a richer role/search IA.
 
 ## Blockers
 
-- None for ARI-040. Route state and client data are in place.
+- None for ARI-050. The next decision is whether to extend smoke assertions for
+  the new Genres path now or record a short non-smoke closeout rationale.
 
 ## Next Recommended Action
 
-- Execute ARI-040: build the Genre Index screen, add the Home entry point, and
-  make each row open the existing Genre related Media Items route.
+- Execute ARI-050: prove the Genres Index route with smoke if practical, then
+  close this lane or split Tags Index as the reuse follow-on.

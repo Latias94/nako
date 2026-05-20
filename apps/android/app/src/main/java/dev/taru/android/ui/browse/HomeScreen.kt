@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -54,6 +55,7 @@ internal fun HomeScreen(
     onOpenLibrary: () -> Unit,
     onOpenLibraryDetail: (String) -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenGenres: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     TaruScrollColumn {
@@ -86,6 +88,7 @@ internal fun HomeScreen(
                 HomeAnchorRow(
                     onOpenLibrary = onOpenLibrary,
                     onOpenSearch = onOpenSearch,
+                    onOpenGenres = onOpenGenres,
                 )
 
                 val continueWatchingRows = state.continueWatching
@@ -323,6 +326,7 @@ private fun HomeHeroFacts(
 private fun HomeAnchorRow(
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenGenres: () -> Unit,
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
@@ -341,6 +345,13 @@ private fun HomeAnchorRow(
             icon = Icons.Rounded.Search,
             action = "Search",
             onClick = onOpenSearch,
+        )
+        HomeAnchorCard(
+            title = "Genres",
+            body = "Browse server-backed genre labels and open related Media Items.",
+            icon = Icons.Rounded.TheaterComedy,
+            action = "Browse",
+            onClick = onOpenGenres,
         )
     }
 }

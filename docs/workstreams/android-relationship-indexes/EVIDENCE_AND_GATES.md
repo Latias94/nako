@@ -70,6 +70,17 @@ git diff --check
   - Fresh validation:
     `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
     passed.
+- ARI-040 completed on 2026-05-20:
+  - Added `RelationshipIndexRouteContent` with an artwork-led header, Genre
+    row list, loading/failure/empty states, and stable row actions into
+    existing Genre related Media Items routes.
+  - Added the Home Genres anchor as a nested route entry point, not a new
+    bottom navigation destination.
+  - Added `RelationshipIndexRouteTest` for presentation counts and stable
+    Genre targets.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+    passed.
 
 ## Notes
 
