@@ -81,6 +81,8 @@ Smoke regression suite:
 - Testcase classname: `taru.android.smoke`.
 - Testcase name: `state.<state-name>`, for example
   `state.profile-with-media`.
+- The wrapper build step is represented as `step.android-build` in the same
+  suite so CI can annotate build failures or intentional `SkipBuild` runs.
 - Passing smoke state: testcase has no child result element.
 - Failed smoke state: testcase has `<failure type="<category>">` with a
   token-safe message and report/evidence paths.

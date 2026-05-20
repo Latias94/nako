@@ -21,7 +21,7 @@ Evidence:
 
 ## M2 - Smoke Regression XML
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
@@ -30,9 +30,17 @@ Exit criteria:
 - Failure category, attempt count, and report paths are available without
   embedding screenshots, hierarchy XML, bearer tokens, or source locators.
 
+Evidence:
+
+- `Smoke-Regression.ps1` writes `report.junit.xml` and prints the JUnit report
+  path.
+- Smoke JSON now includes `report_junit`.
+- Focused `empty-setup` smoke generated parseable JUnit XML with
+  `step.android-build` and `state.empty-setup` testcases.
+
 ## M3 - Local Validation XML
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 

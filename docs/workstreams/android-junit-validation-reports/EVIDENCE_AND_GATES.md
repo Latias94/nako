@@ -51,6 +51,25 @@ git diff --check
     passed.
   - Fresh validation:
     `git diff --check` passed.
+- AJVR-020 completed on 2026-05-20:
+  - `Smoke-Regression.ps1` writes `report.junit.xml`, prints `JUnit report:`,
+    and includes `report_junit` in `report.json`.
+  - JUnit XML uses suite `taru.android.smoke-regression`, testcase classname
+    `taru.android.smoke`, `step.android-build`, and one `state.<name>` testcase
+    per requested smoke state.
+  - Fresh validation:
+    `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null"`
+    passed.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup -SkipBuild -RetriesPerState 0 -OutputRoot apps\android\build\smoke-regression-ajvr`
+    passed.
+  - Fresh validation:
+    `[xml](Get-Content -LiteralPath 'apps/android/build/smoke-regression-ajvr/20260520-201331/report.junit.xml' -Raw) | Out-Null`
+    passed.
+  - Fresh validation:
+    `git diff --check` passed.
+  - Generated evidence:
+    `apps/android/build/smoke-regression-ajvr/20260520-201331/report.junit.xml`.
 
 ## Notes
 

@@ -20,7 +20,7 @@ Last updated: 2026-05-20
     names, pass/fail/skipped mapping, allowed properties, and token-safety
     constraints for smoke regression and local validation JUnit XML reports.
 
-- [ ] AJVR-020 - Add smoke regression JUnit report.
+- [x] AJVR-020 - Add smoke regression JUnit report.
   - Owner: Codex
   - Dependencies: AJVR-010.
   - Scope:
@@ -33,6 +33,12 @@ Last updated: 2026-05-20
     - generated XML parses and records one testcase per requested smoke state.
     - existing Markdown and JSON reports remain present.
   - Evidence: generated smoke regression report path.
+    Completed on 2026-05-20:
+    `Smoke-Regression.ps1` now writes `report.junit.xml` next to `report.md`
+    and `report.json`, prints the JUnit report path, and records
+    `report_junit` in the JSON report. Focused `empty-setup` smoke generated a
+    parseable JUnit report with `step.android-build` and `state.empty-setup`
+    testcases while preserving Markdown and JSON outputs.
 
 - [ ] AJVR-030 - Add local validation JUnit report.
   - Owner: Codex
