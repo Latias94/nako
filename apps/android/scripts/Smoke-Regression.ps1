@@ -58,6 +58,24 @@ function Get-LatestEvidenceDirectory {
         Select-Object -First 1
 }
 
+function Get-SmokeStateReportPath {
+    param(
+        [System.IO.DirectoryInfo]$EvidenceDirectory,
+        [string]$FileName
+    )
+
+    if ($EvidenceDirectory -eq $null) {
+        return $null
+    }
+
+    $path = Join-Path $EvidenceDirectory.FullName $FileName
+    if (Test-Path -LiteralPath $path) {
+        return $path
+    }
+
+    return $null
+}
+
 function Convert-ToReportPath {
     param(
         [string]$Path
@@ -303,11 +321,15 @@ try {
         }
 
         $latestEvidence = Get-LatestEvidenceDirectory -StateRoot $stateRoot
+        $stateReportPath = Get-SmokeStateReportPath -EvidenceDirectory $latestEvidence -FileName 'report.md'
+        $stateJsonReportPath = Get-SmokeStateReportPath -EvidenceDirectory $latestEvidence -FileName 'report.json'
         $results.Add([pscustomobject]@{
             State = $state
             Status = $status
             Category = Get-FailureCategory -State $state -ErrorMessage $errorMessage
             EvidenceDirectory = if ($latestEvidence) { $latestEvidence.FullName } else { $null }
+            Report = $stateReportPath
+            JsonReport = $stateJsonReportPath
             Log = $stateLog
             Error = $errorMessage
             Attempts = if ($status -eq 'PASS') { $attempt } else { $attempts }
@@ -333,6 +355,8 @@ try {
                 category = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
                 attempts = 0
                 evidence_directory = $null
+                report_markdown = $null
+                report_json = $null
                 log = $null
                 error = $null
                 rerun_command = $null
@@ -347,6 +371,8 @@ try {
                 category = $result.Category
                 attempts = $result.Attempts
                 evidence_directory = Convert-ToJsonPath -Path $result.EvidenceDirectory
+                report_markdown = Convert-ToJsonPath -Path $result.Report
+                report_json = Convert-ToJsonPath -Path $result.JsonReport
                 log = Convert-ToJsonPath -Path $result.Log
                 error = $result.Error
                 rerun_command = $result.RerunCommand
@@ -395,16 +421,16 @@ try {
     $lines.Add('')
     $lines.Add('## States')
     $lines.Add('')
-    $lines.Add('| State | Status | Attempts | Category | Evidence | Log |')
-    $lines.Add('| --- | --- | --- | --- | --- | --- |')
+    $lines.Add('| State | Status | Attempts | Category | Evidence | Report | Structured Report | Log |')
+    $lines.Add('| --- | --- | --- | --- | --- | --- | --- | --- |')
 
     foreach ($result in $results) {
-        $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $($result.Category) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Log) |")
+        $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $($result.Category) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Report) | $(Convert-ToReportPath -Path $result.JsonReport) | $(Convert-ToReportPath -Path $result.Log) |")
     }
 
     foreach ($state in $notRun) {
         $reason = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
-        $lines.Add("| $state | NOT_RUN | 0 | $reason | n/a | n/a |")
+        $lines.Add("| $state | NOT_RUN | 0 | $reason | n/a | n/a | n/a | n/a |")
     }
 
     if ($buildStatus -eq 'FAIL') {
@@ -437,6 +463,8 @@ try {
             $lines.Add("- Category: $($result.Category)")
             $lines.Add("- Attempts: $($result.Attempts)")
             $lines.Add("- Evidence: $(Convert-ToReportPath -Path $result.EvidenceDirectory)")
+            $lines.Add("- Report: $(Convert-ToReportPath -Path $result.Report)")
+            $lines.Add("- Structured report: $(Convert-ToReportPath -Path $result.JsonReport)")
             $lines.Add("- Log: $(Convert-ToReportPath -Path $result.Log)")
             $lines.Add('')
             $lines.Add('Rerun:')

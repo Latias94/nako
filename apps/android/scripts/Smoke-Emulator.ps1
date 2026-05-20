@@ -704,6 +704,18 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Content, $utf8)
 }
 
+function Convert-ToJsonPath {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    return $Path.Replace('\', '/')
+}
+
 function Resolve-FixtureState {
     param(
         [string]$RequestedFixtureState,
@@ -1567,6 +1579,49 @@ $playbackSessionCancellationReadbackReport = if ([string]::IsNullOrWhiteSpace($p
 }
 
 $reportPath = Join-Path $outputDir 'report.md'
+$jsonPath = Join-Path $outputDir 'report.json'
+$surfaceReportItems = @(
+    foreach ($surface in $surfaceEvidence) {
+        [pscustomobject]@{
+            name = $surface.Name
+            screenshot = $surface.Screenshot
+            hierarchy = $surface.Hierarchy
+            criteria = $surface.Criteria
+        }
+    }
+)
+$jsonReport = [ordered]@{
+    schema_version = 1
+    kind = 'taru_android_smoke_state'
+    timestamp = (Get-Date).ToString('o')
+    result = 'PASS'
+    fixture_state = $FixtureState
+    state_mode = $stateMode
+    device_serial = $deviceSerial
+    apk = Convert-ToJsonPath -Path $apkPath
+    build_step = if ($skipAndroidBuild) { 'skipped' } else { 'assembleDebug' }
+    reset_app_data = [bool]$clearsAppData
+    fixture_server = [ordered]@{
+        base_url = if ($fixtureBaseUrl) { $fixtureBaseUrl } else { $null }
+        reverse_port = if ($fixtureReversePort) { $fixtureReversePort } else { $null }
+    }
+    launch = [ordered]@{
+        activity = 'dev.taru.android/.MainActivity'
+        output = Convert-ToJsonPath -Path $launchPath
+    }
+    reports = [ordered]@{
+        markdown = Convert-ToJsonPath -Path $reportPath
+        json = Convert-ToJsonPath -Path $jsonPath
+        evidence_directory = Convert-ToJsonPath -Path $outputDir
+    }
+    surfaces = $surfaceReportItems
+    readbacks = [ordered]@{
+        server_playback = Convert-ToJsonPath -Path $serverReadbackPath
+        public_playback_session = Convert-ToJsonPath -Path $playbackSessionReadbackPath
+        public_playback_session_cancellation = Convert-ToJsonPath -Path $playbackSessionCancellationReadbackPath
+    }
+    repo_root = Convert-ToJsonPath -Path $repoRoot
+}
 $report = @"
 # Taru Android Smoke Evidence
 
@@ -1587,10 +1642,13 @@ $surfaceReport
 - Public playback session cancellation readback: $playbackSessionCancellationReadbackReport
 - Repo root: $repoRoot
 "@
-$report | Out-File -LiteralPath $reportPath -Encoding utf8
+Write-Utf8File -Path $reportPath -Content $report
+Write-Utf8File -Path $jsonPath -Content ($jsonReport | ConvertTo-Json -Depth 12)
 
 Write-Host "Smoke complete."
 Write-Host "Evidence directory: $outputDir"
+Write-Host "Report: $reportPath"
+Write-Host "Structured report: $jsonPath"
 Write-Host "Launch output: $launchPath"
 Write-Host "Surface evidence:"
 $surfaceEvidence | ForEach-Object {
