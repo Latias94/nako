@@ -36,10 +36,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -49,8 +48,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import dev.taru.android.connection.ServerProfile
@@ -86,20 +83,12 @@ internal fun PlaybackPlayerRoute(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = rememberTaruClipboard()
-    val session = remember(launch) { PlayerSession(launch) }
-    var sessionState by remember(launch) { mutableStateOf(session.state) }
     val chrome = remember(launch) { playerChromePresentation(launch) }
     val exitCoordinator = remember(playbackClient, userPlaybackClient, positionStore) {
         PlaybackExitCoordinator(
             playbackClient = playbackClient,
             userPlaybackClient = userPlaybackClient,
             positionStore = positionStore,
-        )
-    }
-    val engine = remember(launch) {
-        media3PlaybackEngineController(
-            context = context,
-            launch = launch,
         )
     }
     val exitEffectRunner = remember(profile, tokenVault, exitCoordinator, exitEffectScope) {
@@ -110,61 +99,33 @@ internal fun PlaybackPlayerRoute(
             exitEffectScope = exitEffectScope,
         )
     }
-
-    LaunchedEffect(engine, launch) {
-        sessionState = session.dispatch(PlayerSessionEvent.Prepare).state
-        engine.prepare(launch)
-    }
-
-    fun runExitEffects() {
-        exitEffectRunner.run(
+    val routeHost = remember(context, launch, exitEffectRunner) {
+        val engine = media3PlaybackEngineController(
+            context = context,
             launch = launch,
-            snapshot = engine.snapshot(),
+        )
+        PlayerRouteHost(
+            launch = launch,
+            engine = PlaybackControllerRouteEngine(engine),
+            exitEffectRunner = exitEffectRunner,
         )
     }
-    fun dispatchSessionEvent(event: PlayerSessionEvent): PlayerSessionTransition =
-        session.dispatch(event).also { transition ->
-            sessionState = transition.state
-            if (transition.requestExitEffects) {
-                runExitEffects()
-            }
-        }
+    val sessionState by routeHost.state.collectAsState()
+
     val handleBack = {
-        dispatchSessionEvent(PlayerSessionEvent.Back)
+        routeHost.back()
         onBack()
     }
     BackHandler(onBack = handleBack)
 
-    DisposableEffect(engine) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                dispatchSessionEvent(
-                    PlayerSessionEvent.PlaybackStateChanged(
-                        state = playbackEngineState(playbackState),
-                        isPlaying = engine.isPlaying,
-                    ),
-                )
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                dispatchSessionEvent(PlayerSessionEvent.Error(error.errorCodeName))
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                dispatchSessionEvent(
-                    PlayerSessionEvent.IsPlayingChanged(
-                        isPlaying = isPlaying,
-                        currentState = playbackEngineState(engine.playbackState),
-                    ),
-                )
-            }
-        }
-        engine.addListener(listener)
+    DisposableEffect(routeHost) {
+        routeHost.attach()
         onDispose {
-            dispatchSessionEvent(PlayerSessionEvent.Dispose)
-            engine.removeListener(listener)
-            engine.release()
+            routeHost.dispose()
         }
+    }
+    LaunchedEffect(routeHost) {
+        routeHost.prepare()
     }
 
     Box(
@@ -181,7 +142,7 @@ internal fun PlaybackPlayerRoute(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
-                    this.player = engine.player
+                    this.player = routeHost.player
                     useController = true
                     setArtworkDisplayMode(PlayerView.ARTWORK_DISPLAY_MODE_OFF)
                     layoutParams = ViewGroup.LayoutParams(
@@ -192,7 +153,7 @@ internal fun PlaybackPlayerRoute(
                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
-            update = { it.player = engine.player },
+            update = { it.player = routeHost.player },
         )
 
         PlayerTopOverlay(
@@ -228,8 +189,7 @@ internal fun PlaybackPlayerRoute(
             PlaybackErrorSheet(
                 presentation = presentation,
                 onRetry = {
-                    sessionState = session.dispatch(PlayerSessionEvent.Retry).state
-                    engine.prepare(launch)
+                    routeHost.retry()
                 },
                 onBack = handleBack,
                 onCopyDiagnostics = {
@@ -240,15 +200,6 @@ internal fun PlaybackPlayerRoute(
         }
     }
 }
-
-private fun playbackEngineState(playbackState: Int): PlayerEngineState =
-    when (playbackState) {
-        Player.STATE_IDLE -> PlayerEngineState.Idle
-        Player.STATE_BUFFERING -> PlayerEngineState.Buffering
-        Player.STATE_READY -> PlayerEngineState.Ready
-        Player.STATE_ENDED -> PlayerEngineState.Ended
-        else -> PlayerEngineState.Unknown
-    }
 
 @Composable
 private fun PlayerTopOverlay(
