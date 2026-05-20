@@ -71,6 +71,22 @@ class TaruBrowseNavigationStateSaverTest {
     }
 
     @Test
+    fun `person detail route restores without leaking unsafe data`() {
+        val navigation = TaruBrowseNavigationState
+            .root()
+            .open(TaruRoute.ItemDetail("night-harbor"))
+            .open(TaruRoute.PersonDetail("person 1"))
+
+        val payload = navigation.toSaveablePayload()
+        val restored = restoreTaruBrowseNavigationState(payload)
+
+        assertEquals(TaruRoute.PersonDetail("person 1"), restored.currentRoute)
+        assertEquals(TaruRoute.ItemDetail("night-harbor"), restored.navigateBack().currentRoute)
+        assertFalse(restored.navigationVisible)
+        assertFalse(payload.contains("Bearer"))
+    }
+
+    @Test
     fun `player route is transient and restores to previous safe detail`() {
         val detail = TaruRoute.ItemDetail("night-harbor")
         val navigation = TaruBrowseNavigationState

@@ -11,6 +11,7 @@ import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemsResponse
 import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.LibraryListResponse
+import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
@@ -37,6 +38,7 @@ internal sealed interface TaruRoute {
     data object TopLevel : TaruRoute
     data class ItemDetail(val itemId: String) : TaruRoute
     data class LibraryDetail(val libraryId: String) : TaruRoute
+    data class PersonDetail(val personId: String) : TaruRoute
     data class Player(val launch: PlaybackLaunchRequest) : TaruRoute
     data class BrowseFacet(val target: BrowseFacetTarget) : TaruRoute
     data object ServerProfile : TaruRoute
@@ -212,6 +214,20 @@ internal sealed interface FacetUiState {
         val title: String,
         val body: String,
     ) : FacetUiState
+}
+
+internal sealed interface PersonDetailUiState {
+    data object Idle : PersonDetailUiState
+    data object Loading : PersonDetailUiState
+
+    data class Content(
+        val response: PersonResponse,
+        val relatedItems: FacetItemsResponse,
+    ) : PersonDetailUiState
+
+    data class Failure(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : PersonDetailUiState
 }
 
 internal data class BrowseFacetTarget(

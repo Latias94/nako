@@ -9,6 +9,8 @@ import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.browse.PageInfo
+import dev.taru.android.browse.PersonDto
+import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.SearchItemHit
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.browse.ItemDetailResponse
@@ -330,6 +332,50 @@ class BrowseSessionLoadingTest {
     }
 
     @Test
+    fun `person detail route loads person and related media items`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            personDetailState = PersonDetailUiState.Content(
+                response = testPersonDetail("person-1"),
+                relatedItems = testPersonItems("person-1"),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenPersonDetail("person-1"))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.PersonDetail("person-1")))?.join()
+
+        val content = session.state.value.personDetailState as PersonDetailUiState.Content
+        assertEquals("Demo Actor", content.response.person.name)
+        assertEquals("Night Harbor", content.relatedItems.items.single().metadata.title)
+        assertEquals(listOf("person-1"), dataSource.personDetailRequests)
+    }
+
+    @Test
+    fun `person detail route load ignores stale response after back`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            personDetailState = PersonDetailUiState.Content(
+                response = testPersonDetail("person-1"),
+                relatedItems = testPersonItems("person-1"),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(Dispatchers.Default + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenPersonDetail("person-1"))
+        val job = session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.PersonDetail("person-1")))
+        session.dispatch(BrowseAction.Back)
+
+        job?.join()
+        assertEquals(TaruRoute.TopLevel, session.state.value.currentRoute)
+        assertEquals(PersonDetailUiState.Idle, session.state.value.personDetailState)
+    }
+
+    @Test
     fun `public backed facet loads content and unsupported facet stays local api gap`() = runBlocking {
         val backedFacet = BrowseFacetTarget(
             family = BrowseFacetUiFamily.Genre,
@@ -406,6 +452,12 @@ private class DeferredSearchBrowseDataSource : BrowseDataSource {
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState =
         FacetUiState.Content(testFacet(target))
 
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
+        PersonDetailUiState.Content(
+            response = testPersonDetail(personId),
+            relatedItems = testPersonItems(personId),
+        )
+
     override suspend fun loadItemDetail(itemId: String): ItemDetailUiState =
         ItemDetailUiState.Content(
             testDetail(
@@ -457,6 +509,10 @@ private class RecordingBrowseDataSource(
             ),
         ),
     ),
+    private val personDetailState: PersonDetailUiState = PersonDetailUiState.Content(
+        response = testPersonDetail("person-default"),
+        relatedItems = testPersonItems("person-default"),
+    ),
     private val detailState: ItemDetailUiState = ItemDetailUiState.Content(
         testDetail(
             itemId = "item-default",
@@ -476,6 +532,7 @@ private class RecordingBrowseDataSource(
         private set
     val searchQueries: MutableList<String> = mutableListOf()
     val facetTargets: MutableList<BrowseFacetTarget> = mutableListOf()
+    val personDetailRequests: MutableList<String> = mutableListOf()
     val detailRequests: MutableList<String> = mutableListOf()
     val sourceProbeRequests: MutableList<String> = mutableListOf()
     val playbackRequests: MutableList<String> = mutableListOf()
@@ -496,6 +553,11 @@ private class RecordingBrowseDataSource(
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
         facetTargets += target
         return facetState
+    }
+
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState {
+        personDetailRequests += personId
+        return personDetailState
     }
 
     override suspend fun loadItemDetail(itemId: String): ItemDetailUiState {
@@ -556,6 +618,25 @@ private fun testFacet(target: BrowseFacetTarget): FacetItemsResponse =
         family = BrowseFacetFamily.Genre,
         facetId = target.id.orEmpty(),
         facetLabel = target.label,
+        items = listOf(testItem("night-harbor")),
+        page = testPage(returned = 1),
+    )
+
+private fun testPersonDetail(personId: String): PersonResponse =
+    PersonResponse(
+        person = PersonDto(
+            id = personId,
+            name = "Demo Actor",
+            sortName = "Actor, Demo",
+            overview = "Keeps the lighthouse.",
+        ),
+    )
+
+private fun testPersonItems(personId: String): FacetItemsResponse =
+    FacetItemsResponse(
+        family = BrowseFacetFamily.Person,
+        facetId = personId,
+        facetLabel = "Demo Actor",
         items = listOf(testItem("night-harbor")),
         page = testPage(returned = 1),
     )

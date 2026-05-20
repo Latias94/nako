@@ -20,6 +20,7 @@ internal data class BrowseShellState(
     val searchQuery: String = "",
     val submittedSearchQuery: String = "",
     val searchState: SearchUiState = SearchUiState.Idle,
+    val personDetailState: PersonDetailUiState = PersonDetailUiState.Idle,
     val facetState: FacetUiState = FacetUiState.Idle,
     val detailState: ItemDetailUiState = ItemDetailUiState.Idle,
     val selectedSourceId: String? = null,
@@ -38,6 +39,7 @@ internal sealed interface BrowseAction {
     data class SelectDestination(val destination: TaruDestination) : BrowseAction
     data class OpenItem(val itemId: String) : BrowseAction
     data class OpenLibraryDetail(val libraryId: String) : BrowseAction
+    data class OpenPersonDetail(val personId: String) : BrowseAction
     data class OpenFacet(val target: BrowseFacetTarget) : BrowseAction
     data class OpenPlayer(val launch: PlaybackLaunchRequest) : BrowseAction
     data class RouteDisplayed(val route: TaruRoute) : BrowseAction
@@ -60,6 +62,7 @@ internal interface BrowseDataSource {
     suspend fun loadHome(): BrowseUiState
     suspend fun loadLibraryDetail(libraryId: String): LibraryDetailUiState
     suspend fun search(query: String): SearchUiState
+    suspend fun loadPersonDetail(personId: String): PersonDetailUiState
     suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState
     suspend fun loadItemDetail(itemId: String): ItemDetailUiState
     suspend fun loadSourceProbe(sourceId: String): SourceProbeUiState
@@ -90,6 +93,7 @@ internal class BrowseSession(
     private var homeRequestId: Long = 0
     private var libraryDetailRequestId: Long = 0
     private var searchRequestId: Long = 0
+    private var personDetailRequestId: Long = 0
     private var facetRequestId: Long = 0
     private var detailRequestId: Long = 0
     private var sourceProbeRequestId: Long = 0
@@ -168,6 +172,9 @@ internal class BrowseSession(
             )
             is BrowseAction.OpenLibraryDetail -> current.copy(
                 navigation = current.navigation.open(TaruRoute.LibraryDetail(action.libraryId)),
+            )
+            is BrowseAction.OpenPersonDetail -> current.copy(
+                navigation = current.navigation.open(TaruRoute.PersonDetail(action.personId)),
             )
             is BrowseAction.OpenPlayer -> current.copy(
                 navigation = current.navigation.open(TaruRoute.Player(action.launch)),
@@ -259,10 +266,12 @@ internal class BrowseSession(
         when (route) {
             is TaruRoute.ItemDetail -> loadItemDetail(route.itemId)
             is TaruRoute.LibraryDetail -> loadLibraryDetail(route.libraryId)
+            is TaruRoute.PersonDetail -> loadPersonDetail(route.personId)
             is TaruRoute.BrowseFacet -> loadFacet(route.target)
             else -> {
                 detailRequestId += 1
                 libraryDetailRequestId += 1
+                personDetailRequestId += 1
                 facetRequestId += 1
                 sourceProbeRequestId += 1
                 playbackSelectionRequestId += 1
@@ -275,6 +284,7 @@ internal class BrowseSession(
                         playbackRequestSourceId = null,
                         playbackState = PlaybackSelectionUiState.Idle,
                         libraryDetailState = LibraryDetailUiState.Idle,
+                        personDetailState = PersonDetailUiState.Idle,
                         facetState = FacetUiState.Idle,
                     )
                 }
@@ -330,6 +340,16 @@ internal class BrowseSession(
             else -> {
                 libraryDetailRequestId += 1
                 prepared.copy(libraryDetailState = LibraryDetailUiState.Idle)
+            }
+        }
+        prepared = when (val route = next.currentRoute) {
+            is TaruRoute.PersonDetail -> {
+                personDetailRequestId += 1
+                prepared.copy(personDetailState = PersonDetailUiState.Loading)
+            }
+            else -> {
+                personDetailRequestId += 1
+                prepared.copy(personDetailState = PersonDetailUiState.Idle)
             }
         }
         prepared = when (val route = next.currentRoute) {
@@ -405,6 +425,22 @@ internal class BrowseSession(
                 val routeStillCurrent = current.currentRoute == TaruRoute.LibraryDetail(libraryId)
                 if (requestId == libraryDetailRequestId && routeStillCurrent) {
                     current.copy(libraryDetailState = nextState)
+                } else {
+                    current
+                }
+            }
+        }
+    }
+
+    private fun loadPersonDetail(personId: String): Job {
+        val requestId = ++personDetailRequestId
+        _state.update { it.copy(personDetailState = PersonDetailUiState.Loading) }
+        return requiredScope().launch {
+            val nextState = requiredDataSource().loadPersonDetail(personId)
+            _state.update { current ->
+                val routeStillCurrent = current.currentRoute == TaruRoute.PersonDetail(personId)
+                if (requestId == personDetailRequestId && routeStillCurrent) {
+                    current.copy(personDetailState = nextState)
                 } else {
                     current
                 }

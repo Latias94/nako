@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "android-api-contract-integration",
+  "title": "Android API Contract Integration",
+  "status": "active",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Android has real server-backed Public Client API coverage, but the next route gaps and productized relationship browsing slices are not owned by one current execution lane.",
+  "summary": "Track Android Public Client API route status and productize the next relationship browsing routes without consuming admin/internal APIs.",
+  "current_milestone": "M3.5",
+  "current_task": "APICI-040",
+  "task_prefix": "APICI",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-api-contract-integration/DESIGN.md"
+    },
+    {
+      "role": "matrix",
+      "path": "docs/workstreams/android-api-contract-integration/API_INTEGRATION_MATRIX.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-api-contract-integration/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-api-contract-integration/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-api-contract-integration/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-api-contract-integration/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "Get-Content -LiteralPath 'docs/workstreams/android-api-contract-integration/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -SkipBuild -RetriesPerState 0",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "APICI-010",
+      "path": "docs/workstreams/android-api-contract-integration/API_INTEGRATION_MATRIX.md",
+      "notes": "Matrix opened after reviewing the public route inventory and current Android browse/session integration."
+    },
+    {
+      "task": "APICI-020",
+      "path": "apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt",
+      "notes": "Typed GET /people/{person_id} client contract added; focused TaruBrowseClientTest and full debug unit gate passed."
+    },
+    {
+      "task": "APICI-030",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseSession.kt",
+      "notes": "Person Detail route/state/data-source loading added; focused UI browse tests and full debug unit gate passed."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "APICI-040"
+  }
+}

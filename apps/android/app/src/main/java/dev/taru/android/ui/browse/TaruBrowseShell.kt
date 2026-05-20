@@ -194,6 +194,18 @@ internal fun TaruBrowseShell(
                         dispatchBrowseAction(BrowseAction.OpenItem(itemId))
                     },
                 )
+                is TaruRoute.PersonDetail -> BrowseFacetRouteContent(
+                    target = BrowseFacetTarget(
+                        family = BrowseFacetUiFamily.Person,
+                        label = "Person",
+                        id = currentRoute.personId,
+                    ),
+                    state = shellState.personDetailState.toFacetState(),
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
+                    onChangeServer = onChangeServer,
+                    onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
+                )
                 is TaruRoute.Player -> playerRouteRenderer.Render(
                     launch = currentRoute.launch,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
@@ -300,3 +312,11 @@ internal fun BrowseScaffoldContent(content: @Composable () -> Unit) {
         content()
     }
 }
+
+private fun PersonDetailUiState.toFacetState(): FacetUiState =
+    when (this) {
+        PersonDetailUiState.Idle -> FacetUiState.Idle
+        PersonDetailUiState.Loading -> FacetUiState.Loading
+        is PersonDetailUiState.Content -> FacetUiState.Content(relatedItems)
+        is PersonDetailUiState.Failure -> FacetUiState.Failure(diagnostics)
+    }

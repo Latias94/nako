@@ -9,6 +9,8 @@ import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.browse.PageInfo
+import dev.taru.android.browse.PersonDto
+import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.connection.SafeRequestPreview
@@ -221,6 +223,23 @@ private class RecordingHostBrowseDataSource(
                 family = dev.taru.android.browse.BrowseFacetFamily.Genre,
                 facetId = target.id.orEmpty(),
                 facetLabel = target.label,
+                items = emptyList(),
+                page = testPage(0),
+            ),
+        )
+
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
+        PersonDetailUiState.Content(
+            response = PersonResponse(
+                person = PersonDto(
+                    id = personId,
+                    name = "Demo Actor",
+                ),
+            ),
+            relatedItems = FacetItemsResponse(
+                family = dev.taru.android.browse.BrowseFacetFamily.Person,
+                facetId = personId,
+                facetLabel = "Demo Actor",
                 items = emptyList(),
                 page = testPage(0),
             ),

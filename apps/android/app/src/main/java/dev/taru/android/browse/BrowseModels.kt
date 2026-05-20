@@ -129,6 +129,11 @@ data class PersonItemsResponse(
 )
 
 @Serializable
+data class PersonResponse(
+    val person: PersonDto,
+)
+
+@Serializable
 data class GenreDto(
     val id: String,
     val name: String,
@@ -286,6 +291,7 @@ data class PublicImageRefDto(
 enum class BrowseFailureCategory {
     MissingItem,
     MissingLibrary,
+    MissingPerson,
     MissingAccessToken,
     UnreachableServer,
     Unauthorized,

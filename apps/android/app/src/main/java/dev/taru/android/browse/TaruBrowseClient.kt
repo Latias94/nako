@@ -130,6 +130,25 @@ class TaruBrowseClient(
         )
     }
 
+    suspend fun personDetail(
+        profile: ServerProfile,
+        accessToken: String,
+        personId: String,
+    ): BrowseResult<PersonResponse> {
+        if (personId.isBlank()) {
+            return failure(
+                category = BrowseFailureCategory.MissingPerson,
+                userMessage = "Choose a Person before opening detail.",
+            )
+        }
+
+        return executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/people/${encodePathSegment(personId)}",
+        )
+    }
+
     suspend fun listGenreItems(
         profile: ServerProfile,
         accessToken: String,
@@ -326,6 +345,8 @@ class TaruBrowseClient(
                 "The requested Media Item is no longer available."
             BrowseFailureCategory.MissingLibrary ->
                 "The requested Media Library is no longer available."
+            BrowseFailureCategory.MissingPerson ->
+                "The requested Person is no longer available."
             BrowseFailureCategory.Unauthorized ->
                 "The access token is invalid or expired."
             BrowseFailureCategory.Forbidden ->
@@ -354,6 +375,8 @@ class TaruBrowseClient(
     private fun notFoundCategory(request: TaruHttpRequest): BrowseFailureCategory =
         if (request.url.contains("/libraries/")) {
             BrowseFailureCategory.MissingLibrary
+        } else if (request.url.contains("/people/") && !request.url.contains("/items")) {
+            BrowseFailureCategory.MissingPerson
         } else {
             BrowseFailureCategory.MissingItem
         }
