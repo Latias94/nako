@@ -7,22 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import dev.taru.android.browse.TaruBrowseClient
-import dev.taru.android.connection.AndroidSecureTokenVault
-import dev.taru.android.connection.JdkTaruHttpTransport
-import dev.taru.android.connection.ServerProfileStore
-import dev.taru.android.connection.SharedPreferencesServerProfileStore
-import dev.taru.android.connection.TaruConnectionClient
-import dev.taru.android.connection.TokenVault
-import dev.taru.android.playback.TaruPlaybackClient
-import dev.taru.android.playback.PlaybackPreferencesStore
-import dev.taru.android.playback.SharedPreferencesPlaybackPreferencesStore
-import dev.taru.android.player.DevicePlaybackPositionStore
-import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
 import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
-import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.CoroutineScope
 
 @Composable
@@ -30,66 +17,39 @@ fun TaruAndroidApp(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val transport = remember { JdkTaruHttpTransport() }
-    val store = remember { SharedPreferencesServerProfileStore(context) }
-    val tokenVault = remember { AndroidSecureTokenVault(context) }
-    val connectionClient = remember { TaruConnectionClient(transport) }
-    val browseClient = remember { TaruBrowseClient(transport) }
-    val playbackClient = remember { TaruPlaybackClient(transport) }
-    val playbackPreferencesStore = remember { SharedPreferencesPlaybackPreferencesStore(context) }
-    val userPlaybackClient = remember { TaruUserPlaybackClient(transport) }
-    val positionStore = remember { SharedPreferencesDevicePlaybackPositionStore(context) }
+    val environmentFactory = remember { AndroidTaruAppEnvironmentFactory() }
+    val environment = remember(context, environmentFactory) {
+        environmentFactory.create(context)
+    }
+    val appSession = remember(environment) {
+        environment.createSession()
+    }
     val playerExitEffectScope = rememberCoroutineScope()
 
     TaruAndroidAppContent(
         modifier = modifier,
-        store = store,
-        tokenVault = tokenVault,
-        connectionClient = connectionClient,
-        browseClient = browseClient,
-        playbackClient = playbackClient,
-        playbackPreferencesStore = playbackPreferencesStore,
-        userPlaybackClient = userPlaybackClient,
-        positionStore = positionStore,
+        environment = environment,
+        appSession = appSession,
         playerExitEffectScope = playerExitEffectScope,
     )
 }
 
 @Composable
-fun TaruAndroidAppContent(
-    store: ServerProfileStore,
-    tokenVault: TokenVault,
-    connectionClient: TaruConnectionClient,
-    browseClient: TaruBrowseClient,
-    playbackClient: TaruPlaybackClient,
-    playbackPreferencesStore: PlaybackPreferencesStore,
-    userPlaybackClient: TaruUserPlaybackClient,
-    positionStore: DevicePlaybackPositionStore,
+internal fun TaruAndroidAppContent(
+    environment: TaruAppEnvironment,
+    appSession: TaruAppSession,
     playerExitEffectScope: CoroutineScope,
     modifier: Modifier = Modifier,
 ) {
-    val appRuntime = remember(store) {
-        object : TaruAppRuntime {
-            override fun saveSnapshot(snapshot: dev.taru.android.connection.ServerProfileSnapshot) {
-                store.save(snapshot)
-            }
-        }
-    }
-    val appSession = remember(store, appRuntime) {
-        TaruAppSession(
-            initialSnapshot = store.load(),
-            runtime = appRuntime,
-        )
-    }
     val appState by appSession.state.collectAsState()
     val activeProfile = appState.activeProfile
 
     if (appState.shouldShowConnection) {
         TaruConnectionShellContent(
             modifier = modifier,
-            store = store,
-            tokenVault = tokenVault,
-            client = connectionClient,
+            store = environment.store,
+            tokenVault = environment.tokenVault,
+            client = environment.connectionClient,
             initialSnapshot = appState.snapshot,
             onSnapshotChanged = { next ->
                 appSession.dispatch(TaruAppAction.SnapshotChanged(next))
@@ -99,22 +59,22 @@ fun TaruAndroidAppContent(
         requireNotNull(activeProfile)
         val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(
             profile = activeProfile,
-            tokenVault = tokenVault,
-            playbackClient = playbackClient,
-            userPlaybackClient = userPlaybackClient,
-            positionStore = positionStore,
+            tokenVault = environment.tokenVault,
+            playbackClient = environment.playbackClient,
+            userPlaybackClient = environment.userPlaybackClient,
+            positionStore = environment.positionStore,
             exitEffectScope = playerExitEffectScope,
         )
         TaruBrowseShell(
             modifier = modifier,
             profile = activeProfile,
             snapshot = appState.snapshot,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            playbackClient = playbackClient,
-            playbackPreferencesStore = playbackPreferencesStore,
-            userPlaybackClient = userPlaybackClient,
-            positionStore = positionStore,
+            tokenVault = environment.tokenVault,
+            browseClient = environment.browseClient,
+            playbackClient = environment.playbackClient,
+            playbackPreferencesStore = environment.playbackPreferencesStore,
+            userPlaybackClient = environment.userPlaybackClient,
+            positionStore = environment.positionStore,
             playerRouteRenderer = playerRouteRenderer,
             onSnapshotChanged = { next ->
                 appSession.dispatch(TaruAppAction.SnapshotChanged(next))

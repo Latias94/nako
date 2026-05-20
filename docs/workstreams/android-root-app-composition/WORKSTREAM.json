@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "android-root-app-composition",
+  "title": "Android Root App Composition",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "architecture",
+  "problem": "TaruAndroidApp still owns the root Android dependency graph and app session construction directly.",
+  "summary": "Closed lane introducing a root composition module so the UI root renders an app environment instead of wiring every client and store directly.",
+  "current_milestone": null,
+  "current_task": null,
+  "task_prefix": "ARAC",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-root-app-composition/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-root-app-composition/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-root-app-composition/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-root-app-composition/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-root-app-composition/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.TaruAppCompositionTest --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ARAC-010",
+      "path": "docs/workstreams/android-root-app-composition/DESIGN.md",
+      "notes": "Boundary freeze for Android root composition responsibilities."
+    },
+    {
+      "task": "ARAC-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/TaruAppCompositionTest.kt",
+      "notes": "Focused root composition tests passed on 2026-05-20."
+    },
+    {
+      "task": "ARAC-030",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt",
+      "notes": "Root content now renders from TaruAppEnvironment and TaruAppSession."
+    },
+    {
+      "task": "ARAC-040",
+      "path": "docs/workstreams/android-root-app-composition/EVIDENCE_AND_GATES.md",
+      "notes": "Full Android debug unit suite and diff hygiene passed on 2026-05-20."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Workstream is closed. Open follow-on lanes for auth/session refresh, dynamic color policy, or root telemetry."
+  }
+}
