@@ -45,6 +45,12 @@ git diff --check
 
 - ARI-010 will record the product decision for People, Tags, and Genres index
   pages before implementation begins.
+- ARI-010 completed on 2026-05-20:
+  - Genres Index accepted as the first implementation slice.
+  - Tags Index accepted as a second reuse slice after Genres.
+  - Top-level People Index deferred; Person Detail remains the primary People
+    browsing path.
+  - Android API integration matrix updated with the accepted/deferred status.
 
 ## Notes
 

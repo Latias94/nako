@@ -27,12 +27,12 @@ Legend:
 | `GET /items/{item_id}/images` | connected | `TaruBrowseClient.itemImages` | Keep as visible-page artwork enrichment. |
 | `GET /images/{image_id}` | productized | `PublicArtworkSource`, Coil | Keep as authenticated selected artwork bytes. |
 | `HEAD /images/{image_id}` | defer | none | Add only if artwork diagnostics or cache preflight needs it. |
-| `GET /people?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Decide and productize only if People index belongs in the Android browse IA. |
+| `GET /people?limit=&offset=` | defer | `docs/workstreams/android-relationship-indexes/` | Top-level People Index deferred; Person Detail remains the primary People path. |
 | `GET /people/{person_id}` | productized | `TaruBrowseClient.personDetail`, `TaruRoute.PersonDetail` | Keep as Cast & Crew Person Detail. |
 | `GET /people/{person_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listPersonItems` | Keep and reuse for Person Detail related Media Items. |
-| `GET /tags?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Decide and productize only if Tags index belongs in the Android browse IA. |
+| `GET /tags?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Accepted after Genres as the second relationship index slice. |
 | `GET /tags/{tag_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listTagItems` | Keep for tag chips and future Tags index. |
-| `GET /genres?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Decide and productize only if Genres index belongs in the Android browse IA. |
+| `GET /genres?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Accepted as the first relationship index slice. |
 | `GET /genres/{genre_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listGenreItems` | Keep for genre chips and future Genres index. |
 | `GET /search?q=&facet=&limit=&offset=` | productized | `TaruBrowseClient.searchItems` | Keep; advanced filters are later UX scope. |
 | `GET /sources/{source_id}/probe` | productized | `TaruPlaybackClient.getSourceProbe` | Keep for source facts. |
