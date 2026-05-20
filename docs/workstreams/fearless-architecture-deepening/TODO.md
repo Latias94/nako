@@ -182,7 +182,7 @@ Task IDs use the `FAD` prefix.
   had no free space.
   Handoff: Continue with FAD-080 test-locality cleanup for touched areas.
 
-- [ ] FAD-080 [owner=codex] [deps=FAD-020,FAD-030,FAD-040,FAD-070] [scope=crates/taru-db/src/*tests*,crates/taru-server/src/http/tests,crates/taru-server/src/app/tests]
+- [x] FAD-080 [owner=codex] [deps=FAD-020,FAD-030,FAD-040,FAD-070] [scope=crates/taru-db/src/*tests*,crates/taru-server/src/http/tests,crates/taru-server/src/app/tests]
   Goal: Improve test locality around touched Interfaces by extracting
   domain-focused fixtures and splitting giant behavior families only where it
   improves reviewability.
@@ -191,7 +191,18 @@ Task IDs use the `FAD` prefix.
   Review: Do not rewrite tests mechanically. Preserve coverage and failure
   meaning while reducing navigation cost.
   Evidence: smaller test Modules or shared fixtures around changed Interfaces.
-  Handoff: Continue with final closeout or split remaining tails.
+  Progress: Extracted the focused SQLite SearchIndex semantics tests from the
+  giant `crates/taru-db/src/tests.rs` into
+  `crates/taru-db/src/search_tests.rs` with domain-focused helpers for migrated
+  stores and indexed movie fixtures. Kept broad scan/artwork/search round-trip
+  and HTTP addon test families in place because splitting them mechanically
+  would reduce locality less than it would increase churn.
+  Validation: `cargo nextest run -p taru-db search --no-fail-fast`; `cargo
+  nextest run -p taru-db facet --no-fail-fast`; `cargo check --workspace
+  --tests`; `cargo fmt --all -- --check`; `git diff --check`. Cargo commands
+  that link test/check artifacts used `TMP`/`TEMP=F:\Temp` because the default
+  user temp directory had no free space.
+  Handoff: Continue with FAD-090 final closeout or split remaining tails.
 
 ## M5 — Closeout Or Split
 

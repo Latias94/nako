@@ -11,4 +11,7 @@ pub use sqlite::SqliteRuntimeOptions;
 mod contract_tests;
 
 #[cfg(test)]
+mod search_tests;
+
+#[cfg(test)]
 mod tests;

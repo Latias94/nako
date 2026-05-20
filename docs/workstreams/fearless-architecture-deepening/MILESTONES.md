@@ -117,7 +117,7 @@ Evidence:
 
 ## M4 — Search Semantics And Test Locality
 
-Status: active.
+Status: completed.
 
 Exit criteria:
 
@@ -128,7 +128,9 @@ Exit criteria:
   tested where needed. Completed for FAD-070 with current-version helpers on
   `SearchDocument` and `SearchEvaluationDocument`.
 - Touched giant test families are split only when doing so improves locality and
-  reviewability without weakening coverage. Pending FAD-080.
+  reviewability without weakening coverage. Completed by FAD-080 for the
+  focused SQLite SearchIndex semantics family; broader mixed-purpose tests were
+  intentionally not split mechanically.
 
 Primary gates:
 
@@ -137,6 +139,17 @@ Primary gates:
 - focused nextest for refactored test families
 - `cargo check --workspace --tests`
 - `git diff --check`
+
+Evidence:
+
+- `crates/taru-db/src/search_tests.rs` now owns the focused SearchIndex
+  semantics tests for exact Browse Facets, CJK alias matching, and structured
+  alias search with shared domain fixtures.
+- `crates/taru-db/src/tests.rs` keeps mixed scan/artwork/search round-trip
+  coverage where the test describes a broader persistence family rather than
+  only SearchIndex semantics.
+- FAD-080 focused `taru-db` search/facet nextest and workspace test check
+  passed.
 
 ## M5 — Closeout Or Split
 

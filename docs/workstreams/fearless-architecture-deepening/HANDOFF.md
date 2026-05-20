@@ -20,10 +20,12 @@ Completed tasks:
 - FAD-040 — Library ingestion workflow depth.
 - FAD-050 — Playback/transcode request and cache identity.
 - FAD-060 — Hardware acceleration diagnostics.
+- FAD-070 — Search semantics.
+- FAD-080 — Test locality for touched search semantics tests.
 
 Current executable task:
 
-- FAD-070 — Search semantics.
+- FAD-090 — Final closeout or split remaining tails.
 
 Why FAD-020 comes first:
 
@@ -260,16 +262,44 @@ Environment note:
   slice. Final link/test commands were run with `TMP` and `TEMP` set to
   `F:\Temp`.
 
+## FAD-080 Summary
+
+FAD-080 improved test locality only where it clearly reduced navigation cost:
+
+- Moved the focused SQLite SearchIndex semantics tests out of the giant
+  `crates/taru-db/src/tests.rs` file into
+  `crates/taru-db/src/search_tests.rs`.
+- Added local domain fixtures for migrated stores, Movie Canonical Metadata, and
+  indexed search documents with explicit aliases/facets.
+- Preserved coverage and failure meaning for:
+  - exact Browse Facet filtering;
+  - CJK-friendly alias lookup through the shared search semantics;
+  - alias search while keeping aliases structured.
+- Left broader mixed-purpose DB and server HTTP/app test families untouched
+  where splitting would be mechanical churn rather than a better test boundary.
+
+Validation passed:
+
+- `cargo nextest run -p taru-db search --no-fail-fast`
+- `cargo nextest run -p taru-db facet --no-fail-fast`
+- `cargo check --workspace --tests`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+Environment note:
+
+- Link/check commands used `TMP` and `TEMP` set to `F:\Temp` because the default
+  user temp directory had no free space.
+
 ## Blockers
 
-- None for FAD-080.
+- None for FAD-090.
 
 ## Next Recommended Action
 
-1. Start FAD-080.
-2. Improve test locality only around behavior families touched by this lane:
-   Addon Side Effects, Addon metadata commit, Library ingestion workflow, and
-   search semantics.
-3. Prefer extracting domain-focused fixtures over mechanical file splitting.
-4. Keep coverage and failure meaning stable; do not rewrite tests simply to make
-   files smaller.
+1. Start FAD-090 closeout.
+2. Run final lane verification, including full workspace nextest if local disk
+   and time permit.
+3. Check whether any remaining tails deserve explicit new workstreams rather
+   than vague follow-up notes.
+4. Only mark the active goal complete after FAD-090 docs and gates are done.

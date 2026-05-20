@@ -457,6 +457,63 @@ Broader gates not run:
 - PostgreSQL opt-in runtime contracts were not run because this task did not add
   a new persistence commit seam and `TARU_TEST_POSTGRES_URL` was not available.
 
+### 2026-05-20 — FAD-080 Test Locality
+
+Status: complete.
+
+Implementation evidence:
+
+- Extracted focused SQLite SearchIndex semantics coverage from the giant
+  `crates/taru-db/src/tests.rs` file into
+  `crates/taru-db/src/search_tests.rs`.
+- Added domain-focused test helpers for:
+  - migrated in-memory SQLite stores;
+  - Movie Canonical Metadata fixtures;
+  - indexed search documents with explicit Browse Facets and aliases.
+- Preserved the existing behavior checks for:
+  - exact Browse Facet matching;
+  - shared CJK-friendly alias semantics;
+  - alias search without flattening structured alias fields.
+- Left the mixed scan/artwork/search round-trip test in
+  `crates/taru-db/src/tests.rs` because it verifies a broader persistence family
+  and moving it would be mechanical churn rather than better locality.
+- Audited the touched server HTTP/app test families and did not split them in
+  this slice because the Addon and workflow tests are coupled to large
+  end-to-end router/app fixtures; splitting those without a domain fixture
+  redesign would not improve reviewability enough for FAD-080.
+
+Validation:
+
+```bash
+cargo fmt --all
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db facet --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check --workspace --tests
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- Focused DB search nextest passed: 8 passed, 96 skipped.
+- Focused DB facet nextest passed: 1 passed, 103 skipped.
+- `cargo check --workspace --tests` passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Environment note:
+
+- Cargo commands that link or check test artifacts used `TMP`/`TEMP` pointed at
+  `F:\Temp` because `C:\Users\Frankorz\AppData\Local\Temp` had no free space.
+
+Broader gates not run:
+
+- Full workspace nextest was not run for FAD-080 because this task only moved
+  focused tests and added local fixtures without changing runtime behavior. Full
+  workspace nextest remains the FAD-090 closeout gate.
+- PostgreSQL opt-in contracts were not applicable because FAD-080 changed no
+  persistence seam or SQL behavior.
+
 ## Evidence To Add During Execution
 
 Each task should add:
