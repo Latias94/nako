@@ -56,6 +56,14 @@ git diff --check
   `GET /people/{person_id}/items?limit=24&offset=0`.
 - APICI-030: Broader Android debug unit gate passed on 2026-05-20:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`.
+- APICI-040: Focused detail presentation test passed on 2026-05-20:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.detail.MediaItemDetailRouteTest --no-daemon`.
+  This proves stable Cast & Crew `person_id` rows produce Person Detail
+  targets while missing IDs remain explicit Person facet/API-gap fallbacks.
+- APICI-040: Broader Android debug unit gate passed on 2026-05-20:
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`.
+  `TaruBrowseShell` now renders `TaruRoute.PersonDetail` through a dedicated
+  Person Detail screen instead of the temporary facet bridge.
 
 ## Notes
 

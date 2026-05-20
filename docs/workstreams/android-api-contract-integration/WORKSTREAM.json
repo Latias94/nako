@@ -7,8 +7,8 @@
   "scope_kind": "execution",
   "problem": "Android has real server-backed Public Client API coverage, but the next route gaps and productized relationship browsing slices are not owned by one current execution lane.",
   "summary": "Track Android Public Client API route status and productize the next relationship browsing routes without consuming admin/internal APIs.",
-  "current_milestone": "M3.5",
-  "current_task": "APICI-040",
+  "current_milestone": "M4",
+  "current_task": "APICI-050",
   "task_prefix": "APICI",
   "authoritative_docs": [
     {
@@ -58,6 +58,11 @@
       "task": "APICI-030",
       "path": "apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseSession.kt",
       "notes": "Person Detail route/state/data-source loading added; focused UI browse tests and full debug unit gate passed."
+    },
+    {
+      "task": "APICI-040",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/person/PersonDetailRoute.kt",
+      "notes": "Dedicated Person Detail screen added; Cast & Crew stable person_id rows open Person Detail; focused detail presentation test and full debug unit gate passed."
     }
   ],
   "adr_refs": [
@@ -66,6 +71,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "APICI-040"
+    "next_task": "APICI-050"
   }
 }

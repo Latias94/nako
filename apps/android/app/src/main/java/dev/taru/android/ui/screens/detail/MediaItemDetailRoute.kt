@@ -1,6 +1,7 @@
 package dev.taru.android.ui.screens.detail
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
@@ -85,6 +87,7 @@ internal fun DetailRouteContent(
     onRetryPlayback: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onOpenPersonDetail: (String) -> Unit,
     onSelectSource: (String) -> Unit,
     onRetrySourceProbe: () -> Unit,
     onRequestPlayback: (String) -> Unit,
@@ -112,6 +115,7 @@ internal fun DetailRouteContent(
                 resumePosition = resumePosition,
                 artworkResolver = artworkResolver,
                 onOpenFacet = onOpenFacet,
+                onOpenPersonDetail = onOpenPersonDetail,
                 onSelectSource = onSelectSource,
                 onRetrySourceProbe = onRetrySourceProbe,
                 onRequestPlayback = onRequestPlayback,
@@ -142,6 +146,7 @@ private fun MediaItemDetailScreen(
     resumePosition: ResumePlaybackPosition?,
     artworkResolver: ArtworkRequestResolver,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onOpenPersonDetail: (String) -> Unit,
     onSelectSource: (String) -> Unit,
     onRetrySourceProbe: () -> Unit,
     onRequestPlayback: (String) -> Unit,
@@ -192,6 +197,7 @@ private fun MediaItemDetailScreen(
     PeopleSection(
         response = response,
         onOpenFacet = onOpenFacet,
+        onOpenPersonDetail = onOpenPersonDetail,
     )
 
     RelatedMediaSection(
@@ -402,14 +408,16 @@ private fun DetailMetadataSection(
 private fun PeopleSection(
     response: ItemDetailResponse,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onOpenPersonDetail: (String) -> Unit,
 ) {
     SectionHeader(
         title = "Cast & Crew",
         action = response.credits.size.takeIf { it > 0 }?.toString(),
     )
-    RelationshipCard(
+    DetailRelationshipCard(
         rows = creditRelationshipRows(response),
         onOpenFacet = onOpenFacet,
+        onOpenPersonDetail = onOpenPersonDetail,
     )
 }
 
@@ -489,43 +497,103 @@ private fun buildMetadataTargets(response: ItemDetailResponse): List<BrowseFacet
     }
 }
 
-private fun creditRelationshipRows(response: ItemDetailResponse): List<RelationshipRow> {
+@Composable
+private fun DetailRelationshipCard(
+    rows: List<DetailRelationshipRow>,
+    onOpenFacet: (BrowseFacetTarget) -> Unit,
+    onOpenPersonDetail: (String) -> Unit,
+) {
+    SurfaceCard {
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        when (val target = row.target) {
+                            is DetailRelationshipTarget.Facet -> onOpenFacet(target.target)
+                            is DetailRelationshipTarget.PersonDetail -> onOpenPersonDetail(target.personId)
+                        }
+                    }
+                    .padding(vertical = TaruSpacing.small),
+                horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconBadge(icon = row.icon, compact = true)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = row.title,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = row.subtitle,
+                        color = TaruTextSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+    }
+}
+
+internal data class DetailRelationshipRow(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val target: DetailRelationshipTarget,
+)
+
+internal sealed interface DetailRelationshipTarget {
+    data class Facet(val target: BrowseFacetTarget) : DetailRelationshipTarget
+    data class PersonDetail(val personId: String) : DetailRelationshipTarget
+}
+
+internal fun creditRelationshipRows(response: ItemDetailResponse): List<DetailRelationshipRow> {
     val rows = response.credits.take(4).mapIndexed { index, credit ->
         val title = creditTitle(index, credit)
-        RelationshipRow(
+        val personId = credit.personId.takeIf { it.isNotBlank() }
+        DetailRelationshipRow(
             title = title,
-            subtitle = if (credit.personId.isBlank()) {
+            subtitle = if (personId == null) {
                 "Person link unavailable for this credit."
             } else {
-                "Open related Media Items from this person."
+                "Open Person Detail and related Media Items."
             },
             icon = Icons.Rounded.Person,
-            target = BrowseFacetTarget(
-                family = BrowseFacetUiFamily.Person,
-                label = title,
-                id = credit.personId,
-            ),
+            target = personId
+                ?.let(DetailRelationshipTarget::PersonDetail)
+                ?: DetailRelationshipTarget.Facet(
+                    BrowseFacetTarget(
+                        family = BrowseFacetUiFamily.Person,
+                        label = title,
+                    ),
+                ),
         )
     }
     return rows.ifEmpty {
         listOf(
-            RelationshipRow(
+            DetailRelationshipRow(
                 title = "Cast",
                 subtitle = "Credit names are not available for this item yet.",
                 icon = Icons.Rounded.Person,
-                target = BrowseFacetTarget(BrowseFacetUiFamily.Person, "Cast"),
+                target = DetailRelationshipTarget.Facet(
+                    BrowseFacetTarget(BrowseFacetUiFamily.Person, "Cast"),
+                ),
             ),
-            RelationshipRow(
+            DetailRelationshipRow(
                 title = "Director",
                 subtitle = "Role-specific browsing is not available yet.",
                 icon = Icons.Rounded.TheaterComedy,
-                target = BrowseFacetTarget(BrowseFacetUiFamily.Person, "Director"),
+                target = DetailRelationshipTarget.Facet(
+                    BrowseFacetTarget(BrowseFacetUiFamily.Person, "Director"),
+                ),
             ),
-            RelationshipRow(
+            DetailRelationshipRow(
                 title = "Writer",
                 subtitle = "Role-specific browsing is not available yet.",
                 icon = Icons.Rounded.Info,
-                target = BrowseFacetTarget(BrowseFacetUiFamily.Person, "Writer"),
+                target = DetailRelationshipTarget.Facet(
+                    BrowseFacetTarget(BrowseFacetUiFamily.Person, "Writer"),
+                ),
             ),
         )
     }

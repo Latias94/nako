@@ -26,6 +26,7 @@ import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.TokenVaultArtworkRequestResolver
 import dev.taru.android.ui.screens.detail.DetailRouteContent
+import dev.taru.android.ui.screens.person.PersonDetailRouteContent
 import dev.taru.android.ui.screens.player.PlayerRouteRenderer
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
 import dev.taru.android.ui.screens.settings.SettingsAction
@@ -176,6 +177,9 @@ internal fun TaruBrowseShell(
                     onRetryPlayback = { dispatchBrowseAction(BrowseAction.RetryPlaybackDecision) },
                     onChangeServer = onChangeServer,
                     onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
+                    onOpenPersonDetail = { personId ->
+                        dispatchBrowseAction(BrowseAction.OpenPersonDetail(personId))
+                    },
                     onSelectSource = { sourceId ->
                         dispatchBrowseAction(BrowseAction.SelectSource(sourceId))
                     },
@@ -194,13 +198,8 @@ internal fun TaruBrowseShell(
                         dispatchBrowseAction(BrowseAction.OpenItem(itemId))
                     },
                 )
-                is TaruRoute.PersonDetail -> BrowseFacetRouteContent(
-                    target = BrowseFacetTarget(
-                        family = BrowseFacetUiFamily.Person,
-                        label = "Person",
-                        id = currentRoute.personId,
-                    ),
-                    state = shellState.personDetailState.toFacetState(),
+                is TaruRoute.PersonDetail -> PersonDetailRouteContent(
+                    state = shellState.personDetailState,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
                     onChangeServer = onChangeServer,
@@ -312,11 +311,3 @@ internal fun BrowseScaffoldContent(content: @Composable () -> Unit) {
         content()
     }
 }
-
-private fun PersonDetailUiState.toFacetState(): FacetUiState =
-    when (this) {
-        PersonDetailUiState.Idle -> FacetUiState.Idle
-        PersonDetailUiState.Loading -> FacetUiState.Loading
-        is PersonDetailUiState.Content -> FacetUiState.Content(relatedItems)
-        is PersonDetailUiState.Failure -> FacetUiState.Failure(diagnostics)
-    }

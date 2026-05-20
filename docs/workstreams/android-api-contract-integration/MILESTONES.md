@@ -34,7 +34,7 @@ Exit criteria:
 
 ## M3.5 - Person Detail UI
 
-Status: Pending
+Status: Complete
 
 Exit criteria:
 

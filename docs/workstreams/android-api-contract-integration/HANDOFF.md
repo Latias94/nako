@@ -5,36 +5,37 @@ Last updated: 2026-05-20
 
 ## Current State
 
-APICI-010 through APICI-030 are complete. The matrix shows Android already has
+APICI-010 through APICI-040 are complete. The matrix shows Android already has
 real server-backed coverage for connection, browse, artwork, playback,
 playback sessions, and User Playback State. Android now also has typed client
 coverage and route/data-source state for `GET /people/{person_id}` plus
-related Media Items.
+related Media Items. Person Detail now has a dedicated UI route, and stable
+Cast & Crew `person_id` rows open that route instead of the generic facet
+screen.
 
 ## Active Task
 
-APICI-040 - Build Person Detail screen.
+APICI-050 - Prove server-backed Person Detail smoke.
 
 ## File Scope
 
 Expected next files:
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/person/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/detail/MediaItemDetailRoute.kt`
-- focused UI/session tests
+- `apps/android/scripts/Smoke-Emulator.ps1`
+- `apps/android/scripts/Smoke-Regression.ps1`
+- smoke fixture docs if the assertion path changes
 
 ## Validation
 
-Latest APICI-030 evidence:
+Latest APICI-040 evidence:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.detail.MediaItemDetailRouteTest --no-daemon
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
 ```
 
-For APICI-040, replace the temporary `PersonDetailUiState.toFacetState()`
-rendering in `TaruBrowseShell` with a dedicated screen.
+For APICI-050, update the `profile-with-media` smoke path so Cast & Crew opens
+the Person Detail route, then returns through related Media Items.
 
 ## Notes
 
@@ -43,5 +44,4 @@ rendering in `TaruBrowseShell` with a dedicated screen.
 - Person Detail client support exists as `TaruBrowseClient.personDetail`.
 - Person Detail route state reuses the existing person-items route for related
   Media Items instead of duplicating response parsing.
-- `TaruBrowseShell` currently renders Person Detail through existing facet
-  results as a temporary APICI-030 bridge; APICI-040 should remove that bridge.
+- `TaruBrowseShell` no longer uses `PersonDetailUiState.toFacetState()`.

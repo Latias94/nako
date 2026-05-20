@@ -40,7 +40,7 @@ Last updated: 2026-05-20
   - Evidence: Focused UI browse tests and full debug unit gate passed on
     2026-05-20.
 
-- [ ] APICI-040 - Build Person Detail screen.
+- [x] APICI-040 - Build Person Detail screen.
   - Owner: Codex
   - Dependencies: APICI-030.
   - Scope:
@@ -51,6 +51,8 @@ Last updated: 2026-05-20
     - Cast & Crew rows open Person Detail when a stable `person_id` exists.
     - Compose/unit coverage where practical.
     - Existing Material Expressive design tokens are reused.
+  - Evidence: Focused detail presentation test and full debug unit gate passed
+    on 2026-05-20.
 
 - [ ] APICI-050 - Prove server-backed Person Detail smoke.
   - Owner: Codex
