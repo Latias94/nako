@@ -26,10 +26,64 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is recorded in this file after M62 closeout.
-Recommended next candidates are activating
-`docs/workstreams/managed-artwork-postgresql-parity/` or opening a narrower
-PostgreSQL production hardening/CI lane.
+### M63: Fearless Architecture Deepening
+
+Status: active.
+
+Objective:
+
+- Deepen the Modules most likely to harden into long-term architecture debt
+  before new provider, plugin, AI, playback, and remote-access breadth is added.
+- Split Addon Side Effect behavior into deeper Modules with clearer Interfaces.
+- Add a transactional Addon Canonical Metadata commit seam for
+  metadata/catalog/search/apply-outcome consistency.
+- Narrow Library ingestion around a workflow-shaped commit Interface instead
+  of broad caller-side repository knowledge.
+- Stabilize playback/transcode request identity and hardware diagnostics before
+  multi-profile reuse widens.
+- Add measured search semantics before AI/vector search.
+- Improve test locality only around touched Interfaces.
+
+Deliverables:
+
+- `docs/workstreams/fearless-architecture-deepening/` as the authoritative
+  execution lane.
+- Behavior-preserving Addon Side Effect Module split.
+- Backend-neutral commit tests for any new persistence seam.
+- Playback/transcode identity and diagnostics tests.
+- Search semantics fixtures/evaluation tests.
+- Updated docs and ADRs if public/internal Interfaces change.
+
+Non-goals:
+
+- No new TMDB, Douban, Bangumi, or AI provider breadth.
+- No native plugin ABI or Jellyfin plugin compatibility.
+- No Network Tunnel Provider implementation.
+- No adaptive bitrate ladder implementation.
+- No Managed Artwork PostgreSQL parity inside this lane unless it is explicitly
+  activated or split back in from
+  `docs/workstreams/managed-artwork-postgresql-parity/`.
+- No broad UI work.
+
+Exit criteria:
+
+- FAD-020 through FAD-090 are completed or split into named follow-ons with
+  evidence-backed rationale.
+- Any new persistence seam is proven by SQLite always-on and PostgreSQL opt-in
+  contracts where applicable.
+- DTO redaction guarantees remain intact for Source Locators, storage URIs,
+  local paths, raw source URLs, cache URIs, content hashes, secrets, and raw
+  database details.
+- Final workspace gates pass.
+
+First executable task:
+
+- FAD-020 Addon Side Effect Module depth.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/fearless-architecture-deepening/`.
 
 ## Completed Goals
 

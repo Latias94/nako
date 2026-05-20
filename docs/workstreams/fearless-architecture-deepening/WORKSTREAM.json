@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "slug": "fearless-architecture-deepening",
+  "title": "Fearless Architecture Deepening",
+  "status": "active",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Taru's core architecture is strong after M62, but Addon Side Effects, Addon metadata commits, Library ingestion, playback/transcode identity, hardware diagnostics, search semantics, and large test families need deeper Modules before feature breadth hardens shallow Interfaces.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/fearless-architecture-deepening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/fearless-architecture-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/fearless-architecture-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/fearless-architecture-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/fearless-architecture-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/fearless-architecture-deepening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "focused cargo nextest run for touched crates",
+    "cargo nextest run --workspace --no-fail-fast",
+    "PostgreSQL opt-in contract runs for touched persistence seams when TARU_TEST_POSTGRES_URL is available",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/fearless-architecture-deepening/DESIGN.md",
+    "docs/workstreams/fearless-architecture-deepening/TODO.md",
+    "docs/workstreams/fearless-architecture-deepening/EVIDENCE_AND_GATES.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0001-modular-monolith-rust-workspace.md",
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0029-postgresql-ready-persistence-boundary.md",
+    "docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md"
+  ],
+  "priority_order": [
+    "addon_side_effect_module_depth",
+    "addon_metadata_commit_atomicity",
+    "library_ingestion_workflow_depth",
+    "playback_transcode_identity",
+    "hardware_diagnostics",
+    "search_semantics",
+    "test_locality",
+    "closeout_or_split"
+  ],
+  "current_task": "FAD-030",
+  "first_slice": "Addon Side Effect Module depth",
+  "non_goals": [
+    "new TMDB, Douban, Bangumi, or AI provider breadth",
+    "native plugin ABI",
+    "Jellyfin plugin compatibility",
+    "Network Tunnel Provider implementation",
+    "adaptive bitrate ladder implementation",
+    "moving artifact bytes into PostgreSQL",
+    "Managed Artwork PostgreSQL parity unless explicitly activated as its own lane",
+    "broad UI work",
+    "copying or translating reference project source"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with FAD-030 while the current target state and gates remain valid. Split a follow-on when a task becomes independent product breadth rather than architecture depth."
+  }
+}

@@ -7,6 +7,8 @@ policy, and workstream-level design notes for Taru.
 
 - Current goal map: [GOALS.md](GOALS.md)
 - Product roadmap: [ROADMAP.md](ROADMAP.md)
+- Active workstream:
+  [Fearless architecture deepening](workstreams/fearless-architecture-deepening/README.md)
 - Proposed follow-on workstream:
   [Managed Artwork PostgreSQL parity](workstreams/managed-artwork-postgresql-parity/README.md)
 - Latest completed workstream:

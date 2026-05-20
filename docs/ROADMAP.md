@@ -9,6 +9,26 @@ Goal numbers are historical identifiers. Earlier gaps such as M10-M12 and M17
 are not reused; new work uses the next number after the highest documented
 milestone.
 
+## Current Architecture Focus: M63
+
+Status: active.
+
+M63 is the fearless architecture-deepening lane after M62 PostgreSQL Production
+Readiness. It intentionally prioritizes deeper Modules and workflow seams before
+new feature breadth:
+
+- Addon Side Effect Module depth;
+- Addon Canonical Metadata commit atomicity;
+- Library ingestion workflow depth;
+- Playback/transcode request identity;
+- hardware diagnostics;
+- search semantics;
+- test locality around touched Interfaces.
+
+Authoritative lane:
+
+- `docs/workstreams/fearless-architecture-deepening/`
+
 ## Phase Bands
 
 ### Foundation: M0-M2.1

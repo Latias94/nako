@@ -1,0 +1,137 @@
+# Fearless Architecture Deepening — TODO
+
+Status: Active
+Last updated: 2026-05-20
+
+Task IDs use the `FAD` prefix.
+
+## M0 — Scope And Evidence Freeze
+
+- [x] FAD-010 [owner=codex] [deps=none] [scope=docs/workstreams/fearless-architecture-deepening,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md]
+  Goal: Record the architecture review findings, choose the first execution
+  slice, define non-goals, and publish validation gates for the fearless
+  refactor lane.
+  Validation: `git diff --check`.
+  Review: The lane must not become an unbounded feature bucket. Split
+  independent product workstreams when the next task no longer shares the same
+  architecture problem.
+  Evidence: `docs/workstreams/fearless-architecture-deepening/DESIGN.md`;
+  `docs/workstreams/fearless-architecture-deepening/EVIDENCE_AND_GATES.md`.
+  Progress: Workstream opened after M62 closeout and the 2026-05-20
+  architecture review. First executable task selected: FAD-020.
+  Handoff: Continue with Addon Side Effect Module depth before adding new
+  provider, plugin, AI, or playback breadth.
+
+## M1 — Addon Side Effect Depth
+
+- [x] FAD-020 [owner=codex] [deps=FAD-010] [scope=crates/taru-server/src/app/addons.rs,crates/taru-server/src/app/addons/**,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs]
+  Goal: Split Addon Side Effect handling into deeper Modules for principal/grant
+  resolution, side-effect intake, apply routing, and domain-specific apply
+  Adapters without changing behavior.
+  Validation: `cargo check -p taru-server --tests`; focused `cargo nextest run
+  -p taru-server addon_side_effect --no-fail-fast`; `git diff --check`.
+  Review: The split must improve locality. Do not create pass-through Modules
+  that merely rename current function calls.
+  Evidence: new Module layout and focused Addon Side Effect tests.
+  Progress: Split the former `app/addons.rs` side-effect implementation into
+  focused Modules under `app/addons/`: `principal`, `intake`,
+  `side_effect_apply`, `metadata_write`, `library_file_write`, `artwork_write`,
+  and shared target resolution. The root `AddonAppService` now owns addon
+  registration/token/grant administration while side-effect behavior is routed
+  through domain-specific apply Adapters. Behavior stayed stable through
+  focused Addon Side Effect and broader addon HTTP tests.
+  Handoff: Continue with FAD-030 Addon metadata commit atomicity.
+
+- [ ] FAD-030 [owner=codex] [deps=FAD-020] [scope=crates/taru-core/src/repository,crates/taru-db,crates/taru-server/src/app/addons/**,docs/workstreams/fearless-architecture-deepening]
+  Goal: Add a transactional commit seam for Addon Canonical Metadata writes so
+  metadata mutation, Catalog Item Graph/Search Projection consistency, apply
+  outcome recording, and rollback behavior are proven together.
+  Validation: `cargo check -p taru-core -p taru-db -p taru-server --tests`;
+  focused SQLite contract tests; PostgreSQL opt-in contract tests when
+  `TARU_TEST_POSTGRES_URL` is available; focused Addon Side Effect nextest;
+  `git diff --check`.
+  Review: The Interface should express the domain action, not expose a sequence
+  of repository calls that callers must order correctly.
+  Evidence: backend-neutral contract tests and Addon apply tests.
+  Handoff: Continue with Library ingestion only after Addon write consistency is
+  proven or split with a blocker.
+
+## M2 — Library Ingestion Workflow Depth
+
+- [ ] FAD-040 [owner=codex] [deps=FAD-030] [scope=crates/taru-library,crates/taru-core/src/repository,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
+  Goal: Deepen the Library ingestion commit Interface so scanning and Local
+  Inference callers do not need a broad repository trait alias to coordinate
+  Source State, Library Item State, Local Inference Evidence, ingestion
+  failures, and Search Projection side effects.
+  Validation: `cargo check -p taru-library -p taru-db --tests`; focused
+  `cargo nextest run -p taru-db scan_commit --no-fail-fast`; focused
+  `cargo nextest run -p taru-library --no-fail-fast`; PostgreSQL opt-in scan
+  contract when available; `git diff --check`.
+  Review: Preserve the M62 scan commit contract. Prefer a workflow-shaped seam
+  over mechanical repository trait splitting.
+  Evidence: narrowed Library ingestion Interface and contract/test updates.
+  Handoff: Continue with playback/transcode identity and diagnostics.
+
+## M3 — Playback And Transcode Readiness
+
+- [ ] FAD-050 [owner=codex] [deps=FAD-040] [scope=crates/taru-streaming,crates/taru-transcode,crates/taru-server/src/app/playback,docs/workstreams/fearless-architecture-deepening]
+  Goal: Define and test the Playback Source Selection + Transcode Profile
+  request/cache identity before multi-profile HLS reuse, subtitles, HDR/SDR
+  variants, or adaptive ladders widen the reuse surface.
+  Validation: `cargo check -p taru-streaming -p taru-transcode -p taru-server
+  --tests`; focused playback/profile identity nextest; `git diff --check`.
+  Review: Do not add adaptive bitrate behavior in this task. The deliverable is
+  a stable identity Interface and tests.
+  Evidence: profile/request identity tests and docs.
+  Handoff: Continue with hardware diagnostics.
+
+- [ ] FAD-060 [owner=codex] [deps=FAD-050] [scope=crates/taru-transcode,crates/taru-server/src/app/playback,docs/api,docs/workstreams/fearless-architecture-deepening]
+  Goal: Deepen hardware acceleration diagnostics so static FFmpeg encoder
+  discovery, device initialization evidence, and optional smoke-probe results
+  are represented separately and reported safely.
+  Validation: `cargo check -p taru-transcode -p taru-server --tests`; focused
+  hardware diagnostics nextest; `git diff --check`.
+  Review: Diagnostics must not require privileged devices in normal tests and
+  must not leak local paths beyond safe operator diagnostics.
+  Evidence: diagnostics model/tests and Admin diagnostics docs if surfaced.
+  Handoff: Continue with search semantics unless playback findings require a
+  split follow-on.
+
+## M4 — Search Semantics And Test Locality
+
+- [ ] FAD-070 [owner=codex] [deps=FAD-060] [scope=crates/taru-search,crates/taru-catalog,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
+  Goal: Add a small search semantics evaluation harness and projection-version
+  discipline for title/alias/provider-title/CJK-friendly query behavior before
+  AI or vector search is introduced.
+  Validation: `cargo check -p taru-search -p taru-catalog -p taru-db --tests`;
+  focused search nextest; `git diff --check`.
+  Review: Do not add AI/vector search in this task. The deliverable is measured
+  search semantics and future-safe projection discipline.
+  Evidence: search evaluation fixtures/tests and documented semantics.
+  Handoff: Continue with test-locality cleanup for touched areas.
+
+- [ ] FAD-080 [owner=codex] [deps=FAD-020,FAD-030,FAD-040,FAD-070] [scope=crates/taru-db/src/*tests*,crates/taru-server/src/http/tests,crates/taru-server/src/app/tests]
+  Goal: Improve test locality around touched Interfaces by extracting
+  domain-focused fixtures and splitting giant behavior families only where it
+  improves reviewability.
+  Validation: focused nextest for refactored test families; `cargo check
+  --workspace --tests`; `git diff --check`.
+  Review: Do not rewrite tests mechanically. Preserve coverage and failure
+  meaning while reducing navigation cost.
+  Evidence: smaller test Modules or shared fixtures around changed Interfaces.
+  Handoff: Continue with final closeout or split remaining tails.
+
+## M5 — Closeout Or Split
+
+- [ ] FAD-090 [owner=planner] [deps=FAD-080] [scope=docs/workstreams/fearless-architecture-deepening,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md]
+  Goal: Verify the fearless refactor lane, close it, and split any remaining
+  independent tails into named workstreams.
+  Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`;
+  `cargo nextest run --workspace --no-fail-fast`; PostgreSQL opt-in contracts
+  for touched persistence seams when `TARU_TEST_POSTGRES_URL` is available;
+  `git diff --check`.
+  Review: Use review/verify workstream discipline before marking the goal
+  complete. Remaining work must not hide inside vague "follow up" text.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
+  Handoff: Recommend the next product lane only after architecture debt is
+  either closed or explicitly split.
