@@ -1,4 +1,5 @@
 mod artwork;
+mod candidate;
 mod catalog;
 mod item;
 mod library;
@@ -11,6 +12,7 @@ mod scan;
 mod source;
 
 pub use artwork::*;
+pub use candidate::*;
 pub use catalog::*;
 pub use item::*;
 pub use library::*;

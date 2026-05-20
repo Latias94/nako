@@ -3,7 +3,7 @@ use axum::{
     http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use taru_api::{ClientErrorCode, ErrorResponse};
+use taru_api::public_client::{ClientErrorCode, ErrorResponse};
 use taru_core::{StorageErrorKind, TaruError};
 use tracing::{error, warn};
 

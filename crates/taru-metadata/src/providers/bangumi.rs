@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
-use taru_core::{ExternalProvider, MediaKind, Result, SecretString, TaruError};
+use taru_core::{
+    ExternalProvider, MediaKind, MetadataCandidateGraph, ProviderSubjectKind, Result, SecretString,
+    TaruError,
+};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -124,13 +127,22 @@ impl MetadataProvider for BangumiMetadataProvider {
             .into_iter()
             .map(|subject| {
                 let score = bangumi_search_score(&lookup, &subject);
+                let provider_key = subject.id.to_string();
                 MetadataCandidate {
                     provider: ExternalProvider::Bangumi,
-                    provider_key: subject.id.to_string(),
+                    provider_key: provider_key.clone(),
                     score,
-                    metadata: crate::mapping::bangumi_subject_to_metadata(
-                        subject,
-                        &self.config.image_base_url,
+                    graph: MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Bangumi,
+                        lookup.kind.unwrap_or(MediaKind::Unknown),
+                        provider_subject_kind_for_media_kind(
+                            lookup.kind.unwrap_or(MediaKind::Unknown),
+                        ),
+                        provider_key,
+                        crate::mapping::bangumi_subject_to_metadata(
+                            subject,
+                            &self.config.image_base_url,
+                        ),
                     ),
                 }
             })
@@ -167,13 +179,19 @@ impl MetadataProvider for BangumiMetadataProvider {
         let details: BangumiSubject = serde_json::from_value(value)
             .map_err(|err| provider_parse_error(BANGUMI_PROVIDER_NAME, "subject details", err))?;
 
+        let provider_key = details.id.to_string();
+        let graph = MetadataCandidateGraph::for_provider(
+            ExternalProvider::Bangumi,
+            request.kind,
+            provider_subject_kind_for_media_kind(request.kind),
+            provider_key.clone(),
+            crate::mapping::bangumi_subject_to_metadata(details, &self.config.image_base_url),
+        );
+
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Bangumi,
-            provider_key: details.id.to_string(),
-            metadata: crate::mapping::bangumi_subject_to_metadata(
-                details,
-                &self.config.image_base_url,
-            ),
+            provider_key,
+            graph,
             raw_json,
         })
     }
@@ -275,4 +293,15 @@ fn bangumi_search_score(lookup: &MetadataLookup, subject: &BangumiSubject) -> f3
             .and_then(|rating| rating.score)
             .unwrap_or(0.0)
             / 200.0
+}
+
+fn provider_subject_kind_for_media_kind(kind: MediaKind) -> ProviderSubjectKind {
+    match kind {
+        MediaKind::Movie => ProviderSubjectKind::Movie,
+        MediaKind::Series => ProviderSubjectKind::Series,
+        MediaKind::Season => ProviderSubjectKind::Season,
+        MediaKind::Episode => ProviderSubjectKind::Episode,
+        MediaKind::Collection => ProviderSubjectKind::Collection,
+        MediaKind::Extra | MediaKind::Unknown => ProviderSubjectKind::Subject,
+    }
 }

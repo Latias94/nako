@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 
 use taru_core::{
-    CanonicalMetadata, ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
+    ContentRating, Credit, CreditRole, ExternalId, ExternalProvider, ImageKind,
+    MetadataCandidateRecord,
 };
 
 use crate::providers::{DoubanPerson, DoubanSubject, push_provider_image_uri};
@@ -9,7 +10,7 @@ use crate::providers::{DoubanPerson, DoubanSubject, push_provider_image_uri};
 pub(crate) fn douban_subject_to_metadata(
     subject: DoubanSubject,
     image_base_url: Option<&str>,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut images = Vec::new();
     if let Some(subject_images) = subject.images.as_ref() {
         for uri in [
@@ -52,8 +53,8 @@ pub(crate) fn douban_subject_to_metadata(
         .filter(|year| year.len() == 4 && year.chars().all(|character| character.is_ascii_digit()))
         .map(|year| format!("{year}-01-01"));
 
-    CanonicalMetadata {
-        title: subject.title,
+    MetadataCandidateRecord {
+        title: non_empty(subject.title),
         original_title: subject.original_title.or(subject.alt_title),
         overview: subject.summary.filter(|value| !value.trim().is_empty()),
         release_date,
@@ -82,7 +83,7 @@ pub(crate) fn douban_subject_to_metadata(
             provider: ExternalProvider::Douban,
             value: subject.id,
         }],
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 
@@ -109,4 +110,8 @@ fn douban_person_credit(person: DoubanPerson, role: CreditRole) -> Credit {
             .into_iter()
             .collect(),
     }
+}
+
+fn non_empty(value: String) -> Option<String> {
+    (!value.trim().is_empty()).then_some(value)
 }

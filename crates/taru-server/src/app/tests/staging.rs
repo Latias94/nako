@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn manifest_recording_backend_records_probe_staging() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
         Arc::new(RemotePlaybackBackend {
@@ -68,7 +68,7 @@ async fn manifest_recording_backend_records_probe_staging() {
 #[tokio::test]
 async fn manifest_recording_backend_rejects_staging_over_disk_budget() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
         Arc::new(RemotePlaybackBackend {
@@ -108,7 +108,7 @@ async fn manifest_recording_backend_rejects_staging_over_disk_budget() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn manifest_recording_backend_serializes_budget_check_and_record() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = Arc::new(ManifestRecordingStorageBackend::new(
         Arc::new(RemotePlaybackBackend {
@@ -173,7 +173,7 @@ async fn manifest_recording_backend_serializes_budget_check_and_record() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn manifest_recording_backend_reserves_budget_without_serializing_downloads() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let control = ConcurrentStageControl::new();
     let backend = Arc::new(ManifestRecordingStorageBackend::new(
@@ -235,7 +235,7 @@ async fn manifest_recording_backend_reserves_budget_without_serializing_download
 #[tokio::test]
 async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let backend = ManifestRecordingStorageBackend::new(
         Arc::new(FailingStageBackend {
@@ -275,7 +275,7 @@ async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
 #[tokio::test]
 async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let uri = StorageUri::parse("webdav:///Movies/Demo.mkv").unwrap();
     let staging_root = temp.path().join("probe-inputs");
@@ -328,7 +328,7 @@ async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() 
 #[tokio::test]
 async fn manifest_recording_backend_waits_for_stage_budget() {
     let temp = tempfile::tempdir().unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let stage_permits = Arc::new(Semaphore::new(1));
     let held_permit = stage_permits.clone().acquire_owned().await.unwrap();
@@ -368,7 +368,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
     let server = MockWebDavServer::start().await;
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -463,7 +463,7 @@ async fn app_startup_cleans_expired_staging_inputs() {
         .join("old.mkv");
     fs::create_dir_all(staged_path.parent().unwrap()).unwrap();
     fs::write(&staged_path, b"old").unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     store
@@ -523,7 +523,7 @@ async fn staging_cleanup_preserves_active_leases() {
     let temp = tempfile::tempdir().unwrap();
     let staged_path = temp.path().join("active.mkv");
     fs::write(&staged_path, b"active").unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     store
@@ -555,7 +555,7 @@ async fn staging_cleanup_removes_expired_pending_reservations() {
     let temp = tempfile::tempdir().unwrap();
     let staged_path = temp.path().join("pending.mkv");
     fs::write(&staged_path, b"partial").unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     let mut record = staging_manifest_record(record_id, &staged_path, Some(1), 0);
@@ -581,7 +581,7 @@ async fn staging_cleanup_retries_expired_manifest_records() {
     let temp = tempfile::tempdir().unwrap();
     let staged_path = temp.path().join("expired.mkv");
     fs::write(&staged_path, b"expired").unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     let mut record = staging_manifest_record(record_id, &staged_path, Some(1), 0);
@@ -606,7 +606,7 @@ async fn staging_lease_transitions_between_ready_and_leased() {
     let temp = tempfile::tempdir().unwrap();
     let staged_path = temp.path().join("leased.mkv");
     fs::write(&staged_path, b"leased").unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     store
@@ -642,7 +642,7 @@ async fn dropped_staging_lease_releases_manifest_record() {
     let temp = tempfile::tempdir().unwrap();
     let staged_path = temp.path().join("dropped-lease.mkv");
     fs::write(&staged_path, b"leased").unwrap();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let record_id = StagingManifestId::new();
     store

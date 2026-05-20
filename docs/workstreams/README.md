@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [future-ready-architecture-refactor](future-ready-architecture-refactor/README.md):
+  completed M61 fearless architecture refactor lane for PostgreSQL-ready
+  persistence, deeper runtime/domain/search/API seams, and deletion of
+  redundant MVP paths before Taru's SQLite, metadata, Addon, AI automation,
+  and client contracts harden.
 - [android-client-foundation](android-client-foundation/README.md): completed
   Android-first client foundation work, covering native Android implementation
   order, playback-first mobile scope, Public Client API connection/browse/search

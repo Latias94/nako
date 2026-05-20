@@ -16,5 +16,6 @@ taru-core = { path = "../taru-core" }
 taru-search = { path = "../taru-search" }
 
 [dev-dependencies]
+sqlx = { workspace = true, features = ["postgres", "uuid"] }
 tempfile.workspace = true
 tokio.workspace = true

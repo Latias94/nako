@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use taru_api::SourceProbeResponse;
+use taru_api::public_client::SourceProbeResponse;
 use taru_core::{GenreId, MediaItemId, MediaSourceId, PersonId, SelectedArtworkId, TagId};
 use tracing::instrument;
 

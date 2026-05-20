@@ -328,10 +328,10 @@ mod tests {
     use std::sync::Mutex;
 
     use taru_core::{
-        AutomationArtifactStatus, AutomationProviderStatus, Library, LibraryId, LibraryOptions,
-        LibraryPreset, LibraryRepository, NewAutomationProviderConfig, TransactionManager,
+        AutomationArtifactStatus, AutomationProviderStatus, DatabaseLifecycle, Library, LibraryId,
+        LibraryOptions, LibraryPreset, LibraryRepository, NewAutomationProviderConfig,
     };
-    use taru_db::SqliteStore;
+    use taru_db::TaruDatabase;
 
     use super::*;
 
@@ -373,7 +373,7 @@ mod tests {
 
     #[tokio::test]
     async fn automation_job_runner_persists_proposed_artifact_and_summary() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -440,7 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn automation_job_runner_rejects_canonical_mutation() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let provider = store
             .upsert_automation_provider(NewAutomationProviderConfig {
@@ -488,7 +488,7 @@ mod tests {
 
     #[tokio::test]
     async fn automation_job_runner_retries_provider_failures() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let provider = store
             .upsert_automation_provider(NewAutomationProviderConfig {

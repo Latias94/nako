@@ -24,17 +24,34 @@ async fn scan_route_queues_background_job() {
     assert_eq!(job.kind, taru_core::JobKind::LibraryScan);
     assert_eq!(job.status, JobStatus::Queued);
     assert_eq!(job.library_id, Some(library_id));
-    assert_eq!(
-        job.input
-            .as_ref()
-            .and_then(|input| input.get("library_id"))
-            .and_then(serde_json::Value::as_str),
-        Some(library_id.to_string().as_str())
-    );
+    assert!(job.has_input);
+    assert!(!job.has_summary);
+    assert!(!job.has_error);
 
     let loaded_path = format!("/jobs/{}", job.id);
     let loaded_job = request_json::<JobResponse>(&router, Method::GET, &loaded_path).await;
     assert_eq!(loaded_job.id, job.id);
+    assert!(loaded_job.has_input);
+
+    let loaded_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(loaded_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let loaded_body = to_bytes(loaded_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let loaded_text = String::from_utf8_lossy(&loaded_body);
+    assert!(!loaded_text.contains("\"input\":"));
+    assert!(!loaded_text.contains("\"summary\":"));
+    assert!(!loaded_text.contains("\"error\":"));
+    assert!(!loaded_text.contains("input_json"));
+    assert!(!loaded_text.contains("summary_json"));
 }
 
 #[tokio::test]
@@ -73,17 +90,15 @@ async fn nfo_routes_queue_background_jobs() {
     assert_eq!(import_job.kind, JobKind::NfoImport);
     assert_eq!(import_job.resource_class, "metadata.nfo.import");
     assert_eq!(import_job.library_id, Some(library_id));
-    assert_eq!(
-        import_job
-            .input
-            .as_ref()
-            .and_then(|input| input.get("policy"))
-            .and_then(serde_json::Value::as_str),
-        Some("local_first")
-    );
+    assert!(import_job.has_input);
+    assert!(!import_job.has_summary);
+    assert!(!import_job.has_error);
     assert_eq!(export_job.kind, JobKind::NfoExport);
     assert_eq!(export_job.resource_class, "metadata.nfo.export");
     assert_eq!(export_job.library_id, Some(library_id));
+    assert!(export_job.has_input);
+    assert!(!export_job.has_summary);
+    assert!(!export_job.has_error);
 }
 
 #[tokio::test]
@@ -116,7 +131,7 @@ async fn ingestion_failure_routes_list_and_ignore_failures() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -147,7 +162,7 @@ async fn ingestion_failure_routes_list_and_ignore_failures() {
     );
     assert!(open.failures[0].retryable_now);
 
-    let ignored = request_body_json::<taru_api::IngestionFailureDiagnostic, _>(
+    let ignored = request_body_json::<taru_api::admin::IngestionFailureDiagnostic, _>(
         &router,
         Method::POST,
         &path,

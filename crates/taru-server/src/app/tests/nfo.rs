@@ -61,7 +61,7 @@ async fn nfo_import_uses_configured_webdav_backend() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -131,7 +131,7 @@ async fn nfo_import_job_acknowledges_cancellation_before_next_sidecar() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -250,7 +250,7 @@ async fn nfo_export_job_acknowledges_cancellation_before_next_sidecar() {
         artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![library_config.clone()],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -388,7 +388,7 @@ async fn nfo_import_uses_reconciled_library_policy() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -472,7 +472,7 @@ async fn nfo_export_rejects_read_only_webdav_backend() {
             }),
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store).await.unwrap();
 
     let err = app.nfo().export_library_nfo(library_id).await.unwrap_err();
@@ -523,7 +523,7 @@ async fn nfo_import_job_imports_sidecar_and_persists_summary() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();

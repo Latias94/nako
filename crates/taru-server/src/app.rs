@@ -3,9 +3,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use taru_core::{Result, TaruError, TransactionManager};
-use taru_db::SqliteStore;
-use tokio::sync::Semaphore;
+use taru_core::{Result, TaruError};
+use taru_db::TaruDatabase;
 
 use crate::config::TaruServerConfig;
 
@@ -13,6 +12,7 @@ mod addons;
 mod artwork;
 mod automation;
 mod catalog;
+mod composition;
 mod job_runtime;
 mod jobs;
 mod library;
@@ -33,6 +33,7 @@ use artwork::ManagedArtworkAppService;
 pub(crate) use artwork::{ImageVariantRequest, ManagedArtworkImageBytes};
 use automation::AutomationAppService;
 use catalog::CatalogAppService;
+use composition::{TaruAppComposition, TaruAppServices};
 use jobs::{JobAppService, LibraryScanAppService};
 use library::LibraryAppService;
 use metadata::MetadataAppService;
@@ -43,12 +44,11 @@ use playback::PlaybackAppService;
 pub(crate) use playback::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest,
 };
-use runtime::RuntimeSupervisor;
 pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
-use startup::{ServerStartupReport, ServerStartupWorkflow};
-use storage::{StorageBackendRegistry, StorageDiagnosticsAppService};
+use startup::ServerStartupReport;
+use storage::StorageDiagnosticsAppService;
 use user_playback::UserPlaybackAppService;
 use webhooks::WebhookAppService;
 
@@ -57,119 +57,18 @@ use playback::plan_direct_play_with_backend;
 
 #[derive(Clone, Debug)]
 pub struct TaruApp {
-    inner: Arc<TaruAppInner>,
-}
-
-#[derive(Debug)]
-struct TaruAppInner {
-    config: TaruServerConfig,
-    runtime: RuntimeSupervisor,
-    jobs: JobAppService,
-    library_scan: LibraryScanAppService,
-    artwork: ManagedArtworkAppService,
-    addons: AddonAppService,
-    automation: AutomationAppService,
-    webhooks: WebhookAppService,
-    catalog: CatalogAppService,
-    library: LibraryAppService,
-    storage: StorageDiagnosticsAppService,
-    metadata: MetadataAppService,
-    nfo: NfoAppService,
-    playback: PlaybackAppService,
-    user_playback: UserPlaybackAppService,
-    startup_report: ServerStartupReport,
-}
-
-impl Drop for TaruAppInner {
-    fn drop(&mut self) {
-        self.runtime.shutdown();
-    }
+    inner: Arc<TaruAppComposition>,
 }
 
 impl TaruApp {
     pub async fn new(config: TaruServerConfig) -> Result<Self> {
-        let store = SqliteStore::connect(&config.database_url).await?;
+        let store = TaruDatabase::connect(&config.database_url).await?;
         Self::new_with_store(config, store).await
     }
 
-    pub async fn new_with_store(config: TaruServerConfig, store: SqliteStore) -> Result<Self> {
-        let webhook_permits = Arc::new(Semaphore::new(config.webhook_concurrency.max(1)));
-        let storage_backends = StorageBackendRegistry::new(&config, store.clone());
-        let runtime = RuntimeSupervisor::new();
-        let scan_permits = Arc::new(Semaphore::new(config.scan_concurrency.max(1)));
-        let metadata_permits = Arc::new(Semaphore::new(config.metadata_concurrency.max(1)));
-        let metadata_providers = metadata_runtime::build_metadata_provider_registry(&config)?;
-        let jobs = JobAppService::new(store.clone());
-        let artwork = ManagedArtworkAppService::new(config.artwork.clone(), store.clone())?;
-        let library_scan = LibraryScanAppService::new(
-            config.clone(),
-            store.clone(),
-            scan_permits,
-            storage_backends.clone(),
-            runtime.clone(),
-        );
-        let addons = AddonAppService::new(
-            store.clone(),
-            metadata_permits.clone(),
-            storage_backends.clone(),
-        );
-        let automation = AutomationAppService::new(store.clone());
-        let webhooks = WebhookAppService::new(store.clone(), webhook_permits);
-        let catalog = CatalogAppService::new(store.clone());
-        let library = LibraryAppService::new(store.clone());
-        let storage = StorageDiagnosticsAppService::new(storage_backends.clone());
-        let metadata = MetadataAppService::new(
-            config.clone(),
-            store.clone(),
-            metadata_permits.clone(),
-            metadata_providers,
-            runtime.clone(),
-        );
-        let nfo = NfoAppService::new(
-            store.clone(),
-            metadata_permits,
-            storage_backends.clone(),
-            runtime.clone(),
-        );
-        let playback = PlaybackAppService::new(
-            config.clone(),
-            store.clone(),
-            storage_backends,
-            runtime.clone(),
-        )?;
-        let user_playback = UserPlaybackAppService::new(store.clone());
-
-        let startup_report = ServerStartupWorkflow::new(&config, &store, metadata.clone())
-            .run()
-            .await?;
-        let artwork_ingest_worker_started = config
-            .artwork
-            .ingest_worker_enabled
-            .then(|| artwork.start_ingest_worker(&runtime))
-            .unwrap_or(false);
-
+    pub async fn new_with_store(config: TaruServerConfig, store: TaruDatabase) -> Result<Self> {
         Ok(Self {
-            inner: Arc::new(TaruAppInner {
-                runtime: runtime.clone(),
-                jobs,
-                library_scan,
-                artwork,
-                addons,
-                automation,
-                webhooks,
-                catalog,
-                library,
-                storage,
-                metadata,
-                nfo,
-                playback,
-                user_playback,
-                startup_report: ServerStartupReport {
-                    artwork_ingest_worker_started,
-                    ..startup_report
-                },
-                config,
-            }),
+            inner: Arc::new(TaruAppComposition::build(config, store).await?),
         })
     }
 
@@ -178,69 +77,73 @@ impl TaruApp {
         &self.inner.config
     }
 
+    fn services(&self) -> &TaruAppServices {
+        &self.inner.services
+    }
+
     #[must_use]
     pub(crate) fn addons(&self) -> AddonAppService {
-        self.inner.addons.clone()
+        self.services().addons.clone()
     }
 
     #[must_use]
     pub(crate) fn artwork(&self) -> ManagedArtworkAppService {
-        self.inner.artwork.clone()
+        self.services().artwork.clone()
     }
 
     #[must_use]
     pub(crate) fn automation(&self) -> AutomationAppService {
-        self.inner.automation.clone()
+        self.services().automation.clone()
     }
 
     #[must_use]
     pub(crate) fn webhooks(&self) -> WebhookAppService {
-        self.inner.webhooks.clone()
+        self.services().webhooks.clone()
     }
 
     #[must_use]
     pub(crate) fn catalog(&self) -> CatalogAppService {
-        self.inner.catalog.clone()
+        self.services().catalog.clone()
     }
 
     #[must_use]
     pub(crate) fn library(&self) -> LibraryAppService {
-        self.inner.library.clone()
+        self.services().library.clone()
     }
 
     #[must_use]
     pub(crate) fn storage(&self) -> StorageDiagnosticsAppService {
-        self.inner.storage.clone()
+        self.services().storage.clone()
     }
 
     #[must_use]
     pub(crate) fn jobs(&self) -> JobAppService {
-        self.inner.jobs.clone()
+        self.services().jobs.clone()
     }
 
     #[must_use]
     pub(crate) fn library_scan(&self) -> LibraryScanAppService {
-        self.inner.library_scan.clone()
+        self.services().library_scan.clone()
     }
 
     #[must_use]
     pub(crate) fn nfo(&self) -> NfoAppService {
-        self.inner.nfo.clone()
+        self.services().nfo.clone()
     }
 
     #[must_use]
     pub(crate) fn metadata(&self) -> MetadataAppService {
-        self.inner.metadata.clone()
+        self.services().metadata.clone()
     }
 
     #[must_use]
     pub(crate) fn playback(&self) -> PlaybackAppService {
-        self.inner.playback.clone()
+        self.services().playback.clone()
     }
 
     #[must_use]
     pub(crate) fn user_playback(&self) -> UserPlaybackAppService {
-        self.inner.user_playback.clone()
+        self.services().user_playback.clone()
     }
 
     pub(crate) fn runtime_diagnostics(&self) -> RuntimeSupervisorDiagnostics {
@@ -252,7 +155,7 @@ impl TaruApp {
     }
 
     pub(crate) fn shutdown_runtime(&self) {
-        self.inner.runtime.shutdown();
+        self.inner.shutdown_runtime();
     }
 }
 

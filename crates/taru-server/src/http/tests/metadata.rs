@@ -30,7 +30,7 @@ async fn metadata_refresh_route_queues_background_job() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -75,27 +75,9 @@ async fn metadata_refresh_route_queues_background_job() {
     assert_eq!(job.kind, JobKind::MetadataRefresh);
     assert_eq!(job.status, JobStatus::Queued);
     assert_eq!(job.library_id, Some(library_id));
-    assert_eq!(
-        job.input
-            .as_ref()
-            .and_then(|input| input.get("item_id"))
-            .and_then(serde_json::Value::as_str),
-        Some(item.id.to_string().as_str())
-    );
-    assert_eq!(
-        job.input
-            .as_ref()
-            .and_then(|input| input.get("provider"))
-            .and_then(serde_json::Value::as_str),
-        Some("tmdb")
-    );
-    assert_eq!(
-        job.input
-            .as_ref()
-            .and_then(|input| input.get("refresh_mode"))
-            .and_then(serde_json::Value::as_str),
-        Some("default")
-    );
+    assert!(job.has_input);
+    assert!(!job.has_summary);
+    assert!(!job.has_error);
 }
 
 #[tokio::test]
@@ -155,7 +137,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -281,7 +263,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
     assert_eq!(providers.providers[0].runtime.consecutive_failures, 0);
     assert_eq!(
         providers.providers[0].runtime.state_scope,
-        taru_api::MetadataProviderRuntimeStateScope::ProcessLocal
+        taru_api::metadata_diagnostics::MetadataProviderRuntimeStateScope::ProcessLocal
     );
 }
 
@@ -289,7 +271,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
 async fn metadata_maintenance_route_enqueues_batch_job() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -380,9 +362,18 @@ async fn metadata_maintenance_route_enqueues_batch_job() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::ACCEPTED);
-    let job = body_json::<JobResponse>(response).await;
+    let response_body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8_lossy(&response_body);
+    let job: JobResponse = serde_json::from_slice(&response_body).unwrap();
     assert_eq!(job.kind, JobKind::MetadataMaintenance);
     assert_eq!(job.status, JobStatus::Queued);
     assert_eq!(job.library_id, Some(library_id));
-    assert!(job.input.unwrap().get("access_token").is_none());
+    assert!(job.has_input);
+    assert!(!job.has_summary);
+    assert!(!job.has_error);
+    assert!(!body.contains("\"input\":"));
+    assert!(!body.contains("\"summary\":"));
+    assert!(!body.contains("\"error\":"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
 }

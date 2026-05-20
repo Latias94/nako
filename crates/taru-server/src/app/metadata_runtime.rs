@@ -1,6 +1,6 @@
 use std::{collections::HashSet, env};
 
-use taru_api::{
+use taru_api::metadata_diagnostics::{
     MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
     MetadataProviderRuntimeDiagnostic, MetadataProviderRuntimeStateScope,
 };

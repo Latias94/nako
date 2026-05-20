@@ -68,7 +68,7 @@ async fn webhook_endpoint_routes_validate_and_list_enabled_endpoints() {
 async fn webhook_attempt_route_lists_attempts_for_existing_event() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(
         TaruServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),

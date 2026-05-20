@@ -1,4 +1,4 @@
-use taru_core::{TransactionManager, UserPlaybackStateRepository, UserPrincipalId};
+use taru_core::{DatabaseLifecycle, UserPlaybackStateRepository, UserPrincipalId};
 
 use super::*;
 use crate::app::user_playback::{
@@ -258,8 +258,9 @@ async fn user_playback_state_progress_is_idempotent_for_identical_event() {
     assert_eq!(second, first);
 }
 
-async fn user_playback_service_with_source() -> (UserPlaybackAppService, SqliteStore, MediaSource) {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+async fn user_playback_service_with_source() -> (UserPlaybackAppService, TaruDatabase, MediaSource)
+{
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let library = Library {
         id: LibraryId::new(),
@@ -293,7 +294,7 @@ async fn user_playback_service_with_source() -> (UserPlaybackAppService, SqliteS
     (UserPlaybackAppService::new(store.clone()), store, source)
 }
 
-async fn add_source(store: &SqliteStore, title: &str, locator: &str) -> MediaSource {
+async fn add_source(store: &TaruDatabase, title: &str, locator: &str) -> MediaSource {
     let library = Library {
         id: LibraryId::new(),
         name: title.to_owned(),

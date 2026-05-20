@@ -1,0 +1,1593 @@
+use taru_core::*;
+use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
+
+use crate::sqlite::{SqliteRuntimeOptions, SqliteStore};
+
+#[derive(Clone, Debug)]
+pub struct TaruDatabase {
+    sqlite: SqliteStore,
+}
+
+impl TaruDatabase {
+    pub async fn connect(database_url: &str) -> Result<Self> {
+        Ok(Self::from_sqlite(SqliteStore::connect(database_url).await?))
+    }
+
+    pub async fn connect_with_sqlite_runtime(
+        database_url: &str,
+        runtime: SqliteRuntimeOptions,
+    ) -> Result<Self> {
+        Ok(Self::from_sqlite(
+            SqliteStore::connect_with_runtime(database_url, runtime).await?,
+        ))
+    }
+
+    pub async fn connect_in_memory() -> Result<Self> {
+        Ok(Self::from_sqlite(SqliteStore::connect_in_memory().await?))
+    }
+
+    fn from_sqlite(sqlite: SqliteStore) -> Self {
+        Self { sqlite }
+    }
+
+    #[must_use]
+    pub(crate) fn sqlite(&self) -> &SqliteStore {
+        &self.sqlite
+    }
+}
+
+#[async_trait::async_trait]
+impl AddonRepository for TaruDatabase {
+    async fn upsert_addon_registration(
+        &self,
+        addon: NewAddonRegistration,
+    ) -> Result<AddonRegistrationRecord> {
+        self.sqlite().upsert_addon_registration(addon).await
+    }
+
+    async fn get_addon_registration(&self, id: AddonId) -> Result<Option<AddonRegistrationRecord>> {
+        self.sqlite().get_addon_registration(id).await
+    }
+
+    async fn find_addon_registration_by_manifest_id(
+        &self,
+        manifest_id: &str,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        self.sqlite()
+            .find_addon_registration_by_manifest_id(manifest_id)
+            .await
+    }
+
+    async fn list_addon_registrations(
+        &self,
+        status: Option<AddonStatus>,
+    ) -> Result<Vec<AddonRegistrationRecord>> {
+        self.sqlite().list_addon_registrations(status).await
+    }
+
+    async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord> {
+        self.sqlite().create_addon_token(token).await
+    }
+
+    async fn get_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        self.sqlite().get_addon_token(id).await
+    }
+
+    async fn find_addon_token_by_hash(&self, token_hash: &str) -> Result<Option<AddonTokenRecord>> {
+        self.sqlite().find_addon_token_by_hash(token_hash).await
+    }
+
+    async fn list_addon_tokens(&self, addon_id: AddonId) -> Result<Vec<AddonTokenRecord>> {
+        self.sqlite().list_addon_tokens(addon_id).await
+    }
+
+    async fn mark_addon_token_used(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        self.sqlite().mark_addon_token_used(id).await
+    }
+
+    async fn rotate_addon_token(
+        &self,
+        rotated_token_id: AddonTokenId,
+        new_token: NewAddonToken,
+    ) -> Result<(AddonTokenRecord, AddonTokenRecord)> {
+        self.sqlite()
+            .rotate_addon_token(rotated_token_id, new_token)
+            .await
+    }
+
+    async fn revoke_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>> {
+        self.sqlite().revoke_addon_token(id).await
+    }
+
+    async fn replace_addon_grants(
+        &self,
+        addon_id: AddonId,
+        grants: Vec<NewAddonGrant>,
+    ) -> Result<Vec<AddonGrantRecord>> {
+        self.sqlite().replace_addon_grants(addon_id, grants).await
+    }
+
+    async fn list_addon_grants(&self, addon_id: AddonId) -> Result<Vec<AddonGrantRecord>> {
+        self.sqlite().list_addon_grants(addon_id).await
+    }
+
+    async fn create_addon_side_effect(
+        &self,
+        side_effect: NewAddonSideEffect,
+    ) -> Result<AddonSideEffectRecord> {
+        self.sqlite().create_addon_side_effect(side_effect).await
+    }
+
+    async fn find_addon_side_effect_by_idempotency_key(
+        &self,
+        addon_id: AddonId,
+        idempotency_key: &str,
+    ) -> Result<Option<AddonSideEffectRecord>> {
+        self.sqlite()
+            .find_addon_side_effect_by_idempotency_key(addon_id, idempotency_key)
+            .await
+    }
+
+    async fn set_addon_side_effect_apply_outcome(
+        &self,
+        id: AddonSideEffectId,
+        outcome: AddonSideEffectApplyOutcome,
+    ) -> Result<AddonSideEffectRecord> {
+        self.sqlite()
+            .set_addon_side_effect_apply_outcome(id, outcome)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl AutomationRepository for TaruDatabase {
+    async fn upsert_automation_provider(
+        &self,
+        provider: NewAutomationProviderConfig,
+    ) -> Result<AutomationProviderConfigRecord> {
+        self.sqlite().upsert_automation_provider(provider).await
+    }
+
+    async fn get_automation_provider(
+        &self,
+        id: AutomationProviderId,
+    ) -> Result<Option<AutomationProviderConfigRecord>> {
+        self.sqlite().get_automation_provider(id).await
+    }
+
+    async fn list_enabled_automation_providers(
+        &self,
+    ) -> Result<Vec<AutomationProviderConfigRecord>> {
+        self.sqlite().list_enabled_automation_providers().await
+    }
+
+    async fn create_automation_artifact(
+        &self,
+        artifact: NewAutomationArtifact,
+    ) -> Result<AutomationArtifactRecord> {
+        self.sqlite().create_automation_artifact(artifact).await
+    }
+
+    async fn set_automation_artifact_status(
+        &self,
+        id: AutomationArtifactId,
+        status: AutomationArtifactStatus,
+    ) -> Result<AutomationArtifactRecord> {
+        self.sqlite()
+            .set_automation_artifact_status(id, status)
+            .await
+    }
+
+    async fn list_automation_artifacts_for_job(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<AutomationArtifactRecord>> {
+        self.sqlite()
+            .list_automation_artifacts_for_job(job_id)
+            .await
+    }
+
+    async fn list_automation_artifacts_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<AutomationArtifactRecord>> {
+        self.sqlite()
+            .list_automation_artifacts_for_item(item_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl CatalogRepository for TaruDatabase {
+    async fn replace_item_catalog_graph(
+        &self,
+        item_id: MediaItemId,
+        replacement: &CatalogItemGraphReplacement,
+    ) -> Result<()> {
+        self.sqlite()
+            .replace_item_catalog_graph(item_id, replacement)
+            .await
+    }
+
+    async fn commit_item_projection(&self, commit: &CatalogItemProjectionCommit) -> Result<()> {
+        self.sqlite().commit_item_projection(commit).await
+    }
+
+    async fn upsert_search_projection(&self, projection: &CatalogSearchProjection) -> Result<()> {
+        self.sqlite().upsert_search_projection(projection).await
+    }
+
+    async fn upsert_person(&self, person: &Person) -> Result<()> {
+        self.sqlite().upsert_person(person).await
+    }
+
+    async fn get_person(&self, id: PersonId) -> Result<Option<Person>> {
+        self.sqlite().get_person(id).await
+    }
+
+    async fn find_person_by_external_id(&self, external_id: &ExternalId) -> Result<Option<Person>> {
+        self.sqlite().find_person_by_external_id(external_id).await
+    }
+
+    async fn find_person_by_name(&self, name: &str) -> Result<Option<Person>> {
+        self.sqlite().find_person_by_name(name).await
+    }
+
+    async fn list_people(&self, page: PageRequest) -> Result<Vec<Person>> {
+        self.sqlite().list_people(page).await
+    }
+
+    async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()> {
+        self.sqlite().upsert_item_credit(credit).await
+    }
+
+    async fn clear_item_credits(&self, item_id: MediaItemId) -> Result<()> {
+        self.sqlite().clear_item_credits(item_id).await
+    }
+
+    async fn list_item_credits(&self, item_id: MediaItemId) -> Result<Vec<ItemCredit>> {
+        self.sqlite().list_item_credits(item_id).await
+    }
+
+    async fn list_person_credits(&self, person_id: PersonId) -> Result<Vec<ItemCredit>> {
+        self.sqlite().list_person_credits(person_id).await
+    }
+
+    async fn list_person_items(
+        &self,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.sqlite().list_person_items(person_id, page).await
+    }
+
+    async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
+        self.sqlite().upsert_genre(genre).await
+    }
+
+    async fn get_genre(&self, id: GenreId) -> Result<Option<Genre>> {
+        self.sqlite().get_genre(id).await
+    }
+
+    async fn find_genre_by_name_source(
+        &self,
+        name: &str,
+        source: &MetadataSource,
+    ) -> Result<Option<Genre>> {
+        self.sqlite().find_genre_by_name_source(name, source).await
+    }
+
+    async fn list_genres(&self, page: PageRequest) -> Result<Vec<Genre>> {
+        self.sqlite().list_genres(page).await
+    }
+
+    async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()> {
+        self.sqlite().upsert_item_genre(item_genre).await
+    }
+
+    async fn clear_item_genres(&self, item_id: MediaItemId) -> Result<()> {
+        self.sqlite().clear_item_genres(item_id).await
+    }
+
+    async fn list_item_genres(&self, item_id: MediaItemId) -> Result<Vec<ItemGenre>> {
+        self.sqlite().list_item_genres(item_id).await
+    }
+
+    async fn list_genre_items(
+        &self,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.sqlite().list_genre_items(genre_id, page).await
+    }
+
+    async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
+        self.sqlite().upsert_tag(tag).await
+    }
+
+    async fn get_tag(&self, id: TagId) -> Result<Option<Tag>> {
+        self.sqlite().get_tag(id).await
+    }
+
+    async fn find_tag_by_name_source(
+        &self,
+        name: &str,
+        source: &MetadataSource,
+    ) -> Result<Option<Tag>> {
+        self.sqlite().find_tag_by_name_source(name, source).await
+    }
+
+    async fn list_tags(&self, page: PageRequest) -> Result<Vec<Tag>> {
+        self.sqlite().list_tags(page).await
+    }
+
+    async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()> {
+        self.sqlite().upsert_item_tag(item_tag).await
+    }
+
+    async fn clear_item_tags(&self, item_id: MediaItemId) -> Result<()> {
+        self.sqlite().clear_item_tags(item_id).await
+    }
+
+    async fn list_item_tags(&self, item_id: MediaItemId) -> Result<Vec<ItemTag>> {
+        self.sqlite().list_item_tags(item_id).await
+    }
+
+    async fn list_tag_items(&self, tag_id: TagId, page: PageRequest) -> Result<Vec<MediaItem>> {
+        self.sqlite().list_tag_items(tag_id, page).await
+    }
+
+    async fn upsert_collection(&self, collection: &Collection) -> Result<()> {
+        self.sqlite().upsert_collection(collection).await
+    }
+
+    async fn get_collection(&self, id: CollectionId) -> Result<Option<Collection>> {
+        self.sqlite().get_collection(id).await
+    }
+
+    async fn find_collection_by_external_id(
+        &self,
+        external_id: &ExternalId,
+    ) -> Result<Option<Collection>> {
+        self.sqlite()
+            .find_collection_by_external_id(external_id)
+            .await
+    }
+
+    async fn find_collection_by_name_source(
+        &self,
+        name: &str,
+        source: &MetadataSource,
+    ) -> Result<Option<Collection>> {
+        self.sqlite()
+            .find_collection_by_name_source(name, source)
+            .await
+    }
+
+    async fn list_collections(&self, page: PageRequest) -> Result<Vec<Collection>> {
+        self.sqlite().list_collections(page).await
+    }
+
+    async fn upsert_collection_item(&self, item: &CollectionItem) -> Result<()> {
+        self.sqlite().upsert_collection_item(item).await
+    }
+
+    async fn clear_item_collections(&self, item_id: MediaItemId) -> Result<()> {
+        self.sqlite().clear_item_collections(item_id).await
+    }
+
+    async fn list_item_collections(&self, item_id: MediaItemId) -> Result<Vec<CollectionItem>> {
+        self.sqlite().list_item_collections(item_id).await
+    }
+
+    async fn list_collection_items(
+        &self,
+        collection_id: CollectionId,
+    ) -> Result<Vec<CollectionItem>> {
+        self.sqlite().list_collection_items(collection_id).await
+    }
+
+    async fn upsert_studio(&self, studio: &Studio) -> Result<()> {
+        self.sqlite().upsert_studio(studio).await
+    }
+
+    async fn get_studio(&self, id: StudioId) -> Result<Option<Studio>> {
+        self.sqlite().get_studio(id).await
+    }
+
+    async fn find_studio_by_external_id(&self, external_id: &ExternalId) -> Result<Option<Studio>> {
+        self.sqlite().find_studio_by_external_id(external_id).await
+    }
+
+    async fn find_studio_by_name_source(
+        &self,
+        name: &str,
+        source: &MetadataSource,
+    ) -> Result<Option<Studio>> {
+        self.sqlite().find_studio_by_name_source(name, source).await
+    }
+
+    async fn list_studios(&self, page: PageRequest) -> Result<Vec<Studio>> {
+        self.sqlite().list_studios(page).await
+    }
+
+    async fn upsert_item_studio(&self, item_studio: &ItemStudio) -> Result<()> {
+        self.sqlite().upsert_item_studio(item_studio).await
+    }
+
+    async fn clear_item_studios(&self, item_id: MediaItemId) -> Result<()> {
+        self.sqlite().clear_item_studios(item_id).await
+    }
+
+    async fn list_item_studios(&self, item_id: MediaItemId) -> Result<Vec<ItemStudio>> {
+        self.sqlite().list_item_studios(item_id).await
+    }
+
+    async fn upsert_image_asset(&self, image: &ImageAsset) -> Result<()> {
+        self.sqlite().upsert_image_asset(image).await
+    }
+
+    async fn get_image_asset(&self, id: ImageAssetId) -> Result<Option<ImageAsset>> {
+        self.sqlite().get_image_asset(id).await
+    }
+
+    async fn find_image_asset_by_source(
+        &self,
+        owner: &ImageOwner,
+        kind: &ImageKind,
+        source_uri: &str,
+    ) -> Result<Option<ImageAsset>> {
+        self.sqlite()
+            .find_image_asset_by_source(owner, kind, source_uri)
+            .await
+    }
+
+    async fn list_item_images(&self, item_id: MediaItemId) -> Result<Vec<ImageAsset>> {
+        self.sqlite().list_item_images(item_id).await
+    }
+}
+
+#[async_trait::async_trait]
+impl CatalogGovernanceRepository for TaruDatabase {
+    async fn list_catalog_governance_items(
+        &self,
+        filter: CatalogGovernanceItemListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<CatalogGovernanceItemRecord>> {
+        self.sqlite()
+            .list_catalog_governance_items(filter, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl IngestionFailureRepository for TaruDatabase {
+    async fn record_ingestion_failure(
+        &self,
+        failure: NewIngestionFailure,
+    ) -> Result<IngestionFailureRecord> {
+        self.sqlite().record_ingestion_failure(failure).await
+    }
+
+    async fn resolve_ingestion_failure(
+        &self,
+        library_id: LibraryId,
+        phase: IngestionFailurePhase,
+        target_uri: &str,
+        resolved_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>> {
+        self.sqlite()
+            .resolve_ingestion_failure(library_id, phase, target_uri, resolved_at_ms)
+            .await
+    }
+
+    async fn ignore_ingestion_failure(
+        &self,
+        library_id: LibraryId,
+        phase: IngestionFailurePhase,
+        target_uri: &str,
+        ignored_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>> {
+        self.sqlite()
+            .ignore_ingestion_failure(library_id, phase, target_uri, ignored_at_ms)
+            .await
+    }
+
+    async fn list_ingestion_failures(
+        &self,
+        filter: IngestionFailureFilter,
+        page: PageRequest,
+    ) -> Result<Vec<IngestionFailureRecord>> {
+        self.sqlite().list_ingestion_failures(filter, page).await
+    }
+
+    async fn count_ingestion_failures(
+        &self,
+        library_id: LibraryId,
+        phase: Option<IngestionFailurePhase>,
+        status: IngestionFailureStatus,
+    ) -> Result<u64> {
+        self.sqlite()
+            .count_ingestion_failures(library_id, phase, status)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl JobRepository for TaruDatabase {
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
+        self.sqlite().enqueue_job(job).await
+    }
+
+    async fn start_job(&self, id: JobId) -> Result<Job> {
+        self.sqlite().start_job(id).await
+    }
+
+    async fn succeed_job(&self, id: JobId, summary_json: Option<String>) -> Result<Job> {
+        self.sqlite().succeed_job(id, summary_json).await
+    }
+
+    async fn fail_job(&self, id: JobId, error: String) -> Result<Job> {
+        self.sqlite().fail_job(id, error).await
+    }
+
+    async fn fail_unfinished_jobs(&self, error: String) -> Result<u64> {
+        self.sqlite().fail_unfinished_jobs(error).await
+    }
+
+    async fn get_job(&self, id: JobId) -> Result<Option<Job>> {
+        self.sqlite().get_job(id).await
+    }
+
+    async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>> {
+        self.sqlite().list_jobs(filter, page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl JobLeaseRepository for TaruDatabase {
+    async fn claim_next_job_lease(
+        &self,
+        request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>> {
+        self.sqlite().claim_next_job_lease(request).await
+    }
+
+    async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
+        self.sqlite().heartbeat_job_lease(heartbeat).await
+    }
+
+    async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job> {
+        self.sqlite().succeed_leased_job(completion).await
+    }
+
+    async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job> {
+        self.sqlite().fail_leased_job(failure).await
+    }
+
+    async fn request_job_cancellation(
+        &self,
+        request: RequestJobCancellation,
+    ) -> Result<JobCancellationRequestRecord> {
+        self.sqlite().request_job_cancellation(request).await
+    }
+
+    async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job> {
+        self.sqlite().cancel_leased_job(cancellation).await
+    }
+
+    async fn recover_expired_job_leases(&self, recovery: RecoverExpiredJobLeases) -> Result<u64> {
+        self.sqlite().recover_expired_job_leases(recovery).await
+    }
+}
+
+#[async_trait::async_trait]
+impl EventOutboxRepository for TaruDatabase {
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
+        self.sqlite().enqueue_outbox_event(event).await
+    }
+
+    async fn get_outbox_event(&self, id: EventId) -> Result<Option<OutboxEventRecord>> {
+        self.sqlite().get_outbox_event(id).await
+    }
+
+    async fn find_outbox_event_by_idempotency_key(
+        &self,
+        kind: DomainEventKind,
+        idempotency_key: &str,
+    ) -> Result<Option<OutboxEventRecord>> {
+        self.sqlite()
+            .find_outbox_event_by_idempotency_key(kind, idempotency_key)
+            .await
+    }
+
+    async fn list_outbox_events(
+        &self,
+        filter: OutboxEventListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<OutboxEventRecord>> {
+        self.sqlite().list_outbox_events(filter, page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl LibraryRepository for TaruDatabase {
+    async fn upsert_library(&self, library: &Library) -> Result<()> {
+        self.sqlite().upsert_library(library).await
+    }
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
+        self.sqlite().get_library(id).await
+    }
+
+    async fn list_libraries(&self, page: PageRequest) -> Result<Vec<Library>> {
+        self.sqlite().list_libraries(page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl LibraryItemRepository for TaruDatabase {
+    async fn upsert_library_item_state(&self, state: &LibraryItemState) -> Result<()> {
+        self.sqlite().upsert_library_item_state(state).await
+    }
+
+    async fn get_library_item_state(
+        &self,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+    ) -> Result<Option<LibraryItemState>> {
+        self.sqlite()
+            .get_library_item_state(library_id, item_id)
+            .await
+    }
+
+    async fn list_library_item_states_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<LibraryItemState>> {
+        self.sqlite()
+            .list_library_item_states_for_item(item_id)
+            .await
+    }
+
+    async fn find_library_item_by_kind_parent_title(
+        &self,
+        library_id: LibraryId,
+        kind: MediaKind,
+        parent_id: Option<MediaItemId>,
+        title: &str,
+    ) -> Result<Option<MediaItem>> {
+        self.sqlite()
+            .find_library_item_by_kind_parent_title(library_id, kind, parent_id, title)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl MediaRepository for TaruDatabase {
+    async fn upsert_media_item(&self, item: &MediaItem) -> Result<()> {
+        self.sqlite().upsert_media_item(item).await
+    }
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
+        self.sqlite().get_media_item(id).await
+    }
+
+    async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>> {
+        self.sqlite().list_media_items(page).await
+    }
+
+    async fn list_media_items_for_library(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.sqlite()
+            .list_media_items_for_library(library_id, page)
+            .await
+    }
+
+    async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
+        self.sqlite().upsert_media_source(source).await
+    }
+
+    async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
+        self.sqlite().get_media_source(id).await
+    }
+
+    async fn get_media_source_by_locator(
+        &self,
+        library_id: LibraryId,
+        locator: &str,
+    ) -> Result<Option<MediaSource>> {
+        self.sqlite()
+            .get_media_source_by_locator(library_id, locator)
+            .await
+    }
+
+    async fn list_item_sources(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        self.sqlite().list_item_sources(item_id, page).await
+    }
+
+    async fn list_media_sources(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        self.sqlite().list_media_sources(library_id, page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl MediaProbeRepository for TaruDatabase {
+    async fn upsert_media_probe(
+        &self,
+        source_id: MediaSourceId,
+        result: &MediaProbeResult,
+    ) -> Result<()> {
+        self.sqlite().upsert_media_probe(source_id, result).await
+    }
+
+    async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>> {
+        self.sqlite().get_media_probe(source_id).await
+    }
+}
+
+#[async_trait::async_trait]
+impl ArtworkTaskRepository for TaruDatabase {
+    async fn enqueue_artwork_task(&self, task: &ArtworkTask) -> Result<()> {
+        self.sqlite().enqueue_artwork_task(task).await
+    }
+
+    async fn get_artwork_task(&self, id: ArtworkTaskId) -> Result<Option<ArtworkTask>> {
+        self.sqlite().get_artwork_task(id).await
+    }
+
+    async fn list_artwork_tasks(&self, page: PageRequest) -> Result<Vec<ArtworkTask>> {
+        self.sqlite().list_artwork_tasks(page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl ArtworkCandidateRepository for TaruDatabase {
+    async fn create_artwork_candidate(
+        &self,
+        candidate: NewArtworkCandidate,
+    ) -> Result<ArtworkCandidateRecord> {
+        self.sqlite().create_artwork_candidate(candidate).await
+    }
+
+    async fn get_artwork_candidate(
+        &self,
+        id: ArtworkCandidateId,
+    ) -> Result<Option<ArtworkCandidateRecord>> {
+        self.sqlite().get_artwork_candidate(id).await
+    }
+
+    async fn set_artwork_candidate_status(
+        &self,
+        id: ArtworkCandidateId,
+        status: ArtworkCandidateStatus,
+    ) -> Result<ArtworkCandidateRecord> {
+        self.sqlite().set_artwork_candidate_status(id, status).await
+    }
+
+    async fn find_artwork_candidate_by_source(
+        &self,
+        addon_id: AddonId,
+        library_id: LibraryId,
+        item_id: MediaItemId,
+        kind: &ImageKind,
+        source_kind: ArtworkCandidateSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ArtworkCandidateRecord>> {
+        self.sqlite()
+            .find_artwork_candidate_by_source(
+                addon_id,
+                library_id,
+                item_id,
+                kind,
+                source_kind,
+                source_uri,
+            )
+            .await
+    }
+
+    async fn list_artwork_candidates_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ArtworkCandidateRecord>> {
+        self.sqlite()
+            .list_artwork_candidates_for_item(item_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl ManagedArtworkRepository for TaruDatabase {
+    async fn accept_managed_artwork_candidate_ingest(
+        &self,
+        candidate_id: ArtworkCandidateId,
+        ingest: NewManagedArtworkIngest,
+        job: NewJob,
+    ) -> Result<ManagedArtworkAcceptanceRecord> {
+        self.sqlite()
+            .accept_managed_artwork_candidate_ingest(candidate_id, ingest, job)
+            .await
+    }
+
+    async fn get_managed_artwork_ingest(
+        &self,
+        id: ManagedArtworkIngestId,
+    ) -> Result<Option<ManagedArtworkIngestRecord>> {
+        self.sqlite().get_managed_artwork_ingest(id).await
+    }
+
+    async fn find_managed_artwork_ingest_by_candidate(
+        &self,
+        candidate_id: ArtworkCandidateId,
+    ) -> Result<Option<ManagedArtworkIngestRecord>> {
+        self.sqlite()
+            .find_managed_artwork_ingest_by_candidate(candidate_id)
+            .await
+    }
+
+    async fn claim_next_queued_managed_artwork_ingest(
+        &self,
+    ) -> Result<Option<ManagedArtworkIngestClaimRecord>> {
+        self.sqlite()
+            .claim_next_queued_managed_artwork_ingest()
+            .await
+    }
+
+    async fn commit_managed_artwork_artifact(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        artifact: NewManagedArtworkArtifact,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord> {
+        self.sqlite()
+            .commit_managed_artwork_artifact(ingest_id, artifact, job_summary_json)
+            .await
+    }
+
+    async fn fail_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord> {
+        self.sqlite()
+            .fail_managed_artwork_ingest(ingest_id, failure_code, job_error, job_summary_json)
+            .await
+    }
+
+    async fn fail_unfinished_managed_artwork_ingests(
+        &self,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<u64> {
+        self.sqlite()
+            .fail_unfinished_managed_artwork_ingests(failure_code, job_error, job_summary_json)
+            .await
+    }
+
+    async fn requeue_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<ManagedArtworkIngestRequeueRecord> {
+        self.sqlite()
+            .requeue_managed_artwork_ingest(ingest_id)
+            .await
+    }
+
+    async fn get_managed_artwork_artifact(
+        &self,
+        id: ManagedArtworkArtifactId,
+    ) -> Result<Option<ManagedArtworkArtifactRecord>> {
+        self.sqlite().get_managed_artwork_artifact(id).await
+    }
+
+    async fn publish_selected_artwork(
+        &self,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord> {
+        self.sqlite().publish_selected_artwork(artifact_id).await
+    }
+
+    async fn publish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord> {
+        self.sqlite()
+            .publish_selected_artwork_for_item_kind(item_id, kind, artifact_id)
+            .await
+    }
+
+    async fn unpublish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: ImageKind,
+    ) -> Result<SelectedArtworkUnpublicationRecord> {
+        self.sqlite()
+            .unpublish_selected_artwork_for_item_kind(item_id, kind)
+            .await
+    }
+
+    async fn get_selected_artwork(
+        &self,
+        id: SelectedArtworkId,
+    ) -> Result<Option<SelectedArtworkRecord>> {
+        self.sqlite().get_selected_artwork(id).await
+    }
+
+    async fn list_selected_artwork_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<SelectedArtworkRecord>> {
+        self.sqlite().list_selected_artwork_for_item(item_id).await
+    }
+
+    async fn get_managed_artwork_gallery_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkGallerySnapshot> {
+        self.sqlite()
+            .get_managed_artwork_gallery_for_item(item_id, page)
+            .await
+    }
+
+    async fn list_managed_artwork_artifact_lifecycle(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactLifecycleSnapshot> {
+        self.sqlite()
+            .list_managed_artwork_artifact_lifecycle(filter, page)
+            .await
+    }
+
+    async fn cleanup_unselected_managed_artwork_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactCleanupReport> {
+        self.sqlite()
+            .cleanup_unselected_managed_artwork_artifacts(page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl MetadataRepository for TaruDatabase {
+    async fn upsert_field_lock(&self, lock: &MetadataFieldLock) -> Result<()> {
+        self.sqlite().upsert_field_lock(lock).await
+    }
+
+    async fn list_field_locks(&self, item_id: MediaItemId) -> Result<Vec<MetadataFieldLock>> {
+        self.sqlite().list_field_locks(item_id).await
+    }
+
+    async fn upsert_provider_raw_response(&self, response: &ProviderRawResponse) -> Result<()> {
+        self.sqlite().upsert_provider_raw_response(response).await
+    }
+
+    async fn commit_metadata_refresh(
+        &self,
+        commit: &MetadataRefreshPersistenceCommit,
+    ) -> Result<MetadataRefreshPersistenceSummary> {
+        self.sqlite().commit_metadata_refresh(commit).await
+    }
+
+    async fn commit_nfo_import(
+        &self,
+        commit: &NfoImportPersistenceCommit,
+    ) -> Result<NfoImportPersistenceSummary> {
+        self.sqlite().commit_nfo_import(commit).await
+    }
+
+    async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
+        self.sqlite().commit_metadata_item(item).await
+    }
+
+    async fn get_provider_raw_response(
+        &self,
+        item_id: MediaItemId,
+        provider: &ExternalProvider,
+        provider_key: &str,
+    ) -> Result<Option<ProviderRawResponse>> {
+        self.sqlite()
+            .get_provider_raw_response(item_id, provider, provider_key)
+            .await
+    }
+
+    async fn list_provider_raw_responses(
+        &self,
+        item_id: MediaItemId,
+        filter: ProviderRawResponseFilter,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderRawResponse>> {
+        self.sqlite()
+            .list_provider_raw_responses(item_id, filter, page)
+            .await
+    }
+
+    async fn cleanup_provider_raw_responses(
+        &self,
+        filter: ProviderRawResponseFilter,
+        fetched_before: &str,
+    ) -> Result<ProviderRawResponseCleanup> {
+        self.sqlite()
+            .cleanup_provider_raw_responses(filter, fetched_before)
+            .await
+    }
+
+    async fn insert_metadata_provider_attempt(
+        &self,
+        attempt: NewMetadataProviderAttempt,
+    ) -> Result<()> {
+        self.sqlite()
+            .insert_metadata_provider_attempt(attempt)
+            .await
+    }
+
+    async fn list_metadata_provider_attempts(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        self.sqlite().list_metadata_provider_attempts(job_id).await
+    }
+
+    async fn list_metadata_provider_attempts_for_item(
+        &self,
+        item_id: MediaItemId,
+        filter: MetadataAttemptFilter,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        self.sqlite()
+            .list_metadata_provider_attempts_for_item(item_id, filter, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl ProviderMappingRepository for TaruDatabase {
+    async fn upsert_provider_subject(&self, subject: &ProviderSubject) -> Result<()> {
+        self.sqlite().upsert_provider_subject(subject).await
+    }
+
+    async fn get_provider_subject(&self, id: ProviderSubjectId) -> Result<Option<ProviderSubject>> {
+        self.sqlite().get_provider_subject(id).await
+    }
+
+    async fn find_provider_subject(
+        &self,
+        provider: &ExternalProvider,
+        subject_kind: &ProviderSubjectKind,
+        subject_key: &str,
+    ) -> Result<Option<ProviderSubject>> {
+        self.sqlite()
+            .find_provider_subject(provider, subject_kind, subject_key)
+            .await
+    }
+
+    async fn list_provider_subjects_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderSubject>> {
+        self.sqlite()
+            .list_provider_subjects_for_item(item_id, page)
+            .await
+    }
+
+    async fn upsert_provider_mapping(&self, mapping: &ProviderMapping) -> Result<()> {
+        self.sqlite().upsert_provider_mapping(mapping).await
+    }
+
+    async fn list_provider_mappings_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderMapping>> {
+        self.sqlite()
+            .list_provider_mappings_for_item(item_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl SourceDuplicateRepository for TaruDatabase {
+    async fn upsert_source_duplicate_relationship(
+        &self,
+        relationship: &SourceDuplicateRelationship,
+    ) -> Result<()> {
+        self.sqlite()
+            .upsert_source_duplicate_relationship(relationship)
+            .await
+    }
+
+    async fn get_source_duplicate_relationship(
+        &self,
+        id: SourceDuplicateRelationshipId,
+    ) -> Result<Option<SourceDuplicateRelationship>> {
+        self.sqlite().get_source_duplicate_relationship(id).await
+    }
+
+    async fn list_source_duplicate_relationships(
+        &self,
+        source_id: MediaSourceId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceDuplicateRelationship>> {
+        self.sqlite()
+            .list_source_duplicate_relationships(source_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl LocalInferenceRepository for TaruDatabase {
+    async fn upsert_local_inference_evidence(
+        &self,
+        evidence: &LocalInferenceEvidence,
+    ) -> Result<()> {
+        self.sqlite()
+            .upsert_local_inference_evidence(evidence)
+            .await
+    }
+
+    async fn get_local_inference_evidence(
+        &self,
+        id: LocalInferenceEvidenceId,
+    ) -> Result<Option<LocalInferenceEvidence>> {
+        self.sqlite().get_local_inference_evidence(id).await
+    }
+
+    async fn list_local_inference_evidence_for_source(
+        &self,
+        source_id: MediaSourceId,
+        page: PageRequest,
+    ) -> Result<Vec<LocalInferenceEvidence>> {
+        self.sqlite()
+            .list_local_inference_evidence_for_source(source_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl ScanRepository for TaruDatabase {
+    async fn begin_scan_snapshot(
+        &self,
+        id: ScanSnapshotId,
+        library_id: LibraryId,
+        root: &str,
+    ) -> Result<ScanSnapshot> {
+        self.sqlite()
+            .begin_scan_snapshot(id, library_id, root)
+            .await
+    }
+
+    async fn complete_scan_snapshot(
+        &self,
+        id: ScanSnapshotId,
+        status: ScanStatus,
+        error: Option<String>,
+    ) -> Result<ScanSnapshot> {
+        self.sqlite()
+            .complete_scan_snapshot(id, status, error)
+            .await
+    }
+
+    async fn get_scan_snapshot(&self, id: ScanSnapshotId) -> Result<Option<ScanSnapshot>> {
+        self.sqlite().get_scan_snapshot(id).await
+    }
+
+    async fn upsert_directory_snapshot(&self, snapshot: &DirectorySnapshot) -> Result<()> {
+        self.sqlite().upsert_directory_snapshot(snapshot).await
+    }
+
+    async fn list_directory_snapshots(
+        &self,
+        scan_id: ScanSnapshotId,
+    ) -> Result<Vec<DirectorySnapshot>> {
+        self.sqlite().list_directory_snapshots(scan_id).await
+    }
+
+    async fn upsert_source_state(&self, state: &SourceState) -> Result<()> {
+        self.sqlite().upsert_source_state(state).await
+    }
+
+    async fn commit_library_scan_source(
+        &self,
+        commit: &LibraryScanSourcePersistenceCommit,
+    ) -> Result<LibraryScanSourcePersistenceSummary> {
+        self.sqlite().commit_library_scan_source(commit).await
+    }
+
+    async fn get_source_state(
+        &self,
+        library_id: LibraryId,
+        uri: &str,
+    ) -> Result<Option<SourceState>> {
+        self.sqlite().get_source_state(library_id, uri).await
+    }
+
+    async fn list_source_states(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceState>> {
+        self.sqlite().list_source_states(library_id, page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl DatabaseLifecycle for TaruDatabase {
+    async fn migrate(&self) -> Result<()> {
+        self.sqlite().migrate().await
+    }
+}
+
+#[async_trait::async_trait]
+impl TranscodeSessionRepository for TaruDatabase {
+    async fn create_transcode_session(
+        &self,
+        session: NewTranscodeSession,
+    ) -> Result<TranscodeSessionRecord> {
+        self.sqlite().create_transcode_session(session).await
+    }
+
+    async fn get_transcode_session(
+        &self,
+        id: TranscodeSessionId,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        self.sqlite().get_transcode_session(id).await
+    }
+
+    async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>> {
+        self.sqlite().list_transcode_sessions(filter, page).await
+    }
+
+    async fn find_latest_transcode_session(
+        &self,
+        source_id: MediaSourceId,
+        kind: TranscodeSessionKind,
+        request_key: &str,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        self.sqlite()
+            .find_latest_transcode_session(source_id, kind, request_key)
+            .await
+    }
+
+    async fn find_active_transcode_session(
+        &self,
+        source_id: MediaSourceId,
+        kind: TranscodeSessionKind,
+        request_key: &str,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        self.sqlite()
+            .find_active_transcode_session(source_id, kind, request_key)
+            .await
+    }
+
+    async fn set_transcode_session_state(
+        &self,
+        id: TranscodeSessionId,
+        state: TranscodeSessionState,
+        failure_category: Option<TranscodeFailureCategory>,
+        failure_message: Option<String>,
+    ) -> Result<TranscodeSessionRecord> {
+        self.sqlite()
+            .set_transcode_session_state(id, state, failure_category, failure_message)
+            .await
+    }
+
+    async fn request_transcode_session_cancellation(
+        &self,
+        id: TranscodeSessionId,
+        failure_message: String,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        self.sqlite()
+            .request_transcode_session_cancellation(id, failure_message)
+            .await
+    }
+
+    async fn fail_stale_transcode_sessions(
+        &self,
+        failure_category: TranscodeFailureCategory,
+        failure_message: String,
+    ) -> Result<u64> {
+        self.sqlite()
+            .fail_stale_transcode_sessions(failure_category, failure_message)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaybackStateRepository for TaruDatabase {
+    async fn upsert_user_playback_state(
+        &self,
+        state: UserPlaybackStateWrite,
+    ) -> Result<UserPlaybackState> {
+        self.sqlite().upsert_user_playback_state(state).await
+    }
+
+    async fn get_user_playback_state(
+        &self,
+        principal_id: &UserPrincipalId,
+        item_id: MediaItemId,
+    ) -> Result<Option<UserPlaybackState>> {
+        self.sqlite()
+            .get_user_playback_state(principal_id, item_id)
+            .await
+    }
+
+    async fn list_continue_watching_states(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackState>> {
+        self.sqlite()
+            .list_continue_watching_states(principal_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl VfsCacheRepository for TaruDatabase {
+    async fn upsert_vfs_cache_object(&self, object: &VfsCachedObject) -> Result<()> {
+        self.sqlite().upsert_vfs_cache_object(object).await
+    }
+
+    async fn upsert_vfs_cache_listing(&self, listing: &VfsCachedListing) -> Result<()> {
+        self.sqlite().upsert_vfs_cache_listing(listing).await
+    }
+
+    async fn get_vfs_cache_object(&self, uri: &str) -> Result<Option<VfsCachedObject>> {
+        self.sqlite().get_vfs_cache_object(uri).await
+    }
+
+    async fn get_vfs_cache_listing(&self, uri: &str) -> Result<Option<VfsCachedListing>> {
+        self.sqlite().get_vfs_cache_listing(uri).await
+    }
+
+    async fn record_vfs_cache_failure(
+        &self,
+        failure: NewVfsCacheFailure,
+    ) -> Result<VfsCacheFailure> {
+        self.sqlite().record_vfs_cache_failure(failure).await
+    }
+
+    async fn get_vfs_cache_failure(
+        &self,
+        uri: &str,
+        operation: VfsCacheOperation,
+    ) -> Result<Option<VfsCacheFailure>> {
+        self.sqlite().get_vfs_cache_failure(uri, operation).await
+    }
+
+    async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
+        self.sqlite().summarize_vfs_cache(now_ms).await
+    }
+}
+
+#[async_trait::async_trait]
+impl StagingManifestRepository for TaruDatabase {
+    async fn upsert_staging_manifest_record(
+        &self,
+        record: NewStagingManifestRecord,
+    ) -> Result<StagingManifestRecord> {
+        self.sqlite().upsert_staging_manifest_record(record).await
+    }
+
+    async fn reserve_staging_manifest_record(
+        &self,
+        record: NewStagingManifestRecord,
+        max_total_bytes: u64,
+        now_ms: i64,
+    ) -> Result<StagingManifestRecord> {
+        self.sqlite()
+            .reserve_staging_manifest_record(record, max_total_bytes, now_ms)
+            .await
+    }
+
+    async fn start_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        started_at_ms: i64,
+    ) -> Result<StagingManifestRecord> {
+        self.sqlite()
+            .start_staging_manifest_record(id, started_at_ms)
+            .await
+    }
+
+    async fn complete_staging_manifest_record(
+        &self,
+        record: NewStagingManifestRecord,
+    ) -> Result<StagingManifestRecord> {
+        self.sqlite().complete_staging_manifest_record(record).await
+    }
+
+    async fn fail_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        failed_at_ms: i64,
+        validation_error: String,
+    ) -> Result<Option<StagingManifestRecord>> {
+        self.sqlite()
+            .fail_staging_manifest_record(id, failed_at_ms, validation_error)
+            .await
+    }
+
+    async fn expire_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        expired_at_ms: i64,
+    ) -> Result<Option<StagingManifestRecord>> {
+        self.sqlite()
+            .expire_staging_manifest_record(id, expired_at_ms)
+            .await
+    }
+
+    async fn mark_deleted_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        deleted_at_ms: i64,
+    ) -> Result<Option<StagingManifestRecord>> {
+        self.sqlite()
+            .mark_deleted_staging_manifest_record(id, deleted_at_ms)
+            .await
+    }
+
+    async fn acquire_staging_manifest_lease(
+        &self,
+        id: StagingManifestId,
+        leased_at_ms: i64,
+    ) -> Result<StagingManifestRecord> {
+        self.sqlite()
+            .acquire_staging_manifest_lease(id, leased_at_ms)
+            .await
+    }
+
+    async fn release_staging_manifest_lease(
+        &self,
+        id: StagingManifestId,
+        released_at_ms: i64,
+    ) -> Result<StagingManifestRecord> {
+        self.sqlite()
+            .release_staging_manifest_lease(id, released_at_ms)
+            .await
+    }
+
+    async fn get_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+    ) -> Result<Option<StagingManifestRecord>> {
+        self.sqlite().get_staging_manifest_record(id).await
+    }
+
+    async fn find_staging_manifest_record_by_path(
+        &self,
+        local_path: &str,
+    ) -> Result<Option<StagingManifestRecord>> {
+        self.sqlite()
+            .find_staging_manifest_record_by_path(local_path)
+            .await
+    }
+
+    async fn list_staging_manifest_records(
+        &self,
+        purpose: Option<StagingPurpose>,
+        state: Option<StagingState>,
+        page: PageRequest,
+    ) -> Result<Vec<StagingManifestRecord>> {
+        self.sqlite()
+            .list_staging_manifest_records(purpose, state, page)
+            .await
+    }
+
+    async fn list_staging_cleanup_candidates(
+        &self,
+        now_ms: i64,
+        page: PageRequest,
+    ) -> Result<Vec<StagingManifestRecord>> {
+        self.sqlite()
+            .list_staging_cleanup_candidates(now_ms, page)
+            .await
+    }
+
+    async fn touch_staging_manifest_record(
+        &self,
+        id: StagingManifestId,
+        accessed_at_ms: i64,
+    ) -> Result<Option<StagingManifestRecord>> {
+        self.sqlite()
+            .touch_staging_manifest_record(id, accessed_at_ms)
+            .await
+    }
+
+    async fn delete_staging_manifest_record(&self, id: StagingManifestId) -> Result<()> {
+        self.sqlite().delete_staging_manifest_record(id).await
+    }
+
+    async fn sum_staging_manifest_bytes(&self) -> Result<u64> {
+        self.sqlite().sum_staging_manifest_bytes().await
+    }
+}
+
+#[async_trait::async_trait]
+impl WebhookRepository for TaruDatabase {
+    async fn upsert_webhook_endpoint(
+        &self,
+        endpoint: NewWebhookEndpoint,
+    ) -> Result<WebhookEndpointRecord> {
+        self.sqlite().upsert_webhook_endpoint(endpoint).await
+    }
+
+    async fn get_webhook_endpoint(
+        &self,
+        id: WebhookEndpointId,
+    ) -> Result<Option<WebhookEndpointRecord>> {
+        self.sqlite().get_webhook_endpoint(id).await
+    }
+
+    async fn list_enabled_webhook_endpoints(&self) -> Result<Vec<WebhookEndpointRecord>> {
+        self.sqlite().list_enabled_webhook_endpoints().await
+    }
+
+    async fn create_webhook_delivery_attempt(
+        &self,
+        attempt: NewWebhookDeliveryAttempt,
+    ) -> Result<WebhookDeliveryAttemptRecord> {
+        self.sqlite().create_webhook_delivery_attempt(attempt).await
+    }
+
+    async fn set_webhook_delivery_attempt_result(
+        &self,
+        id: WebhookDeliveryAttemptId,
+        status: WebhookDeliveryStatus,
+        http_status: Option<u16>,
+        error: Option<String>,
+        next_retry_at: Option<String>,
+    ) -> Result<WebhookDeliveryAttemptRecord> {
+        self.sqlite()
+            .set_webhook_delivery_attempt_result(id, status, http_status, error, next_retry_at)
+            .await
+    }
+
+    async fn list_webhook_delivery_attempts(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<WebhookDeliveryAttemptRecord>> {
+        self.sqlite().list_webhook_delivery_attempts(event_id).await
+    }
+}
+
+#[async_trait::async_trait]
+impl SearchIndex for TaruDatabase {
+    async fn upsert(&self, document: SearchDocument) -> Result<()> {
+        self.sqlite().upsert(document).await
+    }
+
+    async fn delete(&self, item_id: MediaItemId) -> Result<()> {
+        self.sqlite().delete(item_id).await
+    }
+
+    async fn search(&self, query: SearchQuery) -> Result<Vec<SearchHit>> {
+        self.sqlite().search(query).await
+    }
+}

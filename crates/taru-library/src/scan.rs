@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_core::{Result, TaruError};
-use taru_naming::{DefaultNameParser, NameParser, ParsedName};
 use taru_vfs::{ObjectCacheState, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 
 use super::{
@@ -22,7 +21,6 @@ pub struct DiscoveredMediaSource {
     pub modified_at: Option<String>,
     pub etag: Option<String>,
     pub fingerprint: Option<String>,
-    pub parsed_name: ParsedName,
     pub stale: bool,
 }
 
@@ -57,7 +55,6 @@ impl Default for LibraryScannerOptions {
 pub struct VfsLibraryScanner<B> {
     backend: B,
     options: LibraryScannerOptions,
-    name_parser: DefaultNameParser,
 }
 
 impl<B> VfsLibraryScanner<B> {
@@ -65,16 +62,11 @@ impl<B> VfsLibraryScanner<B> {
         Self {
             backend,
             options: LibraryScannerOptions::default(),
-            name_parser: DefaultNameParser,
         }
     }
 
     pub fn with_options(backend: B, options: LibraryScannerOptions) -> Self {
-        Self {
-            backend,
-            options,
-            name_parser: DefaultNameParser,
-        }
+        Self { backend, options }
     }
 
     #[must_use]
@@ -173,7 +165,6 @@ impl<B> VfsLibraryScanner<B> {
             .map(|(_parent, file_name)| file_name)
             .unwrap_or_else(|| metadata.uri.path_part())
             .to_owned();
-        let parsed_name = self.name_parser.parse_path(metadata.uri.path_part());
 
         DiscoveredMediaSource {
             uri: metadata.uri,
@@ -182,7 +173,6 @@ impl<B> VfsLibraryScanner<B> {
             modified_at: metadata.modified_at,
             etag: metadata.etag,
             fingerprint: metadata.fingerprint,
-            parsed_name,
             stale,
         }
     }

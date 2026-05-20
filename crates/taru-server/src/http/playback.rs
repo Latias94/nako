@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use taru_api::{
+use taru_api::public_client::{
     PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse, transcode_session_response_from_record,
 };
 use taru_core::{MediaSourceId, TaruError, TranscodeSessionId};

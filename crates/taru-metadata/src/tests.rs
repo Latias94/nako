@@ -14,16 +14,16 @@ use axum::{
 use reqwest::header::HeaderMap;
 use serde_json::json;
 use taru_core::{
-    CanonicalMetadata, CatalogRepository, ContentRating, CreditRole, ExternalId, ExternalProvider,
-    ImageKind, JobId, JobKind, JobRepository, Library, LibraryId, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository, MediaItem, MediaItemId,
-    MediaKind, MediaRepository, MediaSource, MediaSourceId, MetadataField, MetadataFieldLock,
+    CanonicalMetadata, CatalogRepository, ContentRating, CreditRole, DatabaseLifecycle, ExternalId,
+    ExternalProvider, ImageKind, JobId, JobKind, JobRepository, Library, LibraryId,
+    LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
+    MetadataCandidateGraph, MetadataCandidateSource, MetadataField, MetadataFieldLock,
     MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
     MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob, PageRequest,
     ProviderMappingRepository, ProviderMappingStatus, ProviderSubjectKind, Result, TaruError,
-    TransactionManager,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_search::{SearchIndex, SearchQuery};
 use tokio::{net::TcpListener, time::Instant};
 
@@ -40,7 +40,7 @@ mod fixtures;
 
 #[tokio::test]
 async fn hierarchy_confirmation_confirms_provisional_items_in_place() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let library = Library {
         id: LibraryId::new(),
@@ -179,12 +179,7 @@ async fn hierarchy_confirmation_confirms_provisional_items_in_place() {
         .await
         .unwrap();
     let hits = store
-        .search(SearchQuery {
-            query: "heist".to_owned(),
-            facets: Vec::new(),
-            limit: 10,
-            offset: 0,
-        })
+        .search(SearchQuery::from_facet_labels("heist", Vec::new(), 10, 0).unwrap())
         .await
         .unwrap();
 
@@ -223,7 +218,7 @@ async fn hierarchy_confirmation_confirms_provisional_items_in_place() {
 
 #[tokio::test]
 async fn hierarchy_confirmation_rejects_confirmed_structure_changes() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let library = Library {
         id: LibraryId::new(),
@@ -275,7 +270,7 @@ async fn hierarchy_confirmation_rejects_confirmed_structure_changes() {
 
 #[tokio::test]
 async fn hierarchy_confirmation_allows_source_authority_to_refresh_own_locked_fields() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let library = Library {
         id: LibraryId::new(),
@@ -352,7 +347,7 @@ async fn hierarchy_confirmation_allows_source_authority_to_refresh_own_locked_fi
 
 #[tokio::test]
 async fn metadata_refresh_confirms_provider_state_across_all_library_memberships() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = MediaItem {
         id: MediaItemId::new(),
@@ -467,7 +462,7 @@ async fn metadata_refresh_confirms_provider_state_across_all_library_memberships
 #[tokio::test]
 async fn metadata_refresh_accepts_douban_and_bangumi_provider_mappings() {
     let server = MockMetadataServer::start().await;
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let douban_item = seed_media_item(
         &store,
@@ -557,6 +552,8 @@ async fn metadata_refresh_accepts_douban_and_bangumi_provider_mappings() {
     assert_eq!(douban_subjects[0].provider, ExternalProvider::Douban);
     assert_eq!(douban_subjects[0].subject_kind, ProviderSubjectKind::Movie);
     assert_eq!(douban_subjects[0].subject_key, "1292052");
+    assert_eq!(douban_subjects[0].title.as_deref(), Some("肖申克的救赎"));
+    assert_eq!(douban_subjects[0].release_year, Some(1994));
     assert_eq!(douban_mappings[0].status, ProviderMappingStatus::Accepted);
     assert_eq!(bangumi_subjects[0].provider, ExternalProvider::Bangumi);
     assert_eq!(
@@ -564,6 +561,8 @@ async fn metadata_refresh_accepts_douban_and_bangumi_provider_mappings() {
         ProviderSubjectKind::Series
     );
     assert_eq!(bangumi_subjects[0].subject_key, "8");
+    assert_eq!(bangumi_subjects[0].title.as_deref(), Some("星际牛仔"));
+    assert_eq!(bangumi_subjects[0].release_year, Some(1998));
     assert_eq!(bangumi_mappings[0].status, ProviderMappingStatus::Accepted);
 }
 
@@ -656,7 +655,7 @@ fn full_refresh_replaces_unlocked_existing_values() {
 
 #[tokio::test]
 async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
     let item = seed_movie(&store, "Local Matrix", Some("1999".to_owned()), vec![]).await;
@@ -676,16 +675,20 @@ async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
         MetadataFetchResult {
             provider: ExternalProvider::Tmdb,
             provider_key: "603".to_owned(),
-            metadata: CanonicalMetadata {
-                title: "The Matrix".to_owned(),
-                overview: Some("A hacker discovers the nature of reality.".to_owned()),
-                genres: vec!["Action".to_owned(), "Science Fiction".to_owned()],
-                external_ids: vec![ExternalId {
-                    provider: ExternalProvider::Tmdb,
-                    value: "603".to_owned(),
-                }],
-                ..CanonicalMetadata::default()
-            },
+            graph: MetadataCandidateGraph::from_canonical(
+                MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                MediaKind::Movie,
+                CanonicalMetadata {
+                    title: "The Matrix".to_owned(),
+                    overview: Some("A hacker discovers the nature of reality.".to_owned()),
+                    genres: vec!["Action".to_owned(), "Science Fiction".to_owned()],
+                    external_ids: vec![ExternalId {
+                        provider: ExternalProvider::Tmdb,
+                        value: "603".to_owned(),
+                    }],
+                    ..CanonicalMetadata::default()
+                },
+            ),
             raw_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
         },
     );
@@ -720,12 +723,15 @@ async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
     let persisted_attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
     let genres = store.list_genres(PageRequest::first_page()).await.unwrap();
     let hits = store
-        .search(SearchQuery {
-            query: "Science Fiction".to_owned(),
-            facets: vec!["genre:Science Fiction".to_owned()],
-            limit: 10,
-            offset: 0,
-        })
+        .search(
+            SearchQuery::from_facet_labels(
+                "Science Fiction",
+                vec!["genre:Science Fiction".to_owned()],
+                10,
+                0,
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -785,7 +791,7 @@ async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
 
 #[tokio::test]
 async fn refresh_uses_existing_external_id_without_search() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(
         &store,
@@ -803,15 +809,19 @@ async fn refresh_uses_existing_external_id_without_search() {
         MetadataFetchResult {
             provider: ExternalProvider::Tmdb,
             provider_key: "603".to_owned(),
-            metadata: CanonicalMetadata {
-                title: "The Matrix".to_owned(),
-                runtime_minutes: Some(136),
-                external_ids: vec![ExternalId {
-                    provider: ExternalProvider::Tmdb,
-                    value: "603".to_owned(),
-                }],
-                ..CanonicalMetadata::default()
-            },
+            graph: MetadataCandidateGraph::from_canonical(
+                MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                MediaKind::Movie,
+                CanonicalMetadata {
+                    title: "The Matrix".to_owned(),
+                    runtime_minutes: Some(136),
+                    external_ids: vec![ExternalId {
+                        provider: ExternalProvider::Tmdb,
+                        value: "603".to_owned(),
+                    }],
+                    ..CanonicalMetadata::default()
+                },
+            ),
             raw_json: r#"{"id":603,"runtime":136}"#.to_owned(),
         },
     );
@@ -845,7 +855,7 @@ async fn refresh_uses_existing_external_id_without_search() {
 
 #[tokio::test]
 async fn strategy_falls_back_from_unimplemented_bangumi_to_tmdb() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(&store, "Anime Movie", Some("2024".to_owned()), vec![]).await;
     let job_id = seed_metadata_job(&store, &item).await;
@@ -915,7 +925,7 @@ async fn strategy_falls_back_from_unimplemented_bangumi_to_tmdb() {
 
 #[tokio::test]
 async fn strategy_skips_disabled_provider() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(&store, "The Matrix", Some("1999".to_owned()), vec![]).await;
     let job_id = seed_metadata_job(&store, &item).await;
@@ -974,7 +984,7 @@ async fn strategy_skips_disabled_provider() {
 
 #[tokio::test]
 async fn strategy_fails_when_all_providers_fail() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(&store, "Unknown Movie", None, vec![]).await;
     let job_id = seed_metadata_job(&store, &item).await;
@@ -1022,7 +1032,7 @@ async fn strategy_fails_when_all_providers_fail() {
 
 #[tokio::test]
 async fn strategy_persists_rate_limited_attempts() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(
         &store,
@@ -1085,7 +1095,7 @@ async fn strategy_persists_rate_limited_attempts() {
 
 #[tokio::test]
 async fn strategy_short_circuits_after_first_success() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(&store, "The Matrix", Some("1999".to_owned()), vec![]).await;
     let job_id = seed_metadata_job(&store, &item).await;
@@ -1150,7 +1160,7 @@ async fn strategy_short_circuits_after_first_success() {
 
 #[tokio::test]
 async fn strategy_preserves_locked_fields() {
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let item = seed_movie(&store, "Local Matrix", Some("1999".to_owned()), vec![]).await;
     let job_id = seed_metadata_job(&store, &item).await;
@@ -1243,7 +1253,7 @@ fn tmdb_movie_details_maps_core_metadata() {
 
     let metadata = tmdb_movie_details_to_metadata(details, DEFAULT_TMDB_IMAGE_BASE_URL);
 
-    assert_eq!(metadata.title, "The Matrix");
+    assert_eq!(metadata.title.as_deref(), Some("The Matrix"));
     assert_eq!(metadata.runtime_minutes, Some(136));
     assert_eq!(metadata.genres, vec!["Action"]);
     assert_eq!(
@@ -1270,6 +1280,51 @@ fn tmdb_movie_details_maps_core_metadata() {
 }
 
 #[test]
+fn metadata_candidate_graph_projects_provider_payload_without_becoming_raw_payload() {
+    let details: TmdbMovieDetails = serde_json::from_str(
+        r#"
+            {
+              "id": 603,
+              "title": "The Matrix",
+              "original_title": "The Matrix",
+              "overview": "A hacker discovers the nature of reality.",
+              "release_date": "1999-03-31",
+              "runtime": 136,
+              "genres": [{"id": 28, "name": "Action"}],
+              "poster_path": "/poster.jpg",
+              "credits": {"cast": [], "crew": []},
+              "images": {"posters": [], "backdrops": [], "logos": []},
+              "release_dates": {"results": []},
+              "external_ids": {"imdb_id": "tt0133093"}
+            }
+            "#,
+    )
+    .unwrap();
+
+    let graph = MetadataCandidateGraph::for_provider(
+        ExternalProvider::Tmdb,
+        MediaKind::Movie,
+        ProviderSubjectKind::Movie,
+        details.id.to_string(),
+        tmdb_movie_details_to_metadata(details, DEFAULT_TMDB_IMAGE_BASE_URL),
+    );
+    let canonical = graph.canonical_metadata();
+    let subject = graph.root_provider_subject().unwrap();
+
+    assert_eq!(graph.root.kind, MediaKind::Movie);
+    assert_eq!(canonical.title, "The Matrix");
+    assert_eq!(canonical.runtime_minutes, Some(136));
+    assert!(canonical.external_ids.iter().any(|external_id| {
+        external_id.provider == ExternalProvider::Tmdb && external_id.value == "603"
+    }));
+    assert_eq!(subject.provider, ExternalProvider::Tmdb);
+    assert_eq!(subject.subject_kind, ProviderSubjectKind::Movie);
+    assert_eq!(subject.subject_key, "603");
+    assert_eq!(subject.title.as_deref(), Some("The Matrix"));
+    assert_eq!(subject.release_year, Some(1999));
+}
+
+#[test]
 fn bangumi_subject_maps_core_metadata() {
     let subject: BangumiSubject = serde_json::from_str(
         r#"
@@ -1292,7 +1347,7 @@ fn bangumi_subject_maps_core_metadata() {
 
     let metadata = bangumi_subject_to_metadata(subject, DEFAULT_BANGUMI_IMAGE_BASE_URL);
 
-    assert_eq!(metadata.title, "星际牛仔");
+    assert_eq!(metadata.title.as_deref(), Some("星际牛仔"));
     assert_eq!(metadata.original_title.as_deref(), Some("Cowboy Bebop"));
     assert_eq!(metadata.release_date.as_deref(), Some("1998-04-03"));
     assert_eq!(metadata.tags, vec!["科幻", "原创"]);
@@ -1329,7 +1384,7 @@ fn douban_subject_maps_core_metadata() {
 
     let metadata = douban_subject_to_metadata(subject, None);
 
-    assert_eq!(metadata.title, "肖申克的救赎");
+    assert_eq!(metadata.title.as_deref(), Some("肖申克的救赎"));
     assert_eq!(
         metadata.original_title.as_deref(),
         Some("The Shawshank Redemption")
@@ -1480,7 +1535,7 @@ async fn tmdb_provider_uses_runtime_and_maps_http_response() {
         .unwrap();
 
     assert_eq!(candidates[0].provider, ExternalProvider::Tmdb);
-    assert_eq!(fetched.metadata.title, "The Matrix");
+    assert_eq!(fetched.metadata().title, "The Matrix");
     assert_eq!(
         server.user_agents(),
         vec!["taru-tmdb-test", "taru-tmdb-test"]
@@ -1545,14 +1600,17 @@ async fn tmdb_provider_supports_series_season_and_episode_fetches() {
         .unwrap();
 
     assert_eq!(candidates[0].provider_key, "1437");
-    assert_eq!(candidates[0].metadata.title, "Firefly");
+    assert_eq!(candidates[0].metadata().title, "Firefly");
     assert_eq!(series.provider_key, "1437");
-    assert_eq!(series.metadata.title, "Firefly");
+    assert_eq!(series.metadata().title, "Firefly");
     assert_eq!(season.provider_key, "1437/1");
-    assert_eq!(season.metadata.title, "Season 1");
+    assert_eq!(season.metadata().title, "Season 1");
     assert_eq!(episode.provider_key, "1437/1/2");
-    assert_eq!(episode.metadata.title, "The Train Job");
-    assert_eq!(episode.metadata.release_date, Some("2002-09-20".to_owned()));
+    assert_eq!(episode.metadata().title, "The Train Job");
+    assert_eq!(
+        episode.metadata().release_date,
+        Some("2002-09-20".to_owned())
+    );
     assert!(
         server
             .uris()
@@ -1624,7 +1682,7 @@ async fn bangumi_provider_uses_runtime_and_maps_http_response() {
         .unwrap();
 
     assert_eq!(candidates[0].provider, ExternalProvider::Bangumi);
-    assert_eq!(fetched.metadata.title, "星际牛仔");
+    assert_eq!(fetched.metadata().title, "星际牛仔");
     assert!(
         server
             .authorizations()
@@ -1668,7 +1726,7 @@ async fn douban_provider_uses_api_key_and_maps_http_response() {
         .unwrap();
 
     assert_eq!(candidates[0].provider, ExternalProvider::Douban);
-    assert_eq!(fetched.metadata.title, "肖申克的救赎");
+    assert_eq!(fetched.metadata().title, "肖申克的救赎");
     assert!(
         server
             .uris()
@@ -1684,7 +1742,7 @@ async fn douban_provider_uses_api_key_and_maps_http_response() {
 }
 
 async fn seed_movie(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     title: &str,
     release_date: Option<String>,
     external_ids: Vec<ExternalId>,
@@ -1701,7 +1759,7 @@ async fn seed_movie(
 }
 
 async fn seed_media_item(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     preset: LibraryPreset,
     kind: MediaKind,
     title: &str,
@@ -1739,7 +1797,7 @@ async fn seed_media_item(
     item
 }
 
-async fn seed_metadata_job(store: &SqliteStore, item: &MediaItem) -> JobId {
+async fn seed_metadata_job(store: &TaruDatabase, item: &MediaItem) -> JobId {
     store
         .enqueue_job(NewJob {
             id: JobId::new(),
@@ -1812,13 +1870,17 @@ fn mock_candidate(
     title: &str,
 ) -> MetadataCandidate {
     MetadataCandidate {
-        provider,
+        provider: provider.clone(),
         provider_key: provider_key.to_owned(),
         score: 0.95,
-        metadata: CanonicalMetadata {
-            title: title.to_owned(),
-            ..CanonicalMetadata::default()
-        },
+        graph: MetadataCandidateGraph::from_canonical(
+            MetadataCandidateSource::Provider(provider),
+            MediaKind::Movie,
+            CanonicalMetadata {
+                title: title.to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        ),
     }
 }
 
@@ -1828,9 +1890,13 @@ fn mock_fetch_result(
     metadata: CanonicalMetadata,
 ) -> MetadataFetchResult {
     MetadataFetchResult {
-        provider,
+        provider: provider.clone(),
         provider_key: provider_key.to_owned(),
-        metadata,
+        graph: MetadataCandidateGraph::from_canonical(
+            MetadataCandidateSource::Provider(provider),
+            MediaKind::Movie,
+            metadata,
+        ),
         raw_json: format!(r#"{{"id":"{provider_key}"}}"#),
     }
 }

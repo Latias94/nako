@@ -1,4 +1,4 @@
-use taru_api::{
+use taru_api::public_client::{
     GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
     ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
     SearchResponse, TagItemsResponse, TagsResponse, collection_item_to_dto, genre_to_dto,
@@ -11,16 +11,16 @@ use taru_core::{
     CatalogRepository, GenreId, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
     MediaRepository, MediaSourceId, PageRequest, PersonId, Result, TagId, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_search::{SearchIndex, SearchQuery};
 
 #[derive(Clone, Debug)]
 pub(crate) struct CatalogAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
 }
 
 impl CatalogAppService {
-    pub(crate) fn new(store: SqliteStore) -> Self {
+    pub(crate) fn new(store: TaruDatabase) -> Self {
         Self { store }
     }
 
@@ -121,7 +121,7 @@ impl CatalogAppService {
     async fn list_selected_item_image_refs(
         &self,
         item_id: MediaItemId,
-    ) -> Result<Vec<taru_api::PublicImageRefDto>> {
+    ) -> Result<Vec<taru_api::public_client::PublicImageRefDto>> {
         let selected = self.store.list_selected_artwork_for_item(item_id).await?;
         let mut images = Vec::with_capacity(selected.len());
 
@@ -257,14 +257,14 @@ impl CatalogAppService {
         let page = page.clamped();
         let hits = self
             .store
-            .search(SearchQuery {
+            .search(SearchQuery::from_facet_labels(
                 query,
                 facets,
-                limit: page.limit,
-                offset: u32::try_from(page.offset).map_err(|err| TaruError::InvalidInput {
+                page.limit,
+                u32::try_from(page.offset).map_err(|err| TaruError::InvalidInput {
                     message: format!("search offset is too large: {err}"),
                 })?,
-            })
+            )?)
             .await?;
         let mut output_hits = Vec::with_capacity(hits.len());
 
@@ -292,7 +292,7 @@ impl CatalogAppService {
     pub async fn get_source_probe(
         &self,
         source_id: MediaSourceId,
-    ) -> Result<taru_api::SourceProbeResponse> {
+    ) -> Result<taru_api::public_client::SourceProbeResponse> {
         let probe = self
             .store
             .get_media_probe(source_id)
@@ -302,7 +302,7 @@ impl CatalogAppService {
                 id: source_id.to_string(),
             })?;
 
-        Ok(taru_api::SourceProbeResponse {
+        Ok(taru_api::public_client::SourceProbeResponse {
             source_id: source_id.to_string(),
             probe: media_probe_to_dto(probe),
         })

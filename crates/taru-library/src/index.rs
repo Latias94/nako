@@ -1,19 +1,20 @@
 use taru_core::{
-    CanonicalMetadata, CatalogRepository, CatalogSearchProjection, DirectorySnapshot,
-    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution, LibraryId,
-    LibraryItemRepository, LibraryItemState, LibraryRepository, LibraryScanSourcePersistenceCommit,
-    MediaItem, MediaItemId, MediaRepository, MediaSource, MediaSourceId, NewIngestionFailure,
-    PageRequest, Result, ScanRepository, ScanSnapshotId, ScanStatus,
+    BrowseFacet, BrowseFacetKind, CanonicalMetadata, CatalogRepository, CatalogSearchProjection,
+    DirectorySnapshot, IngestionFailurePhase, IngestionFailureRepository,
+    IngestionFailureResolution, LibraryId, LibraryItemRepository, LibraryItemState,
+    LibraryRepository, LibraryScanSourcePersistenceCommit, MediaItem, MediaItemId, MediaRepository,
+    MediaSource, MediaSourceId, NewIngestionFailure, PageRequest, Result, ScanRepository,
+    ScanSnapshotId, ScanStatus, SortKey, SortKeyKind,
 };
 use taru_vfs::StorageUri;
 
 use super::{
     failure::ingestion_failure_time_ms,
     local_inference::{
-        MediaItemResolution, local_inference_evidence_from_discovered, media_item_from_discovered,
-        media_source_from_discovered, source_state_from_discovered,
+        LocalInferenceEngine, LocalInferencePlan, LocalInferenceRequest, MediaItemResolution,
+        ProvisionalAncestorPlan, ProvisionalItemPlan, resolve_local_inference_plan,
     },
-    scan::{DiscoveredMediaSource, LibraryScanner},
+    scan::LibraryScanner,
     summary::{LibraryIndexRequest, LibraryIndexSummary, LibraryScanFailure, LibraryScanRequest},
 };
 
@@ -41,6 +42,7 @@ impl<T> LibraryIndexRepository for T where
 pub struct LibraryIndexService<S, R> {
     scanner: S,
     repository: R,
+    local_inference: LocalInferenceEngine,
 }
 
 impl<S, R> LibraryIndexService<S, R> {
@@ -48,6 +50,7 @@ impl<S, R> LibraryIndexService<S, R> {
         Self {
             scanner,
             repository,
+            local_inference: LocalInferenceEngine::with_default_parser(),
         }
     }
 
@@ -182,22 +185,22 @@ where
                     .map(|source| source.id)
                     .unwrap_or_else(MediaSourceId::new);
 
-                let item_resolution = self
-                    .media_item_for_discovered(request.library.id, item_id, &discovered)
-                    .await?;
-                let evidence = local_inference_evidence_from_discovered(source_id, &discovered);
-                let state = source_state_from_discovered(
-                    request.library.id,
+                let local_inference = self.local_inference.plan_source(LocalInferenceRequest {
+                    library_id: request.library.id,
                     source_id,
+                    item_id,
                     scan_id,
-                    &discovered,
-                );
-                let source = media_source_from_discovered(
-                    source_id,
-                    request.library.id,
-                    item_resolution.item.id,
-                    discovered,
-                );
+                    discovered: &discovered,
+                });
+                let item_resolution = self
+                    .media_item_for_local_inference(
+                        request.library.id,
+                        item_id,
+                        local_inference.clone(),
+                    )
+                    .await?;
+                let mut source = local_inference.media_source;
+                source.item_id = item_resolution.item.id;
                 let search_projection = self
                     .search_projection_for_source(&item_resolution.item, &source)
                     .await?;
@@ -214,9 +217,9 @@ where
                     .commit_library_scan_source(&LibraryScanSourcePersistenceCommit {
                         items,
                         source,
-                        source_state: state,
+                        source_state: local_inference.source_state,
                         library_item_states,
-                        local_inference_evidence: vec![evidence],
+                        local_inference_evidence: vec![local_inference.evidence],
                         search_projections: vec![search_projection],
                         resolved_ingestion_failures: vec![IngestionFailureResolution {
                             library_id: request.library.id,
@@ -238,11 +241,11 @@ where
         Ok(IndexRootsOutcome { complete })
     }
 
-    async fn media_item_for_discovered(
+    async fn media_item_for_local_inference(
         &self,
         library_id: LibraryId,
         item_id: MediaItemId,
-        discovered: &DiscoveredMediaSource,
+        plan: LocalInferencePlan,
     ) -> Result<MediaItemResolution> {
         if let Some(state) = self
             .repository
@@ -261,97 +264,28 @@ where
             }
         }
 
-        if discovered.parsed_name.kind_hint != taru_core::MediaKind::Episode {
-            return Ok(MediaItemResolution {
-                item: media_item_from_discovered(item_id, discovered),
-                provisional: true,
-                supporting_items: Vec::new(),
-                supporting_library_item_states: Vec::new(),
-            });
-        }
-
-        let Some(season_number) = discovered.parsed_name.season_number else {
-            return Ok(MediaItemResolution {
-                item: media_item_from_discovered(item_id, discovered),
-                provisional: true,
-                supporting_items: Vec::new(),
-                supporting_library_item_states: Vec::new(),
-            });
-        };
+        let mut parent_id = None;
         let mut supporting_items = Vec::new();
-        let mut supporting_library_item_states = Vec::new();
-        let series = self
-            .plan_or_reuse_provisional_item(
-                library_id,
-                taru_core::MediaKind::Series,
-                None,
-                &discovered.parsed_name.title,
-                None,
-            )
-            .await?;
-        if series.created {
-            supporting_library_item_states.push(LibraryItemState {
-                library_id,
-                item_id: series.item.id,
-                provisional: true,
-            });
-            supporting_items.push(series.item.clone());
+        for ancestor in &plan.hierarchy.required_ancestors {
+            let supporting = self
+                .plan_or_reuse_provisional_ancestor(library_id, parent_id, ancestor)
+                .await?;
+            parent_id = Some(supporting.item.id);
+            supporting_items.push(supporting);
         }
-        let season = self
-            .plan_or_reuse_provisional_item(
-                library_id,
-                taru_core::MediaKind::Season,
-                Some(series.item.id),
-                &format!("Season {season_number}"),
-                None,
-            )
-            .await?;
-        if season.created {
-            supporting_library_item_states.push(LibraryItemState {
-                library_id,
-                item_id: season.item.id,
-                provisional: true,
-            });
-            supporting_items.push(season.item.clone());
-        }
-        let episode_title = discovered
-            .parsed_name
-            .episode_number
-            .map(|episode| format!("Episode {episode}"))
-            .unwrap_or_else(|| discovered.parsed_name.title.clone());
 
-        Ok(MediaItemResolution {
-            item: MediaItem {
-                id: item_id,
-                kind: taru_core::MediaKind::Episode,
-                parent_id: Some(season.item.id),
-                metadata: CanonicalMetadata {
-                    title: episode_title,
-                    original_title: None,
-                    sort_title: None,
-                    overview: None,
-                    release_date: discovered.parsed_name.year.map(|year| year.to_string()),
-                    external_ids: Vec::new(),
-                    ..CanonicalMetadata::default()
-                },
-            },
-            provisional: true,
-            supporting_items,
-            supporting_library_item_states,
-        })
+        Ok(resolve_local_inference_plan(plan, supporting_items))
     }
 
-    async fn plan_or_reuse_provisional_item(
+    async fn plan_or_reuse_provisional_ancestor(
         &self,
         library_id: LibraryId,
-        kind: taru_core::MediaKind,
         parent_id: Option<MediaItemId>,
-        title: &str,
-        release_year: Option<u16>,
+        plan: &ProvisionalAncestorPlan,
     ) -> Result<ProvisionalItemPlan> {
         if let Some(item) = self
             .repository
-            .find_library_item_by_kind_parent_title(library_id, kind, parent_id, title)
+            .find_library_item_by_kind_parent_title(library_id, plan.kind, parent_id, &plan.title)
             .await?
         {
             return Ok(ProvisionalItemPlan {
@@ -362,14 +296,14 @@ where
 
         let item = MediaItem {
             id: MediaItemId::new(),
-            kind,
+            kind: plan.kind,
             parent_id,
             metadata: CanonicalMetadata {
-                title: title.to_owned(),
+                title: plan.title.clone(),
                 original_title: None,
                 sort_title: None,
                 overview: None,
-                release_date: release_year.map(|year| year.to_string()),
+                release_date: plan.release_year.map(|year| year.to_string()),
                 external_ids: Vec::new(),
                 ..CanonicalMetadata::default()
             },
@@ -416,13 +350,25 @@ where
         let item_tags = self.repository.list_item_tags(item.id).await?;
         let item_studios = self.repository.list_item_studios(item.id).await?;
         let mut body_parts = Vec::new();
-        let mut facets = vec![
-            format!("kind:{}", item.kind.as_str()),
-            format!("source:{}", source.file_name),
+        let mut browse_facets = vec![
+            BrowseFacet::new(BrowseFacetKind::Kind, item.kind.as_str()),
+            BrowseFacet::new(BrowseFacetKind::Source, source.file_name.clone()),
         ];
+        let mut aliases = Vec::new();
+        let mut sort_keys = Vec::new();
 
         if let Some(value) = &item.metadata.original_title {
             body_parts.push(value.clone());
+            push_unique_string(&mut aliases, value.clone());
+        }
+        if let Some(value) = &item.metadata.sort_title {
+            body_parts.push(value.clone());
+            sort_keys.push(SortKey::new(SortKeyKind::SortTitle, value.clone()));
+        } else if !item.metadata.title.trim().is_empty() {
+            sort_keys.push(SortKey::new(
+                SortKeyKind::Title,
+                item.metadata.title.clone(),
+            ));
         }
         if let Some(value) = &item.metadata.overview {
             body_parts.push(value.clone());
@@ -431,43 +377,69 @@ where
             body_parts.push(value.clone());
         }
         if let Some(value) = &item.metadata.release_date {
-            facets.push(format!("release_date:{value}"));
+            sort_keys.push(SortKey::new(SortKeyKind::ReleaseDate, value.clone()));
+            if let Some(year) = value
+                .get(0..4)
+                .filter(|year| year.chars().all(|character| character.is_ascii_digit()))
+            {
+                push_unique_facet(
+                    &mut browse_facets,
+                    BrowseFacet::new(BrowseFacetKind::ReleaseYear, year.to_owned()),
+                );
+            }
         }
 
         for genre in item_genres {
             if let Some(genre) = self.repository.get_genre(genre.genre_id).await? {
                 body_parts.push(genre.name.clone());
-                facets.push(format!("genre:{}", genre.name));
+                push_unique_facet(
+                    &mut browse_facets,
+                    BrowseFacet::new(BrowseFacetKind::Genre, genre.name),
+                );
             }
         }
 
         for tag in item_tags {
             if let Some(tag) = self.repository.get_tag(tag.tag_id).await? {
                 body_parts.push(tag.name.clone());
-                facets.push(format!("tag:{}", tag.name));
+                push_unique_facet(
+                    &mut browse_facets,
+                    BrowseFacet::new(BrowseFacetKind::Tag, tag.name),
+                );
             }
         }
 
         for studio in item_studios {
             if let Some(studio) = self.repository.get_studio(studio.studio_id).await? {
                 body_parts.push(studio.name.clone());
-                facets.push(format!("studio:{}", studio.name));
+                push_unique_facet(
+                    &mut browse_facets,
+                    BrowseFacet::new(BrowseFacetKind::Studio, studio.name),
+                );
             }
         }
 
         for credit in item_credits {
             if let Some(person) = self.repository.get_person(credit.person_id).await? {
                 body_parts.push(person.name.clone());
-                facets.push(format!("credit:{}", person.name));
+                push_unique_facet(
+                    &mut browse_facets,
+                    BrowseFacet::new(BrowseFacetKind::Credit, person.name),
+                );
             }
         }
 
-        Ok(CatalogSearchProjection {
-            item_id: item.id,
-            title: item.metadata.title.clone(),
-            body: body_parts.join(" "),
-            facets,
-        })
+        browse_facets.sort_by_key(BrowseFacet::label);
+        let mut projection = CatalogSearchProjection::new(
+            item.id,
+            item.metadata.title.clone(),
+            body_parts.join(" "),
+        );
+        projection.aliases = aliases;
+        projection.browse_facets = browse_facets;
+        projection.sort_keys = sort_keys;
+        projection.provider_identifiers = item.metadata.external_ids.clone();
+        Ok(projection)
     }
 
     async fn mark_missing_sources_tombstoned(
@@ -510,13 +482,19 @@ where
     }
 }
 
+fn push_unique_facet(facets: &mut Vec<BrowseFacet>, value: BrowseFacet) {
+    if !facets.contains(&value) {
+        facets.push(value);
+    }
+}
+
+fn push_unique_string(values: &mut Vec<String>, value: String) {
+    if !values.contains(&value) {
+        values.push(value);
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct IndexRootsOutcome {
     complete: bool,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct ProvisionalItemPlan {
-    item: MediaItem,
-    created: bool,
 }

@@ -1,6 +1,6 @@
 use axum::http::{HeaderName, HeaderValue};
 use axum::{Extension, Router, middleware, response::Response};
-use taru_api::{API_VERSION, API_VERSION_HEADER};
+use taru_api::public_client::{API_VERSION, API_VERSION_HEADER};
 
 use crate::app::TaruApp;
 

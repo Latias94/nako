@@ -23,14 +23,13 @@ mod tests {
 
     use async_trait::async_trait;
     use taru_core::{
-        CanonicalMetadata, Credit, CreditRole, ImageKind, JobId, Library, LibraryId,
-        LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+        CanonicalMetadata, Credit, CreditRole, DatabaseLifecycle, ImageKind, JobId, Library,
+        LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
         LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
         MediaSourceId, MetadataField, MetadataFieldLock, MetadataSource, PageRequest, TaruError,
-        TransactionManager,
         repository::{CatalogRepository, LibraryRepository, MetadataRepository},
     };
-    use taru_db::SqliteStore;
+    use taru_db::TaruDatabase;
     use taru_search::{SearchIndex, SearchQuery};
     use taru_vfs::{
         ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, StorageBackend, StorageBackupMode,
@@ -42,8 +41,9 @@ mod tests {
 
     #[test]
     fn movie_nfo_round_trips_core_fields() {
-        let document = NfoDocument {
-            metadata: CanonicalMetadata {
+        let document = NfoDocument::from_metadata(
+            MediaKind::Movie,
+            CanonicalMetadata {
                 title: "The Matrix".to_owned(),
                 original_title: Some("The Matrix".to_owned()),
                 sort_title: Some("Matrix, The".to_owned()),
@@ -62,23 +62,22 @@ mod tests {
                 }],
                 ..CanonicalMetadata::default()
             },
-            external_ids: Vec::new(),
-            hierarchy: NfoHierarchy::default(),
-        };
+            NfoHierarchy::default(),
+        );
         let codec = MovieNfoCodec;
 
         let xml = codec.render(&document).unwrap();
         let parsed = codec.parse(&xml).unwrap();
 
-        assert_eq!(parsed.metadata.title, "The Matrix");
-        assert_eq!(parsed.metadata.sort_title, Some("Matrix, The".to_owned()));
-        assert_eq!(parsed.metadata.runtime_minutes, Some(136));
+        assert_eq!(parsed.metadata().title, "The Matrix");
+        assert_eq!(parsed.metadata().sort_title, Some("Matrix, The".to_owned()));
+        assert_eq!(parsed.metadata().runtime_minutes, Some(136));
         assert_eq!(
-            parsed.metadata.genres,
+            parsed.metadata().genres,
             vec!["Action".to_owned(), "Science Fiction".to_owned()]
         );
-        assert_eq!(parsed.metadata.tags, vec!["cyberpunk".to_owned()]);
-        assert_eq!(parsed.metadata.credits[0].name, "Keanu Reeves");
+        assert_eq!(parsed.metadata().tags, vec!["cyberpunk".to_owned()]);
+        assert_eq!(parsed.metadata().credits[0].name, "Keanu Reeves");
     }
 
     #[test]
@@ -101,34 +100,62 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(parsed.metadata.title, "Tom & Jerry");
+        assert_eq!(parsed.metadata().title, "Tom & Jerry");
         assert_eq!(
-            parsed.metadata.overview,
+            parsed.metadata().overview,
             Some("Uses <escaped> text".to_owned())
         );
-        assert_eq!(parsed.metadata.images.len(), 2);
-        assert_eq!(parsed.metadata.images[0].kind, ImageKind::Backdrop);
-        assert_eq!(parsed.metadata.images[0].uri, "local:///fanart-a.jpg");
+        assert_eq!(parsed.metadata().images.len(), 2);
+        assert_eq!(parsed.metadata().images[0].kind, ImageKind::Backdrop);
+        assert_eq!(parsed.metadata().images[0].uri, "local:///fanart-a.jpg");
         assert_eq!(
-            parsed.metadata.credits[0].character.as_deref(),
+            parsed.metadata().credits[0].character.as_deref(),
             Some("Hero & Guide")
         );
     }
 
     #[test]
+    fn movie_nfo_parse_produces_local_metadata_candidate_graph() {
+        let codec = MovieNfoCodec;
+        let parsed = codec
+            .parse(
+                r#"<movie>
+  <title>NFO Title</title>
+  <plot>Local overview</plot>
+  <releasedate>1999-03-31</releasedate>
+  <runtime>136</runtime>
+  <genre>Action</genre>
+</movie>"#,
+            )
+            .unwrap();
+        let canonical = parsed.candidate_graph.canonical_metadata();
+
+        assert_eq!(parsed.candidate_graph.root.kind, MediaKind::Movie);
+        assert_eq!(
+            parsed.candidate_graph.root.source,
+            taru_core::MetadataCandidateSource::Nfo
+        );
+        assert_eq!(canonical.title, "NFO Title");
+        assert_eq!(canonical.overview.as_deref(), Some("Local overview"));
+        assert_eq!(canonical.runtime_minutes, Some(136));
+        assert_eq!(canonical.genres, vec!["Action"]);
+        assert_eq!(parsed.metadata(), canonical);
+    }
+
+    #[test]
     fn movie_nfo_preservation_keeps_unknown_fields_and_updates_owned_fields() {
         let codec = MovieNfoCodec;
-        let document = NfoDocument {
-            metadata: CanonicalMetadata {
+        let document = NfoDocument::from_metadata(
+            MediaKind::Movie,
+            CanonicalMetadata {
                 title: "Canonical Title".to_owned(),
                 overview: Some("Canonical overview".to_owned()),
                 release_date: Some("1999-03-31".to_owned()),
                 genres: vec!["Action".to_owned()],
                 ..CanonicalMetadata::default()
             },
-            external_ids: Vec::new(),
-            hierarchy: NfoHierarchy::default(),
-        };
+            NfoHierarchy::default(),
+        );
 
         let rendered = codec
             .render_preserving(
@@ -184,15 +211,15 @@ mod tests {
     #[test]
     fn movie_nfo_preservation_reports_duplicate_owned_and_alias_fields() {
         let codec = MovieNfoCodec;
-        let document = NfoDocument {
-            metadata: CanonicalMetadata {
+        let document = NfoDocument::from_metadata(
+            MediaKind::Movie,
+            CanonicalMetadata {
                 title: "Canonical Title".to_owned(),
                 release_date: Some("1999-03-31".to_owned()),
                 ..CanonicalMetadata::default()
             },
-            external_ids: Vec::new(),
-            hierarchy: NfoHierarchy::default(),
-        };
+            NfoHierarchy::default(),
+        );
 
         let rendered = codec
             .render_preserving(
@@ -257,7 +284,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let item = seed_item(&store, library_id, "local:///Movies/Demo/demo.mkv").await;
@@ -281,12 +308,15 @@ mod tests {
         let tags = store.list_tags(PageRequest::first_page()).await.unwrap();
         let images = store.list_item_images(item.id).await.unwrap();
         let hits = store
-            .search(SearchQuery {
-                query: "Demo Actor".to_owned(),
-                facets: vec!["tag:cyberpunk".to_owned()],
-                limit: 10,
-                offset: 0,
-            })
+            .search(
+                SearchQuery::from_facet_labels(
+                    "Demo Actor",
+                    vec!["tag:cyberpunk".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -326,7 +356,7 @@ mod tests {
             r#"<movie><title>Second Imported</title></movie>"#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let first = seed_item_with_metadata(
@@ -409,7 +439,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let item = seed_item_with_metadata(
@@ -458,7 +488,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let item = seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
@@ -524,7 +554,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let item = seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
@@ -588,7 +618,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -695,7 +725,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp.path().join("Movies")).unwrap();
         fs::write(temp.path().join("Movies").join("demo.mkv"), b"media").unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -735,7 +765,7 @@ mod tests {
         fs::create_dir_all(temp.path().join("Movies")).unwrap();
         fs::write(temp.path().join("Movies").join("first.mkv"), b"media").unwrap();
         fs::write(temp.path().join("Movies").join("second.mkv"), b"media").unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -809,7 +839,7 @@ mod tests {
 
     #[tokio::test]
     async fn nfo_service_exports_movie_sidecar_with_atomic_replace_request() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -855,7 +885,7 @@ mod tests {
 
     #[tokio::test]
     async fn nfo_service_reports_storage_unsupported_when_atomic_write_is_unavailable() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -890,7 +920,7 @@ mod tests {
 
     #[tokio::test]
     async fn nfo_service_reports_backup_failure_before_replacing_sidecar() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -935,7 +965,7 @@ mod tests {
 
     #[tokio::test]
     async fn nfo_service_reports_preservation_failure_when_forced_sidecar_is_invalid() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -974,7 +1004,7 @@ mod tests {
 
     #[tokio::test]
     async fn nfo_service_reports_parse_failure_when_import_sidecar_is_invalid() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
@@ -1015,7 +1045,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -1090,7 +1120,7 @@ mod tests {
         }
         fs::write(movies.join("other.nfo.taru-backup-0000"), "other").unwrap();
         fs::write(movies.join("demo.nfo.manual-backup"), "manual").unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -1137,7 +1167,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp.path().join("Movies")).unwrap();
         fs::write(temp.path().join("Movies").join("demo.mkv"), b"media").unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         seed_item_with_metadata(
@@ -1189,7 +1219,7 @@ mod tests {
 "#,
         )
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library_id = LibraryId::new();
         let item = seed_item(&store, library_id, "local:///Movies/demo.mkv").await;
@@ -1241,7 +1271,7 @@ mod tests {
     #[tokio::test]
     async fn nfo_service_rejects_export_without_write_sidecar_policy() {
         let temp = tempfile::tempdir().unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let service = NfoService::new(
             LocalFsBackend::new(temp.path()).unwrap(),
@@ -1402,7 +1432,7 @@ mod tests {
         }
     }
 
-    async fn seed_item(store: &SqliteStore, library_id: LibraryId, locator: &str) -> MediaItem {
+    async fn seed_item(store: &TaruDatabase, library_id: LibraryId, locator: &str) -> MediaItem {
         seed_item_with_metadata(
             store,
             library_id,
@@ -1416,7 +1446,7 @@ mod tests {
     }
 
     async fn seed_item_with_metadata(
-        store: &SqliteStore,
+        store: &TaruDatabase,
         library_id: LibraryId,
         locator: &str,
         metadata: CanonicalMetadata,

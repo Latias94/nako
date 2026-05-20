@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use taru_api::{
+use taru_api::extension::{
     AddonAccessCheckRequest, IssueAddonTokenRequest, RegisterAddonRequest,
     ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest,
 };

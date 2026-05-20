@@ -7,9 +7,15 @@ async fn empty_sources_and_items_routes_work() {
     let router = test_router(temp.path().to_path_buf(), library_id).await;
     let sources_path = format!("/libraries/{library_id}/sources");
 
-    let sources =
-        request_json::<taru_api::LibrarySourcesResponse>(&router, Method::GET, &sources_path).await;
-    let items = request_json::<taru_api::ItemsResponse>(&router, Method::GET, "/items").await;
+    let sources = request_json::<taru_api::public_client::LibrarySourcesResponse>(
+        &router,
+        Method::GET,
+        &sources_path,
+    )
+    .await;
+    let items =
+        request_json::<taru_api::public_client::ItemsResponse>(&router, Method::GET, "/items")
+            .await;
 
     assert_eq!(sources.library.id, library_id.to_string());
     assert_eq!(sources.page.limit, taru_core::PageRequest::DEFAULT_LIMIT);
@@ -52,7 +58,7 @@ async fn search_route_returns_indexed_items() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -67,17 +73,20 @@ async fn search_route_returns_indexed_items() {
     };
     store.upsert_media_item(&item).await.unwrap();
     store
-        .upsert(SearchDocument {
-            item_id: item.id,
-            title: item.metadata.title.clone(),
-            body: "A route test fixture".to_owned(),
-            facets: vec!["genre:test".to_owned()],
-        })
+        .upsert(
+            SearchDocument::from_facet_labels(
+                item.id,
+                item.metadata.title.clone(),
+                "A route test fixture",
+                vec!["genre:test".to_owned()],
+            )
+            .unwrap(),
+        )
         .await
         .unwrap();
     let router = build_router(app);
 
-    let result = request_json::<taru_api::SearchResponse>(
+    let result = request_json::<taru_api::public_client::SearchResponse>(
         &router,
         Method::GET,
         "/search?q=route&facet=genre:test&limit=12&offset=0",
@@ -120,7 +129,7 @@ async fn browse_routes_return_catalog_graph() {
             webdav: None,
         }],
     };
-    let store = SqliteStore::connect_in_memory().await.unwrap();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
     let app = TaruApp::new_with_store(config, store.clone())
         .await
         .unwrap();
@@ -206,7 +215,7 @@ async fn browse_routes_return_catalog_graph() {
     store.upsert_image_asset(&image).await.unwrap();
     let router = build_router(app);
 
-    let detail = request_json::<taru_api::ItemDetailResponse>(
+    let detail = request_json::<taru_api::public_client::ItemDetailResponse>(
         &router,
         Method::GET,
         &format!("/items/{}", item.id),
@@ -221,34 +230,39 @@ async fn browse_routes_return_catalog_graph() {
         &format!("/libraries/{library_id}/sources"),
     )
     .await;
-    let credits = request_json::<taru_api::ItemCreditsResponse>(
+    let credits = request_json::<taru_api::public_client::ItemCreditsResponse>(
         &router,
         Method::GET,
         &format!("/items/{}/credits", item.id),
     )
     .await;
-    let images = request_json::<taru_api::ImagesResponse>(
+    let images = request_json::<taru_api::public_client::ImagesResponse>(
         &router,
         Method::GET,
         &format!("/items/{}/images", item.id),
     )
     .await;
-    let people = request_json::<taru_api::PeopleResponse>(&router, Method::GET, "/people").await;
-    let person_items = request_json::<taru_api::PersonItemsResponse>(
+    let people =
+        request_json::<taru_api::public_client::PeopleResponse>(&router, Method::GET, "/people")
+            .await;
+    let person_items = request_json::<taru_api::public_client::PersonItemsResponse>(
         &router,
         Method::GET,
         &format!("/people/{}/items", person.id),
     )
     .await;
-    let tags = request_json::<taru_api::TagsResponse>(&router, Method::GET, "/tags").await;
-    let tag_items = request_json::<taru_api::TagItemsResponse>(
+    let tags =
+        request_json::<taru_api::public_client::TagsResponse>(&router, Method::GET, "/tags").await;
+    let tag_items = request_json::<taru_api::public_client::TagItemsResponse>(
         &router,
         Method::GET,
         &format!("/tags/{}/items", tag.id),
     )
     .await;
-    let genres = request_json::<taru_api::GenreListResponse>(&router, Method::GET, "/genres").await;
-    let genre_items = request_json::<taru_api::GenreItemsResponse>(
+    let genres =
+        request_json::<taru_api::public_client::GenreListResponse>(&router, Method::GET, "/genres")
+            .await;
+    let genre_items = request_json::<taru_api::public_client::GenreItemsResponse>(
         &router,
         Method::GET,
         &format!("/genres/{}/items", genre.id),

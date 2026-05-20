@@ -166,8 +166,9 @@ where
         force: bool,
     ) -> Result<PlannedNfoImport> {
         let locks = self.repository.list_field_locks(existing.id).await?;
+        let candidate_metadata = document.candidate_graph.canonical_metadata();
         let merged = MetadataMergePolicy::for_nfo_import(policy, &locks)
-            .merge(&existing.metadata, &document.metadata);
+            .merge(&existing.metadata, &candidate_metadata);
         let changed = merged != existing.metadata;
         let updated = MediaItem {
             metadata: merged,
@@ -192,7 +193,7 @@ where
 
         let field_locks =
             if (changed || confirmed_hierarchy || force) && locks_should_be_written(policy) {
-                nfo_field_locks(updated.id, &document.metadata, &locks)
+                nfo_field_locks(updated.id, &candidate_metadata, &locks)
             } else {
                 Vec::new()
             };
@@ -325,7 +326,7 @@ where
             item_id: item.id,
             kind: MediaKind::Episode,
             parent_id: item.parent_id,
-            metadata: document.metadata.clone(),
+            metadata: document.candidate_graph.canonical_metadata(),
         });
 
         Ok(items)

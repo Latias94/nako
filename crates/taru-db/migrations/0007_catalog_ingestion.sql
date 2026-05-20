@@ -206,10 +206,14 @@ CREATE INDEX source_states_scan_id_idx ON source_states(last_seen_scan_id);
 
 CREATE TABLE search_documents (
     item_id TEXT PRIMARY KEY NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    projection_version INTEGER NOT NULL DEFAULT 1,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
+    aliases_json TEXT NOT NULL DEFAULT '[]',
     facets_json TEXT NOT NULL,
     facets_text TEXT NOT NULL,
+    sort_keys_json TEXT NOT NULL DEFAULT '[]',
+    provider_identifiers_json TEXT NOT NULL DEFAULT '[]',
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 

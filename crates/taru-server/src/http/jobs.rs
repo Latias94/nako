@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
-use taru_api::JobResponse;
+use taru_api::admin::JobResponse;
 use taru_core::JobId;
 use tracing::instrument;
 

@@ -26,12 +26,68 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is currently documented. Recommended next goal:
-provider mapping list/detail read model, duplicate Source review queue, NFO
-sidecar status read model, deeper extension operations, or admin warning list
-diagnostics.
+No active implementation goal is open after M61 closeout.
 
 ## Completed Goals
+
+### M61: Future-Ready Architecture Refactor
+
+Status: completed.
+
+Objective:
+
+- Refactor Taru toward a cleaner future-ready architecture while there is no
+  production compatibility burden.
+- Make persistence PostgreSQL-ready instead of SQLite-shaped.
+- Deepen module seams for server runtime composition, Local Inference,
+  Metadata Candidate Graph, search semantics, and Admin/API read models.
+- Delete redundant MVP paths, shallow pass-through modules, compatibility
+  shims, and generated/build noise when safer replacements exist.
+
+Deliverables:
+
+- `docs/workstreams/future-ready-architecture-refactor/` as the authoritative
+  execution lane.
+- A persistence architecture decision for SQLite plus future PostgreSQL.
+- Backend-neutral persistence contract tests and explicit unit-of-work seams.
+- Slimmer server composition rooted in cohesive runtime modules where useful.
+- Implementation slices for Local Inference, Metadata Candidate Graph, Search,
+  and Admin/API hygiene.
+- A final deletion sweep with fresh validation evidence.
+
+Non-goals:
+
+- No Jellyfin Plugin Compatibility or in-process plugin ABI.
+- No copied Jellyfin, Plex, or other reference source, schema, migration, test,
+  comment, or generated code.
+- No full network tunnel provider implementation.
+- No full AI model runtime or vector database.
+- No broad provider feature expansion unless needed to prove a candidate seam.
+
+Exit criteria:
+
+- Persistence architecture can support SQLite and future PostgreSQL without a
+  `SqliteStore` god-adapter shape.
+- Old production paths introduced or replaced by the workstream are deleted or
+  have explicit owner/expiry tasks.
+- Public Client API remains free of admin/storage internals.
+- Admin API read models remain explicit and redacted.
+- Required focused gates and final workspace gates pass or have documented
+  narrowed rationale.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/future-ready-architecture-refactor/`.
+- Persistence ADR:
+  `docs/adr/0029-postgresql-ready-persistence-boundary.md`.
+- Active task ledger:
+  `docs/workstreams/future-ready-architecture-refactor/TODO.md`.
+- First backend-neutral persistence contract suite:
+  `crates/taru-db/src/contract_tests.rs`.
+- Closeout verification: `cargo check --workspace --tests`;
+  `cargo nextest run --workspace --no-fail-fast` with 466 tests passed and
+  4 skipped; `cargo fmt --all -- --check`; `git diff --check`.
 
 ### M60: Admin Catalog Governance Item Queue
 
@@ -573,8 +629,9 @@ Evidence:
   `*.taru-backup-*` prefix and preserves unrelated backups/manual files.
 - `NfoExportSummary` reports backup creation, pruned backup counts, and prune
   failures for forced sidecar export.
-- Existing admin `JobResponse.summary` preserves the NFO retention diagnostics
-  without public protocol changes.
+- NFO retention diagnostics remain persisted as internal job summary data.
+  Generic HTTP `JobResponse` no longer exposes raw job summaries; any future
+  admin inspection should use a dedicated safe diagnostic DTO.
 - `taru-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
   taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 28
@@ -777,8 +834,9 @@ Objective:
 - Make `taru-api` a thin API adapter crate with explicit module boundaries.
 - Separate stable Public Client API mapping from server admin/internal,
   metadata diagnostic, extension, webhook, automation, and addon DTOs.
-- Preserve root-level compatibility exports so existing `taru-server`, OpenAPI,
-  SDK, and test call sites continue to compile unchanged.
+- Keep root-level module declarations while moving callers to explicit
+  `taru_api::{public_client,admin,metadata_diagnostics,extension}` module
+  imports.
 
 Deliverables:
 
@@ -789,7 +847,9 @@ Deliverables:
 - `crates/taru-api/src/metadata_diagnostics.rs` owns metadata provider attempt,
   runtime diagnostic, raw response, cleanup, and maintenance DTOs.
 - `crates/taru-api/src/extension.rs` owns webhook, automation, and addon DTOs.
-- `crates/taru-api/src/lib.rs` is a compatibility facade over focused modules.
+- `crates/taru-api/src/lib.rs` declares focused modules only; root-level
+  wildcard compatibility re-exports were removed by the future-ready
+  architecture deletion sweep.
 
 Non-goals:
 
@@ -797,7 +857,8 @@ Non-goals:
 - No public HTTP route, JSON shape, OpenAPI, SDK behavior, or protocol change.
 - No playback, storage, NFO, metadata provider breadth, database schema, or
   server runtime behavior change.
-- No server call-site import cleanup beyond compilation needs.
+- Server call sites use explicit module imports instead of root-level
+  `taru_api::*` compatibility imports.
 
 Evidence:
 
@@ -805,7 +866,9 @@ Evidence:
   records design, task ledger, milestones, evidence, and handoff.
 - `public_client.rs` does not contain admin, metadata diagnostics, storage
   diagnostics, webhook, automation, or addon DTO names.
-- Root-level `taru_api::*` imports remain compatible through re-exports.
+- Root-level `taru_api::*` compatibility re-exports were intentionally removed
+  during the future-ready architecture deletion sweep after downstream call
+  sites moved to explicit module imports.
 - Focused validation: `cargo fmt --all -- --check`, `cargo check -p taru-api
   --tests`, `cargo check -p taru-api --examples`, `cargo nextest run -p
   taru-api --no-fail-fast` with 12 tests passed, `npm run check --prefix

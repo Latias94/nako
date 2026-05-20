@@ -2,10 +2,11 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use taru_catalog::{CatalogHydrationPort, hydrate_item_catalog};
 use taru_core::{
-    ExternalProvider, JobId, MediaItem, MediaItemId, MediaKind, MediaRepository, MetadataFieldLock,
-    MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRefreshMode, MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit,
-    MetadataRepository, MetadataSource, NewMetadataProviderAttempt, PageRequest, ProviderMappingId,
+    ExternalProvider, JobId, MediaItem, MediaItemId, MediaKind, MediaRepository,
+    MetadataCandidateSubject, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
+    MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit, MetadataRepository,
+    MetadataSource, NewMetadataProviderAttempt, PageRequest, ProviderMappingId,
     ProviderMappingRepository, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
     ProviderSubjectKind, Result, TaruError,
 };
@@ -69,6 +70,7 @@ pub struct MetadataRefreshSnapshot {
 pub struct MetadataRefreshCommit {
     pub item: MediaItem,
     pub raw_response: ProviderRawResponse,
+    pub provider_subject: Option<MetadataCandidateSubject>,
 }
 
 #[async_trait]
@@ -295,8 +297,13 @@ where
     }
 
     async fn commit_refresh(&self, commit: MetadataRefreshCommit) -> Result<()> {
-        let provider_mapping =
-            accepted_provider_mapping_commit(self, &commit.item, &commit.raw_response).await?;
+        let provider_mapping = accepted_provider_mapping_commit(
+            self,
+            &commit.item,
+            &commit.raw_response,
+            commit.provider_subject.as_ref(),
+        )
+        .await?;
 
         self.commit_metadata_refresh(&MetadataRefreshPersistenceCommit {
             item: commit.item,
@@ -323,32 +330,45 @@ async fn accepted_provider_mapping_commit<R>(
     repository: &R,
     item: &MediaItem,
     raw_response: &ProviderRawResponse,
+    candidate_subject: Option<&MetadataCandidateSubject>,
 ) -> Result<MetadataRefreshProviderMappingCommit>
 where
     R: ProviderMappingRepository,
 {
-    let subject_kind = provider_subject_kind_for_item(item.kind);
+    let provider = candidate_subject
+        .map(|subject| subject.provider.clone())
+        .unwrap_or_else(|| raw_response.provider.clone());
+    let subject_kind = candidate_subject
+        .map(|subject| subject.subject_kind.clone())
+        .unwrap_or_else(|| provider_subject_kind_for_item(item.kind));
+    let subject_key = candidate_subject
+        .map(|subject| subject.subject_key.clone())
+        .unwrap_or_else(|| raw_response.provider_key.clone());
+    let title = candidate_subject
+        .and_then(|subject| subject.title.clone())
+        .or_else(|| Some(item.metadata.title.clone()));
+    let release_year = candidate_subject
+        .and_then(|subject| subject.release_year)
+        .or_else(|| release_year(item.metadata.release_date.as_deref()).map(i32::from));
+    let locale = candidate_subject.and_then(|subject| subject.locale.clone());
     let subject = match repository
-        .find_provider_subject(
-            &raw_response.provider,
-            &subject_kind,
-            &raw_response.provider_key,
-        )
+        .find_provider_subject(&provider, &subject_kind, &subject_key)
         .await?
     {
         Some(existing) => ProviderSubject {
-            title: Some(item.metadata.title.clone()),
-            release_year: release_year(item.metadata.release_date.as_deref()).map(i32::from),
+            title,
+            release_year,
+            locale,
             ..existing
         },
         None => ProviderSubject {
             id: ProviderSubjectId::new(),
-            provider: raw_response.provider.clone(),
+            provider,
             subject_kind,
-            subject_key: raw_response.provider_key.clone(),
-            title: Some(item.metadata.title.clone()),
-            release_year: release_year(item.metadata.release_date.as_deref()).map(i32::from),
-            locale: None,
+            subject_key,
+            title,
+            release_year,
+            locale,
         },
     };
     let mapping_id = existing_mapping_id(repository, item.id, subject.id).await?;
@@ -440,7 +460,8 @@ mod port_tests {
     use taru_catalog::CatalogHydrationSummary;
     use taru_core::{
         CanonicalMetadata, ExternalId, ExternalProvider, JobId, MediaItem, MediaItemId, MediaKind,
-        MetadataField, MetadataFieldLock, MetadataProfile, MetadataSource, Result,
+        MetadataCandidateGraph, MetadataCandidateSource, MetadataField, MetadataFieldLock,
+        MetadataProfile, MetadataSource, Result,
     };
 
     use super::*;
@@ -577,21 +598,29 @@ mod port_tests {
                 provider: ExternalProvider::Tmdb,
                 provider_key: "603".to_owned(),
                 score: 0.99,
-                metadata: CanonicalMetadata {
-                    title: "The Matrix".to_owned(),
-                    release_date: Some("1999-03-31".to_owned()),
-                    ..CanonicalMetadata::default()
-                },
+                graph: MetadataCandidateGraph::from_canonical(
+                    MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                    MediaKind::Movie,
+                    CanonicalMetadata {
+                        title: "The Matrix".to_owned(),
+                        release_date: Some("1999-03-31".to_owned()),
+                        ..CanonicalMetadata::default()
+                    },
+                ),
             }],
             fetch: MetadataFetchResult {
                 provider: ExternalProvider::Tmdb,
                 provider_key: "603".to_owned(),
-                metadata: CanonicalMetadata {
-                    title: "The Matrix".to_owned(),
-                    overview: Some("A hacker discovers reality.".to_owned()),
-                    release_date: Some("1999-03-31".to_owned()),
-                    ..CanonicalMetadata::default()
-                },
+                graph: MetadataCandidateGraph::from_canonical(
+                    MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                    MediaKind::Movie,
+                    CanonicalMetadata {
+                        title: "The Matrix".to_owned(),
+                        overview: Some("A hacker discovers reality.".to_owned()),
+                        release_date: Some("1999-03-31".to_owned()),
+                        ..CanonicalMetadata::default()
+                    },
+                ),
                 raw_json: r#"{"id":603,"title":"The Matrix"}"#.to_owned(),
             },
             search_calls: Arc::new(AtomicUsize::new(0)),

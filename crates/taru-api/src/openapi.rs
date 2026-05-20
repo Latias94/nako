@@ -1,6 +1,8 @@
 use serde_json::{Map, Value, json};
 
-use crate::{API_VERSION, API_VERSION_HEADER, ClientErrorCode, PLAYBACK_SESSION_ID_HEADER};
+use crate::public_client::{
+    API_VERSION, API_VERSION_HEADER, ClientErrorCode, PLAYBACK_SESSION_ID_HEADER,
+};
 
 #[must_use]
 pub fn public_openapi_v1() -> Value {

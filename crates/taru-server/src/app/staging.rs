@@ -10,7 +10,7 @@ use taru_core::{
     NewStagingManifestRecord, PageRequest, Result, StagingManifestId, StagingManifestRecord,
     StagingManifestRepository, StagingPurpose, StagingState, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageUri, VirtualFile, deterministic_stage_path,
@@ -21,7 +21,7 @@ use tracing::warn;
 use super::{current_time_ms, runtime::RuntimeSupervisor};
 
 pub(super) async fn record_staged_input(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     purpose: StagingPurpose,
     uri: &StorageUri,
     staged: &StagedFile,
@@ -71,7 +71,7 @@ pub(super) struct StagingCleanupSummary {
 }
 
 pub(super) async fn cleanup_expired_staging_inputs(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     now_ms: i64,
 ) -> Result<StagingCleanupSummary> {
     let mut summary = StagingCleanupSummary {
@@ -150,7 +150,7 @@ pub(super) async fn cleanup_expired_staging_inputs(
 
 pub(super) struct ManifestRecordingStorageBackend {
     inner: Arc<dyn StorageBackend>,
-    store: SqliteStore,
+    store: TaruDatabase,
     purpose: StagingPurpose,
     max_bytes: u64,
     retention_ms: u64,
@@ -165,7 +165,7 @@ struct StagingReservation {
 impl ManifestRecordingStorageBackend {
     pub(super) fn new(
         inner: Arc<dyn StorageBackend>,
-        store: SqliteStore,
+        store: TaruDatabase,
         purpose: StagingPurpose,
         max_bytes: u64,
         retention_ms: u64,
@@ -374,7 +374,7 @@ impl StorageBackend for ManifestRecordingStorageBackend {
 }
 
 pub(super) struct StagingLease {
-    store: SqliteStore,
+    store: TaruDatabase,
     record_id: StagingManifestId,
     local_path: PathBuf,
     runtime: RuntimeSupervisor,
@@ -383,7 +383,7 @@ pub(super) struct StagingLease {
 
 impl StagingLease {
     pub(super) async fn acquire(
-        store: SqliteStore,
+        store: TaruDatabase,
         record_id: StagingManifestId,
         runtime: RuntimeSupervisor,
     ) -> Result<Self> {

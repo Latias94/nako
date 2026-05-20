@@ -4,14 +4,14 @@ use std::{
 };
 
 use serde::Serialize;
-use taru_api::{PlaybackDecisionResponse, playback_decision_response_to_dto};
+use taru_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
     MediaRepository, MediaSource, MediaSourceId, NewOutboxEvent, Result, TaruError,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
     PlaybackExecutionPlan, PlaybackProfile, PlaybackSelectionContext, PlaybackSelectionRequest,
@@ -251,7 +251,7 @@ impl HlsStagingPolicy {
 #[derive(Clone, Debug)]
 pub(crate) struct PlaybackAppService {
     config: TaruServerConfig,
-    store: SqliteStore,
+    store: TaruDatabase,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
     input: FfmpegInputService,
@@ -263,7 +263,7 @@ pub(crate) struct PlaybackAppService {
 impl PlaybackAppService {
     pub(super) fn new(
         config: TaruServerConfig,
-        store: SqliteStore,
+        store: TaruDatabase,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
     ) -> Result<Self> {
@@ -1008,7 +1008,7 @@ fn validate_hls_segment_name(segment_name: &str) -> Result<()> {
 }
 
 async fn persist_session_failure(
-    sessions: &SqliteStore,
+    sessions: &TaruDatabase,
     session_id: TranscodeSessionId,
     error: &TaruError,
 ) {
@@ -1031,7 +1031,7 @@ async fn persist_session_failure(
 }
 
 async fn record_playback_session_finished_event(
-    store: &SqliteStore,
+    store: &TaruDatabase,
     session: &TranscodeSessionRecord,
 ) {
     let payload = serde_json::json!({

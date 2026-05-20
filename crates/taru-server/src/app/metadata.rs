@@ -2,10 +2,14 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use serde::Serialize;
 use taru_api::{
-    EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanError, MetadataMaintenancePlanItem,
-    MetadataMaintenancePlanResponse, MetadataProviderAttemptDiagnostic,
-    MetadataProviderAttemptsResponse, MetadataProviderDiagnosticsResponse,
-    MetadataRawCleanupResponse, MetadataRawResponsesResponse, page_info_from_request,
+    metadata_diagnostics::{
+        EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanError,
+        MetadataMaintenancePlanItem, MetadataMaintenancePlanResponse,
+        MetadataProviderAttemptDiagnostic, MetadataProviderAttemptsResponse,
+        MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse,
+        MetadataRawResponsesResponse,
+    },
+    public_client::page_info_from_request,
 };
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Job,
@@ -14,7 +18,7 @@ use taru_core::{
     MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NewJob, NewOutboxEvent,
     PageRequest, ProviderRawResponseFilter, Result, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_metadata::{
     MetadataProviderRegistry, MetadataRefreshJobInput, MetadataRefreshRequest,
     MetadataRefreshSummary, MetadataStrategyExecutor,
@@ -79,7 +83,7 @@ pub struct MetadataMaintenanceItemError {
 #[derive(Clone, Debug)]
 pub(crate) struct MetadataAppService {
     config: TaruServerConfig,
-    store: SqliteStore,
+    store: TaruDatabase,
     permits: Arc<Semaphore>,
     providers: MetadataProviderRegistry,
     runtime: RuntimeSupervisor,
@@ -88,7 +92,7 @@ pub(crate) struct MetadataAppService {
 impl MetadataAppService {
     pub(super) fn new(
         config: TaruServerConfig,
-        store: SqliteStore,
+        store: TaruDatabase,
         permits: Arc<Semaphore>,
         providers: MetadataProviderRegistry,
         runtime: RuntimeSupervisor,

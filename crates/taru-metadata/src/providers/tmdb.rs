@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use serde::Deserialize;
-use taru_core::{ExternalProvider, MediaKind, Result, SecretString, TaruError};
+use taru_core::{
+    ExternalProvider, MediaKind, MetadataCandidateGraph, ProviderSubjectKind, Result, SecretString,
+    TaruError,
+};
 
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
@@ -135,13 +138,22 @@ impl MetadataProvider for TmdbMetadataProvider {
             .into_iter()
             .map(|result| {
                 let score = tmdb_search_score(&lookup, &result);
+                let provider_key = result.id.to_string();
                 MetadataCandidate {
                     provider: ExternalProvider::Tmdb,
-                    provider_key: result.id.to_string(),
+                    provider_key: provider_key.clone(),
                     score,
-                    metadata: crate::mapping::tmdb_search_result_to_metadata(
-                        result,
-                        &self.config.image_base_url,
+                    graph: MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Tmdb,
+                        lookup.kind.unwrap_or(MediaKind::Movie),
+                        provider_subject_kind_for_media_kind(
+                            lookup.kind.unwrap_or(MediaKind::Movie),
+                        ),
+                        provider_key,
+                        crate::mapping::tmdb_search_result_to_metadata(
+                            result,
+                            &self.config.image_base_url,
+                        ),
                     ),
                 }
             })
@@ -206,48 +218,76 @@ impl MetadataProvider for TmdbMetadataProvider {
         let raw_json = serde_json::to_string(&value)
             .map_err(|err| tmdb_parse_error(&format!("serialize {operation}"), err))?;
 
-        let (provider_key, metadata) = match request.kind {
+        let (provider_key, graph) = match request.kind {
             MediaKind::Movie => {
                 let details: TmdbMovieDetails = serde_json::from_value(value)
                     .map_err(|err| tmdb_parse_error(operation, err))?;
+                let provider_key = details.id.to_string();
                 (
-                    details.id.to_string(),
-                    crate::mapping::tmdb_movie_details_to_metadata(
-                        details,
-                        &self.config.image_base_url,
+                    provider_key.clone(),
+                    MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Tmdb,
+                        MediaKind::Movie,
+                        ProviderSubjectKind::Movie,
+                        provider_key,
+                        crate::mapping::tmdb_movie_details_to_metadata(
+                            details,
+                            &self.config.image_base_url,
+                        ),
                     ),
                 )
             }
             MediaKind::Series => {
                 let details: TmdbSeriesDetails = serde_json::from_value(value)
                     .map_err(|err| tmdb_parse_error(operation, err))?;
+                let provider_key = details.id.to_string();
                 (
-                    details.id.to_string(),
-                    crate::mapping::tmdb_series_details_to_metadata(
-                        details,
-                        &self.config.image_base_url,
+                    provider_key.clone(),
+                    MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Tmdb,
+                        MediaKind::Series,
+                        ProviderSubjectKind::Series,
+                        provider_key,
+                        crate::mapping::tmdb_series_details_to_metadata(
+                            details,
+                            &self.config.image_base_url,
+                        ),
                     ),
                 )
             }
             MediaKind::Season => {
                 let details: TmdbSeasonDetails = serde_json::from_value(value)
                     .map_err(|err| tmdb_parse_error(operation, err))?;
+                let provider_key = request.provider_key;
                 (
-                    request.provider_key,
-                    crate::mapping::tmdb_season_details_to_metadata(
-                        details,
-                        &self.config.image_base_url,
+                    provider_key.clone(),
+                    MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Tmdb,
+                        MediaKind::Season,
+                        ProviderSubjectKind::Season,
+                        provider_key,
+                        crate::mapping::tmdb_season_details_to_metadata(
+                            details,
+                            &self.config.image_base_url,
+                        ),
                     ),
                 )
             }
             MediaKind::Episode => {
                 let details: TmdbEpisodeDetails = serde_json::from_value(value)
                     .map_err(|err| tmdb_parse_error(operation, err))?;
+                let provider_key = request.provider_key;
                 (
-                    request.provider_key,
-                    crate::mapping::tmdb_episode_details_to_metadata(
-                        details,
-                        &self.config.image_base_url,
+                    provider_key.clone(),
+                    MetadataCandidateGraph::for_provider(
+                        ExternalProvider::Tmdb,
+                        MediaKind::Episode,
+                        ProviderSubjectKind::Episode,
+                        provider_key,
+                        crate::mapping::tmdb_episode_details_to_metadata(
+                            details,
+                            &self.config.image_base_url,
+                        ),
                     ),
                 )
             }
@@ -257,7 +297,7 @@ impl MetadataProvider for TmdbMetadataProvider {
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Tmdb,
             provider_key,
-            metadata,
+            graph,
             raw_json,
         })
     }
@@ -573,4 +613,15 @@ fn split_slash_key(value: &str, expected_parts: usize) -> Result<Vec<&str>> {
     }
 
     Ok(parts)
+}
+
+fn provider_subject_kind_for_media_kind(kind: MediaKind) -> ProviderSubjectKind {
+    match kind {
+        MediaKind::Movie => ProviderSubjectKind::Movie,
+        MediaKind::Series => ProviderSubjectKind::Series,
+        MediaKind::Season => ProviderSubjectKind::Season,
+        MediaKind::Episode => ProviderSubjectKind::Episode,
+        MediaKind::Collection => ProviderSubjectKind::Collection,
+        MediaKind::Extra | MediaKind::Unknown => ProviderSubjectKind::Subject,
+    }
 }

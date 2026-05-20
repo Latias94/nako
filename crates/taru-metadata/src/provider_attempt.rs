@@ -270,7 +270,9 @@ where
         &snapshot.field_locks,
         request.profile.refresh_mode,
     );
-    let merged_metadata = policy.merge(&existing.metadata, &fetched.metadata);
+    let provider_subject = fetched.graph.root_provider_subject().cloned();
+    let fetched_metadata = fetched.metadata();
+    let merged_metadata = policy.merge(&existing.metadata, &fetched_metadata);
     let updated = merged_metadata != existing.metadata;
     let updated_item = MediaItem {
         metadata: merged_metadata,
@@ -287,6 +289,7 @@ where
                 fetched_at: now_utc_string().map_err(MetadataProviderRefreshError::Fatal)?,
                 body_json: fetched.raw_json.clone(),
             },
+            provider_subject,
         },
         provider: fetched.provider,
         provider_key: fetched.provider_key,

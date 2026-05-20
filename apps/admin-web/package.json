@@ -6,10 +6,11 @@
   "description": "Taru admin web console scaffold.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "generate:admin-api": "cargo run -q --manifest-path ../../Cargo.toml -p taru-api --example emit-admin-typescript-contract -- --output src/adminApi/generated/contract.ts",
     "build": "tsc -b && vite build",
     "check": "tsc -b",
     "test": "vitest run",
-    "verify": "npm run check && npm run test && npm run build"
+    "verify": "npm run generate:admin-api && npm run check && npm run test && npm run build"
   },
   "dependencies": {
     "react": "19.2.6",

@@ -1,5 +1,5 @@
 use taru_core::{
-    CanonicalMetadata, ContentRating, ExternalId, ExternalProvider, ImageKind, StudioRef,
+    ContentRating, ExternalId, ExternalProvider, ImageKind, MetadataCandidateRecord, StudioRef,
 };
 
 use crate::providers::{
@@ -9,7 +9,7 @@ use crate::providers::{
 pub(crate) fn bangumi_subject_to_metadata(
     subject: BangumiSubject,
     image_base_url: &str,
-) -> CanonicalMetadata {
+) -> MetadataCandidateRecord {
     let mut images = Vec::new();
     if let Some(subject_images) = subject.images.as_ref() {
         for uri in [
@@ -49,9 +49,8 @@ pub(crate) fn bangumi_subject_to_metadata(
         .filter(|name| !name.trim().is_empty())
         .collect();
 
-    CanonicalMetadata {
-        title: first_non_empty(&[Some(subject.name_cn.as_str()), Some(subject.name.as_str())])
-            .unwrap_or_default(),
+    MetadataCandidateRecord {
+        title: first_non_empty(&[Some(subject.name_cn.as_str()), Some(subject.name.as_str())]),
         original_title: non_empty_string(subject.name),
         overview: subject.summary.filter(|value| !value.trim().is_empty()),
         release_date: subject.date.filter(|value| !value.trim().is_empty()),
@@ -72,7 +71,7 @@ pub(crate) fn bangumi_subject_to_metadata(
             provider: ExternalProvider::Bangumi,
             value: subject.id.to_string(),
         }],
-        ..CanonicalMetadata::default()
+        ..MetadataCandidateRecord::default()
     }
 }
 

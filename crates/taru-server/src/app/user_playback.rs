@@ -2,13 +2,13 @@ use taru_core::{
     MediaItemId, MediaRepository, MediaSourceId, Result, TaruError, UserPlaybackState,
     UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 
 use super::current_time_ms;
 
 #[derive(Clone, Debug)]
 pub(crate) struct UserPlaybackAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -33,7 +33,7 @@ pub(crate) struct SetUserWatchedStateRequest {
 }
 
 impl UserPlaybackAppService {
-    pub(crate) fn new(store: SqliteStore) -> Self {
+    pub(crate) fn new(store: TaruDatabase) -> Self {
         Self { store }
     }
 

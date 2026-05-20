@@ -6,10 +6,10 @@ use std::{
 use serde::Serialize;
 use taru_core::{
     CancelLeasedJob, CompleteLeasedJob, FailLeasedJob, Job, JobId, JobLeaseClaimFilter,
-    JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobRepository, JobWorkerId, Result,
-    TaruError,
+    JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobRepository,
+    JobWorkerId, Result, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
@@ -19,7 +19,7 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS: u64 = 10_000;
 
 #[derive(Clone, Debug)]
 pub(super) struct DurableJobRuntime {
-    store: SqliteStore,
+    store: TaruDatabase,
     worker_id: JobWorkerId,
     lease_duration_ms: u64,
     heartbeat_interval_ms: u64,
@@ -33,7 +33,7 @@ pub(super) struct DurableJobRun<T> {
 
 #[derive(Clone, Debug)]
 pub(super) struct DurableJobContext {
-    store: SqliteStore,
+    store: TaruDatabase,
     guard: JobLeaseGuard,
     lease_duration_ms: u64,
     cancellation: DurableJobCancellation,
@@ -107,7 +107,7 @@ impl<T> DurableJobRunOutcome<T> {
 }
 
 impl DurableJobRuntime {
-    pub(super) fn new(store: SqliteStore) -> Self {
+    pub(super) fn new(store: TaruDatabase) -> Self {
         Self {
             store,
             worker_id: default_worker_id(),
@@ -118,7 +118,7 @@ impl DurableJobRuntime {
 
     #[cfg(test)]
     pub(super) fn with_lease_timing(
-        store: SqliteStore,
+        store: TaruDatabase,
         lease_duration_ms: u64,
         heartbeat_interval_ms: u64,
     ) -> Self {
@@ -395,12 +395,12 @@ impl DurableJobHeartbeat {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use taru_core::{JobKind, JobLeaseClaimFilter, JobStatus, NewJob, TransactionManager};
-    use taru_db::SqliteStore;
+    use taru_core::{DatabaseLifecycle, JobKind, JobLeaseClaimFilter, JobStatus, NewJob};
+    use taru_db::TaruDatabase;
     use tokio::sync::Notify;
 
-    async fn migrated_store() -> SqliteStore {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+    async fn migrated_store() -> TaruDatabase {
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         store
     }

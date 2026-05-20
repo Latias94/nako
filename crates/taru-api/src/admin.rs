@@ -128,7 +128,7 @@ pub enum AdminCatalogGovernanceIssue {
     MissingAcceptedProviderMapping,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct JobResponse {
     pub id: JobId,
     pub kind: JobKind,
@@ -136,9 +136,9 @@ pub struct JobResponse {
     pub resource_class: String,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
-    pub input: Option<serde_json::Value>,
-    pub summary: Option<serde_json::Value>,
-    pub error: Option<String>,
+    pub has_input: bool,
+    pub has_summary: bool,
+    pub has_error: bool,
     pub queued_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
@@ -154,13 +154,9 @@ impl JobResponse {
             resource_class: job.resource_class,
             library_id: job.library_id,
             source_id: job.source_id,
-            input: job
-                .input_json
-                .and_then(|value| serde_json::from_str(&value).ok()),
-            summary: job
-                .summary_json
-                .and_then(|value| serde_json::from_str(&value).ok()),
-            error: job.error,
+            has_input: job.input_json.is_some(),
+            has_summary: job.summary_json.is_some(),
+            has_error: job.error.is_some(),
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
@@ -816,6 +812,10 @@ pub enum StorageBackendRuntimeStateScope {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        metadata_diagnostics::MetadataProviderDiagnosticStatus, public_client::API_VERSION,
+    };
+
     use super::*;
 
     #[test]
@@ -851,46 +851,35 @@ mod tests {
     }
 
     #[test]
-    fn job_response_preserves_nfo_backup_retention_summary_for_admin_diagnostics() {
+    fn job_response_redacts_raw_payloads_summaries_and_errors() {
         let job = Job {
             id: JobId::new(),
-            kind: JobKind::NfoExport,
-            status: JobStatus::Succeeded,
-            resource_class: "metadata.nfo.export".to_owned(),
+            kind: JobKind::LibraryScan,
+            status: JobStatus::Failed,
+            resource_class: "disk.scan".to_owned(),
             library_id: Some(LibraryId::new()),
-            source_id: None,
-            input_json: None,
-            summary_json: Some(
-                r#"{
-                    "exported_items": 1,
-                    "backed_up_items": 1,
-                    "pruned_backup_items": 1,
-                    "pruned_backups": 1,
-                    "backups": [{
-                        "backup_uri": "local:///demo.nfo.taru-backup-2",
-                        "pruned_backups": ["local:///demo.nfo.taru-backup-1"]
-                    }],
-                    "prune_failures": []
-                }"#
-                .to_owned(),
-            ),
-            error: None,
+            source_id: Some(MediaSourceId::new()),
+            input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
+            summary_json: Some(r#"{"output_path":"C:\\media\\private.nfo"}"#.to_owned()),
+            error: Some("token admin-token failed at C:\\media\\private.nfo".to_owned()),
             queued_at: "2026-05-17T00:00:00Z".to_owned(),
             started_at: Some("2026-05-17T00:00:01Z".to_owned()),
             completed_at: Some("2026-05-17T00:00:02Z".to_owned()),
         };
 
         let response = JobResponse::from_job(job);
-        let summary = response.summary.unwrap();
+        let body = serde_json::to_string(&response).unwrap();
 
-        assert_eq!(summary["backed_up_items"], 1);
-        assert_eq!(summary["pruned_backup_items"], 1);
-        assert_eq!(summary["pruned_backups"], 1);
-        assert_eq!(
-            summary["backups"][0]["pruned_backups"][0],
-            "local:///demo.nfo.taru-backup-1"
-        );
-        assert_eq!(summary["prune_failures"].as_array().unwrap().len(), 0);
+        assert!(response.has_input);
+        assert!(response.has_summary);
+        assert!(response.has_error);
+        assert!(!body.contains("admin-token"));
+        assert!(!body.contains("private.nfo"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("secret"));
+        assert!(!body.contains("\"input\":"));
+        assert!(!body.contains("\"summary\":"));
+        assert!(!body.contains("\"error\":"));
     }
 
     #[test]
@@ -1096,7 +1085,7 @@ mod tests {
     fn admin_playback_runtime_diagnostics_serializes_safe_summary_fields() {
         let response = AdminPlaybackRuntimeDiagnosticsResponse {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
-            public_api_version: crate::API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Degraded,
                 has_probe_error: true,
@@ -1226,7 +1215,7 @@ mod tests {
         let library_id = LibraryId::new();
         let response = AdminOverviewResponse {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
-            public_api_version: crate::API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
             status: AdminOverviewStatus::Healthy,
             storage: AdminOverviewStorageSummary {
                 total_backends: 1,
@@ -1247,7 +1236,7 @@ mod tests {
                 unavailable_providers: 0,
                 providers: vec![AdminOverviewMetadataProviderSummary {
                     provider: taru_core::ExternalProvider::Tmdb,
-                    status: crate::MetadataProviderDiagnosticStatus::Available,
+                    status: MetadataProviderDiagnosticStatus::Available,
                 }],
             },
             runtime: AdminOverviewRuntimeSummary {
@@ -1275,7 +1264,7 @@ mod tests {
         let body = value.to_string();
 
         assert_eq!(value["admin_api_version"], "v1");
-        assert_eq!(value["public_api_version"], crate::API_VERSION);
+        assert_eq!(value["public_api_version"], API_VERSION);
         assert_eq!(value["status"], "healthy");
         assert_eq!(value["storage"]["ready_backends"], 1);
         assert_eq!(value["storage"]["backends"][0]["status"], "ready");

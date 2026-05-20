@@ -15,7 +15,9 @@ inspection envelopes, and error envelopes for current server routes.
 - Timestamps are stored and returned as UTC strings.
 - List endpoints use offset pagination.
 - Error responses use a stable JSON envelope.
-- Job responses include both durable input and generated summary when present.
+- Job responses expose lifecycle identity plus presence flags for durable input,
+  summary, and error payloads. They do not serialize raw job input, summary, or
+  error text.
 - Inbound client/admin access uses bearer-token authentication when enabled.
 
 ## API Version And Compatibility
@@ -412,22 +414,20 @@ Jobs use:
   "resource_class": "disk.scan",
   "library_id": "018f0000-0000-7000-8000-000000000002",
   "source_id": null,
-  "input": {
-    "library_id": "018f0000-0000-7000-8000-000000000002",
-    "force": false
-  },
-  "summary": null,
-  "error": null,
+  "has_input": true,
+  "has_summary": false,
+  "has_error": false,
   "queued_at": "2026-05-14T00:00:00.000Z",
   "started_at": null,
   "completed_at": null
 }
 ```
 
-`input` is the persisted request payload. It must avoid plaintext secrets.
-Future integrations should store secret references instead.
-
-`summary` is written after success. Failed jobs use `error`.
+The persisted `input_json`, `summary_json`, and `error` fields are internal
+durable job state. HTTP job responses expose only `has_input`, `has_summary`,
+and `has_error` so clients can show lifecycle state without receiving provider
+payloads, Source Locators, storage handles, local paths, tokens, or raw error
+text.
 
 Metadata refresh jobs use the same envelope with kind `metadata_refresh`.
 Their input includes the item ID, selected first provider, force flag, and
@@ -1242,7 +1242,8 @@ thumbnails, write public `ImageAsset` rows, select artwork, or expose a
 client-visible cache reference yet.
 
 The response includes only safe IDs, status, image kind, artifact/failure
-presence booleans, and the redacted job envelope:
+presence booleans, safe failure code when present, and the redacted job
+envelope:
 
 ```json
 {
@@ -1258,6 +1259,7 @@ presence booleans, and the redacted job envelope:
     "status": "queued",
     "has_artifact": false,
     "has_failure": false,
+    "failure_code": null,
     "created_at": "2026-05-18T12:00:00.000Z",
     "updated_at": "2026-05-18T12:00:00.000Z"
   },
@@ -1268,14 +1270,9 @@ presence booleans, and the redacted job envelope:
     "resource_class": "artwork.ingest",
     "library_id": "018f0000-0000-7000-8000-000000000003",
     "source_id": null,
-    "input": {
-      "candidate_id": "018f0000-0000-7000-8000-000000000008",
-      "library_id": "018f0000-0000-7000-8000-000000000003",
-      "item_id": "018f0000-0000-7000-8000-000000000007",
-      "image_kind": "poster"
-    },
-    "summary": null,
-    "error": null,
+    "has_input": true,
+    "has_summary": false,
+    "has_error": false,
     "queued_at": "2026-05-18T12:00:00.000Z",
     "started_at": null,
     "completed_at": null

@@ -1,22 +1,25 @@
 use taru_api::{
-    IngestionFailureDiagnostic, IngestionFailuresResponse, LibraryListResponse, LibraryResponse,
-    LibrarySourceResponse, LibrarySourcesResponse, library_to_dto, media_item_to_dto,
-    media_probe_to_dto, media_source_to_dto, page_info_from_request,
+    admin::{IngestionFailureDiagnostic, IngestionFailuresResponse},
+    public_client::{
+        LibraryListResponse, LibraryResponse, LibrarySourceResponse, LibrarySourcesResponse,
+        library_to_dto, media_item_to_dto, media_probe_to_dto, media_source_to_dto,
+        page_info_from_request,
+    },
 };
 use taru_core::{
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
     IngestionFailureStatus, LibraryId, LibraryRepository, MediaProbeRepository, MediaRepository,
     PageRequest, Result, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 
 #[derive(Clone, Debug)]
 pub(crate) struct LibraryAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
 }
 
 impl LibraryAppService {
-    pub(crate) fn new(store: SqliteStore) -> Self {
+    pub(crate) fn new(store: TaruDatabase) -> Self {
         Self { store }
     }
 

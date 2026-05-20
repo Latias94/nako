@@ -1,5 +1,5 @@
 use axum::{Json, Router, extract::State, routing::get};
-use taru_api::{API_VERSION, HealthResponse};
+use taru_api::public_client::{API_VERSION, HealthResponse};
 
 use crate::app::TaruApp;
 
@@ -22,6 +22,6 @@ pub(super) async fn health() -> Json<HealthResponse> {
 
 pub(super) async fn list_storage_backends(
     State(app): State<TaruApp>,
-) -> ApiResult<Json<taru_api::StorageBackendDiagnosticsResponse>> {
+) -> ApiResult<Json<taru_api::admin::StorageBackendDiagnosticsResponse>> {
     Ok(Json(app.storage().list_storage_backend_diagnostics().await))
 }

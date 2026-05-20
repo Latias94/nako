@@ -6,26 +6,32 @@ use axum::{
 };
 use serde::Deserialize;
 use taru_api::{
-    ADMIN_API_VERSION, API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
-    AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
-    AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminJobCancelRequestResponse,
-    AdminJobListItem, AdminJobListResponse, AdminLibraryConfigDiagnostics,
-    AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
-    AdminMetadataRuntimeConfigDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
-    AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
-    AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
-    AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-    AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-    AdminPlaybackHardwareCapabilityEvidence, AdminPlaybackHardwareCapabilityReason,
-    AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareSmokeProbe,
-    AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackRemoteBudgetDiagnostics,
-    AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
-    AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
-    AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
-    AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-    AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord, AdminStorageStagingSummary,
-    AdminVfsCacheSummary, MetadataProviderDiagnosticStatus, StorageBackendKind,
-    StorageBackendRuntimeStateScope, StorageBackendStatus, page_info_from_request,
+    admin::{
+        ADMIN_API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
+        AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
+        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
+        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
+        AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+        AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
+        AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+        AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
+        AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
+        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
+        AdminPlaybackHardwareCapabilityEvidence, AdminPlaybackHardwareCapabilityReason,
+        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareSmokeProbe,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
+        AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
+        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminVfsCacheSummary,
+        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+        StorageBackendStatus,
+    },
+    metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
+    public_client::{API_VERSION, page_info_from_request},
 };
 use taru_core::{
     ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
@@ -363,7 +369,7 @@ pub(super) async fn get_admin_system_config(
                 .map(metadata_provider_config_diagnostics)
                 .collect(),
         },
-        transcode: taru_api::AdminTranscodeConfigDiagnostics {
+        transcode: AdminTranscodeConfigDiagnostics {
             hardware_policy: config.transcode.hardware_policy(),
             cpu_concurrency: config.transcode.cpu_concurrency,
             gpu_concurrency: config.transcode.gpu_concurrency,
@@ -659,9 +665,7 @@ pub(super) async fn get_admin_playback_runtime(
     })
 }
 
-fn storage_summary(
-    diagnostics: taru_api::StorageBackendDiagnosticsResponse,
-) -> AdminOverviewStorageSummary {
+fn storage_summary(diagnostics: StorageBackendDiagnosticsResponse) -> AdminOverviewStorageSummary {
     let mut ready_backends = 0;
     let mut degraded_backends = 0;
     let mut unavailable_backends = 0;
@@ -694,7 +698,7 @@ fn storage_summary(
 }
 
 fn metadata_summary(
-    diagnostics: taru_api::MetadataProviderDiagnosticsResponse,
+    diagnostics: MetadataProviderDiagnosticsResponse,
 ) -> AdminOverviewMetadataSummary {
     let mut available_providers = 0;
     let mut disabled_providers = 0;
@@ -828,7 +832,7 @@ fn hardware_smoke_probe_status(
 }
 
 fn remote_budget_summary(
-    diagnostics: taru_api::StorageBackendDiagnosticsResponse,
+    diagnostics: StorageBackendDiagnosticsResponse,
     configured_stream_permits: usize,
     configured_stage_permits: usize,
 ) -> AdminPlaybackRemoteBudgetDiagnostics {

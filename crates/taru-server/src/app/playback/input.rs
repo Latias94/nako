@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use taru_core::{MediaSource, Result, StagingManifestRepository, StagingPurpose, TaruError};
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_vfs::{StageRequest, StorageBackend, StorageUri};
 
 use crate::config::TaruServerConfig;
@@ -20,14 +20,14 @@ pub(super) struct FfmpegSourceInput {
 #[derive(Clone, Debug)]
 pub(super) struct FfmpegInputService {
     config: TaruServerConfig,
-    store: SqliteStore,
+    store: TaruDatabase,
     runtime: RuntimeSupervisor,
 }
 
 impl FfmpegInputService {
     pub(super) fn new(
         config: TaruServerConfig,
-        store: SqliteStore,
+        store: TaruDatabase,
         runtime: RuntimeSupervisor,
     ) -> Self {
         Self {

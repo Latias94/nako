@@ -3,11 +3,11 @@ use std::sync::Arc;
 use serde::Serialize;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job,
-    JobCancellationRequestRecord, JobId, JobKind, JobListFilter, JobRepository, Library, LibraryId,
-    LibraryRepository, NewJob, NewOutboxEvent, PageRequest, RequestJobCancellation, Result,
-    StagingPurpose, TaruError,
+    JobCancellationRequestRecord, JobId, JobKind, JobLeaseRepository, JobListFilter, JobRepository,
+    Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent, PageRequest,
+    RequestJobCancellation, Result, StagingPurpose, TaruError,
 };
-use taru_db::SqliteStore;
+use taru_db::TaruDatabase;
 use taru_library::{
     LibraryIndexRequest, LibraryIndexService, LibraryIndexSummary, LibraryProbeOptions,
     LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary, LibraryScannerOptions,
@@ -42,11 +42,11 @@ enum LibraryScanExecution {
 
 #[derive(Clone, Debug)]
 pub(crate) struct JobAppService {
-    store: SqliteStore,
+    store: TaruDatabase,
 }
 
 impl JobAppService {
-    pub(crate) fn new(store: SqliteStore) -> Self {
+    pub(crate) fn new(store: TaruDatabase) -> Self {
         Self { store }
     }
 
@@ -84,7 +84,7 @@ impl JobAppService {
 #[derive(Clone, Debug)]
 pub(crate) struct LibraryScanAppService {
     config: TaruServerConfig,
-    store: SqliteStore,
+    store: TaruDatabase,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
@@ -93,7 +93,7 @@ pub(crate) struct LibraryScanAppService {
 impl LibraryScanAppService {
     pub(super) fn new(
         config: TaruServerConfig,
-        store: SqliteStore,
+        store: TaruDatabase,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,

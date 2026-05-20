@@ -298,13 +298,13 @@ mod tests {
         routing::post,
     };
     use taru_core::{
+        DatabaseLifecycle, Library, LibraryId, LibraryOptions, LibraryPreset, LibraryRepository,
+    };
+    use taru_core::{
         DomainEventSubject, EventId, EventOutboxRepository, NewOutboxEvent, NewWebhookEndpoint,
         WebhookDeliveryStatus, WebhookEndpointId, WebhookEndpointStatus, WebhookRepository,
     };
-    use taru_core::{
-        Library, LibraryId, LibraryOptions, LibraryPreset, LibraryRepository, TransactionManager,
-    };
-    use taru_db::SqliteStore;
+    use taru_db::TaruDatabase;
     use tokio::net::TcpListener;
 
     use super::*;
@@ -405,7 +405,7 @@ mod tests {
 
     #[tokio::test]
     async fn webhook_delivery_signs_and_persists_successful_attempt() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -472,7 +472,7 @@ mod tests {
 
     #[tokio::test]
     async fn webhook_delivery_records_failed_attempt_with_retry_time() {
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),

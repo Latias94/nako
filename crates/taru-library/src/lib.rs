@@ -29,15 +29,15 @@ mod tests {
         routing::any,
     };
     use taru_core::{
-        CanonicalMetadata, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-        IngestionFailureRepository, IngestionFailureStatus, JobId, Library, LibraryId,
-        LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
-        LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem, MediaItemId, MediaKind,
-        MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-        MediaStreamInfo, MediaStreamKind, PageRequest, Result, ScanRepository, ScanStatus,
-        SourceState, TaruError, TransactionManager,
+        CanonicalMetadata, DatabaseLifecycle, IngestionFailureClass, IngestionFailureFilter,
+        IngestionFailurePhase, IngestionFailureRepository, IngestionFailureStatus, JobId, Library,
+        LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+        LibraryRepository, LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem,
+        MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+        MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, PageRequest, Result,
+        ScanRepository, ScanStatus, SourceState, TaruError,
     };
-    use taru_db::SqliteStore;
+    use taru_db::TaruDatabase;
     use taru_media_probe::{MediaProbe, MediaProbeRequest};
     use taru_search::{SearchIndex, SearchQuery};
     use taru_vfs::{
@@ -86,7 +86,6 @@ mod tests {
             assert_eq!(summary.discovered_files, 1);
             assert_eq!(summary.media_sources.len(), 1);
             assert_eq!(summary.media_sources[0].file_name, "demo.MKV");
-            assert_eq!(summary.media_sources[0].parsed_name.title, "demo");
             assert_eq!(
                 summary.media_sources[0].uri.as_str(),
                 "local:///Movies/Demo Movie/demo.MKV"
@@ -205,7 +204,7 @@ mod tests {
             max_attempts: 2,
         })
         .unwrap();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let staging_root = tempfile::tempdir().unwrap();
         let library = Library {
@@ -277,7 +276,7 @@ mod tests {
 
         let backend = LocalFsBackend::new(temp.path()).unwrap();
         let scanner = VfsLibraryScanner::new(backend);
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
 
         let library = Library {
@@ -323,12 +322,7 @@ mod tests {
             .await
             .unwrap();
         let hits = store
-            .search(SearchQuery {
-                query: "matrix".to_owned(),
-                facets: Vec::new(),
-                limit: 10,
-                offset: 0,
-            })
+            .search(SearchQuery::from_facet_labels("matrix", Vec::new(), 10, 0).unwrap())
             .await
             .unwrap();
 
@@ -362,7 +356,7 @@ mod tests {
         .unwrap();
 
         let scanner = VfsLibraryScanner::new(LocalFsBackend::new(temp.path()).unwrap());
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -436,7 +430,7 @@ mod tests {
         .unwrap();
 
         let scanner = VfsLibraryScanner::new(LocalFsBackend::new(temp.path()).unwrap());
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -535,7 +529,7 @@ mod tests {
         fs::write(temp.path().join("Uploads").join("random.clip.mkv"), b"clip").unwrap();
 
         let scanner = VfsLibraryScanner::new(LocalFsBackend::new(temp.path()).unwrap());
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -580,7 +574,7 @@ mod tests {
         fs::write(first_root.path().join("Movie.mkv"), b"first").unwrap();
         fs::write(second_root.path().join("Movie.mkv"), b"second").unwrap();
 
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
 
         let first_library = Library {
@@ -723,12 +717,7 @@ mod tests {
         );
 
         let hits = store
-            .search(SearchQuery {
-                query: "movie".to_owned(),
-                facets: Vec::new(),
-                limit: 10,
-                offset: 0,
-            })
+            .search(SearchQuery::from_facet_labels("movie", Vec::new(), 10, 0).unwrap())
             .await
             .unwrap();
         let hit_item_ids = hits.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>();
@@ -745,7 +734,7 @@ mod tests {
 
         let backend = LocalFsBackend::new(temp.path()).unwrap();
         let scanner = VfsLibraryScanner::new(backend);
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
 
         let library = Library {
@@ -779,7 +768,7 @@ mod tests {
     #[tokio::test]
     async fn index_service_does_not_tombstone_when_scan_uses_stale_vfs_cache() {
         let backend = FlakyRemoteBackend::new();
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let cached_backend = CachedStorageBackend::with_options(
             backend.clone(),
@@ -862,7 +851,7 @@ mod tests {
     async fn index_service_records_scan_failures_without_blocking_good_sources() {
         let backend = PartiallyFailingScanBackend;
         let scanner = VfsLibraryScanner::new(backend);
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         let library = Library {
             id: LibraryId::new(),
@@ -928,7 +917,7 @@ mod tests {
         let index_backend = LocalFsBackend::new(temp.path()).unwrap();
         let probe_backend = LocalFsBackend::new(temp.path()).unwrap();
         let scanner = VfsLibraryScanner::new(index_backend);
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
 
         let library = Library {
@@ -992,7 +981,7 @@ mod tests {
         let index_backend = LocalFsBackend::new(temp.path()).unwrap();
         let probe_backend = LocalFsBackend::new(temp.path()).unwrap();
         let scanner = VfsLibraryScanner::new(index_backend);
-        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
 
         let library = Library {

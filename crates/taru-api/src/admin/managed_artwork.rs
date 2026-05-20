@@ -13,6 +13,8 @@ use taru_core::{
     SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
 };
 
+use crate::public_client::selected_artwork_to_public_image_ref;
+
 use super::JobResponse;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -98,6 +100,7 @@ pub struct ManagedArtworkIngestSummary {
     pub status: ManagedArtworkIngestStatus,
     pub has_artifact: bool,
     pub has_failure: bool,
+    pub failure_code: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -115,6 +118,7 @@ impl ManagedArtworkIngestSummary {
             status: record.status,
             has_artifact: record.artifact_id.is_some(),
             has_failure: record.failure_code.is_some(),
+            failure_code: record.failure_code,
             created_at: record.created_at,
             updated_at: record.updated_at,
         }
@@ -203,7 +207,7 @@ pub struct PublishSelectedArtworkResponse {
 impl PublishSelectedArtworkResponse {
     #[must_use]
     pub fn from_publication(publication: SelectedArtworkPublicationRecord) -> Self {
-        let image = crate::selected_artwork_to_public_image_ref(
+        let image = selected_artwork_to_public_image_ref(
             publication.selected_artwork.clone(),
             publication.artifact,
         );
@@ -258,7 +262,7 @@ impl UnpublishedSelectedArtworkSummary {
         artifact: ManagedArtworkArtifactRecord,
     ) -> Self {
         let previous_image =
-            crate::selected_artwork_to_public_image_ref(selected_artwork.clone(), artifact);
+            selected_artwork_to_public_image_ref(selected_artwork.clone(), artifact);
         Self {
             selected_artwork: SelectedArtworkSummary::from_record(selected_artwork),
             previous_image,

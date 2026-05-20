@@ -20,8 +20,13 @@ into Vite environment variables.
 
 ```bash
 npm install
+npm run generate:admin-api
 npm run check
 npm run test
 npm run build
 npm run dev -- --host 127.0.0.1 --port 5174
 ```
+
+`npm run generate:admin-api` refreshes
+`src/adminApi/generated/contract.ts` from `taru-api`. Do not edit generated
+contract output by hand.
