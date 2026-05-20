@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 
 use taru_catalog::{
-    CatalogLabelHydrationSelection, hydrate_item_catalog_labels, refresh_item_search,
+    CatalogLabelHydrationSelection, plan_item_catalog_label_projection, plan_item_search_projection,
 };
 use taru_core::{
-    AddonId, AddonSideEffectRecord, CanonicalMetadata, MediaItem, MediaItemId, MetadataMergePolicy,
+    AddonId, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit,
+    AddonSideEffectRecord, CanonicalMetadata, MediaItem, MediaItemId, MetadataMergePolicy,
     MetadataRefreshMode, MetadataRepository, MetadataSource, Result, TaruError,
 };
 use taru_db::TaruDatabase;
@@ -41,17 +42,45 @@ impl AddonMetadataWriteAdapter {
             metadata: merged,
             ..existing
         };
-
-        self.store.commit_metadata_item(&updated).await?;
-        if label_selection.any() {
-            hydrate_item_catalog_labels(&self.store, updated.id, source, label_selection).await?;
+        let catalog = if label_selection.any() {
+            let projection = plan_item_catalog_label_projection(
+                &self.store,
+                updated.clone(),
+                source,
+                label_selection,
+            )
+            .await?;
+            AddonMetadataWriteCatalogCommit {
+                graph: Some(projection.graph),
+                search: projection.search,
+            }
         } else {
-            refresh_item_search(&self.store, updated.id).await?;
-        }
+            AddonMetadataWriteCatalogCommit {
+                graph: None,
+                search: plan_item_search_projection(&self.store, updated.clone()).await?,
+            }
+        };
+        let applied_source = addon_metadata_source_label(side_effect.addon_id);
+        let summary = self
+            .store
+            .commit_addon_metadata_write(&AddonMetadataWritePersistenceCommit {
+                side_effect_id: side_effect.id,
+                item: updated,
+                catalog,
+                applied_source,
+                apply_report_json: None,
+            })
+            .await?;
 
+        let source = summary
+            .side_effect
+            .applied_source
+            .clone()
+            .unwrap_or_else(|| addon_metadata_source_label(side_effect.addon_id));
         Ok(AppliedMetadataWrite {
-            item_id: updated.id,
-            source: addon_metadata_source_label(side_effect.addon_id),
+            item_id: summary.item_id,
+            source,
+            side_effect: summary.side_effect,
         })
     }
 }
@@ -59,6 +88,7 @@ impl AddonMetadataWriteAdapter {
 pub(super) struct AppliedMetadataWrite {
     pub(super) item_id: MediaItemId,
     pub(super) source: String,
+    pub(super) side_effect: AddonSideEffectRecord,
 }
 
 #[derive(Debug, Default, serde::Deserialize)]

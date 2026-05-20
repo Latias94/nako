@@ -2,13 +2,14 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    AddonId, ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkCandidateStatus,
-    ArtworkTask, ArtworkTaskId, ExternalProvider, ImageKind, JobId, LibraryId,
-    LocalInferenceEvidence, LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
-    ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
+    AddonId, AddonMetadataWritePersistenceCommit, AddonMetadataWritePersistenceSummary,
+    ArtworkCandidateRecord, ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask,
+    ArtworkTaskId, ExternalProvider, ImageKind, JobId, LibraryId, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactCleanupReport,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter,
+    ManagedArtworkArtifactLifecycleSnapshot, ManagedArtworkArtifactRecord,
+    ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
     ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
     MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
     MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
@@ -182,6 +183,11 @@ pub trait MetadataRepository: Send + Sync {
         &self,
         commit: &NfoImportPersistenceCommit,
     ) -> Result<NfoImportPersistenceSummary>;
+
+    async fn commit_addon_metadata_write(
+        &self,
+        commit: &AddonMetadataWritePersistenceCommit,
+    ) -> Result<AddonMetadataWritePersistenceSummary>;
 
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()>;
 

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AddonGrantId, AddonId, AddonSideEffectId, AddonTokenId, LibraryId, MediaItemId, MediaSourceId,
-    Result, SecretString, TaruError,
+    AddonGrantId, AddonId, AddonSideEffectId, AddonTokenId, CatalogItemGraphReplacement,
+    CatalogSearchProjection, LibraryId, MediaItem, MediaItemId, MediaSourceId, Result,
+    SecretString, TaruError,
 };
 
 pub const ADDON_TOKEN_RAW_PREFIX: &str = "taru_at_";
@@ -331,6 +332,28 @@ pub struct AddonSideEffectApplyOutcome {
     pub item_id: Option<MediaItemId>,
     pub source: Option<String>,
     pub report_json: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonMetadataWriteCatalogCommit {
+    pub graph: Option<CatalogItemGraphReplacement>,
+    pub search: CatalogSearchProjection,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonMetadataWritePersistenceCommit {
+    pub side_effect_id: AddonSideEffectId,
+    pub item: MediaItem,
+    pub catalog: AddonMetadataWriteCatalogCommit,
+    pub applied_source: String,
+    pub apply_report_json: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonMetadataWritePersistenceSummary {
+    pub item_id: MediaItemId,
+    pub projected_items: u64,
+    pub side_effect: AddonSideEffectRecord,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

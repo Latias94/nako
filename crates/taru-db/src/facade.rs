@@ -1171,6 +1171,13 @@ impl MetadataRepository for TaruDatabase {
         self.backend().commit_nfo_import(commit).await
     }
 
+    async fn commit_addon_metadata_write(
+        &self,
+        commit: &AddonMetadataWritePersistenceCommit,
+    ) -> Result<AddonMetadataWritePersistenceSummary> {
+        self.backend().commit_addon_metadata_write(commit).await
+    }
+
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
         self.backend().commit_metadata_item(item).await
     }

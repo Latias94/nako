@@ -1,7 +1,8 @@
 use std::{future::Future, sync::OnceLock};
 
 use taru_core::{
-    AddonPermission, AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
+    AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit, AddonPermission,
+    AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
     AddonSideEffectTarget, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
     AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
     AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
@@ -162,6 +163,7 @@ impl<T> ScanCommitContractBackend for T where
 
 trait MetadataCatalogContractBackend:
     LifecycleContractBackend
+    + AddonRepository
     + CatalogRepository
     + JobRepository
     + LibraryRepository
@@ -175,6 +177,7 @@ trait MetadataCatalogContractBackend:
 
 impl<T> MetadataCatalogContractBackend for T where
     T: LifecycleContractBackend
+        + AddonRepository
         + CatalogRepository
         + JobRepository
         + LibraryRepository
@@ -1902,6 +1905,338 @@ where
     );
 }
 
+async fn addon_metadata_write_commit_updates_projection_apply_outcome_and_rolls_back_contract<S>(
+    store: S,
+) where
+    S: MetadataCatalogContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let item_id = MediaItemId::new();
+    let original = contract_media_item(item_id, "Original Addon Title");
+    let addon_id = taru_core::AddonId::new();
+    let existing_genre = Genre {
+        id: GenreId::new(),
+        name: "Existing Genre".to_owned(),
+        source: MetadataSource::Local,
+    };
+    let addon_genre = Genre {
+        id: GenreId::new(),
+        name: "Addon Genre".to_owned(),
+        source: MetadataSource::Addon(addon_id),
+    };
+
+    store.upsert_media_item(&original).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
+        .replace_item_catalog_graph(
+            item_id,
+            &CatalogItemGraphReplacement {
+                genres: vec![existing_genre.clone()],
+                item_genres: vec![ItemGenre {
+                    item_id,
+                    genre_id: existing_genre.id,
+                }],
+                ..CatalogItemGraphReplacement::default()
+            },
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_search_projection(
+            &CatalogSearchProjection::try_from_facet_labels(
+                item_id,
+                "Original Addon Title",
+                "Original Addon Title Existing Genre",
+                vec!["genre:Existing Genre".to_owned(), "kind:movie".to_owned()],
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "dev.taru.contract.addon-metadata-write".to_owned(),
+            name: "Contract Metadata Addon".to_owned(),
+            version: "1.0.0".to_owned(),
+            protocol_version: "2026-05".to_owned(),
+            base_url: "http://127.0.0.1:43124".to_owned(),
+            manifest_json: r#"{"id":"dev.taru.contract.addon-metadata-write"}"#.to_owned(),
+            granted_scopes: vec!["metadata.write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token = store
+        .create_addon_token(NewAddonToken {
+            id: AddonTokenId::new(),
+            addon_id,
+            label: "contract".to_owned(),
+            token_prefix: "taru_at_metadata".to_owned(),
+            token_hash: "hash-addon-metadata".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let search_only_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: taru_core::AddonSideEffectId::new(),
+            addon_id,
+            token_id: token.id,
+            permission: AddonPermission::MetadataWrite,
+            library_id: library.id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: "addon:metadata-write:search-only".to_owned(),
+            provenance_json: r#"{"addon":"contract"}"#.to_owned(),
+            payload_json: r#"{"title":"Search Only Addon Title"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let search_only_item = MediaItem {
+        metadata: CanonicalMetadata {
+            title: "Search Only Addon Title".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+        ..original.clone()
+    };
+    let search_only_summary = store
+        .commit_addon_metadata_write(&AddonMetadataWritePersistenceCommit {
+            side_effect_id: search_only_effect.id,
+            item: search_only_item.clone(),
+            catalog: AddonMetadataWriteCatalogCommit {
+                graph: None,
+                search: CatalogSearchProjection::try_from_facet_labels(
+                    item_id,
+                    "Search Only Addon Title",
+                    "Search Only Addon Title Existing Genre",
+                    vec!["genre:Existing Genre".to_owned(), "kind:movie".to_owned()],
+                )
+                .unwrap(),
+            },
+            applied_source: format!("addon:{addon_id}"),
+            apply_report_json: None,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(search_only_summary.item_id, item_id);
+    assert_eq!(search_only_summary.projected_items, 1);
+    assert_eq!(
+        search_only_summary.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    assert_eq!(
+        search_only_summary.side_effect.applied_item_id,
+        Some(item_id)
+    );
+    assert_eq!(
+        search_only_summary.side_effect.applied_source.as_deref(),
+        Some(format!("addon:{addon_id}").as_str())
+    );
+    assert!(search_only_summary.side_effect.applied_at.is_some());
+    assert_eq!(
+        store.get_media_item(item_id).await.unwrap(),
+        Some(search_only_item.clone())
+    );
+    assert_eq!(
+        store.list_item_genres(item_id).await.unwrap(),
+        vec![ItemGenre {
+            item_id,
+            genre_id: existing_genre.id
+        }]
+    );
+    assert_eq!(
+        store
+            .search(
+                SearchQuery::from_facet_labels(
+                    "search only",
+                    vec!["genre:Existing Genre".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap()
+            )
+            .await
+            .unwrap()[0]
+            .item_id,
+        item_id
+    );
+
+    let graph_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: taru_core::AddonSideEffectId::new(),
+            addon_id,
+            token_id: token.id,
+            permission: AddonPermission::MetadataWrite,
+            library_id: library.id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: "addon:metadata-write:graph".to_owned(),
+            provenance_json: r#"{"addon":"contract"}"#.to_owned(),
+            payload_json: r#"{"title":"Graph Addon Title","genres":["Addon Genre"]}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let graph_item = MediaItem {
+        metadata: CanonicalMetadata {
+            title: "Graph Addon Title".to_owned(),
+            genres: vec!["Addon Genre".to_owned()],
+            ..CanonicalMetadata::default()
+        },
+        ..original.clone()
+    };
+    store
+        .commit_addon_metadata_write(&AddonMetadataWritePersistenceCommit {
+            side_effect_id: graph_effect.id,
+            item: graph_item.clone(),
+            catalog: AddonMetadataWriteCatalogCommit {
+                graph: Some(CatalogItemGraphReplacement {
+                    genres: vec![addon_genre.clone()],
+                    item_genres: vec![ItemGenre {
+                        item_id,
+                        genre_id: addon_genre.id,
+                    }],
+                    ..CatalogItemGraphReplacement::default()
+                }),
+                search: CatalogSearchProjection::try_from_facet_labels(
+                    item_id,
+                    "Graph Addon Title",
+                    "Graph Addon Title Addon Genre",
+                    vec!["genre:Addon Genre".to_owned(), "kind:movie".to_owned()],
+                )
+                .unwrap(),
+            },
+            applied_source: format!("addon:{addon_id}"),
+            apply_report_json: Some(r#"{"changed":["genres"]}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store.get_media_item(item_id).await.unwrap(),
+        Some(graph_item.clone())
+    );
+    assert_eq!(
+        store.list_item_genres(item_id).await.unwrap(),
+        vec![ItemGenre {
+            item_id,
+            genre_id: addon_genre.id
+        }]
+    );
+    assert_eq!(
+        store
+            .search(
+                SearchQuery::from_facet_labels(
+                    "graph",
+                    vec!["genre:Addon Genre".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap()
+            )
+            .await
+            .unwrap()[0]
+            .item_id,
+        item_id
+    );
+    assert_eq!(
+        store
+            .find_addon_side_effect_by_idempotency_key(addon_id, "addon:metadata-write:graph")
+            .await
+            .unwrap()
+            .unwrap()
+            .apply_report_json
+            .as_deref(),
+        Some(r#"{"changed":["genres"]}"#)
+    );
+
+    let broken_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: taru_core::AddonSideEffectId::new(),
+            addon_id,
+            token_id: token.id,
+            permission: AddonPermission::MetadataWrite,
+            library_id: library.id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: "addon:metadata-write:broken".to_owned(),
+            provenance_json: r#"{"addon":"contract"}"#.to_owned(),
+            payload_json: r#"{"title":"Broken Addon Title"}"#.to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let broken_item = MediaItem {
+        metadata: CanonicalMetadata {
+            title: "Broken Addon Title".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+        ..original
+    };
+    let missing_item_id = MediaItemId::new();
+    let broken_error = store
+        .commit_addon_metadata_write(&AddonMetadataWritePersistenceCommit {
+            side_effect_id: broken_effect.id,
+            item: broken_item,
+            catalog: AddonMetadataWriteCatalogCommit {
+                graph: Some(CatalogItemGraphReplacement {
+                    genres: vec![Genre {
+                        id: GenreId::new(),
+                        name: "Broken Genre".to_owned(),
+                        source: MetadataSource::Addon(addon_id),
+                    }],
+                    item_genres: vec![ItemGenre {
+                        item_id: missing_item_id,
+                        genre_id: GenreId::new(),
+                    }],
+                    ..CatalogItemGraphReplacement::default()
+                }),
+                search: CatalogSearchProjection::new(
+                    item_id,
+                    "Broken Addon Title",
+                    "graph replacement references a missing item",
+                ),
+            },
+            applied_source: format!("addon:{addon_id}"),
+            apply_report_json: None,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(!broken_error.to_string().is_empty());
+    assert_eq!(
+        store.get_media_item(item_id).await.unwrap(),
+        Some(graph_item)
+    );
+    assert_eq!(
+        store
+            .find_addon_side_effect_by_idempotency_key(addon_id, "addon:metadata-write:broken")
+            .await
+            .unwrap()
+            .unwrap()
+            .apply_status,
+        AddonSideEffectApplyStatus::Pending
+    );
+    assert_eq!(
+        store
+            .search(SearchQuery::from_facet_labels("broken addon", Vec::new(), 10, 0).unwrap())
+            .await
+            .unwrap(),
+        Vec::new()
+    );
+}
+
 async fn user_playback_state_is_principal_scoped_and_continue_watching_contract<S>(store: S)
 where
     S: PlaybackRuntimeContractBackend,
@@ -3206,6 +3541,18 @@ database_contract_pair!(
         "nfo_import_writes_graph_search_and_rolls_back"
     ),
     contract = nfo_import_commit_writes_catalog_graph_search_and_rolls_back_contract,
+);
+
+database_contract_pair!(
+    sqlite =
+        sqlite_metadata_catalog_contract_addon_metadata_write_updates_projection_apply_outcome_and_rolls_back,
+    postgres =
+        postgres_metadata_catalog_contract_addon_metadata_write_updates_projection_apply_outcome_and_rolls_back,
+    case = ContractCase::migrated(
+        ContractFamily::MetadataCatalog,
+        "addon_metadata_write_updates_projection_apply_outcome_and_rolls_back"
+    ),
+    contract = addon_metadata_write_commit_updates_projection_apply_outcome_and_rolls_back_contract,
 );
 
 database_contract_pair!(

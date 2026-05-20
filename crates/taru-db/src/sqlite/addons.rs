@@ -1,4 +1,5 @@
 use super::{SqliteStore, codec::*};
+use sqlx::Sqlite;
 use taru_core::*;
 
 #[async_trait::async_trait]
@@ -480,8 +481,20 @@ impl AddonRepository for SqliteStore {
         id: AddonSideEffectId,
         outcome: AddonSideEffectApplyOutcome,
     ) -> Result<AddonSideEffectRecord> {
-        sqlx::query(
-            r#"
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let record = set_addon_side_effect_apply_outcome_tx(&mut transaction, id, &outcome).await?;
+        transaction.commit().await.map_err(database_error)?;
+        Ok(record)
+    }
+}
+
+pub(crate) async fn set_addon_side_effect_apply_outcome_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    id: AddonSideEffectId,
+    outcome: &AddonSideEffectApplyOutcome,
+) -> Result<AddonSideEffectRecord> {
+    sqlx::query(
+        r#"
             UPDATE addon_side_effects
             SET
                 apply_status = ?2,
@@ -495,31 +508,30 @@ impl AddonRepository for SqliteStore {
                 END
             WHERE id = ?1
             "#,
-        )
+    )
+    .bind(id.to_string())
+    .bind(outcome.status.as_str())
+    .bind(&outcome.error_code)
+    .bind(outcome.item_id.map(|id| id.to_string()))
+    .bind(&outcome.source)
+    .bind(&outcome.report_json)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    let sql = addon_side_effect_select_sql("WHERE id = ?1 LIMIT 1");
+    let row = sqlx::query(&sql)
         .bind(id.to_string())
-        .bind(outcome.status.as_str())
-        .bind(&outcome.error_code)
-        .bind(outcome.item_id.map(|id| id.to_string()))
-        .bind(&outcome.source)
-        .bind(&outcome.report_json)
-        .execute(&self.pool)
+        .fetch_optional(&mut **transaction)
         .await
         .map_err(database_error)?;
 
-        let sql = addon_side_effect_select_sql("WHERE id = ?1 LIMIT 1");
-        let row = sqlx::query(&sql)
-            .bind(id.to_string())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(database_error)?;
-
-        row.map(row_to_addon_side_effect)
-            .transpose()?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "addon_side_effect",
-                id: id.to_string(),
-            })
-    }
+    row.map(row_to_addon_side_effect)
+        .transpose()?
+        .ok_or_else(|| TaruError::NotFound {
+            entity: "addon_side_effect",
+            id: id.to_string(),
+        })
 }
 
 fn addon_token_select_sql(where_clause: &str) -> String {

@@ -375,8 +375,9 @@ where
     R: CatalogRepository + MediaRepository,
 {
     let snapshot = load_hydration_snapshot(repository, item_id).await?;
+    let item = snapshot.item.clone();
     let replacement = replacement_from_snapshot(&snapshot);
-    let search_projection = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
+    let search_projection = plan_item_search_projection_from_snapshot(snapshot, item);
     repository
         .upsert_search_projection(&search_projection)
         .await?;
@@ -394,20 +395,32 @@ where
     })
 }
 
-pub async fn hydrate_item_catalog_labels<R>(
+pub async fn plan_item_search_projection<R>(
     repository: &R,
-    item_id: MediaItemId,
-    source: MetadataSource,
-    selection: CatalogLabelHydrationSelection,
-) -> Result<CatalogHydrationSummary>
+    item: MediaItem,
+) -> Result<CatalogSearchProjection>
 where
     R: CatalogRepository + MediaRepository,
 {
-    let snapshot = load_hydration_snapshot(repository, item_id).await?;
+    let snapshot = load_hydration_snapshot(repository, item.id).await?;
+    Ok(plan_item_search_projection_from_snapshot(snapshot, item))
+}
+
+pub async fn plan_item_catalog_label_projection<R>(
+    repository: &R,
+    item: MediaItem,
+    source: MetadataSource,
+    selection: CatalogLabelHydrationSelection,
+) -> Result<CatalogItemProjectionCommit>
+where
+    R: CatalogRepository + MediaRepository,
+{
+    let mut snapshot = load_hydration_snapshot(repository, item.id).await?;
+    snapshot.item = item;
     let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
     let mut replacement = replacement_from_snapshot(&snapshot);
     let mut unused_summary = CatalogHydrationSummary {
-        item_id,
+        item_id: snapshot.item.id,
         ..CatalogHydrationSummary::default()
     };
 
@@ -435,19 +448,47 @@ where
         )?;
     }
 
-    let search_projection = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
-    let mut summary = summary_from_replacement(item_id, &replacement);
+    let search = search_projection_from_graph(&snapshot.item, &snapshot, &replacement);
+    Ok(CatalogItemProjectionCommit {
+        graph: replacement,
+        search,
+    })
+}
+
+pub async fn hydrate_item_catalog_labels<R>(
+    repository: &R,
+    item_id: MediaItemId,
+    source: MetadataSource,
+    selection: CatalogLabelHydrationSelection,
+) -> Result<CatalogHydrationSummary>
+where
+    R: CatalogRepository + MediaRepository,
+{
+    let snapshot = load_hydration_snapshot(repository, item_id).await?;
+    let commit =
+        plan_item_catalog_label_projection(repository, snapshot.item.clone(), source, selection)
+            .await?;
+    let mut summary = summary_from_replacement(item_id, &commit.graph);
     commit_hydration(
         repository,
         CatalogHydrationCommit {
-            replacement,
-            search_projection,
+            replacement: commit.graph,
+            search_projection: commit.search,
         },
     )
     .await?;
 
     summary.search_indexed = true;
     Ok(summary)
+}
+
+fn plan_item_search_projection_from_snapshot(
+    mut snapshot: CatalogHydrationSnapshot,
+    item: MediaItem,
+) -> CatalogSearchProjection {
+    snapshot.item = item;
+    let replacement = replacement_from_snapshot(&snapshot);
+    search_projection_from_graph(&snapshot.item, &snapshot, &replacement)
 }
 
 async fn hydrate_item_catalog_with_repository<R>(

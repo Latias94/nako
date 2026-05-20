@@ -1319,45 +1319,56 @@ impl AddonRepository for PostgresStore {
         id: AddonSideEffectId,
         outcome: AddonSideEffectApplyOutcome,
     ) -> Result<AddonSideEffectRecord> {
-        sqlx::query(
-            r#"
-            UPDATE addon_side_effects
-            SET
-                apply_status = $2,
-                apply_error_code = $3,
-                applied_item_id = $4,
-                applied_source = $5,
-                apply_report_json = $6,
-                applied_at = CASE
-                    WHEN $2 = 'applied' THEN statement_timestamp()
-                    ELSE applied_at
-                END
-            WHERE id = $1
-            "#,
-        )
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let record = set_addon_side_effect_apply_outcome_tx(&mut transaction, id, &outcome).await?;
+        transaction.commit().await.map_err(database_error)?;
+        Ok(record)
+    }
+}
+
+async fn set_addon_side_effect_apply_outcome_tx(
+    transaction: &mut sqlx::Transaction<'_, Postgres>,
+    id: AddonSideEffectId,
+    outcome: &AddonSideEffectApplyOutcome,
+) -> Result<AddonSideEffectRecord> {
+    sqlx::query(
+        r#"
+        UPDATE addon_side_effects
+        SET
+            apply_status = $2,
+            apply_error_code = $3,
+            applied_item_id = $4,
+            applied_source = $5,
+            apply_report_json = $6,
+            applied_at = CASE
+                WHEN $2 = 'applied' THEN statement_timestamp()
+                ELSE applied_at
+            END
+        WHERE id = $1
+        "#,
+    )
+    .bind(id.as_uuid())
+    .bind(outcome.status.as_str())
+    .bind(&outcome.error_code)
+    .bind(outcome.item_id.map(|id| id.as_uuid()))
+    .bind(&outcome.source)
+    .bind(&outcome.report_json)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    let row = sqlx::query(&format!("{ADDON_SIDE_EFFECT_SELECT} WHERE id = $1 LIMIT 1"))
         .bind(id.as_uuid())
-        .bind(outcome.status.as_str())
-        .bind(&outcome.error_code)
-        .bind(outcome.item_id.map(|id| id.as_uuid()))
-        .bind(&outcome.source)
-        .bind(&outcome.report_json)
-        .execute(&self.pool)
+        .fetch_optional(&mut **transaction)
         .await
         .map_err(database_error)?;
 
-        let row = sqlx::query(&format!("{ADDON_SIDE_EFFECT_SELECT} WHERE id = $1 LIMIT 1"))
-            .bind(id.as_uuid())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(database_error)?;
-
-        row.map(row_to_addon_side_effect)
-            .transpose()?
-            .ok_or_else(|| TaruError::NotFound {
-                entity: "addon_side_effect",
-                id: id.to_string(),
-            })
-    }
+    row.map(row_to_addon_side_effect)
+        .transpose()?
+        .ok_or_else(|| TaruError::NotFound {
+            entity: "addon_side_effect",
+            id: id.to_string(),
+        })
 }
 
 #[async_trait::async_trait]
@@ -3020,6 +3031,48 @@ impl MetadataRepository for PostgresStore {
             locked_fields: commit.field_locks.len() as u64,
             confirmed_items: commit.library_item_states.len() as u64,
             projected_items: commit.catalog_projections.len() as u64,
+        })
+    }
+
+    async fn commit_addon_metadata_write(
+        &self,
+        commit: &AddonMetadataWritePersistenceCommit,
+    ) -> Result<AddonMetadataWritePersistenceSummary> {
+        if commit.catalog.search.item_id != commit.item.id {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "addon metadata write search projection item_id {} does not match item {}",
+                    commit.catalog.search.item_id, commit.item.id
+                ),
+            });
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        upsert_media_item_tx(&mut transaction, &commit.item).await?;
+        if let Some(graph) = &commit.catalog.graph {
+            replace_item_catalog_graph_tx(&mut transaction, commit.item.id, graph).await?;
+        }
+        upsert_search_projection_tx(&mut transaction, &commit.catalog.search).await?;
+        let side_effect = set_addon_side_effect_apply_outcome_tx(
+            &mut transaction,
+            commit.side_effect_id,
+            &AddonSideEffectApplyOutcome {
+                status: AddonSideEffectApplyStatus::Applied,
+                error_code: None,
+                item_id: Some(commit.item.id),
+                source: Some(commit.applied_source.clone()),
+                report_json: commit.apply_report_json.clone(),
+            },
+        )
+        .await?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(AddonMetadataWritePersistenceSummary {
+            item_id: commit.item.id,
+            projected_items: 1,
+            side_effect,
         })
     }
 

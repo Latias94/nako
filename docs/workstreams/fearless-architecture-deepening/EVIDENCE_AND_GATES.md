@@ -132,6 +132,68 @@ Broader gates not run:
   persistence seam or SQL behavior changed. FAD-030 will require DB contract
   evidence if it introduces a transactional Addon metadata commit seam.
 
+### 2026-05-20 — FAD-030 Addon Metadata Commit Atomicity
+
+Status: complete.
+
+Implementation evidence:
+
+- Added `AddonMetadataWritePersistenceCommit` and
+  `AddonMetadataWriteCatalogCommit` as Addon-domain workflow-shaped
+  persistence seams.
+- SQLite and PostgreSQL now commit Addon Canonical Metadata writes in one
+  transaction:
+  - `MediaItem` mutation;
+  - optional Catalog Item Graph replacement;
+  - Search Projection upsert;
+  - Addon Side Effect `Applied` outcome recording.
+- Refactored Addon apply routing so `metadata_write` returns the already
+  recorded side-effect outcome instead of issuing a second apply-outcome write.
+- Added public catalog planning helpers for search-only and label-projection
+  planning so callers can build a commit without prematurely mutating storage.
+- Added a backend-neutral contract covering:
+  - scalar/search-only metadata writes preserving existing graph labels;
+  - label/graph writes replacing the touched Catalog Item Graph and Search
+    Projection together;
+  - apply outcome source/item/report recording;
+  - rollback when Catalog Graph persistence fails after the item mutation was
+    attempted.
+
+Validation:
+
+```bash
+cargo fmt --all
+cargo check -p taru-core -p taru-db -p taru-server --tests
+cargo nextest run -p taru-db addon_metadata_write --no-fail-fast
+cargo nextest run -p taru-server addon_side_effect --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `cargo fmt --all` passed.
+- `cargo check -p taru-core -p taru-db -p taru-server --tests` passed.
+- Focused SQLite contract passed:
+  1 passed, 102 skipped.
+- Focused Addon Side Effect nextest passed:
+  10 passed, 165 skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+PostgreSQL opt-in:
+
+- Not run in this environment because `TARU_TEST_POSTGRES_URL` was unset.
+- The PostgreSQL pair was added:
+  `postgres_metadata_catalog_contract_addon_metadata_write_updates_projection_apply_outcome_and_rolls_back`.
+  Run it with ignored tests enabled once a test database URL is available.
+
+Broader gates not run:
+
+- Full workspace nextest was not run for FAD-030 because the touched behavior is
+  covered by the backend-neutral DB contract and focused Addon Side Effect
+  server tests. The full workspace nextest remains a M63 closeout gate.
+
 ## Evidence To Add During Execution
 
 Each task should add:

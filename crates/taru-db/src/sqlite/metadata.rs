@@ -139,6 +139,58 @@ impl MetadataRepository for SqliteStore {
         })
     }
 
+    async fn commit_addon_metadata_write(
+        &self,
+        commit: &AddonMetadataWritePersistenceCommit,
+    ) -> Result<AddonMetadataWritePersistenceSummary> {
+        if commit.catalog.search.item_id != commit.item.id {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "addon metadata write search projection item_id {} does not match item {}",
+                    commit.catalog.search.item_id, commit.item.id
+                ),
+            });
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        crate::sqlite::media::upsert_media_item_in_transaction(&mut transaction, &commit.item)
+            .await?;
+        if let Some(graph) = &commit.catalog.graph {
+            crate::sqlite::catalog::replace_item_catalog_graph_tx(
+                &mut transaction,
+                commit.item.id,
+                graph,
+            )
+            .await?;
+        }
+        crate::sqlite::catalog::upsert_search_projection_tx(
+            &mut transaction,
+            &commit.catalog.search,
+        )
+        .await?;
+        let side_effect = crate::sqlite::addons::set_addon_side_effect_apply_outcome_tx(
+            &mut transaction,
+            commit.side_effect_id,
+            &AddonSideEffectApplyOutcome {
+                status: AddonSideEffectApplyStatus::Applied,
+                error_code: None,
+                item_id: Some(commit.item.id),
+                source: Some(commit.applied_source.clone()),
+                report_json: commit.apply_report_json.clone(),
+            },
+        )
+        .await?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(AddonMetadataWritePersistenceSummary {
+            item_id: commit.item.id,
+            projected_items: 1,
+            side_effect,
+        })
+    }
+
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         crate::sqlite::media::upsert_media_item_in_transaction(&mut transaction, item).await?;

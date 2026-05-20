@@ -23,7 +23,7 @@ Primary evidence:
 
 ## M1 — Addon Side Effect Depth
 
-Status: in progress.
+Status: completed.
 
 Exit criteria:
 
@@ -35,11 +35,11 @@ Exit criteria:
   HTTP tests.
 - Addon Canonical Metadata writes are committed through a transactional seam
   that proves metadata/catalog/search/apply-outcome consistency.
-  Pending FAD-030.
+  Completed by FAD-030.
 - SQLite always-on and PostgreSQL opt-in evidence covers any new persistence
   commit semantics.
-  Pending FAD-030 because FAD-020 changed server Module structure only and did
-  not add a persistence seam.
+  SQLite evidence completed by FAD-030. PostgreSQL opt-in contract pair exists
+  and was not run because `TARU_TEST_POSTGRES_URL` was unset.
 
 Primary gates:
 

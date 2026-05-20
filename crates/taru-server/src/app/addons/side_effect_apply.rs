@@ -74,18 +74,12 @@ impl AddonSideEffectApplyRouter {
         match side_effect.permission {
             AddonPermission::MetadataWrite => match self.metadata_write.apply(&side_effect).await {
                 Ok(applied) => {
-                    self.store
-                        .set_addon_side_effect_apply_outcome(
-                            side_effect.id,
-                            AddonSideEffectApplyOutcome {
-                                status: AddonSideEffectApplyStatus::Applied,
-                                error_code: None,
-                                item_id: Some(applied.item_id),
-                                source: Some(applied.source),
-                                report_json: None,
-                            },
-                        )
-                        .await
+                    debug_assert_eq!(applied.side_effect.applied_item_id, Some(applied.item_id));
+                    debug_assert_eq!(
+                        applied.side_effect.applied_source.as_deref(),
+                        Some(applied.source.as_str())
+                    );
+                    Ok(applied.side_effect)
                 }
                 Err(error) => self.record_apply_failure(side_effect.id, error).await,
             },

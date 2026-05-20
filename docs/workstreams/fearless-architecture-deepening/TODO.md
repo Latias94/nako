@@ -42,7 +42,7 @@ Task IDs use the `FAD` prefix.
   focused Addon Side Effect and broader addon HTTP tests.
   Handoff: Continue with FAD-030 Addon metadata commit atomicity.
 
-- [ ] FAD-030 [owner=codex] [deps=FAD-020] [scope=crates/taru-core/src/repository,crates/taru-db,crates/taru-server/src/app/addons/**,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-030 [owner=codex] [deps=FAD-020] [scope=crates/taru-core/src/repository,crates/taru-db,crates/taru-server/src/app/addons/**,docs/workstreams/fearless-architecture-deepening]
   Goal: Add a transactional commit seam for Addon Canonical Metadata writes so
   metadata mutation, Catalog Item Graph/Search Projection consistency, apply
   outcome recording, and rollback behavior are proven together.
@@ -53,6 +53,18 @@ Task IDs use the `FAD` prefix.
   Review: The Interface should express the domain action, not expose a sequence
   of repository calls that callers must order correctly.
   Evidence: backend-neutral contract tests and Addon apply tests.
+  Progress: Added the `AddonMetadataWritePersistenceCommit` seam and implemented
+  it for SQLite/PostgreSQL so item mutation, optional Catalog Item Graph
+  replacement, Search Projection upsert, and Addon Side Effect `Applied`
+  outcome are committed in one transaction. Server metadata write apply now
+  plans catalog/search projections and delegates the domain commit instead of
+  ordering repository calls itself. Added a backend-neutral contract for
+  search-only writes, graph writes, apply outcome recording, and rollback.
+  Validation: `cargo check -p taru-core -p taru-db -p taru-server --tests`;
+  `cargo nextest run -p taru-db addon_metadata_write --no-fail-fast`; `cargo
+  nextest run -p taru-server addon_side_effect --no-fail-fast`; `cargo fmt
+  --all -- --check`; `git diff --check`. PostgreSQL opt-in was not run because
+  `TARU_TEST_POSTGRES_URL` was unset.
   Handoff: Continue with Library ingestion only after Addon write consistency is
   proven or split with a blocker.
 
