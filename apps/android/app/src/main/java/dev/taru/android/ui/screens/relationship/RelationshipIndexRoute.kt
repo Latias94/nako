@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -24,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.ui.browse.ArtworkBackdrop
@@ -46,6 +48,7 @@ import dev.taru.android.ui.theme.TaruTextSecondary
 internal data class RelationshipIndexPresentation(
     val title: String,
     val subtitle: String,
+    val icon: ImageVector,
     val sectionTitle: String,
     val emptyTitle: String,
     val emptyBody: String,
@@ -63,6 +66,7 @@ internal fun relationshipIndexPresentation(
             RelationshipIndexFamily.Genres -> "Server Genres Index"
             RelationshipIndexFamily.Tags -> "Server Tags Index"
         },
+        icon = relationshipIndexIcon(content.family),
         sectionTitle = when (content.family) {
             RelationshipIndexFamily.Genres -> "Browse By Genre"
             RelationshipIndexFamily.Tags -> "Browse By Tag"
@@ -79,6 +83,12 @@ internal fun relationshipIndexPresentation(
         returnedLabel = "${content.page.returned} returned",
         rows = content.rows,
     )
+
+private fun relationshipIndexIcon(family: RelationshipIndexFamily): ImageVector =
+    when (family) {
+        RelationshipIndexFamily.Genres -> Icons.Rounded.TheaterComedy
+        RelationshipIndexFamily.Tags -> Icons.Rounded.LocalOffer
+    }
 
 @Composable
 internal fun RelationshipIndexRouteContent(
@@ -135,6 +145,7 @@ private fun RelationshipIndexScreen(
         )
     } else {
         RelationshipIndexRows(
+            icon = presentation.icon,
             rows = presentation.rows,
             onOpenFacet = onOpenFacet,
         )
@@ -170,7 +181,7 @@ private fun RelationshipIndexHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconBadge(icon = Icons.Rounded.TheaterComedy)
+                    IconBadge(icon = presentation.icon)
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -205,6 +216,7 @@ private fun RelationshipIndexHeader(
 
 @Composable
 private fun RelationshipIndexRows(
+    icon: ImageVector,
     rows: List<RelationshipIndexRow>,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
@@ -213,6 +225,7 @@ private fun RelationshipIndexRows(
     ) {
         rows.forEachIndexed { index, row ->
             GenreIndexRow(
+                icon = icon,
                 row = row,
                 index = index,
                 onOpenFacet = onOpenFacet,
@@ -223,6 +236,7 @@ private fun RelationshipIndexRows(
 
 @Composable
 private fun GenreIndexRow(
+    icon: ImageVector,
     row: RelationshipIndexRow,
     index: Int,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
@@ -243,7 +257,7 @@ private fun GenreIndexRow(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.Rounded.TheaterComedy, compact = true)
+            IconBadge(icon = icon, compact = true)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),

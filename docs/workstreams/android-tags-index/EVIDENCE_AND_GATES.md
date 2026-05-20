@@ -70,6 +70,24 @@ git diff --check
     passed.
   - Note: an earlier parallel Gradle run hit Kotlin incremental cache
     contention; rerunning the same gates serially passed.
+- ATI-030 completed on 2026-05-20:
+  - Added the Home Tags anchor next to Genres as a nested relationship index
+    entry point.
+  - `TaruBrowseShell` dispatches the Home Tags anchor through
+    `BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags)`.
+  - `RelationshipIndexRoute` keeps the shared Material Expressive screen shape
+    and now uses family-aware copy and icons for Genres and Tags.
+  - Added focused host coverage proving the Tags relationship index route is
+    opened and loaded through the shared route loader.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --no-daemon`
+    passed.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --tests dev.taru.android.ui.screens.relationship.RelationshipIndexRouteTest --no-daemon`
+    passed.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+    passed.
 
 ## Notes
 

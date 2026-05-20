@@ -81,6 +81,27 @@ class BrowseShellHostTest {
     }
 
     @Test
+    fun `host opens tags relationship index route through shared route loader`() = runBlocking {
+        val dataSource = RecordingHostBrowseDataSource()
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(dataSource = dataSource),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        host.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags))
+        waitUntil { host.state.value.relationshipIndexState is RelationshipIndexUiState.Content }
+
+        assertEquals(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Tags), host.state.value.currentRoute)
+        assertEquals(listOf(RelationshipIndexFamily.Tags), dataSource.relationshipIndexRequests)
+        assertEquals(
+            RelationshipIndexFamily.Tags,
+            (host.state.value.relationshipIndexState as RelationshipIndexUiState.Content).family,
+        )
+    }
+
+    @Test
     fun `host saves async playback route changes`() = runBlocking {
         val target = testPlaybackTarget("source-a")
         val savedStates = mutableListOf<BrowseShellState>()
@@ -191,6 +212,7 @@ private class RecordingHostBrowseDataSource(
         private set
     val detailRequests: MutableList<String> = mutableListOf()
     val sourceProbeRequests: MutableList<String> = mutableListOf()
+    val relationshipIndexRequests: MutableList<RelationshipIndexFamily> = mutableListOf()
 
     override suspend fun loadHome(): BrowseUiState {
         homeLoads += 1
@@ -228,12 +250,14 @@ private class RecordingHostBrowseDataSource(
             ),
         )
 
-    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState =
-        RelationshipIndexUiState.Content(
+    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
+        relationshipIndexRequests += family
+        return RelationshipIndexUiState.Content(
             family = family,
             rows = emptyList(),
             page = testPage(0),
         )
+    }
 
     override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
         PersonDetailUiState.Content(

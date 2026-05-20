@@ -163,6 +163,9 @@ internal fun TaruBrowseShell(
                     onOpenGenres = {
                         dispatchBrowseAction(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres))
                     },
+                    onOpenTags = {
+                        dispatchBrowseAction(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags))
+                    },
                     onOpenServerProfile = { dispatchBrowseAction(BrowseAction.OpenServerProfile) },
                     onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                     onOpenLibraryDetail = { libraryId ->
@@ -264,6 +267,7 @@ private fun TopLevelContent(
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenGenres: () -> Unit,
+    onOpenTags: () -> Unit,
     onOpenServerProfile: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onOpenLibraryDetail: (String) -> Unit,
@@ -281,6 +285,7 @@ private fun TopLevelContent(
                 onOpenLibraryDetail = onOpenLibraryDetail,
                 onOpenSearch = onOpenSearch,
                 onOpenGenres = onOpenGenres,
+                onOpenTags = onOpenTags,
                 onOpenFacet = onOpenFacet,
             )
         }

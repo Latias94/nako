@@ -12,18 +12,22 @@ second accepted relationship index family. ATI-010 is complete:
 `TagListResponse` and `TaruBrowseClient.listTags` cover
 `GET /tags?limit=&offset=`. ATI-020 is complete: Tags now reuse the
 relationship index route state, data-source mapping, and safe navigation
-restore path.
+restore path. ATI-030 is complete: Home exposes Tags as a nested relationship
+index route, `TaruBrowseShell` dispatches it through the shared Tags
+relationship index action, and `RelationshipIndexRoute` keeps one screen shape
+with family-aware copy and icons.
 
 ## Active Task
 
-- Task ID: ATI-030
-- Owner: unassigned
+- Task ID: ATI-040
+- Owner: Codex
 - Files:
-  - relationship index screen family.
-  - `HomeScreen` and `TaruBrowseShell`.
-  - focused presentation tests where practical.
+  - `apps/android/scripts/Smoke-Emulator.ps1`
+  - `apps/android/scripts/Smoke-Regression.ps1`
+  - `docs/workstreams/android-tags-index/`
 - Validation:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
+  - `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`
+  - `git diff --check`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -41,12 +45,15 @@ restore path.
 - `RelationshipIndexFamily.Tags` is in place and maps to existing Tag related
   Media Items targets.
 - Relationship index presentation copy is family-aware for Genres and Tags.
+- Tags now has a Home anchor and relationship index icon parity with Genres.
 
 ## Blockers
 
-- None for ATI-030.
+- None for ATI-040.
 
 ## Next Recommended Action
 
-- Execute ATI-030: add the Home Tags entry point and ensure the shared
-  relationship index screen works as the user-facing Tags Index route.
+- Execute ATI-040: decide whether the existing profile-with-media smoke fixture
+  can prove Home -> Tags -> related Media Items. If the fixture is not stable
+  or does not expose Tags through UIAutomator-accessible labels, record an
+  explicit non-smoke rationale and close the lane with fresh unit evidence.

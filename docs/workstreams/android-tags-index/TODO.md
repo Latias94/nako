@@ -39,8 +39,8 @@ Last updated: 2026-05-20
     focused UI browse tests. Relationship index presentation copy is now
     family-aware for Genres and Tags.
 
-- [ ] ATI-030 - Productize Tags Index screen entry.
-  - Owner: unassigned
+- [x] ATI-030 - Productize Tags Index screen entry.
+  - Owner: Codex
   - Dependencies: ATI-020.
   - Scope:
     - relationship index screen family.
@@ -51,9 +51,16 @@ Last updated: 2026-05-20
     - Home exposes Tags as a nested browse route.
     - full Android debug unit gate passes.
   - Evidence: screen implementation and unit gate.
+    Completed on 2026-05-20:
+    Home now exposes Tags next to Genres as a nested relationship index route.
+    `TaruBrowseShell` dispatches the Tags anchor through
+    `BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags)`, and the
+    shared `RelationshipIndexRoute` uses family-aware copy and icons for both
+    Genres and Tags. Focused host and relationship route tests passed, followed
+    by the full Android debug unit gate.
 
 - [ ] ATI-040 - Verify smoke value and close.
-  - Owner: unassigned
+  - Owner: Codex
   - Dependencies: ATI-030.
   - Scope:
     - `apps/android/scripts/Smoke-Emulator.ps1`

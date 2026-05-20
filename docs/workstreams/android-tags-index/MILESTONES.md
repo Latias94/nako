@@ -45,7 +45,7 @@ Evidence:
 
 ## M3 - Screen And Home Entry
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
@@ -54,9 +54,20 @@ Exit criteria:
 - Home exposes Tags as a nested route entry point.
 - full Android debug unit gate passes.
 
+Evidence:
+
+- Home exposes a Tags anchor next to Genres without adding a bottom navigation
+  destination.
+- `TaruBrowseShell` dispatches the Tags anchor through the shared
+  `BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags)` path.
+- `RelationshipIndexRoute` uses family-aware copy and icons while keeping the
+  existing relationship index screen shape.
+- Focused host and presentation tests passed, followed by the full Android
+  debug unit gate.
+
 ## M4 - Evidence And Closeout
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 
