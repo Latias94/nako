@@ -114,6 +114,12 @@ data class GenreListResponse(
 )
 
 @Serializable
+data class TagListResponse(
+    val tags: List<TagDto>,
+    val page: PageInfo,
+)
+
+@Serializable
 data class GenreItemsResponse(
     val genre: GenreDto,
     val items: List<MediaItemDto>,

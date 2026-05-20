@@ -450,6 +450,42 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `list tags decodes page and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "tags": [
+                        {"id":"tag-1","name":"Lighthouse","source":"nfo"},
+                        {"id":"tag 2","name":"Staff Pick","source":{"provider":"local","key":"staff-pick"}}
+                      ],
+                      "page": {"limit": 50, "offset": 100, "returned": 2}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listTags(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            page = PageRequest(limit = 50, offset = 100),
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/api/tags?limit=50&offset=100", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("Lighthouse", success.value.tags.first().name)
+        assertEquals("tag 2", success.value.tags.last().id)
+        assertEquals(100L, success.value.page.offset)
+        assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `genre items decodes facet result with facet label`() = runBlocking {
         val transport = FakeTransport(
             ResponseStep(
@@ -771,6 +807,33 @@ class TaruBrowseClientTest {
         assertEquals(BrowseFailureCategory.UnsupportedApiVersion, diagnostics.category)
         assertEquals("v2", diagnostics.observedApiVersion)
         assertEquals("http://home.example.test/genres?limit=50&offset=0", diagnostics.request?.url)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+        assertFalse(diagnostics.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `unsupported api version on tag index is rejected`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    body = """{"tags":[{"id":"tag-1","name":"Lighthouse","source":"nfo"}],"page":{"limit":50,"offset":0,"returned":1}}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listTags(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("v2", diagnostics.observedApiVersion)
+        assertEquals("http://home.example.test/tags?limit=50&offset=0", diagnostics.request?.url)
         assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
         assertFalse(diagnostics.toString().contains("secret-token"))
     }

@@ -5,8 +5,8 @@ Last updated: 2026-05-20
 
 ## Task Ledger
 
-- [ ] ATI-010 - Add Tags index client contract.
-  - Owner: unassigned
+- [x] ATI-010 - Add Tags index client contract.
+  - Owner: Codex
   - Dependencies: closed `docs/workstreams/android-relationship-indexes/`.
   - Scope:
     - `apps/android/app/src/main/java/dev/taru/android/browse/`
@@ -16,6 +16,10 @@ Last updated: 2026-05-20
     - Unit tests cover `GET /tags?limit=&offset=` request building, decoding,
       auth, version checking, and safe diagnostics.
   - Evidence: focused `TaruBrowseClientTest` coverage.
+    Completed on 2026-05-20:
+    `TagListResponse` and `TaruBrowseClient.listTags` are covered by focused
+    tests for request construction, decoding, bearer auth redaction, safe
+    diagnostics, and unsupported API version rejection.
 
 - [ ] ATI-020 - Reuse relationship index route state for Tags.
   - Owner: unassigned

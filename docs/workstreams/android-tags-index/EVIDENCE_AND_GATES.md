@@ -43,7 +43,14 @@ git diff --check
 
 ## Evidence
 
-- ATI-010 pending.
+- ATI-010 completed on 2026-05-20:
+  - Added `TagListResponse` and `TaruBrowseClient.listTags`.
+  - Added focused client coverage for `GET /tags?limit=&offset=` request
+    construction, bearer auth, response decoding, safe request redaction, and
+    unsupported API version diagnostics.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
+    passed.
 
 ## Notes
 

@@ -5,16 +5,25 @@ Last updated: 2026-05-20
 
 ## M1 - Client Contract
 
-Status: Pending
+Status: Complete
 
 Exit criteria:
 
 - `GET /tags?limit=&offset=` has typed Android client coverage.
 - API coverage matrices point at this lane for the Tags Index work.
 
+Evidence:
+
+- `TagListResponse` and `TaruBrowseClient.listTags` are implemented.
+- Focused `TaruBrowseClientTest` coverage proves request construction,
+  decoding, bearer auth redaction, safe diagnostics, and unsupported API
+  version rejection.
+- API matrices now show `GET /tags?limit=&offset=` as connected through the
+  typed client contract, with route state remaining in this lane.
+
 ## M2 - Route Reuse
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 
