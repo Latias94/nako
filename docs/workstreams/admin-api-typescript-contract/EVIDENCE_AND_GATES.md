@@ -1,6 +1,6 @@
 # Admin API TypeScript Contract Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## Smallest Current Repro
@@ -121,3 +121,20 @@ schema helpers or route inventory behavior outside `taru-api`.
   uses generated route constants for fixture routing. Validation passed:
   `cd apps/admin-web && npm run check`, `cd apps/admin-web && npm run test`,
   `cd apps/admin-web && npm run build`, and `git diff --check`.
+- 2026-05-20: AATC-050 completed. `taru-api` now has an explicit guard proving
+  every generated Admin API read-model route stays out of
+  `taru-client-protocol` public route inventory. `DESIGN.md`,
+  `docs/api/HTTP_API.md`, and `apps/admin-web/README.md` document the
+  app-local Admin API generation command and the Public Client SDK separation
+  checks. Validation passed:
+  `$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p taru-api --examples`,
+  `$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2`,
+  `$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-api typescript --no-fail-fast -j 2`,
+  `cd apps/admin-web && npm run check`,
+  `cd apps/admin-web && npm run test`,
+  `cd apps/admin-web && npm run build`,
+  `npm run generate --prefix sdk/typescript`,
+  `npm run check --prefix sdk/typescript`,
+  `git diff --name-only -- crates/taru-client-protocol sdk/typescript`
+  with no output,
+  `cargo fmt --all -- --check`, and `git diff --check`.

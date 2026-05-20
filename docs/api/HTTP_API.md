@@ -568,6 +568,18 @@ GET  /admin/v1/storage/staging
 GET  /admin/v1/system/config
 ```
 
+The Admin Web console consumes an app-local generated Admin API TypeScript
+contract for the first read-model routes above:
+`GET /admin/v1/overview`, `GET /admin/v1/catalog/governance/items`,
+`GET /admin/v1/events`, `GET /admin/v1/jobs`,
+`GET /admin/v1/playback/sessions`, `GET /admin/v1/playback/runtime`,
+`GET /admin/v1/storage/staging`, and `GET /admin/v1/system/config`.
+Refresh it from `apps/admin-web` with `npm run generate:admin-api`.
+
+This generated Admin contract is separate from the Public Client TypeScript SDK
+under `sdk/typescript`: Admin routes must not appear in public OpenAPI,
+`taru-client-protocol`, or `@taru/sdk` route inventories.
+
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
 The job runs in the background.
 

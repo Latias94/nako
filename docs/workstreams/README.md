@@ -197,7 +197,7 @@ attention.
   page families, Admin API implications, brand direction, the `apps/admin-web`
   scaffold, and the live/mock Admin API data-source boundary.
 - [admin-api-typescript-contract](admin-api-typescript-contract/README.md):
-  active follow-on for generating or mechanically synchronizing the
+  completed follow-on for generating or mechanically synchronizing the
   `/admin/v1/*` TypeScript contract consumed by `apps/admin-web` while keeping
   it separate from the Public Client SDK and `taru-client-protocol`.
 - [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):

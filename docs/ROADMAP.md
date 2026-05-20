@@ -36,7 +36,7 @@ Closeout:
 - PostgreSQL opt-in contracts were skipped because no
   `TARU_TEST_POSTGRES_URL` was available.
 
-Current active follow-on:
+Latest completed follow-on:
 
 - `docs/workstreams/admin-api-typescript-contract/`
 

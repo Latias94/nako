@@ -30,3 +30,7 @@ npm run dev -- --host 127.0.0.1 --port 5174
 `npm run generate:admin-api` refreshes
 `src/adminApi/generated/contract.ts` from `taru-api`. Do not edit generated
 contract output by hand.
+
+The generated Admin API contract is intentionally app-local. It is not the
+Public Client TypeScript SDK in `sdk/typescript`, and Admin `/admin/v1/*`
+routes must not be added to `taru-client-protocol` public route inventory.

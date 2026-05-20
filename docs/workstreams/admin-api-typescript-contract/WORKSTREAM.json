@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "admin-api-typescript-contract",
   "title": "Admin API TypeScript Contract",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-20",
   "scope_kind": "contract_generation",
   "problem": "Admin web currently hand-writes Admin API wire DTOs, creating drift risk before deeper web console workflows are built.",
@@ -57,7 +57,7 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "AATC-040 is complete. Continue with AATC-050: close the Public/Admin separation contract, document generation commands, refresh evidence, and split detail-page UI work as follow-ons."
+    "default_action": "close",
+    "notes": "AATC-050 closeout is complete. Admin API TypeScript contract generation stays app-local under apps/admin-web, Public Client SDK and taru-client-protocol remain separate, and npm Admin SDK packaging or deeper admin UI workflows should be opened as new follow-ons when needed."
   }
 }

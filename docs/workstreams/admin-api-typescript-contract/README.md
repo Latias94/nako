@@ -1,7 +1,7 @@
 # Admin API TypeScript Contract
 
-Status: Active
-Last updated: 2026-05-19
+Status: Completed
+Last updated: 2026-05-20
 
 ## Why This Lane Exists
 
@@ -107,3 +107,14 @@ This lane can close when:
 - public TypeScript SDK tests still reject admin routes;
 - focused Rust and admin-web gates pass;
 - and UI follow-ons for route filters/detail pages are split or queued.
+
+Closeout result:
+
+- AATC-010 through AATC-050 are complete.
+- The app-local generated Admin API contract lives at
+  `apps/admin-web/src/adminApi/generated/contract.ts`.
+- Admin-web consumes generated wire/query/route types while keeping the
+  hand-written fetch/runtime boundary.
+- Public Client SDK and `taru-client-protocol` remain free of Admin API routes.
+- Npm Admin SDK packaging and deeper Admin UI workflows are follow-ons, not
+  active work inside this lane.

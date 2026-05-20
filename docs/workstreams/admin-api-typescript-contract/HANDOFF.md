@@ -1,6 +1,6 @@
 # Admin API TypeScript Contract Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## Current State
@@ -27,17 +27,14 @@ generated wire DTOs and keeps UI-only view/data-source types local;
 `dataSource.ts`, `mockData.ts`, and data-source tests consume generated
 contract types/routes directly.
 
+AATC-050 is complete. Public/Admin separation is documented and test-visible:
+the Admin Contract test set proves generated Admin route constants stay out of
+`taru-client-protocol` public route inventory, and the Public TypeScript SDK
+guard still rejects Admin routes.
+
 ## Active Task
 
-- Task ID: AATC-050
-- Owner: codex
-- Files: `crates/taru-api`, `sdk/typescript`, `docs/api`,
-  `docs/workstreams/admin-api-typescript-contract`
-- Validation: focused `taru-api` nextest tests, public TypeScript SDK sync
-  test, admin-web gates, and `git diff --check`
-- Status: READY
-- Review: review-workstream and verify-rust-workstream before closeout
-- Evidence: Public Client SDK separation tests and Admin API contract docs
+- None. The workstream is closed.
 
 ## Decisions Since Last Update
 
@@ -59,10 +56,15 @@ contract types/routes directly.
 
 - None for AATC-030.
 - None for AATC-040.
-- None for AATC-050.
+- None.
 
 ## Next Recommended Action
 
-Run AATC-050: document generation and separation commands, refresh Public
-Client SDK/Admin API separation evidence, and close or split the workstream
-before starting Jobs/Catalog/Playback detail-page UI work.
+Do not reopen this lane for product UI. Split follow-ons as separate
+workstreams or issues:
+
+- Admin npm package only if a second Admin API consumer appears.
+- Jobs filters and job detail entry point.
+- Catalog Governance filters and item review detail.
+- Playback sessions filters and session detail.
+- Settings diagnostics layout polish before editable settings.

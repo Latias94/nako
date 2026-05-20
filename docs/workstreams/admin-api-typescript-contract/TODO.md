@@ -1,6 +1,6 @@
 # Admin API TypeScript Contract TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## AATC.0 Scope And Contract Decision
@@ -57,7 +57,7 @@ Last updated: 2026-05-20
 
 ## AATC.2 Boundary And Closeout
 
-- [ ] AATC-050 [owner=codex] [deps=AATC-040] [scope=crates/taru-api, sdk/typescript, docs/api, docs/workstreams/admin-api-typescript-contract]
+- [x] AATC-050 [owner=codex] [deps=AATC-040] [scope=crates/taru-api, sdk/typescript, docs/api, docs/workstreams/admin-api-typescript-contract]
   Goal: Add or update public/admin separation tests and docs so Public Client
   SDK generation continues to reject admin routes while admin contract covers
   only `/admin/v1/*`.
@@ -65,4 +65,17 @@ Last updated: 2026-05-20
   test, admin-web gates, and `git diff --check`.
   Review: review-workstream and verify-rust-workstream before closeout.
   Evidence: EVIDENCE_AND_GATES.md.
+  Progress: Added a focused `taru-api` guard proving generated Admin API route
+  constants are absent from `taru-client-protocol` public route inventory.
+  Documented `npm run generate:admin-api` for the app-local Admin contract and
+  the Public Client SDK separation commands. Refreshed Admin API docs and
+  admin-web README so `/admin/v1/*` contract generation remains distinct from
+  `sdk/typescript` and `taru-client-protocol`.
+  Validation: `cargo check -p taru-api --examples`; `cargo nextest run -p
+  taru-api admin_contract --no-fail-fast -j 2`; `cargo nextest run -p taru-api
+  typescript --no-fail-fast -j 2`; `npm run check`, `npm run test`, and `npm
+  run build` in `apps/admin-web`; `npm run generate --prefix sdk/typescript`;
+  `npm run check --prefix sdk/typescript`; `git diff --name-only --
+  crates/taru-client-protocol sdk/typescript`; `cargo fmt --all -- --check`;
+  `git diff --check`.
   Handoff: Split npm packaging or deeper admin UI workflows as follow-ons.

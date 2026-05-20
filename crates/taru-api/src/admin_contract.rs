@@ -440,6 +440,8 @@ export interface AdminServerConfigDiagnosticsResponse {
 
 #[cfg(test)]
 mod tests {
+    use taru_client_protocol::public_client_paths;
+
     use super::*;
 
     #[test]
@@ -506,6 +508,19 @@ mod tests {
             assert!(
                 !public_sdk.contains(forbidden),
                 "Public TypeScript SDK leaked admin term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn admin_contract_routes_stay_out_of_public_client_inventory() {
+        let public_paths = public_client_paths().collect::<Vec<_>>();
+
+        for (_key, suffix) in ADMIN_READ_MODEL_ROUTE_SUFFIXES {
+            let admin_path = admin_route_path(suffix);
+            assert!(
+                !public_paths.contains(&admin_path.as_str()),
+                "Public Client route inventory leaked Admin API path: {admin_path}"
             );
         }
     }

@@ -1,7 +1,7 @@
 # Admin API TypeScript Contract Design
 
 Status: Active
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Contract Boundary
 
@@ -118,3 +118,29 @@ After this contract lands, the next admin-web implementation slices should be:
 - Catalog Governance filters and item review detail;
 - Playback sessions filters and session detail;
 - Settings diagnostics layout polish before editable settings.
+
+## Generation And Separation Commands
+
+Refresh the app-local Admin API contract from the repository root with:
+
+```bash
+cd apps/admin-web
+npm run generate:admin-api
+```
+
+The script writes `apps/admin-web/src/adminApi/generated/contract.ts` from the
+`taru-api` Admin Contract generator. The generated file is intentionally
+app-local and must not be edited by hand.
+
+Verify the Public Client SDK remains separate with:
+
+```bash
+npm run generate --prefix sdk/typescript
+npm run check --prefix sdk/typescript
+git diff --name-only -- crates/taru-client-protocol sdk/typescript
+```
+
+For this lane, `git diff --name-only -- crates/taru-client-protocol
+sdk/typescript` should stay empty after regeneration/checking. Admin API routes
+belong in `TARU_ADMIN_ROUTES`, not in Public Client route inventory or
+`@taru/sdk`.

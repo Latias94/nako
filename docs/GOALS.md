@@ -26,9 +26,14 @@ proposed milestone.
 
 ## Current Goal
 
+No active implementation goal is selected after the Admin API TypeScript
+Contract closeout.
+
+## Completed Goals
+
 ### Admin API TypeScript Contract
 
-Status: active.
+Status: completed.
 
 Objective:
 
@@ -40,8 +45,16 @@ Evidence:
 
 - Workstream docs:
   `docs/workstreams/admin-api-typescript-contract/`.
-
-## Completed Goals
+- Closeout proof:
+  - `cargo check -p taru-api --examples`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2`;
+  - `cargo nextest run -p taru-api typescript --no-fail-fast -j 2`;
+  - `npm run check`, `npm run test`, and `npm run build` in `apps/admin-web`;
+  - `npm run generate --prefix sdk/typescript`;
+  - `npm run check --prefix sdk/typescript`;
+  - `git diff --name-only -- crates/taru-client-protocol sdk/typescript`;
+  - `cargo fmt --all -- --check`;
+  - `git diff --check`.
 
 ### M63: Fearless Architecture Deepening
 
