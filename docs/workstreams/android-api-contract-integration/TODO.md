@@ -54,7 +54,7 @@ Last updated: 2026-05-20
   - Evidence: Focused detail presentation test and full debug unit gate passed
     on 2026-05-20.
 
-- [ ] APICI-050 - Prove server-backed Person Detail smoke.
+- [x] APICI-050 - Prove server-backed Person Detail smoke.
   - Owner: Codex
   - Dependencies: APICI-040.
   - Scope:
@@ -63,6 +63,8 @@ Last updated: 2026-05-20
   - Validation:
     - focused `profile-with-media` smoke opens Cast & Crew person detail and
       returns to related Media Items.
+  - Evidence: Focused `profile-with-media` smoke passed on 2026-05-20 with
+    `person-detail` surface evidence.
 
 - [ ] APICI-060 - Decide People/Tags/Genres indexes.
   - Owner: Codex

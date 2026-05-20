@@ -1174,6 +1174,31 @@ function Assert-SmokeFacetRoute {
     return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
 }
 
+function Assert-SmokePersonDetailRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$TapText,
+        [string]$PersonName,
+        [string]$Name,
+        [string[]]$AdditionalRequiredText = @()
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText -MaxSwipes 6
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $PersonName -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Media Items' -TimeoutSeconds 25
+    $requiredText = @(
+        $PersonName,
+        'Person',
+        '1 related',
+        'Related Media Items',
+        'Night Harbor'
+    ) + $AdditionalRequiredText
+    return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
+}
+
 function Capture-SmokeSurface {
     param(
         [string]$AdbPath,
@@ -1450,11 +1475,9 @@ if ($stateMode -eq 'empty-setup') {
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Actor / as Keeper' -MaxSwipes 8
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-cast-crew' -RequiredText @(
         'Actor / as Keeper',
-        'Open related Media Items from this person.'
+        'Open Person Detail and related Media Items.'
     )
-    $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -FacetLabel 'Actor / as Keeper' -FamilyLabel 'Person' -Name 'facet-person' -AdditionalRequiredText @(
-        'Mira Vale'
-    )
+    $surfaceEvidence += Assert-SmokePersonDetailRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -PersonName 'Mira Vale' -Name 'person-detail'
     Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume from server state'

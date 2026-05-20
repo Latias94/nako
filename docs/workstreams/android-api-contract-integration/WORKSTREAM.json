@@ -8,7 +8,7 @@
   "problem": "Android has real server-backed Public Client API coverage, but the next route gaps and productized relationship browsing slices are not owned by one current execution lane.",
   "summary": "Track Android Public Client API route status and productize the next relationship browsing routes without consuming admin/internal APIs.",
   "current_milestone": "M4",
-  "current_task": "APICI-050",
+  "current_task": "APICI-060",
   "task_prefix": "APICI",
   "authoritative_docs": [
     {
@@ -40,7 +40,7 @@
     "Get-Content -LiteralPath 'docs/workstreams/android-api-contract-integration/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
-    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -SkipBuild -RetriesPerState 0",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
     "git diff --check"
   ],
   "evidence": [
@@ -63,6 +63,11 @@
       "task": "APICI-040",
       "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/person/PersonDetailRoute.kt",
       "notes": "Dedicated Person Detail screen added; Cast & Crew stable person_id rows open Person Detail; focused detail presentation test and full debug unit gate passed."
+    },
+    {
+      "task": "APICI-050",
+      "path": "apps/android/scripts/Smoke-Emulator.ps1",
+      "notes": "profile-with-media smoke now proves Cast & Crew opens server-backed Person Detail with related Media Items; focused smoke gate passed."
     }
   ],
   "adr_refs": [
@@ -71,6 +76,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "APICI-050"
+    "next_task": "APICI-060"
   }
 }

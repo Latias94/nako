@@ -44,7 +44,7 @@ Exit criteria:
 
 ## M4 - Server-Backed Proof
 
-Status: Pending
+Status: Complete
 
 Exit criteria:
 

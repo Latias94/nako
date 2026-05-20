@@ -26,7 +26,7 @@ apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
 Smoke gate after UI implementation:
 
 ```powershell
-pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -SkipBuild -RetriesPerState 0
+pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0
 ```
 
 Diff hygiene:
@@ -64,6 +64,13 @@ git diff --check
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`.
   `TaruBrowseShell` now renders `TaruRoute.PersonDetail` through a dedicated
   Person Detail screen instead of the temporary facet bridge.
+- APICI-050: Focused server-backed smoke passed on 2026-05-20:
+  `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`.
+  Evidence directory:
+  `apps/android/build/smoke-regression/20260520-125519/states/profile-with-media/20260520-125549-profile-with-media-emulator-5554/`.
+  The `person-detail` criteria proves `Mira Vale`, `Person`, `1 related`,
+  `Related Media Items`, and `Night Harbor` are visible after opening the
+  Cast & Crew row.
 
 ## Notes
 
