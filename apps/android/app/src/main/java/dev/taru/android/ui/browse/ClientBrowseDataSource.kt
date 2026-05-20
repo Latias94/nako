@@ -153,6 +153,77 @@ internal class ClientBrowseDataSource(
         }
     }
 
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState {
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            return PersonDetailUiState.Failure(
+                SafeBrowseDiagnostics(
+                    category = BrowseFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before opening person detail.",
+                ),
+            )
+        }
+
+        val detail = browseClient.personDetail(
+            profile = profile,
+            accessToken = accessToken,
+            personId = personId,
+        )
+        if (detail is BrowseResult.Failure) {
+            return PersonDetailUiState.Failure(detail.diagnostics)
+        }
+
+        return when (
+            val relatedItems = browseClient.listPersonItems(
+                profile = profile,
+                accessToken = accessToken,
+                personId = personId,
+                page = PageRequest(limit = 24, offset = 0),
+            )
+        ) {
+            is BrowseResult.Success -> PersonDetailUiState.Content(
+                response = (detail as BrowseResult.Success).value,
+                relatedItems = relatedItems.value,
+            )
+            is BrowseResult.Failure -> PersonDetailUiState.Failure(relatedItems.diagnostics)
+        }
+    }
+
+    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
+        val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+        if (accessToken.isBlank()) {
+            return RelationshipIndexUiState.Failure(
+                SafeBrowseDiagnostics(
+                    category = BrowseFailureCategory.MissingAccessToken,
+                    userMessage = "Re-authenticate this server before browsing relationship indexes.",
+                ),
+            )
+        }
+
+        return when (family) {
+            RelationshipIndexFamily.Genres -> when (
+                val result = browseClient.listGenres(
+                    profile = profile,
+                    accessToken = accessToken,
+                    page = PageRequest(limit = 50, offset = 0),
+                )
+            ) {
+                is BrowseResult.Success -> result.value.toRelationshipIndexContent()
+                is BrowseResult.Failure -> RelationshipIndexUiState.Failure(result.diagnostics)
+            }
+            RelationshipIndexFamily.Tags -> when (
+                val result = browseClient.listTags(
+                    profile = profile,
+                    accessToken = accessToken,
+                    page = PageRequest(limit = 50, offset = 0),
+                )
+            ) {
+                is BrowseResult.Success -> result.value.toRelationshipIndexContent()
+                is BrowseResult.Failure -> RelationshipIndexUiState.Failure(result.diagnostics)
+            }
+        }
+    }
+
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isBlank()) {

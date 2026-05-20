@@ -5,12 +5,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -20,14 +21,16 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.TokenVault
 import dev.taru.android.playback.PlaybackPreferencesStore
-import dev.taru.android.playback.PlaybackStartCoordinator
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.TokenVaultArtworkRequestResolver
 import dev.taru.android.ui.screens.detail.DetailRouteContent
+import dev.taru.android.ui.screens.person.PersonDetailRouteContent
 import dev.taru.android.ui.screens.player.PlayerRouteRenderer
+import dev.taru.android.ui.screens.relationship.RelationshipIndexRouteContent
 import dev.taru.android.ui.screens.settings.ServerProfileScreen
+import dev.taru.android.ui.screens.settings.SettingsAction
 import dev.taru.android.ui.screens.settings.SettingsHomeScreen
 import dev.taru.android.ui.shell.TaruAdaptiveAppShell
 import dev.taru.android.ui.shell.TaruRouteTransition
@@ -53,56 +56,53 @@ internal fun TaruBrowseShell(
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
     val routeScope = rememberCoroutineScope()
-    val playbackStartCoordinator = remember(playbackClient, positionStore) {
-        PlaybackStartCoordinator(
-            playbackClient = playbackClient,
-            positionStore = positionStore,
-        )
-    }
-    val browseDataSource = remember(profile, tokenVault, browseClient, userPlaybackClient) {
-        ClientBrowseDataSource(
-            profile = profile,
-            tokenVault = tokenVault,
-            browseClient = browseClient,
-            playbackClient = playbackClient,
-            playbackPreferencesStore = playbackPreferencesStore,
-            userPlaybackClient = userPlaybackClient,
-        )
-    }
-    val playbackStarter = remember(profile, tokenVault, playbackStartCoordinator) {
-        ClientBrowsePlaybackStarter(
-            profile = profile,
-            tokenVault = tokenVault,
-            coordinator = playbackStartCoordinator,
-        )
-    }
-    val resumeResolver = remember(profile.id, positionStore) {
-        ClientBrowseResumeResolver(
-            serverProfileId = profile.id,
-            positionStore = positionStore,
-        )
-    }
+    val currentOnChangeServer by rememberUpdatedState(onChangeServer)
+    val currentOnSnapshotChanged by rememberUpdatedState(onSnapshotChanged)
     var savedShellState by rememberSaveable(
         profile.id,
         stateSaver = BrowseShellStateSaver,
     ) {
         mutableStateOf(BrowseShellState())
     }
-    val browseSession = remember(profile.id, browseDataSource, routeScope) {
-        BrowseSession(
-            initialState = savedShellState,
-            dataSource = browseDataSource,
-            playbackStarter = playbackStarter,
-            resumeResolver = resumeResolver,
-            scope = routeScope,
+    val runtime = remember(
+        tokenVault,
+        browseClient,
+        playbackClient,
+        playbackPreferencesStore,
+        userPlaybackClient,
+        positionStore,
+    ) {
+        ClientBrowseShellRuntime(
+            tokenVault = tokenVault,
+            browseClient = browseClient,
+            playbackClient = playbackClient,
+            playbackPreferencesStore = playbackPreferencesStore,
+            userPlaybackClient = userPlaybackClient,
+            positionStore = positionStore,
+            onChangeServer = { currentOnChangeServer() },
+            onSnapshotChanged = { currentOnSnapshotChanged(it) },
         )
     }
-    val shellState by browseSession.state.collectAsState()
+    val browseHost = remember(profile.id, snapshot, runtime, routeScope) {
+        BrowseShellHost(
+            profile = profile,
+            snapshot = snapshot,
+            initialState = savedShellState,
+            runtime = runtime,
+            parentScope = routeScope,
+            saveState = { savedShellState = it },
+        )
+    }
+    DisposableEffect(browseHost) {
+        onDispose {
+            browseHost.close()
+        }
+    }
+    val shellState by browseHost.state.collectAsState()
     val selectedDestination = shellState.selectedDestination
     val route = shellState.currentRoute
     fun dispatchBrowseAction(action: BrowseAction) {
-        browseSession.dispatch(action)
-        savedShellState = browseSession.state.value
+        browseHost.dispatch(action)
     }
     val shellDestinations = remember {
         TaruDestination.entries.map { destination ->
@@ -118,13 +118,6 @@ internal fun TaruBrowseShell(
             profile = profile,
             tokenVault = tokenVault,
         )
-    }
-    LaunchedEffect(profile.id) {
-        browseSession.dispatch(BrowseAction.LoadHome)
-    }
-
-    LaunchedEffect(profile.id, route) {
-        browseSession.dispatch(BrowseAction.RouteDisplayed(route))
     }
 
     BackHandler(enabled = shellState.canNavigateBack) {
@@ -167,6 +160,12 @@ internal fun TaruBrowseShell(
                     onOpenSearch = {
                         dispatchBrowseAction(BrowseAction.SelectDestination(TaruDestination.Search))
                     },
+                    onOpenGenres = {
+                        dispatchBrowseAction(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres))
+                    },
+                    onOpenTags = {
+                        dispatchBrowseAction(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags))
+                    },
                     onOpenServerProfile = { dispatchBrowseAction(BrowseAction.OpenServerProfile) },
                     onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                     onOpenLibraryDetail = { libraryId ->
@@ -185,6 +184,9 @@ internal fun TaruBrowseShell(
                     onRetryPlayback = { dispatchBrowseAction(BrowseAction.RetryPlaybackDecision) },
                     onChangeServer = onChangeServer,
                     onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
+                    onOpenPersonDetail = { personId ->
+                        dispatchBrowseAction(BrowseAction.OpenPersonDetail(personId))
+                    },
                     onSelectSource = { sourceId ->
                         dispatchBrowseAction(BrowseAction.SelectSource(sourceId))
                     },
@@ -203,6 +205,21 @@ internal fun TaruBrowseShell(
                         dispatchBrowseAction(BrowseAction.OpenItem(itemId))
                     },
                 )
+                is TaruRoute.PersonDetail -> PersonDetailRouteContent(
+                    state = shellState.personDetailState,
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
+                    onChangeServer = onChangeServer,
+                    onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
+                )
+                is TaruRoute.RelationshipIndex -> RelationshipIndexRouteContent(
+                    family = currentRoute.family,
+                    state = shellState.relationshipIndexState,
+                    onBack = { dispatchBrowseAction(BrowseAction.Back) },
+                    onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
+                    onChangeServer = onChangeServer,
+                    onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
+                )
                 is TaruRoute.Player -> playerRouteRenderer.Render(
                     launch = currentRoute.launch,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
@@ -218,10 +235,14 @@ internal fun TaruBrowseShell(
                 TaruRoute.ServerProfile -> ServerProfileScreen(
                     activeProfile = profile,
                     snapshot = snapshot,
-                    tokenVault = tokenVault,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onChangeServer = onChangeServer,
-                    onSnapshotChanged = onSnapshotChanged,
+                    onSwitchProfile = { profileId ->
+                        browseHost.dispatchSettings(SettingsAction.SwitchProfile(profileId))
+                    },
+                    onSignOut = {
+                        browseHost.dispatchSettings(SettingsAction.SignOutActiveProfile)
+                    },
                 )
             }
         }
@@ -245,6 +266,8 @@ private fun TopLevelContent(
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenGenres: () -> Unit,
+    onOpenTags: () -> Unit,
     onOpenServerProfile: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onOpenLibraryDetail: (String) -> Unit,
@@ -261,6 +284,8 @@ private fun TopLevelContent(
                 onOpenLibrary = onOpenLibrary,
                 onOpenLibraryDetail = onOpenLibraryDetail,
                 onOpenSearch = onOpenSearch,
+                onOpenGenres = onOpenGenres,
+                onOpenTags = onOpenTags,
                 onOpenFacet = onOpenFacet,
             )
         }

@@ -7,13 +7,17 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import dev.taru.android.browse.FacetItemsResponse
+import dev.taru.android.browse.GenreListResponse
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.ItemsResponse
 import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.LibraryListResponse
+import dev.taru.android.browse.PageInfo
+import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
+import dev.taru.android.browse.TagListResponse
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackRequestTarget
@@ -37,6 +41,8 @@ internal sealed interface TaruRoute {
     data object TopLevel : TaruRoute
     data class ItemDetail(val itemId: String) : TaruRoute
     data class LibraryDetail(val libraryId: String) : TaruRoute
+    data class PersonDetail(val personId: String) : TaruRoute
+    data class RelationshipIndex(val family: RelationshipIndexFamily) : TaruRoute
     data class Player(val launch: PlaybackLaunchRequest) : TaruRoute
     data class BrowseFacet(val target: BrowseFacetTarget) : TaruRoute
     data object ServerProfile : TaruRoute
@@ -214,6 +220,48 @@ internal sealed interface FacetUiState {
     ) : FacetUiState
 }
 
+internal sealed interface PersonDetailUiState {
+    data object Idle : PersonDetailUiState
+    data object Loading : PersonDetailUiState
+
+    data class Content(
+        val response: PersonResponse,
+        val relatedItems: FacetItemsResponse,
+    ) : PersonDetailUiState
+
+    data class Failure(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : PersonDetailUiState
+}
+
+internal sealed interface RelationshipIndexUiState {
+    data object Idle : RelationshipIndexUiState
+    data object Loading : RelationshipIndexUiState
+
+    data class Content(
+        val family: RelationshipIndexFamily,
+        val rows: List<RelationshipIndexRow>,
+        val page: PageInfo,
+    ) : RelationshipIndexUiState
+
+    data class Failure(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : RelationshipIndexUiState
+}
+
+internal enum class RelationshipIndexFamily(
+    val label: String,
+) {
+    Genres("Genres"),
+    Tags("Tags"),
+}
+
+internal data class RelationshipIndexRow(
+    val title: String,
+    val subtitle: String,
+    val target: BrowseFacetTarget,
+)
+
 internal data class BrowseFacetTarget(
     val family: BrowseFacetUiFamily,
     val label: String,
@@ -248,3 +296,41 @@ internal data class RelationshipRow(
     val icon: ImageVector,
     val target: BrowseFacetTarget,
 )
+
+internal fun GenreListResponse.toRelationshipIndexContent(): RelationshipIndexUiState.Content =
+    RelationshipIndexUiState.Content(
+        family = RelationshipIndexFamily.Genres,
+        rows = genres
+            .filter { genre -> genre.id.isNotBlank() && genre.name.isNotBlank() }
+            .map { genre ->
+                RelationshipIndexRow(
+                    title = genre.name,
+                    subtitle = "Genre",
+                    target = BrowseFacetTarget(
+                        family = BrowseFacetUiFamily.Genre,
+                        label = genre.name,
+                        id = genre.id,
+                    ),
+                )
+            },
+        page = page,
+    )
+
+internal fun TagListResponse.toRelationshipIndexContent(): RelationshipIndexUiState.Content =
+    RelationshipIndexUiState.Content(
+        family = RelationshipIndexFamily.Tags,
+        rows = tags
+            .filter { tag -> tag.id.isNotBlank() && tag.name.isNotBlank() }
+            .map { tag ->
+                RelationshipIndexRow(
+                    title = tag.name,
+                    subtitle = "Tag",
+                    target = BrowseFacetTarget(
+                        family = BrowseFacetUiFamily.Tag,
+                        label = tag.name,
+                        id = tag.id,
+                    ),
+                )
+            },
+        page = page,
+    )

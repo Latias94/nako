@@ -38,18 +38,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.connection.ServerProfile
-import dev.taru.android.connection.ServerProfileRepository
 import dev.taru.android.connection.ServerProfileSnapshot
-import dev.taru.android.connection.TokenVault
+import dev.taru.android.ui.rememberTaruClipboard
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PageTitle
 import dev.taru.android.ui.browse.SectionLabel
@@ -62,7 +58,6 @@ import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
 import dev.taru.android.ui.theme.TaruTouchTarget
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun SettingsHomeScreen(
@@ -71,7 +66,7 @@ internal fun SettingsHomeScreen(
     onChangeServer: () -> Unit,
     onOpenServerProfile: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val clipboard = rememberTaruClipboard()
     val diagnostics = remember(profile, snapshot) {
         settingsDiagnosticsPresentation(profile, snapshot)
     }
@@ -132,7 +127,7 @@ internal fun SettingsHomeScreen(
                     "Copy diagnostics",
                     "Sanitized report",
                     Icons.Rounded.ContentCopy,
-                    onClick = { clipboard.setText(AnnotatedString(diagnostics.report)) },
+                    onClick = { clipboard.copyPlainText("Taru diagnostics", diagnostics.report) },
                 ),
             ),
         )
@@ -151,13 +146,12 @@ internal fun SettingsHomeScreen(
 internal fun ServerProfileScreen(
     activeProfile: ServerProfile,
     snapshot: ServerProfileSnapshot,
-    tokenVault: TokenVault,
     onBack: () -> Unit,
     onChangeServer: () -> Unit,
-    onSnapshotChanged: (ServerProfileSnapshot) -> Unit,
+    onSwitchProfile: (String) -> Unit,
+    onSignOut: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
+    val clipboard = rememberTaruClipboard()
     val diagnostics = remember(activeProfile, snapshot) {
         settingsDiagnosticsPresentation(activeProfile, snapshot)
     }
@@ -205,7 +199,7 @@ internal fun ServerProfileScreen(
                     "Copy diagnostics",
                     "Sanitized report",
                     Icons.Rounded.ContentCopy,
-                    onClick = { clipboard.setText(AnnotatedString(diagnostics.report)) },
+                    onClick = { clipboard.copyPlainText("Taru diagnostics", diagnostics.report) },
                 ),
             ),
         )
@@ -218,21 +212,14 @@ internal fun ServerProfileScreen(
                     value = if (profile.id == snapshot.activeProfileId) "Connected" else "Saved",
                     icon = Icons.Rounded.Storage,
                     onClick = {
-                        val repository = ServerProfileRepository(snapshot)
-                        repository.switchActive(profile.id)
-                        onSnapshotChanged(repository.snapshot())
+                        onSwitchProfile(profile.id)
                     },
                 )
             } + SettingsRow("Add server", "Connect another profile", Icons.Rounded.Add, onChangeServer),
         )
 
         DangerSignOutPanel(
-            onSignOut = {
-                scope.launch {
-                    tokenVault.deleteToken(activeProfile.tokenReference)
-                    onChangeServer()
-                }
-            },
+            onSignOut = onSignOut,
         )
     }
 }

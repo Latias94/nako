@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "android-browse-shell-session-host",
+  "title": "Android Browse Shell Session Host",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "architecture",
+  "problem": "TaruBrowseShell still owns browse session construction, lifecycle effects, settings runtime wiring, and saveable-state synchronization after the broader unidirectional state refactor.",
+  "summary": "Closed lane introducing a tested BrowseShellHost and client runtime adapter so Compose only renders state and forwards events.",
+  "current_milestone": null,
+  "current_task": null,
+  "task_prefix": "ABSH",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-browse-shell-session-host/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-browse-shell-session-host/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-browse-shell-session-host/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-browse-shell-session-host/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-browse-shell-session-host/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ABSH-010",
+      "path": "docs/workstreams/android-browse-shell-session-host/DESIGN.md",
+      "notes": "Boundary freeze for browse shell host responsibilities."
+    },
+    {
+      "task": "ABSH-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseShellHostTest.kt",
+      "notes": "Focused host tests passed on 2026-05-20."
+    },
+    {
+      "task": "ABSH-030",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt",
+      "notes": "Compose shell now delegates host lifecycle and client runtime assembly."
+    },
+    {
+      "task": "ABSH-040",
+      "path": "docs/workstreams/android-browse-shell-session-host/EVIDENCE_AND_GATES.md",
+      "notes": "Full Android debug unit suite and diff hygiene passed on 2026-05-20."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Workstream is closed. Open a new lane for deep links, process-death restoration beyond saveable routes, or root dependency composition."
+  }
+}

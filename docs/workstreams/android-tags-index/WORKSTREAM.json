@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "slug": "android-tags-index",
+  "title": "Android Tags Index",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Android can open Tag related Media Items from known IDs but lacks a first-class server-backed Tags Index.",
+  "summary": "Reuse the proven relationship index architecture to productize Tags Index as the second accepted index family.",
+  "current_milestone": "M4",
+  "current_task": null,
+  "task_prefix": "ATI",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-tags-index/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-tags-index/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-tags-index/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-tags-index/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-tags-index/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "Get-Content -LiteralPath 'docs/workstreams/android-tags-index/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests \"dev.taru.android.ui.browse.*\" --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ATI-010",
+      "path": "apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt",
+      "notes": "Focused tests cover TaruBrowseClient.listTags request construction, decoding, bearer auth redaction, and unsupported API version diagnostics."
+    },
+    {
+      "task": "ATI-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseSessionLoadingTest.kt",
+      "notes": "Focused UI browse tests cover Tags relationship index route state, data-source mapping, save/restore, and row targets into existing Tag related Media Items routes."
+    },
+    {
+      "task": "ATI-030",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseShellHostTest.kt",
+      "notes": "Home exposes Tags as a nested relationship index route; TaruBrowseShell dispatches Tags through the shared route loader; focused host and relationship route tests passed, followed by the full Android debug unit gate."
+    },
+    {
+      "task": "ATI-040",
+      "path": "apps/android/scripts/Smoke-Emulator.ps1",
+      "notes": "profile-with-media smoke proves Home -> Tags -> Lighthouse -> Related Media Items and captures tag-index plus tag-index-facet evidence."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "upstream_workstreams": [
+    "docs/workstreams/android-relationship-indexes"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Workstream closed on 2026-05-20. Open follow-on lanes for CI/device-farm smoke execution, golden screenshot diffing, or richer Tags IA such as sorting, clustering, and multi-select filters."
+  }
+}

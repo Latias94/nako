@@ -11,6 +11,8 @@ private const val SaveVersion = 1
 private const val RouteTopLevel = "top_level"
 private const val RouteItemDetail = "item_detail"
 private const val RouteLibraryDetail = "library_detail"
+private const val RoutePersonDetail = "person_detail"
+private const val RouteRelationshipIndex = "relationship_index"
 private const val RouteBrowseFacet = "browse_facet"
 private const val RouteServerProfile = "server_profile"
 
@@ -75,6 +77,14 @@ private fun TaruRoute.toSavedRouteOrNull(): SavedTaruRoute? =
             type = RouteLibraryDetail,
             libraryId = libraryId,
         )
+        is TaruRoute.PersonDetail -> SavedTaruRoute(
+            type = RoutePersonDetail,
+            personId = personId,
+        )
+        is TaruRoute.RelationshipIndex -> SavedTaruRoute(
+            type = RouteRelationshipIndex,
+            relationshipFamily = family.name,
+        )
         is TaruRoute.BrowseFacet -> SavedTaruRoute(
             type = RouteBrowseFacet,
             facetFamily = target.family.name,
@@ -106,6 +116,12 @@ private fun SavedTaruRoute.toRouteOrNull(): TaruRoute? =
         RouteLibraryDetail -> libraryId
             ?.takeIf(String::isNotBlank)
             ?.let(TaruRoute::LibraryDetail)
+        RoutePersonDetail -> personId
+            ?.takeIf(String::isNotBlank)
+            ?.let(TaruRoute::PersonDetail)
+        RouteRelationshipIndex -> relationshipFamily
+            ?.let { runCatching { RelationshipIndexFamily.valueOf(it) }.getOrNull() }
+            ?.let(TaruRoute::RelationshipIndex)
         RouteBrowseFacet -> toBrowseFacetOrNull()
         RouteServerProfile -> TaruRoute.ServerProfile
         else -> null
@@ -140,6 +156,10 @@ private data class SavedTaruRoute(
     val itemId: String? = null,
     @SerialName("library_id")
     val libraryId: String? = null,
+    @SerialName("person_id")
+    val personId: String? = null,
+    @SerialName("relationship_family")
+    val relationshipFamily: String? = null,
     @SerialName("facet_family")
     val facetFamily: String? = null,
     @SerialName("facet_label")

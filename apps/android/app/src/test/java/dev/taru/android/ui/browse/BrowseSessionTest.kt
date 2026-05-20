@@ -54,6 +54,35 @@ class BrowseSessionTest {
     }
 
     @Test
+    fun `person detail route opens through stable person action`() {
+        val itemState = session.reduce(
+            BrowseShellState(),
+            BrowseAction.OpenItem("night-harbor"),
+        )
+
+        val personState = session.reduce(
+            itemState,
+            BrowseAction.OpenPersonDetail("person-1"),
+        )
+
+        assertEquals(TaruRoute.PersonDetail("person-1"), personState.currentRoute)
+        assertFalse(personState.navigationVisible)
+        assertEquals(TaruRoute.ItemDetail("night-harbor"), personState.navigation.navigateBack().currentRoute)
+    }
+
+    @Test
+    fun `relationship index route opens as nested home route`() {
+        val indexState = session.reduce(
+            BrowseShellState(),
+            BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres),
+        )
+
+        assertEquals(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres), indexState.currentRoute)
+        assertFalse(indexState.navigationVisible)
+        assertEquals(TaruRoute.TopLevel, indexState.navigation.navigateBack().currentRoute)
+    }
+
+    @Test
     fun `library detail route preserves libraries top level owner`() {
         val librariesState = session.reduce(
             BrowseShellState(),

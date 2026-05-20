@@ -203,9 +203,9 @@ Command:
 
 Use this as the stable local confidence gate after Android UI, browse,
 playback-launch, or smoke-harness changes. The wrapper builds the debug APK
-once, runs the stable state set through `Smoke-Emulator.ps1`, and writes a
-combined `report.md` and machine-readable `report.json` under
-`apps/android/build/smoke-regression/<timestamp>/`.
+once, runs the stable state set through `Smoke-Emulator.ps1`, and writes
+`report.md`, machine-readable `report.json`, and CI-friendly
+`report.junit.xml` under `apps/android/build/smoke-regression/<timestamp>/`.
 
 Default states:
 
@@ -233,6 +233,9 @@ evidence. The wrapper retries each state once by default because ADB
 `uiautomator dump` can temporarily return no root node while Android is
 transitioning between launched activities. Failed reports include a category,
 evidence path, log path, and focused rerun command for the failed state.
+The JUnit report uses the `taru.android.smoke-regression` test suite with one
+testcase per requested smoke state plus an `step.android-build` testcase for
+the wrapper build step.
 
 ## Deferred Fixtures
 

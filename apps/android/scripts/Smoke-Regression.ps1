@@ -58,6 +58,24 @@ function Get-LatestEvidenceDirectory {
         Select-Object -First 1
 }
 
+function Get-SmokeStateReportPath {
+    param(
+        [System.IO.DirectoryInfo]$EvidenceDirectory,
+        [string]$FileName
+    )
+
+    if ($EvidenceDirectory -eq $null) {
+        return $null
+    }
+
+    $path = Join-Path $EvidenceDirectory.FullName $FileName
+    if (Test-Path -LiteralPath $path) {
+        return $path
+    }
+
+    return $null
+}
+
 function Convert-ToReportPath {
     param(
         [string]$Path
@@ -80,6 +98,140 @@ function Convert-ToJsonPath {
     }
 
     return $Path.Replace('\', '/')
+}
+
+function Write-SmokeRegressionJUnitReport {
+    param(
+        [string]$Path,
+        [datetime]$StartedAt,
+        [datetime]$FinishedAt,
+        [string]$ReportPath,
+        [string]$JsonPath,
+        [string]$Serial,
+        [int]$FixtureServerPort,
+        [bool]$SkipBuild,
+        [string]$BuildStatus,
+        [string]$BuildError,
+        [object[]]$StateResults
+    )
+
+    $outcomes = New-Object System.Collections.Generic.List[object]
+    if ($SkipBuild) {
+        $outcomes.Add([pscustomobject]@{
+            Name = 'step.android-build'
+            Outcome = 'skipped'
+            Type = 'SkipBuild'
+            Message = 'Android build was skipped by request.'
+            Details = @('SkipBuild: true')
+        })
+    } elseif ($BuildStatus -eq 'FAIL') {
+        $outcomes.Add([pscustomobject]@{
+            Name = 'step.android-build'
+            Outcome = 'failure'
+            Type = 'android-build'
+            Message = 'Gradle assembleDebug failed.'
+            Details = @(
+                'Rerun: apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon',
+                'See smoke regression console output for build details.'
+            )
+        })
+    } else {
+        $outcomes.Add([pscustomobject]@{
+            Name = 'step.android-build'
+            Outcome = 'pass'
+            Type = $null
+            Message = $null
+            Details = @()
+        })
+    }
+
+    foreach ($result in $StateResults) {
+        if ($result.status -eq 'PASS') {
+            $outcomes.Add([pscustomobject]@{
+                Name = "state.$($result.state)"
+                Outcome = 'pass'
+                Type = $null
+                Message = $null
+                Details = @()
+            })
+        } elseif ($result.status -eq 'NOT_RUN') {
+            $outcomes.Add([pscustomobject]@{
+                Name = "state.$($result.state)"
+                Outcome = 'skipped'
+                Type = $result.category
+                Message = "Smoke state '$($result.state)' did not run: $($result.category)."
+                Details = @(
+                    "state=$($result.state)",
+                    "category=$($result.category)"
+                )
+            })
+        } else {
+            $outcomes.Add([pscustomobject]@{
+                Name = "state.$($result.state)"
+                Outcome = 'failure'
+                Type = $result.category
+                Message = "Smoke state '$($result.state)' failed after $($result.attempts) attempt(s)."
+                Details = @(
+                    "state=$($result.state)",
+                    "category=$($result.category)",
+                    "attempts=$($result.attempts)",
+                    "evidence_directory=$($result.evidence_directory)",
+                    "report_markdown=$($result.report_markdown)",
+                    "report_json=$($result.report_json)",
+                    "log=$($result.log)",
+                    "rerun_command=$($result.rerun_command)"
+                )
+            })
+        }
+    }
+
+    $failureCount = @($outcomes | Where-Object { $_.Outcome -eq 'failure' }).Count
+    $skippedCount = @($outcomes | Where-Object { $_.Outcome -eq 'skipped' }).Count
+    $duration = [Math]::Max(0, ($FinishedAt - $StartedAt).TotalSeconds)
+    $durationText = $duration.ToString('0.###', [System.Globalization.CultureInfo]::InvariantCulture)
+
+    $document = [System.Xml.XmlDocument]::new()
+    [void]$document.AppendChild($document.CreateXmlDeclaration('1.0', 'utf-8', $null))
+    $root = $document.CreateElement('testsuites')
+    $root.SetAttribute('tests', $outcomes.Count.ToString())
+    $root.SetAttribute('failures', $failureCount.ToString())
+    $root.SetAttribute('errors', '0')
+    $root.SetAttribute('skipped', $skippedCount.ToString())
+    $root.SetAttribute('time', $durationText)
+    [void]$document.AppendChild($root)
+
+    $suite = $document.CreateElement('testsuite')
+    $suite.SetAttribute('name', 'taru.android.smoke-regression')
+    $suite.SetAttribute('tests', $outcomes.Count.ToString())
+    $suite.SetAttribute('failures', $failureCount.ToString())
+    $suite.SetAttribute('errors', '0')
+    $suite.SetAttribute('skipped', $skippedCount.ToString())
+    $suite.SetAttribute('time', $durationText)
+    $suite.SetAttribute('timestamp', $StartedAt.ToString('o'))
+    [void]$root.AppendChild($suite)
+
+    $properties = $document.CreateElement('properties')
+    Add-JUnitProperty -Document $document -Properties $properties -Name 'report.markdown' -Value (Convert-ToJsonPath -Path $ReportPath)
+    Add-JUnitProperty -Document $document -Properties $properties -Name 'report.json' -Value (Convert-ToJsonPath -Path $JsonPath)
+    Add-JUnitProperty -Document $document -Properties $properties -Name 'fixture_server_port' -Value $FixtureServerPort.ToString()
+    Add-JUnitProperty -Document $document -Properties $properties -Name 'requested_serial' -Value $(if ([string]::IsNullOrWhiteSpace($Serial)) { 'auto' } else { $Serial })
+    Add-JUnitProperty -Document $document -Properties $properties -Name 'started_at' -Value $StartedAt.ToString('o')
+    Add-JUnitProperty -Document $document -Properties $properties -Name 'finished_at' -Value $FinishedAt.ToString('o')
+    [void]$suite.AppendChild($properties)
+
+    foreach ($outcome in $outcomes) {
+        Add-JUnitTestCase `
+            -Document $document `
+            -Suite $suite `
+            -ClassName 'taru.android.smoke' `
+            -Name $outcome.Name `
+            -Outcome $outcome.Outcome `
+            -Type $outcome.Type `
+            -Message $outcome.Message `
+            -Details $outcome.Details
+    }
+
+    Write-JUnitXmlFile -Document $document -Path $Path
 }
 
 function Resolve-OutputRootPath {
@@ -222,6 +374,7 @@ function Resolve-SmokeStates {
 }
 
 $scriptDir = $PSScriptRoot
+. (Join-Path $scriptDir 'Android-JUnitReport.ps1')
 $androidRoot = (Resolve-Path -LiteralPath (Join-Path $scriptDir '..')).Path
 $smokeScript = Join-Path $scriptDir 'Smoke-Emulator.ps1'
 $resolvedStates = Resolve-SmokeStates -RequestedStates $States
@@ -303,11 +456,15 @@ try {
         }
 
         $latestEvidence = Get-LatestEvidenceDirectory -StateRoot $stateRoot
+        $stateReportPath = Get-SmokeStateReportPath -EvidenceDirectory $latestEvidence -FileName 'report.md'
+        $stateJsonReportPath = Get-SmokeStateReportPath -EvidenceDirectory $latestEvidence -FileName 'report.json'
         $results.Add([pscustomobject]@{
             State = $state
             Status = $status
             Category = Get-FailureCategory -State $state -ErrorMessage $errorMessage
             EvidenceDirectory = if ($latestEvidence) { $latestEvidence.FullName } else { $null }
+            Report = $stateReportPath
+            JsonReport = $stateJsonReportPath
             Log = $stateLog
             Error = $errorMessage
             Attempts = if ($status -eq 'PASS') { $attempt } else { $attempts }
@@ -323,6 +480,7 @@ try {
     $failed = @($results | Where-Object { $_.Status -ne 'PASS' })
     $reportPath = Join-Path $runRoot 'report.md'
     $jsonPath = Join-Path $runRoot 'report.json'
+    $junitPath = Join-Path $runRoot 'report.junit.xml'
     $overallPass = $buildStatus -ne 'FAIL' -and $failed.Count -eq 0 -and $results.Count -eq $resolvedStates.Count
     $notRun = @($resolvedStates | Where-Object { $state = $_; -not ($results | Where-Object { $_.State -eq $state }) })
     $notRunStates = @(
@@ -333,6 +491,8 @@ try {
                 category = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
                 attempts = 0
                 evidence_directory = $null
+                report_markdown = $null
+                report_json = $null
                 log = $null
                 error = $null
                 rerun_command = $null
@@ -347,6 +507,8 @@ try {
                 category = $result.Category
                 attempts = $result.Attempts
                 evidence_directory = Convert-ToJsonPath -Path $result.EvidenceDirectory
+                report_markdown = Convert-ToJsonPath -Path $result.Report
+                report_json = Convert-ToJsonPath -Path $result.JsonReport
                 log = Convert-ToJsonPath -Path $result.Log
                 error = $result.Error
                 rerun_command = $result.RerunCommand
@@ -364,6 +526,7 @@ try {
         result = if ($overallPass) { 'PASS' } else { 'FAIL' }
         report_markdown = Convert-ToJsonPath -Path $reportPath
         report_json = Convert-ToJsonPath -Path $jsonPath
+        report_junit = Convert-ToJsonPath -Path $junitPath
         options = [ordered]@{
             requested_serial = if ([string]::IsNullOrWhiteSpace($Serial)) { $null } else { $Serial }
             states = @($resolvedStates)
@@ -395,16 +558,16 @@ try {
     $lines.Add('')
     $lines.Add('## States')
     $lines.Add('')
-    $lines.Add('| State | Status | Attempts | Category | Evidence | Log |')
-    $lines.Add('| --- | --- | --- | --- | --- | --- |')
+    $lines.Add('| State | Status | Attempts | Category | Evidence | Report | Structured Report | Log |')
+    $lines.Add('| --- | --- | --- | --- | --- | --- | --- | --- |')
 
     foreach ($result in $results) {
-        $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $($result.Category) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Log) |")
+        $lines.Add("| $($result.State) | $($result.Status) | $($result.Attempts) | $($result.Category) | $(Convert-ToReportPath -Path $result.EvidenceDirectory) | $(Convert-ToReportPath -Path $result.Report) | $(Convert-ToReportPath -Path $result.JsonReport) | $(Convert-ToReportPath -Path $result.Log) |")
     }
 
     foreach ($state in $notRun) {
         $reason = if ($buildStatus -eq 'FAIL') { 'android-build' } else { 'blocked-by-earlier-state' }
-        $lines.Add("| $state | NOT_RUN | 0 | $reason | n/a | n/a |")
+        $lines.Add("| $state | NOT_RUN | 0 | $reason | n/a | n/a | n/a | n/a |")
     }
 
     if ($buildStatus -eq 'FAIL') {
@@ -437,6 +600,8 @@ try {
             $lines.Add("- Category: $($result.Category)")
             $lines.Add("- Attempts: $($result.Attempts)")
             $lines.Add("- Evidence: $(Convert-ToReportPath -Path $result.EvidenceDirectory)")
+            $lines.Add("- Report: $(Convert-ToReportPath -Path $result.Report)")
+            $lines.Add("- Structured report: $(Convert-ToReportPath -Path $result.JsonReport)")
             $lines.Add("- Log: $(Convert-ToReportPath -Path $result.Log)")
             $lines.Add('')
             $lines.Add('Rerun:')
@@ -456,11 +621,24 @@ try {
 
     Write-Utf8File -Path $reportPath -Content ($lines -join [Environment]::NewLine)
     Write-Utf8File -Path $jsonPath -Content ($jsonReport | ConvertTo-Json -Depth 12)
+    Write-SmokeRegressionJUnitReport `
+        -Path $junitPath `
+        -StartedAt $startedAt `
+        -FinishedAt $finishedAt `
+        -ReportPath $reportPath `
+        -JsonPath $jsonPath `
+        -Serial $Serial `
+        -FixtureServerPort $FixtureServerPort `
+        -SkipBuild ([bool]$SkipBuild) `
+        -BuildStatus $buildStatus `
+        -BuildError $buildError `
+        -StateResults $stateResults
 
     Write-Host "Smoke regression complete."
     Write-Host "Result: $(if ($overallPass) { 'PASS' } else { 'FAIL' })"
     Write-Host "Report: $reportPath"
     Write-Host "Structured report: $jsonPath"
+    Write-Host "JUnit report: $junitPath"
 }
 
 if (@($results | Where-Object { $_.Status -ne 'PASS' }).Count -gt 0) {

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "slug": "android-relationship-indexes",
+  "title": "Android Relationship Indexes",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "execution",
+  "problem": "Android can open server-backed relationship details from known IDs but lacks first-class People, Tags, and Genres index pages.",
+  "summary": "Decide and productize Android relationship index pages without mixing index IA into the completed Person Detail API contract lane.",
+  "current_milestone": "M4",
+  "current_task": null,
+  "task_prefix": "ARI",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-relationship-indexes/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-relationship-indexes/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-relationship-indexes/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-relationship-indexes/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-relationship-indexes/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "Get-Content -LiteralPath 'docs/workstreams/android-relationship-indexes/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests \"dev.taru.android.ui.browse.*\" --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
+    "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ARI-010",
+      "path": "docs/workstreams/android-relationship-indexes/DESIGN.md",
+      "notes": "Genres accepted as first slice, Tags accepted as second reuse slice, and top-level People index deferred while Person Detail remains the primary People path."
+    },
+    {
+      "task": "ARI-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt",
+      "notes": "Focused tests cover TaruBrowseClient.listGenres request construction, decoding, bearer auth redaction, and unsupported API version diagnostics."
+    },
+    {
+      "task": "ARI-030",
+      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseSessionLoadingTest.kt",
+      "notes": "Focused UI browse tests cover Genre Index route state, save/restore, load/retry/back behavior, and row targets into existing Genre related Media Items routes."
+    },
+    {
+      "task": "ARI-040",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/relationship/RelationshipIndexRoute.kt",
+      "notes": "Genre Index screen and Home anchor are implemented; full Android debug unit gate passed."
+    },
+    {
+      "task": "ARI-050",
+      "path": "apps/android/scripts/Smoke-Emulator.ps1",
+      "notes": "profile-with-media smoke proves Home -> Genres -> Mystery -> Related Media Items; Tags Index split to android-tags-index."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "upstream_workstreams": [
+    "docs/workstreams/android-api-contract-integration"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "follow_on": "docs/workstreams/android-tags-index"
+  }
+}

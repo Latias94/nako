@@ -414,6 +414,78 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `list genres decodes page and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "genres": [
+                        {"id":"genre-1","name":"Mystery","source":"nfo"},
+                        {"id":"genre 2","name":"Science Fiction","source":{"provider":"tmdb","key":"878"}}
+                      ],
+                      "page": {"limit": 50, "offset": 100, "returned": 2}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listGenres(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            page = PageRequest(limit = 50, offset = 100),
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/api/genres?limit=50&offset=100", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("Mystery", success.value.genres.first().name)
+        assertEquals("genre 2", success.value.genres.last().id)
+        assertEquals(100L, success.value.page.offset)
+        assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `list tags decodes page and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "tags": [
+                        {"id":"tag-1","name":"Lighthouse","source":"nfo"},
+                        {"id":"tag 2","name":"Staff Pick","source":{"provider":"local","key":"staff-pick"}}
+                      ],
+                      "page": {"limit": 50, "offset": 100, "returned": 2}
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listTags(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            page = PageRequest(limit = 50, offset = 100),
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/api/tags?limit=50&offset=100", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("Lighthouse", success.value.tags.first().name)
+        assertEquals("tag 2", success.value.tags.last().id)
+        assertEquals(100L, success.value.page.offset)
+        assertFalse(success.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `genre items decodes facet result with facet label`() = runBlocking {
         val transport = FakeTransport(
             ResponseStep(
@@ -516,6 +588,48 @@ class TaruBrowseClientTest {
         assertEquals("Demo Actor", (personResult as BrowseResult.Success).value.facetLabel)
         assertFalse(tagResult.toString().contains("secret-token"))
         assertFalse(personResult.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `person detail decodes public person response and redacts safe request`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "person": {
+                        "id": "person 1",
+                        "name": "Demo Actor",
+                        "sort_name": "Actor, Demo",
+                        "overview": "Keeps the lighthouse.",
+                        "external_ids": [
+                          {"provider":"tmdb","value":"42"}
+                        ]
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.personDetail(
+            profile = profile("http://home.example.test/api"),
+            accessToken = "secret-token",
+            personId = "person 1",
+        )
+
+        assertTrue(result is BrowseResult.Success)
+        val success = result as BrowseResult.Success
+        assertEquals("http://home.example.test/api/people/person%201", transport.requests.single().url)
+        assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
+        assertEquals("person 1", success.value.person.id)
+        assertEquals("Demo Actor", success.value.person.name)
+        assertEquals("Actor, Demo", success.value.person.sortName)
+        assertEquals("Keeps the lighthouse.", success.value.person.overview)
+        assertEquals(1, success.value.person.externalIds.size)
+        assertFalse(success.toString().contains("secret-token"))
     }
 
     @Test
@@ -623,6 +737,33 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `missing person detail maps to unavailable person diagnostics`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 404,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    body = """{"code":"not_found","message":"person is missing"}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.personDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            personId = "person-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.MissingPerson, diagnostics.category)
+        assertEquals(404, diagnostics.statusCode)
+        assertEquals("not_found", diagnostics.publicError?.code)
+        assertEquals("person is missing", diagnostics.publicError?.message)
+    }
+
+    @Test
     fun `unreachable browse request returns sanitized diagnostics`() = runBlocking {
         val transport = FakeTransport(
             ThrowStep(IOException("failed with secret-token at C:\\media\\demo.mkv")),
@@ -644,6 +785,60 @@ class TaruBrowseClientTest {
     }
 
     @Test
+    fun `unsupported api version on genre index is rejected`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    body = """{"genres":[{"id":"genre-1","name":"Mystery","source":"nfo"}],"page":{"limit":50,"offset":0,"returned":1}}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listGenres(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("v2", diagnostics.observedApiVersion)
+        assertEquals("http://home.example.test/genres?limit=50&offset=0", diagnostics.request?.url)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+        assertFalse(diagnostics.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `unsupported api version on tag index is rejected`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    body = """{"tags":[{"id":"tag-1","name":"Lighthouse","source":"nfo"}],"page":{"limit":50,"offset":0,"returned":1}}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.listTags(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("v2", diagnostics.observedApiVersion)
+        assertEquals("http://home.example.test/tags?limit=50&offset=0", diagnostics.request?.url)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+        assertFalse(diagnostics.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `unsupported api version on item detail is rejected`() = runBlocking {
         val transport = FakeTransport(
             ResponseStep(
@@ -660,6 +855,32 @@ class TaruBrowseClientTest {
             profile = profile("http://home.example.test"),
             accessToken = "secret-token",
             itemId = "item-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("v2", diagnostics.observedApiVersion)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+    }
+
+    @Test
+    fun `unsupported api version on person detail is rejected`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    body = """{"person":{"id":"person-1","name":"Demo Actor","sort_name":null,"overview":null,"external_ids":[]}}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.personDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            personId = "person-1",
         )
 
         assertTrue(result is BrowseResult.Failure)
@@ -704,6 +925,22 @@ class TaruBrowseClientTest {
 
         assertTrue(result is BrowseResult.Failure)
         assertEquals(BrowseFailureCategory.MissingItem, (result as BrowseResult.Failure).diagnostics.category)
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
+    fun `blank person detail request fails locally without transport`() = runBlocking {
+        val transport = FakeTransport()
+        val client = TaruBrowseClient(transport)
+
+        val result = client.personDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            personId = " ",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        assertEquals(BrowseFailureCategory.MissingPerson, (result as BrowseResult.Failure).diagnostics.category)
         assertTrue(transport.requests.isEmpty())
     }
 

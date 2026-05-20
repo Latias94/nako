@@ -23,6 +23,7 @@ internal fun browseFailureTitle(category: BrowseFailureCategory): String =
     when (category) {
         BrowseFailureCategory.MissingItem -> "Media Item unavailable"
         BrowseFailureCategory.MissingLibrary -> "Media Library unavailable"
+        BrowseFailureCategory.MissingPerson -> "Person unavailable"
         BrowseFailureCategory.MissingAccessToken -> "Authentication required"
         BrowseFailureCategory.UnreachableServer -> "Server unreachable"
         BrowseFailureCategory.Unauthorized -> "Authentication failed"

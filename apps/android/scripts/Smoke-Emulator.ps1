@@ -704,6 +704,18 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Content, $utf8)
 }
 
+function Convert-ToJsonPath {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    return $Path.Replace('\', '/')
+}
+
 function Resolve-FixtureState {
     param(
         [string]$RequestedFixtureState,
@@ -1064,6 +1076,15 @@ function Swipe-Up {
     Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'swipe', '540', '1500', '540', '520', '450') -FailureMessage 'adb swipe up failed.'
 }
 
+function Swipe-Down {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial
+    )
+
+    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'swipe', '540', '520', '540', '1500', '450') -FailureMessage 'adb swipe down failed.'
+}
+
 function Swipe-UntilUiText {
     param(
         [string]$AdbPath,
@@ -1136,6 +1157,25 @@ function Return-ToSmokeMediaDetail {
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
 }
 
+function Return-ToSmokeHomeFromRelationshipIndex {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$IndexSectionText = 'Browse By Genre'
+    )
+
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $IndexSectionText -TimeoutSeconds 25
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Smoke Server' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Media Libraries' -TimeoutSeconds 25
+    Swipe-Down -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+    Swipe-Down -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Night Harbor' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail' -TimeoutSeconds 25
+}
+
 function Assert-SmokeFacetRoute {
     param(
         [string]$AdbPath,
@@ -1156,6 +1196,89 @@ function Assert-SmokeFacetRoute {
         $FamilyLabel,
         'API backed',
         '1 results',
+        'Related Media Items',
+        'Night Harbor'
+    ) + $AdditionalRequiredText
+    return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
+}
+
+function Assert-SmokeGenreIndexRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Genres' -MaxSwipes 3
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Genres'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Browse By Genre' -TimeoutSeconds 25
+
+    $evidence = @()
+    $evidence += Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'genre-index' -RequiredText @(
+        'Genres',
+        'Server Genres Index',
+        'Public API',
+        '1 visible',
+        '1 returned',
+        'Browse By Genre',
+        'Mystery',
+        'Genre',
+        'API backed'
+    )
+    $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Mystery' -FacetLabel 'Mystery' -FamilyLabel 'Genre' -Name 'genre-index-facet'
+    Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir
+
+    return $evidence
+}
+
+function Assert-SmokeTagIndexRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Tags' -MaxSwipes 3
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Tags'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Browse By Tag' -TimeoutSeconds 25
+
+    $evidence = @()
+    $evidence += Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'tag-index' -RequiredText @(
+        'Tags',
+        'Server Tags Index',
+        'Public API',
+        '1 visible',
+        '1 returned',
+        'Browse By Tag',
+        'Lighthouse',
+        'Tag',
+        'API backed'
+    )
+    $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'tag-index-facet'
+    Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -IndexSectionText 'Browse By Tag'
+
+    return $evidence
+}
+
+function Assert-SmokePersonDetailRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir,
+        [string]$TapText,
+        [string]$PersonName,
+        [string]$Name,
+        [string[]]$AdditionalRequiredText = @()
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText -MaxSwipes 6
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $PersonName -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Media Items' -TimeoutSeconds 25
+    $requiredText = @(
+        $PersonName,
+        'Person',
+        '1 related',
         'Related Media Items',
         'Night Harbor'
     ) + $AdditionalRequiredText
@@ -1291,11 +1414,7 @@ if ($clearsAppData) {
 }
 if ($stateMode -in @('profile-with-media', 'profile-active-remux')) {
     $isActiveRemuxSmoke = $stateMode -eq 'profile-active-remux'
-    $fixtureRoot = if ($isActiveRemuxSmoke) {
-        Join-Path $outputDir 'demo-fixture'
-    } else {
-        Join-Path $androidRoot 'build\demo-fixtures\server-backed'
-    }
+    $fixtureRoot = Join-Path $outputDir 'demo-fixture'
     $fixtureProvider = Start-SmokeMediaFixtureProvider `
         -ScriptDir $scriptDir `
         -AndroidRoot $androidRoot `
@@ -1404,12 +1523,16 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
         'Smoke Server',
         'Night Harbor',
-        'Continue Watching',
         'Media Libraries',
+        'Search',
+        'Genres',
+        'Tags',
         '1 visible',
         'Open detail'
     )
 
+    $surfaceEvidence += Assert-SmokeGenreIndexRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    $surfaceEvidence += Assert-SmokeTagIndexRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
         'Night Harbor',
@@ -1439,15 +1562,12 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'facet-tag'
     Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Cast & Crew' -MaxSwipes 7
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Actor / as Keeper' -MaxSwipes 8
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-cast-crew' -RequiredText @(
-        'Cast & Crew',
         'Actor / as Keeper',
-        'Open related Media Items from this person.'
+        'Open Person Detail and related Media Items.'
     )
-    $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -FacetLabel 'Actor / as Keeper' -FamilyLabel 'Person' -Name 'facet-person' -AdditionalRequiredText @(
-        'Mira Vale'
-    )
+    $surfaceEvidence += Assert-SmokePersonDetailRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -PersonName 'Mira Vale' -Name 'person-detail'
     Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume from server state'
@@ -1530,12 +1650,17 @@ if ($stateMode -eq 'empty-setup') {
             -AccessToken $FixtureAccessToken `
             -SessionId $activeRemuxSessionId
     }
-    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText @(
+    $detailAfterPlayerRequiredText = @(
         'Night Harbor',
-        'Resume',
         'Check source',
         'Needs check'
-    ) -ForbiddenText @(
+    )
+    $detailAfterPlayerRequiredText += if ($stateMode -eq 'profile-with-media') {
+        'Play'
+    } else {
+        'Resume'
+    }
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText $detailAfterPlayerRequiredText -ForbiddenText @(
         'Resume on this device',
         'Local resume'
     )
@@ -1567,6 +1692,49 @@ $playbackSessionCancellationReadbackReport = if ([string]::IsNullOrWhiteSpace($p
 }
 
 $reportPath = Join-Path $outputDir 'report.md'
+$jsonPath = Join-Path $outputDir 'report.json'
+$surfaceReportItems = @(
+    foreach ($surface in $surfaceEvidence) {
+        [pscustomobject]@{
+            name = $surface.Name
+            screenshot = $surface.Screenshot
+            hierarchy = $surface.Hierarchy
+            criteria = $surface.Criteria
+        }
+    }
+)
+$jsonReport = [ordered]@{
+    schema_version = 1
+    kind = 'taru_android_smoke_state'
+    timestamp = (Get-Date).ToString('o')
+    result = 'PASS'
+    fixture_state = $FixtureState
+    state_mode = $stateMode
+    device_serial = $deviceSerial
+    apk = Convert-ToJsonPath -Path $apkPath
+    build_step = if ($skipAndroidBuild) { 'skipped' } else { 'assembleDebug' }
+    reset_app_data = [bool]$clearsAppData
+    fixture_server = [ordered]@{
+        base_url = if ($fixtureBaseUrl) { $fixtureBaseUrl } else { $null }
+        reverse_port = if ($fixtureReversePort) { $fixtureReversePort } else { $null }
+    }
+    launch = [ordered]@{
+        activity = 'dev.taru.android/.MainActivity'
+        output = Convert-ToJsonPath -Path $launchPath
+    }
+    reports = [ordered]@{
+        markdown = Convert-ToJsonPath -Path $reportPath
+        json = Convert-ToJsonPath -Path $jsonPath
+        evidence_directory = Convert-ToJsonPath -Path $outputDir
+    }
+    surfaces = $surfaceReportItems
+    readbacks = [ordered]@{
+        server_playback = Convert-ToJsonPath -Path $serverReadbackPath
+        public_playback_session = Convert-ToJsonPath -Path $playbackSessionReadbackPath
+        public_playback_session_cancellation = Convert-ToJsonPath -Path $playbackSessionCancellationReadbackPath
+    }
+    repo_root = Convert-ToJsonPath -Path $repoRoot
+}
 $report = @"
 # Taru Android Smoke Evidence
 
@@ -1587,10 +1755,13 @@ $surfaceReport
 - Public playback session cancellation readback: $playbackSessionCancellationReadbackReport
 - Repo root: $repoRoot
 "@
-$report | Out-File -LiteralPath $reportPath -Encoding utf8
+Write-Utf8File -Path $reportPath -Content $report
+Write-Utf8File -Path $jsonPath -Content ($jsonReport | ConvertTo-Json -Depth 12)
 
 Write-Host "Smoke complete."
 Write-Host "Evidence directory: $outputDir"
+Write-Host "Report: $reportPath"
+Write-Host "Structured report: $jsonPath"
 Write-Host "Launch output: $launchPath"
 Write-Host "Surface evidence:"
 $surfaceEvidence | ForEach-Object {

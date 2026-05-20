@@ -108,6 +108,18 @@ enum class BrowseFacetFamily {
 }
 
 @Serializable
+data class GenreListResponse(
+    val genres: List<GenreDto>,
+    val page: PageInfo,
+)
+
+@Serializable
+data class TagListResponse(
+    val tags: List<TagDto>,
+    val page: PageInfo,
+)
+
+@Serializable
 data class GenreItemsResponse(
     val genre: GenreDto,
     val items: List<MediaItemDto>,
@@ -126,6 +138,11 @@ data class PersonItemsResponse(
     val person: PersonDto,
     val items: List<MediaItemDto>,
     val page: PageInfo,
+)
+
+@Serializable
+data class PersonResponse(
+    val person: PersonDto,
 )
 
 @Serializable
@@ -286,6 +303,7 @@ data class PublicImageRefDto(
 enum class BrowseFailureCategory {
     MissingItem,
     MissingLibrary,
+    MissingPerson,
     MissingAccessToken,
     UnreachableServer,
     Unauthorized,

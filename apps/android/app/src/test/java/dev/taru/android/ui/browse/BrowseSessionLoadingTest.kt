@@ -3,15 +3,21 @@ package dev.taru.android.ui.browse
 import dev.taru.android.browse.BrowseFacetFamily
 import dev.taru.android.browse.CanonicalMetadataDto
 import dev.taru.android.browse.FacetItemsResponse
+import dev.taru.android.browse.GenreDto
+import dev.taru.android.browse.GenreListResponse
 import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.LibraryListResponse
 import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.browse.PageInfo
+import dev.taru.android.browse.PersonDto
+import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.SearchItemHit
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.browse.ItemDetailResponse
+import dev.taru.android.browse.TagDto
+import dev.taru.android.browse.TagListResponse
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.media.MediaProbeDto
@@ -330,6 +336,120 @@ class BrowseSessionLoadingTest {
     }
 
     @Test
+    fun `person detail route loads person and related media items`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            personDetailState = PersonDetailUiState.Content(
+                response = testPersonDetail("person-1"),
+                relatedItems = testPersonItems("person-1"),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenPersonDetail("person-1"))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.PersonDetail("person-1")))?.join()
+
+        val content = session.state.value.personDetailState as PersonDetailUiState.Content
+        assertEquals("Demo Actor", content.response.person.name)
+        assertEquals("Night Harbor", content.relatedItems.items.single().metadata.title)
+        assertEquals(listOf("person-1"), dataSource.personDetailRequests)
+    }
+
+    @Test
+    fun `person detail route load ignores stale response after back`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            personDetailState = PersonDetailUiState.Content(
+                response = testPersonDetail("person-1"),
+                relatedItems = testPersonItems("person-1"),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(Dispatchers.Default + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenPersonDetail("person-1"))
+        val job = session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.PersonDetail("person-1")))
+        session.dispatch(BrowseAction.Back)
+
+        job?.join()
+        assertEquals(TaruRoute.TopLevel, session.state.value.currentRoute)
+        assertEquals(PersonDetailUiState.Idle, session.state.value.personDetailState)
+    }
+
+    @Test
+    fun `relationship index route loads genre rows and retry reloads current index`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            relationshipIndexState = testGenreIndexContent(),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres)))?.join()
+        session.dispatch(BrowseAction.RetryCurrentRoute)?.join()
+
+        val content = session.state.value.relationshipIndexState as RelationshipIndexUiState.Content
+        val row = content.rows.single()
+        assertEquals(RelationshipIndexFamily.Genres, content.family)
+        assertEquals("Mystery", row.title)
+        assertEquals(BrowseFacetUiFamily.Genre, row.target.family)
+        assertEquals("genre-mystery", row.target.id)
+        assertEquals(listOf(RelationshipIndexFamily.Genres, RelationshipIndexFamily.Genres), dataSource.relationshipIndexRequests)
+
+        session.dispatch(BrowseAction.OpenFacet(row.target))
+        assertEquals(TaruRoute.BrowseFacet(row.target), session.state.value.currentRoute)
+    }
+
+    @Test
+    fun `relationship index route loads tag rows into tag facet route`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            relationshipIndexState = testTagIndexContent(),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Tags)))?.join()
+
+        val content = session.state.value.relationshipIndexState as RelationshipIndexUiState.Content
+        val row = content.rows.single()
+        assertEquals(RelationshipIndexFamily.Tags, content.family)
+        assertEquals("Lighthouse", row.title)
+        assertEquals(BrowseFacetUiFamily.Tag, row.target.family)
+        assertEquals("tag-lighthouse", row.target.id)
+        assertEquals(listOf(RelationshipIndexFamily.Tags), dataSource.relationshipIndexRequests)
+
+        session.dispatch(BrowseAction.OpenFacet(row.target))
+        assertEquals(TaruRoute.BrowseFacet(row.target), session.state.value.currentRoute)
+    }
+
+    @Test
+    fun `relationship index route load ignores stale response after back`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            relationshipIndexState = testGenreIndexContent(),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(Dispatchers.Default + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres))
+        val job = session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres)))
+        session.dispatch(BrowseAction.Back)
+
+        job?.join()
+        assertEquals(TaruRoute.TopLevel, session.state.value.currentRoute)
+        assertEquals(RelationshipIndexUiState.Idle, session.state.value.relationshipIndexState)
+    }
+
+    @Test
     fun `public backed facet loads content and unsupported facet stays local api gap`() = runBlocking {
         val backedFacet = BrowseFacetTarget(
             family = BrowseFacetUiFamily.Genre,
@@ -406,6 +526,15 @@ private class DeferredSearchBrowseDataSource : BrowseDataSource {
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState =
         FacetUiState.Content(testFacet(target))
 
+    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState =
+        testGenreIndexContent()
+
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
+        PersonDetailUiState.Content(
+            response = testPersonDetail(personId),
+            relatedItems = testPersonItems(personId),
+        )
+
     override suspend fun loadItemDetail(itemId: String): ItemDetailUiState =
         ItemDetailUiState.Content(
             testDetail(
@@ -457,6 +586,11 @@ private class RecordingBrowseDataSource(
             ),
         ),
     ),
+    private val personDetailState: PersonDetailUiState = PersonDetailUiState.Content(
+        response = testPersonDetail("person-default"),
+        relatedItems = testPersonItems("person-default"),
+    ),
+    private val relationshipIndexState: RelationshipIndexUiState = testGenreIndexContent(),
     private val detailState: ItemDetailUiState = ItemDetailUiState.Content(
         testDetail(
             itemId = "item-default",
@@ -476,6 +610,8 @@ private class RecordingBrowseDataSource(
         private set
     val searchQueries: MutableList<String> = mutableListOf()
     val facetTargets: MutableList<BrowseFacetTarget> = mutableListOf()
+    val personDetailRequests: MutableList<String> = mutableListOf()
+    val relationshipIndexRequests: MutableList<RelationshipIndexFamily> = mutableListOf()
     val detailRequests: MutableList<String> = mutableListOf()
     val sourceProbeRequests: MutableList<String> = mutableListOf()
     val playbackRequests: MutableList<String> = mutableListOf()
@@ -496,6 +632,16 @@ private class RecordingBrowseDataSource(
     override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
         facetTargets += target
         return facetState
+    }
+
+    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
+        relationshipIndexRequests += family
+        return relationshipIndexState
+    }
+
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState {
+        personDetailRequests += personId
+        return personDetailState
     }
 
     override suspend fun loadItemDetail(itemId: String): ItemDetailUiState {
@@ -559,6 +705,47 @@ private fun testFacet(target: BrowseFacetTarget): FacetItemsResponse =
         items = listOf(testItem("night-harbor")),
         page = testPage(returned = 1),
     )
+
+private fun testPersonDetail(personId: String): PersonResponse =
+    PersonResponse(
+        person = PersonDto(
+            id = personId,
+            name = "Demo Actor",
+            sortName = "Actor, Demo",
+            overview = "Keeps the lighthouse.",
+        ),
+    )
+
+private fun testPersonItems(personId: String): FacetItemsResponse =
+    FacetItemsResponse(
+        family = BrowseFacetFamily.Person,
+        facetId = personId,
+        facetLabel = "Demo Actor",
+        items = listOf(testItem("night-harbor")),
+        page = testPage(returned = 1),
+    )
+
+private fun testGenreIndexContent(): RelationshipIndexUiState.Content =
+    GenreListResponse(
+        genres = listOf(
+            GenreDto(
+                id = "genre-mystery",
+                name = "Mystery",
+            ),
+        ),
+        page = testPage(returned = 1),
+    ).toRelationshipIndexContent()
+
+private fun testTagIndexContent(): RelationshipIndexUiState.Content =
+    TagListResponse(
+        tags = listOf(
+            TagDto(
+                id = "tag-lighthouse",
+                name = "Lighthouse",
+            ),
+        ),
+        page = testPage(returned = 1),
+    ).toRelationshipIndexContent()
 
 private fun testItem(id: String): MediaItemDto =
     MediaItemDto(

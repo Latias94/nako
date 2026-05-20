@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "slug": "android-clipboard-api-cleanup",
+  "title": "Android Clipboard API Cleanup",
+  "status": "closed",
+  "updated": "2026-05-20",
+  "scope_kind": "maintenance",
+  "problem": "Settings and player routes use deprecated LocalClipboardManager directly.",
+  "summary": "Closed lane replacing deprecated clipboard calls with a small internal adapter around Compose LocalClipboard.",
+  "current_milestone": null,
+  "current_task": null,
+  "task_prefix": "ACAC",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ACAC-010",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/DESIGN.md",
+      "notes": "Local Compose 1.11.1 clipboard API confirmed from Gradle cache."
+    },
+    {
+      "task": "ACAC-020",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/TaruClipboard.kt",
+      "notes": "Plain-text clipboard adapter added."
+    },
+    {
+      "task": "ACAC-030",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/settings/SettingsScreens.kt",
+      "notes": "Settings/player copy call sites migrated away from LocalClipboardManager."
+    },
+    {
+      "task": "ACAC-040",
+      "path": "docs/workstreams/android-clipboard-api-cleanup/EVIDENCE_AND_GATES.md",
+      "notes": "Full Android debug unit suite and diff hygiene passed on 2026-05-20."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "stop",
+    "next_task": null,
+    "notes": "Workstream is closed. Open follow-on lanes for copy feedback UX or snackbar behavior."
+  }
+}

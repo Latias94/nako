@@ -1,0 +1,77 @@
+# Android Tags Index - TODO
+
+Status: Closed
+Last updated: 2026-05-20
+
+## Task Ledger
+
+- [x] ATI-010 - Add Tags index client contract.
+  - Owner: Codex
+  - Dependencies: closed `docs/workstreams/android-relationship-indexes/`.
+  - Scope:
+    - `apps/android/app/src/main/java/dev/taru/android/browse/`
+    - focused browse client tests.
+    - API coverage matrices.
+  - Validation:
+    - Unit tests cover `GET /tags?limit=&offset=` request building, decoding,
+      auth, version checking, and safe diagnostics.
+  - Evidence: focused `TaruBrowseClientTest` coverage.
+    Completed on 2026-05-20:
+    `TagListResponse` and `TaruBrowseClient.listTags` are covered by focused
+    tests for request construction, decoding, bearer auth redaction, safe
+    diagnostics, and unsupported API version rejection.
+
+- [x] ATI-020 - Reuse relationship index route state for Tags.
+  - Owner: Codex
+  - Dependencies: ATI-010.
+  - Scope:
+    - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
+    - focused browse session/navigation/data-source tests.
+  - Validation:
+    - `BrowseSession` opens, saves, restores, loads, retries, and backs out of
+      the Tags Index route.
+    - Tag rows open existing Tag related Media Items routes.
+  - Evidence: focused UI browse tests.
+    Completed on 2026-05-20:
+    `RelationshipIndexFamily.Tags`, `TagListResponse.toRelationshipIndexContent`,
+    route save/restore, `BrowseSession` loading, and
+    `ClientBrowseDataSource.loadRelationshipIndex(Tags)` are covered by
+    focused UI browse tests. Relationship index presentation copy is now
+    family-aware for Genres and Tags.
+
+- [x] ATI-030 - Productize Tags Index screen entry.
+  - Owner: Codex
+  - Dependencies: ATI-020.
+  - Scope:
+    - relationship index screen family.
+    - `HomeScreen` and `TaruBrowseShell`.
+    - focused presentation tests where practical.
+  - Validation:
+    - UI reuses the proven relationship index screen shape.
+    - Home exposes Tags as a nested browse route.
+    - full Android debug unit gate passes.
+  - Evidence: screen implementation and unit gate.
+    Completed on 2026-05-20:
+    Home now exposes Tags next to Genres as a nested relationship index route.
+    `TaruBrowseShell` dispatches the Tags anchor through
+    `BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags)`, and the
+    shared `RelationshipIndexRoute` uses family-aware copy and icons for both
+    Genres and Tags. Focused host and relationship route tests passed, followed
+    by the full Android debug unit gate.
+
+- [x] ATI-040 - Verify smoke value and close.
+  - Owner: Codex
+  - Dependencies: ATI-030.
+  - Scope:
+    - `apps/android/scripts/Smoke-Emulator.ps1`
+    - `docs/workstreams/android-tags-index/`
+  - Validation:
+    - either focused smoke proves Home -> Tags -> Lighthouse -> Related Media
+      Items or the lane records why the existing tag facet smoke is enough.
+    - workstream closeout docs are updated.
+  - Evidence: smoke report or explicit non-smoke rationale.
+    Completed on 2026-05-20:
+    Added `profile-with-media` smoke coverage for Home -> Tags -> Lighthouse
+    -> Related Media Items. The smoke report captured `tag-index` and
+    `tag-index-facet` surface evidence and passed with zero retries.
+    Workstream closeout docs were updated and the lane is closed.
