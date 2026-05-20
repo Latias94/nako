@@ -9,7 +9,10 @@ use sqlx::{
 #[cfg(test)]
 use sqlx::{Executor, postgres::PgConnectOptions};
 use taru_core::*;
-use taru_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
+use taru_search::{
+    SearchDocument, SearchEvaluationDocument, SearchHit, SearchIndex, SearchQuery,
+    evaluate_search_documents,
+};
 
 const POSTGRES_MAX_CONNECTIONS: u32 = 5;
 
@@ -2684,11 +2687,11 @@ impl SearchIndex for PostgresStore {
             r#"
             SELECT
                 item_id::text AS item_id,
+                projection_version,
                 title,
                 body,
                 aliases_json::text AS aliases_json,
-                facets_json::text AS facets_json,
-                facets_text
+                facets_json::text AS facets_json
             FROM search_documents
             ORDER BY title ASC, item_id ASC
             "#,
@@ -2697,72 +2700,23 @@ impl SearchIndex for PostgresStore {
         .await
         .map_err(database_error)?;
 
-        let needle = query.query.trim().to_lowercase();
-        let required_facets = query
-            .facet_labels()
+        let documents = rows
             .into_iter()
-            .map(|facet| facet.to_lowercase())
-            .collect::<Vec<_>>();
-        let offset = query.offset as usize;
-        let limit = if query.limit == 0 {
-            PageRequest::DEFAULT_LIMIT as usize
-        } else {
-            query.limit.min(PageRequest::MAX_LIMIT) as usize
-        };
+            .map(|row| {
+                let aliases_json: String = row_get(&row, "aliases_json")?;
+                let facets_json: String = row_get(&row, "facets_json")?;
+                Ok(SearchEvaluationDocument::from_facet_labels(
+                    parse_id(row_get::<String>(&row, "item_id")?)?,
+                    i64_to_u16(row_get::<i64>(&row, "projection_version")?)?,
+                    row_get::<String>(&row, "title")?,
+                    row_get::<String>(&row, "body")?,
+                    serde_json::from_str(&aliases_json).map_err(database_error)?,
+                    serde_json::from_str(&facets_json).map_err(database_error)?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-        let mut hits = Vec::new();
-
-        for row in rows {
-            let title: String = row_get(&row, "title")?;
-            let body: String = row_get(&row, "body")?;
-            let aliases_json: String = row_get(&row, "aliases_json")?;
-            let aliases: Vec<String> =
-                serde_json::from_str(&aliases_json).map_err(database_error)?;
-            let facets_text: String = row_get(&row, "facets_text")?;
-            let haystack =
-                format!("{title} {body} {} {facets_text}", aliases.join(" ")).to_lowercase();
-
-            if !needle.is_empty() && !haystack.contains(&needle) {
-                continue;
-            }
-
-            let facets_json: String = row_get(&row, "facets_json")?;
-            let document_facets = serde_json::from_str::<Vec<String>>(&facets_json)
-                .map_err(database_error)?
-                .into_iter()
-                .map(|facet| facet.to_lowercase())
-                .collect::<Vec<_>>();
-            if required_facets.iter().any(|facet| {
-                !document_facets
-                    .iter()
-                    .any(|document_facet| document_facet == facet)
-            }) {
-                continue;
-            }
-
-            let score = if !needle.is_empty() && title.to_lowercase().contains(&needle) {
-                1.0
-            } else if !needle.is_empty() && body.to_lowercase().contains(&needle) {
-                0.7
-            } else {
-                0.5
-            };
-
-            hits.push(SearchHit {
-                item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
-                score,
-            });
-        }
-
-        hits.sort_by(|left, right| {
-            right
-                .score
-                .partial_cmp(&left.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| left.item_id.cmp(&right.item_id))
-        });
-
-        Ok(hits.into_iter().skip(offset).take(limit).collect())
+        Ok(evaluate_search_documents(&query, documents))
     }
 }
 
@@ -8340,6 +8294,12 @@ fn optional_i64_to_u64(value: Option<i64>) -> Result<Option<u64>> {
 fn i64_to_u32(value: i64) -> Result<u32> {
     u32::try_from(value).map_err(|err| TaruError::Database {
         message: format!("PostgreSQL bigint cannot be converted to u32: {err}"),
+    })
+}
+
+fn i64_to_u16(value: i64) -> Result<u16> {
+    u16::try_from(value).map_err(|err| TaruError::Database {
+        message: format!("PostgreSQL bigint cannot be converted to u16: {err}"),
     })
 }
 

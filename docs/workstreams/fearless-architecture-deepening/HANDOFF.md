@@ -222,15 +222,54 @@ Validation passed:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+
+## FAD-070 Summary
+
+FAD-070 added measured search semantics without adding AI/vector search:
+
+- `taru-search` now owns shared search evaluation with:
+  - current Search Projection version helpers;
+  - `SearchEvaluationDocument` fixtures;
+  - exact Browse Facet filtering;
+  - title, alias, body, and facet scoring;
+  - compact normalized matching for whitespace-tolerant CJK queries.
+- SQLite and PostgreSQL `SearchIndex` adapters now delegate search semantics to
+  `taru-search` instead of duplicating filtering/scoring logic.
+- Catalog hydration now includes accepted Provider Subject title/key data in the
+  Search Projection, so Provider Mapping titles are searchable as aliases while
+  provider/external-id Browse Facets remain structured.
+- `NfoImportRepository` now includes `ProviderMappingRepository` because richer
+  Catalog Projection planning needs accepted Provider Mapping context.
+- No AI, vector search, FTS backend, pinyin, romaji, provider breadth, or
+  external search service was added.
+
+Validation passed:
+
+- `cargo check -p taru-search -p taru-catalog -p taru-db --tests`
+- `cargo check -p taru-nfo -p taru-metadata -p taru-server --tests`
+- `cargo nextest run -p taru-search --no-fail-fast`
+- `cargo nextest run -p taru-catalog semantic_search --no-fail-fast`
+- `cargo nextest run -p taru-db search --no-fail-fast`
+- `cargo nextest run -p taru-db facet --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+Environment note:
+
+- `C:\Users\Frankorz\AppData\Local\Temp` had no free space during this
+  slice. Final link/test commands were run with `TMP` and `TEMP` set to
+  `F:\Temp`.
+
 ## Blockers
 
-- None for FAD-070.
+- None for FAD-080.
 
 ## Next Recommended Action
 
-1. Start FAD-070.
-2. Inspect `taru-search`, `taru-catalog`, and search projection callers.
-3. Add a small search semantics evaluation harness for title, alias,
-   provider-title, and CJK-friendly query behavior.
-4. Keep AI/vector search out of this workstream unless split into a separate
-   product lane.
+1. Start FAD-080.
+2. Improve test locality only around behavior families touched by this lane:
+   Addon Side Effects, Addon metadata commit, Library ingestion workflow, and
+   search semantics.
+3. Prefer extracting domain-focused fixtures over mechanical file splitting.
+4. Keep coverage and failure meaning stable; do not rewrite tests simply to make
+   files smaller.

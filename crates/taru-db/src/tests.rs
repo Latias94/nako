@@ -2114,6 +2114,43 @@ async fn taru_database_sqlite_matches_browse_facets_exactly() {
 }
 
 #[tokio::test]
+async fn taru_database_sqlite_uses_shared_search_semantics_for_cjk_aliases() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Spirited Away".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let mut document = SearchDocument::from_facet_labels(
+        item.id,
+        "Spirited Away",
+        "宫崎骏动画",
+        vec!["provider:bangumi".to_owned()],
+    )
+    .unwrap();
+    document.aliases.push("千と千尋の神隠し".to_owned());
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert(document).await.unwrap();
+
+    let hits = store
+        .search(
+            SearchQuery::from_facet_labels("千 尋", vec!["provider:bangumi".to_owned()], 10, 0)
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(hits[0].item_id, item.id);
+}
+
+#[tokio::test]
 async fn taru_database_sqlite_searches_aliases_but_keeps_them_structured() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

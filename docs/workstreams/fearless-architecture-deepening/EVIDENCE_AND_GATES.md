@@ -390,6 +390,73 @@ Broader gates not run:
 - PostgreSQL opt-in contracts were not applicable because FAD-060 changed no
   persistence schema or database commit seam.
 
+
+### 2026-05-20 — FAD-070 Search Semantics
+
+Status: complete.
+
+Implementation evidence:
+
+- Added a shared search semantics evaluator in `taru-search`:
+  - current Search Projection version helpers;
+  - `SearchEvaluationDocument` fixtures;
+  - exact Browse Facet filtering;
+  - title, alias, body, and facet scoring;
+  - compact normalized matching so CJK queries are not broken by whitespace.
+- SQLite and PostgreSQL `SearchIndex` adapters now load persisted search rows
+  and delegate filtering/scoring/pagination to the shared evaluator instead of
+  carrying duplicated query semantics in each backend.
+- Catalog hydration now loads accepted Provider Mappings, projects their
+  Provider Subject title/key into the Search Projection, and emits provider and
+  external-id Browse Facets for accepted Provider Subjects.
+- `NfoImportRepository` now includes `ProviderMappingRepository` so NFO import
+  planning continues to use the richer Catalog Projection seam.
+- No AI, vector, FTS, pinyin, romaji, or external search service behavior was
+  added in this slice.
+
+Validation:
+
+```bash
+cargo fmt --all
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p taru-search -p taru-catalog -p taru-db --tests
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p taru-nfo -p taru-metadata -p taru-server --tests
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-catalog semantic_search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db facet --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `cargo check -p taru-search -p taru-catalog -p taru-db --tests` passed.
+- Downstream bound check passed for `taru-nfo`, `taru-metadata`, and
+  `taru-server`.
+- Full `taru-search` nextest passed: 6 passed, 0 skipped.
+- Focused catalog semantic-search nextest passed: 1 passed, 3 skipped.
+- Focused DB search nextest passed: 7 passed, 97 skipped.
+- Focused DB facet nextest passed: 1 passed, 103 skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Environment note:
+
+- `C:\Users\Frankorz\AppData\Local\Temp` reported no free space during
+  this slice, causing linker `LNK1108` failures before command execution was
+  retried with `TMP`/`TEMP` pointed at `F:\Temp`. The final validation commands
+  above used that temporary-directory override where linking test binaries was
+  required.
+
+Broader gates not run:
+
+- Full workspace nextest was not run for FAD-070 because the touched behavior is
+  covered by `taru-search` evaluator tests, the catalog provider-title semantic
+  search fixture, and focused SQLite DB search/facet tests. Full workspace
+  nextest remains a M63 closeout gate.
+- PostgreSQL opt-in runtime contracts were not run because this task did not add
+  a new persistence commit seam and `TARU_TEST_POSTGRES_URL` was not available.
+
 ## Evidence To Add During Execution
 
 Each task should add:

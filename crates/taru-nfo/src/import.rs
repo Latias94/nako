@@ -5,7 +5,8 @@ use taru_core::{
     CanonicalMetadata, CatalogRepository, LibraryId, LibraryItemRepository, LibraryItemState,
     LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
     MetadataField, MetadataFieldLock, MetadataMergePolicy, MetadataRefreshMode, MetadataRepository,
-    MetadataSource, NfoImportPersistenceCommit, Result, TaruError, populated_metadata_fields,
+    MetadataSource, NfoImportPersistenceCommit, ProviderMappingRepository, Result, TaruError,
+    populated_metadata_fields,
 };
 use taru_vfs::StorageBackend;
 
@@ -17,12 +18,20 @@ use super::{
 };
 
 pub trait NfoImportRepository:
-    CatalogRepository + LibraryItemRepository + MediaRepository + MetadataRepository
+    CatalogRepository
+    + LibraryItemRepository
+    + MediaRepository
+    + MetadataRepository
+    + ProviderMappingRepository
 {
 }
 
 impl<T> NfoImportRepository for T where
-    T: CatalogRepository + LibraryItemRepository + MediaRepository + MetadataRepository
+    T: CatalogRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + MetadataRepository
+        + ProviderMappingRepository
 {
 }
 

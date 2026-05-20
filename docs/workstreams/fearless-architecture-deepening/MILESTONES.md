@@ -117,16 +117,18 @@ Evidence:
 
 ## M4 — Search Semantics And Test Locality
 
-Status: planned.
+Status: active.
 
 Exit criteria:
 
 - Search semantics have a small evaluation harness before AI/vector search is
-  introduced.
+  introduced. Completed by FAD-070 with the shared `taru-search` evaluator and
+  focused title/alias/provider-title/CJK fixtures.
 - Search Projection versioning or equivalent discipline is documented and
-  tested where needed.
+  tested where needed. Completed for FAD-070 with current-version helpers on
+  `SearchDocument` and `SearchEvaluationDocument`.
 - Touched giant test families are split only when doing so improves locality and
-  reviewability without weakening coverage.
+  reviewability without weakening coverage. Pending FAD-080.
 
 Primary gates:
 

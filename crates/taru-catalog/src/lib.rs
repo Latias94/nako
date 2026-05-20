@@ -8,8 +8,9 @@ use taru_core::{
     CatalogSearchProjection, Collection, CollectionId, CollectionItem, CollectionRef, Credit,
     CreditRole, ExternalId, ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
     ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem, MediaItemId,
-    MediaRepository, MetadataSource, PageRequest, Person, PersonId, Result, SortKey, SortKeyKind,
-    Studio, StudioId, Tag, TagId, TaruError,
+    MediaRepository, MetadataSource, PageRequest, Person, PersonId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderSubject, Result, SortKey, SortKeyKind, Studio, StudioId, Tag,
+    TagId, TaruError,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -47,6 +48,7 @@ struct CatalogHydrationSnapshot {
     pub tags: Vec<(ItemTag, Tag)>,
     pub collections: Vec<(CollectionItem, Collection)>,
     pub studios: Vec<(ItemStudio, Studio)>,
+    pub provider_subjects: Vec<ProviderSubject>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -80,7 +82,7 @@ pub trait CatalogHydrationPort: Send + Sync {
 #[async_trait]
 impl<T> CatalogHydrationPort for T
 where
-    T: CatalogRepository + MediaRepository,
+    T: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     async fn hydrate_catalog(
         &self,
@@ -96,7 +98,7 @@ async fn load_hydration_snapshot<R>(
     item_id: MediaItemId,
 ) -> Result<CatalogHydrationSnapshot>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let item = repository
         .get_media_item(item_id)
@@ -166,6 +168,7 @@ where
             })?;
         studios.push((item_studio, studio));
     }
+    let provider_subjects = list_accepted_provider_subjects(repository, item.id).await?;
 
     Ok(CatalogHydrationSnapshot {
         item,
@@ -175,6 +178,7 @@ where
         tags,
         collections,
         studios,
+        provider_subjects,
     })
 }
 
@@ -184,7 +188,7 @@ async fn load_hydration_lookup<R>(
     source: &MetadataSource,
 ) -> Result<CatalogHydrationLookup>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let mut lookup = CatalogHydrationLookup {
         person_external_id_matches: Vec::new(),
@@ -291,7 +295,7 @@ where
 
 async fn commit_hydration<R>(repository: &R, commit: CatalogHydrationCommit) -> Result<()>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     repository
         .commit_item_projection(&CatalogItemProjectionCommit {
@@ -318,7 +322,7 @@ pub async fn plan_item_catalog_projection<R>(
     source: MetadataSource,
 ) -> Result<CatalogItemProjectionCommit>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let mut snapshot = load_hydration_snapshot(repository, item.id).await?;
     snapshot.item = item;
@@ -372,7 +376,7 @@ pub async fn refresh_item_search<R>(
     item_id: MediaItemId,
 ) -> Result<CatalogHydrationSummary>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let snapshot = load_hydration_snapshot(repository, item_id).await?;
     let item = snapshot.item.clone();
@@ -400,7 +404,7 @@ pub async fn plan_item_search_projection<R>(
     item: MediaItem,
 ) -> Result<CatalogSearchProjection>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let snapshot = load_hydration_snapshot(repository, item.id).await?;
     Ok(plan_item_search_projection_from_snapshot(snapshot, item))
@@ -413,7 +417,7 @@ pub async fn plan_item_catalog_label_projection<R>(
     selection: CatalogLabelHydrationSelection,
 ) -> Result<CatalogItemProjectionCommit>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let mut snapshot = load_hydration_snapshot(repository, item.id).await?;
     snapshot.item = item;
@@ -462,7 +466,7 @@ pub async fn hydrate_item_catalog_labels<R>(
     selection: CatalogLabelHydrationSelection,
 ) -> Result<CatalogHydrationSummary>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let snapshot = load_hydration_snapshot(repository, item_id).await?;
     let commit =
@@ -497,7 +501,7 @@ async fn hydrate_item_catalog_with_repository<R>(
     source: MetadataSource,
 ) -> Result<CatalogHydrationSummary>
 where
-    R: CatalogRepository + MediaRepository,
+    R: CatalogRepository + MediaRepository + ProviderMappingRepository,
 {
     let snapshot = load_hydration_snapshot(repository, item_id).await?;
     let lookup = load_hydration_lookup(repository, &snapshot.item, &source).await?;
@@ -972,6 +976,31 @@ fn search_projection_from_graph(
             );
         }
     }
+
+    for subject in &snapshot.provider_subjects {
+        push_body(&mut body_parts, &subject.subject_key);
+        if let Some(title) = subject.title.as_deref() {
+            push_body(&mut body_parts, title);
+            push_unique_string(&mut aliases, title.to_owned());
+        }
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(BrowseFacetKind::Provider, provider_label(&subject.provider)),
+        );
+        push_unique_facet(
+            &mut browse_facets,
+            BrowseFacet::new(
+                BrowseFacetKind::ExternalId(provider_label(&subject.provider)),
+                subject.subject_key.clone(),
+            ),
+        );
+        if let Some(year) = subject.release_year {
+            push_unique_facet(
+                &mut browse_facets,
+                BrowseFacet::new(BrowseFacetKind::ReleaseYear, year.to_string()),
+            );
+        }
+    }
     browse_facets.sort_by_key(BrowseFacet::label);
 
     let mut projection =
@@ -1106,6 +1135,49 @@ fn merge_external_ids(existing: &mut Vec<ExternalId>, incoming: &[ExternalId]) {
     }
 }
 
+async fn list_accepted_provider_subjects<R>(
+    repository: &R,
+    item_id: MediaItemId,
+) -> Result<Vec<ProviderSubject>>
+where
+    R: ProviderMappingRepository,
+{
+    let mut offset = 0;
+    let mut subjects = Vec::new();
+
+    loop {
+        let mappings = repository
+            .list_provider_mappings_for_item(
+                item_id,
+                PageRequest {
+                    limit: PageRequest::MAX_LIMIT,
+                    offset,
+                },
+            )
+            .await?;
+        let count = mappings.len();
+        for mapping in mappings {
+            if mapping.status != ProviderMappingStatus::Accepted {
+                continue;
+            }
+            let subject = repository
+                .get_provider_subject(mapping.subject_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "provider_subject",
+                    id: mapping.subject_id.to_string(),
+                })?;
+            subjects.push(subject);
+        }
+        if count < PageRequest::MAX_LIMIT as usize {
+            break;
+        }
+        offset += u64::from(PageRequest::MAX_LIMIT);
+    }
+
+    Ok(subjects)
+}
+
 fn push_body(parts: &mut Vec<String>, value: &str) {
     if let Some(value) = normalized_label(value) {
         parts.push(value);
@@ -1169,8 +1241,10 @@ mod tests {
     use taru_core::{
         CanonicalMetadata, Credit, CreditRole, DatabaseLifecycle, ExternalId, ExternalProvider,
         ImageKind, ImageRef, Library, LibraryId, LibraryOptions, LibraryPreset, MediaItem,
-        MediaKind, MediaRepository, MediaSource, MediaSourceId, MetadataSource,
-        repository::{CatalogRepository, LibraryRepository},
+        MediaKind, MediaRepository, MediaSource, MediaSourceId, MetadataSource, ProviderMapping,
+        ProviderMappingId, ProviderMappingStatus, ProviderSubject, ProviderSubjectId,
+        ProviderSubjectKind,
+        repository::{CatalogRepository, LibraryRepository, ProviderMappingRepository},
     };
     use taru_db::TaruDatabase;
     use taru_search::{SearchIndex, SearchQuery};
@@ -1477,7 +1551,27 @@ mod tests {
 
         store.upsert_library(&library).await.unwrap();
         store.upsert_media_item(&item).await.unwrap();
+        let subject = ProviderSubject {
+            id: ProviderSubjectId::new(),
+            provider: ExternalProvider::Bangumi,
+            subject_kind: ProviderSubjectKind::Subject,
+            subject_key: "bangumi-265".to_owned(),
+            title: Some("千と千尋の神隠し".to_owned()),
+            release_year: Some(2001),
+            locale: Some("ja-JP".to_owned()),
+        };
+        let mapping = ProviderMapping {
+            id: ProviderMappingId::new(),
+            item_id: item.id,
+            subject_id: subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: Some(980),
+            source: MetadataSource::Provider(ExternalProvider::Bangumi),
+        };
+
         store.upsert_media_source(&source).await.unwrap();
+        store.upsert_provider_subject(&subject).await.unwrap();
+        store.upsert_provider_mapping(&mapping).await.unwrap();
 
         hydrate_item_catalog(&store, item.id, MetadataSource::Local)
             .await
@@ -1507,8 +1601,16 @@ mod tests {
             )
             .await
             .unwrap();
+        let by_provider_title = store
+            .search(
+                SearchQuery::from_facet_labels("千 尋", vec!["provider:bangumi".to_owned()], 10, 0)
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(by_alias[0].item_id, item.id);
         assert_eq!(by_external_id[0].item_id, item.id);
+        assert_eq!(by_provider_title[0].item_id, item.id);
     }
 }

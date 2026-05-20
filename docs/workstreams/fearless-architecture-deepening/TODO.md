@@ -156,7 +156,7 @@ Task IDs use the `FAD` prefix.
 
 ## M4 — Search Semantics And Test Locality
 
-- [ ] FAD-070 [owner=codex] [deps=FAD-060] [scope=crates/taru-search,crates/taru-catalog,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-070 [owner=codex] [deps=FAD-060] [scope=crates/taru-search,crates/taru-catalog,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
   Goal: Add a small search semantics evaluation harness and projection-version
   discipline for title/alias/provider-title/CJK-friendly query behavior before
   AI or vector search is introduced.
@@ -165,7 +165,22 @@ Task IDs use the `FAD` prefix.
   Review: Do not add AI/vector search in this task. The deliverable is measured
   search semantics and future-safe projection discipline.
   Evidence: search evaluation fixtures/tests and documented semantics.
-  Handoff: Continue with test-locality cleanup for touched areas.
+  Progress: Added `taru-search` shared query evaluation for title/alias/body/facet
+  scoring, exact Browse Facet filtering, projection-version freshness helpers,
+  and CJK-friendly compact matching. SQLite and PostgreSQL SearchIndex adapters
+  now load search rows and delegate scoring/filtering to the shared evaluator
+  instead of duplicating query semantics. Catalog hydration now projects accepted
+  Provider Subject titles into Search Projection aliases/body/facets, so
+  provider-title lookup is measured without adding AI/vector search.
+  Validation: `cargo check -p taru-search -p taru-catalog -p taru-db --tests`;
+  `cargo check -p taru-nfo -p taru-metadata -p taru-server --tests`; `cargo
+  nextest run -p taru-search --no-fail-fast`; `cargo nextest run -p
+  taru-catalog semantic_search --no-fail-fast`; `cargo nextest run -p taru-db
+  search --no-fail-fast`; `cargo nextest run -p taru-db facet --no-fail-fast`;
+  `cargo fmt --all -- --check`; `git diff --check`. Some runs required
+  setting `TMP`/`TEMP` to `F:\Temp` because `C:\Users\Frankorz\AppData\Local\Temp`
+  had no free space.
+  Handoff: Continue with FAD-080 test-locality cleanup for touched areas.
 
 - [ ] FAD-080 [owner=codex] [deps=FAD-020,FAD-030,FAD-040,FAD-070] [scope=crates/taru-db/src/*tests*,crates/taru-server/src/http/tests,crates/taru-server/src/app/tests]
   Goal: Improve test locality around touched Interfaces by extracting

@@ -69,7 +69,7 @@
     "test_locality",
     "closeout_or_split"
   ],
-  "current_task": "FAD-070",
+  "current_task": "FAD-080",
   "first_slice": "Addon Side Effect Module depth",
   "non_goals": [
     "new TMDB, Douban, Bangumi, or AI provider breadth",
