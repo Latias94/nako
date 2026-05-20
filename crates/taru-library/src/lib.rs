@@ -1,11 +1,13 @@
 mod failure;
 mod index;
+mod ingestion;
 mod local_inference;
 mod probe;
 mod scan;
 mod summary;
 
 pub use index::*;
+pub use ingestion::*;
 pub use probe::*;
 pub use scan::*;
 pub use summary::*;

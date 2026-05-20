@@ -50,14 +50,19 @@ Primary gates:
 
 ## M2 — Library Ingestion Workflow Depth
 
-Status: planned.
+Status: completed.
 
 Exit criteria:
 
 - Library ingestion callers no longer coordinate scan/source/evidence/search
   persistence through a broad trait alias.
+  Completed by FAD-040 with `LibraryIngestionWorkflow`.
 - The M62 scan commit behavior remains covered by backend-neutral contracts.
+  Preserved and re-run for SQLite scan commit contracts.
 - Local Inference, VFS scanning, and commit behavior stay separate Modules.
+  Preserved by keeping `LibraryScanner`, `LocalInferenceEngine`, and the
+  `commit_library_scan_source` persistence seam separate while moving their
+  orchestration behind the workflow Adapter.
 
 Primary gates:
 
@@ -66,6 +71,15 @@ Primary gates:
 - focused `taru-library` nextest
 - PostgreSQL opt-in scan contract when available
 - `git diff --check`
+
+Evidence:
+
+- `LibraryIndexService` now depends on `LibraryIngestionWorkflow` instead of
+  the deleted broad `LibraryIndexRepository` alias.
+- A fake workflow test proves index orchestration can be exercised without
+  implementing low-level repository traits.
+- SQLite scan commit contracts passed. PostgreSQL opt-in scan contract was
+  skipped because `TARU_TEST_POSTGRES_URL` was unset.
 
 ## M3 — Playback And Transcode Readiness
 

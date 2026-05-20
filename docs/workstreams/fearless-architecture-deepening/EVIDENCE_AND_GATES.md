@@ -194,6 +194,74 @@ Broader gates not run:
   covered by the backend-neutral DB contract and focused Addon Side Effect
   server tests. The full workspace nextest remains a M63 closeout gate.
 
+### 2026-05-20 — FAD-040 Library Ingestion Workflow Depth
+
+Status: complete.
+
+Implementation evidence:
+
+- Deleted the broad caller-facing `LibraryIndexRepository` trait alias from
+  `crates/taru-library/src/index.rs`.
+- Added `LibraryIngestionWorkflow` in
+  `crates/taru-library/src/ingestion.rs` as the workflow-shaped seam for
+  Library ingestion.
+- `LibraryIndexService` now depends on scanner output plus the workflow seam
+  only. It no longer directly coordinates low-level repository calls for
+  Source State, Library Item State, Local Inference Evidence, ingestion failure
+  resolution, Search Projection planning, or scan-source persistence.
+- The workflow Adapter owns:
+  - library upsert and scan snapshot lifecycle;
+  - scan failure recording;
+  - directory snapshot persistence plus scan-failure resolution;
+  - source locator lookup and inserted/updated disposition;
+  - Local Inference planning;
+  - confirmed item preservation and provisional hierarchy reuse/creation;
+  - Source State, Library Item State, Local Inference Evidence, Search
+    Projection planning, and failure-resolution commit composition;
+  - the existing `commit_library_scan_source` persistence seam;
+  - missing-source tombstoning after complete non-stale scans.
+- Added `index_service_uses_workflow_port_without_repository_traits` as a
+  deletion-test style unit proving the index service can run against a fake
+  workflow port without any low-level repository trait implementation.
+- Preserved the M62 DB transaction seam and its backend-neutral contract tests.
+
+Validation:
+
+```bash
+cargo fmt --all
+cargo check -p taru-library -p taru-db --tests
+cargo nextest run -p taru-library index_service_uses_workflow_port_without_repository_traits --no-fail-fast
+cargo nextest run -p taru-db scan_commit --no-fail-fast
+cargo nextest run -p taru-library --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `cargo fmt --all` passed.
+- `cargo check -p taru-library -p taru-db --tests` passed.
+- Focused workflow deletion test passed:
+  1 passed, 17 skipped.
+- Focused SQLite scan commit contracts passed:
+  2 passed, 101 skipped.
+- Focused `taru-library` nextest passed:
+  18 passed, 0 skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+PostgreSQL opt-in:
+
+- Not run in this environment because `TARU_TEST_POSTGRES_URL` was unset.
+- Existing ignored PostgreSQL scan commit contract pair remains the opt-in
+  parity gate for this seam.
+
+Broader gates not run:
+
+- Full workspace nextest was not run for FAD-040 because the touched behavior is
+  covered by the `taru-library` focused run plus backend-neutral scan commit
+  contracts. The full workspace nextest remains a M63 closeout gate.
+
 ## Evidence To Add During Execution
 
 Each task should add:

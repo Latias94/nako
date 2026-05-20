@@ -17,10 +17,11 @@ Completed tasks:
 
 - FAD-020 — Addon Side Effect Module depth.
 - FAD-030 — Addon metadata commit atomicity.
+- FAD-040 — Library ingestion workflow depth.
 
 Current executable task:
 
-- FAD-040 — Library ingestion workflow depth.
+- FAD-050 — Playback/transcode request and cache identity.
 
 Why FAD-020 comes first:
 
@@ -102,17 +103,60 @@ PostgreSQL opt-in:
 - Contract pair exists and should be run when a PostgreSQL test URL is
   available.
 
+## FAD-040 Summary
+
+FAD-040 introduced a Library ingestion workflow seam:
+
+- Deleted the caller-facing `LibraryIndexRepository` broad trait alias.
+- Added `LibraryIngestionWorkflow` as the Taru Library ingestion port.
+- `LibraryIndexService` now asks the workflow to:
+  - ensure the Media Library exists;
+  - begin and complete scan snapshots;
+  - record scan failures;
+  - commit directory observations;
+  - commit source observations;
+  - tombstone sources missing from complete non-stale scans.
+- The workflow Adapter now owns the ordering that used to live in the index
+  service:
+  - Source Locator lookup and inserted/updated disposition;
+  - Local Inference planning;
+  - confirmed Canonical Metadata preservation;
+  - Provisional Hierarchy reuse/creation;
+  - Source State and Library Item State composition;
+  - Local Inference Evidence persistence composition;
+  - Search Projection planning;
+  - scan failure resolution;
+  - delegation to the existing atomic `commit_library_scan_source` seam.
+- Added a fake workflow test to prove the index service no longer needs the
+  low-level repository trait set.
+
+Validation passed:
+
+- `cargo check -p taru-library -p taru-db --tests`
+- `cargo nextest run -p taru-library
+  index_service_uses_workflow_port_without_repository_traits --no-fail-fast`
+- `cargo nextest run -p taru-db scan_commit --no-fail-fast`
+- `cargo nextest run -p taru-library --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+PostgreSQL opt-in:
+
+- Not run because `TARU_TEST_POSTGRES_URL` was unset.
+- Existing PostgreSQL scan commit contract pair remains available as ignored
+  opt-in parity coverage.
+
 ## Blockers
 
-- None for FAD-040.
+- None for FAD-050.
 
 ## Next Recommended Action
 
-1. Start FAD-040.
-2. Inspect Library ingestion callers and the current scan/source/evidence/search
-   commit boundary.
-3. Preserve the M62 scan commit contract while deepening the workflow Interface
-   so callers do not coordinate Source State, Library Item State, Local
-   Inference Evidence, ingestion failures, and Search Projection manually.
-4. Add focused SQLite contract evidence and PostgreSQL opt-in evidence when
-   `TARU_TEST_POSTGRES_URL` is available.
+1. Start FAD-050.
+2. Inspect playback source selection and transcode profile/request identity
+   code before broadening HLS reuse, subtitles, HDR/SDR variants, or adaptive
+   ladders.
+3. Define a stable identity Interface and tests without adding adaptive bitrate
+   behavior in this task.
+4. Continue to FAD-060 hardware diagnostics only after identity semantics are
+   proven.

@@ -69,7 +69,7 @@
     "test_locality",
     "closeout_or_split"
   ],
-  "current_task": "FAD-040",
+  "current_task": "FAD-050",
   "first_slice": "Addon Side Effect Module depth",
   "non_goals": [
     "new TMDB, Douban, Bangumi, or AI provider breadth",
@@ -84,6 +84,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with FAD-040 while the current target state and gates remain valid. Split a follow-on when a task becomes independent product breadth rather than architecture depth."
+    "notes": "Continue with FAD-050 while the current target state and gates remain valid. Split a follow-on when a task becomes independent product breadth rather than architecture depth."
   }
 }

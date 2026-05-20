@@ -70,7 +70,7 @@ Task IDs use the `FAD` prefix.
 
 ## M2 — Library Ingestion Workflow Depth
 
-- [ ] FAD-040 [owner=codex] [deps=FAD-030] [scope=crates/taru-library,crates/taru-core/src/repository,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-040 [owner=codex] [deps=FAD-030] [scope=crates/taru-library,crates/taru-core/src/repository,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
   Goal: Deepen the Library ingestion commit Interface so scanning and Local
   Inference callers do not need a broad repository trait alias to coordinate
   Source State, Library Item State, Local Inference Evidence, ingestion
@@ -82,6 +82,21 @@ Task IDs use the `FAD` prefix.
   Review: Preserve the M62 scan commit contract. Prefer a workflow-shaped seam
   over mechanical repository trait splitting.
   Evidence: narrowed Library ingestion Interface and contract/test updates.
+  Progress: Replaced the broad `LibraryIndexRepository` caller bound with a
+  workflow-shaped `LibraryIngestionWorkflow` seam. `LibraryIndexService` now
+  coordinates scanner output at the workflow level only: ensure library, begin
+  scan, record scan failures, commit directory observations, commit source
+  observations, tombstone missing sources, and complete scan. The workflow
+  Adapter owns Local Inference planning, confirmed/provisional item reuse,
+  Source State, Library Item State, Local Inference Evidence, Search Projection
+  planning, failure resolution, and the existing atomic scan-source persistence
+  seam. Added a deletion-test style fake workflow test proving index callers do
+  not require the broad repository trait set.
+  Validation: `cargo check -p taru-library -p taru-db --tests`; `cargo nextest
+  run -p taru-db scan_commit --no-fail-fast`; `cargo nextest run -p
+  taru-library --no-fail-fast`; `cargo fmt --all -- --check`; `git diff
+  --check`. PostgreSQL opt-in was not run because `TARU_TEST_POSTGRES_URL` was
+  unset.
   Handoff: Continue with playback/transcode identity and diagnostics.
 
 ## M3 — Playback And Transcode Readiness
