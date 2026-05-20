@@ -26,66 +26,34 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
-import dev.taru.android.connection.AndroidSecureTokenVault
 import dev.taru.android.connection.ConnectionCheckResult
 import dev.taru.android.connection.ConnectionFailureCategory
 import dev.taru.android.connection.InMemoryServerProfileStore
 import dev.taru.android.connection.InMemoryTokenVault
-import dev.taru.android.connection.JdkTaruHttpTransport
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
-import dev.taru.android.connection.ServerProfileStore
-import dev.taru.android.connection.SharedPreferencesServerProfileStore
 import dev.taru.android.connection.TaruConnectionClient
 import dev.taru.android.connection.TaruPublicApiContract
-import dev.taru.android.connection.TokenVault
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
 
-@Composable
-fun TaruConnectionShell(
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val store = remember { SharedPreferencesServerProfileStore(context) }
-    val tokenVault = remember { AndroidSecureTokenVault(context) }
-    val client = remember { TaruConnectionClient(JdkTaruHttpTransport()) }
-
-    TaruConnectionShellContent(
-        modifier = modifier,
-        store = store,
-        tokenVault = tokenVault,
-        client = client,
-    )
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TaruConnectionShellContent(
-    store: ServerProfileStore,
-    tokenVault: TokenVault,
-    client: TaruConnectionClient,
+internal fun TaruConnectionShellContent(
+    runtime: ConnectionRuntime,
+    initialSnapshot: ServerProfileSnapshot,
     modifier: Modifier = Modifier,
-    initialSnapshot: ServerProfileSnapshot? = null,
     onSnapshotChanged: (ServerProfileSnapshot) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    val runtime = remember(store, tokenVault, client) {
-        ClientConnectionRuntime(
-            store = store,
-            tokenVault = tokenVault,
-            client = client,
-        )
-    }
     val session = remember(initialSnapshot, runtime, scope) {
         ConnectionSession(
-            initialSnapshot = initialSnapshot ?: store.load(),
+            initialSnapshot = initialSnapshot,
             runtime = runtime,
             onSnapshotChanged = onSnapshotChanged,
             scope = scope,
@@ -319,20 +287,23 @@ private fun SavedServerProfiles(
 private fun TaruConnectionShellPreview() {
     TaruAndroidTheme(darkTheme = true) {
         TaruConnectionShellContent(
-            store = InMemoryServerProfileStore(),
-            tokenVault = InMemoryTokenVault(),
-            client = TaruConnectionClient(
-                transport = object : dev.taru.android.connection.TaruHttpTransport {
-                    override suspend fun execute(
-                        request: dev.taru.android.connection.TaruHttpRequest,
-                    ): dev.taru.android.connection.TaruHttpResponse =
-                        dev.taru.android.connection.TaruHttpResponse(
-                            statusCode = 200,
-                            headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
-                            body = """{"status":"ok","version":"v1"}""",
-                        )
-                },
+            runtime = ClientConnectionRuntime(
+                store = InMemoryServerProfileStore(),
+                tokenVault = InMemoryTokenVault(),
+                client = TaruConnectionClient(
+                    transport = object : dev.taru.android.connection.TaruHttpTransport {
+                        override suspend fun execute(
+                            request: dev.taru.android.connection.TaruHttpRequest,
+                        ): dev.taru.android.connection.TaruHttpResponse =
+                            dev.taru.android.connection.TaruHttpResponse(
+                                statusCode = 200,
+                                headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                                body = """{"status":"ok","version":"v1"}""",
+                            )
+                    },
+                ),
             ),
+            initialSnapshot = ServerProfileSnapshot(),
         )
     }
 }

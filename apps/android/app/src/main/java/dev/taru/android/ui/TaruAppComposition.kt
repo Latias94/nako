@@ -15,6 +15,8 @@ import dev.taru.android.playback.SharedPreferencesPlaybackPreferencesStore
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
+import dev.taru.android.ui.connection.ClientConnectionRuntime
+import dev.taru.android.ui.connection.ConnectionRuntime
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 
 internal class TaruAppEnvironment(
@@ -35,6 +37,13 @@ internal class TaruAppEnvironment(
 
     fun createRuntime(): TaruAppRuntime =
         StoreBackedTaruAppRuntime(store)
+
+    fun createConnectionRuntime(): ConnectionRuntime =
+        ClientConnectionRuntime(
+            store = store,
+            tokenVault = tokenVault,
+            client = connectionClient,
+        )
 }
 
 internal class AndroidTaruAppEnvironmentFactory(

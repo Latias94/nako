@@ -56,6 +56,18 @@ class TaruAppCompositionTest {
         assertEquals(next, store.savedSnapshots.single())
         assertFalse(session.state.value.shouldShowConnection)
     }
+
+    @Test
+    fun environmentConnectionRuntimePersistsSnapshotsThroughStore() {
+        val store = RecordingServerProfileStore()
+        val runtime = testEnvironment(store = store).createConnectionRuntime()
+        val next = snapshot(activeProfileId = "server-1")
+
+        runtime.saveSnapshot(next)
+
+        assertEquals(next, store.savedSnapshots.single())
+        assertEquals(next, store.load())
+    }
 }
 
 private fun testEnvironment(

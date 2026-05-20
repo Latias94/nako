@@ -47,9 +47,7 @@ internal fun TaruAndroidAppContent(
     if (appState.shouldShowConnection) {
         TaruConnectionShellContent(
             modifier = modifier,
-            store = environment.store,
-            tokenVault = environment.tokenVault,
-            client = environment.connectionClient,
+            runtime = environment.createConnectionRuntime(),
             initialSnapshot = appState.snapshot,
             onSnapshotChanged = { next ->
                 appSession.dispatch(TaruAppAction.SnapshotChanged(next))
