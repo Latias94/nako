@@ -44,10 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -64,6 +62,7 @@ import dev.taru.android.player.PlaybackLaunchRequest
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
+import dev.taru.android.ui.rememberTaruClipboard
 import dev.taru.android.ui.theme.TaruAccent
 import dev.taru.android.ui.theme.TaruScrim
 import dev.taru.android.ui.theme.TaruShape
@@ -86,7 +85,7 @@ internal fun PlaybackPlayerRoute(
     onBack: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = rememberTaruClipboard()
     val session = remember(launch) { PlayerSession(launch) }
     var sessionState by remember(launch) { mutableStateOf(session.state) }
     val chrome = remember(launch) { playerChromePresentation(launch) }
@@ -234,7 +233,7 @@ internal fun PlaybackPlayerRoute(
                 },
                 onBack = handleBack,
                 onCopyDiagnostics = {
-                    clipboard.setText(AnnotatedString(presentation.diagnostics))
+                    clipboard.copyPlainText("Taru playback diagnostics", presentation.diagnostics)
                 },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )

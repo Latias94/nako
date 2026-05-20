@@ -41,12 +41,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
+import dev.taru.android.ui.rememberTaruClipboard
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PageTitle
 import dev.taru.android.ui.browse.SectionLabel
@@ -67,7 +66,7 @@ internal fun SettingsHomeScreen(
     onChangeServer: () -> Unit,
     onOpenServerProfile: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val clipboard = rememberTaruClipboard()
     val diagnostics = remember(profile, snapshot) {
         settingsDiagnosticsPresentation(profile, snapshot)
     }
@@ -128,7 +127,7 @@ internal fun SettingsHomeScreen(
                     "Copy diagnostics",
                     "Sanitized report",
                     Icons.Rounded.ContentCopy,
-                    onClick = { clipboard.setText(AnnotatedString(diagnostics.report)) },
+                    onClick = { clipboard.copyPlainText("Taru diagnostics", diagnostics.report) },
                 ),
             ),
         )
@@ -152,7 +151,7 @@ internal fun ServerProfileScreen(
     onSwitchProfile: (String) -> Unit,
     onSignOut: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val clipboard = rememberTaruClipboard()
     val diagnostics = remember(activeProfile, snapshot) {
         settingsDiagnosticsPresentation(activeProfile, snapshot)
     }
@@ -200,7 +199,7 @@ internal fun ServerProfileScreen(
                     "Copy diagnostics",
                     "Sanitized report",
                     Icons.Rounded.ContentCopy,
-                    onClick = { clipboard.setText(AnnotatedString(diagnostics.report)) },
+                    onClick = { clipboard.copyPlainText("Taru diagnostics", diagnostics.report) },
                 ),
             ),
         )
