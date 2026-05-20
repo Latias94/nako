@@ -1,7 +1,7 @@
 # Android Public Client API Coverage Matrix
 
 Status: Closed
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 Legend:
 
@@ -30,7 +30,7 @@ Legend:
 | `GET /people/{person_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listPersonItems` | Keep as current cast/crew facet result path. |
 | `GET /tags?limit=&offset=` | defer | none | Defer until Browse Tags index exists. |
 | `GET /tags/{tag_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listTagItems` | Keep as current tag facet result path. |
-| `GET /genres?limit=&offset=` | defer | none | Defer until Browse Genres index exists. |
+| `GET /genres?limit=&offset=` | covered | `TaruBrowseClient.listGenres` | Typed client contract exists; Browse Genres index UI remains in `docs/workstreams/android-relationship-indexes/`. |
 | `GET /genres/{genre_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listGenreItems` | Keep as current genre facet result path. |
 | `GET /search?q=&facet=&limit=&offset=` | covered | `TaruBrowseClient.searchItems` | Keep; broaden only when advanced filters become product scope. |
 | `GET /sources/{source_id}/probe` | covered | `TaruPlaybackClient.getSourceProbe`; `SourcePickerSurface` source facts | Keep as the Source Picker source-facts route, separate from playback decision. |

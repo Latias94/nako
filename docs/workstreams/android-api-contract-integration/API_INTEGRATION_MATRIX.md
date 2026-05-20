@@ -32,7 +32,7 @@ Legend:
 | `GET /people/{person_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listPersonItems` | Keep and reuse for Person Detail related Media Items. |
 | `GET /tags?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Accepted after Genres as the second relationship index slice. |
 | `GET /tags/{tag_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listTagItems` | Keep for tag chips and future Tags index. |
-| `GET /genres?limit=&offset=` | split | `docs/workstreams/android-relationship-indexes/` | Accepted as the first relationship index slice. |
+| `GET /genres?limit=&offset=` | connected | `TaruBrowseClient.listGenres`; `docs/workstreams/android-relationship-indexes/` | Typed Android contract is in place; route state and screen remain active in the relationship index lane. |
 | `GET /genres/{genre_id}/items?limit=&offset=` | productized | `TaruBrowseClient.listGenreItems` | Keep for genre chips and future Genres index. |
 | `GET /search?q=&facet=&limit=&offset=` | productized | `TaruBrowseClient.searchItems` | Keep; advanced filters are later UX scope. |
 | `GET /sources/{source_id}/probe` | productized | `TaruPlaybackClient.getSourceProbe` | Keep for source facts. |

@@ -13,14 +13,14 @@ remains the primary People path.
 
 ## Active Task
 
-- Task ID: ARI-020
+- Task ID: ARI-030
 - Owner: unassigned
 - Files:
-  - `apps/android/app/src/main/java/dev/taru/android/browse/`
-  - focused browse client tests
+  - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
+  - focused session/navigation tests
 - Validation:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
-- Status: NEEDS_CONTEXT
+  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
+- Status: READY
 - Review: pending
 - Evidence: pending
 
@@ -31,6 +31,8 @@ remains the primary People path.
 - Existing related-items routes should be reused; no local filtering.
 - Genres Index is the first slice and should open as a nested route from Home,
   not as a new bottom navigation destination.
+- `TaruBrowseClient.listGenres` is the Android typed contract for
+  `GET /genres?limit=&offset=`.
 - Tags Index is accepted but waits for the Genre index shape.
 - Top-level People Index is deferred until the app has a richer role/search IA.
 
@@ -41,4 +43,6 @@ remains the primary People path.
 
 ## Next Recommended Action
 
-- Execute ARI-020 for `GET /genres?limit=&offset=`.
+- Execute ARI-030: add Genre Index route state to `BrowseSession`, including
+  open/save/restore/load/retry/back behavior and row actions into existing
+  Genre related Media Items routes.

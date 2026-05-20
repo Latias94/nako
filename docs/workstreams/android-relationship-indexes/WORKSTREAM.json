@@ -7,8 +7,8 @@
   "scope_kind": "execution",
   "problem": "Android can open server-backed relationship details from known IDs but lacks first-class People, Tags, and Genres index pages.",
   "summary": "Decide and productize Android relationship index pages without mixing index IA into the completed Person Detail API contract lane.",
-  "current_milestone": "M2",
-  "current_task": "ARI-020",
+  "current_milestone": "M3",
+  "current_task": "ARI-030",
   "task_prefix": "ARI",
   "authoritative_docs": [
     {
@@ -45,6 +45,11 @@
       "task": "ARI-010",
       "path": "docs/workstreams/android-relationship-indexes/DESIGN.md",
       "notes": "Genres accepted as first slice, Tags accepted as second reuse slice, and top-level People index deferred while Person Detail remains the primary People path."
+    },
+    {
+      "task": "ARI-020",
+      "path": "apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt",
+      "notes": "Focused tests cover TaruBrowseClient.listGenres request construction, decoding, bearer auth redaction, and unsupported API version diagnostics."
     }
   ],
   "adr_refs": [
@@ -56,6 +61,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ARI-020"
+    "next_task": "ARI-030"
   }
 }

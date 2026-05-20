@@ -149,6 +149,17 @@ class TaruBrowseClient(
         )
     }
 
+    suspend fun listGenres(
+        profile: ServerProfile,
+        accessToken: String,
+        page: PageRequest = PageRequest(),
+    ): BrowseResult<GenreListResponse> =
+        executeJson(
+            profile = profile,
+            accessToken = accessToken,
+            pathAndQuery = "/genres${pageQuery(page)}",
+        )
+
     suspend fun listGenreItems(
         profile: ServerProfile,
         accessToken: String,

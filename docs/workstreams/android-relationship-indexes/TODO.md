@@ -19,8 +19,8 @@ Last updated: 2026-05-20
     Completed on 2026-05-20: Genres accepted as first slice, Tags accepted as
     second slice, and top-level People index deferred.
 
-- [ ] ARI-020 - Add Genre index client contract.
-  - Owner: unassigned
+- [x] ARI-020 - Add Genre index client contract.
+  - Owner: Codex
   - Dependencies: ARI-010.
   - Scope:
     - `apps/android/app/src/main/java/dev/taru/android/browse/`
@@ -29,6 +29,9 @@ Last updated: 2026-05-20
     - Unit tests cover `GET /genres?limit=&offset=` request building,
       decoding, auth, version checking, and safe diagnostics.
   - Evidence: focused browse client tests.
+    Completed on 2026-05-20:
+    `TaruBrowseClient.listGenres` and `GenreListResponse` are covered by
+    `dev.taru.android.browse.TaruBrowseClientTest`.
 
 - [ ] ARI-030 - Productize Genre index route state.
   - Owner: unassigned

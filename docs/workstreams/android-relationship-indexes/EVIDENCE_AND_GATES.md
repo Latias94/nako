@@ -51,6 +51,14 @@ git diff --check
   - Top-level People Index deferred; Person Detail remains the primary People
     browsing path.
   - Android API integration matrix updated with the accepted/deferred status.
+- ARI-020 completed on 2026-05-20:
+  - Added `GenreListResponse` and `TaruBrowseClient.listGenres`.
+  - Added focused client coverage for `GET /genres?limit=&offset=` request
+    construction, bearer auth, response decoding, safe request redaction, and
+    unsupported API version diagnostics.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
+    passed.
 
 ## Notes
 

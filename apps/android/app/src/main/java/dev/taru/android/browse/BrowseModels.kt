@@ -108,6 +108,12 @@ enum class BrowseFacetFamily {
 }
 
 @Serializable
+data class GenreListResponse(
+    val genres: List<GenreDto>,
+    val page: PageInfo,
+)
+
+@Serializable
 data class GenreItemsResponse(
     val genre: GenreDto,
     val items: List<MediaItemDto>,

@@ -23,16 +23,23 @@ Decision:
 
 ## M2 - Genre Client Contract
 
-Status: Pending
+Status: Complete
 
 Exit criteria:
 
 - `GET /genres?limit=&offset=` has typed Android client coverage.
 - Focused client tests prove safe request construction and decoding.
 
+Evidence:
+
+- `TaruBrowseClient.listGenres` builds the paginated `GET /genres` request
+  through the shared authenticated Public Client API pipeline.
+- Focused tests cover decoding, bearer token redaction, and API version
+  rejection.
+
 ## M3 - Genre Route And Screen
 
-Status: Pending
+Status: Active
 
 Exit criteria:
 
