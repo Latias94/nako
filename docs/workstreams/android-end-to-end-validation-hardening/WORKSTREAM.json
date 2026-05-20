@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "android-end-to-end-validation-hardening",
   "title": "Android End-To-End Validation Hardening",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
   "problem": "Android smoke coverage is deep enough for the current client, but fixture-state evidence is still primarily human-readable and requires manual folder traversal.",
   "summary": "Harden Android local end-to-end validation by adding state-level structured smoke evidence and linking it through regression and validation reports.",
-  "current_milestone": "M4",
-  "current_task": "AEVH-050",
+  "current_milestone": null,
+  "current_task": null,
   "task_prefix": "AEVH",
   "authoritative_docs": [
     {
@@ -58,13 +58,18 @@
       "task": "AEVH-040",
       "path": "apps/android/build/validation/20260520-105656/report.md",
       "notes": "No-emulator local validation passed; focused smoke success evidence lives under apps/android/build/smoke-regression/20260520-105821/."
+    },
+    {
+      "task": "AEVH-050",
+      "path": "apps/android/build/validation/20260520-112917/report.md",
+      "notes": "Full default local validation passed; delegated smoke regression evidence lives under apps/android/build/smoke-regression/20260520-112949/."
     }
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "AEVH-050"
+    "default_action": "stop",
+    "next_task": null
   }
 }

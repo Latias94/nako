@@ -1,6 +1,6 @@
 # Android End-To-End Validation Hardening - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## M1 - Boundary Frozen
@@ -32,7 +32,7 @@ Exit criteria:
 
 ## M4 - Local Gate Verified
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 

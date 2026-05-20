@@ -1,6 +1,6 @@
 # Android End-To-End Validation Hardening - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Task Ledger
@@ -41,12 +41,13 @@ Last updated: 2026-05-20
     - `pwsh -NoProfile -File apps\android\scripts\Validate-AndroidLocal.ps1 -SkipSmoke`
     - Full default validation if emulator/device state is healthy.
     - `git diff --check`
-  - Evidence: `Validate-AndroidLocal.ps1 -SkipSmoke` and `git diff --check`
-    passed on 2026-05-20. Full default validation remains for closeout.
+  - Evidence: `Validate-AndroidLocal.ps1 -SkipSmoke`, focused media smoke, full
+    default validation, and `git diff --check` passed on 2026-05-20.
 
-- [ ] AEVH-050 - Close lane.
+- [x] AEVH-050 - Close lane.
   - Owner: Codex
   - Scope: Workstream docs and final evidence.
   - Validation:
     - Required gates are recorded in `EVIDENCE_AND_GATES.md`.
     - No generated evidence artifacts are staged.
+  - Evidence: Full default validation passed on 2026-05-20.

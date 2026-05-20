@@ -1303,11 +1303,7 @@ if ($clearsAppData) {
 }
 if ($stateMode -in @('profile-with-media', 'profile-active-remux')) {
     $isActiveRemuxSmoke = $stateMode -eq 'profile-active-remux'
-    $fixtureRoot = if ($isActiveRemuxSmoke) {
-        Join-Path $outputDir 'demo-fixture'
-    } else {
-        Join-Path $androidRoot 'build\demo-fixtures\server-backed'
-    }
+    $fixtureRoot = Join-Path $outputDir 'demo-fixture'
     $fixtureProvider = Start-SmokeMediaFixtureProvider `
         -ScriptDir $scriptDir `
         -AndroidRoot $androidRoot `
@@ -1451,9 +1447,8 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Assert-SmokeFacetRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'facet-tag'
     Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Cast & Crew' -MaxSwipes 7
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Actor / as Keeper' -MaxSwipes 8
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-cast-crew' -RequiredText @(
-        'Cast & Crew',
         'Actor / as Keeper',
         'Open related Media Items from this person.'
     )
@@ -1542,12 +1537,17 @@ if ($stateMode -eq 'empty-setup') {
             -AccessToken $FixtureAccessToken `
             -SessionId $activeRemuxSessionId
     }
-    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText @(
+    $detailAfterPlayerRequiredText = @(
         'Night Harbor',
-        'Resume',
         'Check source',
         'Needs check'
-    ) -ForbiddenText @(
+    )
+    $detailAfterPlayerRequiredText += if ($stateMode -eq 'profile-with-media') {
+        'Play'
+    } else {
+        'Resume'
+    }
+    $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-player-back' -RequiredText $detailAfterPlayerRequiredText -ForbiddenText @(
         'Resume on this device',
         'Local resume'
     )

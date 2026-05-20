@@ -1,15 +1,15 @@
 # Android End-To-End Validation Hardening - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Current State
 
-AEVH-010 through AEVH-040 are complete. AEVH-050 closeout is next.
+AEVH-010 through AEVH-050 are complete. The lane is closed.
 
 ## Active Task
 
-AEVH-050 - Close lane.
+None.
 
 ## File Scope
 
@@ -20,15 +20,30 @@ AEVH-050 - Close lane.
 
 ## Validation
 
-Run script parse checks first. Prefer `Validate-AndroidLocal.ps1 -SkipSmoke`
-for no-emulator proof, then run the focused or full emulator-backed gate when
-the emulator is healthy.
+Closeout evidence was recorded on 2026-05-20:
+
+- script parse gate passed;
+- `Validate-AndroidLocal.ps1 -SkipSmoke` passed;
+- focused `profile-with-media` smoke regression passed;
+- full default `Validate-AndroidLocal.ps1` passed;
+- `git diff --check` passed with line-ending normalization warnings only.
+
+Final evidence:
+
+- `apps/android/build/validation/20260520-112917/report.md`
+- `apps/android/build/validation/20260520-112917/report.json`
+- `apps/android/build/smoke-regression/20260520-112949/report.md`
+- `apps/android/build/smoke-regression/20260520-112949/report.json`
 
 ## Notes
 
 - Do not rewrite the harness in Python in this lane.
-- Do not change smoke navigation or UI text assertions unless a gate failure
-  proves the existing assertion is stale.
 - Do not commit generated `apps/android/build/` evidence artifacts.
-- Full default validation remains the closeout gate if emulator/server-backed
-  fixture state is healthy.
+- Media smoke fixture data is now prepared under each smoke evidence directory,
+  so stale shared local fixture databases cannot fail future runs after
+  migration checksum changes.
+- Direct Play completion intentionally returns to a detail page with `Play`
+  instead of `Resume` after server readback marks the item watched and clears
+  Continue Watching.
+- Future CI packaging and screenshot golden diffing are separate follow-on
+  scopes, not residual work for this lane.

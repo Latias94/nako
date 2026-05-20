@@ -1,6 +1,6 @@
 # Android End-To-End Validation Hardening
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Problem
@@ -52,3 +52,18 @@ Keep ADB/UI navigation in `Smoke-Emulator.ps1`, multi-state orchestration in
 `Validate-AndroidLocal.ps1`. Harden their contracts with small structured JSON
 documents so each layer can link evidence from the layer below instead of
 duplicating its details.
+
+## Closeout
+
+Closed on 2026-05-20. The smoke state, smoke regression, and local validation
+reports now form a linked evidence chain:
+
+- state `report.json` is written beside each state `report.md`;
+- regression Markdown and JSON link each state evidence directory, Markdown
+  report, structured report, log, category, attempts, and rerun command;
+- local validation continues to link the delegated regression Markdown and JSON
+  reports.
+
+The closeout also made media smoke preparation isolated per evidence run so a
+stale local fixture database cannot fail future runs with modified migration
+checksums.
