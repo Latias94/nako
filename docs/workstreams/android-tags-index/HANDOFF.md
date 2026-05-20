@@ -1,6 +1,6 @@
 # Android Tags Index - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Current State
@@ -15,22 +15,13 @@ relationship index route state, data-source mapping, and safe navigation
 restore path. ATI-030 is complete: Home exposes Tags as a nested relationship
 index route, `TaruBrowseShell` dispatches it through the shared Tags
 relationship index action, and `RelationshipIndexRoute` keeps one screen shape
-with family-aware copy and icons.
+with family-aware copy and icons. ATI-040 is complete: `profile-with-media`
+smoke now proves Home -> Tags -> Lighthouse -> Related Media Items and captures
+`tag-index` plus `tag-index-facet` evidence. This lane is closed.
 
 ## Active Task
 
-- Task ID: ATI-040
-- Owner: Codex
-- Files:
-  - `apps/android/scripts/Smoke-Emulator.ps1`
-  - `apps/android/scripts/Smoke-Regression.ps1`
-  - `docs/workstreams/android-tags-index/`
-- Validation:
-  - `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`
-  - `git diff --check`
-- Status: READY
-- Review: pending
-- Evidence: pending
+None. This workstream is closed.
 
 ## Decisions
 
@@ -46,14 +37,15 @@ with family-aware copy and icons.
   Media Items targets.
 - Relationship index presentation copy is family-aware for Genres and Tags.
 - Tags now has a Home anchor and relationship index icon parity with Genres.
+- `profile-with-media` smoke captures Home -> Tags -> Lighthouse -> Related
+  Media Items with zero retries.
 
 ## Blockers
 
-- None for ATI-040.
+- None for this closed lane.
 
 ## Next Recommended Action
 
-- Execute ATI-040: decide whether the existing profile-with-media smoke fixture
-  can prove Home -> Tags -> related Media Items. If the fixture is not stable
-  or does not expose Tags through UIAutomator-accessible labels, record an
-  explicit non-smoke rationale and close the lane with fresh unit evidence.
+- Open a new workstream only for a different boundary: CI/device-farm smoke
+  execution, golden screenshot diffing, or richer Tags IA such as sorting,
+  clustering, and multi-select filters.

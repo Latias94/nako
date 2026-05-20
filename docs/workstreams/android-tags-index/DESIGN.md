@@ -1,6 +1,6 @@
 # Android Tags Index
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Why This Lane Exists
@@ -59,3 +59,9 @@ needed without creating a parallel Tags-only screen.
 This lane can close when Tags Index is productized through typed client
 contract, route state, Home entry, screen reuse, focused unit evidence, and
 either smoke evidence or an explicit rationale for not extending smoke.
+
+This lane closed on 2026-05-20. The closeout condition was met with typed
+`GET /tags?limit=&offset=` client coverage, shared relationship index route
+state, a Home Tags anchor, family-aware relationship index UI, focused unit
+tests, full Android debug unit coverage, and `profile-with-media` smoke
+evidence for Home -> Tags -> Lighthouse -> Related Media Items.

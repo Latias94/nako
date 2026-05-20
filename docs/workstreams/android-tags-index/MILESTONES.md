@@ -1,6 +1,6 @@
 # Android Tags Index - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## M1 - Client Contract
@@ -67,9 +67,16 @@ Evidence:
 
 ## M4 - Evidence And Closeout
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
 - Smoke or explicit non-smoke rationale is recorded.
 - Workstream docs reflect the shipped behavior and residual scope.
+
+Evidence:
+
+- `profile-with-media` smoke now captures `tag-index` and `tag-index-facet`,
+  proving Home -> Tags -> Lighthouse -> Related Media Items against the
+  server-backed `Night Harbor` fixture.
+- Closeout docs are updated and `WORKSTREAM.json` is closed.

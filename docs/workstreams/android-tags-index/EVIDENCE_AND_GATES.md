@@ -1,6 +1,6 @@
 # Android Tags Index - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Gates
@@ -88,6 +88,20 @@ git diff --check
   - Fresh validation:
     `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
     passed.
+- ATI-040 completed on 2026-05-20:
+  - Added `profile-with-media` smoke coverage for Home -> Tags -> Lighthouse
+    -> Related Media Items, reusing the existing relationship index and facet
+    smoke helpers.
+  - Smoke evidence captured `tag-index` and `tag-index-facet` surfaces.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0`
+    passed with zero retries.
+  - Smoke regression report:
+    `apps/android/build/smoke-regression/20260520-164905/report.md`.
+  - Per-state smoke evidence:
+    `apps/android/build/smoke-regression/20260520-164905/states/profile-with-media/20260520-164936-profile-with-media-emulator-5554/report.md`.
+  - Note: the fixture server build emitted pre-existing Rust warnings in
+    `taru-server` unused code paths; the smoke gate itself passed.
 
 ## Notes
 
@@ -95,3 +109,6 @@ git diff --check
 - Do not filter cached item lists locally.
 - Generated smoke evidence under `apps/android/build/` should not be
   committed.
+- This workstream is closed. Follow-ons should open separate lanes for
+  CI/device-farm smoke execution, golden screenshot diffing, or richer Tags IA
+  such as sorting and clustering.

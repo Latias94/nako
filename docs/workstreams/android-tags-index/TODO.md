@@ -1,6 +1,6 @@
 # Android Tags Index - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Task Ledger
@@ -59,7 +59,7 @@ Last updated: 2026-05-20
     Genres and Tags. Focused host and relationship route tests passed, followed
     by the full Android debug unit gate.
 
-- [ ] ATI-040 - Verify smoke value and close.
+- [x] ATI-040 - Verify smoke value and close.
   - Owner: Codex
   - Dependencies: ATI-030.
   - Scope:
@@ -70,3 +70,8 @@ Last updated: 2026-05-20
       Items or the lane records why the existing tag facet smoke is enough.
     - workstream closeout docs are updated.
   - Evidence: smoke report or explicit non-smoke rationale.
+    Completed on 2026-05-20:
+    Added `profile-with-media` smoke coverage for Home -> Tags -> Lighthouse
+    -> Related Media Items. The smoke report captured `tag-index` and
+    `tag-index-facet` surface evidence and passed with zero retries.
+    Workstream closeout docs were updated and the lane is closed.

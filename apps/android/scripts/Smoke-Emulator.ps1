@@ -1161,11 +1161,12 @@ function Return-ToSmokeHomeFromRelationshipIndex {
     param(
         [string]$AdbPath,
         [string]$DeviceSerial,
-        [string]$OutputDir
+        [string]$OutputDir,
+        [string]$IndexSectionText = 'Browse By Genre'
     )
 
     Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
-    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Browse By Genre' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $IndexSectionText -TimeoutSeconds 25
     Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Smoke Server' -TimeoutSeconds 25
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Media Libraries' -TimeoutSeconds 25
@@ -1226,6 +1227,35 @@ function Assert-SmokeGenreIndexRoute {
     )
     $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Mystery' -FacetLabel 'Mystery' -FamilyLabel 'Genre' -Name 'genre-index-facet'
     Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir
+
+    return $evidence
+}
+
+function Assert-SmokeTagIndexRoute {
+    param(
+        [string]$AdbPath,
+        [string]$DeviceSerial,
+        [string]$OutputDir
+    )
+
+    Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Tags' -MaxSwipes 3
+    Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Tags'
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Browse By Tag' -TimeoutSeconds 25
+
+    $evidence = @()
+    $evidence += Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'tag-index' -RequiredText @(
+        'Tags',
+        'Server Tags Index',
+        'Public API',
+        '1 visible',
+        '1 returned',
+        'Browse By Tag',
+        'Lighthouse',
+        'Tag',
+        'API backed'
+    )
+    $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'tag-index-facet'
+    Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -IndexSectionText 'Browse By Tag'
 
     return $evidence
 }
@@ -1496,11 +1526,13 @@ if ($stateMode -eq 'empty-setup') {
         'Media Libraries',
         'Search',
         'Genres',
+        'Tags',
         '1 visible',
         'Open detail'
     )
 
     $surfaceEvidence += Assert-SmokeGenreIndexRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
+    $surfaceEvidence += Assert-SmokeTagIndexRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     Open-SmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
         'Night Harbor',
