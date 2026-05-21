@@ -36,6 +36,79 @@ impl CoreHttpHeader {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreQueryParam {
+    pub name: String,
+    pub value: String,
+}
+
+impl CoreQueryParam {
+    #[must_use]
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreHttpRequestSpec {
+    pub request_id: String,
+    pub base_url: String,
+    pub method: String,
+    pub path: String,
+    pub query: Vec<CoreQueryParam>,
+    pub headers: Vec<CoreHttpHeader>,
+    pub access_token: Option<String>,
+    pub body_utf8: Option<String>,
+}
+
+impl CoreHttpRequestSpec {
+    #[must_use]
+    pub fn new(
+        request_id: impl Into<String>,
+        base_url: impl Into<String>,
+        method: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
+        Self {
+            request_id: request_id.into(),
+            base_url: base_url.into(),
+            method: method.into(),
+            path: path.into(),
+            query: Vec::new(),
+            headers: Vec::new(),
+            access_token: None,
+            body_utf8: None,
+        }
+    }
+
+    #[must_use]
+    pub fn query(mut self, query: Vec<CoreQueryParam>) -> Self {
+        self.query = query;
+        self
+    }
+
+    #[must_use]
+    pub fn headers(mut self, headers: Vec<CoreHttpHeader>) -> Self {
+        self.headers = headers;
+        self
+    }
+
+    #[must_use]
+    pub fn access_token(mut self, access_token: Option<String>) -> Self {
+        self.access_token = access_token;
+        self
+    }
+
+    #[must_use]
+    pub fn body_utf8(mut self, body_utf8: Option<String>) -> Self {
+        self.body_utf8 = body_utf8;
+        self
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CoreHttpRequest {
     pub request_id: String,
     pub method: String,
@@ -43,6 +116,48 @@ pub struct CoreHttpRequest {
     pub headers: Vec<CoreHttpHeader>,
     pub body_utf8: Option<String>,
     pub safe_preview: CoreSafeRequestPreview,
+}
+
+#[must_use]
+pub fn build_core_request(spec: &CoreHttpRequestSpec) -> CoreHttpRequest {
+    let mut headers = spec.headers.clone();
+    let access_token = spec.access_token.as_deref().map(str::trim);
+    if let Some(token) = access_token.filter(|token| !token.is_empty()) {
+        if !headers
+            .iter()
+            .any(|header| header.name.eq_ignore_ascii_case("authorization"))
+        {
+            headers.insert(
+                0,
+                CoreHttpHeader::new("Authorization", format!("Bearer {token}")),
+            );
+        }
+    }
+
+    let secrets = access_token.into_iter().collect::<Vec<_>>();
+    request(
+        &spec.request_id,
+        &spec.method,
+        &url_on(&spec.base_url, &path_with_query(&spec.path, &spec.query)),
+        headers,
+        spec.body_utf8.clone(),
+        &secrets,
+    )
+}
+
+#[must_use]
+pub fn interpret_core_response(
+    response: &CoreHttpResponse,
+    request: Option<&CoreSafeRequestPreview>,
+    secrets: &[&str],
+) -> Result<(), CoreRuntimeFailure> {
+    if let Some(failure) = http_failure(response, request, secrets) {
+        return Err(failure);
+    }
+    if let Some(failure) = version_failure(response, request) {
+        return Err(failure);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -192,10 +307,10 @@ fn interpret_health_response(
     response: &CoreHttpResponse,
 ) -> CoreConnectionProbeOutcome {
     let request = health_request(input).safe_preview;
-    if let Some(failure) = http_failure(input, response, &request) {
+    if let Some(failure) = http_failure(response, Some(&request), &[input.access_token.as_str()]) {
         return CoreConnectionProbeOutcome::failure(failure);
     }
-    if let Some(failure) = version_failure(response, &request) {
+    if let Some(failure) = version_failure(response, Some(&request)) {
         return CoreConnectionProbeOutcome::failure(failure);
     }
 
@@ -237,10 +352,10 @@ fn interpret_auth_probe_response(
     response: &CoreHttpResponse,
 ) -> CoreConnectionProbeOutcome {
     let request = auth_probe_request(input).safe_preview;
-    if let Some(failure) = http_failure(input, response, &request) {
+    if let Some(failure) = http_failure(response, Some(&request), &[input.access_token.as_str()]) {
         return CoreConnectionProbeOutcome::failure(failure);
     }
-    if let Some(failure) = version_failure(response, &request) {
+    if let Some(failure) = version_failure(response, Some(&request)) {
         return CoreConnectionProbeOutcome::failure(failure);
     }
 
@@ -252,27 +367,30 @@ fn interpret_auth_probe_response(
 }
 
 fn health_request(input: &CoreConnectionProbeInput) -> CoreHttpRequest {
-    request(
-        CONNECTION_HEALTH_REQUEST_ID,
-        "GET",
-        &url_on(&input.base_url, "/health"),
-        Vec::new(),
-        None,
-        &[input.access_token.as_str()],
+    build_core_request(
+        &CoreHttpRequestSpec::new(
+            CONNECTION_HEALTH_REQUEST_ID,
+            &input.base_url,
+            "GET",
+            "/health",
+        )
+        .access_token(None),
     )
 }
 
 fn auth_probe_request(input: &CoreConnectionProbeInput) -> CoreHttpRequest {
-    request(
-        CONNECTION_AUTH_PROBE_REQUEST_ID,
-        "GET",
-        &url_on(&input.base_url, "/libraries?limit=1&offset=0"),
-        vec![CoreHttpHeader::new(
-            "Authorization",
-            format!("Bearer {}", input.access_token),
-        )],
-        None,
-        &[input.access_token.as_str()],
+    build_core_request(
+        &CoreHttpRequestSpec::new(
+            CONNECTION_AUTH_PROBE_REQUEST_ID,
+            &input.base_url,
+            "GET",
+            "/libraries",
+        )
+        .query(vec![
+            CoreQueryParam::new("limit", "1"),
+            CoreQueryParam::new("offset", "0"),
+        ])
+        .access_token(Some(input.access_token.clone())),
     )
 }
 
@@ -310,9 +428,9 @@ fn safe_header(header: &CoreHttpHeader, secrets: &[&str]) -> CoreHttpHeader {
 }
 
 fn http_failure(
-    input: &CoreConnectionProbeInput,
     response: &CoreHttpResponse,
-    request: &CoreSafeRequestPreview,
+    request: Option<&CoreSafeRequestPreview>,
+    secrets: &[&str],
 ) -> Option<CoreRuntimeFailure> {
     if (200..=299).contains(&response.status_code) {
         return None;
@@ -322,14 +440,14 @@ fn http_failure(
         status_code: Some(response.status_code),
         observed_api_version: header_value(response, taru_client_protocol::API_VERSION_HEADER)
             .map(str::to_owned),
-        public_error: public_error(input, response),
-        request: Some(request.clone()),
+        public_error: public_error(response, secrets),
+        request: request.cloned(),
     })
 }
 
 fn version_failure(
     response: &CoreHttpResponse,
-    request: &CoreSafeRequestPreview,
+    request: Option<&CoreSafeRequestPreview>,
 ) -> Option<CoreRuntimeFailure> {
     let observed = header_value(response, taru_client_protocol::API_VERSION_HEADER)?;
     if observed == taru_client_protocol::CLIENT_PROTOCOL_VERSION {
@@ -340,19 +458,16 @@ fn version_failure(
         status_code: Some(response.status_code),
         observed_api_version: Some(observed.to_owned()),
         public_error: None,
-        request: Some(request.clone()),
+        request: request.cloned(),
     })
 }
 
-fn public_error(
-    input: &CoreConnectionProbeInput,
-    response: &CoreHttpResponse,
-) -> Option<CorePublicError> {
+fn public_error(response: &CoreHttpResponse, secrets: &[&str]) -> Option<CorePublicError> {
     let error =
         serde_json::from_str::<taru_client_protocol::ErrorResponse>(&response.body_utf8).ok()?;
     Some(CorePublicError {
-        code: sanitize(&error.code, &[input.access_token.as_str()]),
-        message: sanitize(&error.message, &[input.access_token.as_str()]),
+        code: sanitize(&error.code, secrets),
+        message: sanitize(&error.message, secrets),
     })
 }
 
@@ -393,7 +508,46 @@ fn redact_bearer_tokens(input: &str) -> String {
     }
 }
 
-fn url_on(base_url: &str, path_and_query: &str) -> String {
+#[must_use]
+pub fn encode_path_segment(value: &str) -> String {
+    percent_encode(value)
+}
+
+fn path_with_query(path: &str, query: &[CoreQueryParam]) -> String {
+    if query.is_empty() {
+        return path.to_owned();
+    }
+    let mut path_and_query = path.to_owned();
+    path_and_query.push('?');
+    for (index, param) in query.iter().enumerate() {
+        if index > 0 {
+            path_and_query.push('&');
+        }
+        path_and_query.push_str(&percent_encode(&param.name));
+        path_and_query.push('=');
+        path_and_query.push_str(&percent_encode(&param.value));
+    }
+    path_and_query
+}
+
+fn percent_encode(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(char::from(byte));
+            }
+            _ => {
+                encoded.push('%');
+                encoded.push_str(&format!("{byte:02X}"));
+            }
+        }
+    }
+    encoded
+}
+
+#[must_use]
+pub fn url_on(base_url: &str, path_and_query: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path_and_query)
 }
 
@@ -424,6 +578,81 @@ mod tests {
         assert_eq!(request.url, "https://taru.example/api/health");
         assert!(request.headers.is_empty());
         assert_eq!(request.safe_preview.url, "https://taru.example/api/health");
+    }
+
+    #[test]
+    fn generic_core_request_builds_encoded_url_auth_header_and_safe_preview() {
+        let request = build_core_request(
+            &CoreHttpRequestSpec::new(
+                "playback.decision",
+                "https://taru.example/api/",
+                "GET",
+                &format!(
+                    "/sources/{}/playback/decision",
+                    encode_path_segment("source 1")
+                ),
+            )
+            .query(vec![
+                CoreQueryParam::new("direct_play", "true"),
+                CoreQueryParam::new("container", "mp4,webm"),
+            ])
+            .access_token(Some("secret-token".to_owned())),
+        );
+
+        assert_eq!(request.request_id, "playback.decision");
+        assert_eq!(
+            request.url,
+            "https://taru.example/api/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm"
+        );
+        assert_eq!(
+            request.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            request.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+    }
+
+    #[test]
+    fn generic_response_interpreter_preserves_public_error_and_version_failures() {
+        let request = build_core_request(
+            &CoreHttpRequestSpec::new("demo", "https://taru.example", "GET", "/demo")
+                .access_token(Some("secret-token".to_owned())),
+        )
+        .safe_preview;
+        let http = CoreHttpResponse::new(
+            "demo",
+            403,
+            vec![api_header()],
+            json!({"code": "forbidden", "message": "secret-token cannot access this source"})
+                .to_string(),
+        );
+        let failure =
+            interpret_core_response(&http, Some(&request), &["secret-token"]).unwrap_err();
+
+        assert_eq!(failure.kind, CoreRuntimeFailureKind::HttpError);
+        assert_eq!(failure.status_code, Some(403));
+        assert_eq!(
+            failure.public_error,
+            Some(CorePublicError {
+                code: "forbidden".to_owned(),
+                message: "<redacted> cannot access this source".to_owned(),
+            })
+        );
+
+        let version = CoreHttpResponse::new(
+            "demo",
+            200,
+            vec![CoreHttpHeader::new(
+                taru_client_protocol::API_VERSION_HEADER,
+                "v2",
+            )],
+            "{}",
+        );
+        let failure = interpret_core_response(&version, Some(&request), &[]).unwrap_err();
+        assert_eq!(failure.kind, CoreRuntimeFailureKind::UnsupportedApiVersion);
+        assert_eq!(failure.observed_api_version.as_deref(), Some("v2"));
     }
 
     #[test]

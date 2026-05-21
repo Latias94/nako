@@ -58,7 +58,7 @@
   "adr_refs": [
     "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
   ],
-  "current_task": "RCR-030",
+  "current_task": "RCR-040",
   "continue_policy": {
     "default_action": "continue",
     "notes": "Continue in order: RCR-020 Android Rust/UniFFI build ergonomics, RCR-030 taru-client reuse of taru-client-core, RCR-040 Rust public wire tolerance, RCR-050 Android playback core tracer, then closeout."

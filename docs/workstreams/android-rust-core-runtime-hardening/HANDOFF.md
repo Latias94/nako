@@ -5,12 +5,12 @@ Last updated: 2026-05-21
 
 ## Current State
 
-The lane is open. `RCR-010` and `RCR-020` are complete.
+The lane is open. `RCR-010`, `RCR-020`, and `RCR-030` are complete.
 
 ## Active Task
 
-`RCR-030`: move reusable request/response policy into `taru-client-core` and
-make `taru-client` consume that policy as a reqwest/async adapter.
+`RCR-040`: make Rust public string-value DTOs preserve unknown additive wire
+values instead of failing deserialization.
 
 ## Guardrails
 
@@ -22,5 +22,6 @@ make `taru-client` consume that policy as a reqwest/async adapter.
 
 ## Recommended Next Step
 
-Implement `RCR-030` in `crates/taru-client-core` and `crates/taru-client`, then
-run the focused Rust gates.
+Implement `RCR-040` in `crates/taru-client-protocol` first, then update any
+Rust client/API generator fallout and run the focused protocol/API/client
+gates.

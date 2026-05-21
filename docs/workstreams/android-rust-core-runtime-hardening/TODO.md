@@ -30,7 +30,7 @@ Last updated: 2026-05-21
 
 ## M2 — Rust Client Adapter Reuse
 
-- [ ] RCR-030 [owner=codex] [deps=RCR-020] [scope=crates/taru-client-core,crates/taru-client]
+- [x] RCR-030 [owner=codex] [deps=RCR-020] [scope=crates/taru-client-core,crates/taru-client]
   Goal: Move portable request construction, bearer injection, API-version
   checks, public error-envelope parsing, and redaction-safe previews into
   `taru-client-core`; make `taru-client` consume that core policy as a
@@ -39,8 +39,8 @@ Last updated: 2026-05-21
   Review: `taru-client` may keep reqwest transport ergonomics, but must not
   keep a second implementation of shared response policy.
   Evidence: `crates/taru-client-core/src/lib.rs`; `crates/taru-client/src/lib.rs`;
-  `EVIDENCE_AND_GATES.md`
-  Handoff: Pending.
+  `docs/workstreams/android-rust-core-runtime-hardening/EVIDENCE_AND_GATES.md#evidence-log`
+  Handoff: DONE. `taru-client-core` now exposes generic request spec construction, query/path encoding, bearer injection, safe previews, and generic response policy. `taru-client` builds reqwest requests from core specs and maps core response-policy failures back to Rust client errors.
 
 ## M3 — Rust Public Wire Tolerance
 

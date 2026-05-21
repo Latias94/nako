@@ -100,3 +100,14 @@ git diff --check
     packaging path.
   - `python -m json.tool docs/workstreams/android-rust-core-runtime-hardening/WORKSTREAM.json > $null`
     passed after command spelling was corrected.
+- 2026-05-21: Completed `RCR-030` Rust client adapter reuse.
+  - Added generic `CoreHttpRequestSpec`, `CoreQueryParam`,
+    `build_core_request`, `interpret_core_response`, shared path encoding, and
+    core request/response policy tests to `taru-client-core`.
+  - `taru-client` now depends on `taru-client-core`, converts core request
+    specs into reqwest requests, and maps core response-policy failures back
+    into Rust client errors.
+  - `cargo fmt --package taru-client-core --package taru-client --check`
+    passed after formatting.
+  - `cargo nextest run -p taru-client-core --no-fail-fast` passed with 9 tests.
+  - `cargo nextest run -p taru-client --no-fail-fast` passed with 9 tests.

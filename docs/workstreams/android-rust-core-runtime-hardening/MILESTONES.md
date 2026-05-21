@@ -28,12 +28,18 @@ an ABI set with `-PtaruRustAndroidAbis=...`.
 
 ## M2 — Rust Client Adapter Reuse
 
+Status: Complete on 2026-05-21.
+
 Exit when:
 
 - `taru-client-core` exposes reusable request/response policy;
 - `taru-client` consumes that policy for route request specs, bearer headers,
   status/API-version checks, and public error envelopes;
 - existing `taru-client` route tests pass.
+
+Result: `taru-client-core` owns generic request spec building and response
+policy interpretation. `taru-client` consumes those core seams while retaining
+reqwest transport ergonomics for Rust callers.
 
 ## M3 — Rust Public Wire Tolerance
 

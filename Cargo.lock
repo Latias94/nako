@@ -2365,6 +2365,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "taru-client-core",
  "taru-client-protocol",
  "thiserror",
  "tokio",
