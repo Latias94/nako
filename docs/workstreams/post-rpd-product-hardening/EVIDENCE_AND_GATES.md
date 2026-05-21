@@ -39,7 +39,7 @@ The exact closeout gate for metadata breadth is authoritative in
 | 2026-05-21 | PRPH-040 progress | `docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md` | Pass. NFO/link authority completed non-mutating NFO authority preview; next executable task is LNA-050 link apply split decision. |
 | 2026-05-21 | PRPH-050 child closeout | `docs/workstreams/nfo-link-authority` | Pass. NFO/link authority is complete. Actual hardlink/symlink apply is split to a follow-on after managed import staging; next recommended mainline is `managed-import-staging`. |
 | 2026-05-21 | PRPH-060 lane open | `docs/workstreams/managed-import-staging` | Pass. Managed Import Staging opened with MIS-020 as first executable durable domain/schema slice; generic downloader protocols and promotion apply remain out of first slice. |
-| 2026-05-21 | PRPH-070 child closeout and next lane | `docs/workstreams/managed-import-staging`; `docs/workstreams/link-apply-and-import-promotion` | Pass pending final command rerun. Managed Import Staging is complete as a non-mutating staging/preview lane; `link-apply-and-import-promotion` is opened with LAIP-020 as the next mainline task. |
+| 2026-05-21 | PRPH-070 child closeout and next lane | `docs/workstreams/managed-import-staging`; `docs/workstreams/link-apply-and-import-promotion` | Pass. Managed Import Staging is complete as a non-mutating staging/preview lane; `link-apply-and-import-promotion` is opened and has completed LAIP-020 durable acceptance/audit. Next mainline task is LAIP-030 app-service acceptance/replay. |
 
 ## Notes
 

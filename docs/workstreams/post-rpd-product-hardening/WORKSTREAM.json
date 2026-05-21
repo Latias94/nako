@@ -60,7 +60,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "link-apply-and-import-promotion LAIP-020",
-    "notes": "Metadata provider breadth, NFO/link authority, and Managed Import Staging are completed. Next mainline task is LAIP-020 durable promotion acceptance/audit domain/schema with backend-neutral contract tests. Do not implement downloader/watch-folder/addon autonomous apply until promotion idempotency, plan revalidation, rollback/cleanup, VFS-only mutation, and catalog consistency are proven. Playback/transcode ops hardening remains the safest parallel sidecar candidate if its write scope stays disjoint."
+    "next_task": "link-apply-and-import-promotion LAIP-030",
+    "notes": "Metadata provider breadth, NFO/link authority, and Managed Import Staging are completed; LAIP-020 durable promotion acceptance/audit is implemented. Next mainline task is LAIP-030 app-service acceptance/replay without storage mutation. Do not implement downloader/watch-folder/addon autonomous apply until promotion idempotency, plan revalidation, rollback/cleanup, VFS-only mutation, and catalog consistency are proven. Playback/transcode ops hardening remains the safest parallel sidecar candidate if its write scope stays disjoint."
   }
 }

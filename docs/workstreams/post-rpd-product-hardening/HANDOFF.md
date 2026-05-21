@@ -56,11 +56,11 @@ promotion-preview lane. The next mainline lane is
 
 ## Blockers
 
-- None for LAIP-020.
+- None for LAIP-030.
 
 ## Next Recommended Action
 
-- Execute `link-apply-and-import-promotion` LAIP-020.
+- Execute `link-apply-and-import-promotion` LAIP-030.
 - Keep `post-rpd-product-hardening` active while it continues ordering the next
   product-hardening lanes. Re-score playback/transcode ops, network, AI, and
   addon runtime after the apply boundary is proven or split.
