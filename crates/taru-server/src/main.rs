@@ -14,7 +14,10 @@ mod config;
 mod http;
 
 use app::TaruApp;
-use config::{TaruServerConfig, example_config, load_config};
+use config::{
+    ConfigPreflightOptions, TaruServerConfig, example_config, load_config, preflight_config,
+    render_config_preflight_text,
+};
 use http::build_router;
 
 #[derive(Debug, Parser)]
@@ -32,6 +35,15 @@ struct Cli {
 enum Command {
     /// Print an example configuration.
     ConfigExample,
+    /// Validate configuration without starting the server.
+    ConfigCheck {
+        /// Print the preflight report as JSON.
+        #[arg(long)]
+        json: bool,
+        /// Create and write-probe Taru-owned runtime directories.
+        #[arg(long)]
+        create_dirs: bool,
+    },
     /// Run the HTTP server.
     Serve,
     /// Scan one configured library and probe discovered media.
@@ -84,6 +96,22 @@ async fn run(cli: Cli) -> Result<()> {
         Command::ConfigExample => {
             println!("{}", example_config()?);
             Ok(())
+        }
+        Command::ConfigCheck { json, create_dirs } => {
+            let config = load_config(&cli.config)?;
+            let report = preflight_config(&config, ConfigPreflightOptions { create_dirs });
+            if json {
+                print_json(&report)?;
+            } else {
+                print!("{}", render_config_preflight_text(&report));
+            }
+            if report.has_failures() {
+                Err(TaruError::InvalidInput {
+                    message: "configuration preflight failed".to_owned(),
+                })
+            } else {
+                Ok(())
+            }
         }
         Command::Serve => {
             let config = load_config(&cli.config)?;

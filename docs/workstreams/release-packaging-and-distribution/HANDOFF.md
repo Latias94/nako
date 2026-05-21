@@ -23,20 +23,23 @@ operator install/release docs.
 
 ## Active Task
 
-- Task ID: RPD-010
-- Owner: planner
+- Task ID: RPD-020
+- Owner: codex
 - Files:
+  - `crates/taru-server`
+  - `docs/deployment`
   - `docs/workstreams/release-packaging-and-distribution/`
-  - `docs/workstreams/README.md`
 - Validation:
-  - `git status --short --branch`
-  - packaging/deploy baseline inventory
+  - focused server config/preflight tests
+  - `cargo nextest run -p taru-server config --no-fail-fast`
   - `git diff --check`
-- Status: READY
+- Status: DONE
 
 ## Next Recommended Action
 
-Execute RPD-010, then continue with RPD-020 server startup/config preflight.
+Continue with RPD-030 container build shape. RPD-020 added a `config-check`
+server command, redaction-safe config preflight report, create/write probes for
+Taru-owned runtime directories, and self-hosted docs.
 
 ## Follow-On Candidates
 

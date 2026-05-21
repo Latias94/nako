@@ -7,18 +7,19 @@ Task IDs use the `RPD` prefix.
 
 ## M0 — Scope, Baseline, And Release Contract
 
-- [ ] RPD-010 [owner=planner] [deps=none] [scope=docs/workstreams/release-packaging-and-distribution,docs/workstreams/README.md]
+- [x] RPD-010 [owner=planner] [deps=none] [scope=docs/workstreams/release-packaging-and-distribution,docs/workstreams/README.md]
   Goal: Open the packaging lane, inventory current binary/config/deploy state,
   and freeze the artifact contract for this workstream.
   Validation: `git status --short --branch`; inventory of existing Docker,
   deploy, config, CI, and release scripts; `git diff --check`.
   Review: Do not implement packaging before the artifact contract is explicit.
-  Evidence: baseline inventory in `DESIGN.md` and `EVIDENCE_AND_GATES.md`.
+  Evidence: baseline inventory and Artifact Contract V0 in `DESIGN.md` and
+  `EVIDENCE_AND_GATES.md`.
   Handoff: Continue with server startup/config preflight.
 
 ## M1 — Server Startup And Config Preflight
 
-- [ ] RPD-020 [owner=codex] [deps=RPD-010] [scope=crates/taru-server,docs/deployment,docs/workstreams/release-packaging-and-distribution]
+- [x] RPD-020 [owner=codex] [deps=RPD-010] [scope=crates/taru-server,docs/deployment,docs/workstreams/release-packaging-and-distribution]
   Goal: Provide an operator-safe config validation/preflight path for packaged
   runs, covering config file parsing, database backend selection, bind address,
   artifact/staging directories, auth, and redacted error output.
@@ -26,7 +27,8 @@ Task IDs use the `RPD` prefix.
   taru-server config --no-fail-fast`; `git diff --check`.
   Review: Validation must not require connecting to production services unless
   explicitly requested, and must not print secrets.
-  Evidence: CLI/config tests and docs.
+  Evidence: `config-check` CLI, focused config/preflight tests, and
+  `docs/deployment/SELF_HOSTED.md`.
   Handoff: Continue with container build shape.
 
 ## M2 — Container And Compose Packaging

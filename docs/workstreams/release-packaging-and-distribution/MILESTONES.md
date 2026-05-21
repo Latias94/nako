@@ -8,16 +8,17 @@ Last updated: 2026-05-21
 Exit criteria:
 
 - [ ] Workstream is opened with durable docs.
-- [ ] Current packaging/deploy/release baseline is recorded.
-- [ ] Artifact contract for this lane is explicit.
+- [x] Current packaging/deploy/release baseline is recorded.
+- [x] Artifact contract for this lane is explicit.
+- [x] Workstream is opened with durable docs.
 
 ## M1 — Startup And Config Preflight
 
 Exit criteria:
 
-- [ ] Packaged runs have a redaction-safe config validation path.
-- [ ] Common operator mistakes produce actionable diagnostics.
-- [ ] Validation is covered by focused tests.
+- [x] Packaged runs have a redaction-safe config validation path.
+- [x] Common operator mistakes produce actionable diagnostics.
+- [x] Validation is covered by focused tests.
 
 ## M2 — Container And Compose
 

@@ -377,6 +377,13 @@ pub fn load_config(path: &Path) -> Result<TaruServerConfig> {
     })
 }
 
+mod preflight;
+#[cfg(test)]
+use preflight::preflight_config_with_env;
+pub use preflight::{
+    ConfigPreflightOptions, ConfigPreflightStatus, preflight_config, render_config_preflight_text,
+};
+
 pub fn example_config() -> Result<String> {
     let config = TaruServerConfig {
         listen_addr: default_listen_addr(),
@@ -622,7 +629,7 @@ fn default_library_preset() -> LibraryPreset {
 
 #[cfg(test)]
 mod tests {
-    use std::{net::SocketAddr, path::PathBuf};
+    use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 
     use super::*;
 
@@ -1032,5 +1039,203 @@ mod tests {
         assert!(!debug.contains("proxy-secret"));
         assert!(!debug.contains("literal-header-secret"));
         assert!(debug.contains("<redacted>"));
+    }
+
+    #[test]
+    fn config_preflight_accepts_operator_safe_sqlite_config() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        let remux_root = temp.path().join("cache").join("remux");
+        let artwork_root = temp.path().join("data").join("artwork");
+        fs::create_dir_all(&media_root).unwrap();
+
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.remux_staging_root = remux_root.clone();
+        config.artwork.artifact_root = artwork_root.clone();
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions { create_dirs: true },
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+
+        assert_eq!(report.status, ConfigPreflightStatus::Pass);
+        assert!(remux_root.is_dir());
+        assert!(artwork_root.is_dir());
+        assert!(report.checks.iter().any(|check| {
+            check.id == "database.backend_url" && check.status == ConfigPreflightStatus::Pass
+        }));
+        assert!(report.checks.iter().any(|check| {
+            check.id == "auth.token" && check.status == ConfigPreflightStatus::Pass
+        }));
+    }
+
+    #[test]
+    fn config_preflight_rejects_database_backend_url_mismatch_without_leaking_secret_url() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.database_backend = DatabaseBackendKind::Sqlite;
+        config.database_url = "postgres://taru:super-secret@db.internal/taru".to_owned();
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+        let json = serde_json::to_string(&report).unwrap();
+        let text = render_config_preflight_text(&report);
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(json.contains("database_backend"));
+        assert!(json.contains("url_scheme=postgres"));
+        assert!(!json.contains("super-secret"));
+        assert!(!json.contains("db.internal"));
+        assert!(!text.contains("super-secret"));
+        assert!(!text.contains("db.internal"));
+    }
+
+    #[test]
+    fn config_preflight_rejects_public_bind_without_auth() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.listen_addr = "0.0.0.0:3000".parse().unwrap();
+        config.auth = AuthConfig::disabled();
+
+        let report =
+            preflight_config_with_env(&config, ConfigPreflightOptions::default(), fake_env([]));
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.bind"
+                && check.status == ConfigPreflightStatus::Fail
+                && check.summary.contains("public bind")
+        }));
+    }
+
+    #[test]
+    fn config_preflight_rejects_enabled_auth_without_token_env_value() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let config = minimal_config(temp.path().join("taru.db"), media_root);
+
+        let report =
+            preflight_config_with_env(&config, ConfigPreflightOptions::default(), fake_env([]));
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "auth.token" && check.status == ConfigPreflightStatus::Fail
+        }));
+    }
+
+    #[test]
+    fn config_preflight_rejects_missing_local_library_without_leaking_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing_root = temp.path().join("missing").join("movies");
+        let config = minimal_config(temp.path().join("taru.db"), missing_root.clone());
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+        let json = serde_json::to_string(&report).unwrap();
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id.starts_with("libraries.")
+                && check.status == ConfigPreflightStatus::Fail
+                && check.summary.contains("does not exist")
+        }));
+        assert!(!json.contains(missing_root.to_string_lossy().as_ref()));
+    }
+
+    #[test]
+    fn config_preflight_rejects_duplicate_library_roots_before_startup() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root.clone());
+        config.libraries.push(LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Movies Duplicate".to_owned(),
+            root: media_root,
+            preset: LibraryPreset::Movies,
+            webdav: None,
+        });
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "libraries.unique_roots" && check.status == ConfigPreflightStatus::Fail
+        }));
+    }
+
+    #[test]
+    fn config_preflight_fails_unresolved_database_template_without_leaking_password_marker() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.database_backend = DatabaseBackendKind::Postgres;
+        config.database_url = "postgres://taru:${TARU_POSTGRES_PASSWORD}@db/taru".to_owned();
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+        let json = serde_json::to_string(&report).unwrap();
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(json.contains("unresolved template"));
+        assert!(!json.contains("TARU_POSTGRES_PASSWORD"));
+        assert!(!json.contains("${"));
+    }
+
+    fn minimal_config(database_path: PathBuf, media_root: PathBuf) -> TaruServerConfig {
+        TaruServerConfig {
+            listen_addr: "127.0.0.1:3000".parse().unwrap(),
+            database_backend: DatabaseBackendKind::Sqlite,
+            database_url: format!("sqlite://{}", database_path.display()),
+            auth: AuthConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: default_scan_concurrency(),
+            probe_concurrency: default_probe_concurrency(),
+            metadata_concurrency: default_metadata_concurrency(),
+            remux_concurrency: default_remux_concurrency(),
+            webhook_concurrency: default_webhook_concurrency(),
+            remux_timeout_ms: default_remux_timeout_ms(),
+            remux_staging_root: PathBuf::from("taru-cache/remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: ArtworkConfig::default(),
+            libraries: vec![LocalLibraryConfig {
+                id: LibraryId::new(),
+                name: "Movies".to_owned(),
+                root: media_root,
+                preset: LibraryPreset::Movies,
+                webdav: None,
+            }],
+        }
+    }
+
+    fn fake_env<const N: usize>(
+        entries: [(&'static str, &'static str); N],
+    ) -> impl Fn(&str) -> Option<String> {
+        let values: HashMap<&'static str, &'static str> = entries.into_iter().collect();
+        move |name| values.get(name).map(|value| (*value).to_owned())
     }
 }

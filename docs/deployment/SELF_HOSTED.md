@@ -25,7 +25,20 @@ export DOUBAN_API_KEY='optional-provider-key'
 export TARU_POSTGRES_PASSWORD='replace-with-a-long-random-password'
 ```
 
-5. Start the server:
+5. Validate the config without connecting to production databases or external
+   metadata providers:
+
+```bash
+cargo run -p taru-server -- --config /etc/taru/taru.toml config-check --create-dirs
+```
+
+For JSON output suitable for CI/support bundles:
+
+```bash
+cargo run -p taru-server -- --config /etc/taru/taru.toml config-check --json
+```
+
+6. Start the server:
 
 ```bash
 cargo run -p taru-server -- --config /etc/taru/taru.toml serve
@@ -35,8 +48,17 @@ For PowerShell:
 
 ```powershell
 $env:TARU_ADMIN_TOKEN = 'replace-with-a-long-random-token'
+cargo run -p taru-server -- --config C:\Taru\taru.toml config-check --create-dirs
 cargo run -p taru-server -- --config C:\Taru\taru.toml serve
 ```
+
+`config-check` fails for hard safety problems such as unresolved database
+templates, backend/URL mismatches, missing auth token environment variables,
+unsafe public binds with auth disabled, missing local media library roots, and
+runtime paths that cannot be created or write-probed when `--create-dirs` is
+used. It may return warnings for intentionally local/dev shapes, such as
+disabled auth on loopback or missing cache directories when no create/write
+probe was requested.
 
 ## Network Exposure
 
@@ -75,7 +97,9 @@ database_url = "postgres://taru:${TARU_POSTGRES_PASSWORD}@127.0.0.1:5432/taru"
 Current Taru config treats `database_url` as a literal string. If your runtime
 does not expand `${TARU_POSTGRES_PASSWORD}` before Taru reads the file, render
 the config from your secret manager or service manager before launch. Do not
-commit a real database password.
+commit a real database password. `config-check` intentionally fails unresolved
+`${...}` markers so a packaged server does not start with a placeholder
+credential.
 
 To start only PostgreSQL for local testing:
 
@@ -187,6 +211,7 @@ verify FFmpeg device availability before enabling GPU policies.
 Useful checks:
 
 ```bash
+cargo run -p taru-server -- --config /etc/taru/taru.toml config-check --json
 curl http://127.0.0.1:3000/health
 curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" \
   http://127.0.0.1:3000/admin/v1/overview
