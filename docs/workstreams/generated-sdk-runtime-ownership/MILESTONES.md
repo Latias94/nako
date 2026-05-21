@@ -5,6 +5,8 @@ Last updated: 2026-05-21
 
 ## M0 — Runtime Ownership Freeze
 
+Status: Complete on 2026-05-21.
+
 Exit when `SDKRT-010` records:
 
 - current SDK/runtime/app responsibility inventory;
@@ -13,6 +15,10 @@ Exit when `SDKRT-010` records:
   package, or early shared Rust client core / UniFFI target state;
 - ADR impact;
 - first implementation or closeout path.
+
+Result: `SDKRT-010` selected early shared Rust client core / UniFFI target state
+with app-supplied Android transport. ADR 0031's mobile-FFI sequencing must be
+superseded or amended by `SDKRT-020` before implementation.
 
 ## M1 — Runtime Contract Decision
 

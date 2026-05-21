@@ -65,10 +65,10 @@ playback must remain app-owned.
 
 ## First Executable Slice
 
-Start with `SDKRT-010`: inventory the current runtime surfaces, write the
-ownership matrix, and freeze whether runtime behavior should stay Android-owned,
-move into a narrow Kotlin SDK/runtime layer, or be pulled into a shared Rust
-client core / UniFFI target state now.
+`SDKRT-010` is complete. It selected early shared Rust client core / UniFFI
+target state with app-supplied Android transport as the durable direction.
 
-Implementation should not start until `SDKRT-010` resolves whether ADR 0031 is
-still valid, amended, or superseded.
+Next executable slice: `SDKRT-020`. Create or supersede the ADR for pulling
+Rust client core forward, then define the FFI-safe core API, crate topology,
+Android build topology, and first connection-flow tracer. Implementation should
+not start before `SDKRT-020` freezes that contract.

@@ -5,12 +5,12 @@ Last updated: 2026-05-21
 
 ## M0 — Runtime Ownership Freeze
 
-- [ ] SDKRT-010 [owner=planner] [deps=none] [scope=docs/workstreams/generated-sdk-runtime-ownership,apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/main/java/dev/taru/android/playback,sdk/kotlin,crates/taru-api/src/sdk.rs]
+- [x] SDKRT-010 [owner=planner] [deps=none] [scope=docs/workstreams/generated-sdk-runtime-ownership,apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/main/java/dev/taru/android/playback,sdk/kotlin,crates/taru-api/src/sdk.rs]
   Goal: Inventory current SDK/runtime/app/Rust-client responsibilities, freeze the ownership matrix, and decide whether runtime behavior stays Android-owned, moves into a Kotlin SDK/runtime seam, or is pulled forward into a shared Rust client core / UniFFI target state.
   Validation: `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md` agree on the selected option and ADR impact.
   Review: Confirm protocol-level policy is separated from product/platform policy, and that no UI, Media3, token vault, profile persistence, or cleartext/TLS behavior is moved by accident.
-  Evidence: `docs/workstreams/generated-sdk-runtime-ownership/DESIGN.md#current-boundary-snapshot`
-  Handoff: Planning owns this before implementation starts.
+  Evidence: `docs/workstreams/generated-sdk-runtime-ownership/DESIGN.md#sdkrt-010-frozen-decision`
+  Handoff: DONE. Selected early shared Rust client core / UniFFI target state with app-supplied Android transport as the first tracer. `SDKRT-020` must create or supersede the ADR and define the FFI-safe core API before code.
 
 ## M1 — Runtime Contract Decision
 

@@ -87,6 +87,32 @@ git diff --check
   - `git diff --check` passed. Git reported the existing line-ending warning
     that `docs/workstreams/README.md` will be normalized to CRLF when Git next
     touches it.
+- 2026-05-21: Completed `SDKRT-010` ownership freeze.
+  - Inventory evidence reviewed:
+    - `apps/android/app/src/main/java/dev/taru/android/connection/PublicClientApiExecutor.kt`
+      owns execution, public error parsing, version checks, decode failure
+      mapping, transport failure mapping, and redaction.
+    - `apps/android/app/src/main/java/dev/taru/android/connection/TaruHttpTransport.kt`
+      and `JdkTaruHttpTransport.kt` own Android-side HTTP execution.
+    - `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt` owns generated
+      request descriptors, API constants, DTOs, and tolerant public wire string
+      wrappers.
+    - `crates/taru-client/src/lib.rs` already owns Rust request construction,
+      reqwest execution, public error parsing, API-version checks, streaming
+      request builders, and route tests, but uses non-FFI-safe `reqwest`, `Url`,
+      `HeaderMap`, `StatusCode`, async traits, and `reqwest::Error`.
+    - `crates/taru-client-protocol/src/catalog.rs` still uses strict serde
+      enums for public string values such as playback mode, transcode state,
+      output container, and hardware acceleration.
+  - Frozen decision: pull shared Rust client core forward now, but start with an
+    FFI-safe no-socket core and app-supplied Android transport rather than full
+    Rust-owned Android networking.
+  - ADR impact: `SDKRT-020` must create a new ADR or explicitly supersede the
+    mobile-FFI sequencing portion of ADR 0031 before implementation.
+  - `python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null`
+    passed after the `SDKRT-010` updates.
+  - `git diff --check` passed after the `SDKRT-010` updates. Git reported
+    line-ending normalization warnings for touched workstream docs.
 
-No implementation evidence yet. The lane is open for `SDKRT-010` planning and
-ownership freeze.
+No implementation evidence yet. The lane is now ready for `SDKRT-020` target
+ADR and FFI-safe core API definition.

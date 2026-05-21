@@ -65,9 +65,9 @@
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md"
   ],
-  "current_task": "SDKRT-010",
+  "current_task": "SDKRT-020",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with SDKRT-010 planning only. Do not implement runtime movement until the ownership matrix and ADR impact are frozen. Compare Kotlin runtime against early shared Rust client core / UniFFI as a first-class option. Split SDK publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime work into separate lanes."
+    "notes": "SDKRT-010 selected early shared Rust client core / UniFFI target state with app-supplied Android transport. Continue with SDKRT-020 only: create or supersede the ADR and define FFI-safe core API/crate/build topology before implementation. Split SDK publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime work into separate lanes."
   }
 }
