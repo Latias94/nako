@@ -3,6 +3,7 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.testing.Test
 import java.util.Locale
+import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.android.application)
@@ -21,6 +22,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -50,7 +52,12 @@ val generatedUniFfiSource = generatedUniFfiDir.map {
 }
 val generatedUniFfiDebugJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/debug")
 val generatedUniFfiReleaseJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/release")
+val generatedHostJnaResourcesDir = layout.buildDirectory.dir("generated/resources/jna-host")
 val hostUniFfiLibrary = repoRoot.file("target/debug/${hostUniFfiLibraryName()}")
+val jnaHostDispatch by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
 val androidAbiTargets = mapOf(
     "arm64-v8a" to "aarch64-linux-android",
     "armeabi-v7a" to "armv7-linux-androideabi",
@@ -250,6 +257,45 @@ val buildTaruClientUniFfiReleaseAndroid = registerBuildTaruClientUniFfiAndroidTa
     outputDir = generatedUniFfiReleaseJniLibsDir,
 )
 
+val extractHostJnaDispatch by tasks.registering {
+    group = "taru rust"
+    description = "Extracts host JNA native dispatch resources for JVM tests."
+    val outputDir = generatedHostJnaResourcesDir
+    inputs.files(jnaHostDispatch)
+    outputs.dir(outputDir)
+
+    doLast {
+        val hostResourceDir = when {
+            System.getProperty("os.name").lowercase(Locale.ROOT).contains("windows") -> "win32-x86-64"
+            System.getProperty("os.name").lowercase(Locale.ROOT).contains("mac") ||
+                System.getProperty("os.name").lowercase(Locale.ROOT).contains("darwin") -> "darwin-aarch64"
+            else -> "linux-x86-64"
+        }
+        val outputRoot = outputDir.get().asFile
+        outputRoot.deleteRecursively()
+        outputRoot.mkdirs()
+
+        val jnaArtifact = jnaHostDispatch.files
+            .firstOrNull { it.name.startsWith("jna-") && it.extension == "jar" }
+            ?: error("JNA test runtime jar was not found.")
+        ZipFile(jnaArtifact).use { zip ->
+            zip.entries().asSequence()
+                .filter { entry ->
+                    !entry.isDirectory &&
+                        entry.name.startsWith("com/sun/jna/$hostResourceDir/") &&
+                        entry.name.substringAfterLast('/').contains("jnidispatch")
+                }
+                .forEach { entry ->
+                    val target = outputRoot.resolve(entry.name)
+                    target.parentFile.mkdirs()
+                    zip.getInputStream(entry).use { input ->
+                        target.outputStream().use { output -> input.copyTo(output) }
+                    }
+                }
+        }
+    }
+}
+
 tasks.matching { it.name.endsWith("Kotlin") && it.name.startsWith("compile") }.configureEach {
     dependsOn(generateTaruClientUniFfiKotlin)
 }
@@ -264,6 +310,10 @@ tasks.matching { it.name == "mergeReleaseJniLibFolders" }.configureEach {
 
 tasks.withType<Test>().configureEach {
     dependsOn(generateTaruClientUniFfiKotlin)
+    dependsOn(extractHostJnaDispatch)
+    doFirst {
+        classpath += files(generatedHostJnaResourcesDir)
+    }
     systemProperty(
         "uniffi.component.taru_client_uniffi.libraryOverride",
         hostUniFfiLibrary.asFile.absolutePath,
@@ -294,9 +344,16 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.jna)
+    implementation(libs.jna) {
+        artifact {
+            type = "aar"
+        }
+    }
+    jnaHostDispatch(libs.jna)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
