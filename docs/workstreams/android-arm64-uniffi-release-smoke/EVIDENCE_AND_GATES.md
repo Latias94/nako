@@ -52,6 +52,13 @@ apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbi
 - 2026-05-21: Completed `A64-020` arm64 device detection.
   - No attached primary arm64 runtime device was available.
   - Chose fallback `arm64-v8a` APK/JNI packaging verification.
+  - Later device probe found OPPO `PLG110`, serial `3B15BC01DH500000`.
+  - `adb -s 3B15BC01DH500000 shell getprop ro.product.cpu.abi` returned
+    `arm64-v8a`.
+  - `adb -s 3B15BC01DH500000 shell getprop ro.product.cpu.abilist` returned
+    `arm64-v8a`.
+  - `adb -s 3B15BC01DH500000 shell getprop ro.build.version.release` returned
+    `16`.
 - 2026-05-21: Completed `A64-030` arm64 packaging verification.
   - First APK inspection showed Taru's `libtaru_client_uniffi.so` was focused
     to arm64, but transitive JNI libraries from JNA/AndroidX were still present
@@ -66,6 +73,15 @@ apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbi
     - `lib/arm64-v8a/libjnidispatch.so`
     - `lib/arm64-v8a/libtaru_client_uniffi.so`
   - APK inspection found no non-arm64 JNI entries.
+- 2026-05-21: Completed `A64-030` arm64 runtime smoke on OPPO.
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon`
+    passed.
+  - `adb -s 3B15BC01DH500000 install -r apps/android/app/build/outputs/apk/debug/app-debug.apk`
+    succeeded.
+  - `adb -s 3B15BC01DH500000 install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`
+    succeeded.
+  - `adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest dev.taru.android.test/androidx.test.runner.AndroidJUnitRunner`
+    passed with `OK (1 test)`.
 - 2026-05-21: Completed `A64-090` closeout.
   - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`
     passed.

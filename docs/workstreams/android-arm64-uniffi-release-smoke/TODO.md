@@ -1,6 +1,6 @@
 # Android arm64 UniFFI Release Smoke — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## M0 — Lane Open
@@ -22,9 +22,10 @@ Last updated: 2026-05-21
   Review: Do not treat an x86_64 emulator that lists arm64 translation support
   as an arm64 runtime device.
   Evidence: `EVIDENCE_AND_GATES.md`
-  Handoff: DONE. Only `emulator-5554` with primary ABI `x86_64` was attached,
-  so arm64 runtime smoke was not claimable. Proceeded with arm64-v8a packaging
-  verification.
+  Handoff: DONE. The initial run only had `emulator-5554` with primary ABI
+  `x86_64`, so the lane first fell back to arm64-v8a packaging verification.
+  After an OPPO `PLG110` device was attached, primary ABI `arm64-v8a` was
+  confirmed.
 
 ## M2 — arm64 Runtime Or Packaging Verification
 
@@ -36,6 +37,8 @@ Last updated: 2026-05-21
   Evidence: `EVIDENCE_AND_GATES.md`
   Handoff: DONE. `arm64-v8a` debug APK builds and contains only arm64 JNI
   entries, including `libtaru_client_uniffi.so` and `libjnidispatch.so`.
+  The same APK/test APK pair was then installed on OPPO `PLG110`, and
+  `TaruUniFfiNativeSmokeTest` passed through Android instrumentation.
 
 ## M3 — Closeout
 
@@ -44,5 +47,4 @@ Last updated: 2026-05-21
   Validation: `python -m json.tool docs/workstreams/android-arm64-uniffi-release-smoke/WORKSTREAM.json > $null`; `git diff --check`
   Review: Final status must be honest about whether arm64 runtime was executed.
   Evidence: `docs/workstreams/android-arm64-uniffi-release-smoke/CLOSEOUT.md`
-  Handoff: DONE. Lane closed as arm64 packaging verification, with arm64
-  runtime smoke still listed as a residual real-device follow-on.
+  Handoff: DONE. Lane closed as arm64 runtime smoke verified on OPPO `PLG110`.

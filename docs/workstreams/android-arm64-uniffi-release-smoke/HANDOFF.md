@@ -21,5 +21,5 @@ None.
 
 ## Recommended Next Step
 
-Run the existing connected UniFFI smoke on a real arm64 device when one is
-available. This lane proves arm64 packaging, not arm64 runtime execution.
+Keep the OPPO runtime smoke command as the release-risk regression recipe. For
+future release lanes, broaden to a small physical-device matrix only if needed.
