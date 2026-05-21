@@ -92,6 +92,45 @@ object RustPlaybackCore : PlaybackCore {
                 segmentName = segmentName,
             ).toPlaybackDescriptor(),
         )
+
+    override fun sourceProbeRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sourceId: String,
+    ): PlaybackRequestDescriptor =
+        uniffi.taru_client_uniffi.buildSourceProbeRequest(
+            uniffi.taru_client_uniffi.CorePlaybackSourceRequestInput(
+                baseUrl = profile.baseUrl,
+                accessToken = accessToken,
+                sourceId = sourceId,
+            ),
+        ).toPlaybackDescriptor()
+
+    override fun playbackSessionRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sessionId: String,
+    ): PlaybackRequestDescriptor =
+        uniffi.taru_client_uniffi.buildGetPlaybackSessionRequest(
+            uniffi.taru_client_uniffi.CorePlaybackSessionRequestInput(
+                baseUrl = profile.baseUrl,
+                accessToken = accessToken,
+                sessionId = sessionId,
+            ),
+        ).toPlaybackDescriptor()
+
+    override fun cancelPlaybackSessionRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sessionId: String,
+    ): PlaybackRequestDescriptor =
+        uniffi.taru_client_uniffi.buildCancelPlaybackSessionRequest(
+            uniffi.taru_client_uniffi.CorePlaybackSessionRequestInput(
+                baseUrl = profile.baseUrl,
+                accessToken = accessToken,
+                sessionId = sessionId,
+            ),
+        ).toPlaybackDescriptor()
 }
 
 private fun uniffi.taru_client_uniffi.CorePlaybackTarget.toPlaybackTarget(): PlaybackRequestTarget =

@@ -22,18 +22,23 @@ pub use connection::{
 };
 pub use encoding::{encode_path_segment, url_on};
 pub use ids::{
-    CONNECTION_AUTH_PROBE_REQUEST_ID, CONNECTION_HEALTH_REQUEST_ID, PLAYBACK_DECISION_REQUEST_ID,
+    CONNECTION_AUTH_PROBE_REQUEST_ID, CONNECTION_HEALTH_REQUEST_ID,
+    PLAYBACK_CANCEL_SESSION_REQUEST_ID, PLAYBACK_DECISION_REQUEST_ID,
     PLAYBACK_DIRECT_STREAM_HEAD_REQUEST_ID, PLAYBACK_DIRECT_STREAM_REQUEST_ID,
     PLAYBACK_HLS_PLAYLIST_REQUEST_ID, PLAYBACK_HLS_SEGMENT_REQUEST_ID,
     PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID, PLAYBACK_REMUX_STREAM_REQUEST_ID,
+    PLAYBACK_SESSION_REQUEST_ID, PLAYBACK_SOURCE_PROBE_REQUEST_ID,
 };
 pub use playback::{
     CoreDirectPlaybackTargetInput, CoreHlsPlaylistTargetInput, CoreOutputContainer,
     CorePlaybackCapabilities, CorePlaybackDecisionRequestInput, CorePlaybackDecisionSummary,
-    CorePlaybackMode, CorePlaybackSegmentInput, CorePlaybackTarget, CorePlaybackTargetInput,
-    CoreRemuxPlaybackTargetInput, build_direct_playback_target, build_head_direct_playback_target,
-    build_hls_playlist_target, build_hls_segment_request, build_playback_decision_request,
-    build_recommended_playback_target, build_remux_playback_target,
+    CorePlaybackMode, CorePlaybackSegmentInput, CorePlaybackSessionRequestInput,
+    CorePlaybackSourceRequestInput, CorePlaybackTarget, CorePlaybackTargetInput,
+    CoreRemuxPlaybackTargetInput, build_cancel_playback_session_request,
+    build_direct_playback_target, build_get_playback_session_request,
+    build_head_direct_playback_target, build_hls_playlist_target, build_hls_segment_request,
+    build_playback_decision_request, build_recommended_playback_target,
+    build_remux_playback_target, build_source_probe_request,
 };
 pub use request::{
     CoreHttpHeader, CoreHttpRequest, CoreHttpRequestSpec, CoreQueryParam, CoreSafeRequestPreview,
@@ -180,6 +185,66 @@ mod tests {
         assert_eq!(
             request.safe_preview.headers,
             vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+    }
+
+    #[test]
+    fn playback_source_probe_request_uses_core_auth_and_safe_preview() {
+        let request = build_source_probe_request(&CorePlaybackSourceRequestInput {
+            base_url: "https://taru.example/api/".to_owned(),
+            access_token: "secret-token".to_owned(),
+            source_id: "source 1".to_owned(),
+        });
+
+        assert_eq!(request.request_id, PLAYBACK_SOURCE_PROBE_REQUEST_ID);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://taru.example/api/sources/source%201/probe"
+        );
+        assert_eq!(
+            request.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            request.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+    }
+
+    #[test]
+    fn playback_session_requests_use_core_methods_paths_auth_and_redaction() {
+        let input = CorePlaybackSessionRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            session_id: "session/1".to_owned(),
+        };
+
+        let inspect = build_get_playback_session_request(&input);
+        assert_eq!(inspect.request_id, PLAYBACK_SESSION_REQUEST_ID);
+        assert_eq!(inspect.method, "GET");
+        assert_eq!(
+            inspect.url,
+            "https://taru.example/api/playback/sessions/session%2F1"
+        );
+        assert_eq!(
+            inspect.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+
+        let cancel = build_cancel_playback_session_request(&CorePlaybackSessionRequestInput {
+            session_id: "session 1".to_owned(),
+            ..input
+        });
+        assert_eq!(cancel.request_id, PLAYBACK_CANCEL_SESSION_REQUEST_ID);
+        assert_eq!(cancel.method, "POST");
+        assert_eq!(
+            cancel.url,
+            "https://taru.example/api/playback/sessions/session%201/cancel"
+        );
+        assert_eq!(
+            cancel.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
         );
     }
 

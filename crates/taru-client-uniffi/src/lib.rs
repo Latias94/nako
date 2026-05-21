@@ -95,6 +95,20 @@ pub struct CorePlaybackDecisionSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CorePlaybackSourceRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub source_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CorePlaybackSessionRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub session_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct CorePlaybackTarget {
     pub request: CoreHttpRequest,
     pub session_probe_request: Option<CoreHttpRequest>,
@@ -208,6 +222,11 @@ pub fn build_playback_decision_request(
 }
 
 #[uniffi::export]
+pub fn build_source_probe_request(input: CorePlaybackSourceRequestInput) -> CoreHttpRequest {
+    taru_client_core::build_source_probe_request(&input.into()).into()
+}
+
+#[uniffi::export]
 pub fn build_recommended_playback_target(
     base_url: String,
     decision: CorePlaybackDecisionSummary,
@@ -290,6 +309,20 @@ pub fn build_hls_segment_request(
         segment_name,
     })
     .into()
+}
+
+#[uniffi::export]
+pub fn build_get_playback_session_request(
+    input: CorePlaybackSessionRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_get_playback_session_request(&input.into()).into()
+}
+
+#[uniffi::export]
+pub fn build_cancel_playback_session_request(
+    input: CorePlaybackSessionRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_cancel_playback_session_request(&input.into()).into()
 }
 
 #[uniffi::export]
@@ -561,6 +594,26 @@ impl From<CorePlaybackDecisionSummary> for taru_client_core::CorePlaybackDecisio
     }
 }
 
+impl From<CorePlaybackSourceRequestInput> for taru_client_core::CorePlaybackSourceRequestInput {
+    fn from(value: CorePlaybackSourceRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            source_id: value.source_id,
+        }
+    }
+}
+
+impl From<CorePlaybackSessionRequestInput> for taru_client_core::CorePlaybackSessionRequestInput {
+    fn from(value: CorePlaybackSessionRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            session_id: value.session_id,
+        }
+    }
+}
+
 impl From<taru_client_core::CorePlaybackTarget> for CorePlaybackTarget {
     fn from(value: taru_client_core::CorePlaybackTarget) -> Self {
         Self {
@@ -745,6 +798,52 @@ mod tests {
         assert_eq!(
             explicit.request.url,
             "https://taru.example/api/sources/source%201/stream/remux"
+        );
+    }
+
+    #[test]
+    fn uniffi_surface_exposes_residual_playback_request_builders() {
+        let source_probe = build_source_probe_request(CorePlaybackSourceRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            source_id: "source 1".to_owned(),
+        });
+        assert_eq!(
+            source_probe.request_id,
+            taru_client_core::PLAYBACK_SOURCE_PROBE_REQUEST_ID
+        );
+        assert_eq!(
+            source_probe.url,
+            "https://taru.example/api/sources/source%201/probe"
+        );
+        assert_eq!(
+            source_probe.safe_preview.headers,
+            vec![CoreHttpHeader {
+                name: "Authorization".to_owned(),
+                value: "Bearer <redacted>".to_owned(),
+            }]
+        );
+
+        let session = build_get_playback_session_request(CorePlaybackSessionRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            session_id: "session 1".to_owned(),
+        });
+        assert_eq!(
+            session.url,
+            "https://taru.example/api/playback/sessions/session%201"
+        );
+        assert_eq!(session.method, "GET");
+
+        let cancel = build_cancel_playback_session_request(CorePlaybackSessionRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            session_id: "session/1".to_owned(),
+        });
+        assert_eq!(cancel.method, "POST");
+        assert_eq!(
+            cancel.url,
+            "https://taru.example/api/playback/sessions/session%2F1/cancel"
         );
     }
 

@@ -94,6 +94,11 @@ maps product diagnostics. Treat the generated SDK as the DTO/body contract
 transition layer for user-playback data, not as the runtime route-construction
 owner.
 
+Playback runtime route construction follows the same rule for playback decision,
+source probe, direct/remux/HLS streaming targets, HLS segments, and playback
+session inspection/cancellation. Android still owns generated SDK playback DTO
+decode, Media3, player/session presentation, and platform transport.
+
 Use the native UniFFI smoke script when you need to prove packaged JNI libraries
 load on a connected device or emulator:
 

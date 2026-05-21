@@ -1,5 +1,6 @@
 pub const CONNECTION_HEALTH_REQUEST_ID: &str = "connection.health";
 pub const CONNECTION_AUTH_PROBE_REQUEST_ID: &str = "connection.auth_probe";
+pub const PLAYBACK_SOURCE_PROBE_REQUEST_ID: &str = "playback.source_probe";
 pub const PLAYBACK_DECISION_REQUEST_ID: &str = "playback.decision";
 pub const PLAYBACK_DIRECT_STREAM_REQUEST_ID: &str = "playback.direct_stream";
 pub const PLAYBACK_DIRECT_STREAM_HEAD_REQUEST_ID: &str = "playback.direct_stream_head";
@@ -7,3 +8,5 @@ pub const PLAYBACK_REMUX_STREAM_REQUEST_ID: &str = "playback.remux_stream";
 pub const PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID: &str = "playback.remux_session_probe";
 pub const PLAYBACK_HLS_PLAYLIST_REQUEST_ID: &str = "playback.hls_playlist";
 pub const PLAYBACK_HLS_SEGMENT_REQUEST_ID: &str = "playback.hls_segment";
+pub const PLAYBACK_SESSION_REQUEST_ID: &str = "playback.session";
+pub const PLAYBACK_CANCEL_SESSION_REQUEST_ID: &str = "playback.cancel_session";
