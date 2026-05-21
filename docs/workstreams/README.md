@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [generated-sdk-forward-compat-tolerance](generated-sdk-forward-compat-tolerance/README.md):
+  completed follow-on for deciding and implementing generated Public Client SDK
+  unknown string-enum and API-version tolerance without moving Android UI,
+  Media3 playback, diagnostics, SDK publishing, KMP, or Rust/UniFFI ownership.
 - [android-generated-public-client-sdk](android-generated-public-client-sdk/README.md):
   completed lane for replacing Android handwritten Public Client API DTO and route
   mirrors with an OpenAPI-backed generated Kotlin/JVM SDK before mobile

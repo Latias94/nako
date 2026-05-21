@@ -395,25 +395,37 @@ fn openapi_enum_values(schema: &Value) -> Option<Vec<String>> {
 
 fn kotlin_enum_definition(name: &str, values: &[String]) -> String {
     let mut output = String::new();
+    output.push_str("@JvmInline\n");
     output.push_str("@Serializable\n");
     output.push_str(&format!(
-        "public enum class {name}(\n    public val wireValue: String,\n) {{\n"
+        "public value class {name}(\n    public val wireValue: String,\n) {{\n"
     ));
     let mut used_names = BTreeSet::new();
+    let mut constants = Vec::new();
 
     for (index, value) in values.iter().enumerate() {
-        let mut variant_name = kotlin_enum_variant_name(value);
-        if !used_names.insert(variant_name.clone()) {
-            variant_name = format!("{variant_name}{index}");
+        let mut constant_name = kotlin_enum_variant_name(value);
+        if !used_names.insert(constant_name.clone()) {
+            constant_name = format!("{constant_name}{index}");
         }
-        output.push_str(&format!("    @SerialName({value:?})\n"));
-        output.push_str(&format!("    {variant_name}({value:?})"));
-        if index + 1 != values.len() {
-            output.push(',');
-        }
-        output.push_str("\n\n");
+        constants.push((constant_name, value));
     }
 
+    output.push_str("    public val isKnown: Boolean\n");
+    output.push_str("        get() = wireValue in KnownWireValues\n\n");
+    output.push_str("    public companion object {\n");
+    for (constant_name, value) in &constants {
+        output.push_str(&format!(
+            "        public val {constant_name}: {name} = {name}({value:?})\n"
+        ));
+    }
+    output.push('\n');
+    output.push_str("        public val KnownWireValues: Set<String> = setOf(\n");
+    for (_, value) in &constants {
+        output.push_str(&format!("            {value:?},\n"));
+    }
+    output.push_str("        )\n");
+    output.push_str("    }\n");
     output.push_str("}\n");
     output
 }
@@ -548,11 +560,23 @@ public data class PlaybackCapabilitiesQuery(
     public val audioCodecs: List<String> = emptyList(),
 )
 
-public enum class RemuxOutputContainer(
+@JvmInline
+@Serializable
+public value class RemuxOutputContainer(
     public val wireValue: String,
 ) {
-    Mp4("mp4"),
-    Mkv("mkv"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Mp4: RemuxOutputContainer = RemuxOutputContainer("mp4")
+        public val Mkv: RemuxOutputContainer = RemuxOutputContainer("mkv")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "mp4",
+            "mkv",
+        )
+    }
 }
 
 public data class RemuxPlaybackQuery(
@@ -1403,10 +1427,11 @@ mod tests {
             "public object TaruPublicClientRequests",
             "public fun health(): TaruRequestDescriptor",
             "public fun listLibraries(page: PageQuery = PageQuery()): TaruRequestDescriptor",
-            "public enum class ClientMediaKind",
+            "public value class ClientMediaKind",
             "public val wireValue: String",
-            "public enum class ClientPlaybackDecisionMode",
-            "@SerialName(\"direct_play\")",
+            "public val isKnown: Boolean",
+            "public value class ClientPlaybackDecisionMode",
+            "public val DirectPlay: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode(\"direct_play\")",
             "public val owner: Map<String, String>",
         ] {
             assert!(

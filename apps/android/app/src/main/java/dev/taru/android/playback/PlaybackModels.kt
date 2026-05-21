@@ -43,6 +43,7 @@ enum class ClientPlaybackMode {
     DirectPlay,
     Remux,
     Transcode,
+    Unknown,
 }
 
 data class ClientDirectPlayPlan(
@@ -62,6 +63,7 @@ enum class ClientOutputContainer {
     Hls,
     Mp4,
     Mkv,
+    Unknown,
 }
 
 enum class ClientHardwareAcceleration {
@@ -69,6 +71,7 @@ enum class ClientHardwareAcceleration {
     Vaapi,
     Nvenc,
     QuickSync,
+    Unknown,
 }
 
 data class PlaybackRequestDescriptor(
@@ -148,6 +151,7 @@ data class TranscodeSessionDto(
 enum class ClientTranscodeSessionKind {
     Remux,
     HlsTranscode,
+    Unknown,
 }
 
 enum class ClientTranscodeSessionState {
@@ -158,6 +162,7 @@ enum class ClientTranscodeSessionState {
     Cancelled,
     Failed,
     Finished,
+    Unknown,
 }
 
 enum class ClientTranscodeFailureCategory {

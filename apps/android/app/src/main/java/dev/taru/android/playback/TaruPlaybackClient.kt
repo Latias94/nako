@@ -207,6 +207,7 @@ class TaruPlaybackClient(
                 sourceId = decision.source.id,
                 capabilities = capabilities,
             )
+            ClientPlaybackMode.Unknown -> null
         }
         return target
     }
@@ -240,6 +241,11 @@ class TaruPlaybackClient(
             -> prepareSessionBackedTarget(
                 target = target,
                 accessToken = accessToken,
+            )
+            ClientPlaybackMode.Unknown -> failure(
+                category = PlaybackFailureCategory.UnsupportedSource,
+                userMessage = "The server returned a playback mode this app does not understand.",
+                request = target.safeRequest,
             )
         }
     }
@@ -412,7 +418,7 @@ class TaruPlaybackClient(
     private fun remuxOutputContainer(decision: PlaybackDecisionResponse): ClientOutputContainer =
         decision.decision.transcodePlan
             ?.outputContainer
-            ?.takeIf { it != ClientOutputContainer.Hls }
+            ?.takeIf { it != ClientOutputContainer.Hls && it != ClientOutputContainer.Unknown }
             ?: ClientOutputContainer.Mp4
 
     private fun PlaybackCapabilities.toSdkPlaybackCapabilitiesQuery(): PlaybackCapabilitiesQuery =
@@ -438,6 +444,8 @@ class TaruPlaybackClient(
         when (this) {
             ClientOutputContainer.Mp4 -> RemuxOutputContainer.Mp4
             ClientOutputContainer.Mkv -> RemuxOutputContainer.Mkv
-            ClientOutputContainer.Hls -> null
+            ClientOutputContainer.Hls,
+            ClientOutputContainer.Unknown,
+            -> null
         }
 }

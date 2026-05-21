@@ -3,14 +3,12 @@ package dev.taru.android.connection
 import dev.taru.sdk.PageQuery
 import dev.taru.sdk.TARU_API_VERSION
 import dev.taru.sdk.TARU_API_VERSION_HEADER
+import dev.taru.sdk.HealthResponse
 import dev.taru.sdk.TaruPublicClientRequests
 import java.net.URI
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 class TaruConnectionClient(
     private val transport: TaruHttpTransport,
@@ -204,13 +202,9 @@ class TaruConnectionClient(
 
     private fun parseHealthVersion(body: String): String? =
         try {
-            val jsonObject = json.decodeFromString<JsonObject>(body)
-            val status = jsonObject["status"]?.jsonPrimitive?.contentOrNull
-            val version = jsonObject["version"]?.jsonPrimitive?.contentOrNull
-            if (status.isNullOrBlank() || version.isNullOrBlank()) {
-                null
-            } else {
-                version
+            val health = json.decodeFromString<HealthResponse>(body)
+            health.version.wireValue.takeIf {
+                health.status.isNotBlank() && it.isNotBlank()
             }
         } catch (_: SerializationException) {
             null

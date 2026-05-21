@@ -70,11 +70,23 @@ public data class PlaybackCapabilitiesQuery(
     public val audioCodecs: List<String> = emptyList(),
 )
 
-public enum class RemuxOutputContainer(
+@JvmInline
+@Serializable
+public value class RemuxOutputContainer(
     public val wireValue: String,
 ) {
-    Mp4("mp4"),
-    Mkv("mkv"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Mp4: RemuxOutputContainer = RemuxOutputContainer("mp4")
+        public val Mkv: RemuxOutputContainer = RemuxOutputContainer("mkv")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "mp4",
+            "mkv",
+        )
+    }
 }
 
 public data class RemuxPlaybackQuery(
@@ -419,313 +431,353 @@ public object TaruPublicClientRequests {
 }
 
 
+@JvmInline
 @Serializable
-public enum class ClientPlaybackDecisionMode(
+public value class ClientPlaybackDecisionMode(
     public val wireValue: String,
 ) {
-    @SerialName("direct_play")
-    DirectPlay("direct_play"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("remux")
-    Remux("remux"),
+    public companion object {
+        public val DirectPlay: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("direct_play")
+        public val Remux: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("remux")
+        public val Transcode: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("transcode")
 
-    @SerialName("transcode")
-    Transcode("transcode")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "direct_play",
+            "remux",
+            "transcode",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class ClientTranscodePlanHardwareAcceleration(
+public value class ClientTranscodePlanHardwareAcceleration(
     public val wireValue: String,
 ) {
-    @SerialName("none")
-    None("none"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("vaapi")
-    Vaapi("vaapi"),
+    public companion object {
+        public val None: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("none")
+        public val Vaapi: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("vaapi")
+        public val Nvenc: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("nvenc")
+        public val QuickSync: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("quick_sync")
 
-    @SerialName("nvenc")
-    Nvenc("nvenc"),
-
-    @SerialName("quick_sync")
-    QuickSync("quick_sync")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "none",
+            "vaapi",
+            "nvenc",
+            "quick_sync",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class ClientTranscodePlanOutputContainer(
+public value class ClientTranscodePlanOutputContainer(
     public val wireValue: String,
 ) {
-    @SerialName("hls")
-    Hls("hls"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("mp4")
-    Mp4("mp4"),
+    public companion object {
+        public val Hls: ClientTranscodePlanOutputContainer = ClientTranscodePlanOutputContainer("hls")
+        public val Mp4: ClientTranscodePlanOutputContainer = ClientTranscodePlanOutputContainer("mp4")
+        public val Mkv: ClientTranscodePlanOutputContainer = ClientTranscodePlanOutputContainer("mkv")
 
-    @SerialName("mkv")
-    Mkv("mkv")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "hls",
+            "mp4",
+            "mkv",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class ErrorResponseCode(
+public value class ErrorResponseCode(
     public val wireValue: String,
 ) {
-    @SerialName("invalid_input")
-    InvalidInput("invalid_input"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("not_found")
-    NotFound("not_found"),
+    public companion object {
+        public val InvalidInput: ErrorResponseCode = ErrorResponseCode("invalid_input")
+        public val NotFound: ErrorResponseCode = ErrorResponseCode("not_found")
+        public val Conflict: ErrorResponseCode = ErrorResponseCode("conflict")
+        public val Unsupported: ErrorResponseCode = ErrorResponseCode("unsupported")
+        public val Unauthorized: ErrorResponseCode = ErrorResponseCode("unauthorized")
+        public val Forbidden: ErrorResponseCode = ErrorResponseCode("forbidden")
+        public val ProviderError: ErrorResponseCode = ErrorResponseCode("provider_error")
+        public val StorageError: ErrorResponseCode = ErrorResponseCode("storage_error")
+        public val FfmpegError: ErrorResponseCode = ErrorResponseCode("ffmpeg_error")
+        public val StagingBudgetExhausted: ErrorResponseCode = ErrorResponseCode("staging_budget_exhausted")
+        public val StagingValidationMismatch: ErrorResponseCode = ErrorResponseCode("staging_validation_mismatch")
+        public val StorageTimeout: ErrorResponseCode = ErrorResponseCode("storage_timeout")
+        public val StorageUnauthorized: ErrorResponseCode = ErrorResponseCode("storage_unauthorized")
+        public val StorageRateLimited: ErrorResponseCode = ErrorResponseCode("storage_rate_limited")
+        public val DatabaseError: ErrorResponseCode = ErrorResponseCode("database_error")
 
-    @SerialName("conflict")
-    Conflict("conflict"),
-
-    @SerialName("unsupported")
-    Unsupported("unsupported"),
-
-    @SerialName("unauthorized")
-    Unauthorized("unauthorized"),
-
-    @SerialName("forbidden")
-    Forbidden("forbidden"),
-
-    @SerialName("provider_error")
-    ProviderError("provider_error"),
-
-    @SerialName("storage_error")
-    StorageError("storage_error"),
-
-    @SerialName("ffmpeg_error")
-    FfmpegError("ffmpeg_error"),
-
-    @SerialName("staging_budget_exhausted")
-    StagingBudgetExhausted("staging_budget_exhausted"),
-
-    @SerialName("staging_validation_mismatch")
-    StagingValidationMismatch("staging_validation_mismatch"),
-
-    @SerialName("storage_timeout")
-    StorageTimeout("storage_timeout"),
-
-    @SerialName("storage_unauthorized")
-    StorageUnauthorized("storage_unauthorized"),
-
-    @SerialName("storage_rate_limited")
-    StorageRateLimited("storage_rate_limited"),
-
-    @SerialName("database_error")
-    DatabaseError("database_error")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "invalid_input",
+            "not_found",
+            "conflict",
+            "unsupported",
+            "unauthorized",
+            "forbidden",
+            "provider_error",
+            "storage_error",
+            "ffmpeg_error",
+            "staging_budget_exhausted",
+            "staging_validation_mismatch",
+            "storage_timeout",
+            "storage_unauthorized",
+            "storage_rate_limited",
+            "database_error",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class HealthResponseVersion(
+public value class HealthResponseVersion(
     public val wireValue: String,
 ) {
-    @SerialName("v1")
-    V1("v1")
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
+    public companion object {
+        public val V1: HealthResponseVersion = HealthResponseVersion("v1")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "v1",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class LibraryOptionsDtoDomain(
+public value class LibraryOptionsDtoDomain(
     public val wireValue: String,
 ) {
-    @SerialName("video")
-    Video("video"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("audio")
-    Audio("audio"),
+    public companion object {
+        public val Video: LibraryOptionsDtoDomain = LibraryOptionsDtoDomain("video")
+        public val Audio: LibraryOptionsDtoDomain = LibraryOptionsDtoDomain("audio")
+        public val Image: LibraryOptionsDtoDomain = LibraryOptionsDtoDomain("image")
+        public val Document: LibraryOptionsDtoDomain = LibraryOptionsDtoDomain("document")
+        public val Mixed: LibraryOptionsDtoDomain = LibraryOptionsDtoDomain("mixed")
+        public val Online: LibraryOptionsDtoDomain = LibraryOptionsDtoDomain("online")
 
-    @SerialName("image")
-    Image("image"),
-
-    @SerialName("document")
-    Document("document"),
-
-    @SerialName("mixed")
-    Mixed("mixed"),
-
-    @SerialName("online")
-    Online("online")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "video",
+            "audio",
+            "image",
+            "document",
+            "mixed",
+            "online",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class LibraryOptionsDtoNamingStrategy(
+public value class LibraryOptionsDtoNamingStrategy(
     public val wireValue: String,
 ) {
-    @SerialName("movie")
-    Movie("movie"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("series")
-    Series("series"),
+    public companion object {
+        public val Movie: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("movie")
+        public val Series: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("series")
+        public val Anime: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("anime")
+        public val Music: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("music")
+        public val Podcast: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("podcast")
+        public val Photo: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("photo")
+        public val HomeVideo: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("home_video")
+        public val Mixed: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("mixed")
+        public val OnlineCatalog: LibraryOptionsDtoNamingStrategy = LibraryOptionsDtoNamingStrategy("online_catalog")
 
-    @SerialName("anime")
-    Anime("anime"),
-
-    @SerialName("music")
-    Music("music"),
-
-    @SerialName("podcast")
-    Podcast("podcast"),
-
-    @SerialName("photo")
-    Photo("photo"),
-
-    @SerialName("home_video")
-    HomeVideo("home_video"),
-
-    @SerialName("mixed")
-    Mixed("mixed"),
-
-    @SerialName("online_catalog")
-    OnlineCatalog("online_catalog")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "movie",
+            "series",
+            "anime",
+            "music",
+            "podcast",
+            "photo",
+            "home_video",
+            "mixed",
+            "online_catalog",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class LibraryOptionsDtoPreset(
+public value class LibraryOptionsDtoPreset(
     public val wireValue: String,
 ) {
-    @SerialName("movies")
-    Movies("movies"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("tv")
-    Tv("tv"),
+    public companion object {
+        public val Movies: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("movies")
+        public val Tv: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("tv")
+        public val Anime: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("anime")
+        public val Music: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("music")
+        public val Podcast: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("podcast")
+        public val Photos: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("photos")
+        public val HomeVideo: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("home_video")
+        public val MixedVideo: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("mixed_video")
+        public val OnlineCatalog: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("online_catalog")
+        public val Custom: LibraryOptionsDtoPreset = LibraryOptionsDtoPreset("custom")
 
-    @SerialName("anime")
-    Anime("anime"),
-
-    @SerialName("music")
-    Music("music"),
-
-    @SerialName("podcast")
-    Podcast("podcast"),
-
-    @SerialName("photos")
-    Photos("photos"),
-
-    @SerialName("home_video")
-    HomeVideo("home_video"),
-
-    @SerialName("mixed_video")
-    MixedVideo("mixed_video"),
-
-    @SerialName("online_catalog")
-    OnlineCatalog("online_catalog"),
-
-    @SerialName("custom")
-    Custom("custom")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "movies",
+            "tv",
+            "anime",
+            "music",
+            "podcast",
+            "photos",
+            "home_video",
+            "mixed_video",
+            "online_catalog",
+            "custom",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class MetadataProfileDtoLocalMetadataPolicy(
+public value class MetadataProfileDtoLocalMetadataPolicy(
     public val wireValue: String,
 ) {
-    @SerialName("disabled")
-    Disabled("disabled"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("read_only")
-    ReadOnly("read_only"),
+    public companion object {
+        public val Disabled: MetadataProfileDtoLocalMetadataPolicy = MetadataProfileDtoLocalMetadataPolicy("disabled")
+        public val ReadOnly: MetadataProfileDtoLocalMetadataPolicy = MetadataProfileDtoLocalMetadataPolicy("read_only")
+        public val LocalFirst: MetadataProfileDtoLocalMetadataPolicy = MetadataProfileDtoLocalMetadataPolicy("local_first")
+        public val RemoteFirst: MetadataProfileDtoLocalMetadataPolicy = MetadataProfileDtoLocalMetadataPolicy("remote_first")
+        public val WriteSidecar: MetadataProfileDtoLocalMetadataPolicy = MetadataProfileDtoLocalMetadataPolicy("write_sidecar")
 
-    @SerialName("local_first")
-    LocalFirst("local_first"),
-
-    @SerialName("remote_first")
-    RemoteFirst("remote_first"),
-
-    @SerialName("write_sidecar")
-    WriteSidecar("write_sidecar")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "disabled",
+            "read_only",
+            "local_first",
+            "remote_first",
+            "write_sidecar",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class MetadataProfileDtoRefreshMode(
+public value class MetadataProfileDtoRefreshMode(
     public val wireValue: String,
 ) {
-    @SerialName("none")
-    None("none"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("validation_only")
-    ValidationOnly("validation_only"),
+    public companion object {
+        public val None: MetadataProfileDtoRefreshMode = MetadataProfileDtoRefreshMode("none")
+        public val ValidationOnly: MetadataProfileDtoRefreshMode = MetadataProfileDtoRefreshMode("validation_only")
+        public val Default: MetadataProfileDtoRefreshMode = MetadataProfileDtoRefreshMode("default")
+        public val MissingOnly: MetadataProfileDtoRefreshMode = MetadataProfileDtoRefreshMode("missing_only")
+        public val FullRefresh: MetadataProfileDtoRefreshMode = MetadataProfileDtoRefreshMode("full_refresh")
 
-    @SerialName("default")
-    Default("default"),
-
-    @SerialName("missing_only")
-    MissingOnly("missing_only"),
-
-    @SerialName("full_refresh")
-    FullRefresh("full_refresh")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "none",
+            "validation_only",
+            "default",
+            "missing_only",
+            "full_refresh",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class TranscodeSessionDtoFailureCategory(
+public value class TranscodeSessionDtoFailureCategory(
     public val wireValue: String,
 ) {
-    @SerialName("invalid_request")
-    InvalidRequest("invalid_request"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("runner")
-    Runner("runner"),
+    public companion object {
+        public val InvalidRequest: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("invalid_request")
+        public val Runner: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("runner")
+        public val Timeout: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("timeout")
+        public val Storage: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("storage")
+        public val Stale: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("stale")
+        public val Cancelled: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("cancelled")
+        public val Unknown: TranscodeSessionDtoFailureCategory = TranscodeSessionDtoFailureCategory("unknown")
 
-    @SerialName("timeout")
-    Timeout("timeout"),
-
-    @SerialName("storage")
-    Storage("storage"),
-
-    @SerialName("stale")
-    Stale("stale"),
-
-    @SerialName("cancelled")
-    Cancelled("cancelled"),
-
-    @SerialName("unknown")
-    Unknown("unknown")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "invalid_request",
+            "runner",
+            "timeout",
+            "storage",
+            "stale",
+            "cancelled",
+            "unknown",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class TranscodeSessionDtoKind(
+public value class TranscodeSessionDtoKind(
     public val wireValue: String,
 ) {
-    @SerialName("remux")
-    Remux("remux"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("hls_transcode")
-    HlsTranscode("hls_transcode")
+    public companion object {
+        public val Remux: TranscodeSessionDtoKind = TranscodeSessionDtoKind("remux")
+        public val HlsTranscode: TranscodeSessionDtoKind = TranscodeSessionDtoKind("hls_transcode")
 
+        public val KnownWireValues: Set<String> = setOf(
+            "remux",
+            "hls_transcode",
+        )
+    }
 }
 
+@JvmInline
 @Serializable
-public enum class TranscodeSessionDtoState(
+public value class TranscodeSessionDtoState(
     public val wireValue: String,
 ) {
-    @SerialName("planned")
-    Planned("planned"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("starting")
-    Starting("starting"),
+    public companion object {
+        public val Planned: TranscodeSessionDtoState = TranscodeSessionDtoState("planned")
+        public val Starting: TranscodeSessionDtoState = TranscodeSessionDtoState("starting")
+        public val Running: TranscodeSessionDtoState = TranscodeSessionDtoState("running")
+        public val CancelRequested: TranscodeSessionDtoState = TranscodeSessionDtoState("cancel_requested")
+        public val Cancelled: TranscodeSessionDtoState = TranscodeSessionDtoState("cancelled")
+        public val Failed: TranscodeSessionDtoState = TranscodeSessionDtoState("failed")
+        public val Finished: TranscodeSessionDtoState = TranscodeSessionDtoState("finished")
 
-    @SerialName("running")
-    Running("running"),
-
-    @SerialName("cancel_requested")
-    CancelRequested("cancel_requested"),
-
-    @SerialName("cancelled")
-    Cancelled("cancelled"),
-
-    @SerialName("failed")
-    Failed("failed"),
-
-    @SerialName("finished")
-    Finished("finished")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "planned",
+            "starting",
+            "running",
+            "cancel_requested",
+            "cancelled",
+            "failed",
+            "finished",
+        )
+    }
 }
 
 @Serializable
@@ -761,31 +813,33 @@ public data class ClientDirectPlayPlan(
     public val supportsRangeRequests: Boolean,
 )
 
+@JvmInline
 @Serializable
-public enum class ClientMediaKind(
+public value class ClientMediaKind(
     public val wireValue: String,
 ) {
-    @SerialName("movie")
-    Movie("movie"),
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
 
-    @SerialName("series")
-    Series("series"),
+    public companion object {
+        public val Movie: ClientMediaKind = ClientMediaKind("movie")
+        public val Series: ClientMediaKind = ClientMediaKind("series")
+        public val Season: ClientMediaKind = ClientMediaKind("season")
+        public val Episode: ClientMediaKind = ClientMediaKind("episode")
+        public val Collection: ClientMediaKind = ClientMediaKind("collection")
+        public val Extra: ClientMediaKind = ClientMediaKind("extra")
+        public val Unknown: ClientMediaKind = ClientMediaKind("unknown")
 
-    @SerialName("season")
-    Season("season"),
-
-    @SerialName("episode")
-    Episode("episode"),
-
-    @SerialName("collection")
-    Collection("collection"),
-
-    @SerialName("extra")
-    Extra("extra"),
-
-    @SerialName("unknown")
-    Unknown("unknown")
-
+        public val KnownWireValues: Set<String> = setOf(
+            "movie",
+            "series",
+            "season",
+            "episode",
+            "collection",
+            "extra",
+            "unknown",
+        )
+    }
 }
 
 @Serializable

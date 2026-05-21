@@ -1,6 +1,7 @@
 package dev.taru.sdk
 
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -138,7 +139,7 @@ class TaruClientSdkTest {
     }
 
     @Test
-    fun decodesHealthEnvelopeWithGeneratedEnum() {
+    fun decodesHealthEnvelopeWithGeneratedWireValue() {
         val health = json.decodeFromString<HealthResponse>(
             """{"status":"ok","version":"v1"}""",
         )
@@ -146,6 +147,26 @@ class TaruClientSdkTest {
         assertEquals("ok", health.status)
         assertEquals(HealthResponseVersion.V1, health.version)
         assertEquals("v1", health.version.wireValue)
+        assertTrue(health.version.isKnown)
+    }
+
+    @Test
+    fun decodesUnknownPublicWireValuesWithoutLosingRawValue() {
+        val health = json.decodeFromString<HealthResponse>(
+            """{"status":"ok","version":"v2"}""",
+        )
+        val error = json.decodeFromString<ErrorResponse>(
+            """{"code":"rate_limited","message":"wait before retrying"}""",
+        )
+
+        assertEquals("v2", health.version.wireValue)
+        assertFalse(health.version.isKnown)
+        assertEquals("rate_limited", error.code.wireValue)
+        assertFalse(error.code.isKnown)
+        assertEquals(
+            """{"status":"ok","version":"v2"}""",
+            json.encodeToString(HealthResponse(status = "ok", version = HealthResponseVersion("v2"))),
+        )
     }
 
     @Test

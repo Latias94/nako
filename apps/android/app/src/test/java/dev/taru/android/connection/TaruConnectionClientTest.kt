@@ -156,6 +156,31 @@ class TaruConnectionClientTest {
     }
 
     @Test
+    fun `unsupported body api version uses generated tolerant health response`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = emptyMap(),
+                    body = """{"status":"ok","version":"vNext"}""",
+                ),
+            ),
+        )
+        val client = TaruConnectionClient(transport = transport)
+
+        val result = client.testConnection(
+            baseUrlInput = "https://taru.example.test",
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is ConnectionCheckResult.Failure)
+        val diagnostics = (result as ConnectionCheckResult.Failure).diagnostics
+        assertEquals(ConnectionFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("vNext", diagnostics.observedApiVersion)
+        assertEquals(1, transport.requests.size)
+    }
+
+    @Test
     fun `invalid url and missing token fail locally without transport`() = runBlocking {
         val transport = FakeTransport()
         val client = TaruConnectionClient(

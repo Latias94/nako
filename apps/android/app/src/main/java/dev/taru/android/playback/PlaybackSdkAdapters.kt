@@ -41,10 +41,11 @@ private fun SdkClientPlaybackDecision.toAndroid(): ClientPlaybackDecision =
     )
 
 private fun SdkClientPlaybackDecisionMode.toAndroid(): ClientPlaybackMode =
-    when (this) {
-        SdkClientPlaybackDecisionMode.DirectPlay -> ClientPlaybackMode.DirectPlay
-        SdkClientPlaybackDecisionMode.Remux -> ClientPlaybackMode.Remux
-        SdkClientPlaybackDecisionMode.Transcode -> ClientPlaybackMode.Transcode
+    when (wireValue) {
+        SdkClientPlaybackDecisionMode.DirectPlay.wireValue -> ClientPlaybackMode.DirectPlay
+        SdkClientPlaybackDecisionMode.Remux.wireValue -> ClientPlaybackMode.Remux
+        SdkClientPlaybackDecisionMode.Transcode.wireValue -> ClientPlaybackMode.Transcode
+        else -> ClientPlaybackMode.Unknown
     }
 
 private fun SdkClientDirectPlayPlan.toAndroid(): ClientDirectPlayPlan =
@@ -63,18 +64,20 @@ private fun SdkClientTranscodePlan.toAndroid(): ClientTranscodePlan =
     )
 
 private fun SdkClientOutputContainer.toAndroid(): ClientOutputContainer =
-    when (this) {
-        SdkClientOutputContainer.Hls -> ClientOutputContainer.Hls
-        SdkClientOutputContainer.Mp4 -> ClientOutputContainer.Mp4
-        SdkClientOutputContainer.Mkv -> ClientOutputContainer.Mkv
+    when (wireValue) {
+        SdkClientOutputContainer.Hls.wireValue -> ClientOutputContainer.Hls
+        SdkClientOutputContainer.Mp4.wireValue -> ClientOutputContainer.Mp4
+        SdkClientOutputContainer.Mkv.wireValue -> ClientOutputContainer.Mkv
+        else -> ClientOutputContainer.Unknown
     }
 
 private fun SdkClientHardwareAcceleration.toAndroid(): ClientHardwareAcceleration =
-    when (this) {
-        SdkClientHardwareAcceleration.None -> ClientHardwareAcceleration.None
-        SdkClientHardwareAcceleration.Vaapi -> ClientHardwareAcceleration.Vaapi
-        SdkClientHardwareAcceleration.Nvenc -> ClientHardwareAcceleration.Nvenc
-        SdkClientHardwareAcceleration.QuickSync -> ClientHardwareAcceleration.QuickSync
+    when (wireValue) {
+        SdkClientHardwareAcceleration.None.wireValue -> ClientHardwareAcceleration.None
+        SdkClientHardwareAcceleration.Vaapi.wireValue -> ClientHardwareAcceleration.Vaapi
+        SdkClientHardwareAcceleration.Nvenc.wireValue -> ClientHardwareAcceleration.Nvenc
+        SdkClientHardwareAcceleration.QuickSync.wireValue -> ClientHardwareAcceleration.QuickSync
+        else -> ClientHardwareAcceleration.Unknown
     }
 
 internal fun SdkTranscodeSessionResponse.toAndroid(): TranscodeSessionResponse =
@@ -96,29 +99,32 @@ private fun SdkTranscodeSessionDto.toAndroid(): TranscodeSessionDto =
     )
 
 private fun SdkTranscodeSessionKind.toAndroid(): ClientTranscodeSessionKind =
-    when (this) {
-        SdkTranscodeSessionKind.Remux -> ClientTranscodeSessionKind.Remux
-        SdkTranscodeSessionKind.HlsTranscode -> ClientTranscodeSessionKind.HlsTranscode
+    when (wireValue) {
+        SdkTranscodeSessionKind.Remux.wireValue -> ClientTranscodeSessionKind.Remux
+        SdkTranscodeSessionKind.HlsTranscode.wireValue -> ClientTranscodeSessionKind.HlsTranscode
+        else -> ClientTranscodeSessionKind.Unknown
     }
 
 private fun SdkTranscodeSessionState.toAndroid(): ClientTranscodeSessionState =
-    when (this) {
-        SdkTranscodeSessionState.Planned -> ClientTranscodeSessionState.Planned
-        SdkTranscodeSessionState.Starting -> ClientTranscodeSessionState.Starting
-        SdkTranscodeSessionState.Running -> ClientTranscodeSessionState.Running
-        SdkTranscodeSessionState.CancelRequested -> ClientTranscodeSessionState.CancelRequested
-        SdkTranscodeSessionState.Cancelled -> ClientTranscodeSessionState.Cancelled
-        SdkTranscodeSessionState.Failed -> ClientTranscodeSessionState.Failed
-        SdkTranscodeSessionState.Finished -> ClientTranscodeSessionState.Finished
+    when (wireValue) {
+        SdkTranscodeSessionState.Planned.wireValue -> ClientTranscodeSessionState.Planned
+        SdkTranscodeSessionState.Starting.wireValue -> ClientTranscodeSessionState.Starting
+        SdkTranscodeSessionState.Running.wireValue -> ClientTranscodeSessionState.Running
+        SdkTranscodeSessionState.CancelRequested.wireValue -> ClientTranscodeSessionState.CancelRequested
+        SdkTranscodeSessionState.Cancelled.wireValue -> ClientTranscodeSessionState.Cancelled
+        SdkTranscodeSessionState.Failed.wireValue -> ClientTranscodeSessionState.Failed
+        SdkTranscodeSessionState.Finished.wireValue -> ClientTranscodeSessionState.Finished
+        else -> ClientTranscodeSessionState.Unknown
     }
 
 private fun SdkTranscodeFailureCategory.toAndroid(): ClientTranscodeFailureCategory =
-    when (this) {
-        SdkTranscodeFailureCategory.InvalidRequest -> ClientTranscodeFailureCategory.InvalidRequest
-        SdkTranscodeFailureCategory.Runner -> ClientTranscodeFailureCategory.Runner
-        SdkTranscodeFailureCategory.Timeout -> ClientTranscodeFailureCategory.Timeout
-        SdkTranscodeFailureCategory.Storage -> ClientTranscodeFailureCategory.Storage
-        SdkTranscodeFailureCategory.Stale -> ClientTranscodeFailureCategory.Stale
-        SdkTranscodeFailureCategory.Cancelled -> ClientTranscodeFailureCategory.Cancelled
-        SdkTranscodeFailureCategory.Unknown -> ClientTranscodeFailureCategory.Unknown
+    when (wireValue) {
+        SdkTranscodeFailureCategory.InvalidRequest.wireValue -> ClientTranscodeFailureCategory.InvalidRequest
+        SdkTranscodeFailureCategory.Runner.wireValue -> ClientTranscodeFailureCategory.Runner
+        SdkTranscodeFailureCategory.Timeout.wireValue -> ClientTranscodeFailureCategory.Timeout
+        SdkTranscodeFailureCategory.Storage.wireValue -> ClientTranscodeFailureCategory.Storage
+        SdkTranscodeFailureCategory.Stale.wireValue -> ClientTranscodeFailureCategory.Stale
+        SdkTranscodeFailureCategory.Cancelled.wireValue -> ClientTranscodeFailureCategory.Cancelled
+        SdkTranscodeFailureCategory.Unknown.wireValue -> ClientTranscodeFailureCategory.Unknown
+        else -> ClientTranscodeFailureCategory.Unknown
     }

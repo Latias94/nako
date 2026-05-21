@@ -56,6 +56,7 @@ internal fun playbackModeLabel(mode: ClientPlaybackMode): String =
         ClientPlaybackMode.DirectPlay -> "Direct"
         ClientPlaybackMode.Remux -> "Remux"
         ClientPlaybackMode.Transcode -> "HLS"
+        ClientPlaybackMode.Unknown -> "Unknown"
     }
 
 internal fun byteSizeLabel(sizeBytes: Long?): String {

@@ -172,6 +172,61 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `unknown playback decision mode decodes to safe unsupported fallback`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "source": {
+                        "id": "source 1",
+                        "library_id": "library-1",
+                        "item_id": "item-1",
+                        "file_name": "night-harbor.mkv",
+                        "size_bytes": 42,
+                        "fingerprint": null
+                      },
+                      "probe": null,
+                      "decision": {
+                        "mode": "server_future_mode",
+                        "reason": "future server mode",
+                        "direct_play": null,
+                        "transcode_plan": null
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.getPlaybackDecision(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            sourceId = "source 1",
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals(ClientPlaybackMode.Unknown, success.value.decision.mode)
+        assertEquals(null, client.recommendedPlaybackTarget(profile("http://home.example.test"), success.value))
+
+        val prepared = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = success.value,
+        )
+
+        assertTrue(prepared is PlaybackResult.Failure)
+        assertEquals(
+            PlaybackFailureCategory.UnsupportedSource,
+            (prepared as PlaybackResult.Failure).diagnostics.category,
+        )
+        assertTrue(transport.requests.size == 1)
+        assertFalse(prepared.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `streaming targets use stable paths methods headers queries and safe previews`() {
         val client = TaruPlaybackClient(FakePlaybackTransport())
         val profile = profile("http://home.example.test/api")
@@ -824,6 +879,10 @@ class TaruPlaybackClientTest {
                         audioCodec = "aac",
                         hardwareAcceleration = ClientHardwareAcceleration.None,
                     ),
+                )
+                ClientPlaybackMode.Unknown -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Unknown,
+                    reason = "unknown",
                 )
             },
         )

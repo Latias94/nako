@@ -67,6 +67,7 @@ internal fun playerModeLabel(mode: ClientPlaybackMode): String =
         ClientPlaybackMode.DirectPlay -> "Direct"
         ClientPlaybackMode.Remux -> "Remux"
         ClientPlaybackMode.Transcode -> "HLS"
+        ClientPlaybackMode.Unknown -> "Unknown"
     }
 
 private fun resumeSourceLabel(source: PlaybackResumeSource?): String =

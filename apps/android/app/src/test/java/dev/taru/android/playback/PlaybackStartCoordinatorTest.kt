@@ -246,6 +246,10 @@ class PlaybackStartCoordinatorTest {
                         hardwareAcceleration = ClientHardwareAcceleration.None,
                     ),
                 )
+                ClientPlaybackMode.Unknown -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Unknown,
+                    reason = "unknown",
+                )
             },
         )
 
