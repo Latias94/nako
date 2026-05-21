@@ -7,14 +7,15 @@
   "scope_kind": "execution",
   "problem": "Managed Import previews and NFO/link dry-runs need an operator-confirmed, auditable, rollback-aware mutation boundary before staged artifacts can become Media Sources in a Media Library.",
   "task_prefix": "LAIP",
-  "current_task": "LAIP-070",
+  "current_task": "LAIP-080",
   "completed_tasks": [
     "LAIP-010",
     "LAIP-020",
     "LAIP-030",
     "LAIP-040",
     "LAIP-050",
-    "LAIP-060"
+    "LAIP-060",
+    "LAIP-070"
   ],
   "authoritative_docs": [
     {
@@ -51,6 +52,7 @@
     "docs/workstreams/link-apply-and-import-promotion/EVIDENCE_AND_GATES.md",
     "docs/workstreams/managed-import-staging/DESIGN.md",
     "docs/workstreams/nfo-link-authority/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
     "crates/taru-core/src/managed_import.rs",
     "crates/taru-core/src/repository/managed_import.rs",
     "crates/taru-db/migrations/0032_managed_import_promotion_applies.sql",
@@ -75,7 +77,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "LAIP-070",
-    "notes": "Durable promotion acceptance/audit, app-service acceptance/replay, VFS-mediated copy/hardlink/symlink apply primitives, first server-side promotion apply orchestration, and post-storage catalog failure cleanup audit gates are implemented. Next decide whether NFO sidecar mutation remains in this lane or splits to a dedicated sidecar-promotion workstream."
+    "next_task": "LAIP-080",
+    "notes": "Durable promotion acceptance/audit, app-service acceptance/replay, VFS-mediated copy/hardlink/symlink apply primitives, first server-side promotion apply orchestration, and post-storage catalog failure cleanup audit gates are implemented. NFO sidecar import/export mutation is split to docs/workstreams/nfo-sidecar-promotion-apply as a separate accepted Library File Write and metadata-authority lane. Next close or split LAIP and return to post-rpd-product-hardening for lane scoring."
   }
 }

@@ -143,6 +143,14 @@ torrent, Usenet, or protocol-specific acquisition in core Taru.
 Status: staging and non-mutating promotion preview completed on 2026-05-21.
 Actual promotion apply is split to `link-apply-and-import-promotion`.
 
+Status: promotion apply safety progressed on 2026-05-21.
+`link-apply-and-import-promotion` implemented durable acceptance/audit,
+app-service replay,
+VFS-mediated copy/hardlink/symlink target apply, catalog commit ordering,
+duplicate evidence, and cleanup-complete/cleanup-pending audit. LAIP-070 split
+NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply` because it
+is a separate **Library File Write** and metadata-authority workflow.
+
 ### Wave 4 — Network And AI
 
 Harden remote access endpoints and add AI assistance only after the metadata
@@ -274,6 +282,20 @@ Media Library root from a staged artifact.
 Downloads remain downstream of this decision. The next shape is not a generic
 downloader; it is first a safe promotion apply boundary for already-staged
 artifacts.
+
+## Post-LAIP-070 Split Decision — 2026-05-21
+
+The apply boundary is now split into two separate mutation classes:
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| Link Apply And Import Promotion | Closing | It owns accepted staged artifact promotion, VFS-mediated target creation, catalog commit ordering, duplicate evidence, and cleanup audit. NFO sidecar mutation has been split out. | Finish LAIP-080 closeout before starting another mutation lane. |
+| NFO Sidecar Promotion Apply | High | NFO export/import is the next local data-loss boundary: sidecar backup, round-trip preservation, local authority, field locks, hierarchy confirmation, rollback/repair, idempotency, and audit need a dedicated lane. | Opened as `nfo-sidecar-promotion-apply`; execute after LAIP closeout if local metadata authority remains the highest risk. |
+| Playback / Transcode Ops Hardening | High sidecar | Daily playback confidence still matters and can stay mostly disjoint if limited to diagnostics, preset validation, fallback reasons, and runtime evidence. | Re-score against NFO sidecar apply after LAIP closeout. |
+| Network Access Boundary | Useful but not data-authority critical | Remote access should consume existing auth/deployment boundaries and avoid weakening library mutation policy. | Defer or run as docs/runtime sidecar. |
+| AI Assisted Library Ops | Blocked by acceptance durability | AI suggestions should enter as generated artifacts and reuse accepted metadata/import/sidecar apply boundaries. | Defer until accepted side-effect lanes are stable. |
+| Addon Runtime / Distribution | Downstream consumer | Addons should call Taru-owned apply/file-write APIs instead of inventing direct filesystem mutation. | Defer until core side-effect APIs are proven. |
+| Downloads / Watch Folder | Downstream of promotion apply | Acquisition should produce staged artifacts and use existing promotion apply; it should not bypass sidecar/file-write policy. | Re-score after LAIP closeout and NFO sidecar apply decision. |
 
 ## Closeout Condition
 

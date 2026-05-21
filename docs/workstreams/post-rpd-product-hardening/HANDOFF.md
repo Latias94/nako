@@ -13,18 +13,23 @@ is complete with VFS link dry-run diagnostics, Source Duplicate Relationship
 filesystem-link suggestions, NFO authority preview, and the link apply split
 decision. `managed-import-staging` is complete as a non-mutating staging and
 promotion-preview lane. The next mainline lane is
-`link-apply-and-import-promotion`.
+`link-apply-and-import-promotion`, now at LAIP-080 closeout after implementing
+accepted promotion apply, VFS-mediated target creation, catalog commit ordering,
+duplicate evidence, and cleanup-complete/cleanup-pending audit. LAIP-070 split
+NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply`.
 
 ## Active Task
 
 - Task ID: PRPH-070
 - Owner: planner
 - Files: `docs/workstreams/post-rpd-product-hardening`,
-  `docs/workstreams/managed-import-staging`,
-  `docs/workstreams/link-apply-and-import-promotion`
-- Validation: child closeout reviewed; next executable lane recorded
+  `docs/workstreams/link-apply-and-import-promotion`,
+  `docs/workstreams/nfo-sidecar-promotion-apply`
+- Validation: LAIP closeout reviewed; next executable lane recorded
 - Status: ACTIVE
-- Review: route execution through `link-apply-and-import-promotion`
+- Review: finish `link-apply-and-import-promotion` LAIP-080, then re-score
+  `nfo-sidecar-promotion-apply`, playback/transcode ops, network, AI, addon
+  runtime, and downloads/watch-folder
 - Evidence: `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`
 
 ## Decisions Since Last Update
@@ -51,16 +56,23 @@ promotion-preview lane. The next mainline lane is
 - Actual promotion apply is split to `link-apply-and-import-promotion` because
   it requires operator confirmation, plan revalidation, durable audit,
   rollback/cleanup, VFS-only mutation, and catalog consistency.
+- `link-apply-and-import-promotion` has implemented accepted promotion apply
+  through cleanup/rollback gates.
+- NFO sidecar import/export mutation is split to
+  `nfo-sidecar-promotion-apply` because it is a separate accepted **Library
+  File Write** and metadata-authority workflow with backup, retention,
+  field-lock, hierarchy-confirmation, rollback/repair, idempotency, and
+  redacted audit requirements.
 - Keep playback/transcode ops hardening as a parallel sidecar candidate only
   if it stays diagnostic/runtime-focused and avoids NFO/import write scope.
 
 ## Blockers
 
-- None for LAIP-030.
+- None for LAIP-080.
 
 ## Next Recommended Action
 
-- Execute `link-apply-and-import-promotion` LAIP-030.
+- Execute `link-apply-and-import-promotion` LAIP-080 closeout.
 - Keep `post-rpd-product-hardening` active while it continues ordering the next
-  product-hardening lanes. Re-score playback/transcode ops, network, AI, and
-  addon runtime after the apply boundary is proven or split.
+  product-hardening lanes. Re-score NFO sidecar apply, playback/transcode ops,
+  network, AI, addon runtime, and downloads/watch-folder after LAIP closeout.

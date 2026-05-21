@@ -30,13 +30,13 @@ after storage target creation.
 
 ## Active Task
 
-- Task ID: LAIP-070
+- Task ID: LAIP-080
 - Owner: planner
 - Files: `docs/workstreams/link-apply-and-import-promotion`
-- Validation: DESIGN/HANDOFF record whether NFO sidecar mutation stays in this
-  lane or splits, with backup, authority, rollback, and audit requirements.
+- Validation: evidence gates are fresh; parent umbrella points to the next lane;
+  NFO sidecar follow-on is explicitly represented.
 - Status: READY
-- Evidence: LAIP-010 through LAIP-060 are recorded in `EVIDENCE_AND_GATES.md`
+- Evidence: LAIP-010 through LAIP-070 are recorded in `EVIDENCE_AND_GATES.md`
 
 ## Decisions
 
@@ -64,13 +64,21 @@ after storage target creation.
   marks failed applies or artifacts as promoted.
 - LAIP-060 does not move/delete source artifacts and does not mutate NFO
   sidecars.
+- LAIP-070 splits NFO sidecar import/export mutation to
+  `docs/workstreams/nfo-sidecar-promotion-apply` because it is a separate
+  accepted **Library File Write** and metadata-authority workflow. It needs
+  NFO Round Trip preservation, backup, atomic replace, backup retention,
+  field-lock/local-authority application, hierarchy confirmation, rollback or
+  repair-pending semantics, idempotent replay, and redacted audit evidence.
+- LAIP must not call `taru-nfo` to mutate sidecars or run an implicit NFO
+  post-hook during Managed Import promotion.
 
 ## Blockers
 
-- None for LAIP-070.
+- None for LAIP-080.
 
 ## Next Recommended Action
 
-- Execute LAIP-070: decide whether NFO sidecar import/export apply belongs in
-  this lane or should split to a dedicated sidecar-promotion lane before any NFO
-  file-write behavior is implemented.
+- Execute LAIP-080: verify docs/JSON hygiene, close or split the LAIP lane, and
+  return to `post-rpd-product-hardening` for next-lane scoring. The NFO sidecar
+  follow-on starts at `nfo-sidecar-promotion-apply` NSPA-020 when chosen.

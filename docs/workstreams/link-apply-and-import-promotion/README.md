@@ -2,6 +2,9 @@
 
 Status: Active
 
+Current task: LAIP-080 closeout. LAIP-070 split NFO sidecar import/export
+mutation to `nfo-sidecar-promotion-apply`.
+
 This workstream is the follow-on split from `managed-import-staging` and
 `nfo-link-authority`. It owns the first safe mutation path from a Managed Import
 promotion preview into a Media Library: operator-confirmed copy, hardlink, or
@@ -22,8 +25,9 @@ specific apply command authorized, idempotent, reversible, and observable.
 - Commit Media Source and Source Duplicate Relationship state only after the
   target locator is durable.
 - Record rollback or cleanup-pending evidence after partial failure.
-- Keep NFO import/export side effects explicit and out of the first apply slice
-  unless their backup/authority gates are part of the accepted operation.
+- Keep NFO import/export side effects explicit and split to
+  `nfo-sidecar-promotion-apply` instead of hiding them in Managed Import
+  promotion.
 
 ## Non-Goals
 
@@ -48,6 +52,7 @@ specific apply command authorized, idempotent, reversible, and observable.
 
 - [managed-import-staging](../managed-import-staging/README.md)
 - [nfo-link-authority](../nfo-link-authority/README.md)
+- [nfo-sidecar-promotion-apply](../nfo-sidecar-promotion-apply/README.md)
 - [post-rpd-product-hardening](../post-rpd-product-hardening/README.md)
 - [addon-library-file-write-policy](../addon-library-file-write-policy/README.md)
 - [managed-artwork-fetch-artifact-storage](../managed-artwork-fetch-artifact-storage/README.md)

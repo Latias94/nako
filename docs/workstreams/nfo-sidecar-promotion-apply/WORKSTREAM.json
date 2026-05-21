@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "slug": "nfo-sidecar-promotion-apply",
+  "title": "NFO Sidecar Promotion Apply",
+  "status": "active",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "NFO authority preview and safe sidecar write primitives exist, but actual NFO import/export mutation needs its own accepted, idempotent, rollback-aware Library File Write and metadata-authority boundary.",
+  "task_prefix": "NSPA",
+  "current_task": "NSPA-020",
+  "completed_tasks": [
+    "NSPA-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/nfo-sidecar-promotion-apply/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/nfo-sidecar-promotion-apply/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/nfo-sidecar-promotion-apply/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast",
+    "cargo nextest run -p taru-nfo --no-fail-fast",
+    "cargo nextest run -p taru-vfs nfo --no-fail-fast",
+    "cargo nextest run -p taru-server nfo --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/TODO.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
+    "docs/workstreams/nfo-link-authority/DESIGN.md",
+    "docs/workstreams/nfo-round-trip-preservation/DESIGN.md",
+    "docs/workstreams/nfo-storage-write-policy/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-backup-policy/DESIGN.md",
+    "docs/workstreams/nfo-backup-retention-diagnostics/DESIGN.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0002-internal-vfs-before-os-mounting.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "NSPA-020",
+    "notes": "Planning lane is open. Start with durable sidecar apply acceptance/audit records after LAIP-080 closeout or explicit post-rpd-product-hardening re-score."
+  }
+}

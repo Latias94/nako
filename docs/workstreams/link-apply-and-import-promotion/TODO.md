@@ -93,13 +93,20 @@ Task IDs use the `LAIP` prefix.
 
 ## M6 — NFO Sidecar Mutation Split Decision
 
-- [ ] LAIP-070 [owner=planner] [deps=LAIP-050,LAIP-060] [scope=docs/workstreams/link-apply-and-import-promotion]
+- [x] LAIP-070 [owner=planner] [deps=LAIP-050,LAIP-060] [scope=docs/workstreams/link-apply-and-import-promotion]
   Goal: Decide whether NFO import/export apply belongs in this lane or must
   split to a dedicated sidecar-promotion lane.
   Validation: DESIGN/HANDOFF record backup, authority, rollback, and audit
   requirements.
-  Evidence: updated split decision.
-  Handoff: Implement NFO sidecar apply or split follow-on.
+  Evidence: Completed by splitting NFO sidecar import/export mutation to
+  `docs/workstreams/nfo-sidecar-promotion-apply`. LAIP remains responsible for
+  accepted Media Source promotion, VFS-mediated copy/hardlink/symlink target
+  creation, catalog commit ordering, duplicate evidence, and cleanup audit.
+  NFO sidecar apply becomes a separate accepted Library File Write and
+  metadata-authority lane with backup, rollback/repair, retention, field-lock,
+  hierarchy-confirmation, and redacted audit requirements.
+  Handoff: Close or split LAIP in LAIP-080, then return to the umbrella for
+  lane re-scoring.
 
 ## M7 — Closeout
 

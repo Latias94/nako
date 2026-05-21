@@ -96,8 +96,13 @@ Primary evidence:
 
 Exit criteria:
 
-- NFO sidecar mutation is either implemented with backup/audit proof or split.
-- NFO import/export is not smuggled into promotion apply.
+- [x] NFO sidecar mutation is either implemented with backup/audit proof or split.
+- [x] NFO import/export is not smuggled into promotion apply.
+
+Primary evidence:
+
+- Split decision in `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`.
+- Follow-on workstream in `docs/workstreams/nfo-sidecar-promotion-apply`.
 
 ## M7 — Closeout
 

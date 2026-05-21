@@ -32,7 +32,8 @@
     "docs/workstreams/metadata-provider-breadth",
     "docs/workstreams/nfo-link-authority",
     "docs/workstreams/managed-import-staging",
-    "docs/workstreams/link-apply-and-import-promotion"
+    "docs/workstreams/link-apply-and-import-promotion",
+    "docs/workstreams/nfo-sidecar-promotion-apply"
   ],
   "completed_child_workstreams": [
     "docs/workstreams/metadata-provider-breadth",
@@ -50,7 +51,8 @@
     "docs/workstreams/nfo-link-authority/DESIGN.md",
     "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md",
     "docs/workstreams/managed-import-staging/DESIGN.md",
-    "docs/workstreams/link-apply-and-import-promotion/DESIGN.md"
+    "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
@@ -60,7 +62,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "link-apply-and-import-promotion LAIP-030",
-    "notes": "Metadata provider breadth, NFO/link authority, and Managed Import Staging are completed; LAIP-020 durable promotion acceptance/audit is implemented. Next mainline task is LAIP-030 app-service acceptance/replay without storage mutation. Do not implement downloader/watch-folder/addon autonomous apply until promotion idempotency, plan revalidation, rollback/cleanup, VFS-only mutation, and catalog consistency are proven. Playback/transcode ops hardening remains the safest parallel sidecar candidate if its write scope stays disjoint."
+    "next_task": "link-apply-and-import-promotion LAIP-080",
+    "notes": "Metadata provider breadth, NFO/link authority, and Managed Import Staging are completed. LAIP has implemented durable promotion acceptance/audit, app-service acceptance/replay, VFS-mediated copy/hardlink/symlink target apply, server-side catalog commit ordering, duplicate evidence, and cleanup-complete/cleanup-pending audit after catalog failure. LAIP-070 split NFO sidecar import/export mutation to docs/workstreams/nfo-sidecar-promotion-apply. Next close LAIP, then re-score NFO sidecar apply, playback/transcode ops, network, AI, addon runtime, and downloads/watch-folder. Do not implement downloader/watch-folder/addon autonomous apply until accepted apply, rollback/repair, VFS-only mutation, and catalog/sidecar consistency are proven."
   }
 }

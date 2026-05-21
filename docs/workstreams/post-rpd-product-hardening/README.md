@@ -3,7 +3,8 @@
 ## Status
 
 Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete; the
-next recommended execution lane is `nfo-link-authority`.
+current mainline execution lane is `link-apply-and-import-promotion` closeout,
+with `nfo-sidecar-promotion-apply` opened as a follow-on split.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -29,18 +30,21 @@ product risk is whether Taru can safely manage a real library:
 
 1. `metadata-provider-breadth`
 2. `nfo-link-authority`
-3. `playback-transcode-ops-hardening`
-4. `managed-import-staging`
-5. `network-access-boundary`
-6. `ai-assisted-library-ops`
-7. `addon-runtime-and-distribution`
+3. `managed-import-staging`
+4. `link-apply-and-import-promotion`
+5. `nfo-sidecar-promotion-apply`
+6. `playback-transcode-ops-hardening`
+7. `network-access-boundary`
+8. `ai-assisted-library-ops`
+9. `addon-runtime-and-distribution`
 
 ## Current Decision
 
-After closing `metadata-provider-breadth`, the next mainline lane should be
-`nfo-link-authority`. Playback/transcode ops hardening is a good parallel
-sidecar only if its write scope stays disjoint. Managed import/download staging
-must wait until local file authority and rollback rules are explicit.
+After Managed Import promotion apply proved VFS-mediated target creation,
+catalog commit ordering, duplicate evidence, and cleanup audit, LAIP-070 split
+NFO sidecar mutation to `nfo-sidecar-promotion-apply`. Finish LAIP closeout
+first, then re-score whether NFO sidecar apply or playback/transcode ops
+hardening should be the next mainline lane.
 
 ## Authoritative Docs
 
@@ -54,6 +58,10 @@ must wait until local file authority and rollback rules are explicit.
 
 - [release-packaging-and-distribution](../release-packaging-and-distribution/README.md)
 - [metadata-provider-breadth](../metadata-provider-breadth/README.md)
+- [nfo-link-authority](../nfo-link-authority/README.md)
+- [managed-import-staging](../managed-import-staging/README.md)
+- [link-apply-and-import-promotion](../link-apply-and-import-promotion/README.md)
+- [nfo-sidecar-promotion-apply](../nfo-sidecar-promotion-apply/README.md)
 - [metadata-catalog](../metadata-catalog/README.md)
 - [transcode-runtime](../transcode-runtime/README.md)
 - [nfo-round-trip-preservation](../nfo-round-trip-preservation/README.md)

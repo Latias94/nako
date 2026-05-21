@@ -72,7 +72,7 @@ missing or unauthorized target.
 - Torrent/Usenet/download-client protocols.
 - Watch-folder daemon runtime.
 - Move/delete source apply in the first slice.
-- NFO sidecar export/import mutation in the first slice.
+- NFO sidecar export/import mutation in this lane.
 - Public Client API.
 - Admin UI.
 - AI or Addon autonomous apply.
@@ -100,7 +100,8 @@ taru-server
 
 taru-nfo
   Remains explicit authority for sidecar import/export. It is not called by the
-  first apply slice unless a later task adds accepted NFO mutation gates.
+  promotion apply path. Accepted NFO sidecar mutation is split to the dedicated
+  `nfo-sidecar-promotion-apply` lane.
 ```
 
 ### Promotion Apply State Model
@@ -158,6 +159,49 @@ provider payloads in operator-facing reports. Internal records may keep stable
 IDs and source locator schemes needed for diagnosis, following existing Taru
 redaction conventions.
 
+## NFO Sidecar Mutation Split Decision
+
+LAIP-070 splits NFO sidecar import/export mutation to
+`docs/workstreams/nfo-sidecar-promotion-apply`.
+
+The reason is architectural boundary, not schedule deferral. Promotion apply
+turns a staged artifact into a durable **Media Source** by creating or verifying
+the target locator, then committing catalog state. NFO sidecar mutation is a
+separate **Library File Write** and metadata-authority operation:
+
+- export writes canonical metadata back to an NFO sidecar while preserving
+  third-party XML through **NFO Round Trip**;
+- import reads local NFO metadata into canonical metadata and may confirm a
+  **Provisional Hierarchy**;
+- both directions must respect field locks, local authority, per-library export
+  policy, backup requirements, bounded backup retention, and redacted audit
+  reporting;
+- partial failure semantics are different from Media Source promotion because a
+  sidecar write can succeed while metadata/audit commit fails, or metadata
+  import can commit while no sidecar write occurred.
+
+Therefore this lane owns only:
+
+- accepted Managed Import promotion;
+- VFS-mediated copy/hardlink/symlink target creation;
+- Media Item / Media Source / Library Item State commits after target
+  durability;
+- duplicate relationship persistence tied to promotion evidence;
+- cleanup-complete or cleanup-pending audit after promotion partial failure.
+
+The follow-on NFO lane owns:
+
+- explicit sidecar apply acceptance and idempotent replay;
+- revalidation of the current NFO authority preview before mutation;
+- backup, atomic replace, retention diagnostics, and rollback/repair-pending
+  outcomes for sidecar writes;
+- application of local NFO authority to canonical metadata, field locks, and
+  hierarchy confirmation;
+- redacted audit evidence that never exposes raw library paths.
+
+LAIP must not call `taru-nfo` to mutate sidecars, and NFO sidecar apply must not
+be smuggled into Managed Import promotion as an implicit post-hook.
+
 ## First Slice Recommendation
 
 Start with durable acceptance/audit records before storage mutation:
@@ -178,6 +222,6 @@ This lane can close when:
 - copy/hardlink/symlink apply is mediated by VFS/storage, not OS paths;
 - catalog writes are committed only after target locator durability is proven;
 - rollback or cleanup-pending behavior is tested after injected partial failure;
-- NFO sidecar mutation remains explicit and deferred unless fully gated;
+- NFO sidecar mutation is split to a dedicated accepted Library File Write lane;
 - focused Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
   pass.

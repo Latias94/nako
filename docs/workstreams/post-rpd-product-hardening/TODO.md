@@ -37,3 +37,15 @@ tasks belong in child workstreams.
   Validation: Fresh review of active/deferred lanes and workstream index.
   Evidence: EVIDENCE_AND_GATES.md and HANDOFF.md.
   Handoff: Keep this umbrella active only while it reduces coordination cost.
+
+## M4 — Post-LAIP Lane Scoring
+
+- [ ] PRPH-080 [owner=planner] [deps=LAIP-080] [scope=docs/workstreams/post-rpd-product-hardening]
+  Goal: Re-score NFO sidecar apply, playback/transcode ops, network, AI, addon
+  runtime, and downloads/watch-folder after Managed Import promotion apply
+  closeout.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, and
+  HANDOFF.md agree on the next executable lane.
+  Evidence: LAIP closeout evidence and `nfo-sidecar-promotion-apply` planning
+  docs.
+  Handoff: Execute the chosen next child workstream.
