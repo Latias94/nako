@@ -148,6 +148,19 @@ The addon must respond with the same `protocol_version`, `addon_id`,
 
 Taru validates response identity fields before trusting the response.
 
+Admin resource-call diagnostics use this same resource envelope to exercise a
+declared resource with bounded retry/timeout behavior. Diagnostic Admin
+responses are intentionally classification-only: Taru reports safe facts such
+as success, missing resource, missing grant, authorization gap, unreachable
+transport, protocol mismatch, retryable or non-retryable HTTP failure, unsafe
+response, latency, attempts, and HTTP status. It does not echo the diagnostic
+payload, addon response payload, raw response body, admin bearer tokens, Addon
+Tokens, Source Locators, storage paths, provider secrets, or raw network
+errors. If a sidecar manifest requires bearer or shared-secret auth and Taru
+does not have a safe resolved resource-call secret for the diagnostic, the
+operation is reported as an authorization gap rather than sending admin
+credentials to the sidecar.
+
 ## Registration
 
 `POST /admin/v1/addons` registers a manifest. Addons are disabled by default.

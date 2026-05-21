@@ -115,7 +115,7 @@ Task IDs use the `AAO` prefix.
   nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all --
   --check`; `git diff --check`.
 
-- [ ] AAO-060 [owner=codex] [deps=AAO-040] [scope=crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
+- [x] AAO-060 [owner=codex] [deps=AAO-040] [scope=crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Add bounded resource-call diagnostics for declared Addon Resources so
   admins can distinguish unreachable sidecars, protocol mismatch, missing
   resource declarations, authorization gaps, and unsafe responses.
@@ -123,6 +123,19 @@ Task IDs use the `AAO` prefix.
   Review: Diagnostics must not echo raw payloads, Addon Tokens, admin tokens,
   Source Locators, storage paths, provider secrets, or raw response bodies.
   Handoff: Continue with AAO-070 closeout.
+  Progress: Added `POST
+  /admin/v1/addons/{addon_id}/diagnostics/resource-call`, request/response
+  DTOs, and Addon client outcome metadata for safe HTTP status / attempt
+  reporting. Diagnostics classify success, missing resource, missing grant,
+  authorization gap, unreachable transport, protocol mismatch, retryable HTTP
+  failure, non-retryable HTTP failure, and unsafe response cases without
+  echoing diagnostic payloads, Addon response payloads, raw response bodies,
+  token material, Source Locators, storage paths, provider secrets, or raw
+  network errors.
+  Validation: `cargo check -p taru-addon-client -p taru-api -p taru-server
+  --tests`; `cargo nextest run -p taru-addon-client --no-fail-fast`; `cargo
+  nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all --
+  --check`; `git diff --check`.
 
 ## M3 — Closeout
 

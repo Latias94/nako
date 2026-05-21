@@ -13,9 +13,9 @@ Upstream workstreams are complete:
 
 Admin Addon API currently supports registration/list/detail under
 `/admin/v1/addons`, explicit enable/disable lifecycle mutation, terminal
-unregister, redaction-safe health checks, hosted surface read models, plus
-token issue/list/rotate/revoke and grant replace/list. The remaining product
-gap is resource-call diagnostics.
+unregister, redaction-safe health checks, hosted surface read models, bounded
+resource-call diagnostics, plus token issue/list/rotate/revoke and grant
+replace/list. The remaining work is closeout verification.
 
 AAO-010 is complete. The lane now has a frozen MVP contract:
 
@@ -61,20 +61,28 @@ Event Subscriptions. Hosted Page URLs are derived from manifest base URL and
 declared paths only; Taru does not append administrator bearer tokens, Addon
 Tokens, launch secrets, or resolved Secret Reference values.
 
+AAO-060 is complete. `POST
+/admin/v1/addons/{addon_id}/diagnostics/resource-call` runs a bounded
+diagnostic call against a declared Addon Resource and returns classification
+facts only. It distinguishes success, missing resource, missing grant,
+authorization gap, unreachable transport, protocol mismatch, retryable HTTP
+failure, non-retryable HTTP failure, and unsafe response cases. It does not
+echo raw diagnostic payloads, Addon response payloads, raw response bodies,
+token material, Source Locators, storage paths, provider secrets, or raw
+network errors.
+
 ## Active Task
 
-AAO-060 — Resource-call diagnostics.
+AAO-070 — Closeout.
 
 ## Next Steps
 
-1. Execute AAO-060 by adding a bounded Admin resource-call diagnostic route
-   for declared Addon Resources.
-2. Classify missing resource declarations, missing grants, protocol mismatch,
-   unreachable sidecars, retryable/non-retryable HTTP failures, invalid
-   envelopes, and unsafe response cases with safe error codes only.
-3. Never echo raw diagnostic payloads, response bodies, Addon Tokens, admin
-   tokens, Source Locators, storage paths, provider secrets, or raw network
-   errors.
+1. Execute AAO-070 closeout: run fresh preferred gates and decide whether
+   workspace-wide checks are practical in this session.
+2. Update docs/workstream closeout notes and verify `docs/api/HTTP_API.md`,
+   Addon Author Guide, and Admin API matrix match shipped behavior.
+3. Close the workstream or split any remaining independent tails into named
+   follow-ons.
 
 ## Constraints
 

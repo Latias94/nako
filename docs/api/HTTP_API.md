@@ -1171,11 +1171,40 @@ or resolved Secret Reference values.
 }
 ```
 
-Remaining planned Admin Addon Operations MVP routes are reserved under
-`/admin/v1/addons/{addon_id}`:
+`POST /admin/v1/addons/{addon_id}/diagnostics/resource-call` runs a bounded
+diagnostic call against one declared Addon Resource. The request accepts a
+resource kind and a diagnostic payload:
 
-- `POST /diagnostics/resource-call` runs a bounded diagnostic call against a
-  declared Addon Resource and returns redacted classification facts only.
+```json
+{
+  "resource": "metadata",
+  "payload": {
+    "title": "Diagnostic input"
+  }
+}
+```
+
+The response never echoes the diagnostic payload, the Addon response payload,
+raw response bodies, token material, Source Locators, storage paths, provider
+secrets, or raw network errors. It returns classification facts only:
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000001",
+  "manifest_id": "example.metadata",
+  "resource": "metadata",
+  "status": "succeeded",
+  "latency_ms": 18,
+  "attempts": 1,
+  "http_status": 200
+}
+```
+
+Failure statuses include `missing_resource`, `missing_grant`,
+`authorization_gap`, `unreachable`, `protocol_mismatch`,
+`retryable_http_failure`, `http_failure`, and `unsafe_response`. `safe_error_code`
+uses the same safe vocabulary and is suitable for operator UI copy or
+documentation links.
 
 All planned operation responses must avoid raw Addon Tokens, token hashes,
 admin bearer tokens, raw diagnostic payloads, raw response bodies, Source

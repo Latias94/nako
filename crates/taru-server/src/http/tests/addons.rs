@@ -99,6 +99,21 @@ async fn health_check_addon_server(
     (format!("http://{addr}"), requests)
 }
 
+async fn failing_resource_addon_server(status: StatusCode, body: &'static str) -> String {
+    let router = Router::new().route(
+        "/metadata",
+        axum::routing::post(move || async move { (status, body) }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    format!("http://{addr}")
+}
+
 async fn artwork_server(
     status: StatusCode,
     content_type: &'static str,
@@ -1104,6 +1119,245 @@ async fn admin_addon_surfaces_returns_manifest_declarations_without_launch_secre
     assert!(!text.contains("taru_at_"));
     assert!(!text.contains("launch_token"));
     assert!(!text.contains("secret_value"));
+}
+
+#[tokio::test]
+async fn admin_addon_resource_call_diagnostic_classifies_safe_success_without_payload_echo() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addon_base_url = format!("http://{}", listener.local_addr().unwrap());
+    let addon_server = tokio::spawn(async move {
+        axum::serve(listener, taru_reference_addon::build_router())
+            .await
+            .unwrap();
+    });
+    yield_now().await;
+
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let manifest = taru_reference_addon::reference_manifest(addon_base_url);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/diagnostics/resource-call");
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonResourceCallDiagnosticRequest {
+            resource: AddonResource::Metadata,
+            payload: serde_json::json!({
+                "title": "The Matrix",
+                "source_locator": "local:///secret/movie.mkv",
+                "token": "taru_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonResourceCallDiagnosticResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.resource, AddonResource::Metadata);
+    assert_eq!(
+        response.status,
+        AdminAddonResourceCallDiagnosticStatus::Succeeded
+    );
+    assert_eq!(response.safe_error_code, None);
+    assert_eq!(response.http_status, Some(200));
+    assert!(!text.contains("The Matrix"));
+    assert!(!text.contains("Reference addon metadata suggestion"));
+    assert!(!text.contains("local:///secret"));
+    assert!(!text.contains("taru_at_should_not_echo"));
+    assert!(!text.contains("metadata_suggestion"));
+
+    addon_server.abort();
+}
+
+#[tokio::test]
+async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let mut auth_gap_manifest =
+        taru_reference_addon::reference_manifest("https://auth-gap.example.test/addon");
+    auth_gap_manifest.id = "taru.auth-gap.metadata".to_owned();
+    auth_gap_manifest.auth = AddonAuth::Bearer;
+    let auth_gap = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: auth_gap_manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let auth_gap_path = format!(
+        "/admin/v1/addons/{}/diagnostics/resource-call",
+        auth_gap.addon.summary.id
+    );
+    let auth_gap_response = request_body_json::<AdminAddonResourceCallDiagnosticResponse, _>(
+        &router,
+        Method::POST,
+        &auth_gap_path,
+        &AdminAddonResourceCallDiagnosticRequest {
+            resource: AddonResource::Metadata,
+            payload: serde_json::json!({"secret":"taru_at_should_not_echo"}),
+        },
+    )
+    .await;
+    assert_eq!(
+        auth_gap_response.status,
+        AdminAddonResourceCallDiagnosticStatus::AuthorizationGap
+    );
+    assert_eq!(
+        auth_gap_response.safe_error_code.as_deref(),
+        Some("authorization_gap")
+    );
+    assert_eq!(auth_gap_response.attempts, 0);
+
+    let missing_resource_response =
+        request_body_json::<AdminAddonResourceCallDiagnosticResponse, _>(
+            &router,
+            Method::POST,
+            &auth_gap_path,
+            &AdminAddonResourceCallDiagnosticRequest {
+                resource: AddonResource::Image,
+                payload: serde_json::json!({"secret":"taru_at_should_not_echo"}),
+            },
+        )
+        .await;
+    assert_eq!(
+        missing_resource_response.status,
+        AdminAddonResourceCallDiagnosticStatus::MissingResource
+    );
+    assert_eq!(
+        missing_resource_response.safe_error_code.as_deref(),
+        Some("missing_resource")
+    );
+    assert_eq!(missing_resource_response.attempts, 0);
+
+    let retryable_base_url =
+        failing_resource_addon_server(StatusCode::INTERNAL_SERVER_ERROR, "token=secret").await;
+    let mut retryable_manifest = taru_reference_addon::reference_manifest(retryable_base_url);
+    retryable_manifest.id = "taru.retryable.metadata".to_owned();
+    let retryable = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: retryable_manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let retryable_path = format!(
+        "/admin/v1/addons/{}/diagnostics/resource-call",
+        retryable.addon.summary.id
+    );
+    let retryable_raw = response_body_json(
+        &router,
+        Method::POST,
+        &retryable_path,
+        &AdminAddonResourceCallDiagnosticRequest {
+            resource: AddonResource::Metadata,
+            payload: serde_json::json!({"title":"Hidden"}),
+        },
+    )
+    .await;
+    assert_eq!(retryable_raw.status(), StatusCode::OK);
+    let retryable_bytes = to_bytes(retryable_raw.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let retryable_text = String::from_utf8(retryable_bytes.to_vec()).unwrap();
+    let retryable_response =
+        serde_json::from_str::<AdminAddonResourceCallDiagnosticResponse>(&retryable_text).unwrap();
+    assert_eq!(
+        retryable_response.status,
+        AdminAddonResourceCallDiagnosticStatus::RetryableHttpFailure
+    );
+    assert_eq!(retryable_response.http_status, Some(500));
+    assert_eq!(retryable_response.attempts, 2);
+    assert_eq!(
+        retryable_response.safe_error_code.as_deref(),
+        Some("retryable_http_failure")
+    );
+    assert!(!retryable_text.contains("token=secret"));
+    assert!(!retryable_text.contains("Hidden"));
+
+    let unsafe_base_url = failing_resource_addon_server(StatusCode::OK, "not-json-secret").await;
+    let mut unsafe_manifest = taru_reference_addon::reference_manifest(unsafe_base_url);
+    unsafe_manifest.id = "taru.unsafe.metadata".to_owned();
+    let unsafe_addon = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: unsafe_manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let unsafe_path = format!(
+        "/admin/v1/addons/{}/diagnostics/resource-call",
+        unsafe_addon.addon.summary.id
+    );
+    let unsafe_raw = response_body_json(
+        &router,
+        Method::POST,
+        &unsafe_path,
+        &AdminAddonResourceCallDiagnosticRequest {
+            resource: AddonResource::Metadata,
+            payload: serde_json::json!({"title":"Hidden"}),
+        },
+    )
+    .await;
+    assert_eq!(unsafe_raw.status(), StatusCode::OK);
+    let unsafe_bytes = to_bytes(unsafe_raw.into_body(), usize::MAX).await.unwrap();
+    let unsafe_text = String::from_utf8(unsafe_bytes.to_vec()).unwrap();
+    let unsafe_response =
+        serde_json::from_str::<AdminAddonResourceCallDiagnosticResponse>(&unsafe_text).unwrap();
+    assert_eq!(
+        unsafe_response.status,
+        AdminAddonResourceCallDiagnosticStatus::UnsafeResponse
+    );
+    assert_eq!(
+        unsafe_response.safe_error_code.as_deref(),
+        Some("unsafe_response")
+    );
+    assert_eq!(unsafe_response.attempts, 1);
+    assert!(!unsafe_text.contains("not-json-secret"));
+    assert!(!unsafe_text.contains("Hidden"));
 }
 
 #[tokio::test]

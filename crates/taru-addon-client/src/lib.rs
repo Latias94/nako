@@ -25,7 +25,7 @@ pub struct AddonHttpResponse {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AddonClientError {
     Protocol(AddonManifestError),
-    HttpStatus { status: u16 },
+    HttpStatus { status: u16, retryable: bool },
     Http { message: String },
 }
 
@@ -33,7 +33,7 @@ impl std::fmt::Display for AddonClientError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Protocol(err) => write!(formatter, "{err}"),
-            Self::HttpStatus { status } => write!(formatter, "addon returned HTTP {status}"),
+            Self::HttpStatus { status, .. } => write!(formatter, "addon returned HTTP {status}"),
             Self::Http { message } => write!(formatter, "addon HTTP call failed: {message}"),
         }
     }
@@ -48,6 +48,19 @@ impl From<AddonManifestError> for AddonClientError {
 }
 
 pub type AddonClientResult<T> = std::result::Result<T, AddonClientError>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonResourceCallOutcome {
+    pub response: AddonResourceResponse,
+    pub http_status: u16,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonResourceCallFailure {
+    pub error: AddonClientError,
+    pub attempts: u32,
+}
 
 #[async_trait]
 pub trait AddonTransport: Send + Sync {
@@ -114,13 +127,40 @@ pub async fn call_addon_resource<T>(
 where
     T: AddonTransport,
 {
-    validate_manifest(manifest)?;
-    ensure_scope_grant(manifest, resource, granted_scopes)?;
+    call_addon_resource_with_outcome(
+        transport,
+        manifest,
+        resource,
+        granted_scopes,
+        request_id,
+        payload,
+        bearer_token,
+    )
+    .await
+    .map(|outcome| outcome.response)
+    .map_err(|failure| failure.error)
+}
+
+pub async fn call_addon_resource_with_outcome<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    resource: AddonResource,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    payload: serde_json::Value,
+    bearer_token: Option<&str>,
+) -> Result<AddonResourceCallOutcome, AddonResourceCallFailure>
+where
+    T: AddonTransport,
+{
+    validate_manifest(manifest).map_err(resource_call_setup_failure)?;
+    ensure_scope_grant(manifest, resource, granted_scopes).map_err(resource_call_setup_failure)?;
     let declaration = manifest
         .resources
         .iter()
         .find(|candidate| candidate.kind == resource)
-        .ok_or(AddonManifestError::ResourceNotDeclared { resource })?;
+        .ok_or(AddonManifestError::ResourceNotDeclared { resource })
+        .map_err(resource_call_setup_failure)?;
     let request_id = request_id.into();
     let timeout_ms = declaration
         .timeout_ms
@@ -137,10 +177,11 @@ where
         request_id: request_id.clone(),
         payload,
     };
-    let body =
-        serde_json::to_string(&envelope).map_err(|err| AddonManifestError::InvalidEnvelope {
+    let body = serde_json::to_string(&envelope)
+        .map_err(|err| AddonManifestError::InvalidEnvelope {
             message: format!("failed to serialize addon request: {err}"),
-        })?;
+        })
+        .map_err(resource_call_setup_failure)?;
     let mut headers = vec![
         ("content-type".to_owned(), "application/json".to_owned()),
         (
@@ -157,15 +198,19 @@ where
     match manifest.auth {
         AddonAuth::None => {}
         AddonAuth::Bearer => {
-            let token = bearer_token.ok_or(AddonManifestError::MissingAuthToken {
-                auth: AddonAuth::Bearer,
-            })?;
+            let token = bearer_token
+                .ok_or(AddonManifestError::MissingAuthToken {
+                    auth: AddonAuth::Bearer,
+                })
+                .map_err(resource_call_setup_failure)?;
             headers.push(("authorization".to_owned(), format!("Bearer {token}")));
         }
         AddonAuth::SharedSecret => {
-            let token = bearer_token.ok_or(AddonManifestError::MissingAuthToken {
-                auth: AddonAuth::SharedSecret,
-            })?;
+            let token = bearer_token
+                .ok_or(AddonManifestError::MissingAuthToken {
+                    auth: AddonAuth::SharedSecret,
+                })
+                .map_err(resource_call_setup_failure)?;
             headers.push(("x-taru-addon-secret".to_owned(), token.to_owned()));
         }
     }
@@ -186,39 +231,63 @@ where
         let response = match response {
             Ok(response) => response,
             Err(err) if attempt < max_attempts && err.is_retryable() => {
-                last_error = Some(err);
+                last_error = Some(AddonResourceCallFailure {
+                    error: err,
+                    attempts: attempt,
+                });
                 continue;
             }
-            Err(err) => return Err(err),
+            Err(err) => {
+                return Err(AddonResourceCallFailure {
+                    error: err,
+                    attempts: attempt,
+                });
+            }
         };
 
         if !(200..300).contains(&response.status) {
-            let err = AddonClientError::HttpStatus {
-                status: response.status,
+            let failure = AddonResourceCallFailure {
+                error: AddonClientError::HttpStatus {
+                    status: response.status,
+                    retryable: is_retryable_http_status(response.status),
+                },
+                attempts: attempt,
             };
-            if attempt < max_attempts && err.is_retryable() {
-                last_error = Some(err);
+            if attempt < max_attempts && failure.error.is_retryable() {
+                last_error = Some(failure);
                 continue;
             }
-            return Err(err);
+            return Err(failure);
         }
 
-        let envelope =
-            serde_json::from_str::<AddonResourceResponse>(&response.body).map_err(|err| {
-                AddonManifestError::InvalidEnvelope {
-                    message: format!("failed to parse addon response: {err}"),
-                }
+        let envelope = serde_json::from_str::<AddonResourceResponse>(&response.body)
+            .map_err(|err| AddonManifestError::InvalidEnvelope {
+                message: format!("failed to parse addon response: {err}"),
+            })
+            .map_err(|error| AddonResourceCallFailure {
+                error: error.into(),
+                attempts: attempt,
             })?;
-        validate_resource_response(&envelope, manifest, resource, &request_id)?;
+        validate_resource_response(&envelope, manifest, resource, &request_id).map_err(
+            |error| AddonResourceCallFailure {
+                error: error.into(),
+                attempts: attempt,
+            },
+        )?;
 
-        return Ok(envelope);
+        return Ok(AddonResourceCallOutcome {
+            response: envelope,
+            http_status: response.status,
+            attempts: attempt,
+        });
     }
 
-    Err(last_error.unwrap_or_else(|| {
-        AddonManifestError::InvalidMaxAttempts {
+    Err(last_error.unwrap_or_else(|| AddonResourceCallFailure {
+        error: AddonManifestError::InvalidMaxAttempts {
             value: max_attempts,
         }
-        .into()
+        .into(),
+        attempts: 0,
     }))
 }
 
@@ -268,6 +337,7 @@ where
     if !(200..300).contains(&response.status) {
         return Err(AddonClientError::HttpStatus {
             status: response.status,
+            retryable: is_retryable_http_status(response.status),
         });
     }
 
@@ -291,11 +361,76 @@ impl AddonClientError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::Http { .. } => true,
-            Self::HttpStatus { status } => {
-                *status == 408 || *status == 429 || (500..600).contains(status)
-            }
+            Self::HttpStatus { retryable, .. } => *retryable,
             Self::Protocol(_) => false,
         }
+    }
+}
+
+fn is_retryable_http_status(status: u16) -> bool {
+    status == 408 || status == 429 || (500..600).contains(&status)
+}
+
+fn resource_call_setup_failure(error: impl Into<AddonClientError>) -> AddonResourceCallFailure {
+    AddonResourceCallFailure {
+        error: error.into(),
+        attempts: 0,
+    }
+}
+
+impl AddonClientError {
+    #[must_use]
+    pub const fn http_status(&self) -> Option<u16> {
+        match self {
+            Self::HttpStatus { status, .. } => Some(*status),
+            Self::Protocol(_) | Self::Http { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn was_retryable_http_status(&self) -> bool {
+        match self {
+            Self::HttpStatus { retryable, .. } => *retryable,
+            Self::Protocol(_) | Self::Http { .. } => false,
+        }
+    }
+}
+
+impl AddonClientError {
+    #[must_use]
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Protocol(_) => "protocol",
+            Self::HttpStatus { .. } => "http_status",
+            Self::Http { .. } => "http",
+        }
+    }
+}
+
+#[cfg(test)]
+fn assert_error_shape(err: &AddonClientError) {
+    match err {
+        AddonClientError::HttpStatus { status, retryable } => {
+            assert_eq!(*retryable, is_retryable_http_status(*status));
+        }
+        AddonClientError::Protocol(_) | AddonClientError::Http { .. } => {}
+    }
+}
+
+#[cfg(test)]
+mod client_error_tests {
+    use super::*;
+
+    #[test]
+    fn http_status_error_records_retryability() {
+        assert_error_shape(&AddonClientError::HttpStatus {
+            status: 500,
+            retryable: true,
+        });
+        assert_error_shape(&AddonClientError::HttpStatus {
+            status: 400,
+            retryable: false,
+        });
     }
 }
 
@@ -412,7 +547,13 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert_eq!(err, AddonClientError::HttpStatus { status: 400 });
+        assert_eq!(
+            err,
+            AddonClientError::HttpStatus {
+                status: 400,
+                retryable: false
+            }
+        );
         assert_eq!(transport.requests().len(), 1);
     }
 

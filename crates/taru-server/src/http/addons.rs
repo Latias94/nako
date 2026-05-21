@@ -6,8 +6,9 @@ use axum::{
     routing::{get, patch, post},
 };
 use taru_api::extension::{
-    AddonAccessCheckRequest, IssueAddonTokenRequest, RegisterAddonRequest,
-    ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
+    AddonAccessCheckRequest, AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest,
+    RegisterAddonRequest, ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest,
+    UpdateAddonStatusRequest,
 };
 use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
@@ -35,6 +36,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/addons/{addon_id}/surfaces",
             get(get_addon_surfaces),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/diagnostics/resource-call",
+            post(diagnose_addon_resource_call),
         )
         .route(
             "/admin/v1/addons/{addon_id}/tokens",
@@ -119,6 +124,19 @@ pub(super) async fn get_addon_surfaces(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().get_addon_surfaces(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn diagnose_addon_resource_call(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<AdminAddonResourceCallDiagnosticRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .diagnose_addon_resource_call(addon_id, request)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]

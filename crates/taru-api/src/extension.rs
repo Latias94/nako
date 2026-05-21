@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{
-    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonManifest, AddonScope,
-    AddonTaskDeclaration,
+    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonManifest, AddonResource,
+    AddonScope, AddonTaskDeclaration,
 };
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
@@ -307,6 +307,41 @@ pub struct AdminAddonEventSubscriptionSurface {
     pub path: String,
     pub required_scopes: Vec<AddonScope>,
     pub filters: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceCallDiagnosticRequest {
+    pub resource: AddonResource,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonResourceCallDiagnosticStatus {
+    Succeeded,
+    MissingResource,
+    MissingGrant,
+    AuthorizationGap,
+    Unreachable,
+    ProtocolMismatch,
+    RetryableHttpFailure,
+    HttpFailure,
+    UnsafeResponse,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceCallDiagnosticResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub resource: AddonResource,
+    pub status: AdminAddonResourceCallDiagnosticStatus,
+    pub latency_ms: u128,
+    pub attempts: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

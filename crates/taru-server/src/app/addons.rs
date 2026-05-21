@@ -1,6 +1,8 @@
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
-use taru_addon_client::{AddonClientError, ReqwestAddonTransport, check_addon_health};
+use taru_addon_client::{
+    AddonClientError, ReqwestAddonTransport, call_addon_resource_with_outcome, check_addon_health,
+};
 use taru_addon_protocol::{AddonManifest, AddonScope, ensure_scope_grant, validate_manifest};
 use taru_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
@@ -8,9 +10,10 @@ use taru_api::extension::{
     AdminAddonEntryPointSurface, AdminAddonEventSubscriptionSurface, AdminAddonHealthCheckResponse,
     AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface, AdminAddonRegistrationDetail,
     AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
-    AdminAddonSecretReferenceFieldSurface, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
-    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    UpdateAddonStatusRequest,
+    AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
+    AdminAddonResourceCallDiagnosticStatus, AdminAddonSecretReferenceFieldSurface,
+    AdminAddonSurfacesResponse, AdminAddonTaskSurface, IssueAddonTokenRequest,
+    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
 };
 use taru_core::{
     AddonId, AddonIssuedToken, AddonRegistrationRecord, AddonRepository, AddonStatus, AddonTokenId,
@@ -344,6 +347,59 @@ impl AddonAppService {
         })
     }
 
+    pub async fn diagnose_addon_resource_call(
+        &self,
+        addon_id: AddonId,
+        request: AdminAddonResourceCallDiagnosticRequest,
+    ) -> Result<AdminAddonResourceCallDiagnosticResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(TaruError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let manifest = self.stored_manifest(&addon)?;
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let started = Instant::now();
+        let response = call_addon_resource_with_outcome(
+            &ReqwestAddonTransport::default(),
+            &manifest,
+            request.resource,
+            &granted_scopes,
+            format!("addon-diagnostic-{addon_id}"),
+            request.payload,
+            None,
+        )
+        .await;
+        let latency_ms = started.elapsed().as_millis();
+
+        match response {
+            Ok(outcome) => Ok(AdminAddonResourceCallDiagnosticResponse {
+                addon_id,
+                manifest_id: addon.manifest_id,
+                resource: request.resource,
+                status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+                latency_ms,
+                attempts: outcome.attempts,
+                http_status: Some(outcome.http_status),
+                safe_error_code: None,
+            }),
+            Err(failure) => {
+                let err = failure.error;
+                Ok(AdminAddonResourceCallDiagnosticResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    resource: request.resource,
+                    status: resource_diagnostic_status_for_client_error(&err),
+                    latency_ms,
+                    attempts: failure.attempts,
+                    http_status: err.http_status(),
+                    safe_error_code: Some(safe_resource_diagnostic_error_code(&err).to_owned()),
+                })
+            }
+        }
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
@@ -513,16 +569,7 @@ impl AddonAppService {
             message: err.to_string(),
         })?;
 
-        let granted_scopes = addon
-            .granted_scopes
-            .iter()
-            .map(|scope| {
-                serde_json::from_value::<AddonScope>(serde_json::Value::String(scope.clone()))
-                    .map_err(|err| TaruError::InvalidInput {
-                        message: format!("invalid stored addon scope `{scope}`: {err}"),
-                    })
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let granted_scopes = stored_granted_scopes(addon)?;
 
         for resource in &manifest.resources {
             ensure_scope_grant(&manifest, resource.kind, &granted_scopes).map_err(|err| {
@@ -570,13 +617,13 @@ fn health_status_for_client_error(err: &AddonClientError) -> AdminAddonHealthChe
 fn safe_health_error_code(err: &AddonClientError) -> &'static str {
     match err {
         AddonClientError::Protocol(_) => "protocol_mismatch",
-        AddonClientError::HttpStatus { status } if *status == 401 || *status == 403 => {
+        AddonClientError::HttpStatus { status, .. } if *status == 401 || *status == 403 => {
             "unauthorized"
         }
-        AddonClientError::HttpStatus { status } if *status == 404 => "health_endpoint_missing",
-        AddonClientError::HttpStatus { status } if *status == 408 => "timeout",
-        AddonClientError::HttpStatus { status } if *status == 429 => "rate_limited",
-        AddonClientError::HttpStatus { status } if (500..600).contains(status) => {
+        AddonClientError::HttpStatus { status, .. } if *status == 404 => "health_endpoint_missing",
+        AddonClientError::HttpStatus { status, .. } if *status == 408 => "timeout",
+        AddonClientError::HttpStatus { status, .. } if *status == 429 => "rate_limited",
+        AddonClientError::HttpStatus { status, .. } if (500..600).contains(status) => {
             "sidecar_unhealthy"
         }
         AddonClientError::HttpStatus { .. } => "http_failure",
@@ -584,6 +631,72 @@ fn safe_health_error_code(err: &AddonClientError) -> &'static str {
     }
 }
 
+fn resource_diagnostic_status_for_client_error(
+    err: &AddonClientError,
+) -> AdminAddonResourceCallDiagnosticStatus {
+    match err {
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::MissingAuthToken {
+            ..
+        }) => AdminAddonResourceCallDiagnosticStatus::AuthorizationGap,
+        AddonClientError::Protocol(
+            taru_addon_protocol::AddonManifestError::ResourceNotDeclared { .. },
+        ) => AdminAddonResourceCallDiagnosticStatus::MissingResource,
+        AddonClientError::Protocol(
+            taru_addon_protocol::AddonManifestError::MissingDeclaredScope { .. },
+        ) => AdminAddonResourceCallDiagnosticStatus::MissingGrant,
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::InvalidEnvelope {
+            ..
+        }) => AdminAddonResourceCallDiagnosticStatus::UnsafeResponse,
+        AddonClientError::Protocol(_) => AdminAddonResourceCallDiagnosticStatus::ProtocolMismatch,
+        AddonClientError::HttpStatus {
+            retryable: true, ..
+        } => AdminAddonResourceCallDiagnosticStatus::RetryableHttpFailure,
+        AddonClientError::HttpStatus {
+            retryable: false, ..
+        } => AdminAddonResourceCallDiagnosticStatus::HttpFailure,
+        AddonClientError::Http { .. } => AdminAddonResourceCallDiagnosticStatus::Unreachable,
+    }
+}
+
+fn safe_resource_diagnostic_error_code(err: &AddonClientError) -> &'static str {
+    match err {
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::MissingAuthToken {
+            ..
+        }) => "authorization_gap",
+        AddonClientError::Protocol(
+            taru_addon_protocol::AddonManifestError::ResourceNotDeclared { .. },
+        ) => "missing_resource",
+        AddonClientError::Protocol(
+            taru_addon_protocol::AddonManifestError::MissingDeclaredScope { .. },
+        ) => "missing_grant",
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::InvalidEnvelope {
+            ..
+        }) => "unsafe_response",
+        AddonClientError::Protocol(_) => "protocol_mismatch",
+        AddonClientError::HttpStatus {
+            retryable: true, ..
+        } => "retryable_http_failure",
+        AddonClientError::HttpStatus {
+            retryable: false, ..
+        } => "http_failure",
+        AddonClientError::Http { .. } => "transport_failure",
+    }
+}
+
 fn addon_surface_url(base_url: &str, path: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path)
+}
+
+fn stored_granted_scopes(addon: &AddonRegistrationRecord) -> Result<Vec<AddonScope>> {
+    addon
+        .granted_scopes
+        .iter()
+        .map(|scope| {
+            serde_json::from_value::<AddonScope>(serde_json::Value::String(scope.clone())).map_err(
+                |err| TaruError::InvalidInput {
+                    message: format!("invalid stored addon scope `{scope}`: {err}"),
+                },
+            )
+        })
+        .collect()
 }
