@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [android-generated-public-client-sdk](android-generated-public-client-sdk/README.md):
+  completed lane for replacing Android handwritten Public Client API DTO and route
+  mirrors with an OpenAPI-backed generated Kotlin/JVM SDK before mobile
+  Rust/UniFFI is introduced.
 - [self-hosted-release-readiness](self-hosted-release-readiness/README.md):
   completed release hardening lane for turning Taru's completed server/runtime
   capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL

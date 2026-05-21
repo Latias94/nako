@@ -1,5 +1,11 @@
 package dev.taru.android.connection
 
+import dev.taru.sdk.PageQuery
+import dev.taru.sdk.TARU_API_VERSION
+import dev.taru.sdk.TARU_API_VERSION_HEADER
+import dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER
+import dev.taru.sdk.TARU_PUBLIC_PATHS
+import dev.taru.sdk.TaruPublicClientRequests
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -8,22 +14,35 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
 class TaruConnectionClientTest {
     @Test
     fun `successful connection checks health then authenticated public route`() = runBlocking {
+        val healthPath = TaruPublicClientRequests.health().pathAndQuery
+        val authProbePath = TaruPublicClientRequests
+            .listLibraries(PageQuery(limit = 1, offset = 0))
+            .pathAndQuery
+
+        assertEquals("v1", TARU_API_VERSION)
+        assertEquals(dev.taru.sdk.TARU_API_VERSION_HEADER, TARU_API_VERSION_HEADER)
+        assertEquals(
+            dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER,
+            TARU_PLAYBACK_SESSION_ID_HEADER,
+        )
+        assertTrue(TARU_PUBLIC_PATHS.contains(healthPath))
+        assertTrue(authProbePath.startsWith("/libraries?"))
+
         val transport = FakeTransport(
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"status":"ok","version":"v1"}""",
                 ),
             ),
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"items":[],"page":{"limit":1,"offset":0,"returned":0}}""",
                 ),
             ),
@@ -78,14 +97,14 @@ class TaruConnectionClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"status":"ok","version":"v1"}""",
                 ),
             ),
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 401,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"unauthorized","message":"bad token secret-token in file:///tmp/source.mkv"}""",
                 ),
             ),
@@ -117,7 +136,7 @@ class TaruConnectionClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v2")),
                     body = """{"status":"ok","version":"v2"}""",
                 ),
             ),
@@ -183,14 +202,14 @@ class TaruConnectionClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"status":"ok","version":"v1"}""",
                 ),
             ),
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"items":[],"page":{"limit":1,"offset":0,"returned":0}}""",
                 ),
             ),

@@ -5,7 +5,6 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
@@ -16,6 +15,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import dev.taru.sdk.TARU_API_VERSION_HEADER
+import dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER
 
 class PlaybackStartCoordinatorTest {
     @Test
@@ -25,8 +26,8 @@ class PlaybackStartCoordinatorTest {
                 ok(
                     body = "",
                     headers = mapOf(
-                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
-                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-1"),
+                        TARU_API_VERSION_HEADER to listOf("v1"),
+                        TARU_PLAYBACK_SESSION_ID_HEADER to listOf("session-remux-1"),
                     ),
                 ),
             ),
@@ -213,7 +214,6 @@ class PlaybackStartCoordinatorTest {
                 id = "source 1",
                 libraryId = "library-1",
                 itemId = "item-1",
-                locator = "file:///srv/media/night-harbor.mkv",
                 fileName = "night-harbor.mkv",
             ),
             decision = when (mode) {

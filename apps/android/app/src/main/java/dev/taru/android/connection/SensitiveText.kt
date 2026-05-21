@@ -1,6 +1,8 @@
 package dev.taru.android.connection
 
 object SensitiveText {
+    const val redacted = "<redacted>"
+
     private val bearerPattern = Regex("(?i)Bearer\\s+[^\\s\"']+")
     private val windowsPathPattern = Regex("[A-Za-z]:\\\\[^\\s\"']+")
     private val fileUrlPattern = Regex("file://[^\\s\"']+")
@@ -17,16 +19,16 @@ object SensitiveText {
         secrets
             .filter { it.isNotBlank() }
             .forEach { secret ->
-                sanitized = sanitized.replace(secret, TaruPublicApiContract.redacted)
+                sanitized = sanitized.replace(secret, redacted)
             }
 
-        sanitized = bearerPattern.replace(sanitized, "Bearer ${TaruPublicApiContract.redacted}")
+        sanitized = bearerPattern.replace(sanitized, "Bearer $redacted")
         sanitized = windowsPathPattern.replace(sanitized, "<local-path>")
         sanitized = fileUrlPattern.replace(sanitized, "<local-path>")
         sanitized = unixPathPattern.replace(sanitized, "<local-path>")
         sanitized = ffmpegCommandPattern.replace(sanitized, "<ffmpeg-command>")
         sanitized = secretReferencePattern.replace(sanitized) {
-            "${it.groupValues[1]}${TaruPublicApiContract.redacted}"
+            "${it.groupValues[1]}$redacted"
         }
         return sanitized
     }

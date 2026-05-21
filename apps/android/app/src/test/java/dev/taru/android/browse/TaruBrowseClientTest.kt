@@ -8,13 +8,13 @@ import dev.taru.android.connection.ServerProfileRepository
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import dev.taru.sdk.TARU_API_VERSION_HEADER
 
 class TaruBrowseClientTest {
     @Test
@@ -32,7 +32,18 @@ class TaruBrowseClientTest {
                           "options": {
                             "domain": "video",
                             "preset": "movies",
-                            "scan": {"realtime_monitor": true}
+                            "naming_strategy": "movie",
+                            "scan": {"realtime_monitor": true, "max_depth": null},
+                            "metadata_profile": {
+                              "item_kinds": ["movie"],
+                              "local_readers": ["nfo"],
+                              "metadata_providers": ["tmdb"],
+                              "image_providers": ["tmdb"],
+                              "language": "en",
+                              "country": "US",
+                              "refresh_mode": "missing_only",
+                              "local_metadata_policy": "local_first"
+                            }
                           }
                         }
                       ],
@@ -56,9 +67,11 @@ class TaruBrowseClientTest {
         assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])
         assertEquals("Bearer <redacted>", success.request.headers["Authorization"])
         assertEquals("Movies", success.value.libraries.single().name)
+        assertEquals("video", success.value.libraries.single().options?.domain)
         assertEquals("movies", success.value.libraries.single().options?.preset)
         assertEquals(40L, success.value.page.offset)
         assertFalse(success.request.toString().contains("secret-token"))
+        assertFalse(success.value.libraries.single().toString().contains("file:///srv"))
     }
 
     @Test
@@ -72,10 +85,7 @@ class TaruBrowseClientTest {
                         "id": "library 1",
                         "name": "Movies",
                         "roots": ["file:///srv/media/movies"],
-                        "options": {
-                          "domain": "video",
-                          "preset": "movies"
-                        }
+                        "options": ${libraryOptionsJson().prependIndent("                        ")}
                       }
                     }
                     """.trimIndent(),
@@ -89,35 +99,26 @@ class TaruBrowseClientTest {
                         "id": "library 1",
                         "name": "Movies",
                         "roots": ["file:///srv/media/movies"],
-                        "options": {"domain": "video", "preset": "movies"}
+                        "options": ${libraryOptionsJson().prependIndent("                        ")}
                       },
                       "sources": [
                         {
-                          "source": {
-                            "id": "source 1",
-                            "library_id": "library 1",
-                            "item_id": "item 1",
-                            "file_name": "Night Harbor.mp4",
-                            "size_bytes": 2097152,
-                            "fingerprint": "hash-source"
-                          },
-                          "item": {
-                            "id": "item 1",
-                            "kind": "movie",
-                            "metadata": {
-                              "title": "Night Harbor",
-                              "genres": [],
-                              "tags": [],
-                              "ratings": []
-                            }
-                          },
+                          "source": ${mediaSourceJson(
+                              id = "source 1",
+                              libraryId = "library 1",
+                              itemId = "item 1",
+                              fileName = "Night Harbor.mp4",
+                              sizeBytes = 2097152,
+                              fingerprint = "hash-source",
+                          ).prependIndent("                          ")},
+                          "item": ${mediaItemJson(id = "item 1", title = "Night Harbor").prependIndent("                          ")},
                           "probe": {
                             "duration_ms": 120000,
                             "container": "mp4",
                             "bit_rate": 4200000,
                             "streams": [
-                              {"index":0,"kind":"video","codec":"h264","width":1920,"height":1080},
-                              {"index":1,"kind":"audio","codec":"aac","channels":2}
+                              {"index":0,"kind":"video","codec":"h264","language":null,"duration_ms":120000,"bit_rate":4000000,"width":1920,"height":1080,"channels":null,"sample_rate":null},
+                              {"index":1,"kind":"audio","codec":"aac","language":null,"duration_ms":120000,"bit_rate":200000,"width":null,"height":null,"channels":2,"sample_rate":48000}
                             ]
                           }
                         }
@@ -196,20 +197,13 @@ class TaruBrowseClientTest {
                     """
                     {
                       "items": [
-                        {
-                          "id": "item-1",
-                          "kind": "movie",
-                          "parent_id": null,
-                          "metadata": {
-                            "title": "Arrival",
-                            "release_date": "2016-11-11",
-                            "runtime_minutes": 116,
-                            "genres": ["Science Fiction"],
-                            "tags": [],
-                            "ratings": [],
-                            "images": []
-                          }
-                        }
+                        ${mediaItemJson(
+                            id = "item-1",
+                            title = "Arrival",
+                            releaseDate = "2016-11-11",
+                            runtimeMinutes = 116,
+                            genresJson = "[\"Science Fiction\"]",
+                        ).prependIndent("                        ")}
                       ],
                       "page": {"limit": 24, "offset": 0, "returned": 1}
                     }
@@ -240,34 +234,29 @@ class TaruBrowseClientTest {
                 ok(
                     """
                     {
-                      "item": {
-                        "id": "item 1",
-                        "kind": "movie",
-                        "parent_id": null,
-                        "metadata": {
-                          "title": "Arrival",
-                          "original_title": "Arrival",
-                          "overview": "A linguist works with alien visitors.",
-                          "release_date": "2016-11-11",
-                          "runtime_minutes": 116,
-                          "genres": ["Science Fiction"],
-                          "tags": ["first-contact"],
-                          "ratings": [{"source":"mpaa","value":"PG-13"}],
-                          "images": [{"kind":"poster","uri":"taru://artwork/poster-1","provider":"local"}]
-                        }
-                      },
+                      "item": ${mediaItemJson(
+                          id = "item 1",
+                          title = "Arrival",
+                          originalTitle = "Arrival",
+                          overview = "A linguist works with alien visitors.",
+                          releaseDate = "2016-11-11",
+                          runtimeMinutes = 116,
+                          genresJson = "[\"Science Fiction\"]",
+                          tagsJson = "[\"first-contact\"]",
+                          ratingsJson = "[{\"source\":\"mpaa\",\"value\":\"PG-13\"}]",
+                      ).prependIndent("                      ")},
                       "sources": [
-                        {
-                          "id": "source-1",
-                          "library_id": "library-1",
-                          "item_id": "item 1",
-                          "locator": "local:///srv/media/arrival.mkv",
-                          "file_name": "arrival.mkv",
-                          "size_bytes": 42
-                        }
+                        ${mediaSourceJson(
+                            id = "source-1",
+                            libraryId = "library-1",
+                            itemId = "item 1",
+                            fileName = "arrival.mkv",
+                            sizeBytes = 42,
+                            fingerprint = null,
+                        ).prependIndent("                        ")}
                       ],
                       "credits": [
-                        {"item_id":"item 1","person_id":"person-1","role":"director","character":null}
+                        {"item_id":"item 1","person_id":"person-1","role":"director","character":null,"sort_order":null}
                       ],
                       "genres": [{"item_id":"item 1","genre_id":"genre-1"}],
                       "tags": [{"item_id":"item 1","tag_id":"tag-1"}],
@@ -367,17 +356,7 @@ class TaruBrowseClientTest {
                     {
                       "hits": [
                         {
-                          "item": {
-                            "id": "item-1",
-                            "kind": "movie",
-                            "metadata": {
-                              "title": "Search Route Demo",
-                              "genres": [],
-                              "tags": [],
-                              "ratings": [],
-                              "images": []
-                            }
-                          },
+                          "item": ${mediaItemJson(id = "item-1", title = "Search Route Demo").prependIndent("                          ")},
                           "score": 0.82
                         }
                       ],
@@ -422,7 +401,7 @@ class TaruBrowseClientTest {
                     {
                       "genres": [
                         {"id":"genre-1","name":"Mystery","source":"nfo"},
-                        {"id":"genre 2","name":"Science Fiction","source":{"provider":"tmdb","key":"878"}}
+                        {"id":"genre 2","name":"Science Fiction","source":"tmdb:878"}
                       ],
                       "page": {"limit": 50, "offset": 100, "returned": 2}
                     }
@@ -458,7 +437,7 @@ class TaruBrowseClientTest {
                     {
                       "tags": [
                         {"id":"tag-1","name":"Lighthouse","source":"nfo"},
-                        {"id":"tag 2","name":"Staff Pick","source":{"provider":"local","key":"staff-pick"}}
+                        {"id":"tag 2","name":"Staff Pick","source":"local:staff-pick"}
                       ],
                       "page": {"limit": 50, "offset": 100, "returned": 2}
                     }
@@ -494,17 +473,11 @@ class TaruBrowseClientTest {
                     {
                       "genre": {"id":"genre-1","name":"Mystery","source":"nfo"},
                       "items": [
-                        {
-                          "id": "item-1",
-                          "kind": "movie",
-                          "metadata": {
-                            "title": "Night Harbor",
-                            "genres": ["Mystery"],
-                            "tags": [],
-                            "ratings": [],
-                            "images": []
-                          }
-                        }
+                        ${mediaItemJson(
+                            id = "item-1",
+                            title = "Night Harbor",
+                            genresJson = "[\"Mystery\"]",
+                        ).prependIndent("                        ")}
                       ],
                       "page": {"limit": 24, "offset": 0, "returned": 1}
                     }
@@ -658,7 +631,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 401,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"unauthorized","message":"bad token secret-token in file:///tmp/source.mkv"}""",
                 ),
             ),
@@ -687,7 +660,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 403,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"forbidden","message":"token secret-token cannot access item"}""",
                 ),
             ),
@@ -715,7 +688,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 404,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"not_found","message":"item is missing"}""",
                 ),
             ),
@@ -742,7 +715,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 404,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"not_found","message":"person is missing"}""",
                 ),
             ),
@@ -761,6 +734,33 @@ class TaruBrowseClientTest {
         assertEquals(404, diagnostics.statusCode)
         assertEquals("not_found", diagnostics.publicError?.code)
         assertEquals("person is missing", diagnostics.publicError?.message)
+    }
+
+    @Test
+    fun `missing library detail maps through explicit request classification`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 404,
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
+                    body = """{"code":"not_found","message":"library is missing"}""",
+                ),
+            ),
+        )
+        val client = TaruBrowseClient(transport)
+
+        val result = client.libraryDetail(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            libraryId = "library-1",
+        )
+
+        assertTrue(result is BrowseResult.Failure)
+        val diagnostics = (result as BrowseResult.Failure).diagnostics
+        assertEquals(BrowseFailureCategory.MissingLibrary, diagnostics.category)
+        assertEquals(404, diagnostics.statusCode)
+        assertEquals("not_found", diagnostics.publicError?.code)
+        assertEquals("library is missing", diagnostics.publicError?.message)
     }
 
     @Test
@@ -790,7 +790,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v2")),
                     body = """{"genres":[{"id":"genre-1","name":"Mystery","source":"nfo"}],"page":{"limit":50,"offset":0,"returned":1}}""",
                 ),
             ),
@@ -817,7 +817,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v2")),
                     body = """{"tags":[{"id":"tag-1","name":"Lighthouse","source":"nfo"}],"page":{"limit":50,"offset":0,"returned":1}}""",
                 ),
             ),
@@ -844,7 +844,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v2")),
                     body = """{"item":{"id":"item-1","kind":"movie","metadata":{"title":"Arrival"}},"sources":[],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}""",
                 ),
             ),
@@ -870,7 +870,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 200,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v2")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v2")),
                     body = """{"person":{"id":"person-1","name":"Demo Actor","sort_name":null,"overview":null,"external_ids":[]}}""",
                 ),
             ),
@@ -950,7 +950,7 @@ class TaruBrowseClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 500,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"storage_error","message":"ffmpeg.exe -i C:\\media\\demo.mkv secret-token"}""",
                 ),
             ),
@@ -1078,12 +1078,108 @@ class TaruBrowseClientTest {
     private fun ok(body: String): TaruHttpResponse =
         TaruHttpResponse(
             statusCode = 200,
-            headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+            headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
             body = body,
         )
 
+    private fun libraryOptionsJson(): String =
+        """
+        {
+          "domain": "video",
+          "preset": "movies",
+          "naming_strategy": "movie",
+          "scan": {"realtime_monitor": true, "max_depth": null},
+          "metadata_profile": {
+            "item_kinds": ["movie"],
+            "local_readers": ["nfo"],
+            "metadata_providers": ["tmdb"],
+            "image_providers": ["tmdb"],
+            "language": "en",
+            "country": "US",
+            "refresh_mode": "missing_only",
+            "local_metadata_policy": "local_first"
+          }
+        }
+        """.trimIndent()
+
+    private fun mediaItemJson(
+        id: String,
+        title: String,
+        kind: String = "movie",
+        parentIdJson: String = "null",
+        originalTitle: String? = null,
+        sortTitle: String? = null,
+        overview: String? = null,
+        releaseDate: String? = null,
+        runtimeMinutes: Int? = null,
+        tagline: String? = null,
+        genresJson: String = "[]",
+        tagsJson: String = "[]",
+        ratingsJson: String = "[]",
+        creditsJson: String = "[]",
+        collectionsJson: String = "[]",
+        studiosJson: String = "[]",
+        externalIdsJson: String = "[]",
+    ): String =
+        """
+        {
+          "id": "$id",
+          "kind": "$kind",
+          "parent_id": $parentIdJson,
+          "metadata": {
+            "title": "$title",
+            "original_title": ${jsonStringOrNull(originalTitle)},
+            "sort_title": ${jsonStringOrNull(sortTitle)},
+            "overview": ${jsonStringOrNull(overview)},
+            "release_date": ${jsonStringOrNull(releaseDate)},
+            "runtime_minutes": ${runtimeMinutes ?: "null"},
+            "tagline": ${jsonStringOrNull(tagline)},
+            "genres": $genresJson,
+            "tags": $tagsJson,
+            "ratings": $ratingsJson,
+            "credits": $creditsJson,
+            "collections": $collectionsJson,
+            "studios": $studiosJson,
+            "external_ids": $externalIdsJson
+          }
+        }
+        """.trimIndent()
+
+    private fun mediaSourceJson(
+        id: String,
+        libraryId: String,
+        itemId: String,
+        fileName: String,
+        sizeBytes: Long?,
+        fingerprint: String?,
+    ): String =
+        """
+        {
+          "id": "$id",
+          "library_id": "$libraryId",
+          "item_id": "$itemId",
+          "file_name": "$fileName",
+          "size_bytes": ${sizeBytes ?: "null"},
+          "fingerprint": ${jsonStringOrNull(fingerprint)}
+        }
+        """.trimIndent()
+
     private fun detailBody(itemId: String): String =
-        """{"item":{"id":"$itemId","kind":"movie","metadata":{"title":"Arrival"}},"sources":[],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}"""
+        """
+        {
+          "item": ${mediaItemJson(id = itemId, title = "Arrival").prependIndent("          ")},
+          "sources": [],
+          "credits": [],
+          "genres": [],
+          "tags": [],
+          "collections": [],
+          "studios": [],
+          "images": []
+        }
+        """.trimIndent()
+
+    private fun jsonStringOrNull(value: String?): String =
+        value?.let { "\"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" } ?: "null"
 }
 
 private sealed interface FakeStep

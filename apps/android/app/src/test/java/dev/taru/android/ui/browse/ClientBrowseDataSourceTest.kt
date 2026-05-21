@@ -8,7 +8,6 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.playback.InMemoryPlaybackPreferencesStore
 import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.TaruPlaybackClient
@@ -16,6 +15,7 @@ import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import dev.taru.sdk.TARU_API_VERSION_HEADER
 
 class ClientBrowseDataSourceTest {
     @Test
@@ -173,16 +173,7 @@ class ClientBrowseDataSourceTest {
                     "external_ids": []
                   },
                   "items": [
-                    {
-                      "id": "night-harbor",
-                      "kind": "movie",
-                      "metadata": {
-                        "title": "Night Harbor",
-                        "genres": [],
-                        "tags": [],
-                        "ratings": []
-                      }
-                    }
+                    ${mediaItemJson(id = "night-harbor", title = "Night Harbor").prependIndent("                    ")}
                   ],
                   "page": {"limit": 24, "offset": 0, "returned": 1}
                 }
@@ -270,6 +261,34 @@ class ClientBrowseDataSourceTest {
             transport.requests.map { it.url },
         )
     }
+
+    private fun mediaItemJson(
+        id: String,
+        title: String,
+    ): String =
+        """
+        {
+          "id": "$id",
+          "kind": "movie",
+          "parent_id": null,
+          "metadata": {
+            "title": "$title",
+            "original_title": null,
+            "sort_title": null,
+            "overview": null,
+            "release_date": null,
+            "runtime_minutes": null,
+            "tagline": null,
+            "genres": [],
+            "tags": [],
+            "ratings": [],
+            "credits": [],
+            "collections": [],
+            "studios": [],
+            "external_ids": []
+          }
+        }
+        """.trimIndent()
 }
 
 private class RecordingTransport : TaruHttpTransport {
@@ -296,7 +315,7 @@ private class QueuedTransport(
 private fun ok(body: String): TaruHttpResponse =
     TaruHttpResponse(
         statusCode = 200,
-        headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+        headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
         body = body,
     )
 

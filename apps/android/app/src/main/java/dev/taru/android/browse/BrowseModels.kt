@@ -3,9 +3,7 @@ package dev.taru.android.browse
 import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.media.MediaProbeDto
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
+import dev.taru.sdk.TARU_API_VERSION
 
 data class PageRequest(
     val limit: Int = 50,
@@ -17,32 +15,27 @@ data class PageRequest(
     }
 }
 
-@Serializable
 data class PageInfo(
     val limit: Int,
     val offset: Long,
     val returned: Int,
 )
 
-@Serializable
 data class LibraryListResponse(
     val libraries: List<LibraryDto>,
     val page: PageInfo,
 )
 
-@Serializable
 data class LibraryResponse(
     val library: LibraryDto,
 )
 
-@Serializable
 data class LibrarySourcesResponse(
     val library: LibraryDto,
     val sources: List<LibrarySourceResponse> = emptyList(),
     val page: PageInfo,
 )
 
-@Serializable
 data class LibrarySourceResponse(
     val source: MediaSourceDto,
     val item: MediaItemDto? = null,
@@ -52,7 +45,6 @@ data class LibrarySourceResponse(
         "LibrarySourceResponse(source=$source, item=$item, probe=$probe)"
 }
 
-@Serializable
 data class LibraryDto(
     val id: String,
     val name: String,
@@ -63,13 +55,11 @@ data class LibraryDto(
         "LibraryDto(id=$id, name=$name, roots=<redacted:${roots.size}>, options=$options)"
 }
 
-@Serializable
 data class LibraryOptionsDto(
     val domain: String? = null,
     val preset: String? = null,
 )
 
-@Serializable
 data class ItemsResponse(
     val items: List<MediaItemDto>,
     val page: PageInfo,
@@ -81,13 +71,11 @@ data class SearchRequest(
     val page: PageRequest = PageRequest(limit = 24),
 )
 
-@Serializable
 data class SearchResponse(
     val hits: List<SearchItemHit>,
     val page: PageInfo,
 )
 
-@Serializable
 data class SearchItemHit(
     val item: MediaItemDto,
     val score: Float,
@@ -107,70 +95,63 @@ enum class BrowseFacetFamily {
     Person,
 }
 
-@Serializable
 data class GenreListResponse(
     val genres: List<GenreDto>,
     val page: PageInfo,
 )
 
-@Serializable
 data class TagListResponse(
     val tags: List<TagDto>,
     val page: PageInfo,
 )
 
-@Serializable
 data class GenreItemsResponse(
     val genre: GenreDto,
     val items: List<MediaItemDto>,
     val page: PageInfo,
 )
 
-@Serializable
 data class TagItemsResponse(
     val tag: TagDto,
     val items: List<MediaItemDto>,
     val page: PageInfo,
 )
 
-@Serializable
 data class PersonItemsResponse(
     val person: PersonDto,
     val items: List<MediaItemDto>,
     val page: PageInfo,
 )
 
-@Serializable
 data class PersonResponse(
     val person: PersonDto,
 )
 
-@Serializable
 data class GenreDto(
     val id: String,
     val name: String,
-    val source: JsonElement? = null,
+    val source: String = "",
 )
 
-@Serializable
 data class TagDto(
     val id: String,
     val name: String,
-    val source: JsonElement? = null,
+    val source: String = "",
 )
 
-@Serializable
 data class PersonDto(
     val id: String,
     val name: String,
-    @SerialName("sort_name")
     val sortName: String? = null,
     val overview: String? = null,
-    @SerialName("external_ids")
-    val externalIds: List<JsonElement> = emptyList(),
+    val externalIds: List<ExternalIdDto> = emptyList(),
 )
 
-@Serializable
+data class ExternalIdDto(
+    val provider: String,
+    val value: String,
+)
+
 data class ItemDetailResponse(
     val item: MediaItemDto,
     val sources: List<MediaSourceDto> = emptyList(),
@@ -182,33 +163,24 @@ data class ItemDetailResponse(
     val images: List<PublicImageRefDto> = emptyList(),
 )
 
-@Serializable
 data class ImagesResponse(
-    @SerialName("item_id")
     val itemId: String,
     val images: List<PublicImageRefDto> = emptyList(),
 )
 
-@Serializable
 data class MediaItemDto(
     val id: String,
     val kind: String,
-    @SerialName("parent_id")
     val parentId: String? = null,
     val metadata: CanonicalMetadataDto,
 )
 
-@Serializable
 data class CanonicalMetadataDto(
     val title: String,
-    @SerialName("original_title")
     val originalTitle: String? = null,
-    @SerialName("sort_title")
     val sortTitle: String? = null,
     val overview: String? = null,
-    @SerialName("release_date")
     val releaseDate: String? = null,
-    @SerialName("runtime_minutes")
     val runtimeMinutes: Int? = null,
     val tagline: String? = null,
     val genres: List<String> = emptyList(),
@@ -216,86 +188,60 @@ data class CanonicalMetadataDto(
     val ratings: List<ContentRatingDto> = emptyList(),
 )
 
-@Serializable
 data class ContentRatingDto(
     val source: String,
     val value: String,
 )
 
-@Serializable
 data class MediaSourceDto(
     val id: String,
-    @SerialName("library_id")
     val libraryId: String = "",
-    @SerialName("item_id")
     val itemId: String = "",
-    val locator: String = "",
-    @SerialName("file_name")
     val fileName: String = "",
-    @SerialName("size_bytes")
     val sizeBytes: Long? = null,
     val fingerprint: String? = null,
 ) {
     override fun toString(): String =
-        "MediaSourceDto(id=$id, libraryId=$libraryId, itemId=$itemId, locator=<redacted>, fileName=$fileName, sizeBytes=$sizeBytes, fingerprint=$fingerprint)"
+        "MediaSourceDto(id=$id, libraryId=$libraryId, itemId=$itemId, fileName=$fileName, sizeBytes=$sizeBytes, fingerprint=$fingerprint)"
 }
 
-@Serializable
 data class ItemCreditDto(
-    @SerialName("item_id")
     val itemId: String = "",
-    @SerialName("person_id")
     val personId: String = "",
-    val role: JsonElement? = null,
+    val role: String? = null,
     val character: String? = null,
-    @SerialName("sort_order")
     val sortOrder: Int? = null,
 )
 
-@Serializable
 data class ItemGenreDto(
-    @SerialName("item_id")
     val itemId: String = "",
-    @SerialName("genre_id")
     val genreId: String = "",
 )
 
-@Serializable
 data class ItemTagDto(
-    @SerialName("item_id")
     val itemId: String = "",
-    @SerialName("tag_id")
     val tagId: String = "",
 )
 
-@Serializable
 data class CollectionItemDto(
-    @SerialName("collection_id")
     val collectionId: String = "",
-    @SerialName("item_id")
     val itemId: String = "",
-    @SerialName("sort_order")
     val sortOrder: Int? = null,
 )
 
-@Serializable
 data class ItemStudioDto(
-    @SerialName("item_id")
     val itemId: String = "",
-    @SerialName("studio_id")
     val studioId: String = "",
 )
 
-@Serializable
 data class PublicImageRefDto(
     val id: String,
-    val owner: JsonElement? = null,
-    val kind: JsonElement,
+    val owner: Map<String, String> = emptyMap(),
+    val kind: String,
     val url: String,
     val width: Int? = null,
     val height: Int? = null,
     val language: String? = null,
-    @SerialName("media_type")
     val mediaType: String? = null,
     val etag: String? = null,
 )
@@ -318,7 +264,7 @@ data class SafeBrowseDiagnostics(
     val category: BrowseFailureCategory,
     val userMessage: String,
     val statusCode: Int? = null,
-    val expectedApiVersion: String = dev.taru.android.connection.TaruPublicApiContract.expectedApiVersion,
+    val expectedApiVersion: String = TARU_API_VERSION,
     val observedApiVersion: String? = null,
     val publicError: PublicErrorEnvelope? = null,
     val request: SafeRequestPreview? = null,

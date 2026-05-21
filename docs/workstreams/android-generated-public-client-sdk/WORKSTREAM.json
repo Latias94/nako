@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "slug": "android-generated-public-client-sdk",
+  "title": "Android Generated Public Client SDK",
+  "status": "closed",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "Android still handwrites Public Client API DTOs and route construction, creating drift against Taru's OpenAPI v1 contract before Rust/UniFFI is justified.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-generated-public-client-sdk/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-generated-public-client-sdk/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-generated-public-client-sdk/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-api kotlin_sdk --no-fail-fast",
+    "cargo nextest run -p taru-api --no-fail-fast",
+    "npm run check --prefix sdk/typescript",
+    "apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon",
+    "python -m json.tool docs/workstreams/android-generated-public-client-sdk/WORKSTREAM.json > $null",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md",
+    "crates/taru-api/src/openapi.rs",
+    "crates/taru-api/src/sdk.rs",
+    "crates/taru-api/examples/emit-kotlin-sdk.rs",
+    "sdk/kotlin",
+    "apps/android/app/src/main/java/dev/taru/android"
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "Lane closed on 2026-05-21. Start follow-on workstreams for Kotlin SDK publishing, KMP topology, generated runtime ownership, unknown-enum/version tolerance, Android fixture ergonomics, or Rust/UniFFI after ADR 0031 triggers."
+  }
+}

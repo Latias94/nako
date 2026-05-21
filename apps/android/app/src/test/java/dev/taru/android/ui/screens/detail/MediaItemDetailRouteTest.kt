@@ -5,7 +5,6 @@ import dev.taru.android.browse.ItemCreditDto
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.ui.browse.BrowseFacetUiFamily
-import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,7 +18,7 @@ class MediaItemDetailRouteTest {
                 credits = listOf(
                     ItemCreditDto(
                         personId = "person-keeper",
-                        role = JsonPrimitive("actor"),
+                        role = "actor",
                         character = "Keeper",
                     ),
                 ),
@@ -62,12 +61,12 @@ class MediaItemDetailRouteTest {
                 credits = listOf(
                     ItemCreditDto(
                         personId = "person-keeper",
-                        role = JsonPrimitive("actor"),
+                        role = "actor",
                         character = "Keeper",
                     ),
                     ItemCreditDto(
                         personId = "",
-                        role = JsonPrimitive("director"),
+                        role = "director",
                     ),
                 ),
             ),
@@ -87,7 +86,7 @@ class MediaItemDetailRouteTest {
                 credits = listOf(
                     ItemCreditDto(
                         personId = "",
-                        role = JsonPrimitive("director"),
+                        role = "director",
                     ),
                 ),
             ),

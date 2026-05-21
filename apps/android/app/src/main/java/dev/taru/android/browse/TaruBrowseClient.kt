@@ -5,11 +5,24 @@ import dev.taru.android.connection.PublicApiAuth
 import dev.taru.android.connection.PublicApiFailure
 import dev.taru.android.connection.PublicApiFailureKind
 import dev.taru.android.connection.PublicApiResult
-import dev.taru.android.connection.PublicApiUrl
 import dev.taru.android.connection.PublicClientApiExecutor
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpTransport
+import dev.taru.sdk.TaruPublicClientRequests
+import dev.taru.sdk.GenreItemsResponse as SdkGenreItemsResponse
+import dev.taru.sdk.GenreListResponse as SdkGenreListResponse
+import dev.taru.sdk.ImagesResponse as SdkImagesResponse
+import dev.taru.sdk.ItemDetailResponse as SdkItemDetailResponse
+import dev.taru.sdk.ItemsResponse as SdkItemsResponse
+import dev.taru.sdk.LibraryListResponse as SdkLibraryListResponse
+import dev.taru.sdk.LibraryResponse as SdkLibraryResponse
+import dev.taru.sdk.LibrarySourcesResponse as SdkLibrarySourcesResponse
+import dev.taru.sdk.PersonItemsResponse as SdkPersonItemsResponse
+import dev.taru.sdk.PersonResponse as SdkPersonResponse
+import dev.taru.sdk.SearchResponse as SdkSearchResponse
+import dev.taru.sdk.TagItemsResponse as SdkTagItemsResponse
+import dev.taru.sdk.TagsResponse as SdkTagsResponse
 import kotlinx.serialization.json.Json
 
 class TaruBrowseClient(
@@ -23,10 +36,13 @@ class TaruBrowseClient(
         accessToken: String,
         page: PageRequest = PageRequest(),
     ): BrowseResult<LibraryListResponse> =
-        executeJson(
+        executeSdkJson<SdkLibraryListResponse, LibraryListResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/libraries${pageQuery(page)}",
+            pathAndQuery = TaruPublicClientRequests
+                .listLibraries(page.toSdkPageQuery())
+                .pathAndQuery,
+            transform = SdkLibraryListResponse::toAndroid,
         )
 
     suspend fun libraryDetail(
@@ -41,10 +57,14 @@ class TaruBrowseClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkLibraryResponse, LibraryResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/libraries/${PublicApiUrl.encodePathSegment(libraryId)}",
+            pathAndQuery = TaruPublicClientRequests
+                .getLibrary(libraryId)
+                .pathAndQuery,
+            notFoundCategory = BrowseFailureCategory.MissingLibrary,
+            transform = SdkLibraryResponse::toAndroid,
         )
     }
 
@@ -61,10 +81,14 @@ class TaruBrowseClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkLibrarySourcesResponse, LibrarySourcesResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/libraries/${PublicApiUrl.encodePathSegment(libraryId)}/sources${pageQuery(page)}",
+            pathAndQuery = TaruPublicClientRequests
+                .listLibrarySources(libraryId, page.toSdkPageQuery())
+                .pathAndQuery,
+            notFoundCategory = BrowseFailureCategory.MissingLibrary,
+            transform = SdkLibrarySourcesResponse::toAndroid,
         )
     }
 
@@ -73,10 +97,13 @@ class TaruBrowseClient(
         accessToken: String,
         page: PageRequest = PageRequest(limit = 24),
     ): BrowseResult<ItemsResponse> =
-        executeJson(
+        executeSdkJson<SdkItemsResponse, ItemsResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/items${pageQuery(page)}",
+            pathAndQuery = TaruPublicClientRequests
+                .listItems(page.toSdkPageQuery())
+                .pathAndQuery,
+            transform = SdkItemsResponse::toAndroid,
         )
 
     suspend fun searchItems(
@@ -84,10 +111,17 @@ class TaruBrowseClient(
         accessToken: String,
         query: SearchRequest,
     ): BrowseResult<SearchResponse> =
-        executeJson(
+        executeSdkJson<SdkSearchResponse, SearchResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/search${searchQuery(query)}",
+            pathAndQuery = TaruPublicClientRequests
+                .searchItems(
+                    query = query.query,
+                    facets = query.facets,
+                    page = query.page.toSdkPageQuery(),
+                )
+                .pathAndQuery,
+            transform = SdkSearchResponse::toAndroid,
         )
 
     suspend fun itemDetail(
@@ -102,10 +136,13 @@ class TaruBrowseClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkItemDetailResponse, ItemDetailResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/items/${PublicApiUrl.encodePathSegment(itemId)}",
+            pathAndQuery = TaruPublicClientRequests
+                .getItem(itemId)
+                .pathAndQuery,
+            transform = SdkItemDetailResponse::toAndroid,
         )
     }
 
@@ -121,10 +158,13 @@ class TaruBrowseClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkImagesResponse, ImagesResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/items/${PublicApiUrl.encodePathSegment(itemId)}/images",
+            pathAndQuery = TaruPublicClientRequests
+                .listItemImages(itemId)
+                .pathAndQuery,
+            transform = SdkImagesResponse::toAndroid,
         )
     }
 
@@ -140,10 +180,14 @@ class TaruBrowseClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkPersonResponse, PersonResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/people/${PublicApiUrl.encodePathSegment(personId)}",
+            pathAndQuery = TaruPublicClientRequests
+                .getPerson(personId)
+                .pathAndQuery,
+            notFoundCategory = BrowseFailureCategory.MissingPerson,
+            transform = SdkPersonResponse::toAndroid,
         )
     }
 
@@ -152,10 +196,13 @@ class TaruBrowseClient(
         accessToken: String,
         page: PageRequest = PageRequest(),
     ): BrowseResult<GenreListResponse> =
-        executeJson(
+        executeSdkJson<SdkGenreListResponse, GenreListResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/genres${pageQuery(page)}",
+            pathAndQuery = TaruPublicClientRequests
+                .listGenres(page.toSdkPageQuery())
+                .pathAndQuery,
+            transform = SdkGenreListResponse::toAndroid,
         )
 
     suspend fun listTags(
@@ -163,10 +210,13 @@ class TaruBrowseClient(
         accessToken: String,
         page: PageRequest = PageRequest(),
     ): BrowseResult<TagListResponse> =
-        executeJson(
+        executeSdkJson<SdkTagsResponse, TagListResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/tags${pageQuery(page)}",
+            pathAndQuery = TaruPublicClientRequests
+                .listTags(page.toSdkPageQuery())
+                .pathAndQuery,
+            transform = SdkTagsResponse::toAndroid,
         )
 
     suspend fun listGenreItems(
@@ -183,10 +233,13 @@ class TaruBrowseClient(
         }
 
         return when (
-            val result = executeJson<GenreItemsResponse>(
+            val result = executeSdkJson<SdkGenreItemsResponse, GenreItemsResponse>(
                 profile = profile,
                 accessToken = accessToken,
-                pathAndQuery = "/genres/${PublicApiUrl.encodePathSegment(genreId)}/items${pageQuery(page)}",
+                pathAndQuery = TaruPublicClientRequests
+                    .listGenreItems(genreId, page.toSdkPageQuery())
+                    .pathAndQuery,
+                transform = SdkGenreItemsResponse::toAndroid,
             )
         ) {
             is BrowseResult.Success -> BrowseResult.Success(
@@ -217,10 +270,13 @@ class TaruBrowseClient(
         }
 
         return when (
-            val result = executeJson<TagItemsResponse>(
+            val result = executeSdkJson<SdkTagItemsResponse, TagItemsResponse>(
                 profile = profile,
                 accessToken = accessToken,
-                pathAndQuery = "/tags/${PublicApiUrl.encodePathSegment(tagId)}/items${pageQuery(page)}",
+                pathAndQuery = TaruPublicClientRequests
+                    .listTagItems(tagId, page.toSdkPageQuery())
+                    .pathAndQuery,
+                transform = SdkTagItemsResponse::toAndroid,
             )
         ) {
             is BrowseResult.Success -> BrowseResult.Success(
@@ -251,10 +307,13 @@ class TaruBrowseClient(
         }
 
         return when (
-            val result = executeJson<PersonItemsResponse>(
+            val result = executeSdkJson<SdkPersonItemsResponse, PersonItemsResponse>(
                 profile = profile,
                 accessToken = accessToken,
-                pathAndQuery = "/people/${PublicApiUrl.encodePathSegment(personId)}/items${pageQuery(page)}",
+                pathAndQuery = TaruPublicClientRequests
+                    .listPersonItems(personId, page.toSdkPageQuery())
+                    .pathAndQuery,
+                transform = SdkPersonItemsResponse::toAndroid,
             )
         ) {
             is BrowseResult.Success -> BrowseResult.Success(
@@ -271,29 +330,30 @@ class TaruBrowseClient(
         }
     }
 
-    private suspend inline fun <reified T> executeJson(
+    private suspend inline fun <reified WireT, AppT> executeSdkJson(
         profile: ServerProfile,
         accessToken: String,
         pathAndQuery: String,
-    ): BrowseResult<T> {
-        return when (
-            val result = executor.executeJson<T>(
+        notFoundCategory: BrowseFailureCategory = BrowseFailureCategory.MissingItem,
+        transform: (WireT) -> AppT,
+    ): BrowseResult<AppT> =
+        when (
+            val result = executor.executeJson<WireT>(
                 baseUrl = profile.baseUrl,
                 pathAndQuery = pathAndQuery,
                 auth = PublicApiAuth.Bearer(accessToken),
             )
         ) {
             is PublicApiResult.Success -> BrowseResult.Success(
-                value = result.value,
+                value = transform(result.value),
                 request = result.request,
             )
-            is PublicApiResult.Failure -> failureFor(pathAndQuery, result.failure)
+            is PublicApiResult.Failure -> failureFor(notFoundCategory, result.failure)
         }
-    }
 
     @PublishedApi
     internal fun failureFor(
-        pathAndQuery: String,
+        notFoundCategory: BrowseFailureCategory,
         failure: PublicApiFailure,
     ): BrowseResult.Failure {
         val category = when (failure.kind) {
@@ -305,7 +365,7 @@ class TaruBrowseClient(
             PublicApiFailureKind.HttpError -> when (failure.statusCode) {
                 401 -> BrowseFailureCategory.Unauthorized
                 403 -> BrowseFailureCategory.Forbidden
-                404 -> notFoundCategory(pathAndQuery)
+                404 -> notFoundCategory
                 else -> BrowseFailureCategory.PublicApiError
             }
         }
@@ -318,15 +378,6 @@ class TaruBrowseClient(
             request = failure.request,
         )
     }
-
-    private fun notFoundCategory(pathAndQuery: String): BrowseFailureCategory =
-        if (pathAndQuery.contains("/libraries/")) {
-            BrowseFailureCategory.MissingLibrary
-        } else if (pathAndQuery.contains("/people/") && !pathAndQuery.contains("/items")) {
-            BrowseFailureCategory.MissingPerson
-        } else {
-            BrowseFailureCategory.MissingItem
-        }
 
     private fun userMessageFor(category: BrowseFailureCategory): String =
         when (category) {
@@ -373,20 +424,4 @@ class TaruBrowseClient(
             ),
         )
 
-    private fun searchQuery(query: SearchRequest): String =
-        PublicApiUrl.queryString(
-            buildList {
-                if (query.query.isNotBlank()) {
-                    add("q" to query.query)
-                }
-                if (query.facets.isNotEmpty()) {
-                    add("facet" to query.facets.joinToString(","))
-                }
-                add("limit" to query.page.limit.toString())
-                add("offset" to query.page.offset.toString())
-            },
-        )
-
-    private fun pageQuery(page: PageRequest): String =
-        PublicApiUrl.pageQuery(limit = page.limit, offset = page.offset)
 }

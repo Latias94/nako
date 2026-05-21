@@ -1,7 +1,16 @@
 package dev.taru.android.connection
 
+import dev.taru.sdk.PageQuery
+import dev.taru.sdk.TARU_API_VERSION
+import dev.taru.sdk.TARU_API_VERSION_HEADER
+import dev.taru.sdk.TaruPublicClientRequests
 import java.net.URI
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 class TaruConnectionClient(
     private val transport: TaruHttpTransport,
@@ -44,26 +53,32 @@ class TaruConnectionClient(
         }
 
         val healthResult = when (
-            val result = executor.executeJson<HealthEnvelope>(
+            val result = executor.executeResponse(
                 baseUrl = normalizedBaseUrl,
-                pathAndQuery = TaruPublicApiContract.healthPath,
+                pathAndQuery = TaruPublicClientRequests.health().pathAndQuery,
                 auth = PublicApiAuth.None,
-                checkApiVersionHeader = false,
+                checkApiVersionHeader = true,
                 extraSecrets = listOf(accessToken),
             )
         ) {
             is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
             is PublicApiResult.Success -> result
         }
-        val health = healthResult.value
-        val observedHeaderVersion = healthResult.response.header(TaruPublicApiContract.apiVersionHeader)
+        val healthVersion = parseHealthVersion(healthResult.response.body)
+            ?: return failure(
+                normalizedBaseUrl = normalizedBaseUrl,
+                category = ConnectionFailureCategory.InvalidResponse,
+                userMessage = userMessageFor(ConnectionFailureCategory.InvalidResponse),
+                request = healthResult.request,
+            )
+        val observedHeaderVersion = healthResult.response.header(TARU_API_VERSION_HEADER)
         val observedVersion = when {
-            health.version != TaruPublicApiContract.expectedApiVersion -> health.version
+            healthVersion != TARU_API_VERSION -> healthVersion
             observedHeaderVersion != null -> observedHeaderVersion
-            else -> health.version
+            else -> healthVersion
         }
-        if (health.version != TaruPublicApiContract.expectedApiVersion ||
-            observedHeaderVersion?.let { it != TaruPublicApiContract.expectedApiVersion } == true
+        if (healthVersion != TARU_API_VERSION ||
+            observedHeaderVersion?.let { it != TARU_API_VERSION } == true
         ) {
             return failure(
                 normalizedBaseUrl = normalizedBaseUrl,
@@ -77,7 +92,9 @@ class TaruConnectionClient(
         val authProbeResult = when (
             val result = executor.executeResponse(
                 baseUrl = normalizedBaseUrl,
-                pathAndQuery = TaruPublicApiContract.authProbePath,
+                pathAndQuery = TaruPublicClientRequests
+                    .listLibraries(PageQuery(limit = 1, offset = 0))
+                    .pathAndQuery,
                 auth = PublicApiAuth.Bearer(accessToken),
             )
         ) {
@@ -184,4 +201,20 @@ class TaruConnectionClient(
         }
         return uri.toString().trimEnd('/')
     }
+
+    private fun parseHealthVersion(body: String): String? =
+        try {
+            val jsonObject = json.decodeFromString<JsonObject>(body)
+            val status = jsonObject["status"]?.jsonPrimitive?.contentOrNull
+            val version = jsonObject["version"]?.jsonPrimitive?.contentOrNull
+            if (status.isNullOrBlank() || version.isNullOrBlank()) {
+                null
+            } else {
+                version
+            }
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
 }

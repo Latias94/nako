@@ -3,7 +3,6 @@ package dev.taru.android.ui.artwork
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.connection.InMemoryTokenVault
 import dev.taru.android.connection.ServerProfile
-import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -73,8 +72,8 @@ class ArtworkRequestResolverTest {
     private fun publicImage(): PublicImageRefDto =
         PublicImageRefDto(
             id = "poster-1",
-            owner = JsonPrimitive("item-1"),
-            kind = JsonPrimitive("poster"),
+            owner = mapOf("item" to "item-1"),
+            kind = "poster",
             url = "/images/poster-1",
             width = 1000,
             height = 1500,

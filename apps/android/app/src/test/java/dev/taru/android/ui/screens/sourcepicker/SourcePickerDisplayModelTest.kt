@@ -21,7 +21,6 @@ class SourcePickerDisplayModelTest {
             source = MediaSourceDto(
                 id = "source-1",
                 libraryId = "library-a",
-                locator = "file:///srv/private/media/night-harbor.mkv",
                 fileName = "night-harbor.mkv",
                 sizeBytes = 1_073_741_824L,
                 fingerprint = "fingerprint",

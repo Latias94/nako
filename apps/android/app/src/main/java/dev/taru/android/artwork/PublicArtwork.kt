@@ -5,8 +5,9 @@ import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.SensitiveText
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
-import dev.taru.android.connection.TaruPublicApiContract
-import kotlinx.serialization.json.JsonPrimitive
+import dev.taru.android.connection.urlOn
+import dev.taru.sdk.TaruPublicClientRequests
+import dev.taru.sdk.TaruRequestDescriptor
 
 enum class PublicArtworkSlot {
     Poster,
@@ -29,14 +30,14 @@ class PublicArtworkSource(
 ) {
     fun requestFor(image: PublicImageRefDto?): PublicArtworkRequest? {
         image ?: return null
-        val path = image.url.trim()
-        if (accessToken.isBlank() || !path.isPublicImagePath()) {
+        val descriptor = image.publicImageRequestDescriptorOrNull()
+        if (accessToken.isBlank() || descriptor == null) {
             return null
         }
 
         val request = TaruHttpRequest(
             method = "GET",
-            url = "${profile.baseUrl.trimEnd('/')}$path",
+            url = descriptor.urlOn(profile),
             headers = mapOf("Authorization" to "Bearer $accessToken"),
         )
         return PublicArtworkRequest(
@@ -46,7 +47,7 @@ class PublicArtworkSource(
                 url = SensitiveText.sanitize(request.url, listOf(accessToken)),
                 headers = request.headers.mapValues { (name, value) ->
                     if (name.equals("Authorization", ignoreCase = true)) {
-                        "Bearer ${TaruPublicApiContract.redacted}"
+                        "Bearer ${SensitiveText.redacted}"
                     } else {
                         SensitiveText.sanitize(value, listOf(accessToken))
                     }
@@ -57,12 +58,21 @@ class PublicArtworkSource(
     }
 }
 
-private fun String.isPublicImagePath(): Boolean =
-    startsWith("/images/") &&
-        !contains("..") &&
-        !contains("//") &&
-        !contains("?") &&
-        !contains("#")
+private fun PublicImageRefDto.publicImageRequestDescriptorOrNull(): TaruRequestDescriptor? {
+    val path = url.trim()
+    if (
+        id.isBlank() ||
+        path.contains("..") ||
+        path.contains("//") ||
+        path.contains("?") ||
+        path.contains("#")
+    ) {
+        return null
+    }
+    return TaruPublicClientRequests
+        .image(id)
+        .takeIf { descriptor -> descriptor.pathAndQuery == path }
+}
 
 fun preferredPublicArtwork(
     images: List<PublicImageRefDto>,
@@ -76,14 +86,11 @@ fun preferredPublicArtwork(
     return preferredKinds
         .firstNotNullOfOrNull { kind ->
             images.firstOrNull { image ->
-                image.kindWireValue() == kind && image.url.startsWith("/images/")
+                image.kindWireValue() == kind && image.publicImageRequestDescriptorOrNull() != null
             }
         }
-        ?: images.firstOrNull { image -> image.url.startsWith("/images/") }
+        ?: images.firstOrNull { image -> image.publicImageRequestDescriptorOrNull() != null }
 }
 
 fun PublicImageRefDto.kindWireValue(): String =
-    when (val value = kind) {
-        is JsonPrimitive -> value.content.lowercase()
-        else -> value.toString().trim('"').lowercase()
-    }
+    kind.lowercase()

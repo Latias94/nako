@@ -1,16 +1,25 @@
 package dev.taru.android.userplayback
 
 import dev.taru.android.browse.PageRequest
+import dev.taru.android.browse.toAndroid
+import dev.taru.android.browse.toSdkPageQuery
 import dev.taru.android.connection.PublicApiAuth
 import dev.taru.android.connection.PublicApiFailure
 import dev.taru.android.connection.PublicApiFailureKind
 import dev.taru.android.connection.PublicApiResult
-import dev.taru.android.connection.PublicApiUrl
 import dev.taru.android.connection.PublicClientApiExecutor
 import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpTransport
+import dev.taru.sdk.TaruPublicClientRequests
+import dev.taru.sdk.TaruRequestDescriptor
+import dev.taru.sdk.ContinueWatchingItemDto as SdkContinueWatchingItemDto
+import dev.taru.sdk.ContinueWatchingResponse as SdkContinueWatchingResponse
+import dev.taru.sdk.SetWatchedStateRequest as SdkSetWatchedStateRequest
+import dev.taru.sdk.UpdatePlaybackProgressRequest as SdkUpdatePlaybackProgressRequest
+import dev.taru.sdk.UserPlaybackStateDto as SdkUserPlaybackStateDto
+import dev.taru.sdk.UserPlaybackStateResponse as SdkUserPlaybackStateResponse
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -35,10 +44,11 @@ class TaruUserPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkUserPlaybackStateResponse, UserPlaybackStateResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/users/me/playback-state/items/${PublicApiUrl.encodePathSegment(itemId)}",
+            descriptor = TaruPublicClientRequests.getUserPlaybackState(itemId),
+            transform = SdkUserPlaybackStateResponse::toAndroid,
         )
     }
 
@@ -47,10 +57,11 @@ class TaruUserPlaybackClient(
         accessToken: String,
         page: PageRequest = PageRequest(limit = 12, offset = 0),
     ): UserPlaybackResult<ContinueWatchingResponse> =
-        executeJson(
+        executeSdkJson<SdkContinueWatchingResponse, ContinueWatchingResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/users/me/playback-state/continue-watching${pageQuery(page)}",
+            descriptor = TaruPublicClientRequests.listContinueWatching(page.toSdkPageQuery()),
+            transform = SdkContinueWatchingResponse::toAndroid,
         )
 
     suspend fun updateProgress(
@@ -66,12 +77,12 @@ class TaruUserPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkUserPlaybackStateResponse, UserPlaybackStateResponse>(
             profile = profile,
             accessToken = accessToken,
-            method = "PUT",
-            pathAndQuery = "/users/me/playback-state/items/${PublicApiUrl.encodePathSegment(itemId)}/progress",
-            body = json.encodeToString(request),
+            descriptor = TaruPublicClientRequests.updateUserPlaybackProgress(itemId),
+            body = json.encodeToString(request.toSdk()),
+            transform = SdkUserPlaybackStateResponse::toAndroid,
         )
     }
 
@@ -88,33 +99,33 @@ class TaruUserPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkUserPlaybackStateResponse, UserPlaybackStateResponse>(
             profile = profile,
             accessToken = accessToken,
-            method = "PUT",
-            pathAndQuery = "/users/me/playback-state/items/${PublicApiUrl.encodePathSegment(itemId)}/watched",
-            body = json.encodeToString(request),
+            descriptor = TaruPublicClientRequests.setUserWatchedState(itemId),
+            body = json.encodeToString(request.toSdk()),
+            transform = SdkUserPlaybackStateResponse::toAndroid,
         )
     }
 
-    private suspend inline fun <reified T> executeJson(
+    private suspend inline fun <reified WireT, AppT> executeSdkJson(
         profile: ServerProfile,
         accessToken: String,
-        method: String = "GET",
-        pathAndQuery: String,
+        descriptor: TaruRequestDescriptor,
         body: String? = null,
-    ): UserPlaybackResult<T> {
+        transform: (WireT) -> AppT,
+    ): UserPlaybackResult<AppT> {
         return when (
-            val result = executor.executeJson<T>(
+            val result = executor.executeJson<WireT>(
                 baseUrl = profile.baseUrl,
-                pathAndQuery = pathAndQuery,
+                pathAndQuery = descriptor.pathAndQuery,
                 auth = PublicApiAuth.Bearer(accessToken),
-                method = method,
+                method = descriptor.method,
                 body = body,
             )
         ) {
             is PublicApiResult.Success -> UserPlaybackResult.Success(
-                value = result.value,
+                value = transform(result.value),
                 request = result.request,
             )
             is PublicApiResult.Failure -> failureFor(result.failure)
@@ -189,6 +200,51 @@ class TaruUserPlaybackClient(
             ),
         )
 
-    private fun pageQuery(page: PageRequest): String =
-        PublicApiUrl.pageQuery(limit = page.limit, offset = page.offset)
 }
+
+internal fun SdkUserPlaybackStateResponse.toAndroid(): UserPlaybackStateResponse =
+    UserPlaybackStateResponse(state = state.toAndroid())
+
+internal fun SdkContinueWatchingResponse.toAndroid(): ContinueWatchingResponse =
+    ContinueWatchingResponse(
+        items = items.map(SdkContinueWatchingItemDto::toAndroid),
+        page = page.toAndroid(),
+    )
+
+private fun SdkContinueWatchingItemDto.toAndroid(): ContinueWatchingItemDto =
+    ContinueWatchingItemDto(
+        item = item.toAndroid(),
+        state = state.toAndroid(),
+        images = images.map { it.toAndroid() },
+    )
+
+private fun SdkUserPlaybackStateDto.toAndroid(): UserPlaybackStateDto =
+    UserPlaybackStateDto(
+        itemId = itemId,
+        sourceId = sourceId,
+        resumePositionMs = resumePositionMs,
+        durationMs = durationMs,
+        progressPercent = progressPercent,
+        watched = watched,
+        watchedAt = watchedAt,
+        lastPlayedAt = lastPlayedAt,
+        updatedAt = updatedAt,
+        version = version,
+    )
+
+private fun UpdatePlaybackProgressRequest.toSdk(): SdkUpdatePlaybackProgressRequest =
+    SdkUpdatePlaybackProgressRequest(
+        sourceId = sourceId,
+        positionMs = positionMs,
+        durationMs = durationMs,
+        reportedAt = reportedAt,
+    )
+
+private fun SetWatchedStateRequest.toSdk(): SdkSetWatchedStateRequest =
+    SdkSetWatchedStateRequest(
+        watched = watched,
+        sourceId = sourceId,
+        positionMs = positionMs,
+        durationMs = durationMs,
+        markedAt = markedAt,
+    )

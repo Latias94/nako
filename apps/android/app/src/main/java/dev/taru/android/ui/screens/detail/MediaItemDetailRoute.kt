@@ -631,10 +631,8 @@ internal fun hierarchySubtitle(item: MediaItemDto): String =
 
 private fun creditTitle(index: Int, credit: ItemCreditDto): String {
     val role = credit.role
-        ?.toString()
-        ?.trim('"')
         ?.replace('_', ' ')
-        ?.takeIf { it.isNotBlank() && it != "null" }
+        ?.takeIf { it.isNotBlank() }
     val character = credit.character?.takeIf { it.isNotBlank() }
     return listOfNotNull(
         role?.replaceFirstChar { it.uppercase() },

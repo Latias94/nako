@@ -1,12 +1,7 @@
 package dev.taru.android.connection
 
+import dev.taru.sdk.TARU_API_VERSION
 import kotlinx.serialization.Serializable
-
-@Serializable
-data class HealthEnvelope(
-    val status: String,
-    val version: String,
-)
 
 @Serializable
 data class PublicErrorEnvelope(
@@ -41,7 +36,7 @@ data class SafeConnectionDiagnostics(
     val category: ConnectionFailureCategory,
     val userMessage: String,
     val statusCode: Int? = null,
-    val expectedApiVersion: String = TaruPublicApiContract.expectedApiVersion,
+    val expectedApiVersion: String = TARU_API_VERSION,
     val observedApiVersion: String? = null,
     val publicError: PublicErrorEnvelope? = null,
     val request: SafeRequestPreview? = null,

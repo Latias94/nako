@@ -5,13 +5,22 @@ import dev.taru.android.connection.PublicApiAuth
 import dev.taru.android.connection.PublicApiFailure
 import dev.taru.android.connection.PublicApiFailureKind
 import dev.taru.android.connection.PublicApiResult
-import dev.taru.android.connection.PublicApiUrl
 import dev.taru.android.connection.PublicClientApiExecutor
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
+import dev.taru.android.connection.urlOn
+import dev.taru.android.media.toAndroid
 import dev.taru.android.media.SourceProbeResponse
+import dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER
+import dev.taru.sdk.PlaybackCapabilitiesQuery
+import dev.taru.sdk.RemuxOutputContainer
+import dev.taru.sdk.RemuxPlaybackQuery
+import dev.taru.sdk.TaruPublicClientRequests
+import dev.taru.sdk.TaruRequestDescriptor
+import dev.taru.sdk.PlaybackDecisionResponse as SdkPlaybackDecisionResponse
+import dev.taru.sdk.SourceProbeResponse as SdkSourceProbeResponse
+import dev.taru.sdk.TranscodeSessionResponse as SdkTranscodeSessionResponse
 import kotlinx.serialization.json.Json
 
 class TaruPlaybackClient(
@@ -32,10 +41,11 @@ class TaruPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkSourceProbeResponse, SourceProbeResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/probe",
+            descriptor = TaruPublicClientRequests.getSourceProbe(sourceId),
+            transform = SdkSourceProbeResponse::toAndroid,
         )
     }
 
@@ -52,10 +62,14 @@ class TaruPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkPlaybackDecisionResponse, PlaybackDecisionResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/playback/decision${capabilitiesQuery(capabilities)}",
+            descriptor = TaruPublicClientRequests.getSourcePlaybackDecision(
+                sourceId = sourceId,
+                capabilities = capabilities.toSdkPlaybackCapabilitiesQuery(),
+            ),
+            transform = SdkPlaybackDecisionResponse::toAndroid,
         )
     }
 
@@ -66,8 +80,7 @@ class TaruPlaybackClient(
     ): PlaybackRequestTarget =
         playbackTarget(
             profile = profile,
-            method = "GET",
-            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream",
+            descriptor = TaruPublicClientRequests.streamSource(sourceId),
             range = range,
         )
 
@@ -78,8 +91,7 @@ class TaruPlaybackClient(
     ): PlaybackRequestTarget =
         playbackTarget(
             profile = profile,
-            method = "HEAD",
-            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream",
+            descriptor = TaruPublicClientRequests.headStreamSource(sourceId),
             range = range,
         )
 
@@ -90,18 +102,14 @@ class TaruPlaybackClient(
         outputContainer: ClientOutputContainer = ClientOutputContainer.Mp4,
         range: String? = null,
     ): PlaybackRequestTarget {
-        val pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream/remux${
-            remuxQuery(capabilities, outputContainer)
-        }"
+        val query = capabilities.toSdkRemuxPlaybackQuery(outputContainer)
         return playbackTarget(
             profile = profile,
-            method = "GET",
-            pathAndQuery = pathAndQuery,
+            descriptor = TaruPublicClientRequests.remuxStreamSource(sourceId, query),
             range = range,
             sessionProbeRequest = playbackRequestDescriptor(
                 profile = profile,
-                method = "HEAD",
-                pathAndQuery = pathAndQuery,
+                descriptor = TaruPublicClientRequests.headRemuxStreamSource(sourceId, query),
             ),
         )
     }
@@ -111,17 +119,16 @@ class TaruPlaybackClient(
         sourceId: String,
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
     ): PlaybackRequestTarget {
-        val pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream/hls/playlist.m3u8${
-            capabilitiesQuery(capabilities)
-        }"
+        val descriptor = TaruPublicClientRequests.hlsPlaylistSource(
+            sourceId = sourceId,
+            capabilities = capabilities.toSdkPlaybackCapabilitiesQuery(),
+        )
         return playbackTarget(
             profile = profile,
-            method = "GET",
-            pathAndQuery = pathAndQuery,
+            descriptor = descriptor,
             sessionProbeRequest = playbackRequestDescriptor(
                 profile = profile,
-                method = "GET",
-                pathAndQuery = pathAndQuery,
+                descriptor = descriptor,
             ),
         )
     }
@@ -133,10 +140,10 @@ class TaruPlaybackClient(
     ): PlaybackRequestTarget =
         playbackTarget(
             profile = profile,
-            method = "GET",
-            pathAndQuery = "/playback/sessions/${PublicApiUrl.encodePathSegment(sessionId)}/hls/segments/${
-                PublicApiUrl.encodePathSegment(segmentName)
-            }",
+            descriptor = TaruPublicClientRequests.hlsSegment(
+                sessionId = sessionId,
+                segmentName = segmentName,
+            ),
         )
 
     suspend fun getPlaybackSession(
@@ -151,10 +158,11 @@ class TaruPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkTranscodeSessionResponse, TranscodeSessionResponse>(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/playback/sessions/${PublicApiUrl.encodePathSegment(sessionId)}",
+            descriptor = TaruPublicClientRequests.getPlaybackSession(sessionId),
+            transform = SdkTranscodeSessionResponse::toAndroid,
         )
     }
 
@@ -170,11 +178,11 @@ class TaruPlaybackClient(
             )
         }
 
-        return executeJson(
+        return executeSdkJson<SdkTranscodeSessionResponse, TranscodeSessionResponse>(
             profile = profile,
             accessToken = accessToken,
-            method = "POST",
-            pathAndQuery = "/playback/sessions/${PublicApiUrl.encodePathSegment(sessionId)}/cancel",
+            descriptor = TaruPublicClientRequests.cancelPlaybackSession(sessionId),
+            transform = SdkTranscodeSessionResponse::toAndroid,
         )
     }
 
@@ -236,22 +244,22 @@ class TaruPlaybackClient(
         }
     }
 
-    private suspend inline fun <reified T> executeJson(
+    private suspend inline fun <reified WireT, AppT> executeSdkJson(
         profile: ServerProfile,
         accessToken: String,
-        method: String = "GET",
-        pathAndQuery: String,
-    ): PlaybackResult<T> {
+        descriptor: TaruRequestDescriptor,
+        transform: (WireT) -> AppT,
+    ): PlaybackResult<AppT> {
         return when (
-            val result = executor.executeJson<T>(
+            val result = executor.executeJson<WireT>(
                 baseUrl = profile.baseUrl,
-                pathAndQuery = pathAndQuery,
+                pathAndQuery = descriptor.pathAndQuery,
                 auth = PublicApiAuth.Bearer(accessToken),
-                method = method,
+                method = descriptor.method,
             )
         ) {
             is PublicApiResult.Success -> PlaybackResult.Success(
-                value = result.value,
+                value = transform(result.value),
                 request = result.request,
             )
             is PublicApiResult.Failure -> failureFor(result.failure)
@@ -316,8 +324,7 @@ class TaruPlaybackClient(
 
     private fun playbackTarget(
         profile: ServerProfile,
-        method: String,
-        pathAndQuery: String,
+        descriptor: TaruRequestDescriptor,
         range: String? = null,
         sessionProbeRequest: PlaybackRequestDescriptor? = null,
     ): PlaybackRequestTarget {
@@ -325,8 +332,8 @@ class TaruPlaybackClient(
             range?.takeIf { it.isNotBlank() }?.let { put("Range", it) }
         }
         val request = PlaybackRequestDescriptor(
-            method = method,
-            url = PublicApiUrl.join(profile.baseUrl, pathAndQuery),
+            method = descriptor.method,
+            url = descriptor.urlOn(profile),
             headers = headers,
         )
         return PlaybackRequestTarget(
@@ -360,7 +367,7 @@ class TaruPlaybackClient(
         }
 
         val sessionId = response
-            .header(TaruPublicApiContract.playbackSessionIdHeader)
+            .header(TARU_PLAYBACK_SESSION_ID_HEADER)
             ?.takeIf { it.isNotBlank() }
             ?: return failure(
                 category = PlaybackFailureCategory.MissingSession,
@@ -376,12 +383,11 @@ class TaruPlaybackClient(
 
     private fun playbackRequestDescriptor(
         profile: ServerProfile,
-        method: String,
-        pathAndQuery: String,
+        descriptor: TaruRequestDescriptor,
     ): PlaybackRequestDescriptor =
         PlaybackRequestDescriptor(
-            method = method,
-            url = PublicApiUrl.join(profile.baseUrl, pathAndQuery),
+            method = descriptor.method,
+            url = descriptor.urlOn(profile),
         )
 
     private fun failure(
@@ -403,57 +409,35 @@ class TaruPlaybackClient(
             ),
         )
 
-    private fun capabilitiesQuery(capabilities: PlaybackCapabilities): String =
-        queryString(
-            buildList {
-                capabilities.directPlay?.let {
-                    add("direct_play" to if (it) "true" else "false")
-                }
-                addCsv("container", capabilities.containers)
-                addCsv("video_codec", capabilities.videoCodecs)
-                addCsv("audio_codec", capabilities.audioCodecs)
-            },
-        )
-
-    private fun remuxQuery(
-        capabilities: PlaybackCapabilities,
-        outputContainer: ClientOutputContainer,
-    ): String =
-        queryString(
-            buildList {
-                capabilities.directPlay?.let {
-                    add("direct_play" to if (it) "true" else "false")
-                }
-                addCsv("container", capabilities.containers)
-                addCsv("video_codec", capabilities.videoCodecs)
-                addCsv("audio_codec", capabilities.audioCodecs)
-                add("output_container" to outputContainer.wireValue)
-            },
-        )
-
-    private fun MutableList<Pair<String, String>>.addCsv(
-        name: String,
-        values: List<String>,
-    ) {
-        val cleaned = values.map(String::trim).filter(String::isNotEmpty)
-        if (cleaned.isNotEmpty()) {
-            add(name to cleaned.joinToString(","))
-        }
-    }
-
-    private fun queryString(pairs: List<Pair<String, String>>): String =
-        PublicApiUrl.queryString(pairs)
-
-    private val ClientOutputContainer.wireValue: String
-        get() = when (this) {
-            ClientOutputContainer.Hls -> "hls"
-            ClientOutputContainer.Mp4 -> "mp4"
-            ClientOutputContainer.Mkv -> "mkv"
-        }
-
     private fun remuxOutputContainer(decision: PlaybackDecisionResponse): ClientOutputContainer =
         decision.decision.transcodePlan
             ?.outputContainer
             ?.takeIf { it != ClientOutputContainer.Hls }
             ?: ClientOutputContainer.Mp4
+
+    private fun PlaybackCapabilities.toSdkPlaybackCapabilitiesQuery(): PlaybackCapabilitiesQuery =
+        PlaybackCapabilitiesQuery(
+            directPlay = directPlay,
+            containers = containers,
+            videoCodecs = videoCodecs,
+            audioCodecs = audioCodecs,
+        )
+
+    private fun PlaybackCapabilities.toSdkRemuxPlaybackQuery(
+        outputContainer: ClientOutputContainer,
+    ): RemuxPlaybackQuery =
+        RemuxPlaybackQuery(
+            directPlay = directPlay,
+            containers = containers,
+            videoCodecs = videoCodecs,
+            audioCodecs = audioCodecs,
+            outputContainer = outputContainer.toSdkRemuxOutputContainerOrNull(),
+        )
+
+    private fun ClientOutputContainer.toSdkRemuxOutputContainerOrNull(): RemuxOutputContainer? =
+        when (this) {
+            ClientOutputContainer.Mp4 -> RemuxOutputContainer.Mp4
+            ClientOutputContainer.Mkv -> RemuxOutputContainer.Mkv
+            ClientOutputContainer.Hls -> null
+        }
 }

@@ -46,6 +46,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":taru-public-client-sdk"))
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)
