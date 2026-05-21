@@ -43,12 +43,18 @@ reqwest transport ergonomics for Rust callers.
 
 ## M3 — Rust Public Wire Tolerance
 
+Status: Complete on 2026-05-21.
+
 Exit when:
 
 - public Rust string values that can grow decode unknown strings into preserved
   values;
 - known-value ergonomics remain clear;
 - protocol, API generator, and client tests pass.
+
+Result: Rust public string values now preserve unknown additive wire strings
+through `Other(String)` and serialize them back unchanged. Known values retain
+named constructors and explicit `wire_value()` helpers.
 
 ## M4 — Android Playback Core Tracer
 

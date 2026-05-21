@@ -906,7 +906,7 @@ impl QueryParams for ImageVariantQuery {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RemuxPlaybackQuery<'a> {
     pub capabilities: PlaybackCapabilitiesQuery<'a>,
     pub output_container: Option<ClientOutputContainer>,
@@ -915,10 +915,10 @@ pub struct RemuxPlaybackQuery<'a> {
 impl QueryParams for RemuxPlaybackQuery<'_> {
     fn append_query(&self, pairs: &mut Vec<(String, String)>) {
         self.capabilities.append_query(pairs);
-        if let Some(output_container) = self.output_container {
+        if let Some(output_container) = &self.output_container {
             pairs.push((
                 "output_container".to_owned(),
-                output_container_wire_value(output_container).to_owned(),
+                output_container.wire_value().to_owned(),
             ));
         }
     }
@@ -1127,15 +1127,6 @@ pub enum TaruClientError {
 #[must_use]
 fn encode_path_segment(value: &str) -> String {
     taru_client_core::encode_path_segment(value)
-}
-
-#[must_use]
-const fn output_container_wire_value(value: ClientOutputContainer) -> &'static str {
-    match value {
-        ClientOutputContainer::Hls => "hls",
-        ClientOutputContainer::Mp4 => "mp4",
-        ClientOutputContainer::Mkv => "mkv",
-    }
 }
 
 #[cfg(test)]

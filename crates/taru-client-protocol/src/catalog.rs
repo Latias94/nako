@@ -2,6 +2,64 @@ use serde::{Deserialize, Serialize};
 
 use crate::PageInfo;
 
+macro_rules! public_string_value {
+    (
+        $(#[$meta:meta])*
+        pub enum $name:ident {
+            $($variant:ident => $wire:literal),+ $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+        pub enum $name {
+            $($variant,)+
+            Other(String),
+        }
+
+        impl $name {
+            #[must_use]
+            pub fn from_wire_value(value: &str) -> Self {
+                match value {
+                    $($wire => Self::$variant,)+
+                    other => Self::Other(other.to_owned()),
+                }
+            }
+
+            #[must_use]
+            pub fn wire_value(&self) -> &str {
+                match self {
+                    $(Self::$variant => $wire,)+
+                    Self::Other(value) => value,
+                }
+            }
+
+            #[must_use]
+            pub const fn is_known(&self) -> bool {
+                !matches!(self, Self::Other(_))
+            }
+        }
+
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                serializer.serialize_str(self.wire_value())
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                let value = String::deserialize(deserializer)?;
+                Ok(Self::from_wire_value(&value))
+            }
+        }
+    };
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibraryListResponse {
     pub libraries: Vec<LibraryDto>,
@@ -249,12 +307,12 @@ pub struct ClientPlaybackDecision {
     pub transcode_plan: Option<ClientTranscodePlan>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientPlaybackMode {
-    DirectPlay,
-    Remux,
-    Transcode,
+public_string_value! {
+    pub enum ClientPlaybackMode {
+        DirectPlay => "direct_play",
+        Remux => "remux",
+        Transcode => "transcode",
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -341,52 +399,52 @@ pub struct SetWatchedStateRequest {
     pub marked_at: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientTranscodeSessionKind {
-    Remux,
-    HlsTranscode,
+public_string_value! {
+    pub enum ClientTranscodeSessionKind {
+        Remux => "remux",
+        HlsTranscode => "hls_transcode",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientTranscodeSessionState {
-    Planned,
-    Starting,
-    Running,
-    CancelRequested,
-    Cancelled,
-    Failed,
-    Finished,
+public_string_value! {
+    pub enum ClientTranscodeSessionState {
+        Planned => "planned",
+        Starting => "starting",
+        Running => "running",
+        CancelRequested => "cancel_requested",
+        Cancelled => "cancelled",
+        Failed => "failed",
+        Finished => "finished",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientTranscodeFailureCategory {
-    InvalidRequest,
-    Runner,
-    Timeout,
-    Storage,
-    Stale,
-    Cancelled,
-    Unknown,
+public_string_value! {
+    pub enum ClientTranscodeFailureCategory {
+        InvalidRequest => "invalid_request",
+        Runner => "runner",
+        Timeout => "timeout",
+        Storage => "storage",
+        Stale => "stale",
+        Cancelled => "cancelled",
+        Unknown => "unknown",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientOutputContainer {
-    Hls,
-    Mp4,
-    Mkv,
+public_string_value! {
+    pub enum ClientOutputContainer {
+        Hls => "hls",
+        Mp4 => "mp4",
+        Mkv => "mkv",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientHardwareAcceleration {
-    None,
-    Vaapi,
-    Nvenc,
-    QuickSync,
+public_string_value! {
+    pub enum ClientHardwareAcceleration {
+        None => "none",
+        Vaapi => "vaapi",
+        Nvenc => "nvenc",
+        QuickSync => "quick_sync",
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -473,96 +531,94 @@ pub struct PublicImageRefDto {
     pub etag: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientMediaKind {
-    Movie,
-    Series,
-    Season,
-    Episode,
-    Collection,
-    Extra,
-    Unknown,
+public_string_value! {
+    pub enum ClientMediaKind {
+        Movie => "movie",
+        Series => "series",
+        Season => "season",
+        Episode => "episode",
+        Collection => "collection",
+        Extra => "extra",
+        Unknown => "unknown",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientMediaDomain {
-    Video,
-    Audio,
-    Image,
-    Document,
-    Mixed,
-    Online,
+public_string_value! {
+    pub enum ClientMediaDomain {
+        Video => "video",
+        Audio => "audio",
+        Image => "image",
+        Document => "document",
+        Mixed => "mixed",
+        Online => "online",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientLibraryPreset {
-    Movies,
-    Tv,
-    Anime,
-    Music,
-    Podcast,
-    Photos,
-    HomeVideo,
-    MixedVideo,
-    OnlineCatalog,
-    Custom,
+public_string_value! {
+    pub enum ClientLibraryPreset {
+        Movies => "movies",
+        Tv => "tv",
+        Anime => "anime",
+        Music => "music",
+        Podcast => "podcast",
+        Photos => "photos",
+        HomeVideo => "home_video",
+        MixedVideo => "mixed_video",
+        OnlineCatalog => "online_catalog",
+        Custom => "custom",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientNamingStrategy {
-    Movie,
-    Series,
-    Anime,
-    Music,
-    Podcast,
-    Photo,
-    HomeVideo,
-    Mixed,
-    OnlineCatalog,
+public_string_value! {
+    pub enum ClientNamingStrategy {
+        Movie => "movie",
+        Series => "series",
+        Anime => "anime",
+        Music => "music",
+        Podcast => "podcast",
+        Photo => "photo",
+        HomeVideo => "home_video",
+        Mixed => "mixed",
+        OnlineCatalog => "online_catalog",
+    }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientLocalMetadataReader {
-    Nfo,
-    Embedded,
-    Sidecar,
-    Other(String),
+public_string_value! {
+    pub enum ClientLocalMetadataReader {
+        Nfo => "nfo",
+        Embedded => "embedded",
+        Sidecar => "sidecar",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientMetadataRefreshMode {
-    None,
-    ValidationOnly,
-    Default,
-    MissingOnly,
-    FullRefresh,
+public_string_value! {
+    pub enum ClientMetadataRefreshMode {
+        None => "none",
+        ValidationOnly => "validation_only",
+        Default => "default",
+        MissingOnly => "missing_only",
+        FullRefresh => "full_refresh",
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientLocalMetadataPolicy {
-    Disabled,
-    ReadOnly,
-    LocalFirst,
-    RemoteFirst,
-    WriteSidecar,
+public_string_value! {
+    pub enum ClientLocalMetadataPolicy {
+        Disabled => "disabled",
+        ReadOnly => "read_only",
+        LocalFirst => "local_first",
+        RemoteFirst => "remote_first",
+        WriteSidecar => "write_sidecar",
+    }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientExternalProvider {
-    Tmdb,
-    Douban,
-    Bangumi,
-    Imdb,
-    Local,
-    Other(String),
+public_string_value! {
+    pub enum ClientExternalProvider {
+        Tmdb => "tmdb",
+        Douban => "douban",
+        Bangumi => "bangumi",
+        Imdb => "imdb",
+        Local => "local",
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -575,26 +631,24 @@ pub enum ClientMetadataSource {
     Addon(String),
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientImageKind {
-    Poster,
-    Backdrop,
-    Logo,
-    Thumbnail,
-    Banner,
-    Other(String),
+public_string_value! {
+    pub enum ClientImageKind {
+        Poster => "poster",
+        Backdrop => "backdrop",
+        Logo => "logo",
+        Thumbnail => "thumbnail",
+        Banner => "banner",
+    }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientCreditRole {
-    Actor,
-    Director,
-    Writer,
-    Producer,
-    Creator,
-    Other(String),
+public_string_value! {
+    pub enum ClientCreditRole {
+        Actor => "actor",
+        Director => "director",
+        Writer => "writer",
+        Producer => "producer",
+        Creator => "creator",
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -606,13 +660,12 @@ pub enum ClientImageOwner {
     Studio(String),
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientMediaStreamKind {
-    Video,
-    Audio,
-    Subtitle,
-    Data,
-    Attachment,
-    Other(String),
+public_string_value! {
+    pub enum ClientMediaStreamKind {
+        Video => "video",
+        Audio => "audio",
+        Subtitle => "subtitle",
+        Data => "data",
+        Attachment => "attachment",
+    }
 }

@@ -578,7 +578,7 @@ async fn head_remux_stream_route_exposes_active_session_before_ffmpeg_finishes()
             &format!("/playback/sessions/{session_id}"),
         )
         .await;
-        last_state = Some(session_response.session.state);
+        last_state = Some(session_response.session.state.clone());
         if session_response.session.state == ClientTranscodeSessionState::Cancelled {
             final_session = Some(session_response.session);
             break;

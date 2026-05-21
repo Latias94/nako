@@ -44,15 +44,16 @@ Last updated: 2026-05-21
 
 ## M3 — Rust Public Wire Tolerance
 
-- [ ] RCR-040 [owner=codex] [deps=RCR-030] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-client]
+- [x] RCR-040 [owner=codex] [deps=RCR-030] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-client]
   Goal: Make Rust public string-value DTOs preserve unknown additive wire values
   instead of failing deserialization.
   Validation: `cargo fmt --package taru-client-protocol --package taru-api --package taru-client --check`; `cargo nextest run -p taru-client-protocol --no-fail-fast`; `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast`; `cargo nextest run -p taru-client --no-fail-fast`
   Review: Known-value ergonomics should stay explicit, while unknown values
   retain their raw strings through decode/encode.
   Evidence: `crates/taru-client-protocol/src/catalog.rs`;
-  `EVIDENCE_AND_GATES.md`
-  Handoff: Pending.
+  `crates/taru-client-protocol/src/lib.rs`;
+  `docs/workstreams/android-rust-core-runtime-hardening/EVIDENCE_AND_GATES.md#evidence-log`
+  Handoff: DONE. Public Rust string-value DTOs now preserve unknown additive strings through `Other(String)` and re-serialize raw wire values. Known-value ergonomics use `wire_value()` and `is_known()`.
 
 ## M4 — Android Playback Core Tracer
 

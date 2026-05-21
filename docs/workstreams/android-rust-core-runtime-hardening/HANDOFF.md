@@ -5,12 +5,13 @@ Last updated: 2026-05-21
 
 ## Current State
 
-The lane is open. `RCR-010`, `RCR-020`, and `RCR-030` are complete.
+The lane is open. `RCR-010`, `RCR-020`, `RCR-030`, and `RCR-040` are complete.
 
 ## Active Task
 
-`RCR-040`: make Rust public string-value DTOs preserve unknown additive wire
-values instead of failing deserialization.
+`RCR-050`: use the Rust core / UniFFI boundary for playback decision request
+construction and playback target interpretation while keeping Android-owned
+transport, diagnostics, and Media3.
 
 ## Guardrails
 
@@ -22,6 +23,6 @@ values instead of failing deserialization.
 
 ## Recommended Next Step
 
-Implement `RCR-040` in `crates/taru-client-protocol` first, then update any
-Rust client/API generator fallout and run the focused protocol/API/client
-gates.
+Implement `RCR-050` across `taru-client-core`, `taru-client-uniffi`, and Android
+playback. Keep Android DTO mapping and product diagnostics app-owned unless the
+task explicitly moves a portable rule into Rust.

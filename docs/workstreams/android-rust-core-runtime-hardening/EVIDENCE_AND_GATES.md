@@ -111,3 +111,19 @@ git diff --check
     passed after formatting.
   - `cargo nextest run -p taru-client-core --no-fail-fast` passed with 9 tests.
   - `cargo nextest run -p taru-client --no-fail-fast` passed with 9 tests.
+- 2026-05-21: Completed `RCR-040` Rust public wire tolerance.
+  - Replaced strict public string-value Rust enums with tolerant value enums
+    that preserve unknown strings in `Other(String)`.
+  - Added `wire_value()` and `is_known()` helpers.
+  - Added protocol evidence that unknown playback mode, output container, and
+    hardware acceleration decode and re-encode without losing raw wire values.
+  - Updated `taru-client` remux query construction to use `wire_value()`.
+  - Updated API/server fallout for non-`Copy` tolerant values.
+  - `cargo fmt --package taru-client-protocol --package taru-api --package taru-client --check`
+    passed.
+  - `cargo nextest run -p taru-client-protocol --no-fail-fast` passed with 9 tests.
+  - `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast` passed with 3 tests.
+  - `cargo nextest run -p taru-client --no-fail-fast` passed with 9 tests.
+  - `cargo nextest run -p taru-api --no-fail-fast` passed with 45 tests.
+  - `cargo check --workspace --tests` passed after fixing server test moved-value
+    fallout.
