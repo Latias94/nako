@@ -1,6 +1,7 @@
 package dev.taru.android.connection
 
-import uniffi.taru_client_uniffi.CoreConnectionProbeOutcome
+import uniffi.taru_client_uniffi.CoreConnectionProbeOutcome as UniFfiConnectionProbeOutcome
+import uniffi.taru_client_uniffi.CoreConnectionProbeOutcomeKind as UniFfiConnectionProbeOutcomeKind
 import uniffi.taru_client_uniffi.CoreHttpHeader
 import uniffi.taru_client_uniffi.CoreHttpRequest
 import uniffi.taru_client_uniffi.CoreHttpResponse
@@ -8,39 +9,67 @@ import uniffi.taru_client_uniffi.CoreRuntimeFailure
 import uniffi.taru_client_uniffi.CoreRuntimeFailureKind
 import uniffi.taru_client_uniffi.CoreSafeRequestPreview
 
-interface ConnectionCore {
+internal data class ConnectionCoreRequest(
+    val requestId: String,
+    val httpRequest: TaruHttpRequest,
+    val safePreview: SafeRequestPreview,
+)
+
+internal data class ConnectionCoreSuccess(
+    val apiVersion: String,
+    val healthRequest: SafeRequestPreview,
+    val authProbeRequest: SafeRequestPreview,
+)
+
+internal sealed interface ConnectionCoreOutcome {
+    data class NextRequest(
+        val request: ConnectionCoreRequest,
+    ) : ConnectionCoreOutcome
+
+    data class Success(
+        val success: ConnectionCoreSuccess,
+    ) : ConnectionCoreOutcome
+
+    data class Failure(
+        val failure: PublicApiFailure,
+    ) : ConnectionCoreOutcome
+}
+
+internal interface ConnectionCore {
     fun startConnectionProbe(
         baseUrl: String,
         accessToken: String,
-    ): CoreConnectionProbeOutcome
+    ): ConnectionCoreOutcome
 
     fun advanceConnectionProbe(
         baseUrl: String,
         accessToken: String,
-        response: CoreHttpResponse,
-    ): CoreConnectionProbeOutcome
+        request: ConnectionCoreRequest,
+        response: TaruHttpResponse,
+    ): ConnectionCoreOutcome
 }
 
-object RustConnectionCore : ConnectionCore {
+internal object RustConnectionCore : ConnectionCore {
     override fun startConnectionProbe(
         baseUrl: String,
         accessToken: String,
-    ): CoreConnectionProbeOutcome =
+    ): ConnectionCoreOutcome =
         uniffi.taru_client_uniffi.startConnectionProbe(
             baseUrl = baseUrl,
             accessToken = accessToken,
-        )
+        ).toConnectionCoreOutcome()
 
     override fun advanceConnectionProbe(
         baseUrl: String,
         accessToken: String,
-        response: CoreHttpResponse,
-    ): CoreConnectionProbeOutcome =
+        request: ConnectionCoreRequest,
+        response: TaruHttpResponse,
+    ): ConnectionCoreOutcome =
         uniffi.taru_client_uniffi.advanceConnectionProbe(
             baseUrl = baseUrl,
             accessToken = accessToken,
-            response = response,
-        )
+            response = response.toCoreResponse(request.requestId),
+        ).toConnectionCoreOutcome()
 }
 
 internal fun CoreHttpRequest.toAndroidRequest(): TaruHttpRequest =
@@ -51,7 +80,14 @@ internal fun CoreHttpRequest.toAndroidRequest(): TaruHttpRequest =
         body = bodyUtf8,
     )
 
-internal fun TaruHttpResponse.toCoreResponse(requestId: String): CoreHttpResponse =
+private fun CoreHttpRequest.toConnectionCoreRequest(): ConnectionCoreRequest =
+    ConnectionCoreRequest(
+        requestId = requestId,
+        httpRequest = toAndroidRequest(),
+        safePreview = safePreview.toAndroidPreview(),
+    )
+
+private fun TaruHttpResponse.toCoreResponse(requestId: String): CoreHttpResponse =
     CoreHttpResponse(
         requestId = requestId,
         statusCode = statusCode,
@@ -87,6 +123,35 @@ internal fun CoreRuntimeFailure.toPublicApiFailure(): PublicApiFailure =
         },
         request = request?.toAndroidPreview(),
     )
+
+private fun UniFfiConnectionProbeOutcome.toConnectionCoreOutcome(): ConnectionCoreOutcome =
+    when (kind) {
+        UniFfiConnectionProbeOutcomeKind.NEXT_REQUEST -> nextRequest
+            ?.toConnectionCoreRequest()
+            ?.let(ConnectionCoreOutcome::NextRequest)
+            ?: invalidCoreOutcome()
+
+        UniFfiConnectionProbeOutcomeKind.SUCCESS -> success
+            ?.let { coreSuccess ->
+                ConnectionCoreOutcome.Success(
+                    ConnectionCoreSuccess(
+                        apiVersion = coreSuccess.apiVersion,
+                        healthRequest = coreSuccess.healthRequest.toAndroidPreview(),
+                        authProbeRequest = coreSuccess.authProbeRequest.toAndroidPreview(),
+                    ),
+                )
+            }
+            ?: invalidCoreOutcome()
+
+        UniFfiConnectionProbeOutcomeKind.FAILURE ->
+            ConnectionCoreOutcome.Failure(
+                failure?.toPublicApiFailure()
+                    ?: PublicApiFailure(PublicApiFailureKind.InvalidResponse),
+            )
+    }
+
+private fun invalidCoreOutcome(): ConnectionCoreOutcome =
+    ConnectionCoreOutcome.Failure(PublicApiFailure(PublicApiFailureKind.InvalidResponse))
 
 private fun CoreRuntimeFailureKind.toPublicApiFailureKind(): PublicApiFailureKind =
     when (this) {
