@@ -86,6 +86,10 @@ Task IDs use the `NSPA` prefix.
   `FailedBeforeMutation` without creating a sidecar or leaking raw path/XML
   diagnostics. Remaining NSPA-060 coverage still needs backup
   restore/rollback, metadata commit, and retention diagnostic failure gates.
+  Progress: 2026-05-21 import metadata commit failure injection now proves
+  `FailedBeforeMutation` before canonical metadata, field locks, sidecars, or
+  operator diagnostics are mutated. Remaining NSPA-060 coverage still needs
+  backup restore/rollback and retention diagnostic failure gates.
   Handoff: Decide API/UI/addon exposure in NSPA-070.
 
 ## M6 — Closeout And Exposure Split

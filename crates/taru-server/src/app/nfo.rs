@@ -137,6 +137,7 @@ pub(crate) struct NfoAppService {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NfoSidecarApplyAuditFailurePoint {
     BeforeCommittedState,
+    BeforeMetadataCommit,
 }
 
 impl NfoAppService {
@@ -612,6 +613,15 @@ impl NfoAppService {
             }
         };
         let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        if let Err(err) = self.fail_nfo_sidecar_metadata_commit_for_test() {
+            self.record_nfo_sidecar_pre_mutation_failure(
+                &importing,
+                "nfo_sidecar_import_metadata_commit_failed",
+                "NFO sidecar import metadata commit failed before mutation",
+            )
+            .await?;
+            return Err(err);
+        }
         let summary = service
             .import_media_source(NfoImportSourceRequest {
                 library_id: accepted.target_library_id,
@@ -820,6 +830,18 @@ impl NfoAppService {
             if self.audit_failure == Some(NfoSidecarApplyAuditFailurePoint::BeforeCommittedState) {
                 return Err(TaruError::Database {
                     message: "injected NFO sidecar apply audit commit failure".to_owned(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn fail_nfo_sidecar_metadata_commit_for_test(&self) -> Result<()> {
+        #[cfg(test)]
+        {
+            if self.audit_failure == Some(NfoSidecarApplyAuditFailurePoint::BeforeMetadataCommit) {
+                return Err(TaruError::Database {
+                    message: "injected NFO sidecar metadata commit failure".to_owned(),
                 });
             }
         }
