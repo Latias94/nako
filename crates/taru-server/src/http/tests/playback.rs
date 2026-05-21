@@ -642,6 +642,100 @@ async fn playback_session_route_returns_remux_session_state() {
 }
 
 #[tokio::test]
+async fn playback_session_route_maps_internal_failure_taxonomy_to_public_contract() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "taxonomy:test".to_owned(),
+            output_path: "cache/remux/private/stream.mp4".into(),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            session.id,
+            TranscodeSessionState::Failed,
+            Some(TranscodeFailureCategory::Plan),
+            Some("playback transcode planning failed".to_owned()),
+        )
+        .await
+        .unwrap();
+
+    let response = request_json::<TranscodeSessionResponse>(
+        &router,
+        Method::GET,
+        &format!("/playback/sessions/{}", session.id),
+    )
+    .await;
+
+    assert_eq!(
+        response.session.failure_category,
+        Some(ClientTranscodeFailureCategory::InvalidRequest)
+    );
+    assert_eq!(
+        response.session.failure_message.as_deref(),
+        Some("playback transcode planning failed")
+    );
+    let json = serde_json::to_string(&response).unwrap();
+    assert!(!json.contains("output_path"));
+    assert!(!json.contains("cache/remux/private"));
+}
+
+#[tokio::test]
+async fn playback_session_route_redacts_raw_persisted_failure_message() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "taxonomy:raw-message".to_owned(),
+            output_path: "cache/remux/private/stream.mp4".into(),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            session.id,
+            TranscodeSessionState::Failed,
+            Some(TranscodeFailureCategory::Runner),
+            Some(
+                "ffmpeg failed at C:\\secret\\movie.mkv with webdav:///Movies/secret.mkv"
+                    .to_owned(),
+            ),
+        )
+        .await
+        .unwrap();
+
+    let response = request_json::<TranscodeSessionResponse>(
+        &router,
+        Method::GET,
+        &format!("/playback/sessions/{}", session.id),
+    )
+    .await;
+
+    assert_eq!(
+        response.session.failure_category,
+        Some(ClientTranscodeFailureCategory::Runner)
+    );
+    assert_eq!(
+        response.session.failure_message.as_deref(),
+        Some("playback transcode runner failed")
+    );
+    let json = serde_json::to_string(&response).unwrap();
+    assert!(!json.contains("C:\\secret"));
+    assert!(!json.contains("webdav:///"));
+    assert!(!json.contains("cache/remux/private"));
+}
+
+#[tokio::test]
 async fn playback_session_cancel_route_cancels_active_remux_session() {
     let (_temp, router, source, _staging_root, _ffmpeg_path, marker, store) =
         router_with_remux_source(true).await;

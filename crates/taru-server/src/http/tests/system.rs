@@ -1394,6 +1394,10 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         TranscodeSessionKind::HlsTranscode
     );
     assert_eq!(sessions.sessions[0].state, TranscodeSessionState::Failed);
+    assert_eq!(
+        sessions.sessions[0].failure_category,
+        Some(taru_core::TranscodeFailureCategory::Runner)
+    );
     assert!(sessions.sessions[0].has_failure_message);
     assert!(!sessions.sessions[0].active);
     assert!(sessions.sessions[0].terminal);

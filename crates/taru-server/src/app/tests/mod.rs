@@ -1056,13 +1056,16 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     }
 }
 
-fn fake_failing_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+fn fake_failing_ffmpeg_script_with_stderr(root: &Path, name: &str, stderr: &str) -> PathBuf {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
-        let content = "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\necho remux failed >&2\nexit 7\n";
+        let content = format!(
+            "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\nprintf '%s\\n' '{}' >&2\nexit 7\n",
+            stderr.replace('\'', "'\\''")
+        );
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
         permissions.set_mode(0o755);
@@ -1076,8 +1079,48 @@ fn fake_failing_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         let mut content = String::from("@echo off\r\n");
         content
             .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
-        content.push_str("echo remux failed 1>&2\r\n");
+        content.push_str(&format!("echo {} 1>&2\r\n", stderr));
         content.push_str("exit /b 7\r\n");
+        content.push_str(":encoders\r\n");
+        content.push_str("echo  V..... h264_nvenc\r\n");
+        content.push_str("echo  V..... h264_vaapi\r\n");
+        content.push_str("echo  V..... h264_qsv\r\n");
+        content.push_str("exit /b 0\r\n");
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
+fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let content = "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\nfor arg do out=\"$arg\"; done\nprintf partial > \"$out\"\nsleep 5\nexit 0\n";
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str("set out=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        content.push_str("<nul set /p dummy=partial>\"%out%\"\r\n");
+        content.push_str("ping -n 6 127.0.0.1 > nul\r\n");
+        content.push_str("exit /b 0\r\n");
         content.push_str(":encoders\r\n");
         content.push_str("echo  V..... h264_nvenc\r\n");
         content.push_str("echo  V..... h264_vaapi\r\n");

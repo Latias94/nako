@@ -123,7 +123,11 @@ async fn remux_source_rejects_persisted_active_duplicate() {
 #[tokio::test]
 async fn remux_source_persists_runner_failure() {
     let script_root = tempfile::tempdir().unwrap();
-    let ffmpeg_path = fake_failing_ffmpeg_script(script_root.path(), "failure");
+    let ffmpeg_path = fake_failing_ffmpeg_script_with_stderr(
+        script_root.path(),
+        "failure",
+        "raw ffmpeg failed while reading C:\\secret\\movie.mkv and webdav:///Movies/secret.mkv",
+    );
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
     let request_key = RemuxRequestKey {
         source_id: source.id,
@@ -159,7 +163,59 @@ async fn remux_source_persists_runner_failure() {
     );
     assert_eq!(
         session.failure_message.as_deref(),
-        Some("external provider error from ffmpeg_remux: remux runner failed")
+        Some("remux runner failed")
+    );
+    let failure = session.failure_message.as_deref().unwrap();
+    assert!(!failure.contains("C:\\secret"));
+    assert!(!failure.contains("webdav:///"));
+}
+
+#[tokio::test]
+async fn remux_source_persists_timeout_failure_category() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_slow_ffmpeg_script(script_root.path(), "timeout");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let mut config = app.config().clone();
+    config.remux_timeout_ms = 100;
+    drop(app);
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let request_key = RemuxRequestKey {
+        source_id: source.id,
+        request_identity: local_remux_request_identity(&source, RemuxContainer::Mp4),
+    }
+    .persisted_request_key();
+
+    let err = app
+        .playback()
+        .remux_source(RemuxSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap_err();
+
+    let TaruError::Provider { provider, message } = err else {
+        panic!("expected remux provider timeout");
+    };
+    assert_eq!(provider, "ffmpeg_remux");
+    assert_eq!(message, "remux runner timed out");
+
+    let session = store
+        .find_latest_transcode_session(source.id, TranscodeSessionKind::Remux, &request_key)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(session.state, TranscodeSessionState::Failed);
+    assert_eq!(
+        session.failure_category,
+        Some(TranscodeFailureCategory::Timeout)
+    );
+    assert_eq!(
+        session.failure_message.as_deref(),
+        Some("remux runner timed out")
     );
 }
 
@@ -529,7 +585,7 @@ async fn hls_source_persists_runner_failure() {
     );
     assert_eq!(
         session.failure_message.as_deref(),
-        Some("external provider error from ffmpeg_hls: hls runner failed")
+        Some("hls runner failed")
     );
 }
 

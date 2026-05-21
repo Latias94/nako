@@ -50,7 +50,7 @@ Task IDs use the `PTOH` prefix.
 
 ## M3 — Session Failure Taxonomy
 
-- [ ] PTOH-040 [owner=unassigned] [deps=PTOH-030] [scope=crates/taru-core,crates/taru-transcode,crates/taru-server/src/app/playback,crates/taru-server/src/http/tests]
+- [x] PTOH-040 [owner=codex] [deps=PTOH-030] [scope=crates/taru-core,crates/taru-api/src/public_client.rs,crates/taru-db/src/tests.rs,crates/taru-db/src/contract_tests.rs,crates/taru-server/src/app/playback,crates/taru-server/src/http/tests]
   Goal: Map playback transcode startup and runtime failures into stable,
   support-oriented categories across probe, plan, staging, budget, runner,
   timeout, cancellation, and hardware fallback boundaries.
@@ -59,9 +59,12 @@ Task IDs use the `PTOH` prefix.
   package-specific DB tests only if persisted categories change.
   Review: `review-workstream` must check redaction, persistence compatibility,
   and client error stability.
-  Evidence: route/app tests proving category mapping and no raw path/stderr
-  leakage.
-  Handoff: Split a Public Client API contract lane if client DTOs must change.
+  Evidence: `TranscodeFailureCategory` support taxonomy,
+  redacted persisted playback failure messages, public client coarse-category
+  compatibility mapping, DB round-trip/contract coverage, and app/HTTP
+  redaction tests.
+  Handoff: PTOH-040 is DONE. Continue with PTOH-050 Admin-only support
+  evidence read model.
 
 ## M4 — Support Evidence Read Model
 

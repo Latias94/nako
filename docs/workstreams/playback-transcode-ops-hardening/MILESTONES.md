@@ -58,6 +58,8 @@ Primary evidence:
 
 ## M3 — Session Failure Taxonomy
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
 - Playback transcode failures map to support-oriented categories across probe,

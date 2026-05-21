@@ -81,9 +81,10 @@ use taru_core::{
     PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
     ProviderMappingStatus, ProviderRawResponse, ProviderRawResponseFilter, ProviderSubject,
     ProviderSubjectId, ProviderSubjectKind, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TaruError, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
+    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TaruError,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
+    TranscodeSessionState, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
+    VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::TaruDatabase;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};

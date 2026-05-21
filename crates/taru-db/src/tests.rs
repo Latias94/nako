@@ -693,8 +693,8 @@ async fn taru_database_sqlite_lists_transcode_sessions_with_filters_and_paginati
         .set_transcode_session_state(
             hls_id,
             TranscodeSessionState::Failed,
-            Some(TranscodeFailureCategory::Runner),
-            Some("ffmpeg failed".to_owned()),
+            Some(TranscodeFailureCategory::Plan),
+            Some("playback transcode planning failed".to_owned()),
         )
         .await
         .unwrap();
@@ -714,7 +714,11 @@ async fn taru_database_sqlite_lists_transcode_sessions_with_filters_and_paginati
     assert_eq!(filtered[0].id, hls_id);
     assert_eq!(
         filtered[0].failure_category,
-        Some(TranscodeFailureCategory::Runner)
+        Some(TranscodeFailureCategory::Plan)
+    );
+    assert_eq!(
+        filtered[0].failure_message.as_deref(),
+        Some("playback transcode planning failed")
     );
 
     let source_sessions = store

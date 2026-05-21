@@ -7,11 +7,12 @@
   "scope_kind": "execution",
   "problem": "Playback and transcode runtime foundations exist, but operators still need stable readiness, validation, fallback, failure-taxonomy, and redacted support evidence to diagnose playback issues safely.",
   "task_prefix": "PTOH",
-  "current_task": "PTOH-040",
+  "current_task": "PTOH-050",
   "completed_tasks": [
     "PTOH-010",
     "PTOH-020",
-    "PTOH-030"
+    "PTOH-030",
+    "PTOH-040"
   ],
   "authoritative_docs": [
     {
@@ -59,6 +60,10 @@
     "docs/workstreams/transcode-runtime/README.md",
     "docs/workstreams/playback-streaming/README.md",
     "docs/workstreams/admin-playback-runtime-diagnostics/DESIGN.md",
+    "crates/taru-core/src/session.rs",
+    "crates/taru-api/src/public_client.rs",
+    "crates/taru-db/src/tests.rs",
+    "crates/taru-db/src/contract_tests.rs",
     "crates/taru-transcode/src/hardware.rs",
     "crates/taru-transcode/src/lib.rs",
     "crates/taru-transcode/src/plan.rs",
@@ -79,7 +84,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTOH-040",
-    "notes": "PTOH-020 completed an Admin-only playback runtime readiness contract. PTOH-030 completed playback transcode profile/plan validation before session creation. Continue with session failure taxonomy. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
+    "next_task": "PTOH-050",
+    "notes": "PTOH-020 completed an Admin-only playback runtime readiness contract. PTOH-030 completed playback transcode profile/plan validation before session creation. PTOH-040 completed session failure taxonomy with redacted persisted/operator messages and public client coarse-category compatibility. Continue with the Admin-only playback support evidence read model. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
   }
 }

@@ -2563,8 +2563,8 @@ where
         .set_transcode_session_state(
             hls_id,
             TranscodeSessionState::Failed,
-            Some(TranscodeFailureCategory::Runner),
-            Some("ffmpeg failed".to_owned()),
+            Some(TranscodeFailureCategory::Plan),
+            Some("playback transcode planning failed".to_owned()),
         )
         .await
         .unwrap();
@@ -2597,7 +2597,11 @@ where
     assert_eq!(filtered[0].id, hls_id);
     assert_eq!(
         filtered[0].failure_category,
-        Some(TranscodeFailureCategory::Runner)
+        Some(TranscodeFailureCategory::Plan)
+    );
+    assert_eq!(
+        filtered[0].failure_message.as_deref(),
+        Some("playback transcode planning failed")
     );
 
     let failed_stale = store

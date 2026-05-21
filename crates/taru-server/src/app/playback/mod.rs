@@ -1016,13 +1016,13 @@ async fn persist_session_failure(
     session_id: TranscodeSessionId,
     error: &TaruError,
 ) {
-    let category = TranscodeFailureCategory::from_error(error);
+    let failure = PlaybackTranscodeFailure::from_error(error);
     if let Err(update_error) = sessions
         .set_transcode_session_state(
             session_id,
             TranscodeSessionState::Failed,
-            Some(category),
-            Some(error.to_string()),
+            Some(failure.category),
+            Some(failure.operator_message),
         )
         .await
     {
@@ -1031,6 +1031,60 @@ async fn persist_session_failure(
             error = %update_error,
             "failed to persist transcode session failure"
         );
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PlaybackTranscodeFailure {
+    category: TranscodeFailureCategory,
+    operator_message: String,
+}
+
+impl PlaybackTranscodeFailure {
+    fn from_error(error: &TaruError) -> Self {
+        let category = TranscodeFailureCategory::from_error(error);
+        Self {
+            category,
+            operator_message: playback_failure_operator_message(category, error),
+        }
+    }
+}
+
+fn playback_failure_operator_message(
+    category: TranscodeFailureCategory,
+    error: &TaruError,
+) -> String {
+    match category {
+        TranscodeFailureCategory::Probe => "ffmpeg probe failed".to_owned(),
+        TranscodeFailureCategory::Plan => "playback transcode planning failed".to_owned(),
+        TranscodeFailureCategory::Staging => "playback staging operation failed".to_owned(),
+        TranscodeFailureCategory::Budget => "playback resource budget was exhausted".to_owned(),
+        TranscodeFailureCategory::HardwareFallback => {
+            "playback hardware acceleration was unavailable".to_owned()
+        }
+        TranscodeFailureCategory::Runner => match error {
+            TaruError::Provider { provider, .. } if provider == "ffmpeg_remux" => {
+                "remux runner failed".to_owned()
+            }
+            TaruError::Provider { provider, .. } if provider == "ffmpeg_hls" => {
+                "hls runner failed".to_owned()
+            }
+            _ => "playback transcode runner failed".to_owned(),
+        },
+        TranscodeFailureCategory::Timeout => match error {
+            TaruError::Provider { provider, .. } if provider == "ffmpeg_remux" => {
+                "remux runner timed out".to_owned()
+            }
+            TaruError::Provider { provider, .. } if provider == "ffmpeg_hls" => {
+                "hls runner timed out".to_owned()
+            }
+            _ => "playback transcode operation timed out".to_owned(),
+        },
+        TranscodeFailureCategory::Storage => "playback storage operation failed".to_owned(),
+        TranscodeFailureCategory::Stale => "playback session was stale at startup".to_owned(),
+        TranscodeFailureCategory::Cancelled => "playback session was cancelled".to_owned(),
+        TranscodeFailureCategory::InvalidRequest => "playback request was invalid".to_owned(),
+        TranscodeFailureCategory::Unknown => "playback transcode operation failed".to_owned(),
     }
 }
 
