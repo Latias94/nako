@@ -2,7 +2,8 @@ use std::path::{Component, Path};
 
 use serde::Serialize;
 use taru_core::{
-    Library, LibraryId, LibraryRepository, LocalMetadataPolicy, ManagedImportArtifactId,
+    CanonicalMetadata, Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryPreset,
+    LibraryRepository, LocalMetadataPolicy, ManagedImportArtifactId,
     ManagedImportArtifactListFilter, ManagedImportArtifactRecord, ManagedImportArtifactState,
     ManagedImportPromotionApplyId, ManagedImportPromotionApplyRecord,
     ManagedImportPromotionApplyState, ManagedImportPromotionBlockedReason,
@@ -10,12 +11,17 @@ use taru_core::{
     ManagedImportPromotionNfoAuthorityHint, ManagedImportPromotionOperationKind,
     ManagedImportPromotionOperationStatus, ManagedImportPromotionPlan,
     ManagedImportPromotionProviderIdentityHint, ManagedImportRepository, ManagedImportSourceKind,
-    MediaRepository, MediaSource, NewManagedImportArtifact, NewManagedImportPromotionApply,
-    PageRequest, Result, SourceDuplicateEvidenceKind, StagingManifestId, StagingManifestRepository,
-    TaruError, UserPrincipalId,
+    MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
+    NewManagedImportArtifact, NewManagedImportPromotionApply, PageRequest, Result,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, StagingManifestId,
+    StagingManifestRepository, TaruError, UserPrincipalId,
 };
 use taru_db::TaruDatabase;
-use taru_vfs::{StorageBackend, StorageLinkKind, StorageLinkPlanRequest, StorageUri};
+use taru_vfs::{
+    StorageApplyKind, StorageApplyReport, StorageApplyRequest, StorageApplyStatus, StorageBackend,
+    StorageLinkKind, StorageLinkPlanRequest, StorageUri,
+};
 
 use super::storage::StorageBackendRegistry;
 
@@ -312,6 +318,356 @@ impl ManagedImportAppService {
         ))
     }
 
+    pub(crate) async fn apply_promotion(
+        &self,
+        request: ApplyManagedImportPromotionRequest,
+    ) -> Result<ManagedImportPromotionAcceptanceDiagnostic> {
+        let accepted = self
+            .store
+            .get_managed_import_promotion_apply(request.apply_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: request.apply_id.to_string(),
+            })?;
+
+        validate_promotion_apply_request(&accepted, request.requested_by)?;
+        if accepted.state == ManagedImportPromotionApplyState::Promoted {
+            return Ok(ManagedImportPromotionAcceptanceDiagnostic::from_record(
+                accepted, true,
+            ));
+        }
+
+        let plan = self.preview_promotion_plan(accepted.artifact_id).await?;
+        let artifact = self
+            .store
+            .get_managed_import_artifact(accepted.artifact_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_artifact",
+                id: accepted.artifact_id.to_string(),
+            })?;
+        let library = self
+            .store
+            .get_library(accepted.target_library_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "library",
+                id: accepted.target_library_id.to_string(),
+            })?;
+
+        if let Err(err) = revalidate_promotion_apply_facts(&accepted, &artifact, &plan) {
+            self.record_pre_mutation_apply_failure(
+                &accepted,
+                "promotion_apply_revalidation_failed",
+                "accepted promotion facts are stale or blocked",
+            )
+            .await?;
+            return Err(err);
+        }
+
+        let source_uri =
+            match StorageUri::parse(accepted.source_artifact_uri.as_deref().ok_or_else(|| {
+                TaruError::Conflict {
+                    message: "accepted promotion no longer has a source artifact URI".to_owned(),
+                }
+            })?) {
+                Ok(uri) => uri,
+                Err(err) => {
+                    self.record_pre_mutation_apply_failure(
+                        &accepted,
+                        "promotion_apply_invalid_source_uri",
+                        "accepted promotion source URI is invalid",
+                    )
+                    .await?;
+                    return Err(err);
+                }
+            };
+        let target_uri = match StorageUri::parse(&accepted.destination_locator) {
+            Ok(uri) => uri,
+            Err(err) => {
+                self.record_pre_mutation_apply_failure(
+                    &accepted,
+                    "promotion_apply_invalid_destination_locator",
+                    "accepted promotion destination locator is invalid",
+                )
+                .await?;
+                return Err(err);
+            }
+        };
+        if self
+            .store
+            .get_media_source_by_locator(accepted.target_library_id, &accepted.destination_locator)
+            .await?
+            .is_some()
+        {
+            self.record_pre_mutation_apply_failure(
+                &accepted,
+                "promotion_apply_destination_already_cataloged",
+                "promotion destination locator is already cataloged",
+            )
+            .await?;
+            return Err(TaruError::Conflict {
+                message: "promotion destination locator is already cataloged".to_owned(),
+            });
+        }
+        let apply_kind = storage_apply_kind(accepted.operation_kind)?;
+        let Some(storage_backends) = self.storage_backends.as_ref() else {
+            self.record_pre_mutation_apply_failure(
+                &accepted,
+                "promotion_apply_storage_registry_unavailable",
+                "storage backend registry is required before promotion apply",
+            )
+            .await?;
+            return Err(TaruError::Conflict {
+                message: "storage backend registry is required to apply a promotion".to_owned(),
+            });
+        };
+        let backend = match storage_backends.backend_for_library_root(&library).await {
+            Ok(backend) => backend,
+            Err(err) => {
+                self.record_pre_mutation_apply_failure(
+                    &accepted,
+                    "promotion_apply_storage_backend_unavailable",
+                    "storage backend is unavailable before promotion apply",
+                )
+                .await?;
+                return Err(err);
+            }
+        };
+        let now_ms = super::current_time_ms()?;
+        let _applying = self
+            .store
+            .set_managed_import_promotion_apply_state(
+                accepted.id,
+                ManagedImportPromotionApplyState::ApplyingStorage,
+                now_ms,
+                Some(storage_applying_outcome_json(&accepted)?),
+                None,
+                Some("promotion storage apply started".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: accepted.id.to_string(),
+            })?;
+
+        let apply_report = match backend
+            .apply(StorageApplyRequest::new(source_uri, target_uri, apply_kind))
+            .await
+        {
+            Ok(report) => report,
+            Err(err) => {
+                self.record_pre_mutation_apply_failure(
+                    &accepted,
+                    "promotion_apply_storage_backend_error",
+                    "storage backend failed before reporting promotion apply outcome",
+                )
+                .await?;
+                return Err(err);
+            }
+        };
+        if !apply_report.applied
+            || !apply_report.target_created
+            || apply_report.status != StorageApplyStatus::Applied
+        {
+            let updated = self
+                .record_storage_apply_rejection(&accepted, &apply_report)
+                .await?;
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "promotion storage apply failed before catalog mutation: {}",
+                    updated
+                        .safe_error_code
+                        .as_deref()
+                        .unwrap_or("storage_apply_failed")
+                ),
+            });
+        }
+
+        let committing = self
+            .store
+            .set_managed_import_promotion_apply_state(
+                accepted.id,
+                ManagedImportPromotionApplyState::CommittingCatalog,
+                super::current_time_ms()?,
+                Some(storage_applied_outcome_json(
+                    &accepted,
+                    &plan,
+                    &apply_report,
+                )?),
+                None,
+                Some("promotion storage target created; committing catalog".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: accepted.id.to_string(),
+            })?;
+
+        let catalog_commit = self
+            .commit_promoted_media_source(&artifact, &library, &committing, &plan, &apply_report)
+            .await?;
+        let promoted = self
+            .store
+            .set_managed_import_promotion_apply_state(
+                committing.id,
+                ManagedImportPromotionApplyState::Promoted,
+                super::current_time_ms()?,
+                Some(promoted_outcome_json(
+                    &committing,
+                    &plan,
+                    &apply_report,
+                    &catalog_commit,
+                )?),
+                None,
+                Some("promotion applied and catalog source committed".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: committing.id.to_string(),
+            })?;
+        self.store
+            .set_managed_import_artifact_state(
+                artifact.id,
+                ManagedImportArtifactState::Promoted,
+                super::current_time_ms()?,
+                artifact.diagnostics_json,
+            )
+            .await?;
+
+        Ok(ManagedImportPromotionAcceptanceDiagnostic::from_record(
+            promoted, false,
+        ))
+    }
+
+    async fn record_pre_mutation_apply_failure(
+        &self,
+        accepted: &ManagedImportPromotionApplyRecord,
+        safe_error_code: &'static str,
+        safe_message: &'static str,
+    ) -> Result<ManagedImportPromotionApplyRecord> {
+        self.store
+            .set_managed_import_promotion_apply_state(
+                accepted.id,
+                ManagedImportPromotionApplyState::FailedBeforeMutation,
+                super::current_time_ms()?,
+                Some(pre_mutation_failure_outcome_json(
+                    accepted,
+                    safe_error_code,
+                )?),
+                Some(safe_error_code.to_owned()),
+                Some(safe_message.to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    async fn record_storage_apply_rejection(
+        &self,
+        accepted: &ManagedImportPromotionApplyRecord,
+        apply_report: &StorageApplyReport,
+    ) -> Result<ManagedImportPromotionApplyRecord> {
+        self.store
+            .set_managed_import_promotion_apply_state(
+                accepted.id,
+                ManagedImportPromotionApplyState::FailedBeforeMutation,
+                super::current_time_ms()?,
+                Some(storage_apply_failure_outcome_json(accepted, apply_report)?),
+                Some(storage_apply_error_code(apply_report.status).to_owned()),
+                Some(storage_apply_safe_message(apply_report.status)),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    async fn commit_promoted_media_source(
+        &self,
+        artifact: &ManagedImportArtifactRecord,
+        library: &Library,
+        apply: &ManagedImportPromotionApplyRecord,
+        plan: &ManagedImportPromotionPlan,
+        apply_report: &StorageApplyReport,
+    ) -> Result<PromotionCatalogCommit> {
+        let media_source_id = MediaSourceId::new();
+        let item_id = MediaItemId::new();
+        let item = MediaItem {
+            id: item_id,
+            kind: media_kind_for_library(library),
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: promotion_item_title(artifact, &apply.destination_locator),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: media_source_id,
+            library_id: apply.target_library_id,
+            item_id,
+            locator: apply.destination_locator.clone(),
+            file_name: promotion_file_name(artifact, &apply.destination_locator),
+            size_bytes: artifact
+                .size_bytes
+                .or_else(|| apply_report.target.as_ref().and_then(|target| target.len)),
+            fingerprint: artifact.fingerprint.clone(),
+        };
+
+        self.store.upsert_media_item(&item).await?;
+        self.store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: apply.target_library_id,
+                item_id,
+                provisional: false,
+            })
+            .await?;
+        self.store.upsert_media_source(&source).await?;
+
+        let duplicate_relationship_count = self
+            .commit_duplicate_relationships(media_source_id, plan)
+            .await?;
+
+        Ok(PromotionCatalogCommit {
+            item_id,
+            source_id: media_source_id,
+            duplicate_relationship_count,
+        })
+    }
+
+    async fn commit_duplicate_relationships(
+        &self,
+        source_id: MediaSourceId,
+        plan: &ManagedImportPromotionPlan,
+    ) -> Result<usize> {
+        let mut committed = 0usize;
+        for hint in &plan.duplicate_hints {
+            let Some(existing_source_id) = hint.existing_source_id else {
+                continue;
+            };
+            let relationship = SourceDuplicateRelationship {
+                id: SourceDuplicateRelationshipId::new(),
+                source_id,
+                duplicate_source_id: existing_source_id,
+                evidence_kind: hint.evidence_kind.clone(),
+                evidence_value: None,
+                status: SourceDuplicateRelationshipStatus::Suggested,
+                confidence_milli: hint.confidence_milli,
+            };
+            self.store
+                .upsert_source_duplicate_relationship(&relationship)
+                .await?;
+            committed += 1;
+        }
+
+        Ok(committed)
+    }
+
     async fn preview_file_operations(
         &self,
         artifact: &ManagedImportArtifactRecord,
@@ -559,6 +915,19 @@ pub(crate) struct AcceptManagedImportPromotionRequest {
     pub(crate) accepted_blocked_reasons: Vec<ManagedImportPromotionBlockedReason>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ApplyManagedImportPromotionRequest {
+    pub(crate) apply_id: ManagedImportPromotionApplyId,
+    pub(crate) requested_by: UserPrincipalId,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PromotionCatalogCommit {
+    item_id: MediaItemId,
+    source_id: MediaSourceId,
+    duplicate_relationship_count: usize,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct ManagedImportArtifactDiagnostics {
     pub(crate) limit: u32,
@@ -707,6 +1076,87 @@ fn validate_idempotent_promotion_replay(
     Ok(())
 }
 
+fn validate_promotion_apply_request(
+    record: &ManagedImportPromotionApplyRecord,
+    requested_by: UserPrincipalId,
+) -> Result<()> {
+    if record.requested_by != requested_by {
+        return Err(TaruError::Forbidden {
+            message:
+                "managed import promotion apply requester does not match the accepted operator"
+                    .to_owned(),
+        });
+    }
+    if !matches!(
+        record.state,
+        ManagedImportPromotionApplyState::Accepted | ManagedImportPromotionApplyState::Promoted
+    ) {
+        return Err(TaruError::Conflict {
+            message: format!(
+                "managed import promotion apply is not in an applyable state: {}",
+                record.state.as_str()
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+fn revalidate_promotion_apply_facts(
+    accepted: &ManagedImportPromotionApplyRecord,
+    artifact: &ManagedImportArtifactRecord,
+    plan: &ManagedImportPromotionPlan,
+) -> Result<()> {
+    if accepted.target_library_id != plan.target_library_id
+        || artifact.target_library_id != accepted.target_library_id
+    {
+        return Err(TaruError::Conflict {
+            message: "promotion target library changed after acceptance".to_owned(),
+        });
+    }
+    if artifact.artifact_uri != accepted.source_artifact_uri {
+        return Err(TaruError::Conflict {
+            message: "promotion source artifact URI changed after acceptance".to_owned(),
+        });
+    }
+    if plan.destination_locator.as_deref() != Some(accepted.destination_locator.as_str()) {
+        return Err(TaruError::Conflict {
+            message: "promotion destination locator changed after acceptance".to_owned(),
+        });
+    }
+
+    let blocking_reasons = promotion_apply_blocking_reasons(plan);
+    if !blocking_reasons.is_empty() {
+        return Err(TaruError::Conflict {
+            message: format!(
+                "promotion plan is blocked before apply: {}",
+                promotion_blocked_reason_summary(&blocking_reasons)
+            ),
+        });
+    }
+
+    let operation = plan
+        .file_operations
+        .iter()
+        .find(|operation| operation.kind == accepted.operation_kind)
+        .ok_or_else(|| TaruError::Conflict {
+            message: format!(
+                "accepted promotion operation is no longer available: {}",
+                accepted.operation_kind.as_str()
+            ),
+        })?;
+    if !operation.can_apply || operation.status != ManagedImportPromotionOperationStatus::Ready {
+        return Err(TaruError::Conflict {
+            message: format!(
+                "accepted promotion operation is no longer ready: {}",
+                accepted.operation_kind.as_str()
+            ),
+        });
+    }
+
+    Ok(())
+}
+
 fn accepted_promotion_plan_json(
     plan: &ManagedImportPromotionPlan,
     operation_kind: ManagedImportPromotionOperationKind,
@@ -775,6 +1225,196 @@ fn promotion_acceptance_blocking_reasons(
             )
         })
         .collect()
+}
+
+fn promotion_apply_blocking_reasons(
+    plan: &ManagedImportPromotionPlan,
+) -> Vec<ManagedImportPromotionBlockedReason> {
+    plan.blocked_reasons.clone()
+}
+
+fn storage_apply_kind(
+    operation_kind: ManagedImportPromotionOperationKind,
+) -> Result<StorageApplyKind> {
+    match operation_kind {
+        ManagedImportPromotionOperationKind::Copy => Ok(StorageApplyKind::Copy),
+        ManagedImportPromotionOperationKind::Hardlink => Ok(StorageApplyKind::Hardlink),
+        ManagedImportPromotionOperationKind::Symlink => Ok(StorageApplyKind::Symlink),
+        ManagedImportPromotionOperationKind::Move => Err(TaruError::Unsupported(
+            "managed import move promotion apply is deferred until source-retention semantics are proven",
+        )),
+    }
+}
+
+fn media_kind_for_library(library: &Library) -> MediaKind {
+    match library.options.preset {
+        LibraryPreset::Movies => MediaKind::Movie,
+        LibraryPreset::Tv | LibraryPreset::Anime => MediaKind::Episode,
+        _ => MediaKind::Unknown,
+    }
+}
+
+fn promotion_item_title(
+    artifact: &ManagedImportArtifactRecord,
+    destination_locator: &str,
+) -> String {
+    let candidate = destination_locator
+        .rsplit('/')
+        .next()
+        .filter(|value| !value.trim().is_empty())
+        .or(artifact.original_file_name.as_deref())
+        .unwrap_or("Untitled");
+    let without_query = candidate
+        .split_once('?')
+        .map_or(candidate, |(left, _)| left);
+    without_query
+        .rsplit_once('.')
+        .map_or(without_query, |(stem, _)| stem)
+        .trim()
+        .to_owned()
+}
+
+fn promotion_file_name(
+    artifact: &ManagedImportArtifactRecord,
+    destination_locator: &str,
+) -> String {
+    destination_locator
+        .rsplit('/')
+        .next()
+        .and_then(|name| optional_non_empty(Some(name.to_owned())))
+        .or_else(|| {
+            artifact
+                .original_file_name
+                .as_ref()
+                .and_then(|name| optional_non_empty(Some(name.clone())))
+        })
+        .unwrap_or_else(|| "media-source".to_owned())
+}
+
+fn storage_applying_outcome_json(record: &ManagedImportPromotionApplyRecord) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "writes_library": false,
+        "storage_mutation": false,
+        "media_source_mutation": false,
+        "operation_kind": record.operation_kind,
+        "state": ManagedImportPromotionApplyState::ApplyingStorage
+    }))
+    .map_err(database_error)
+}
+
+fn storage_applied_outcome_json(
+    record: &ManagedImportPromotionApplyRecord,
+    plan: &ManagedImportPromotionPlan,
+    apply_report: &StorageApplyReport,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "writes_library": false,
+        "storage_mutation": apply_report.applied,
+        "media_source_mutation": false,
+        "target_created": apply_report.target_created,
+        "operation_kind": record.operation_kind,
+        "operation_status": apply_report.status,
+        "duplicate_hint_count": plan.duplicate_hints.len(),
+        "source_scheme": apply_report.source_uri.scheme(),
+        "target_scheme": apply_report.target_uri.scheme()
+    }))
+    .map_err(database_error)
+}
+
+fn promoted_outcome_json(
+    record: &ManagedImportPromotionApplyRecord,
+    plan: &ManagedImportPromotionPlan,
+    apply_report: &StorageApplyReport,
+    catalog_commit: &PromotionCatalogCommit,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "writes_library": true,
+        "storage_mutation": apply_report.applied,
+        "media_source_mutation": true,
+        "target_created": apply_report.target_created,
+        "operation_kind": record.operation_kind,
+        "operation_status": apply_report.status,
+        "source_scheme": apply_report.source_uri.scheme(),
+        "target_scheme": apply_report.target_uri.scheme(),
+        "destination_locator": record.destination_locator,
+        "media_item_id": catalog_commit.item_id,
+        "media_source_id": catalog_commit.source_id,
+        "duplicate_hint_count": plan.duplicate_hints.len(),
+        "duplicate_relationship_count": catalog_commit.duplicate_relationship_count
+    }))
+    .map_err(database_error)
+}
+
+fn storage_apply_failure_outcome_json(
+    record: &ManagedImportPromotionApplyRecord,
+    apply_report: &StorageApplyReport,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "writes_library": false,
+        "storage_mutation": false,
+        "media_source_mutation": false,
+        "target_created": apply_report.target_created,
+        "operation_kind": record.operation_kind,
+        "operation_status": apply_report.status,
+        "source_scheme": apply_report.source_uri.scheme(),
+        "target_scheme": apply_report.target_uri.scheme()
+    }))
+    .map_err(database_error)
+}
+
+fn pre_mutation_failure_outcome_json(
+    record: &ManagedImportPromotionApplyRecord,
+    safe_error_code: &str,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "writes_library": false,
+        "storage_mutation": false,
+        "media_source_mutation": false,
+        "target_created": false,
+        "operation_kind": record.operation_kind,
+        "safe_error_code": safe_error_code
+    }))
+    .map_err(database_error)
+}
+
+fn storage_apply_error_code(status: StorageApplyStatus) -> &'static str {
+    match status {
+        StorageApplyStatus::Applied => "storage_apply_applied",
+        StorageApplyStatus::Unsupported => "storage_apply_unsupported",
+        StorageApplyStatus::SourceMissing => "storage_apply_source_missing",
+        StorageApplyStatus::SourceNotFile => "storage_apply_source_not_file",
+        StorageApplyStatus::TargetParentMissing => "storage_apply_target_parent_missing",
+        StorageApplyStatus::TargetParentNotDirectory => "storage_apply_target_parent_not_directory",
+        StorageApplyStatus::TargetExists => "storage_apply_target_exists",
+        StorageApplyStatus::SecurityViolation => "storage_apply_security_violation",
+        StorageApplyStatus::ApplyFailed => "storage_apply_failed",
+    }
+}
+
+fn storage_apply_safe_message(status: StorageApplyStatus) -> String {
+    match status {
+        StorageApplyStatus::Unsupported => {
+            "storage backend does not support the accepted apply kind"
+        }
+        StorageApplyStatus::SourceMissing => "promotion source artifact is missing",
+        StorageApplyStatus::SourceNotFile => "promotion source artifact is not a file",
+        StorageApplyStatus::TargetParentMissing => "promotion target parent is missing",
+        StorageApplyStatus::TargetParentNotDirectory => {
+            "promotion target parent is not a directory"
+        }
+        StorageApplyStatus::TargetExists => "promotion target already exists",
+        StorageApplyStatus::SecurityViolation => {
+            "promotion storage apply violated storage safety rules"
+        }
+        StorageApplyStatus::ApplyFailed => "promotion storage apply failed before catalog mutation",
+        StorageApplyStatus::Applied => "promotion storage apply succeeded",
+    }
+    .to_owned()
 }
 
 fn require_non_empty(label: &str, value: String) -> Result<String> {

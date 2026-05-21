@@ -63,14 +63,18 @@ Task IDs use the `LAIP` prefix.
 
 ## M4 — Promotion Apply Orchestration
 
-- [ ] LAIP-050 [owner=codex] [deps=LAIP-030,LAIP-040] [scope=crates/taru-server]
+- [x] LAIP-050 [owner=codex] [deps=LAIP-030,LAIP-040] [scope=crates/taru-server]
   Goal: Revalidate plan facts, execute selected storage operation, commit Media
   Source / duplicate relationship state only after target durability, and record
   terminal audit outcomes.
   Validation: server tests prove successful apply, blocked/stale apply,
   duplicate evidence behavior, no direct OS path mutation, and catalog writes
   after target creation only.
-  Evidence: app service orchestration and tests.
+  Evidence: Completed with `ManagedImportAppService::apply_promotion`,
+  `ApplyManagedImportPromotionRequest`, VFS-backed `StorageBackend::apply`
+  orchestration, catalog commit after target creation, promoted artifact state,
+  duplicate relationship suggestions, idempotent promoted replay, and
+  pre-mutation failure audit outcomes.
   Handoff: Add partial-failure cleanup/rollback gates in LAIP-060.
 
 ## M5 — Partial Failure Rollback And Cleanup

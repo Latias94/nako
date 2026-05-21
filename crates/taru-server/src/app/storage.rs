@@ -500,6 +500,15 @@ impl StorageBackend for LibraryStorageBackend {
         self.record_result(&result);
         result
     }
+
+    async fn apply(
+        &self,
+        request: taru_vfs::StorageApplyRequest,
+    ) -> Result<taru_vfs::StorageApplyReport> {
+        let result = self.inner.apply(request).await;
+        self.record_result(&result);
+        result
+    }
 }
 
 impl LibraryStorageBackend {

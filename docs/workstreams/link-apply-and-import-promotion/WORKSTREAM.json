@@ -7,12 +7,13 @@
   "scope_kind": "execution",
   "problem": "Managed Import previews and NFO/link dry-runs need an operator-confirmed, auditable, rollback-aware mutation boundary before staged artifacts can become Media Sources in a Media Library.",
   "task_prefix": "LAIP",
-  "current_task": "LAIP-050",
+  "current_task": "LAIP-060",
   "completed_tasks": [
     "LAIP-010",
     "LAIP-020",
     "LAIP-030",
-    "LAIP-040"
+    "LAIP-040",
+    "LAIP-050"
   ],
   "authoritative_docs": [
     {
@@ -69,7 +70,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "LAIP-050",
-    "notes": "Durable promotion acceptance/audit, app-service acceptance/replay, and VFS-mediated copy/hardlink/symlink apply primitives are implemented. Next compose promotion apply orchestration in taru-server: revalidate plan facts, execute selected storage operation through VFS only, then commit Media Source state after target durability. Do not add rollback claims until LAIP-060 failure-injection gates are implemented."
+    "next_task": "LAIP-060",
+    "notes": "Durable promotion acceptance/audit, app-service acceptance/replay, VFS-mediated copy/hardlink/symlink apply primitives, and first server-side promotion apply orchestration are implemented. Next add post-storage partial-failure cleanup/rollback gates: inject catalog/storage failures after target creation and prove cleanup-complete or cleanup-pending audit outcomes without false promoted state."
   }
 }

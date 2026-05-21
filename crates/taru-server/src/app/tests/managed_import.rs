@@ -1,24 +1,31 @@
 use std::{fs, path::PathBuf};
 
+use async_trait::async_trait;
 use taru_core::{
-    CanonicalMetadata, DatabaseLifecycle, ExternalProvider, Library, LibraryId, LibraryOptions,
-    LibraryPreset, LibraryRepository, ManagedImportArtifactListFilter, ManagedImportArtifactState,
-    ManagedImportPromotionApplyState, ManagedImportPromotionBlockedReason,
-    ManagedImportPromotionOperationKind, ManagedImportPromotionOperationStatus,
-    ManagedImportRepository, ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind,
-    MediaRepository, MediaSource, MediaSourceId, NewStagingManifestRecord, PageRequest,
-    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
+    CanonicalMetadata, DatabaseLifecycle, ExternalProvider, Library, LibraryId,
+    LibraryItemRepository, LibraryOptions, LibraryPreset, LibraryRepository,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyState,
+    ManagedImportPromotionBlockedReason, ManagedImportPromotionOperationKind,
+    ManagedImportPromotionOperationStatus, ManagedImportRepository, ManagedImportSourceKind,
+    MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
+    NewStagingManifestRecord, PageRequest, SourceDuplicateRepository, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
 };
 use taru_db::TaruDatabase;
 
 use crate::app::TaruApp;
 use crate::app::managed_import::{
-    AcceptManagedImportPromotionRequest, CreateManagedImportArtifactRequest,
-    ManagedImportAppService,
+    AcceptManagedImportPromotionRequest, ApplyManagedImportPromotionRequest,
+    CreateManagedImportArtifactRequest, ManagedImportAppService,
 };
 use crate::config::{
     AuthConfig, LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig,
     TaruServerConfig, TranscodeConfig,
+};
+use taru_vfs::{
+    ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile, StorageApplyKind,
+    StorageApplyObject, StorageApplyReport, StorageApplyRequest, StorageApplyStatus,
+    StorageBackend, StorageCapabilities, StorageLinkPlanRequest, StorageUri, VirtualFile,
 };
 
 #[tokio::test]
@@ -512,6 +519,132 @@ async fn managed_import_accepts_promotion_plan_with_idempotent_replay_without_mu
 }
 
 #[tokio::test]
+async fn managed_import_applies_accepted_promotion_after_storage_target_is_durable() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Demo (2026)")).unwrap();
+    fs::write(temp.path().join("incoming").join("Demo.mkv"), b"media!").unwrap();
+    let target_path = temp
+        .path()
+        .join("Movies")
+        .join("Demo (2026)")
+        .join("Demo.mkv");
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Demo.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Demo.mkv".to_owned()),
+            original_file_name: Some("Demo.mkv".to_owned()),
+            intended_locator: Some("Movies/Demo (2026)/Demo.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-demo".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-apply-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+
+    assert!(!target_path.exists());
+
+    let applied = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(applied.id, accepted.id);
+    assert_eq!(applied.state, ManagedImportPromotionApplyState::Promoted);
+    assert_eq!(
+        applied.safe_message.as_deref(),
+        Some("promotion applied and catalog source committed")
+    );
+    assert_eq!(fs::read(target_path).unwrap(), b"media!");
+
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(sources.len(), 1);
+    let source = &sources[0];
+    assert_eq!(source.locator, "local:///Movies/Demo (2026)/Demo.mkv");
+    assert_eq!(source.file_name, "Demo.mkv");
+    assert_eq!(source.size_bytes, Some(6));
+    assert_eq!(source.fingerprint.as_deref(), Some("fingerprint-demo"));
+
+    let item = store.get_media_item(source.item_id).await.unwrap().unwrap();
+    assert_eq!(item.kind, MediaKind::Movie);
+    assert_eq!(item.metadata.title, "Demo");
+    assert_eq!(item.parent_id, None);
+    assert_eq!(
+        store
+            .get_library_item_state(library_id, item.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .provisional,
+        false
+    );
+
+    let promoted_artifact = store
+        .get_managed_import_artifact(artifact.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        promoted_artifact.state,
+        ManagedImportArtifactState::Promoted
+    );
+
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        apply_record.state,
+        ManagedImportPromotionApplyState::Promoted
+    );
+    let outcome: serde_json::Value =
+        serde_json::from_str(apply_record.outcome_json.as_deref().unwrap()).unwrap();
+    assert_eq!(outcome["writes_library"], true);
+    assert_eq!(outcome["storage_mutation"], true);
+    assert_eq!(outcome["media_source_mutation"], true);
+    assert_eq!(outcome["target_created"], true);
+    assert_eq!(outcome["duplicate_relationship_count"], 0);
+
+    let body = serde_json::to_string(&applied).unwrap();
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains("incoming/Demo.mkv"));
+    assert!(!body.contains("fingerprint-demo"));
+}
+
+#[tokio::test]
 async fn managed_import_acceptance_rejects_mismatched_replay_and_blocked_plan() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -609,6 +742,505 @@ async fn managed_import_acceptance_rejects_mismatched_replay_and_blocked_plan() 
     );
 }
 
+#[tokio::test]
+async fn managed_import_apply_records_pre_mutation_failure_without_catalog_writes() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Failure (2026)")).unwrap();
+    fs::write(temp.path().join("incoming").join("Failure.mkv"), b"media!").unwrap();
+    let target_path = temp
+        .path()
+        .join("Movies")
+        .join("Failure (2026)")
+        .join("Failure.mkv");
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Failure.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Failure.mkv".to_owned()),
+            original_file_name: Some("Failure.mkv".to_owned()),
+            intended_locator: Some("Movies/Failure (2026)/Failure.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-failure".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-failure-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+    fs::remove_file(temp.path().join("incoming").join("Failure.mkv")).unwrap();
+
+    let err = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("storage_apply_source_missing"));
+    assert!(!target_path.exists());
+    assert!(
+        store
+            .list_media_sources(library_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let artifact_after = store
+        .get_managed_import_artifact(artifact.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(artifact_after.state, ManagedImportArtifactState::Staged);
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        apply_record.state,
+        ManagedImportPromotionApplyState::FailedBeforeMutation
+    );
+    assert_eq!(
+        apply_record.safe_error_code.as_deref(),
+        Some("storage_apply_source_missing")
+    );
+    let outcome: serde_json::Value =
+        serde_json::from_str(apply_record.outcome_json.as_deref().unwrap()).unwrap();
+    assert_eq!(outcome["writes_library"], false);
+    assert_eq!(outcome["storage_mutation"], false);
+    assert_eq!(outcome["media_source_mutation"], false);
+    assert_eq!(outcome["target_created"], false);
+}
+
+#[tokio::test]
+async fn managed_import_apply_rejects_stale_acceptance_before_storage_mutation() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Stale (2026)")).unwrap();
+    fs::write(temp.path().join("incoming").join("Stale.mkv"), b"media!").unwrap();
+    let target_path = temp
+        .path()
+        .join("Movies")
+        .join("Stale (2026)")
+        .join("Stale.mkv");
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Stale.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Stale.mkv".to_owned()),
+            original_file_name: Some("Stale.mkv".to_owned()),
+            intended_locator: Some("Movies/Stale (2026)/Stale.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-stale".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-stale-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+    store
+        .set_managed_import_artifact_state(
+            artifact.id,
+            ManagedImportArtifactState::Rejected,
+            42,
+            Some(r#"{"provider_candidates":1}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+
+    let err = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("promotion plan is blocked"));
+    assert!(!target_path.exists());
+    assert!(
+        store
+            .list_media_sources(library_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        apply_record.state,
+        ManagedImportPromotionApplyState::FailedBeforeMutation
+    );
+    assert_eq!(
+        apply_record.safe_error_code.as_deref(),
+        Some("promotion_apply_revalidation_failed")
+    );
+    let outcome: serde_json::Value =
+        serde_json::from_str(apply_record.outcome_json.as_deref().unwrap()).unwrap();
+    assert_eq!(outcome["writes_library"], false);
+    assert_eq!(outcome["storage_mutation"], false);
+    assert_eq!(outcome["media_source_mutation"], false);
+}
+
+#[tokio::test]
+async fn managed_import_apply_rejects_cataloged_destination_before_storage_mutation() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Cataloged (2026)")).unwrap();
+    fs::write(
+        temp.path().join("incoming").join("Cataloged.mkv"),
+        b"media!",
+    )
+    .unwrap();
+    let target_path = temp
+        .path()
+        .join("Movies")
+        .join("Cataloged (2026)")
+        .join("Cataloged.mkv");
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Cataloged.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Cataloged.mkv".to_owned()),
+            original_file_name: Some("Cataloged.mkv".to_owned()),
+            intended_locator: Some("Movies/Cataloged (2026)/Cataloged.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-cataloged".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-cataloged-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Cataloged".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: item.id,
+            locator: "local:///Movies/Cataloged (2026)/Cataloged.mkv".to_owned(),
+            file_name: "Cataloged.mkv".to_owned(),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-cataloged".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let err = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("already cataloged"));
+    assert!(!target_path.exists());
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(sources.len(), 1);
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        apply_record.state,
+        ManagedImportPromotionApplyState::FailedBeforeMutation
+    );
+    assert_eq!(
+        apply_record.safe_error_code.as_deref(),
+        Some("promotion_apply_destination_already_cataloged")
+    );
+}
+
+#[tokio::test]
+async fn managed_import_apply_replays_promoted_record_and_commits_duplicate_evidence() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Duplicate (2026)")).unwrap();
+    fs::write(
+        temp.path().join("incoming").join("Duplicate.mkv"),
+        b"media!",
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let duplicate_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Existing Duplicate".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let duplicate_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: duplicate_item.id,
+        locator: "local:///Existing/Duplicate.mkv".to_owned(),
+        file_name: "Duplicate.mkv".to_owned(),
+        size_bytes: Some(6),
+        fingerprint: Some("fingerprint-duplicate".to_owned()),
+    };
+    store.upsert_media_item(&duplicate_item).await.unwrap();
+    store.upsert_media_source(&duplicate_source).await.unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Duplicate.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Duplicate.mkv".to_owned()),
+            original_file_name: Some("Duplicate.mkv".to_owned()),
+            intended_locator: Some("Movies/Duplicate (2026)/Duplicate.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-duplicate".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-duplicate-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+
+    let applied = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let replayed = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(applied.id, replayed.id);
+    assert!(replayed.replayed);
+    assert_eq!(replayed.state, ManagedImportPromotionApplyState::Promoted);
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(sources.len(), 2);
+    let promoted_source = sources
+        .iter()
+        .find(|source| source.locator == "local:///Movies/Duplicate (2026)/Duplicate.mkv")
+        .unwrap();
+    let relationships = store
+        .list_source_duplicate_relationships(promoted_source.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(relationships.len(), 1);
+    assert!(
+        (relationships[0].source_id == promoted_source.id
+            && relationships[0].duplicate_source_id == duplicate_source.id)
+            || (relationships[0].source_id == duplicate_source.id
+                && relationships[0].duplicate_source_id == promoted_source.id)
+    );
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let outcome: serde_json::Value =
+        serde_json::from_str(apply_record.outcome_json.as_deref().unwrap()).unwrap();
+    assert_eq!(outcome["duplicate_hint_count"], 1);
+    assert_eq!(outcome["duplicate_relationship_count"], 1);
+}
+
+#[tokio::test]
+async fn managed_import_apply_uses_storage_backend_apply_boundary() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Boundary (2026)")).unwrap();
+    fs::write(temp.path().join("incoming").join("Boundary.mkv"), b"media!").unwrap();
+    let target_path = temp
+        .path()
+        .join("Movies")
+        .join("Boundary (2026)")
+        .join("Boundary.mkv");
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Boundary.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Boundary.mkv".to_owned()),
+            original_file_name: Some("Boundary.mkv".to_owned()),
+            intended_locator: Some("Movies/Boundary (2026)/Boundary.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-boundary".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-boundary-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: LibraryPreset::Movies,
+                webdav: None,
+            },
+            std::sync::Arc::new(ApplyOnlySuccessBackend),
+        )
+        .await;
+
+    let applied = app
+        .managed_import()
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(applied.state, ManagedImportPromotionApplyState::Promoted);
+    assert!(!target_path.exists());
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(sources.len(), 1);
+    assert_eq!(
+        sources[0].locator,
+        "local:///Movies/Boundary (2026)/Boundary.mkv"
+    );
+}
+
 async fn seed_library(store: &TaruDatabase) -> Library {
     let library = Library {
         id: LibraryId::new(),
@@ -618,6 +1250,138 @@ async fn seed_library(store: &TaruDatabase) -> Library {
     };
     store.upsert_library(&library).await.unwrap();
     library
+}
+
+struct ApplyOnlySuccessBackend;
+
+#[async_trait]
+impl StorageBackend for ApplyOnlySuccessBackend {
+    fn scheme(&self) -> &'static str {
+        "local"
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> taru_core::Result<ObjectMetadata> {
+        Err(taru_core::TaruError::storage_unknown(
+            uri.to_string(),
+            "apply-only backend does not expose stat",
+        ))
+    }
+
+    async fn list(&self, uri: &StorageUri) -> taru_core::Result<Vec<ObjectMetadata>> {
+        Err(taru_core::TaruError::storage_unknown(
+            uri.to_string(),
+            "apply-only backend does not expose list",
+        ))
+    }
+
+    async fn open_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<taru_vfs::ByteRange>,
+    ) -> taru_core::Result<VirtualFile> {
+        Err(taru_core::TaruError::storage_unknown(
+            format!("{}:{range:?}", uri),
+            "apply-only backend does not expose open_range",
+        ))
+    }
+
+    async fn read_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<taru_vfs::ByteRange>,
+    ) -> taru_core::Result<ReadRange> {
+        Err(taru_core::TaruError::storage_unknown(
+            format!("{}:{range:?}", uri),
+            "apply-only backend does not expose read_range",
+        ))
+    }
+
+    async fn stream_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<taru_vfs::ByteRange>,
+    ) -> taru_core::Result<ReadStream> {
+        Err(taru_core::TaruError::storage_unknown(
+            format!("{}:{range:?}", uri),
+            "apply-only backend does not expose stream_range",
+        ))
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> taru_core::Result<String> {
+        Err(taru_core::TaruError::storage_unknown(
+            uri.to_string(),
+            "apply-only backend does not expose read_to_string",
+        ))
+    }
+
+    async fn write_string(&self, uri: &StorageUri, _content: &str) -> taru_core::Result<()> {
+        Err(taru_core::TaruError::storage_unknown(
+            uri.to_string(),
+            "apply-only backend does not expose write_string",
+        ))
+    }
+
+    async fn stage(&self, request: StageRequest) -> taru_core::Result<StagedFile> {
+        Err(taru_core::TaruError::storage_unknown(
+            request.uri.to_string(),
+            "apply-only backend does not expose stage",
+        ))
+    }
+
+    async fn plan_link(
+        &self,
+        request: StorageLinkPlanRequest,
+    ) -> taru_core::Result<taru_vfs::StorageLinkPlan> {
+        Ok(taru_vfs::StorageLinkPlan {
+            source_uri: request.source_uri,
+            target_uri: request.target_uri,
+            kind: request.kind,
+            status: taru_vfs::StorageLinkPlanStatus::Unsupported,
+            can_apply: false,
+            source: None,
+            target: None,
+            message: "apply-only backend does not expose link planning".to_owned(),
+        })
+    }
+
+    async fn apply(&self, request: StorageApplyRequest) -> taru_core::Result<StorageApplyReport> {
+        assert_eq!(request.kind, StorageApplyKind::Copy);
+        assert!(request.source_uri.as_str().starts_with("local://"));
+        assert!(
+            request
+                .target_uri
+                .as_str()
+                .starts_with("local:///Movies/Boundary (2026)/Boundary.mkv")
+        );
+        let source = StorageApplyObject {
+            uri: request.source_uri.clone(),
+            kind: taru_vfs::ObjectKind::File,
+            len: Some(6),
+            etag: None,
+            fingerprint_available: true,
+            capabilities: StorageCapabilities::RANGE_READABLE,
+        };
+        let target = StorageApplyObject {
+            uri: request.target_uri.clone(),
+            kind: taru_vfs::ObjectKind::File,
+            len: Some(6),
+            etag: None,
+            fingerprint_available: true,
+            capabilities: StorageCapabilities::RANGE_READABLE,
+        };
+
+        Ok(StorageApplyReport {
+            source_uri: request.source_uri,
+            target_uri: request.target_uri,
+            kind: request.kind,
+            status: StorageApplyStatus::Applied,
+            applied: true,
+            target_created: true,
+            source: Some(source),
+            target: Some(target),
+            message: "apply-only backend accepted promotion".to_owned(),
+        })
+    }
 }
 
 fn managed_import_test_config(root: &std::path::Path, library_id: LibraryId) -> TaruServerConfig {
