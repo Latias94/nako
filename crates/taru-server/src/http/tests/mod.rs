@@ -106,8 +106,8 @@ use super::error::ApiError;
 use super::*;
 use crate::config::{
     LocalLibraryConfig, MetadataConfig, MetadataProviderConfig, MetadataProviderHeaderConfig,
-    MetadataProviderRuntimeConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
-    TranscodeConfig,
+    MetadataProviderRuntimeConfig, NetworkAccessConfig, NetworkExposureMode, PlaybackConfig,
+    StagingConfig, TaruServerConfig, TranscodeConfig,
 };
 use crate::http::playback::stream_direct_play_response;
 
@@ -143,6 +143,7 @@ async fn router_with_media_source_config(
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -231,6 +232,7 @@ async fn router_with_remux_source(
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -308,6 +310,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Ta
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path,
         scan_concurrency: 1,
@@ -620,6 +623,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -648,12 +652,28 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
 }
 
 async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, token: &str) -> Router {
+    test_router_with_bearer_auth_and_network(
+        root,
+        library_id,
+        token,
+        NetworkAccessConfig::default(),
+    )
+    .await
+}
+
+async fn test_router_with_bearer_auth_and_network(
+    root: PathBuf,
+    library_id: LibraryId,
+    token: &str,
+    network: NetworkAccessConfig,
+) -> Router {
     let config = TaruServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network,
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,

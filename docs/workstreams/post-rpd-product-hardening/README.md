@@ -4,9 +4,9 @@
 
 Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
 `nfo-link-authority`, `managed-import-staging`,
-`link-apply-and-import-promotion`, `nfo-sidecar-promotion-apply`, and
-`playback-transcode-ops-hardening` are complete. `downloads-watch-folder-intake`
-is open as the current mainline lane.
+`link-apply-and-import-promotion`, `nfo-sidecar-promotion-apply`,
+`playback-transcode-ops-hardening`, and `downloads-watch-folder-intake` are
+complete. `network-access-boundary` is open as the current mainline lane.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -43,12 +43,11 @@ product risk is whether Taru can safely manage a real library:
 
 ## Current Decision
 
-After Playback/Transcode Ops Hardening closed, PRPH-110 re-scored the remaining
-roadmap. PRPH-120 opened `downloads-watch-folder-intake` as the next mainline
-lane, but only as staged artifact intake that consumes Taru-owned Managed
-Import Staging, Link Apply, NFO Sidecar Apply, and playback support evidence.
-DWI-050 Admin-only intake diagnostics are complete. The next executable task is
-DWI-060 closeout and follow-on split for `downloads-watch-folder-intake`.
+After Downloads / Watch-Folder Intake closed, PRPH-130 re-scored the remaining
+roadmap. PRPH-140 opened `network-access-boundary` because remote clients are
+the highest product-readiness gap that can progress without weakening metadata,
+import, NFO, acquisition, playback, AI, or Addon side-effect boundaries. The
+next executable task is NAB-040 Admin network readiness diagnostics.
 
 ## Authoritative Docs
 
@@ -68,6 +67,7 @@ DWI-060 closeout and follow-on split for `downloads-watch-folder-intake`.
 - [nfo-sidecar-promotion-apply](../nfo-sidecar-promotion-apply/README.md)
 - [playback-transcode-ops-hardening](../playback-transcode-ops-hardening/README.md)
 - [downloads-watch-folder-intake](../downloads-watch-folder-intake/README.md)
+- [network-access-boundary](../network-access-boundary/README.md)
 - [metadata-catalog](../metadata-catalog/README.md)
 - [transcode-runtime](../transcode-runtime/README.md)
 - [nfo-round-trip-preservation](../nfo-round-trip-preservation/README.md)

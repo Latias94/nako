@@ -71,6 +71,49 @@ disabled auth, or an unaudited reverse proxy. `GET /health` is intentionally
 public for readiness checks; all other routes should require bearer auth when
 `[auth].enabled = true`.
 
+Taru now has an explicit `[network]` policy section for config-check and future
+request-time enforcement. The conservative default is local-only:
+
+```toml
+[network]
+exposure_mode = "local_only"
+```
+
+For a reverse proxy, keep `[auth].enabled = true`, set an HTTPS external base
+URL, and trust forwarded headers only from reviewed proxy sources:
+
+```toml
+listen_addr = "0.0.0.0:3000"
+
+[network]
+exposure_mode = "reverse_proxy"
+external_base_url = "https://taru.example.com"
+trusted_proxy_headers = true
+trusted_proxy_sources = ["127.0.0.1"]
+allowed_origins = ["https://taru.example.com"]
+```
+
+For a tunnel, declare the provider and keep the credential in an environment
+variable. This records readiness policy only; it does not start a built-in NAT
+traversal or relay runtime:
+
+```toml
+[network]
+exposure_mode = "tunnel_provider"
+external_base_url = "https://taru.example.com"
+allowed_origins = ["https://taru.example.com"]
+
+[[network.tunnel_providers]]
+id = "cloudflared"
+kind = "cloudflare_tunnel"
+public_url = "https://taru.example.com"
+token_env = "TARU_TUNNEL_TOKEN"
+```
+
+`config-check` redacts raw external URLs, forwarded headers, bearer tokens,
+tunnel credentials, and secret query strings from diagnostics. Avoid wildcard
+browser origins; list exact HTTPS origins instead.
+
 ## Database Configuration
 
 ### SQLite

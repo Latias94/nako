@@ -76,6 +76,7 @@ async fn webhook_attempt_route_lists_attempts_for_existing_event() {
             database_url: "sqlite::memory:".to_owned(),
             database_url_env: None,
             auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: 1,

@@ -1,6 +1,6 @@
 # Downloads / Watch-Folder Intake — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `DWI` prefix.
@@ -75,7 +75,7 @@ Task IDs use the `DWI` prefix.
 
 ## M5 — Closeout And Follow-On Split
 
-- [ ] DWI-060 [owner=planner] [deps=DWI-050] [scope=docs/workstreams/downloads-watch-folder-intake,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+- [x] DWI-060 [owner=planner] [deps=DWI-050] [scope=docs/workstreams/downloads-watch-folder-intake,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
   Goal: Verify final gates, close or split follow-ons, and re-score network
   access, AI-assisted library ops, Addon runtime/distribution, and protocol
   downloader integrations in the post-RPD umbrella.
@@ -85,4 +85,7 @@ Task IDs use the `DWI` prefix.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
   re-score notes.
-  Handoff: Return to `post-rpd-product-hardening` with the next lane decision.
+  Handoff: DONE. Returned to `post-rpd-product-hardening`; network access
+  boundary is the recommended next mainline lane. Protocol downloaders,
+  background watch scheduling, Admin UI workflow polish, AI generated
+  artifacts, and Addon runtime/distribution remain split follow-ons.

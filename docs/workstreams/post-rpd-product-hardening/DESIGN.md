@@ -399,6 +399,60 @@ slice: staged artifact acquisition intake and watch-folder candidate discovery.
 It must not add direct library writes, protocol-specific downloader behavior,
 NFO mutation shortcuts, network traversal, AI writes, or Addon runtime changes.
 
+## Post-DWI Closeout Re-Score — 2026-05-22
+
+`downloads-watch-folder-intake` is now complete. Taru can durably represent
+Acquisition Intake Candidates, discover watch-folder entries through
+storage/VFS list/stat, classify ready/incomplete/unsupported candidates, expose
+Admin-only redacted diagnostics, and explicitly hand accepted candidates into
+Managed Import artifacts without Media Source creation, promotion apply, NFO
+sidecar mutation, Public Client API changes, or `taru-client-protocol` churn.
+
+That closes the first safe acquisition boundary. The remaining product risk is
+no longer local library mutation; it is exposing Taru safely to real clients and
+deployment topologies without weakening auth, path redaction, proxy trust, or
+side-effect boundaries.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| Network Access Boundary | Highest | Remote clients and self-hosted deployment need explicit external endpoint, trusted proxy/header, origin, and tunnel-provider policy. This can advance product readiness without touching metadata authority, Managed Import, NFO apply, acquisition intake, AI, Addons, or downloader protocols. | Open next as the mainline execution lane. First slice should be policy/readiness and Admin diagnostics, not built-in NAT traversal runtime. |
+| Protocol Downloader Integrations | High but downstream | Intake now exists, so torrent/Usenet/RSS/download-client adapters have a safe target. They still need separate credential, retry, sandbox, and adapter-failure policies. | Split after network policy or when a concrete adapter is selected; adapters must submit candidates/artifacts into Acquisition Intake. |
+| Background Watch Scheduling | Useful follow-on | DWI proved polling/discovery through storage/VFS but did not add scheduler or OS watcher runtime. Scheduling needs job/runtime ownership, debounce, leases, and backpressure decisions. | Split as an intake operations follow-on; do not reopen DWI. |
+| Admin Intake Workflow Polish | Useful follow-on | Typed diagnostics exist, but full operator workflow for accept/reject/bulk actions needs UX and command semantics. | Split only after acceptance commands and promotion preview UX are explicitly scoped. |
+| AI Assisted Library Ops | Medium downstream | AI can now propose Generated Artifacts or candidate evidence into Taru-owned queues, but autonomous metadata, sidecar, or file writes would still bypass acceptance. | Defer until generated artifact proposal/acceptance queues are opened. |
+| Addon Runtime / Distribution | Medium downstream | Addons can consume more stable Taru-owned side-effect APIs, but runtime/distribution still needs manifest validation, permission UX, and side-effect routing into proven apply/intake paths. | Defer until network policy and generated artifact/side-effect queue semantics are explicit. |
+
+PRPH-130 therefore selects Network Access Boundary as the next recommended
+mainline lane. PRPH-140 should open `network-access-boundary` with a narrow
+first slice: endpoint/proxy/tunnel policy, trusted external URL handling,
+CORS/origin constraints, and Admin-only readiness diagnostics. It must not add
+built-in NAT traversal runtime, downloader protocols, AI writes, Addon runtime,
+or library mutation behavior.
+
+## Network Access Boundary Lane Open — 2026-05-22
+
+`network-access-boundary` opened as the active mainline execution lane. It
+builds on completed inbound bearer auth, self-hosted deployment docs, playback
+supportability, and acquisition intake rather than reopening those baselines.
+
+The first executable slice is NAB-020: define and validate a network access
+policy/config model for local-only, reverse-proxy, private-network, and
+tunnel-provider modes. This slice should produce safe defaults and redacted
+config-check diagnostics before any concrete tunnel runtime or Public Client
+endpoint-discovery behavior is added.
+
+NAB-020 and NAB-030 are now complete. Taru has a validated network access
+policy and an HTTP boundary that preserves bearer-auth precedence, keeps health
+public, enforces configured browser origins and preflight behavior, and trusts
+forwarded scheme/host only when trusted proxy headers are enabled and the
+remote source matches exact-IP/CIDR policy.
+
+The next executable slice is NAB-040: expose Admin-only network readiness
+diagnostics and typed Admin web support. This must summarize mode, endpoint,
+trusted proxy, origin, and tunnel-provider readiness without exposing bearer
+tokens, raw forwarded headers, credential-bearing URLs, local paths, tunnel
+secrets, Public Client API shape, or `taru-client-protocol` changes.
+
 ## Closeout Condition
 
 This umbrella can close when:

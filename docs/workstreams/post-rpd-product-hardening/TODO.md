@@ -107,3 +107,32 @@ tasks belong in child workstreams.
   Evidence: `docs/workstreams/downloads-watch-folder-intake/DESIGN.md`.
   Handoff: DONE. Execute DWI-020 durable intake candidate domain without adding
   protocol-specific downloader behavior or direct library writes.
+
+## M9 — Post-Downloads Intake Lane Scoring
+
+- [x] PRPH-130 [owner=planner] [deps=DWI-060] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/downloads-watch-folder-intake,docs/workstreams/README.md]
+  Goal: Re-score network access, AI-assisted library ops, Addon
+  runtime/distribution, protocol downloader integrations, background watch
+  scheduling, and Admin UI polish after Downloads / Watch-Folder Intake
+  closeout.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, HANDOFF.md,
+  and workstream index agree on the next executable lane.
+  Evidence: `DESIGN.md` Post-DWI Closeout Re-Score and
+  `docs/workstreams/downloads-watch-folder-intake/EVIDENCE_AND_GATES.md`.
+  Handoff: DONE. Open `network-access-boundary` as the next mainline lane,
+  scoped first to endpoint/proxy/tunnel policy and remote readiness without
+  built-in NAT traversal runtime.
+
+## M10 — Network Access Boundary Lane Open
+
+- [x] PRPH-140 [owner=planner] [deps=PRPH-130] [scope=docs/workstreams/network-access-boundary,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+  Goal: Open `network-access-boundary` as a dedicated workstream for remote
+  endpoint policy, trusted proxy/header behavior, tunnel-provider readiness,
+  origin constraints, and Admin-only diagnostics.
+  Validation: Child workstream has design, TODO, milestones, gates,
+  workstream metadata, and handoff docs; parent umbrella and index point to the
+  first executable network task.
+  Evidence: `docs/workstreams/network-access-boundary/DESIGN.md`.
+  Handoff: DONE. Execute NAB-020 network policy domain/config validation
+  without adding built-in NAT traversal runtime, identity/RBAC, downloader
+  protocols, AI writes, Addon runtime, or Public Client API churn.

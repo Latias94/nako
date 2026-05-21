@@ -1,6 +1,6 @@
 # Downloads / Watch-Folder Intake
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Purpose
@@ -38,8 +38,9 @@ candidate diagnostics and watch-folder discovery controls through Admin API v1,
 with synchronized Admin TypeScript contract/client support and no Public Client
 API or `taru-client-protocol` changes.
 
-The next executable task is DWI-060: verify final gates, close or split follow-ons,
-and return the next lane decision to the post-RPD umbrella.
+DWI-060 is complete. Final closeout gates passed, follow-ons were split rather
+than hidden in this lane, and the next product lane decision returned to the
+post-RPD umbrella.
 
 ## Authoritative Docs
 

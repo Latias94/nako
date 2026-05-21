@@ -28,27 +28,32 @@ taxonomy, and bounded Admin support evidence. PRPH-110 selects
 downloads/watch-folder intake as the next mainline lane. PRPH-120 opens
 `downloads-watch-folder-intake`. DWI-020 durable intake candidate
 domain/persistence and DWI-030 app-service intake / Managed Import handoff are
-complete. DWI-040 watch-folder discovery and DWI-050 Admin-only intake
-diagnostics/read model are complete.
+complete. DWI-040 watch-folder discovery, DWI-050 Admin-only intake
+diagnostics/read model, and DWI-060 closeout are complete.
+`network-access-boundary` is active. NAB-020 network policy/config validation
+and NAB-030 HTTP boundary enforcement are complete.
 
 ## Active Task
 
-- Task ID: DWI-060
+- Task ID: `network-access-boundary` NAB-040
 - Owner: unassigned
-- Files: `docs/workstreams/downloads-watch-folder-intake`,
-  `docs/workstreams/post-rpd-product-hardening`, `docs/workstreams/README.md`
-- Validation: final `downloads-watch-folder-intake` closeout gates, JSON
-  validation for child and parent workstream JSON, `git diff --check`, and
-  `git diff --name-only -- crates/taru-client-protocol`.
+- Files: `crates/taru-api/src/admin.rs`,
+  `crates/taru-api/src/admin_contract.rs`, `crates/taru-server/src/http/admin.rs`,
+  `apps/admin-web/src/adminApi`, `docs/workstreams/network-access-boundary`
+- Validation: `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
+  `npm run check` from `apps/admin-web`; `cargo fmt --all -- --check`;
+  `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
 - Status: READY
-- Review: keep acquisition intake separate from network traversal, AI writes,
-  Addon runtime, NFO mutation shortcuts, and playback support follow-ons.
+- Review: keep Admin-only readiness diagnostics separate from built-in NAT
+  traversal runtime, Public Client API, downloader protocols, AI writes, Addon
+  runtime, NFO mutation shortcuts, and library writes.
 - Evidence: PRPH-110 lane scoring in `DESIGN.md`,
   `playback-transcode-ops-hardening` closeout evidence,
   `downloads-watch-folder-intake` open docs, DWI-020 persistence evidence,
   DWI-030 app-service handoff evidence, DWI-040 watch-folder discovery evidence,
-  DWI-050 Admin-only diagnostics evidence, and completed staging / promotion /
-  sidecar apply workstreams.
+  DWI-050 Admin-only diagnostics evidence, DWI-060 closeout evidence, and
+  completed staging / promotion / sidecar apply workstreams.
 
 ## Decisions Since Last Update
 
@@ -108,16 +113,27 @@ diagnostics/read model are complete.
 - DWI-040 watch-folder discovery is complete.
 - DWI-050 Admin-only intake diagnostics/read model is complete with typed Admin
   web contract/client support and no Public Client protocol changes.
+- DWI-060 Downloads / Watch-Folder Intake closeout is complete.
+- PRPH-130 selects Network Access Boundary as the next recommended mainline
+  lane. The first slice should harden endpoint, reverse-proxy/trusted-header,
+  external URL, and tunnel-provider policy/readiness, not ship built-in NAT
+  traversal runtime.
+- PRPH-140 opened `network-access-boundary`.
+- NAB-020 network policy domain/config validation is complete.
+- NAB-030 HTTP boundary enforcement is complete with trusted proxy/source
+  checks, origin enforcement, CORS preflight handling, health compatibility, and
+  auth-order preservation. NAB-040 is the next executable task.
 
 ## Blockers
 
-- None for DWI-060.
+- None for opening the network access boundary lane.
 
 ## Next Recommended Action
 
-- Execute DWI-060 in `downloads-watch-folder-intake`.
-- Next slice should close or split protocol downloader integration, background
-  scan scheduling, Admin UI polish, network, AI, and Addon runtime follow-ons
-  before returning a next-lane decision.
-- Keep network as the best sidecar, and keep AI/Addons downstream consumers of
-  accepted Taru-owned boundaries.
+- Execute `network-access-boundary` NAB-040.
+- Expose Admin-only network readiness diagnostics and typed Admin web
+  contract/client support using the policy and HTTP enforcement introduced in
+  NAB-020/NAB-030.
+- Keep protocol downloaders, background watch scheduling, AI generated
+  artifacts, and Addon runtime/distribution as separate consumers of proven
+  Taru-owned boundaries.

@@ -229,13 +229,16 @@ async fn serve(listen_addr: std::net::SocketAddr, app: TaruApp) -> Result<()> {
 
     info!(listen_addr = %local_addr, "taru HTTP server listening");
 
-    let result = axum::serve(listener, build_router(app.clone()))
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .map_err(|err| TaruError::Provider {
-            provider: "http_server".to_owned(),
-            message: format!("HTTP server failed: {err}"),
-        });
+    let result = axum::serve(
+        listener,
+        build_router(app.clone()).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .map_err(|err| TaruError::Provider {
+        provider: "http_server".to_owned(),
+        message: format!("HTTP server failed: {err}"),
+    });
     app.shutdown_runtime();
     result
 }

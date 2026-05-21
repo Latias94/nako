@@ -1,12 +1,12 @@
 # Downloads / Watch-Folder Intake — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
 
-This lane is open as the next mainline child of `post-rpd-product-hardening`
-after Playback/Transcode Ops Hardening closed.
+This completed lane was opened as the next mainline child of
+`post-rpd-product-hardening` after Playback/Transcode Ops Hardening closed.
 
 The prerequisites are complete:
 
@@ -53,27 +53,21 @@ typed client, mocks, data source, and console surface. Tests prove the routes
 are Admin-only, redacted, and do not change Public Client API or
 `taru-client-protocol`.
 
-## Active Task
+DWI-060 is complete. Final closeout gates passed, this workstream is marked
+complete, protocol downloader/background scheduling/UI/network/AI/Addon
+follow-ons were split rather than hidden in this lane, and the next lane
+decision returned to `post-rpd-product-hardening`.
+
+## Closeout State
 
 - Task ID: DWI-060
-- Owner: unassigned
-- Files:
+- Status: DONE
+- Final scope:
   - `docs/workstreams/downloads-watch-folder-intake`
   - `docs/workstreams/post-rpd-product-hardening`
   - `docs/workstreams/README.md`
-- Validation:
-  - `verify-rust-workstream` records fresh final evidence
-  - `python -m json.tool docs/workstreams/downloads-watch-folder-intake/WORKSTREAM.json`
-  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
-  - `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-  - `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
-  - `npm run check` from `apps/admin-web`
-  - `git diff --name-only -- crates/taru-client-protocol`
-- Status: READY
-- Review: Closeout must split protocol downloader integration, Admin UI polish,
-  background scan scheduling, network traversal, AI, and Addon runtime instead
-  of hiding them in this lane.
+- Review result: no blocking findings. The target state is met, and remaining
+  work is split into follow-ons rather than hidden in this lane.
 
 ## Decisions Since Opening
 
@@ -105,18 +99,31 @@ are Admin-only, redacted, and do not change Public Client API or
   display names, intended locators, diagnostics JSON, raw root URIs, or
   downloader internals. Public Client API and `taru-client-protocol` remain
   unchanged.
+- DWI-060 closed the lane. Torrent/Usenet/download-client adapters,
+  background scan scheduling, Admin UI workflow polish, remote network access,
+  AI-generated artifacts, Addon runtime/distribution, automatic promotion
+  apply, and NFO sidecar mutation shortcuts remain separate workstreams or
+  backlog follow-ons.
 
 ## Blockers
 
-- None for DWI-060.
+- None.
 
 ## Next Recommended Action
 
-Execute DWI-060 closeout:
+Return to `post-rpd-product-hardening`.
 
-1. run final focused gates with fresh evidence;
-2. decide whether downloads protocol adapters, background watch scheduling, and
-   Admin UI polish become follow-on workstreams or backlog notes;
-3. re-score the post-RPD umbrella so network access boundary, AI-assisted
-   library ops, and Addon runtime/distribution have a clear next-lane order;
-4. close this lane only if review finds no boundary leaks.
+Recommended next mainline lane: open `network-access-boundary`. It is now the
+highest-value product hardening lane because metadata, local authority,
+Managed Import, accepted promotion/NFO apply, playback supportability, and
+acquisition intake boundaries are proven. Scope the first slice to endpoint,
+trusted proxy, and tunnel-provider policy; do not add built-in NAT traversal
+runtime until the policy/readiness boundary is explicit.
+
+Split follow-ons if needed:
+
+- protocol downloader adapters that submit candidates into Acquisition Intake;
+- background watch-folder scheduling / OS watcher runtime;
+- Admin web intake workflow polish beyond typed diagnostics;
+- AI generated artifact proposal queues and acceptance workflow;
+- Addon runtime/distribution and side-effect permission UX.

@@ -3,7 +3,7 @@ use std::{collections::HashSet, fs, io, path::Path};
 use serde::Serialize;
 use taru_db::DatabaseBackendKind;
 
-use super::{LocalLibraryConfig, TaruServerConfig};
+use super::{LocalLibraryConfig, NetworkAccessConfig, NetworkExposureMode, TaruServerConfig};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ConfigPreflightOptions {
@@ -72,6 +72,7 @@ pub(super) fn preflight_config_with_env(
 
     checks.push(check_database_backend_url(config, &env_lookup));
     checks.extend(check_bind_and_auth(config, &env_lookup));
+    checks.extend(check_network_access_policy(config, &env_lookup));
     checks.extend(check_runtime_directories(config, options));
     checks.extend(check_libraries(config));
 
@@ -248,6 +249,301 @@ fn check_bind_and_auth(
     });
 
     checks
+}
+
+fn check_network_access_policy(
+    config: &TaruServerConfig,
+    env_lookup: &impl Fn(&str) -> Option<String>,
+) -> Vec<ConfigPreflightCheck> {
+    let mut checks = Vec::new();
+    let network = &config.network;
+
+    checks.push(check_network_access_mode(config));
+    checks.push(check_trusted_proxy_policy(network));
+    checks.push(check_origin_policy(network));
+    checks.push(check_tunnel_provider_policy(network, env_lookup));
+
+    checks
+}
+
+fn check_network_access_mode(config: &TaruServerConfig) -> ConfigPreflightCheck {
+    let network = &config.network;
+    let has_external_base_url = has_https_url(network.external_base_url.as_deref());
+    let listen_ip = config.listen_addr.ip();
+
+    match network.exposure_mode {
+        NetworkExposureMode::LocalOnly => {
+            if network.external_base_url.is_some()
+                || network.trusted_proxy_headers
+                || !network.trusted_proxy_sources.is_empty()
+                || !network.tunnel_providers.is_empty()
+            {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Warn,
+                    "local-only network mode ignores remote access settings",
+                    "remove external_base_url, trusted proxy, and tunnel settings or choose a remote exposure_mode",
+                );
+            }
+            preflight_check(
+                "network.access",
+                ConfigPreflightStatus::Pass,
+                "network access mode is local-only",
+                "remote access policy disabled",
+            )
+        }
+        NetworkExposureMode::PrivateNetwork => {
+            if !config.auth.enabled {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Fail,
+                    "private-network exposure requires bearer auth",
+                    "enable [auth] before exposing Taru beyond loopback",
+                );
+            }
+            preflight_check(
+                "network.access",
+                ConfigPreflightStatus::Pass,
+                "private-network exposure policy is explicit",
+                if listen_ip.is_unspecified() {
+                    "auth enabled; bind is all-interfaces"
+                } else {
+                    "auth enabled"
+                },
+            )
+        }
+        NetworkExposureMode::ReverseProxy => {
+            if !config.auth.enabled {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Fail,
+                    "reverse-proxy exposure requires bearer auth",
+                    "enable [auth] before trusting a reverse proxy",
+                );
+            }
+            if !has_external_base_url {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Fail,
+                    "reverse-proxy exposure requires external_base_url",
+                    "set [network].external_base_url to the https:// URL served by the proxy",
+                );
+            }
+            preflight_check(
+                "network.access",
+                ConfigPreflightStatus::Pass,
+                "reverse-proxy exposure policy is explicit",
+                "external_base_url is configured; raw URL redacted",
+            )
+        }
+        NetworkExposureMode::TunnelProvider => {
+            if !config.auth.enabled {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Fail,
+                    "tunnel-provider exposure requires bearer auth",
+                    "enable [auth] before exposing Taru through a tunnel",
+                );
+            }
+            if !has_external_base_url {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Fail,
+                    "tunnel-provider exposure requires external_base_url",
+                    "set [network].external_base_url to the public https:// tunnel URL",
+                );
+            }
+            if network.tunnel_providers.is_empty() {
+                return preflight_check(
+                    "network.access",
+                    ConfigPreflightStatus::Fail,
+                    "tunnel-provider exposure requires at least one provider declaration",
+                    "add [[network.tunnel_providers]] with a token_env reference",
+                );
+            }
+            preflight_check(
+                "network.access",
+                ConfigPreflightStatus::Pass,
+                "tunnel-provider exposure policy is explicit",
+                "external_base_url and provider declarations are configured; raw URLs redacted",
+            )
+        }
+    }
+}
+
+fn check_trusted_proxy_policy(network: &NetworkAccessConfig) -> ConfigPreflightCheck {
+    if network.trusted_proxy_headers && network.trusted_proxy_sources.is_empty() {
+        return preflight_check(
+            "network.proxy",
+            ConfigPreflightStatus::Fail,
+            "trusted proxy headers require trusted proxy sources",
+            "configure trusted_proxy_sources before accepting X-Forwarded-* headers",
+        );
+    }
+
+    if !network.trusted_proxy_headers && !network.trusted_proxy_sources.is_empty() {
+        return preflight_check(
+            "network.proxy",
+            ConfigPreflightStatus::Warn,
+            "trusted proxy sources are configured but forwarded headers are disabled",
+            "enable trusted_proxy_headers only after the proxy source boundary is reviewed",
+        );
+    }
+
+    if network.trusted_proxy_headers {
+        preflight_check(
+            "network.proxy",
+            ConfigPreflightStatus::Pass,
+            "trusted proxy header policy is explicit",
+            format!(
+                "trusted_proxy_source_count={}",
+                network.trusted_proxy_sources.len()
+            ),
+        )
+    } else {
+        preflight_check(
+            "network.proxy",
+            ConfigPreflightStatus::Pass,
+            "forwarded headers are not trusted",
+            "default-deny proxy header policy",
+        )
+    }
+}
+
+fn check_origin_policy(network: &NetworkAccessConfig) -> ConfigPreflightCheck {
+    if network
+        .allowed_origins
+        .iter()
+        .any(|origin| origin.trim() == "*")
+    {
+        return preflight_check(
+            "network.origins",
+            ConfigPreflightStatus::Fail,
+            "wildcard browser origins are not allowed",
+            "configure explicit https:// origins for browser clients",
+        );
+    }
+
+    if network
+        .allowed_origins
+        .iter()
+        .any(|origin| !has_http_origin(Some(origin)))
+    {
+        return preflight_check(
+            "network.origins",
+            ConfigPreflightStatus::Fail,
+            "allowed origins must be HTTP(S) origins",
+            "remove blank, wildcard, non-HTTP, path-bearing, query-bearing, or credential-bearing origins",
+        );
+    }
+
+    if network.allowed_origins.is_empty() {
+        preflight_check(
+            "network.origins",
+            ConfigPreflightStatus::Pass,
+            "no browser origins are configured",
+            "CORS remains default-deny until origins are explicitly configured",
+        )
+    } else {
+        preflight_check(
+            "network.origins",
+            ConfigPreflightStatus::Pass,
+            "browser origin policy is explicit",
+            format!("allowed_origin_count={}", network.allowed_origins.len()),
+        )
+    }
+}
+
+fn check_tunnel_provider_policy(
+    network: &NetworkAccessConfig,
+    env_lookup: &impl Fn(&str) -> Option<String>,
+) -> ConfigPreflightCheck {
+    if network.tunnel_providers.is_empty() {
+        return preflight_check(
+            "network.tunnel_providers",
+            ConfigPreflightStatus::Pass,
+            "no tunnel providers are configured",
+            "built-in tunnel runtime is not enabled",
+        );
+    }
+
+    for provider in &network.tunnel_providers {
+        if provider.id.trim().is_empty() {
+            return preflight_check(
+                "network.tunnel_providers",
+                ConfigPreflightStatus::Fail,
+                "tunnel provider IDs must be non-empty",
+                "assign a stable redaction-safe provider id",
+            );
+        }
+        if !has_https_url(provider.public_url.as_deref()) {
+            return preflight_check(
+                "network.tunnel_providers",
+                ConfigPreflightStatus::Fail,
+                "tunnel providers require HTTPS public_url",
+                format!("provider_id={}", provider.id),
+            );
+        }
+        match provider.token_env.as_deref() {
+            Some(token_env) => {
+                if env_lookup(token_env)
+                    .filter(|value| !value.trim().is_empty())
+                    .is_none()
+                {
+                    return preflight_check(
+                        "network.tunnel_providers",
+                        ConfigPreflightStatus::Fail,
+                        "tunnel provider token environment variable is missing or empty",
+                        format!("provider_id={}; token_env={token_env}", provider.id),
+                    );
+                }
+            }
+            None => {
+                return preflight_check(
+                    "network.tunnel_providers",
+                    ConfigPreflightStatus::Fail,
+                    "tunnel providers require token_env",
+                    format!("provider_id={}", provider.id),
+                );
+            }
+        }
+    }
+
+    preflight_check(
+        "network.tunnel_providers",
+        ConfigPreflightStatus::Pass,
+        "tunnel provider declarations are configured",
+        format!("provider_count={}", network.tunnel_providers.len()),
+    )
+}
+
+fn has_https_url(value: Option<&str>) -> bool {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some_and(|value| value.starts_with("https://"))
+}
+
+fn has_http_origin(value: Option<&str>) -> bool {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+    let Some(rest) = value
+        .strip_prefix("https://")
+        .or_else(|| value.strip_prefix("http://"))
+    else {
+        return false;
+    };
+
+    !rest.is_empty()
+        && !rest.contains('@')
+        && !rest.contains('/')
+        && !rest.contains('\\')
+        && !rest.contains('?')
+        && !rest.contains('#')
+        && !rest.contains(',')
+        && !rest.contains(';')
+        && !rest.chars().any(char::is_whitespace)
 }
 
 fn check_runtime_directories(

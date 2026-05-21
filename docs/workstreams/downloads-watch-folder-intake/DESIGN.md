@@ -1,6 +1,6 @@
 # Downloads / Watch-Folder Intake Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -181,11 +181,29 @@ Open with a durable intake/domain slice:
 
 This lane can close when:
 
-- intake candidates have durable backend-neutral persistence;
-- watch-folder discovery produces redacted, idempotent candidate evidence;
-- accepted candidates create or link Managed Import artifacts;
-- Admin diagnostics expose intake state safely;
-- tests prove no direct Media Source creation, no direct library file writes,
-  and no Public Client API or `taru-client-protocol` changes;
-- protocol downloader integrations, network access, AI, Addon runtime, UI polish,
-  and automatic apply behavior are either split or explicitly deferred.
+- [x] intake candidates have durable backend-neutral persistence;
+- [x] watch-folder discovery produces redacted, idempotent candidate evidence;
+- [x] accepted candidates create or link Managed Import artifacts;
+- [x] Admin diagnostics expose intake state safely;
+- [x] tests prove no direct Media Source creation, no direct library file
+  writes, and no Public Client API or `taru-client-protocol` changes;
+- [x] protocol downloader integrations, network access, AI, Addon runtime, UI
+  polish, and automatic apply behavior are either split or explicitly
+  deferred.
+
+## Closeout Result — 2026-05-22
+
+This lane is complete. Taru now has a narrow acquisition-intake boundary that
+can record watch-folder/operator candidates, classify discovery results through
+storage/VFS list/stat, expose redacted Admin diagnostics, and explicitly hand
+accepted candidates into Managed Import artifacts.
+
+The following remain outside this lane by design:
+
+- torrent, Usenet, browser, RSS, or download-client protocol adapters;
+- background watch-folder scheduling or OS file watcher runtime;
+- full Admin UI workflows beyond typed diagnostics;
+- automatic promotion apply or NFO sidecar mutation shortcuts;
+- remote access/tunnel behavior;
+- AI-generated artifact proposals or autonomous writes;
+- Addon runtime/distribution.

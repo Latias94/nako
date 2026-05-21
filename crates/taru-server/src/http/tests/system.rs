@@ -167,6 +167,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -388,6 +389,7 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -501,6 +503,7 @@ async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -654,6 +657,7 @@ async fn admin_v1_events_lists_filters_and_redacts_payloads() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -788,6 +792,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -1156,6 +1161,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
             enabled: false,
             token_env: Some("TARU_ADMIN_TOKEN".to_owned()),
         },
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: temp.path().join("private").join("ffprobe"),
         ffmpeg_path: temp.path().join("private").join("ffmpeg"),
         scan_concurrency: 2,
@@ -1350,6 +1356,7 @@ async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_st
         database_url: "postgres://user:secret@db.example.test/taru?sslmode=require".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -1423,6 +1430,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -1577,6 +1585,7 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -1758,6 +1767,7 @@ async fn admin_v1_playback_support_evidence_rejects_mismatched_source_context() 
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -1873,6 +1883,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -2048,6 +2059,7 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -2405,6 +2417,264 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         overview.admin_api_version,
         taru_api::admin::ADMIN_API_VERSION
     );
+}
+
+#[tokio::test]
+async fn network_boundary_enforces_origin_policy_and_preserves_auth_order() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut network = NetworkAccessConfig::default();
+    network.exposure_mode = NetworkExposureMode::ReverseProxy;
+    network.external_base_url = Some("https://taru.example.test".to_owned());
+    network.allowed_origins = vec!["https://app.example.test".to_owned()];
+    let router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        network,
+    )
+    .await;
+
+    let rejected = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), StatusCode::UNAUTHORIZED);
+    let rejected_body = serde_json::to_string(&body_json::<ErrorResponse>(rejected).await).unwrap();
+    assert!(!rejected_body.contains("evil.example.test"));
+    assert!(!rejected_body.contains(token));
+
+    let forbidden = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(forbidden.status(), StatusCode::FORBIDDEN);
+    let forbidden_body =
+        serde_json::to_string(&body_json::<ErrorResponse>(forbidden).await).unwrap();
+    assert!(!forbidden_body.contains("evil.example.test"));
+    assert!(!forbidden_body.contains(token));
+
+    let allowed = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://app.example.test")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+    assert_eq!(
+        allowed.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+        "https://app.example.test"
+    );
+
+    let health = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health.status(), StatusCode::OK);
+
+    let preflight = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::OPTIONS)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://app.example.test")
+                .header(header::ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(preflight.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        preflight.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+        "https://app.example.test"
+    );
+    assert_eq!(
+        preflight.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS],
+        "authorization,content-type,range"
+    );
+
+    let rejected_preflight = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::OPTIONS)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .header(header::ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rejected_preflight.status(), StatusCode::FORBIDDEN);
+    let rejected_preflight_body =
+        serde_json::to_string(&body_json::<ErrorResponse>(rejected_preflight).await).unwrap();
+    assert!(!rejected_preflight_body.contains("evil.example.test"));
+}
+
+#[tokio::test]
+async fn network_boundary_trusts_forwarded_host_only_when_proxy_policy_allows_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut untrusted_network = NetworkAccessConfig::default();
+    untrusted_network.exposure_mode = NetworkExposureMode::ReverseProxy;
+    untrusted_network.external_base_url = Some("https://taru.example.test".to_owned());
+    let untrusted_router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        untrusted_network,
+    )
+    .await;
+
+    let untrusted = untrusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "evil.example.test")
+                .header("x-forwarded-proto", "http")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(untrusted.status(), StatusCode::OK);
+    assert!(!untrusted.headers().contains_key("x-taru-external-origin"));
+
+    let mut trusted_network = NetworkAccessConfig::default();
+    trusted_network.exposure_mode = NetworkExposureMode::ReverseProxy;
+    trusted_network.external_base_url = Some("https://taru.example.test".to_owned());
+    trusted_network.trusted_proxy_headers = true;
+    trusted_network.trusted_proxy_sources = vec!["127.0.0.1".to_owned(), "10.10.0.0/16".to_owned()];
+    let trusted_router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        trusted_network,
+    )
+    .await;
+
+    let trusted = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "taru.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "127.0.0.1:4000".parse::<std::net::SocketAddr>().unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(trusted.status(), StatusCode::OK);
+    assert_eq!(
+        trusted.headers()["x-taru-external-origin"],
+        "https://taru.example.test"
+    );
+
+    let cidr_trusted = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "taru-lan.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "10.10.4.20:4000".parse::<std::net::SocketAddr>().unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(cidr_trusted.status(), StatusCode::OK);
+    assert_eq!(
+        cidr_trusted.headers()["x-taru-external-origin"],
+        "https://taru-lan.example.test"
+    );
+
+    let malformed = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "taru.example.test, evil.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "127.0.0.1:4000".parse::<std::net::SocketAddr>().unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(malformed.status(), StatusCode::OK);
+    assert!(!malformed.headers().contains_key("x-taru-external-origin"));
+
+    let spoofed = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "evil.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "198.51.100.10:4000"
+                        .parse::<std::net::SocketAddr>()
+                        .unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spoofed.status(), StatusCode::OK);
+    assert!(!spoofed.headers().contains_key("x-taru-external-origin"));
 }
 
 #[tokio::test]

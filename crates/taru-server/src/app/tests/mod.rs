@@ -1248,6 +1248,7 @@ async fn remux_app_with_source_and_transcode(
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path,
         scan_concurrency: 1,

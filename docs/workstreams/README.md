@@ -10,9 +10,12 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
-  Current next action: execute `downloads-watch-folder-intake` DWI-060 closeout.
+- [network-access-boundary](network-access-boundary/README.md):
+  active post-RPD mainline lane for self-hosted remote access policy,
+  trusted proxy/header handling, tunnel-provider readiness, origin constraints,
+  and redacted Admin diagnostics before any built-in NAT traversal runtime.
 - [downloads-watch-folder-intake](downloads-watch-folder-intake/README.md):
-  active post-RPD mainline lane for acquisition intake and watch-folder
+  completed post-RPD mainline lane for acquisition intake and watch-folder
   candidate discovery that feeds Managed Import artifacts and accepted
   promotion/apply workflows without protocol-specific downloader runtime,
   direct library writes, network traversal, AI writes, or Addon runtime scope.
