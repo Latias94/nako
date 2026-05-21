@@ -61,6 +61,7 @@ use crate::config::{
     MetadataProviderConfig, PlaybackConfig, StagingConfig, TranscodeConfig, WebDavLibraryConfig,
 };
 
+mod acquisition_intake;
 mod catalog;
 mod managed_import;
 mod metadata;

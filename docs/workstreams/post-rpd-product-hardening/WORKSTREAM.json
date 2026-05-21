@@ -74,7 +74,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "downloads-watch-folder-intake DWI-030",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, and Playback/Transcode Ops Hardening are completed. PRPH-110 re-scored the remaining lanes after playback supportability closed. PRPH-120 opened Downloads / Watch-Folder Intake as staged artifact acquisition that consumes Managed Import Staging, Link Apply, NFO Sidecar Apply, and playback support evidence. DWI-020 durable intake candidate domain/persistence is complete. Execute DWI-030 app-service intake and Managed Import artifact handoff next. Network access is the best parallel sidecar if scoped to endpoint/proxy/tunnel policy. AI and Addon runtime remain downstream consumers of generated artifacts, scoped side-effect APIs, and accepted Taru-owned apply boundaries."
+    "next_task": "downloads-watch-folder-intake DWI-050",
+    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, and Playback/Transcode Ops Hardening are completed. PRPH-110 re-scored the remaining lanes after playback supportability closed. PRPH-120 opened Downloads / Watch-Folder Intake as staged artifact acquisition that consumes Managed Import Staging, Link Apply, NFO Sidecar Apply, and playback support evidence. DWI-020 durable intake candidate domain/persistence is complete. DWI-030 app-service intake and Managed Import artifact handoff is complete. DWI-040 watch-folder discovery is complete. Execute DWI-050 Admin-only intake diagnostics next. Network access is the best parallel sidecar if scoped to endpoint/proxy/tunnel policy. AI and Addon runtime remain downstream consumers of generated artifacts, scoped side-effect APIs, and accepted Taru-owned apply boundaries."
   }
 }

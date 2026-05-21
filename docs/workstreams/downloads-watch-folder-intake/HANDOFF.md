@@ -34,19 +34,36 @@ round-trip, idempotent source-key lookup, state transitions, Managed Import
 artifact linking, and list filters. It does not create Media Sources, run
 promotion apply, or write library files.
 
+DWI-030 is complete. It added `AcquisitionIntakeAppService`, TaruApp service
+composition wiring, redacted candidate diagnostics, idempotent candidate
+record/list behavior, explicit existing Managed Import artifact linking,
+same-source artifact reuse, and new Managed Import artifact creation. Tests
+prove no promotion apply, Media Source creation, or library file mutation.
+
+DWI-040 is complete. It added watch-folder discovery through configured
+storage/VFS list/stat boundaries, ready/incomplete/unsupported classification,
+idempotent intake record writes, and redacted discovery diagnostics. Tests prove
+no Managed Import artifact creation, Media Source creation, promotion apply, or
+Library File Write.
+
 ## Active Task
 
-- Task ID: DWI-030
+- Task ID: DWI-050
 - Owner: unassigned
 - Files:
-  - `crates/taru-server/src/app`
-  - `crates/taru-server/src/app/tests`
+  - `crates/taru-api/src/admin.rs`
+  - `crates/taru-api/src/admin_contract.rs`
+  - `crates/taru-server/src/http/admin.rs`
+  - `crates/taru-server/src/http/tests`
+  - `apps/admin-web/src/adminApi`
 - Validation:
-  - `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`
-  - focused Managed Import regression tests if shared handoff paths change
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
+  - `npm run check` from `apps/admin-web`
+  - `git diff --name-only -- crates/taru-client-protocol`
 - Status: READY
-- Review: app-service intake must prove idempotency, redaction, Managed Import
-  handoff semantics, and no direct Media Source creation or Library File Write.
+- Review: Admin diagnostics/read model must remain Admin-only, redacted, typed,
+  and must not change Public Client API or `taru-client-protocol`.
 
 ## Decisions Since Opening
 
@@ -66,19 +83,26 @@ promotion apply, or write library files.
 - DWI-020 kept the boundary persistence-only. Candidate acceptance links a
   Managed Import artifact at the repository level, but app-service semantics
   for creating or reusing artifacts belong to DWI-030.
+- DWI-030 made app-service acceptance an explicit handoff boundary: it can link
+  a requested existing artifact, reuse a same-source existing artifact, or
+  create a new `Proposed` Managed Import artifact. It never applies promotion or
+  writes catalog/library state.
+- DWI-040 made watch-folder discovery read-only and storage-owned: it uses
+  configured storage/VFS list/stat, writes only acquisition-intake candidate
+  records, and leaves artifact creation to explicit DWI-030 acceptance.
 
 ## Blockers
 
-- None for DWI-030.
+- None for DWI-050.
 
 ## Next Recommended Action
 
-Execute DWI-030 with TDD:
+Execute DWI-050 with TDD:
 
-1. add a failing server app test for recording/listing a redacted watch-folder
-   intake candidate;
-2. add a second failing test for accepting a candidate into a Managed Import
-   artifact without promotion apply or Media Source creation;
-3. implement the narrow app-service seam;
-4. verify focused server gate plus relevant DB/Managed Import regressions;
-5. update evidence before moving to DWI-040.
+1. add Admin API contract tests for listing intake candidate diagnostics and
+   triggering/readback of watch-folder discovery diagnostics;
+2. add Admin HTTP tests proving redaction and auth/admin-only boundaries;
+3. sync the Admin web typed API/client without changing Public Client API or
+   `taru-client-protocol`;
+4. run the Admin API, HTTP, web, and public-client-boundary gates before moving
+   to DWI-060 closeout.

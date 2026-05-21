@@ -39,12 +39,14 @@ Primary evidence:
 
 ## M2 — App Service Intake And Managed Import Handoff
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- App service can record/list redacted intake candidates.
-- Accepting a candidate creates or links a Managed Import artifact.
-- Repeated acceptance is idempotent.
-- No promotion apply, Media Source creation, or Library File Write occurs.
+- [x] App service can record/list redacted intake candidates.
+- [x] Accepting a candidate creates or links a Managed Import artifact.
+- [x] Repeated acceptance is idempotent.
+- [x] No promotion apply, Media Source creation, or Library File Write occurs.
 
 Primary evidence:
 
@@ -53,13 +55,15 @@ Primary evidence:
 
 ## M3 — Watch-Folder Discovery
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Watch-folder scans use storage/VFS list/stat boundaries.
-- Ready, incomplete, unsupported, duplicate, and blocked candidates are
+- [x] Watch-folder scans use storage/VFS list/stat boundaries.
+- [x] Ready, incomplete/blocked, and unsupported/blocked candidates are
   classified with stable reason categories.
-- Repeated scans are idempotent.
-- Raw host paths and credentials are not exposed in diagnostics.
+- [x] Repeated scans are idempotent.
+- [x] Raw host paths and credentials are not exposed in diagnostics.
 
 Primary evidence:
 

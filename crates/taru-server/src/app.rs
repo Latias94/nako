@@ -8,6 +8,7 @@ use taru_db::{DatabaseConnectOptions, TaruDatabase};
 
 use crate::config::{TaruServerConfig, resolve_database_url};
 
+mod acquisition_intake;
 mod addons;
 mod artwork;
 mod automation;
@@ -29,6 +30,7 @@ mod storage;
 pub(crate) mod user_playback;
 mod webhooks;
 
+use acquisition_intake::AcquisitionIntakeAppService;
 use addons::AddonAppService;
 use artwork::ManagedArtworkAppService;
 pub(crate) use artwork::{ImageVariantRequest, ManagedArtworkImageBytes};
@@ -95,6 +97,11 @@ impl TaruApp {
     #[must_use]
     pub(crate) fn addons(&self) -> AddonAppService {
         self.services().addons.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn acquisition_intake(&self) -> AcquisitionIntakeAppService {
+        self.services().acquisition_intake.clone()
     }
 
     #[must_use]

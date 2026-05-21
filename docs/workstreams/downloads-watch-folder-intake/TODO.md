@@ -31,7 +31,7 @@ Task IDs use the `DWI` prefix.
 
 ## M2 — App Service Intake And Managed Import Handoff
 
-- [ ] DWI-030 [owner=codex] [deps=DWI-020] [scope=crates/taru-server/src/app,crates/taru-server/src/app/tests]
+- [x] DWI-030 [owner=codex] [deps=DWI-020] [scope=crates/taru-server/src/app,crates/taru-server/src/app/tests]
   Goal: Add app-service methods to record/list redacted intake candidates and
   accept a candidate into an existing or new Managed Import artifact without
   promotion apply or library file mutation.
@@ -41,11 +41,11 @@ Task IDs use the `DWI` prefix.
   handoff semantics, and no direct Media Source creation.
   Evidence: app tests proving duplicate candidate replay, redacted diagnostics,
   Managed Import artifact creation/linking, and no library mutation.
-  Handoff: Add watch-folder discovery in DWI-040.
+  Handoff: DONE. Add watch-folder discovery in DWI-040.
 
 ## M3 — Watch-Folder Discovery
 
-- [ ] DWI-040 [owner=codex] [deps=DWI-030] [scope=crates/taru-server/src/app,crates/taru-vfs]
+- [x] DWI-040 [owner=codex] [deps=DWI-030] [scope=crates/taru-server/src/app,crates/taru-vfs]
   Goal: Discover watch-folder candidates through storage/VFS list/stat
   primitives, classify ready/incomplete/unsupported candidates, and write
   idempotent intake records without trusting raw host paths.
@@ -55,7 +55,7 @@ Task IDs use the `DWI` prefix.
   normalization/redaction, scan idempotency, and bounded listing behavior.
   Evidence: watch-folder discovery tests with local storage fixtures, incomplete
   candidate blockers, duplicate replay, and no Media Source/promotion apply.
-  Handoff: Add Admin diagnostics/read model in DWI-050.
+  Handoff: DONE. Add Admin diagnostics/read model in DWI-050.
 
 ## M4 — Admin Intake Diagnostics
 

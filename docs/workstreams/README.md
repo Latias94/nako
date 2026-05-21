@@ -10,7 +10,7 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
-  Current next action: execute `downloads-watch-folder-intake` DWI-030.
+  Current next action: execute `downloads-watch-folder-intake` DWI-050.
 - [downloads-watch-folder-intake](downloads-watch-folder-intake/README.md):
   active post-RPD mainline lane for acquisition intake and watch-folder
   candidate discovery that feeds Managed Import artifacts and accepted

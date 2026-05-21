@@ -8,6 +8,7 @@ use tokio::sync::Semaphore;
 use crate::config::TaruServerConfig;
 
 use super::{
+    acquisition_intake::AcquisitionIntakeAppService,
     addons::AddonAppService,
     artwork::ManagedArtworkAppService,
     automation::AutomationAppService,
@@ -90,6 +91,7 @@ impl Drop for TaruAppComposition {
 
 #[derive(Debug)]
 pub(super) struct TaruAppServices {
+    pub(super) acquisition_intake: AcquisitionIntakeAppService,
     pub(super) jobs: JobAppService,
     pub(super) library_scan: LibraryScanAppService,
     pub(super) artwork: ManagedArtworkAppService,
@@ -113,6 +115,10 @@ impl TaruAppServices {
         runtime: TaruRuntimeResources,
     ) -> Result<Self> {
         let jobs = JobAppService::new(store.clone());
+        let acquisition_intake = AcquisitionIntakeAppService::new_with_storage(
+            store.clone(),
+            runtime.storage_backends.clone(),
+        );
         let artwork = ManagedArtworkAppService::new(config.artwork.clone(), store.clone())?;
         let library_scan = LibraryScanAppService::new(
             config.clone(),
@@ -157,6 +163,7 @@ impl TaruAppServices {
         let user_playback = UserPlaybackAppService::new(store);
 
         Ok(Self {
+            acquisition_intake,
             jobs,
             library_scan,
             artwork,

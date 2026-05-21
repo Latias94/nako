@@ -22,9 +22,20 @@ DWI-010 opened the lane as the next mainline child of
 DWI-020 is complete. Taru now has durable acquisition intake candidate domain
 records and backend-neutral persistence for watch-folder/operator candidates.
 
-The next executable task is DWI-030: add app-service intake methods that
-record/list redacted candidates and accept a candidate into an existing or new
-Managed Import artifact without promotion apply or library file mutation.
+DWI-030 is complete. Taru now has an app-service boundary that records/lists
+redacted intake candidates and accepts candidates into existing or new Managed
+Import artifacts without promotion apply, Media Source creation, or library file
+mutation.
+
+DWI-040 is complete. Taru now discovers watch-folder candidates through
+storage/VFS list/stat boundaries, classifies ready/incomplete/unsupported
+entries, and writes idempotent intake records without trusting raw host paths or
+creating Managed Import artifacts, Media Sources, promotion applies, or library
+file writes.
+
+The next executable task is DWI-050: expose Admin-only intake diagnostics and
+typed Admin web contract/client support without changing Public Client API or
+`taru-client-protocol`.
 
 ## Authoritative Docs
 

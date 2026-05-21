@@ -26,21 +26,29 @@ Playback/Transcode Ops Hardening as the next mainline lane, and PRPH-100 opens
 complete with Admin runtime readiness, pre-session validation, failure
 taxonomy, and bounded Admin support evidence. PRPH-110 selects
 downloads/watch-folder intake as the next mainline lane. PRPH-120 opens
-`downloads-watch-folder-intake`.
+`downloads-watch-folder-intake`. DWI-020 durable intake candidate
+domain/persistence and DWI-030 app-service intake / Managed Import handoff are
+complete. DWI-040 watch-folder discovery is complete.
 
 ## Active Task
 
-- Task ID: DWI-030
+- Task ID: DWI-050
 - Owner: unassigned
-- Files: `crates/taru-server/src/app`, `crates/taru-server/src/app/tests`
-- Validation: `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`.
+- Files: `crates/taru-api/src/admin.rs`, `crates/taru-api/src/admin_contract.rs`,
+  `crates/taru-server/src/http/admin.rs`, `crates/taru-server/src/http/tests`,
+  `apps/admin-web/src/adminApi`
+- Validation: `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
+  `npm run check` from `apps/admin-web`;
+  `git diff --name-only -- crates/taru-client-protocol`.
 - Status: READY
 - Review: keep acquisition intake separate from network traversal, AI writes,
   Addon runtime, NFO mutation shortcuts, and playback support follow-ons.
 - Evidence: PRPH-110 lane scoring in `DESIGN.md`,
   `playback-transcode-ops-hardening` closeout evidence,
-  `downloads-watch-folder-intake` open docs, DWI-020 persistence evidence, and
-  completed staging / promotion / sidecar apply workstreams.
+  `downloads-watch-folder-intake` open docs, DWI-020 persistence evidence,
+  DWI-030 app-service handoff evidence, DWI-040 watch-folder discovery evidence,
+  and completed staging / promotion / sidecar apply workstreams.
 
 ## Decisions Since Last Update
 
@@ -96,16 +104,18 @@ downloads/watch-folder intake as the next mainline lane. PRPH-120 opens
   runtime are separate lanes.
 - PRPH-120 opens `downloads-watch-folder-intake`.
 - DWI-020 durable intake candidate domain/persistence is complete.
+- DWI-030 app-service intake and Managed Import handoff is complete.
+- DWI-040 watch-folder discovery is complete.
 
 ## Blockers
 
-- None for DWI-030.
+- None for DWI-050.
 
 ## Next Recommended Action
 
-- Execute DWI-030 in `downloads-watch-folder-intake`.
-- Next slice should add app-service record/list behavior and candidate
-  acceptance into Managed Import artifacts without promotion apply or direct
-  library writes.
+- Execute DWI-050 in `downloads-watch-folder-intake`.
+- Next slice should expose Admin-only redacted intake diagnostics and typed
+  Admin web contract/client support without changing Public Client API or
+  `taru-client-protocol`.
 - Keep network as the best sidecar, and keep AI/Addons downstream consumers of
   accepted Taru-owned boundaries.
