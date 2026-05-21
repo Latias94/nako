@@ -79,6 +79,21 @@ construction, response interpretation, API-version checks, public error parsing,
 and redaction-safe previews. Android still owns HTTP execution, cleartext/TLS
 policy, token vaults, profile persistence, product diagnostics, UI, and Media3.
 
+Browse/catalog runtime route construction is also owned by the shared Rust
+client core through the UniFFI boundary. Android converts those Rust request
+descriptors into its own transport requests, then decodes server JSON into the
+generated Kotlin public-client SDK DTOs before mapping them into Android app
+models. Treat the generated SDK as the API contract/DTO transition layer for
+browse data, not as the runtime route-construction owner.
+
+User Playback State runtime route construction follows the same boundary:
+Rust core builds resume, Continue Watching, playback-progress, and watched-state
+request descriptors, while Android still serializes generated SDK request
+bodies, decodes generated SDK response DTOs, executes platform transport, and
+maps product diagnostics. Treat the generated SDK as the DTO/body contract
+transition layer for user-playback data, not as the runtime route-construction
+owner.
+
 Use the native UniFFI smoke script when you need to prove packaged JNI libraries
 load on a connected device or emulator:
 

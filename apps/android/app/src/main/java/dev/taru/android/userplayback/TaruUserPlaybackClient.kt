@@ -2,8 +2,6 @@ package dev.taru.android.userplayback
 
 import dev.taru.android.browse.PageRequest
 import dev.taru.android.browse.toAndroid
-import dev.taru.android.browse.toSdkPageQuery
-import dev.taru.android.connection.PublicApiAuth
 import dev.taru.android.connection.PublicApiFailure
 import dev.taru.android.connection.PublicApiFailureKind
 import dev.taru.android.connection.PublicApiResult
@@ -11,9 +9,8 @@ import dev.taru.android.connection.PublicClientApiExecutor
 import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
+import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.sdk.TaruPublicClientRequests
-import dev.taru.sdk.TaruRequestDescriptor
 import dev.taru.sdk.ContinueWatchingItemDto as SdkContinueWatchingItemDto
 import dev.taru.sdk.ContinueWatchingResponse as SdkContinueWatchingResponse
 import dev.taru.sdk.SetWatchedStateRequest as SdkSetWatchedStateRequest
@@ -23,13 +20,26 @@ import dev.taru.sdk.UserPlaybackStateResponse as SdkUserPlaybackStateResponse
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-class TaruUserPlaybackClient(
+class TaruUserPlaybackClient private constructor(
     private val transport: TaruHttpTransport,
     private val json: Json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = false
     },
+    private val userPlaybackCore: UserPlaybackCore,
 ) {
+    constructor(
+        transport: TaruHttpTransport,
+        json: Json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = false
+        },
+    ) : this(
+        transport = transport,
+        json = json,
+        userPlaybackCore = RustUserPlaybackCore,
+    )
+
     private val executor = PublicClientApiExecutor(transport, json)
 
     suspend fun getState(
@@ -43,11 +53,13 @@ class TaruUserPlaybackClient(
                 userMessage = "Choose a title before loading watch progress.",
             )
         }
+        if (accessToken.isBlank()) {
+            return missingAccessTokenFailure()
+        }
 
         return executeSdkJson<SdkUserPlaybackStateResponse, UserPlaybackStateResponse>(
-            profile = profile,
             accessToken = accessToken,
-            descriptor = TaruPublicClientRequests.getUserPlaybackState(itemId),
+            request = userPlaybackCore.getState(profile, accessToken, itemId).request,
             transform = SdkUserPlaybackStateResponse::toAndroid,
         )
     }
@@ -56,13 +68,17 @@ class TaruUserPlaybackClient(
         profile: ServerProfile,
         accessToken: String,
         page: PageRequest = PageRequest(limit = 12, offset = 0),
-    ): UserPlaybackResult<ContinueWatchingResponse> =
-        executeSdkJson<SdkContinueWatchingResponse, ContinueWatchingResponse>(
-            profile = profile,
+    ): UserPlaybackResult<ContinueWatchingResponse> {
+        if (accessToken.isBlank()) {
+            return missingAccessTokenFailure()
+        }
+
+        return executeSdkJson<SdkContinueWatchingResponse, ContinueWatchingResponse>(
             accessToken = accessToken,
-            descriptor = TaruPublicClientRequests.listContinueWatching(page.toSdkPageQuery()),
+            request = userPlaybackCore.continueWatching(profile, accessToken, page).request,
             transform = SdkContinueWatchingResponse::toAndroid,
         )
+    }
 
     suspend fun updateProgress(
         profile: ServerProfile,
@@ -76,12 +92,20 @@ class TaruUserPlaybackClient(
                 userMessage = "Choose a title before reporting playback progress.",
             )
         }
+        if (accessToken.isBlank()) {
+            return missingAccessTokenFailure()
+        }
 
         return executeSdkJson<SdkUserPlaybackStateResponse, UserPlaybackStateResponse>(
-            profile = profile,
             accessToken = accessToken,
-            descriptor = TaruPublicClientRequests.updateUserPlaybackProgress(itemId),
-            body = json.encodeToString(request.toSdk()),
+            request = userPlaybackCore
+                .updateProgress(
+                    profile = profile,
+                    accessToken = accessToken,
+                    itemId = itemId,
+                    bodyUtf8 = json.encodeToString(request.toSdk()),
+                )
+                .request,
             transform = SdkUserPlaybackStateResponse::toAndroid,
         )
     }
@@ -98,36 +122,50 @@ class TaruUserPlaybackClient(
                 userMessage = "Choose a title before changing watched state.",
             )
         }
+        if (accessToken.isBlank()) {
+            return missingAccessTokenFailure()
+        }
 
         return executeSdkJson<SdkUserPlaybackStateResponse, UserPlaybackStateResponse>(
-            profile = profile,
             accessToken = accessToken,
-            descriptor = TaruPublicClientRequests.setUserWatchedState(itemId),
-            body = json.encodeToString(request.toSdk()),
+            request = userPlaybackCore
+                .setWatchedState(
+                    profile = profile,
+                    accessToken = accessToken,
+                    itemId = itemId,
+                    bodyUtf8 = json.encodeToString(request.toSdk()),
+                )
+                .request,
             transform = SdkUserPlaybackStateResponse::toAndroid,
         )
     }
 
     private suspend inline fun <reified WireT, AppT> executeSdkJson(
-        profile: ServerProfile,
         accessToken: String,
-        descriptor: TaruRequestDescriptor,
-        body: String? = null,
+        request: TaruHttpRequest,
         transform: (WireT) -> AppT,
     ): UserPlaybackResult<AppT> {
         return when (
-            val result = executor.executeJson<WireT>(
-                baseUrl = profile.baseUrl,
-                pathAndQuery = descriptor.pathAndQuery,
-                auth = PublicApiAuth.Bearer(accessToken),
-                method = descriptor.method,
-                body = body,
+            val result = executor.executeRequest(
+                request = request,
+                secrets = listOf(accessToken),
             )
         ) {
-            is PublicApiResult.Success -> UserPlaybackResult.Success(
-                value = transform(result.value),
-                request = result.request,
-            )
+            is PublicApiResult.Success -> {
+                val value = runCatching {
+                    json.decodeFromString<WireT>(result.response.body)
+                }.getOrElse {
+                    return failure(
+                        category = UserPlaybackFailureCategory.InvalidResponse,
+                        userMessage = userMessageFor(UserPlaybackFailureCategory.InvalidResponse),
+                        request = result.request,
+                    )
+                }
+                UserPlaybackResult.Success(
+                    value = transform(value),
+                    request = result.request,
+                )
+            }
             is PublicApiResult.Failure -> failureFor(result.failure)
         }
     }
@@ -156,6 +194,12 @@ class TaruUserPlaybackClient(
             request = failure.request,
         )
     }
+
+    private fun missingAccessTokenFailure(): UserPlaybackResult.Failure =
+        failure(
+            category = UserPlaybackFailureCategory.MissingAccessToken,
+            userMessage = userMessageFor(UserPlaybackFailureCategory.MissingAccessToken),
+        )
 
     private fun userMessageFor(category: UserPlaybackFailureCategory): String =
         when (category) {

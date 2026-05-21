@@ -381,7 +381,7 @@ class TaruBrowseClientTest {
         assertTrue(result is BrowseResult.Success)
         val success = result as BrowseResult.Success
         assertEquals(
-            "http://home.example.test/search?q=route+demo&facet=genre%3Atest%2Ctag%3Afavorite&limit=12&offset=6",
+            "http://home.example.test/search?q=route%20demo&facet=genre%3Atest%2Ctag%3Afavorite&limit=12&offset=6",
             transport.requests.single().url,
         )
         assertEquals("Bearer secret-token", transport.requests.single().headers["Authorization"])

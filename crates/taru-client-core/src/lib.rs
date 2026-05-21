@@ -1,3 +1,4 @@
+mod browse;
 mod connection;
 mod encoding;
 mod ids;
@@ -5,7 +6,16 @@ mod playback;
 mod redaction;
 mod request;
 mod response;
+mod user_playback;
 
+pub use browse::{
+    CoreBrowseEntityPagedRequestInput, CoreBrowseEntityRequestInput, CoreBrowsePagedRequestInput,
+    CorePageQuery, CoreSearchItemsRequestInput, build_get_item_request, build_get_library_request,
+    build_get_person_request, build_list_genre_items_request, build_list_genres_request,
+    build_list_item_images_request, build_list_items_request, build_list_libraries_request,
+    build_list_library_sources_request, build_list_person_items_request,
+    build_list_tag_items_request, build_list_tags_request, build_search_items_request,
+};
 pub use connection::{
     CoreConnectionProbeInput, CoreConnectionProbeOutcome, CoreConnectionProbeOutcomeKind,
     CoreConnectionProbeSuccess, advance_connection_probe, start_connection_probe,
@@ -32,6 +42,12 @@ pub use request::{
 pub use response::{
     CoreHttpResponse, CorePublicError, CoreRuntimeFailure, CoreRuntimeFailureKind,
     interpret_core_response,
+};
+pub use user_playback::{
+    CoreUserPlaybackItemRequestInput, CoreUserPlaybackItemWriteRequestInput,
+    CoreUserPlaybackPagedRequestInput, build_get_user_playback_state_request,
+    build_list_continue_watching_request, build_set_user_watched_state_request,
+    build_update_user_playback_progress_request,
 };
 
 #[cfg(test)]
@@ -359,5 +375,174 @@ mod tests {
             outcome.failure.unwrap().kind,
             CoreRuntimeFailureKind::InvalidResponse
         );
+    }
+
+    #[test]
+    fn browse_request_builders_use_stable_paths_pagination_auth_and_redaction() {
+        let libraries = build_list_libraries_request(&CoreBrowsePagedRequestInput {
+            base_url: "https://taru.example/api/".to_owned(),
+            access_token: "secret-token".to_owned(),
+            page: Some(CorePageQuery::new(Some(25), Some(50))),
+        });
+        assert_eq!(libraries.request_id, "browse.libraries");
+        assert_eq!(
+            libraries.url,
+            "https://taru.example/api/libraries?limit=25&offset=50"
+        );
+        assert_eq!(
+            libraries.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            libraries.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+
+        let library_sources =
+            build_list_library_sources_request(&CoreBrowseEntityPagedRequestInput {
+                base_url: "https://taru.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                id: "library 1".to_owned(),
+                page: Some(CorePageQuery::new(Some(24), Some(0))),
+            });
+        assert_eq!(
+            library_sources.url,
+            "https://taru.example/api/libraries/library%201/sources?limit=24&offset=0"
+        );
+
+        let item = build_get_item_request(&CoreBrowseEntityRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            id: "item/1".to_owned(),
+        });
+        assert_eq!(item.url, "https://taru.example/api/items/item%2F1");
+    }
+
+    #[test]
+    fn browse_facet_and_search_builders_encode_ids_facets_and_page() {
+        let genre_items = build_list_genre_items_request(&CoreBrowseEntityPagedRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            id: "genre 1".to_owned(),
+            page: Some(CorePageQuery::new(Some(24), Some(12))),
+        });
+        assert_eq!(
+            genre_items.url,
+            "https://taru.example/api/genres/genre%201/items?limit=24&offset=12"
+        );
+
+        let tag_items = build_list_tag_items_request(&CoreBrowseEntityPagedRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            id: "tag:favorite".to_owned(),
+            page: Some(CorePageQuery::new(Some(10), Some(0))),
+        });
+        assert_eq!(
+            tag_items.url,
+            "https://taru.example/api/tags/tag%3Afavorite/items?limit=10&offset=0"
+        );
+
+        let person_items = build_list_person_items_request(&CoreBrowseEntityPagedRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            id: "person 1".to_owned(),
+            page: None,
+        });
+        assert_eq!(
+            person_items.url,
+            "https://taru.example/api/people/person%201/items"
+        );
+
+        let search = build_search_items_request(&CoreSearchItemsRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            query: Some("route demo".to_owned()),
+            facets: vec!["genre:test".to_owned(), "tag:favorite".to_owned()],
+            page: Some(CorePageQuery::new(Some(12), Some(6))),
+        });
+        assert_eq!(
+            search.url,
+            "https://taru.example/api/search?q=route%20demo&facet=genre%3Atest%2Ctag%3Afavorite&limit=12&offset=6"
+        );
+    }
+
+    #[test]
+    fn user_playback_read_builders_use_stable_paths_pagination_auth_and_redaction() {
+        let state = build_get_user_playback_state_request(&CoreUserPlaybackItemRequestInput {
+            base_url: "https://taru.example/api/".to_owned(),
+            access_token: "secret-token".to_owned(),
+            item_id: "item 1".to_owned(),
+        });
+        assert_eq!(state.request_id, "user_playback.state");
+        assert_eq!(state.method, "GET");
+        assert_eq!(
+            state.url,
+            "https://taru.example/api/users/me/playback-state/items/item%201"
+        );
+        assert_eq!(
+            state.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            state.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+
+        let continue_watching =
+            build_list_continue_watching_request(&CoreUserPlaybackPagedRequestInput {
+                base_url: "https://taru.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                page: Some(CorePageQuery::new(Some(12), Some(24))),
+            });
+        assert_eq!(
+            continue_watching.url,
+            "https://taru.example/api/users/me/playback-state/continue-watching?limit=12&offset=24"
+        );
+    }
+
+    #[test]
+    fn user_playback_write_builders_use_json_put_body_and_item_encoding() {
+        let body = r#"{"source_id":"source 1","position_ms":123000}"#.to_owned();
+        let progress =
+            build_update_user_playback_progress_request(&CoreUserPlaybackItemWriteRequestInput {
+                base_url: "https://taru.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                item_id: "item/1".to_owned(),
+                body_utf8: body.clone(),
+            });
+        assert_eq!(progress.request_id, "user_playback.progress");
+        assert_eq!(progress.method, "PUT");
+        assert_eq!(
+            progress.url,
+            "https://taru.example/api/users/me/playback-state/items/item%2F1/progress"
+        );
+        assert_eq!(
+            progress.headers,
+            vec![
+                CoreHttpHeader::new("Authorization", "Bearer secret-token"),
+                CoreHttpHeader::new("Content-Type", "application/json"),
+            ]
+        );
+        assert_eq!(progress.body_utf8.as_deref(), Some(body.as_str()));
+        assert_eq!(
+            progress.safe_preview.headers,
+            vec![
+                CoreHttpHeader::new("Authorization", "Bearer <redacted>"),
+                CoreHttpHeader::new("Content-Type", "application/json"),
+            ]
+        );
+
+        let watched =
+            build_set_user_watched_state_request(&CoreUserPlaybackItemWriteRequestInput {
+                base_url: "https://taru.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                item_id: "item 1".to_owned(),
+                body_utf8: r#"{"watched":true}"#.to_owned(),
+            });
+        assert_eq!(
+            watched.url,
+            "https://taru.example/api/users/me/playback-state/items/item%201/watched"
+        );
+        assert_eq!(watched.method, "PUT");
     }
 }
