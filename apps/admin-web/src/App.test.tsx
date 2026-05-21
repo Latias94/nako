@@ -14,6 +14,7 @@ describe("Admin web console scaffold", () => {
           sources: {
             ...mockAdminConsoleData.sources,
             overview: "live",
+            acquisitionIntake: "live",
             jobs: "live",
             playbackRuntime: "live",
             storageStaging: "live",
@@ -43,6 +44,8 @@ describe("Admin web console scaffold", () => {
     render(<App dataSource={dataSource} />);
 
     expect(await screen.findByText("Live Library")).toBeInTheDocument();
+    expect(screen.getByText("Acquisition Intake")).toBeInTheDocument();
+    expect(screen.getByText("candidate-ready")).toBeInTheDocument();
     expect(screen.getAllByText("Live Admin API").length).toBeGreaterThan(0);
     expect(screen.getByText("1/1")).toBeInTheDocument();
   });
@@ -89,6 +92,7 @@ describe("Admin web console scaffold", () => {
           sources: {
             ...mockAdminConsoleData.sources,
             overview: "live",
+            acquisitionIntake: "live",
             jobs: "live",
             playbackRuntime: "live",
             storageStaging: "live",

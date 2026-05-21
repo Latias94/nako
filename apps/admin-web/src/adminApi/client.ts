@@ -1,5 +1,9 @@
 import type {
   AdminCatalogGovernanceItemListResponse,
+  AdminAcquisitionIntakeCandidateListResponse,
+  AdminAcquisitionIntakeCandidatesQuery,
+  AdminWatchFolderDiscoveryRequest,
+  AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
@@ -36,6 +40,23 @@ export class AdminApiClient {
   async getCatalogGovernanceItems(): Promise<AdminCatalogGovernanceItemListResponse> {
     return this.getJson<AdminCatalogGovernanceItemListResponse>(
       TARU_ADMIN_ROUTES.catalogGovernanceItems,
+    );
+  }
+
+  async getAcquisitionIntakeCandidates(
+    query: AdminAcquisitionIntakeCandidatesQuery = {},
+  ): Promise<AdminAcquisitionIntakeCandidateListResponse> {
+    return this.getJson<AdminAcquisitionIntakeCandidateListResponse>(
+      withQuery(TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, query),
+    );
+  }
+
+  async discoverWatchFolderCandidates(
+    request: AdminWatchFolderDiscoveryRequest,
+  ): Promise<AdminWatchFolderDiscoveryResponse> {
+    return this.postJson<AdminWatchFolderDiscoveryResponse>(
+      TARU_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
+      request,
     );
   }
 
@@ -83,6 +104,23 @@ export class AdminApiClient {
     return (await response.json()) as T;
   }
 
+  private async postJson<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        ...this.headers(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Admin API request failed with HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as T;
+  }
+
   private headers(): HeadersInit {
     if (!this.token) {
       return {};
@@ -104,7 +142,10 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
   return value;
 }
 
-function withQuery(path: string, query: AdminPlaybackSupportQuery) {
+function withQuery(
+  path: string,
+  query: AdminPlaybackSupportQuery | AdminAcquisitionIntakeCandidatesQuery,
+) {
   const params = new URLSearchParams();
 
   for (const [key, value] of Object.entries(query)) {

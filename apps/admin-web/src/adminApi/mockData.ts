@@ -1,4 +1,5 @@
 import type {
+  AdminAcquisitionIntakeCandidateListResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
@@ -8,6 +9,7 @@ import type {
   AdminPlaybackSupportEvidenceResponse,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
+  AdminWatchFolderDiscoveryResponse,
 } from "./generated/contract";
 import type {
   AdminConsoleData,
@@ -124,6 +126,71 @@ export const mockCatalogGovernance: AdminCatalogGovernanceItemListResponse = {
     },
   ],
   page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockAcquisitionIntakeCandidates: AdminAcquisitionIntakeCandidateListResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  candidates: [
+    {
+      id: "candidate-ready",
+      target_library_id: "library-anime",
+      source_kind: "watch_folder",
+      custom_source_kind: false,
+      source_scheme: "local",
+      source_ref_redacted: "local://<redacted>",
+      source_key_fingerprint: "sha256:11111111111111111111111111111111",
+      has_display_name: true,
+      has_intended_locator: false,
+      size_bytes: 1468006400,
+      has_fingerprint: true,
+      managed_import_artifact_id: null,
+      state: "ready",
+      has_diagnostics: true,
+      first_seen_at_ms: 1779180000000,
+      last_seen_at_ms: 1779180200000,
+      created_at_ms: 1779180000000,
+      updated_at_ms: 1779180200000,
+    },
+    {
+      id: "candidate-blocked",
+      target_library_id: "library-films",
+      source_kind: "watch_folder",
+      custom_source_kind: false,
+      source_scheme: "local",
+      source_ref_redacted: "local://<redacted>",
+      source_key_fingerprint: "sha256:22222222222222222222222222222222",
+      has_display_name: true,
+      has_intended_locator: false,
+      size_bytes: 1024,
+      has_fingerprint: true,
+      managed_import_artifact_id: null,
+      state: "blocked",
+      has_diagnostics: true,
+      first_seen_at_ms: 1779180100000,
+      last_seen_at_ms: 1779180300000,
+      created_at_ms: 1779180100000,
+      updated_at_ms: 1779180300000,
+    },
+  ],
+  page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockWatchFolderDiscovery: AdminWatchFolderDiscoveryResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  target_library_id: "library-anime",
+  root_scheme: "local",
+  root_ref_redacted: "local://<redacted>",
+  ready_candidates: 1,
+  blocked_candidates: 1,
+  incomplete_candidates: 1,
+  unsupported_candidates: 0,
+  recorded_candidates: 2,
+  failures: [],
+  writes_library: false,
+  managed_import_artifacts_created: false,
+  promotion_apply: false,
 };
 
 export const mockEvents: AdminOutboxEventListResponse = {
@@ -624,6 +691,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
 
 export const mockSources: AdminSourceMap = {
   overview: "mock",
+  acquisitionIntake: "mock",
   catalogGovernance: "mock",
   events: "mock",
   jobs: "mock",
@@ -673,6 +741,18 @@ export const mockAdminConsoleData: AdminConsoleData = {
       providerMappingCount: item.provider_mapping_count,
     })),
     page: mockCatalogGovernance.page,
+  },
+  acquisitionIntake: {
+    candidates: mockAcquisitionIntakeCandidates.candidates.map((candidate) => ({
+      id: candidate.id,
+      sourceKind: candidate.source_kind,
+      sourceScheme: candidate.source_scheme ?? "unknown",
+      state: candidate.state,
+      sizeBytes: candidate.size_bytes,
+      hasDiagnostics: candidate.has_diagnostics,
+      linkedArtifactId: candidate.managed_import_artifact_id,
+    })),
+    page: mockAcquisitionIntakeCandidates.page,
   },
   events: {
     events: mockEvents.events.map((event) => ({

@@ -7,12 +7,13 @@
   "scope_kind": "execution",
   "problem": "Downloads, watch-folder candidates, and future external acquisition outputs need a Taru-owned intake boundary that creates staged artifacts and diagnostics without bypassing Managed Import, promotion apply, NFO sidecar apply, or playback supportability boundaries.",
   "task_prefix": "DWI",
-  "current_task": "DWI-050",
+  "current_task": "DWI-060",
   "completed_tasks": [
     "DWI-010",
     "DWI-020",
     "DWI-030",
-    "DWI-040"
+    "DWI-040",
+    "DWI-050"
   ],
   "authoritative_docs": [
     {
@@ -68,7 +69,14 @@
     "crates/taru-server/src/app/acquisition_intake.rs",
     "crates/taru-server/src/app/tests/acquisition_intake.rs",
     "crates/taru-server/src/app/managed_import.rs",
-    "crates/taru-vfs/src/lib.rs"
+    "crates/taru-vfs/src/lib.rs",
+    "crates/taru-api/src/admin.rs",
+    "crates/taru-api/src/admin_contract.rs",
+    "crates/taru-server/src/http/admin.rs",
+    "crates/taru-server/src/http/query.rs",
+    "crates/taru-server/src/http/tests/system.rs",
+    "apps/admin-web/src/adminApi",
+    "apps/admin-web/src/App.tsx"
   ],
   "adr_refs": [
     "docs/adr/0002-internal-vfs-before-os-mounting.md",
@@ -81,7 +89,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "DWI-050",
-    "notes": "DWI-010 opened Downloads / Watch-Folder Intake as the next mainline post-RPD lane. DWI-020 completed durable intake candidate domain/persistence and backend-neutral tests. DWI-030 completed app-service record/list, redacted diagnostics, explicit existing-artifact linking, same-source artifact reuse, new Managed Import artifact creation, and no mutation/apply tests. DWI-040 completed watch-folder discovery through storage/VFS list/stat boundaries, candidate classification, idempotent intake record writes, and no mutation/apply tests. Continue with DWI-050 Admin-only intake diagnostics/read model. Do not implement torrent, Usenet, download-client protocols, network traversal, AI writes, Addon runtime, Admin UI polish beyond typed diagnostics, automatic promotion apply, NFO sidecar mutation shortcuts, direct library writes, Public Client API changes, or taru-client-protocol changes in this lane unless explicitly split and accepted."
+    "next_task": "DWI-060",
+    "notes": "DWI-010 opened Downloads / Watch-Folder Intake as the next mainline post-RPD lane. DWI-020 completed durable intake candidate domain/persistence and backend-neutral tests. DWI-030 completed app-service record/list, redacted diagnostics, explicit existing-artifact linking, same-source artifact reuse, new Managed Import artifact creation, and no mutation/apply tests. DWI-040 completed watch-folder discovery through storage/VFS list/stat boundaries, candidate classification, idempotent intake record writes, and no mutation/apply tests. DWI-050 completed Admin-only intake diagnostics/read model, watch-folder discovery Admin route, Admin TypeScript contract sync, typed Admin web support, and Public Client protocol boundary checks. Continue with DWI-060 closeout and follow-on split. Do not implement torrent, Usenet, download-client protocols, network traversal, AI writes, Addon runtime, Admin UI polish beyond typed diagnostics, automatic promotion apply, NFO sidecar mutation shortcuts, direct library writes, Public Client API changes, or taru-client-protocol changes in this lane unless explicitly split and accepted."
   }
 }

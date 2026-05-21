@@ -72,12 +72,14 @@ Primary evidence:
 
 ## M4 — Admin Intake Diagnostics
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Admin-only routes expose bounded intake diagnostics.
-- Admin TypeScript contract and typed client/mocks are synchronized.
-- Public Client API and `taru-client-protocol` remain unchanged.
-- Redaction tests cover raw paths, credentials, secret query strings, and
+- [x] Admin-only routes expose bounded intake diagnostics.
+- [x] Admin TypeScript contract and typed client/mocks are synchronized.
+- [x] Public Client API and `taru-client-protocol` remain unchanged.
+- [x] Redaction tests cover raw paths, credentials, secret query strings, and
   downloader internals.
 
 Primary evidence:

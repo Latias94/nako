@@ -28,18 +28,17 @@ taxonomy, and bounded Admin support evidence. PRPH-110 selects
 downloads/watch-folder intake as the next mainline lane. PRPH-120 opens
 `downloads-watch-folder-intake`. DWI-020 durable intake candidate
 domain/persistence and DWI-030 app-service intake / Managed Import handoff are
-complete. DWI-040 watch-folder discovery is complete.
+complete. DWI-040 watch-folder discovery and DWI-050 Admin-only intake
+diagnostics/read model are complete.
 
 ## Active Task
 
-- Task ID: DWI-050
+- Task ID: DWI-060
 - Owner: unassigned
-- Files: `crates/taru-api/src/admin.rs`, `crates/taru-api/src/admin_contract.rs`,
-  `crates/taru-server/src/http/admin.rs`, `crates/taru-server/src/http/tests`,
-  `apps/admin-web/src/adminApi`
-- Validation: `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
-  `npm run check` from `apps/admin-web`;
+- Files: `docs/workstreams/downloads-watch-folder-intake`,
+  `docs/workstreams/post-rpd-product-hardening`, `docs/workstreams/README.md`
+- Validation: final `downloads-watch-folder-intake` closeout gates, JSON
+  validation for child and parent workstream JSON, `git diff --check`, and
   `git diff --name-only -- crates/taru-client-protocol`.
 - Status: READY
 - Review: keep acquisition intake separate from network traversal, AI writes,
@@ -48,7 +47,8 @@ complete. DWI-040 watch-folder discovery is complete.
   `playback-transcode-ops-hardening` closeout evidence,
   `downloads-watch-folder-intake` open docs, DWI-020 persistence evidence,
   DWI-030 app-service handoff evidence, DWI-040 watch-folder discovery evidence,
-  and completed staging / promotion / sidecar apply workstreams.
+  DWI-050 Admin-only diagnostics evidence, and completed staging / promotion /
+  sidecar apply workstreams.
 
 ## Decisions Since Last Update
 
@@ -106,16 +106,18 @@ complete. DWI-040 watch-folder discovery is complete.
 - DWI-020 durable intake candidate domain/persistence is complete.
 - DWI-030 app-service intake and Managed Import handoff is complete.
 - DWI-040 watch-folder discovery is complete.
+- DWI-050 Admin-only intake diagnostics/read model is complete with typed Admin
+  web contract/client support and no Public Client protocol changes.
 
 ## Blockers
 
-- None for DWI-050.
+- None for DWI-060.
 
 ## Next Recommended Action
 
-- Execute DWI-050 in `downloads-watch-folder-intake`.
-- Next slice should expose Admin-only redacted intake diagnostics and typed
-  Admin web contract/client support without changing Public Client API or
-  `taru-client-protocol`.
+- Execute DWI-060 in `downloads-watch-folder-intake`.
+- Next slice should close or split protocol downloader integration, background
+  scan scheduling, Admin UI polish, network, AI, and Addon runtime follow-ons
+  before returning a next-lane decision.
 - Keep network as the best sidecar, and keep AI/Addons downstream consumers of
   accepted Taru-owned boundaries.

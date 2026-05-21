@@ -1,7 +1,15 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 9] = [
+const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 11] = [
     ("overview", "overview"),
+    (
+        "acquisitionIntakeCandidates",
+        "acquisition/intake/candidates",
+    ),
+    (
+        "acquisitionIntakeWatchFolderDiscovery",
+        "acquisition/intake/watch-folder-discovery",
+    ),
     ("catalogGovernanceItems", "catalog/governance/items"),
     ("events", "events"),
     ("jobs", "jobs"),
@@ -72,6 +80,19 @@ export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
 export interface AdminPlaybackSupportQuery {
   session_id?: string;
   source_id?: string;
+}
+
+export interface AdminAcquisitionIntakeCandidatesQuery extends AdminPageQuery {
+  library_id?: string;
+  state?: string;
+  source_kind?: string;
+  managed_import_artifact_id?: string;
+}
+
+export interface AdminWatchFolderDiscoveryRequest {
+  target_library_id: string;
+  root_uri?: string;
+  max_depth?: number;
 }
 
 export interface AdminStorageStagingQuery extends AdminPageQuery {
@@ -228,6 +249,54 @@ export interface AdminPlaybackSessionListItem {
 export interface AdminPlaybackSessionListResponse {
   sessions: AdminPlaybackSessionListItem[];
   page: PageInfo;
+}
+
+export interface AdminAcquisitionIntakeCandidateListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  candidates: AdminAcquisitionIntakeCandidateDiagnostic[];
+  page: PageInfo;
+}
+
+export interface AdminAcquisitionIntakeCandidateDiagnostic {
+  id: string;
+  target_library_id: string;
+  source_kind: string;
+  custom_source_kind: boolean;
+  source_scheme: string | null;
+  source_ref_redacted: string;
+  source_key_fingerprint: string;
+  has_display_name: boolean;
+  has_intended_locator: boolean;
+  size_bytes: number | null;
+  has_fingerprint: boolean;
+  managed_import_artifact_id: string | null;
+  state: string;
+  has_diagnostics: boolean;
+  first_seen_at_ms: number;
+  last_seen_at_ms: number;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminWatchFolderDiscoveryResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  target_library_id: string;
+  root_scheme: string | null;
+  root_ref_redacted: string;
+  ready_candidates: number;
+  blocked_candidates: number;
+  incomplete_candidates: number;
+  unsupported_candidates: number;
+  recorded_candidates: number;
+  failures: Array<{
+    ref_redacted: string;
+    safe_message: string;
+  }>;
+  writes_library: boolean;
+  managed_import_artifacts_created: boolean;
+  promotion_apply: boolean;
 }
 
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
@@ -539,6 +608,10 @@ mod tests {
             "AdminJobsQuery",
             "AdminPlaybackSessionsQuery",
             "AdminPlaybackSupportQuery",
+            "AdminAcquisitionIntakeCandidatesQuery",
+            "AdminWatchFolderDiscoveryRequest",
+            "AdminAcquisitionIntakeCandidateListResponse",
+            "AdminWatchFolderDiscoveryResponse",
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",

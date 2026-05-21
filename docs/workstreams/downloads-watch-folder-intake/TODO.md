@@ -59,7 +59,7 @@ Task IDs use the `DWI` prefix.
 
 ## M4 — Admin Intake Diagnostics
 
-- [ ] DWI-050 [owner=codex] [deps=DWI-040] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests,apps/admin-web/src/adminApi]
+- [x] DWI-050 [owner=codex] [deps=DWI-040] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests,apps/admin-web/src/adminApi]
   Goal: Expose Admin-only intake candidate diagnostics and typed Admin web
   contract/client support without changing Public Client API or
   `taru-client-protocol`.
@@ -70,8 +70,8 @@ Task IDs use the `DWI` prefix.
   raw paths, credentials, secret query strings, and downloader internals.
   Evidence: Admin DTO/contract, route tests, admin-web contract sync, and public
   client boundary check.
-  Handoff: Close or split protocol downloader, UI, background scan scheduling,
-  and network/AI/Addons follow-ons in DWI-060.
+  Handoff: DONE. Close or split protocol downloader, UI, background scan
+  scheduling, and network/AI/Addons follow-ons in DWI-060.
 
 ## M5 — Closeout And Follow-On Split
 

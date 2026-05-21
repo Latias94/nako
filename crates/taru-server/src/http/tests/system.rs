@@ -961,6 +961,162 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
 }
 
 #[tokio::test]
+async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_folder_discovery() {
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    fs::create_dir_all(watch.join("Season 01")).unwrap();
+    fs::write(watch.join("Ready Movie.mkv"), b"ready").unwrap();
+    fs::write(watch.join("Season 01").join("Episode 01.mp4"), b"episode").unwrap();
+    fs::write(watch.join("Downloading.part"), b"partial").unwrap();
+    fs::write(watch.join("Notes.txt"), b"notes").unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let discovery_request = AdminWatchFolderDiscoveryRequest {
+        target_library_id: library_id,
+        root_uri: Some("local:///watch".to_owned()),
+        max_depth: Some(4),
+    };
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let discovery: AdminWatchFolderDiscoveryResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(discovery.target_library_id, library_id);
+    assert_eq!(discovery.root_scheme.as_deref(), Some("local"));
+    assert_eq!(discovery.root_ref_redacted, "local://<redacted>");
+    assert_eq!(discovery.ready_candidates, 2);
+    assert_eq!(discovery.blocked_candidates, 2);
+    assert_eq!(discovery.incomplete_candidates, 1);
+    assert_eq!(discovery.unsupported_candidates, 1);
+    assert_eq!(discovery.recorded_candidates, 4);
+    assert!(discovery.failures.is_empty());
+    assert!(!discovery.writes_library);
+    assert!(!discovery.managed_import_artifacts_created);
+    assert!(!discovery.promotion_apply);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Ready Movie"));
+    assert!(!body.contains("Episode 01"));
+    assert!(!body.contains("Downloading"));
+    assert!(!body.contains("Notes.txt"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("root_uri"));
+
+    let list_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/acquisition/intake/candidates?library_id={library_id}&source_kind=watch_folder&state=ready&limit=10"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = list_response.status();
+    let body = String::from_utf8(
+        to_bytes(list_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminAcquisitionIntakeCandidateListResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(diagnostics.candidates.len(), 2);
+    assert_eq!(diagnostics.page.limit, 10);
+    assert_eq!(diagnostics.page.returned, 2);
+    for candidate in &diagnostics.candidates {
+        assert_eq!(candidate.target_library_id, library_id);
+        assert_eq!(candidate.source_kind, "watch_folder");
+        assert_eq!(candidate.source_scheme.as_deref(), Some("local"));
+        assert_eq!(candidate.source_ref_redacted, "local://<redacted>");
+        assert!(candidate.source_key_fingerprint.starts_with("sha256:"));
+        assert_eq!(candidate.state, AcquisitionIntakeCandidateState::Ready);
+        assert!(candidate.has_display_name);
+        assert!(candidate.has_diagnostics);
+    }
+
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("\"display_name\""));
+    assert!(!body.contains("\"intended_locator\""));
+    assert!(!body.contains("diagnostics_json"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Ready Movie"));
+    assert!(!body.contains("Episode 01"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
+async fn admin_v1_acquisition_intake_rejects_raw_root_uri_without_echoing_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let discovery_request = AdminWatchFolderDiscoveryRequest {
+        target_library_id: library_id,
+        root_uri: Some("C:\\private\\watch?token=admin-token".to_owned()),
+        max_depth: Some(1),
+    };
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("invalid root_uri"));
+    assert!(!body.contains("C:\\"));
+    assert!(!body.contains("private"));
+    assert!(!body.contains("admin-token"));
+}
+
+#[tokio::test]
 async fn admin_v1_system_config_reports_sanitized_configuration() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -2097,6 +2253,39 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .await
         .unwrap();
     assert_eq!(admin_jobs_missing.status(), StatusCode::UNAUTHORIZED);
+
+    let admin_acquisition_intake_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/acquisition/intake/candidates")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_acquisition_intake_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    let admin_acquisition_discovery_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_acquisition_discovery_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
 
     let admin_catalog_governance_missing = router
         .clone()

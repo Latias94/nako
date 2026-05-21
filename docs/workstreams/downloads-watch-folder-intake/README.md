@@ -33,9 +33,13 @@ entries, and writes idempotent intake records without trusting raw host paths or
 creating Managed Import artifacts, Media Sources, promotion applies, or library
 file writes.
 
-The next executable task is DWI-050: expose Admin-only intake diagnostics and
-typed Admin web contract/client support without changing Public Client API or
-`taru-client-protocol`.
+DWI-050 is complete. Taru now exposes Admin-only, redacted acquisition intake
+candidate diagnostics and watch-folder discovery controls through Admin API v1,
+with synchronized Admin TypeScript contract/client support and no Public Client
+API or `taru-client-protocol` changes.
+
+The next executable task is DWI-060: verify final gates, close or split follow-ons,
+and return the next lane decision to the post-RPD umbrella.
 
 ## Authoritative Docs
 

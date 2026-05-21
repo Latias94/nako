@@ -7,12 +7,13 @@ use axum::{
 use serde::Deserialize;
 use taru_api::{
     admin::{
-        ADMIN_API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
-        AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
-        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
-        AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
-        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
-        AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+        ADMIN_API_VERSION, AdminAcquisitionIntakeCandidateDiagnostic,
+        AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
+        AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
+        AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
+        AdminConfigStagingDiagnostics, AdminDatabaseBackendCapabilitiesDiagnostics,
+        AdminDatabaseConfigDiagnostics, AdminJobCancelRequestResponse, AdminJobListItem,
+        AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
         AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
         AdminOutboxEventListItem, AdminOutboxEventListResponse,
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
@@ -36,21 +37,23 @@ use taru_api::{
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
         AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminVfsCacheSummary,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus,
+        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminWatchFolderDiscoveryResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
+        StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, page_info_from_request},
 };
 use taru_core::{
     ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
-    MediaItemId, TaruError,
+    MediaItemId, PageRequest, TaruError,
 };
 use taru_db::{DatabaseBackendCapabilities, TaruDatabase};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, hardware_acceleration_readiness,
 };
+use taru_vfs::StorageUri;
 
 use crate::{
     app::{RuntimeSupervisorDiagnostics, TaruApp},
@@ -60,16 +63,24 @@ use crate::{
 use super::{
     error::ApiResult,
     query::{
-        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
-        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
-        JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, PlaybackSupportEvidenceQuery,
-        StorageStagingQuery,
+        AcquisitionIntakeCandidateListQuery, ArtworkArtifactLifecycleQuery,
+        ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
+        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
+        PlaybackSupportEvidenceQuery, StorageStagingQuery,
     },
 };
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
+        .route(
+            "/admin/v1/acquisition/intake/candidates",
+            get(list_admin_acquisition_intake_candidates),
+        )
+        .route(
+            "/admin/v1/acquisition/intake/watch-folder-discovery",
+            post(discover_admin_watch_folder_candidates),
+        )
         .route(
             "/admin/v1/catalog/governance/items",
             get(list_admin_catalog_governance_items),
@@ -217,6 +228,103 @@ pub(super) async fn get_admin_artwork_artifact_lifecycle(
             .artifact_lifecycle_diagnostics(filter, page)
             .await?,
     ))
+}
+
+pub(super) async fn list_admin_acquisition_intake_candidates(
+    State(app): State<TaruApp>,
+    Query(query): Query<AcquisitionIntakeCandidateListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let diagnostics = app
+        .acquisition_intake()
+        .list_candidates(filter, page)
+        .await?;
+    let candidates = diagnostics
+        .candidates
+        .into_iter()
+        .map(admin_acquisition_intake_candidate)
+        .collect();
+
+    Ok(Json(AdminAcquisitionIntakeCandidateListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        candidates,
+        page: page_info_from_request(
+            PageRequest::new(diagnostics.limit, diagnostics.offset),
+            diagnostics.returned,
+        ),
+    }))
+}
+
+pub(super) async fn discover_admin_watch_folder_candidates(
+    State(app): State<TaruApp>,
+    Json(request): Json<AdminWatchFolderDiscoveryRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let diagnostic = app
+        .acquisition_intake()
+        .discover_watch_folder_candidates(
+            crate::app::acquisition_intake::DiscoverWatchFolderCandidatesRequest {
+                target_library_id: request.target_library_id,
+                root_uri: request.root_uri.map(parse_admin_storage_uri).transpose()?,
+                max_depth: request.max_depth,
+            },
+        )
+        .await?;
+
+    Ok(Json(AdminWatchFolderDiscoveryResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        target_library_id: diagnostic.target_library_id,
+        root_scheme: diagnostic.root_scheme,
+        root_ref_redacted: diagnostic.root_uri_redacted,
+        ready_candidates: diagnostic.ready_candidates,
+        blocked_candidates: diagnostic.blocked_candidates,
+        incomplete_candidates: diagnostic.incomplete_candidates,
+        unsupported_candidates: diagnostic.unsupported_candidates,
+        recorded_candidates: diagnostic.recorded_candidates,
+        failures: diagnostic
+            .failures
+            .into_iter()
+            .map(|failure| AdminWatchFolderDiscoveryFailure {
+                ref_redacted: failure.uri_redacted,
+                safe_message: failure.safe_message,
+            })
+            .collect(),
+        writes_library: diagnostic.writes_library,
+        managed_import_artifacts_created: diagnostic.managed_import_artifacts_created,
+        promotion_apply: diagnostic.promotion_apply,
+    }))
+}
+
+fn admin_acquisition_intake_candidate(
+    diagnostic: crate::app::acquisition_intake::AcquisitionIntakeCandidateDiagnostic,
+) -> AdminAcquisitionIntakeCandidateDiagnostic {
+    AdminAcquisitionIntakeCandidateDiagnostic {
+        id: diagnostic.id,
+        target_library_id: diagnostic.target_library_id,
+        source_kind: diagnostic.source_kind,
+        custom_source_kind: diagnostic.custom_source_kind,
+        source_scheme: diagnostic.source_scheme,
+        source_ref_redacted: diagnostic.source_uri_redacted,
+        source_key_fingerprint: diagnostic.source_key_fingerprint,
+        has_display_name: diagnostic.has_display_name,
+        has_intended_locator: diagnostic.has_intended_locator,
+        size_bytes: diagnostic.size_bytes,
+        has_fingerprint: diagnostic.has_fingerprint,
+        managed_import_artifact_id: diagnostic.managed_import_artifact_id,
+        state: diagnostic.state,
+        has_diagnostics: diagnostic.has_diagnostics,
+        first_seen_at_ms: diagnostic.first_seen_at_ms,
+        last_seen_at_ms: diagnostic.last_seen_at_ms,
+        created_at_ms: diagnostic.created_at_ms,
+        updated_at_ms: diagnostic.updated_at_ms,
+    }
+}
+
+fn parse_admin_storage_uri(value: String) -> Result<StorageUri, TaruError> {
+    StorageUri::parse(value).map_err(|_err| TaruError::InvalidInput {
+        message: "invalid root_uri; expected a storage URI with a scheme".to_owned(),
+    })
 }
 
 #[derive(Clone, Debug, Deserialize)]

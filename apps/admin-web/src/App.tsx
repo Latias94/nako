@@ -43,6 +43,7 @@ const navItems: NavItem[] = [
   { label: "Overview", id: "overview", icon: Activity, sourceKey: "overview", source: "hybrid" },
   { label: "Media Libraries", id: "libraries", icon: Library, source: "mock" },
   { label: "Catalog", id: "catalog", icon: Film, sourceKey: "catalogGovernance", source: "planned" },
+  { label: "Intake", id: "intake", icon: Database, sourceKey: "acquisitionIntake", source: "planned" },
   { label: "Metadata", id: "metadata", icon: Sparkles, source: "mock" },
   { label: "Jobs", id: "jobs", icon: ListChecks, sourceKey: "jobs", source: "mock" },
   { label: "Playback", id: "playback", icon: PlayCircle, sourceKey: "playbackRuntime", source: "mock" },
@@ -280,6 +281,42 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
             </div>
           </section>
 
+          <section className="panel wide" id="intake">
+            <PanelHeader
+              title="Acquisition Intake"
+              source={loadState.data.sources.acquisitionIntake}
+              description="Watch-folder candidates staged before Managed Import and promotion apply."
+            />
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th>Source</th>
+                    <th>State</th>
+                    <th>Size</th>
+                    <th>Diagnostics</th>
+                    <th>Managed Import</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadState.data.acquisitionIntake.candidates.map((candidate) => (
+                    <tr key={candidate.id}>
+                      <td>{candidate.id}</td>
+                      <td>
+                        {candidate.sourceKind} · {candidate.sourceScheme}
+                      </td>
+                      <td>{candidate.state}</td>
+                      <td>{candidate.sizeBytes ?? "unknown"}</td>
+                      <td>{candidate.hasDiagnostics ? "available" : "none"}</td>
+                      <td>{candidate.linkedArtifactId ?? "not linked"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           <section className="panel wide" id="playback">
             <PanelHeader
               title="Playback & Transcode"
@@ -496,6 +533,7 @@ function summarizeSources(data: AdminConsoleData) {
     data.sources.overview,
     "mock",
     data.sources.catalogGovernance,
+    data.sources.acquisitionIntake,
     "mock",
     data.sources.jobs,
     combinedSource(data.sources.playbackSessions, data.sources.playbackRuntime),

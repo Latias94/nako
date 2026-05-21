@@ -47,7 +47,8 @@ After Playback/Transcode Ops Hardening closed, PRPH-110 re-scored the remaining
 roadmap. PRPH-120 opened `downloads-watch-folder-intake` as the next mainline
 lane, but only as staged artifact intake that consumes Taru-owned Managed
 Import Staging, Link Apply, NFO Sidecar Apply, and playback support evidence.
-The next executable task is DWI-050.
+DWI-050 Admin-only intake diagnostics are complete. The next executable task is
+DWI-060 closeout and follow-on split for `downloads-watch-folder-intake`.
 
 ## Authoritative Docs
 

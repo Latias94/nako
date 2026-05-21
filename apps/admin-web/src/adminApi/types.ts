@@ -1,6 +1,9 @@
 import type { AdminOverviewResponse, PageInfo } from "./generated/contract";
 
 export type {
+  AdminAcquisitionIntakeCandidateDiagnostic,
+  AdminAcquisitionIntakeCandidateListResponse,
+  AdminAcquisitionIntakeCandidatesQuery,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListItem,
@@ -17,6 +20,8 @@ export type {
   AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
+  AdminWatchFolderDiscoveryRequest,
+  AdminWatchFolderDiscoveryResponse,
   PageInfo,
 } from "./generated/contract";
 
@@ -24,6 +29,7 @@ export type DataSourceMode = "live" | "hybrid" | "mock" | "planned";
 
 export type AdminSectionKey =
   | "overview"
+  | "acquisitionIntake"
   | "catalogGovernance"
   | "events"
   | "jobs"
@@ -42,6 +48,7 @@ export type AdminConsoleData = {
   overview: AdminOverviewResponse;
   libraries: LibraryRow[];
   catalog: CatalogGovernanceSummary;
+  acquisitionIntake: IntakeSummary;
   events: EventSummary;
   jobs: JobRow[];
   playback: PlaybackSummary;
@@ -77,6 +84,19 @@ export type EventSummary = {
     status: string;
     attempts: number;
     hasError: boolean;
+  }>;
+  page: PageInfo;
+};
+
+export type IntakeSummary = {
+  candidates: Array<{
+    id: string;
+    sourceKind: string;
+    sourceScheme: string;
+    state: string;
+    sizeBytes: number | null;
+    hasDiagnostics: boolean;
+    linkedArtifactId: string | null;
   }>;
   page: PageInfo;
 };

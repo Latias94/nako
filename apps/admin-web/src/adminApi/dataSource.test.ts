@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAdminDataSource } from "./dataSource";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
+  mockAcquisitionIntakeCandidates,
   mockCatalogGovernance,
   mockEvents,
   mockJobs,
@@ -18,6 +19,7 @@ describe("Admin data source", () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
         [TARU_ADMIN_ROUTES.events]: mockEvents,
         [TARU_ADMIN_ROUTES.jobs]: mockJobs,
@@ -31,6 +33,7 @@ describe("Admin data source", () => {
     const data = await dataSource.load();
 
     expect(data.sources.overview).toBe("live");
+    expect(data.sources.acquisitionIntake).toBe("live");
     expect(data.sources.jobs).toBe("live");
     expect(data.sources.playbackSessions).toBe("live");
     expect(data.sources.playbackRuntime).toBe("live");
@@ -39,6 +42,12 @@ describe("Admin data source", () => {
     expect(data.jobs[0]).toMatchObject({
       kind: "library_scan",
       resourceClass: "library",
+    });
+    expect(data.acquisitionIntake.candidates[0]).toMatchObject({
+      sourceKind: "watch_folder",
+      sourceScheme: "local",
+      state: "ready",
+      hasDiagnostics: true,
     });
     expect(data.playback.accelerators).toContainEqual({
       name: "nvenc",
@@ -54,6 +63,7 @@ describe("Admin data source", () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
         [TARU_ADMIN_ROUTES.events]: mockEvents,
         [TARU_ADMIN_ROUTES.jobs]: new Response("offline", { status: 503 }),

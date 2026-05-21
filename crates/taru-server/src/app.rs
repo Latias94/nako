@@ -8,7 +8,7 @@ use taru_db::{DatabaseConnectOptions, TaruDatabase};
 
 use crate::config::{TaruServerConfig, resolve_database_url};
 
-mod acquisition_intake;
+pub(crate) mod acquisition_intake;
 mod addons;
 mod artwork;
 mod automation;

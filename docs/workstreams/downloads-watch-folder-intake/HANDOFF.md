@@ -46,24 +46,34 @@ idempotent intake record writes, and redacted discovery diagnostics. Tests prove
 no Managed Import artifact creation, Media Source creation, promotion apply, or
 Library File Write.
 
+DWI-050 is complete. It added Admin API v1 DTOs/routes for acquisition-intake
+candidate diagnostics and watch-folder discovery, safe root URI parsing errors,
+synchronized the generated Admin TypeScript contract, and updated the Admin web
+typed client, mocks, data source, and console surface. Tests prove the routes
+are Admin-only, redacted, and do not change Public Client API or
+`taru-client-protocol`.
+
 ## Active Task
 
-- Task ID: DWI-050
+- Task ID: DWI-060
 - Owner: unassigned
 - Files:
-  - `crates/taru-api/src/admin.rs`
-  - `crates/taru-api/src/admin_contract.rs`
-  - `crates/taru-server/src/http/admin.rs`
-  - `crates/taru-server/src/http/tests`
-  - `apps/admin-web/src/adminApi`
+  - `docs/workstreams/downloads-watch-folder-intake`
+  - `docs/workstreams/post-rpd-product-hardening`
+  - `docs/workstreams/README.md`
 - Validation:
+  - `verify-rust-workstream` records fresh final evidence
+  - `python -m json.tool docs/workstreams/downloads-watch-folder-intake/WORKSTREAM.json`
+  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
+  - `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`
   - `cargo nextest run -p taru-api admin_contract --no-fail-fast`
   - `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
   - `npm run check` from `apps/admin-web`
   - `git diff --name-only -- crates/taru-client-protocol`
 - Status: READY
-- Review: Admin diagnostics/read model must remain Admin-only, redacted, typed,
-  and must not change Public Client API or `taru-client-protocol`.
+- Review: Closeout must split protocol downloader integration, Admin UI polish,
+  background scan scheduling, network traversal, AI, and Addon runtime instead
+  of hiding them in this lane.
 
 ## Decisions Since Opening
 
@@ -90,19 +100,23 @@ Library File Write.
 - DWI-040 made watch-folder discovery read-only and storage-owned: it uses
   configured storage/VFS list/stat, writes only acquisition-intake candidate
   records, and leaves artifact creation to explicit DWI-030 acceptance.
+- DWI-050 made intake diagnostics Admin-only and contract-owned. It exposes
+  redacted references and fingerprints, not raw source URIs, source keys,
+  display names, intended locators, diagnostics JSON, raw root URIs, or
+  downloader internals. Public Client API and `taru-client-protocol` remain
+  unchanged.
 
 ## Blockers
 
-- None for DWI-050.
+- None for DWI-060.
 
 ## Next Recommended Action
 
-Execute DWI-050 with TDD:
+Execute DWI-060 closeout:
 
-1. add Admin API contract tests for listing intake candidate diagnostics and
-   triggering/readback of watch-folder discovery diagnostics;
-2. add Admin HTTP tests proving redaction and auth/admin-only boundaries;
-3. sync the Admin web typed API/client without changing Public Client API or
-   `taru-client-protocol`;
-4. run the Admin API, HTTP, web, and public-client-boundary gates before moving
-   to DWI-060 closeout.
+1. run final focused gates with fresh evidence;
+2. decide whether downloads protocol adapters, background watch scheduling, and
+   Admin UI polish become follow-on workstreams or backlog notes;
+3. re-score the post-RPD umbrella so network access boundary, AI-assisted
+   library ops, and Addon runtime/distribution have a clear next-lane order;
+4. close this lane only if review finds no boundary leaks.

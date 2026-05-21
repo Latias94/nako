@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AdminApiClient } from "./client";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
+  mockAcquisitionIntakeCandidates,
   mockCatalogGovernance,
   mockEvents,
   mockJobs,
@@ -12,6 +13,7 @@ import {
   mockPlaybackSupport,
   mockStorageStaging,
   mockSystemConfig,
+  mockWatchFolderDiscovery,
 } from "./mockData";
 
 describe("AdminApiClient", () => {
@@ -48,6 +50,7 @@ describe("AdminApiClient", () => {
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
       [TARU_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
+      [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
       [TARU_ADMIN_ROUTES.events, mockEvents],
       [TARU_ADMIN_ROUTES.jobs, mockJobs],
       [TARU_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
@@ -69,6 +72,9 @@ describe("AdminApiClient", () => {
     const client = new AdminApiClient({ fetcher });
 
     await expect(client.getCatalogGovernanceItems()).resolves.toEqual(mockCatalogGovernance);
+    await expect(
+      client.getAcquisitionIntakeCandidates({ library_id: "library-anime", state: "ready" }),
+    ).resolves.toEqual(mockAcquisitionIntakeCandidates);
     await expect(client.getEvents()).resolves.toEqual(mockEvents);
     await expect(client.getJobs()).resolves.toEqual(mockJobs);
     await expect(client.getPlaybackSessions()).resolves.toEqual(mockPlaybackSessions);
@@ -81,6 +87,7 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
       TARU_ADMIN_ROUTES.catalogGovernanceItems,
+      `${TARU_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
       TARU_ADMIN_ROUTES.events,
       TARU_ADMIN_ROUTES.jobs,
       TARU_ADMIN_ROUTES.playbackSessions,
@@ -89,5 +96,34 @@ describe("AdminApiClient", () => {
       TARU_ADMIN_ROUTES.storageStaging,
       TARU_ADMIN_ROUTES.systemConfig,
     ]);
+  });
+
+  it("posts watch-folder discovery requests through the Admin-only route", async () => {
+    const fetcher = vi.fn(async () => Response.json(mockWatchFolderDiscovery));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(
+      client.discoverWatchFolderCandidates({
+        target_library_id: "library-anime",
+        root_uri: "local:///watch",
+        max_depth: 4,
+      }),
+    ).resolves.toEqual(mockWatchFolderDiscovery);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      TARU_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer redacted-test-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          target_library_id: "library-anime",
+          root_uri: "local:///watch",
+          max_depth: 4,
+        }),
+      },
+    );
   });
 });
