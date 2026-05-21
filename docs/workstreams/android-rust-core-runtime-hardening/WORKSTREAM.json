@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "android-rust-core-runtime-hardening",
   "title": "Android Rust Core Runtime Hardening",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-21",
   "scope_kind": "execution",
   "problem": "The first Rust client-core / UniFFI Android connection tracer is proven, but the follow-on risks around Android native build ergonomics, taru-client core reuse, Rust wire tolerance, and playback tracer ownership are still unresolved.",
@@ -26,6 +26,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/android-rust-core-runtime-hardening/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/android-rust-core-runtime-hardening/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -56,14 +60,15 @@
     "apps/android/app/src/main/java/dev/taru/android/playback",
     "apps/android/app/src/main/java/dev/taru/android/playback/RustPlaybackCore.kt",
     "apps/android/app/src/main/java/dev/taru/android/playback/PlaybackModels.kt",
-    "apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt"
+    "apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt",
+    "docs/workstreams/android-rust-core-runtime-hardening/CLOSEOUT.md"
   ],
   "adr_refs": [
     "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
   ],
-  "current_task": "RCR-090",
+  "current_task": null,
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue in order: RCR-020 Android Rust/UniFFI build ergonomics, RCR-030 taru-client reuse of taru-client-core, RCR-040 Rust public wire tolerance, RCR-050 Android playback core tracer, then closeout."
+    "default_action": "open_new_workstream",
+    "notes": "This lane is closed. Start a new workstream for additional Android route tracers, device/emulator native-library smoke tests, or Kotlin generated SDK shrinkage."
   }
 }

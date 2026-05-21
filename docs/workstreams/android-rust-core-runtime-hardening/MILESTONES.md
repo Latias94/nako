@@ -1,6 +1,6 @@
 # Android Rust Core Runtime Hardening — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## M0 — Lane Open
@@ -77,9 +77,18 @@ diagnostic, DTO mapping, and Media3 responsibilities.
 
 ## M5 — Closeout
 
+Status: Complete on 2026-05-21.
+
 Exit when:
 
 - `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and
   `WORKSTREAM.json` agree;
 - fresh final evidence is recorded;
 - closeout notes identify residual risks and next lanes.
+
+Result: All four follow-ons from `generated-sdk-runtime-ownership` are
+implemented, verified, documented, and committed. The lane closes with Rust
+client-core request policy shared by Android/reqwest adapters, tolerant Rust
+public wire values, split Android Rust/UniFFI build tasks, and playback request
+construction routed through the Rust core while Android keeps app/runtime
+ownership.

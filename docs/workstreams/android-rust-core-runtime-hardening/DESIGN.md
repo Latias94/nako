@@ -1,6 +1,6 @@
 # Android Rust Core Runtime Hardening
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -100,4 +100,3 @@ The first playback tracer should be narrow:
 - Do not hide unknown public wire strings as generic `Unknown` when the raw
   wire value can be preserved.
 - Do not make JVM unit tests build all Android Rust ABIs.
-

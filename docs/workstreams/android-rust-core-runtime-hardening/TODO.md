@@ -1,6 +1,6 @@
 # Android Rust Core Runtime Hardening — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## M0 — Lane Open
@@ -75,9 +75,10 @@ Last updated: 2026-05-21
 
 ## M5 — Closeout
 
-- [ ] RCR-090 [owner=planner] [deps=RCR-050] [scope=docs/workstreams/android-rust-core-runtime-hardening]
+- [x] RCR-090 [owner=planner] [deps=RCR-050] [scope=docs/workstreams/android-rust-core-runtime-hardening]
   Goal: Close the lane with fresh evidence, residual risks, and follow-ons.
   Validation: `python -m json.tool docs/workstreams/android-rust-core-runtime-hardening/WORKSTREAM.json > $null`; `git diff --check`
   Review: No blocking workstream or code-quality findings remain.
   Evidence: `docs/workstreams/android-rust-core-runtime-hardening/CLOSEOUT.md`
-  Handoff: Pending.
+  Handoff: DONE. Lane closed after fresh closeout gates passed. Residual risks
+  are documented in `CLOSEOUT.md` and should be handled by new workstreams.

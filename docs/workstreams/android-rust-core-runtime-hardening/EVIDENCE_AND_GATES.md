@@ -1,6 +1,6 @@
 # Android Rust Core Runtime Hardening — Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Evidence Anchors
@@ -150,3 +150,17 @@ git diff --check
     passed.
   - `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon`
     passed.
+- 2026-05-21: Completed `RCR-090` closeout.
+  - `cargo fmt --all --check` passed.
+  - `cargo nextest run -p taru-client-core --no-fail-fast` passed with 11 tests.
+  - `cargo nextest run -p taru-client-uniffi --no-fail-fast` passed with 2 tests.
+  - `cargo nextest run -p taru-client-protocol --no-fail-fast` passed with 9 tests.
+  - `cargo nextest run -p taru-client --no-fail-fast` passed with 9 tests.
+  - `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast` passed with 3 tests.
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+    passed.
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon`
+    passed.
+  - `python -m json.tool docs/workstreams/android-rust-core-runtime-hardening/WORKSTREAM.json > $null`
+    passed.
+  - `git diff --check` passed.

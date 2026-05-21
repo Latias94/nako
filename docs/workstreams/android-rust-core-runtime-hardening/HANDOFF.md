@@ -1,16 +1,16 @@
 # Android Rust Core Runtime Hardening — Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Current State
 
-The lane is open. `RCR-010`, `RCR-020`, `RCR-030`, `RCR-040`, and `RCR-050`
-are complete.
+The lane is closed. `RCR-010`, `RCR-020`, `RCR-030`, `RCR-040`, `RCR-050`, and
+`RCR-090` are complete.
 
 ## Active Task
 
-`RCR-090`: close the lane with fresh evidence, residual risks, and follow-ons.
+None.
 
 ## Guardrails
 
@@ -22,6 +22,6 @@ are complete.
 
 ## Recommended Next Step
 
-Run the closeout gates, write `CLOSEOUT.md`, and make `TODO.md`,
-`MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and `WORKSTREAM.json`
-agree on the final lane state.
+Start a new workstream for one of the closeout follow-ons if the product needs
+more Android routes behind UniFFI, device/emulator native-library smoke tests,
+or Kotlin generated SDK shrinkage.
