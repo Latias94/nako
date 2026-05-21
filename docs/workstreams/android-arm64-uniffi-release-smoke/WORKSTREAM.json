@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "slug": "android-arm64-uniffi-release-smoke",
+  "title": "Android arm64 UniFFI Release Smoke",
+  "status": "closed",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "The Android UniFFI smoke passed on an x86_64 emulator, but arm64-v8a remains the important release ABI and needs runtime or at least packaging evidence.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-arm64-uniffi-release-smoke/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-arm64-uniffi-release-smoke/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-arm64-uniffi-release-smoke/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-arm64-uniffi-release-smoke/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-arm64-uniffi-release-smoke/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/android-arm64-uniffi-release-smoke/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "adb devices -l",
+    "adb shell getprop ro.product.cpu.abi",
+    "adb shell getprop ro.product.cpu.abilist",
+    "apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon",
+    "python -m json.tool docs/workstreams/android-arm64-uniffi-release-smoke/WORKSTREAM.json > $null",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/android-uniffi-native-smoke/CLOSEOUT.md",
+    "apps/android/app/src/androidTest/java/dev/taru/android/uniffi/TaruUniFfiNativeSmokeTest.kt",
+    "apps/android/app/build.gradle.kts",
+    "apps/android/app/build/outputs/apk/debug/app-debug.apk",
+    "docs/workstreams/android-arm64-uniffi-release-smoke/CLOSEOUT.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "open_new_workstream",
+    "notes": "This lane is closed as arm64-v8a packaging verification. Open a new lane when a real arm64 device is available for connected runtime smoke."
+  }
+}

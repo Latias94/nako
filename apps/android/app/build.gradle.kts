@@ -5,6 +5,14 @@ import org.gradle.api.tasks.testing.Test
 import java.util.Locale
 import java.util.zip.ZipFile
 
+val androidAbiTargets = mapOf(
+    "arm64-v8a" to "aarch64-linux-android",
+    "armeabi-v7a" to "armv7-linux-androideabi",
+    "x86" to "i686-linux-android",
+    "x86_64" to "x86_64-linux-android",
+)
+val selectedAndroidAbiTargets = selectedAndroidAbiTargets()
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -23,6 +31,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += selectedAndroidAbiTargets.keys
+        }
     }
 
     buildFeatures {
@@ -58,12 +70,6 @@ val jnaHostDispatch by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
 }
-val androidAbiTargets = mapOf(
-    "arm64-v8a" to "aarch64-linux-android",
-    "armeabi-v7a" to "armv7-linux-androideabi",
-    "x86" to "i686-linux-android",
-    "x86_64" to "x86_64-linux-android",
-)
 
 fun ProviderFactory.androidNdkHome(): Provider<String> =
     gradleProperty("android.ndk.home")
@@ -116,8 +122,6 @@ fun selectedAndroidAbiTargets(): Map<String, String> {
     }
     return requestedAbis.associateWith { abi -> androidAbiTargets.getValue(abi) }
 }
-
-val selectedAndroidAbiTargets = selectedAndroidAbiTargets()
 
 val buildTaruClientUniFfiHost by tasks.registering(Exec::class) {
     group = "taru rust"
