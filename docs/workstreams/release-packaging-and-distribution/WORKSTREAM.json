@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "slug": "release-packaging-and-distribution",
+  "title": "Release Packaging And Distribution",
+  "status": "active",
+  "updated": "2026-05-21",
+  "scope_kind": "release_hardening",
+  "problem": "Taru has a verified self-hosted release baseline but still lacks an operator-facing artifact, container, startup preflight, release script, and packaging documentation path.",
+  "summary": "Turn source-built Taru into a packageable and diagnosable self-hosted distribution while deciding the next product lane after packaging.",
+  "current_milestone": "M0",
+  "current_task": "RPD-010",
+  "task_prefix": "RPD",
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/release-packaging-and-distribution/README.md" },
+    { "role": "design", "path": "docs/workstreams/release-packaging-and-distribution/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/release-packaging-and-distribution/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/release-packaging-and-distribution/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/release-packaging-and-distribution/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/release-packaging-and-distribution/HANDOFF.md" }
+  ],
+  "upstream_workstreams": [
+    "docs/workstreams/self-hosted-release-readiness"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "RPD-010",
+    "notes": "Start by freezing the release artifact contract and inventorying existing deploy/release state."
+  }
+}

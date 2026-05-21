@@ -11,6 +11,10 @@ attention.
   capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL
   gates, API/SDK/redaction checks, deployment examples, backup/restore
   runbooks, and end-to-end smoke evidence.
+- [release-packaging-and-distribution](release-packaging-and-distribution/README.md):
+  active release hardening lane for turning the verified self-hosted baseline
+  into operator-facing artifacts, container/compose packaging, startup/config
+  preflight, release scripts, checksums, and install/upgrade documentation.
 - [fearless-architecture-deepening](fearless-architecture-deepening/README.md):
   completed M63 architecture-first lane for deepening Addon Side Effect
   Modules, Addon metadata commit atomicity, Library ingestion workflow seams,
