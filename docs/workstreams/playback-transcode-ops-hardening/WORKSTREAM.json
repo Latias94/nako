@@ -7,12 +7,13 @@
   "scope_kind": "execution",
   "problem": "Playback and transcode runtime foundations exist, but operators still need stable readiness, validation, fallback, failure-taxonomy, and redacted support evidence to diagnose playback issues safely.",
   "task_prefix": "PTOH",
-  "current_task": "PTOH-050",
+  "current_task": "PTOH-060",
   "completed_tasks": [
     "PTOH-010",
     "PTOH-020",
     "PTOH-030",
-    "PTOH-040"
+    "PTOH-040",
+    "PTOH-050"
   ],
   "authoritative_docs": [
     {
@@ -75,7 +76,9 @@
     "crates/taru-server/src/http/tests",
     "crates/taru-api/src/admin.rs",
     "crates/taru-api/src/admin_contract.rs",
-    "apps/admin-web/src/adminApi/generated/contract.ts"
+    "apps/admin-web/src/adminApi/generated/contract.ts",
+    "apps/admin-web/src/adminApi/client.ts",
+    "apps/admin-web/src/adminApi/mockData.ts"
   ],
   "adr_refs": [
     "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
@@ -84,7 +87,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTOH-050",
-    "notes": "PTOH-020 completed an Admin-only playback runtime readiness contract. PTOH-030 completed playback transcode profile/plan validation before session creation. PTOH-040 completed session failure taxonomy with redacted persisted/operator messages and public client coarse-category compatibility. Continue with the Admin-only playback support evidence read model. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
+    "next_task": "PTOH-060",
+    "notes": "PTOH-020 completed an Admin-only playback runtime readiness contract. PTOH-030 completed playback transcode profile/plan validation before session creation. PTOH-040 completed session failure taxonomy with redacted persisted/operator messages and public client coarse-category compatibility. PTOH-050 completed an Admin-only support evidence read model for runtime/session/source context with redaction, mismatched context rejection, Admin contract sync, and no public client protocol changes. Continue with closeout and parent umbrella re-score. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
   }
 }

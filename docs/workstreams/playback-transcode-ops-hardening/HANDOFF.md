@@ -30,21 +30,31 @@ Persisted app failure messages are redacted operator summaries, and Public
 Client session DTOs preserve the coarse public category contract while
 redacting raw persisted failure text.
 
+PTOH-050 is complete. `GET /admin/v1/playback/support` now returns a bounded
+Admin-only support evidence read model for runtime, session, and source
+contexts. The response composes existing readiness, session, source, staging,
+remote playback, and hardware facts while excluding raw local paths, Source
+Locators, FFmpeg paths, command argv, output paths, raw stderr, fingerprints,
+secrets, and credentials. The route rejects mismatched session/source query
+contexts. Admin TypeScript contract and Admin web typed client/mocks were
+updated; Public Client API and `taru-client-protocol` remain unchanged.
+
 ## Active Task
 
-- Task ID: PTOH-050
+- Task ID: PTOH-060
 - Owner: unassigned
 - Files:
-  - `crates/taru-api/src/admin.rs`
-  - `crates/taru-server/src/app/playback`
-  - `crates/taru-server/src/http/admin.rs`
-  - `crates/taru-server/src/http/tests`
+  - `docs/workstreams/playback-transcode-ops-hardening`
+  - `docs/workstreams/post-rpd-product-hardening`
+  - `docs/workstreams/README.md`
 - Validation:
-  - `cargo nextest run -p taru-api admin_playback --no-fail-fast`
-  - `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
-  - `git diff --name-only -- crates/taru-client-protocol`
+  - `verify-rust-workstream` records fresh final evidence
+  - `python -m json.tool docs/workstreams/playback-transcode-ops-hardening/WORKSTREAM.json`
+  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
+  - `git diff --check`
 - Status: READY
-- Review: check Admin API ownership and redaction.
+- Review: closeout must re-check evidence completeness and parent umbrella
+  re-score.
 
 ## Decisions Since Opening
 
@@ -72,20 +82,25 @@ redacting raw persisted failure text.
 - Public playback session `failure_message` is now derived from the category
   instead of returning raw persisted text. Admin session list still exposes
   only `has_failure_message`; richer evidence belongs to PTOH-050.
+- PTOH-050 keeps support evidence read-only and non-persistent. It exposes a
+  stable `request_key_fingerprint` rather than the raw request key in support
+  evidence, uses `source_scheme` rather than raw Source Locator data, narrows
+  hardware support facts to selected acceleration, fallback, counts, and
+  unavailable capability status categories, and moves downloadable bundles,
+  retention, or UI workflow beyond this lane unless opened explicitly.
 
 ## Blockers
 
-- None for PTOH-050.
+- None for PTOH-060.
 
 ## Next Recommended Action
 
-Implement PTOH-050 with tests first:
+Run PTOH-060 closeout:
 
-1. define a bounded Admin-only playback support evidence response around
-   runtime/session/source context;
-2. compose evidence from existing readiness, session category/state, staging,
-   and hardware facts;
-3. prove the response excludes paths, Source Locators, FFmpeg argv/stderr,
-   output paths, secrets, and credentials;
-4. split downloadable bundles, retention, or UI work if operators need export
-   beyond this read model.
+1. review the whole playback-transcode-ops-hardening lane for unclosed scope,
+   stale docs, and missing evidence;
+2. run final verification gates appropriate for the lane;
+3. close or split follow-ons for downloadable support bundles, retention,
+   Admin UI support workflows, or adaptive/optimized playback features;
+4. re-score the parent post-RPD umbrella, especially downloads/watch-folder,
+   network access, AI-assisted library ops, and addon runtime.

@@ -10,6 +10,7 @@ export const TARU_ADMIN_ROUTES = {
   jobs: "/admin/v1/jobs",
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
+  playbackSupport: "/admin/v1/playback/support",
   storageStaging: "/admin/v1/storage/staging",
   systemConfig: "/admin/v1/system/config",
 } as const;
@@ -45,6 +46,11 @@ export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
   source_id?: string;
   kind?: string;
   state?: string;
+}
+
+export interface AdminPlaybackSupportQuery {
+  session_id?: string;
+  source_id?: string;
 }
 
 export interface AdminStorageStagingQuery extends AdminPageQuery {
@@ -274,6 +280,68 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
     cleanup_on_startup: boolean;
     startup_deleted_records: number;
     startup_deleted_files: number;
+  };
+}
+
+export interface AdminPlaybackSupportEvidenceResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  subject: {
+    session_id: string | null;
+    source_id: string | null;
+  };
+  session: {
+    id: string;
+    source_id: string;
+    kind: string;
+    state: string;
+    failure_category: string | null;
+    has_failure_message: boolean;
+    active: boolean;
+    terminal: boolean;
+    request_key_fingerprint: string;
+    output_artifact_kind: string;
+    created_at: string;
+    updated_at: string;
+    started_at: string | null;
+    completed_at: string | null;
+  } | null;
+  source: {
+    source_id: string;
+    library_id: string;
+    item_id: string;
+    source_scheme: string;
+    file_name: string;
+    size_bytes: number | null;
+    has_fingerprint: boolean;
+  } | null;
+  runtime: {
+    readiness: AdminPlaybackRuntimeDiagnosticsResponse["readiness"];
+    ffmpeg: AdminPlaybackRuntimeDiagnosticsResponse["ffmpeg"];
+    hardware: {
+      policy: Record<string, unknown>;
+      selected_acceleration: string;
+      fallback_used: boolean;
+      capability_count: number;
+      unavailable_capabilities: Array<{
+        accelerator: string;
+        reason_code: string;
+        encoder_discovery_status: string;
+        device_initialization_status: string;
+        smoke_probe_status: string;
+      }>;
+    };
+    transcode: AdminPlaybackRuntimeDiagnosticsResponse["transcode"];
+    remux: AdminPlaybackRuntimeDiagnosticsResponse["remux"];
+    remote_playback: AdminPlaybackRuntimeDiagnosticsResponse["remote_playback"];
+    staging: AdminPlaybackRuntimeDiagnosticsResponse["staging"];
+  };
+  redaction: {
+    paths_redacted: boolean;
+    source_references_redacted: boolean;
+    ffmpeg_commands_redacted: boolean;
+    stderr_redacted: boolean;
+    credentials_redacted: boolean;
   };
 }
 

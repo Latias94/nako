@@ -9,6 +9,7 @@ import {
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackSessions,
+  mockPlaybackSupport,
   mockStorageStaging,
   mockSystemConfig,
 } from "./mockData";
@@ -51,6 +52,7 @@ describe("AdminApiClient", () => {
       [TARU_ADMIN_ROUTES.jobs, mockJobs],
       [TARU_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
       [TARU_ADMIN_ROUTES.playbackRuntime, mockPlaybackRuntime],
+      [TARU_ADMIN_ROUTES.playbackSupport, mockPlaybackSupport],
       [TARU_ADMIN_ROUTES.storageStaging, mockStorageStaging],
       [TARU_ADMIN_ROUTES.systemConfig, mockSystemConfig],
     ]);
@@ -71,6 +73,9 @@ describe("AdminApiClient", () => {
     await expect(client.getJobs()).resolves.toEqual(mockJobs);
     await expect(client.getPlaybackSessions()).resolves.toEqual(mockPlaybackSessions);
     await expect(client.getPlaybackRuntime()).resolves.toEqual(mockPlaybackRuntime);
+    await expect(client.getPlaybackSupport({ session_id: "session-hls" })).resolves.toEqual(
+      mockPlaybackSupport,
+    );
     await expect(client.getStorageStaging()).resolves.toEqual(mockStorageStaging);
     await expect(client.getSystemConfig()).resolves.toEqual(mockSystemConfig);
 
@@ -80,6 +85,7 @@ describe("AdminApiClient", () => {
       TARU_ADMIN_ROUTES.jobs,
       TARU_ADMIN_ROUTES.playbackSessions,
       TARU_ADMIN_ROUTES.playbackRuntime,
+      `${TARU_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,
       TARU_ADMIN_ROUTES.storageStaging,
       TARU_ADMIN_ROUTES.systemConfig,
     ]);

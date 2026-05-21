@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use taru_client_protocol::PageInfo;
 use taru_core::{
     CatalogGovernanceItemRecord, DomainEventKind, DomainEventSubject, EventId, ExternalProvider,
@@ -325,6 +326,143 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportEvidenceResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub subject: AdminPlaybackSupportSubject,
+    pub session: Option<AdminPlaybackSupportSessionEvidence>,
+    pub source: Option<AdminPlaybackSupportSourceEvidence>,
+    pub runtime: AdminPlaybackSupportRuntimeEvidence,
+    pub redaction: AdminPlaybackSupportRedactionEvidence,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportSubject {
+    pub session_id: Option<TranscodeSessionId>,
+    pub source_id: Option<MediaSourceId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportSessionEvidence {
+    pub id: TranscodeSessionId,
+    pub source_id: MediaSourceId,
+    pub kind: TranscodeSessionKind,
+    pub state: TranscodeSessionState,
+    pub failure_category: Option<TranscodeFailureCategory>,
+    pub has_failure_message: bool,
+    pub active: bool,
+    pub terminal: bool,
+    pub request_key_fingerprint: String,
+    pub output_artifact_kind: AdminPlaybackOutputArtifactKind,
+    pub created_at: String,
+    pub updated_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl AdminPlaybackSupportSessionEvidence {
+    #[must_use]
+    pub fn from_record(session: TranscodeSessionRecord) -> Self {
+        Self {
+            id: session.id,
+            source_id: session.source_id,
+            kind: session.kind,
+            state: session.state,
+            failure_category: session.failure_category,
+            has_failure_message: session.failure_message.is_some(),
+            active: session.state.is_active(),
+            terminal: session.state.is_terminal(),
+            request_key_fingerprint: stable_fingerprint(&session.request_key),
+            output_artifact_kind: AdminPlaybackOutputArtifactKind::from_session_kind(session.kind),
+            created_at: session.created_at,
+            updated_at: session.updated_at,
+            started_at: session.started_at,
+            completed_at: session.completed_at,
+        }
+    }
+}
+
+impl AdminPlaybackSupportSourceEvidence {
+    #[must_use]
+    pub fn from_record(source: taru_core::MediaSource) -> Self {
+        Self {
+            source_id: source.id,
+            library_id: source.library_id,
+            item_id: source.item_id,
+            source_scheme: storage_scheme(&source.locator),
+            file_name: source.file_name,
+            size_bytes: source.size_bytes,
+            has_fingerprint: source.fingerprint.is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackOutputArtifactKind {
+    RemuxFile,
+    HlsPlaylist,
+}
+
+impl AdminPlaybackOutputArtifactKind {
+    const fn from_session_kind(kind: TranscodeSessionKind) -> Self {
+        match kind {
+            TranscodeSessionKind::Remux => Self::RemuxFile,
+            TranscodeSessionKind::HlsTranscode => Self::HlsPlaylist,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportSourceEvidence {
+    pub source_id: MediaSourceId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub source_scheme: String,
+    pub file_name: String,
+    pub size_bytes: Option<u64>,
+    pub has_fingerprint: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportRuntimeEvidence {
+    pub readiness: AdminPlaybackReadinessDiagnostics,
+    pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
+    pub hardware: AdminPlaybackSupportHardwareEvidence,
+    pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
+    pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
+    pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
+    pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportHardwareEvidence {
+    pub policy: HardwareAccelerationPolicy,
+    pub selected_acceleration: HardwareAcceleration,
+    pub fallback_used: bool,
+    pub capability_count: u32,
+    pub unavailable_capabilities: Vec<AdminPlaybackSupportHardwareCapabilityEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportHardwareCapabilityEvidence {
+    pub accelerator: HardwareAcceleration,
+    pub reason_code: AdminPlaybackHardwareCapabilityReason,
+    pub encoder_discovery_status: AdminPlaybackHardwareEncoderDiscoveryStatus,
+    pub device_initialization_status: AdminPlaybackHardwareDeviceInitializationStatus,
+    pub smoke_probe_status: AdminPlaybackHardwareSmokeProbeStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportRedactionEvidence {
+    pub paths_redacted: bool,
+    pub source_references_redacted: bool,
+    pub ffmpeg_commands_redacted: bool,
+    pub stderr_redacted: bool,
+    pub credentials_redacted: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1039,6 +1177,37 @@ pub enum StorageBackendRuntimeStateScope {
     ProcessLocal,
 }
 
+fn stable_fingerprint(value: &str) -> String {
+    let digest = Sha256::digest(value.as_bytes());
+
+    format!("sha256:{}", lowercase_hex(&digest[..16]))
+}
+
+fn lowercase_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+
+    output
+}
+
+fn storage_scheme(reference: &str) -> String {
+    reference
+        .split_once("://")
+        .map_or("unknown", |(scheme, _path)| {
+            if scheme.trim().is_empty() {
+                "unknown"
+            } else {
+                scheme
+            }
+        })
+        .to_ascii_lowercase()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -1308,6 +1477,79 @@ mod tests {
         assert!(!body.contains("playlist.m3u8"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("ffmpeg failed while writing"));
+    }
+
+    #[test]
+    fn admin_playback_support_evidence_redacts_session_secrets_but_keeps_support_facts() {
+        let source_id = MediaSourceId::new();
+        let request_key =
+            "transcode-request:v1;source=source-revision:v1;digest=demo;profile=secret-profile"
+                .to_owned();
+        let session = TranscodeSessionRecord {
+            id: TranscodeSessionId::new(),
+            source_id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: request_key.clone(),
+            output_path: "C:\\taru-cache\\hls\\secret\\playlist.m3u8".into(),
+            state: TranscodeSessionState::Failed,
+            failure_category: Some(TranscodeFailureCategory::Runner),
+            failure_message: Some(
+                "ffmpeg failed while writing C:\\taru-cache\\hls\\secret\\playlist.m3u8".to_owned(),
+            ),
+            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+            started_at: Some("2026-05-18T00:00:00Z".to_owned()),
+            completed_at: Some("2026-05-18T00:00:01Z".to_owned()),
+        };
+
+        let evidence = AdminPlaybackSupportSessionEvidence::from_record(session);
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.source_id, source_id);
+        assert_eq!(evidence.kind, TranscodeSessionKind::HlsTranscode);
+        assert_eq!(
+            evidence.failure_category,
+            Some(TranscodeFailureCategory::Runner)
+        );
+        assert!(evidence.has_failure_message);
+        assert_eq!(
+            evidence.output_artifact_kind,
+            AdminPlaybackOutputArtifactKind::HlsPlaylist
+        );
+        assert!(evidence.request_key_fingerprint.starts_with("sha256:"));
+        assert_ne!(evidence.request_key_fingerprint, request_key);
+        assert!(!body.contains("secret-profile"));
+        assert!(!body.contains("transcode-request"));
+        assert!(!body.contains("taru-cache"));
+        assert!(!body.contains("playlist.m3u8"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("ffmpeg failed while writing"));
+    }
+
+    #[test]
+    fn admin_playback_support_source_evidence_keeps_scheme_not_locator() {
+        let source = taru_core::MediaSource {
+            id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            locator: "webdav:///Movies/Private/Secret Demo.mkv?token=admin-token".to_owned(),
+            file_name: "Secret Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:private-fingerprint".to_owned()),
+        };
+
+        let evidence = AdminPlaybackSupportSourceEvidence::from_record(source);
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.source_scheme, "webdav");
+        assert_eq!(evidence.file_name, "Secret Demo.mkv");
+        assert_eq!(evidence.size_bytes, Some(42));
+        assert!(evidence.has_fingerprint);
+        assert!(!body.contains("locator"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Private"));
+        assert!(!body.contains("admin-token"));
+        assert!(!body.contains("private-fingerprint"));
     }
 
     #[test]

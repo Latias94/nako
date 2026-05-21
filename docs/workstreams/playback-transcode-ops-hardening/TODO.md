@@ -68,7 +68,7 @@ Task IDs use the `PTOH` prefix.
 
 ## M4 — Support Evidence Read Model
 
-- [ ] PTOH-050 [owner=unassigned] [deps=PTOH-040] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/app/playback,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests]
+- [x] PTOH-050 [owner=codex] [deps=PTOH-040] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/app/playback,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests]
   Goal: Add a bounded Admin-only playback support evidence read model for a
   runtime/session/source context, built from existing session, runtime,
   staging, and hardware evidence without persisting or exporting secrets.
@@ -76,8 +76,12 @@ Task IDs use the `PTOH` prefix.
   `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
   `git diff --name-only -- crates/taru-client-protocol`.
   Review: `review-workstream` must check Admin API ownership and redaction.
-  Evidence: support evidence tests and docs.
-  Handoff: Split retention/export/UI if operators need downloadable bundles.
+  Evidence: `GET /admin/v1/playback/support`,
+  `AdminPlaybackSupportEvidenceResponse`, support evidence DTO and HTTP
+  redaction tests, mismatched session/source context rejection, Admin
+  TypeScript contract sync, and unchanged `taru-client-protocol`.
+  Handoff: PTOH-050 is DONE. Split retention/export/UI if operators need
+  downloadable bundles. Continue with PTOH-060 closeout and parent re-score.
 
 ## M5 — Closeout And Parent Re-Score
 

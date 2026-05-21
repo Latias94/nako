@@ -4,7 +4,7 @@ use taru_core::{
     DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
     IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId,
     ManagedArtworkArtifactLifecycleFilter, MediaSourceId, OutboxEventListFilter, OutboxEventStatus,
-    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionKind,
+    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionId, TranscodeSessionKind,
     TranscodeSessionListFilter, TranscodeSessionState,
 };
 
@@ -190,6 +190,39 @@ pub(super) struct PlaybackSessionListQuery {
     pub(super) state: Option<String>,
     pub(super) limit: Option<String>,
     pub(super) offset: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct PlaybackSupportEvidenceQuery {
+    pub(super) session_id: Option<String>,
+    pub(super) source_id: Option<String>,
+}
+
+impl PlaybackSupportEvidenceQuery {
+    pub(super) fn into_context(
+        self,
+    ) -> Result<(Option<TranscodeSessionId>, Option<MediaSourceId>), TaruError> {
+        Ok((
+            self.session_id
+                .map(|value| {
+                    value
+                        .parse::<TranscodeSessionId>()
+                        .map_err(|err| TaruError::InvalidInput {
+                            message: format!("invalid session_id filter: {err}"),
+                        })
+                })
+                .transpose()?,
+            self.source_id
+                .map(|value| {
+                    value
+                        .parse::<MediaSourceId>()
+                        .map_err(|err| TaruError::InvalidInput {
+                            message: format!("invalid source_id filter: {err}"),
+                        })
+                })
+                .transpose()?,
+        ))
+    }
 }
 
 impl PlaybackSessionListQuery {

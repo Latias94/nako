@@ -28,7 +28,11 @@ use taru_api::{
         AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
         AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
         AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
-        AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
+        AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
+        AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
+        AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
+        AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
+        AdminPlaybackSupportSubject, AdminPlaybackTranscodeBudgetDiagnostics,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
         AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminVfsCacheSummary,
@@ -58,7 +62,8 @@ use super::{
     query::{
         ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
         ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
-        JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
+        JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, PlaybackSupportEvidenceQuery,
+        StorageStagingQuery,
     },
 };
 
@@ -125,6 +130,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/playback/runtime",
             get(get_admin_playback_runtime),
+        )
+        .route(
+            "/admin/v1/playback/support",
+            get(get_admin_playback_support_evidence),
         )
         .route(
             "/admin/v1/playback/sessions",
@@ -673,93 +682,51 @@ pub(super) async fn list_admin_playback_sessions(
 pub(super) async fn get_admin_playback_runtime(
     State(app): State<TaruApp>,
 ) -> Json<AdminPlaybackRuntimeDiagnosticsResponse> {
-    let playback = app.playback().runtime_diagnostics();
-    let storage = app.storage().list_storage_backend_diagnostics().await;
-    let startup = app.startup_report().clone();
+    Json(admin_playback_runtime_diagnostics(&app).await)
+}
 
-    let capabilities = playback
-        .hardware_report
-        .capabilities
-        .iter()
-        .map(hardware_capability_diagnostic)
-        .collect::<Vec<_>>();
-    let has_ffmpeg_probe_error = capabilities.iter().any(|capability| {
-        matches!(
-            capability.reason_code,
-            AdminPlaybackHardwareCapabilityReason::ProbeError
-        )
-    });
-    let available_gpu_capabilities = capabilities
-        .iter()
-        .filter(|capability| capability.accelerator.is_gpu() && capability.available)
-        .count();
-    let transcode_budget = playback.transcode_budget.bounded();
+pub(super) async fn get_admin_playback_support_evidence(
+    State(app): State<TaruApp>,
+    Query(query): Query<PlaybackSupportEvidenceQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (session_id, source_id) = query.into_context()?;
+    let context = app
+        .playback()
+        .support_evidence_context(crate::app::playback::PlaybackSupportEvidenceRequest {
+            session_id,
+            source_id,
+        })
+        .await?;
+    let runtime = admin_playback_runtime_diagnostics(&app).await;
+    let subject_source_id = context
+        .session
+        .as_ref()
+        .map(|session| session.source_id)
+        .or_else(|| context.source.as_ref().map(|source| source.id))
+        .or(source_id);
 
-    let remote_playback = remote_budget_summary(
-        storage,
-        playback.remote_stream_concurrency,
-        playback.remote_stage_concurrency,
-    );
-    let staging = AdminPlaybackStagingDiagnostics {
-        max_bytes: playback.staging_max_bytes,
-        retention_ms: playback.staging_retention_ms,
-        cleanup_on_startup: playback.staging_cleanup_on_startup,
-        startup_deleted_records: startup
-            .staging_cleanup
-            .as_ref()
-            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
-        startup_deleted_files: startup
-            .staging_cleanup
-            .as_ref()
-            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
-    };
-    let readiness = playback_readiness_diagnostics(
-        has_ffmpeg_probe_error,
-        hardware_acceleration_readiness(
-            playback.hardware_policy,
-            &playback.hardware_selection,
-            &playback.hardware_report,
-        ),
-        playback.hardware_selection.fallback_used,
-        playback.transcode_budget,
-        transcode_budget,
-        &remote_playback,
-        &staging,
-    );
-
-    Json(AdminPlaybackRuntimeDiagnosticsResponse {
+    Ok(Json(AdminPlaybackSupportEvidenceResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
-        readiness,
-        ffmpeg: AdminPlaybackFfmpegDiagnostics {
-            probe_status: if has_ffmpeg_probe_error {
-                AdminPlaybackRuntimeStatus::Degraded
-            } else {
-                AdminPlaybackRuntimeStatus::Ready
-            },
-            has_probe_error: has_ffmpeg_probe_error,
-            hardware_capability_count: usize_to_u32(capabilities.len()),
-            available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
+        subject: AdminPlaybackSupportSubject {
+            session_id,
+            source_id: subject_source_id,
         },
-        hardware: AdminPlaybackHardwareDiagnostics {
-            policy: playback.hardware_policy,
-            selection: playback.hardware_selection,
-            capabilities,
+        session: context
+            .session
+            .map(AdminPlaybackSupportSessionEvidence::from_record),
+        source: context
+            .source
+            .map(AdminPlaybackSupportSourceEvidence::from_record),
+        runtime: playback_support_runtime_evidence(runtime),
+        redaction: AdminPlaybackSupportRedactionEvidence {
+            paths_redacted: true,
+            source_references_redacted: true,
+            ffmpeg_commands_redacted: true,
+            stderr_redacted: true,
+            credentials_redacted: true,
         },
-        transcode: AdminPlaybackTranscodeBudgetDiagnostics {
-            configured_cpu_slots: playback.transcode_budget.cpu_slots,
-            configured_gpu_slots: playback.transcode_budget.gpu_slots,
-            effective_cpu_slots: transcode_budget.cpu_slots,
-            effective_gpu_slots: transcode_budget.gpu_slots,
-            selected_hls_slots: playback.selected_hls_slots,
-        },
-        remux: AdminPlaybackRemuxRuntimeDiagnostics {
-            max_concurrent_sessions: playback.remux_concurrency,
-            timeout_ms: playback.remux_timeout_ms,
-        },
-        remote_playback,
-        staging,
-    })
+    }))
 }
 
 fn storage_summary(diagnostics: StorageBackendDiagnosticsResponse) -> AdminOverviewStorageSummary {
@@ -835,6 +802,134 @@ fn runtime_summary(diagnostics: RuntimeSupervisorDiagnostics) -> AdminOverviewRu
         cancelled_jobs: diagnostics.cancelled_jobs,
         failed_jobs: diagnostics.failed_jobs,
         shutdown_requested: diagnostics.shutdown_requested,
+    }
+}
+
+async fn admin_playback_runtime_diagnostics(
+    app: &TaruApp,
+) -> AdminPlaybackRuntimeDiagnosticsResponse {
+    let playback = app.playback().runtime_diagnostics();
+    let storage = app.storage().list_storage_backend_diagnostics().await;
+    let startup = app.startup_report().clone();
+
+    let capabilities = playback
+        .hardware_report
+        .capabilities
+        .iter()
+        .map(hardware_capability_diagnostic)
+        .collect::<Vec<_>>();
+    let has_ffmpeg_probe_error = capabilities.iter().any(|capability| {
+        matches!(
+            capability.reason_code,
+            AdminPlaybackHardwareCapabilityReason::ProbeError
+        )
+    });
+    let available_gpu_capabilities = capabilities
+        .iter()
+        .filter(|capability| capability.accelerator.is_gpu() && capability.available)
+        .count();
+    let transcode_budget = playback.transcode_budget.bounded();
+
+    let remote_playback = remote_budget_summary(
+        storage,
+        playback.remote_stream_concurrency,
+        playback.remote_stage_concurrency,
+    );
+    let staging = AdminPlaybackStagingDiagnostics {
+        max_bytes: playback.staging_max_bytes,
+        retention_ms: playback.staging_retention_ms,
+        cleanup_on_startup: playback.staging_cleanup_on_startup,
+        startup_deleted_records: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
+        startup_deleted_files: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+    };
+    let readiness = playback_readiness_diagnostics(
+        has_ffmpeg_probe_error,
+        hardware_acceleration_readiness(
+            playback.hardware_policy,
+            &playback.hardware_selection,
+            &playback.hardware_report,
+        ),
+        playback.hardware_selection.fallback_used,
+        playback.transcode_budget,
+        transcode_budget,
+        &remote_playback,
+        &staging,
+    );
+
+    AdminPlaybackRuntimeDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        readiness,
+        ffmpeg: AdminPlaybackFfmpegDiagnostics {
+            probe_status: if has_ffmpeg_probe_error {
+                AdminPlaybackRuntimeStatus::Degraded
+            } else {
+                AdminPlaybackRuntimeStatus::Ready
+            },
+            has_probe_error: has_ffmpeg_probe_error,
+            hardware_capability_count: usize_to_u32(capabilities.len()),
+            available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
+        },
+        hardware: AdminPlaybackHardwareDiagnostics {
+            policy: playback.hardware_policy,
+            selection: playback.hardware_selection,
+            capabilities,
+        },
+        transcode: AdminPlaybackTranscodeBudgetDiagnostics {
+            configured_cpu_slots: playback.transcode_budget.cpu_slots,
+            configured_gpu_slots: playback.transcode_budget.gpu_slots,
+            effective_cpu_slots: transcode_budget.cpu_slots,
+            effective_gpu_slots: transcode_budget.gpu_slots,
+            selected_hls_slots: playback.selected_hls_slots,
+        },
+        remux: AdminPlaybackRemuxRuntimeDiagnostics {
+            max_concurrent_sessions: playback.remux_concurrency,
+            timeout_ms: playback.remux_timeout_ms,
+        },
+        remote_playback,
+        staging,
+    }
+}
+
+fn playback_support_runtime_evidence(
+    runtime: AdminPlaybackRuntimeDiagnosticsResponse,
+) -> AdminPlaybackSupportRuntimeEvidence {
+    let unavailable_capabilities = runtime
+        .hardware
+        .capabilities
+        .iter()
+        .filter(|capability| !capability.available)
+        .map(
+            |capability| AdminPlaybackSupportHardwareCapabilityEvidence {
+                accelerator: capability.accelerator,
+                reason_code: capability.reason_code,
+                encoder_discovery_status: capability.encoder_discovery.status,
+                device_initialization_status: capability.device_initialization.status,
+                smoke_probe_status: capability.smoke_probe.status,
+            },
+        )
+        .collect();
+
+    AdminPlaybackSupportRuntimeEvidence {
+        readiness: runtime.readiness,
+        ffmpeg: runtime.ffmpeg,
+        hardware: AdminPlaybackSupportHardwareEvidence {
+            policy: runtime.hardware.policy,
+            selected_acceleration: runtime.hardware.selection.acceleration,
+            fallback_used: runtime.hardware.selection.fallback_used,
+            capability_count: usize_to_u32(runtime.hardware.capabilities.len()),
+            unavailable_capabilities,
+        },
+        transcode: runtime.transcode,
+        remux: runtime.remux,
+        remote_playback: runtime.remote_playback,
+        staging: runtime.staging,
     }
 }
 

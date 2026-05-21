@@ -13,6 +13,8 @@ export type {
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListItem,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
   PageInfo,

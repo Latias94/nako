@@ -5,6 +5,7 @@ import type {
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
 } from "./generated/contract";
@@ -375,6 +376,70 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
     cleanup_on_startup: true,
     startup_deleted_records: 4,
     startup_deleted_files: 4,
+  },
+};
+
+export const mockPlaybackSupport: AdminPlaybackSupportEvidenceResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  subject: {
+    session_id: "session-hls",
+    source_id: "source-hls",
+  },
+  session: {
+    id: "session-hls",
+    source_id: "source-hls",
+    kind: "hls_transcode",
+    state: "failed",
+    failure_category: "runner",
+    has_failure_message: true,
+    active: false,
+    terminal: true,
+    request_key_fingerprint: "sha256:00000000000000000000000000000000",
+    output_artifact_kind: "hls_playlist",
+    created_at: "2026-05-19T10:00:00Z",
+    updated_at: "2026-05-19T10:03:00Z",
+    started_at: "2026-05-19T10:00:01Z",
+    completed_at: "2026-05-19T10:03:00Z",
+  },
+  source: {
+    source_id: "source-hls",
+    library_id: "library-anime",
+    item_id: "item-hls",
+    source_scheme: "webdav",
+    file_name: "Episode 01.mkv",
+    size_bytes: 1468006400,
+    has_fingerprint: true,
+  },
+  runtime: {
+    readiness: mockPlaybackRuntime.readiness,
+    ffmpeg: mockPlaybackRuntime.ffmpeg,
+    hardware: {
+      policy: mockPlaybackRuntime.hardware.policy,
+      selected_acceleration: mockPlaybackRuntime.hardware.selection.acceleration,
+      fallback_used: mockPlaybackRuntime.hardware.selection.fallback_used,
+      capability_count: mockPlaybackRuntime.hardware.capabilities.length,
+      unavailable_capabilities: mockPlaybackRuntime.hardware.capabilities
+        .filter((capability) => !capability.available)
+        .map((capability) => ({
+          accelerator: capability.accelerator,
+          reason_code: capability.reason_code,
+          encoder_discovery_status: capability.encoder_discovery.status,
+          device_initialization_status: capability.device_initialization.status,
+          smoke_probe_status: capability.smoke_probe.status,
+        })),
+    },
+    transcode: mockPlaybackRuntime.transcode,
+    remux: mockPlaybackRuntime.remux,
+    remote_playback: mockPlaybackRuntime.remote_playback,
+    staging: mockPlaybackRuntime.staging,
+  },
+  redaction: {
+    paths_redacted: true,
+    source_references_redacted: true,
+    ffmpeg_commands_redacted: true,
+    stderr_redacted: true,
+    credentials_redacted: true,
   },
 };
 

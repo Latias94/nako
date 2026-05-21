@@ -5,6 +5,8 @@ import type {
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
 } from "./generated/contract";
@@ -53,6 +55,14 @@ export class AdminApiClient {
     return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(TARU_ADMIN_ROUTES.playbackRuntime);
   }
 
+  async getPlaybackSupport(
+    query: AdminPlaybackSupportQuery = {},
+  ): Promise<AdminPlaybackSupportEvidenceResponse> {
+    return this.getJson<AdminPlaybackSupportEvidenceResponse>(
+      withQuery(TARU_ADMIN_ROUTES.playbackSupport, query),
+    );
+  }
+
   async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
     return this.getJson<AdminStorageStagingDiagnosticsResponse>(TARU_ADMIN_ROUTES.storageStaging);
   }
@@ -92,4 +102,17 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
   }
 
   return value;
+}
+
+function withQuery(path: string, query: AdminPlaybackSupportQuery) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  const suffix = params.toString();
+  return suffix ? `${path}?${suffix}` : path;
 }

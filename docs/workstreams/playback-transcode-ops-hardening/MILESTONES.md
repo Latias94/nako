@@ -77,6 +77,8 @@ Primary evidence:
 
 ## M4 — Support Evidence Read Model
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
 - Admin operators can retrieve bounded playback support evidence for a runtime

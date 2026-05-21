@@ -135,6 +135,18 @@ pub(crate) struct PlaybackRuntimeDiagnostics {
     pub staging_cleanup_on_startup: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackSupportEvidenceContext {
+    pub session: Option<TranscodeSessionRecord>,
+    pub source: Option<MediaSource>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackSupportEvidenceRequest {
+    pub session_id: Option<TranscodeSessionId>,
+    pub source_id: Option<MediaSourceId>,
+}
+
 #[derive(Clone, Debug)]
 pub struct RemuxStagingPolicy {
     root: PathBuf,
@@ -750,6 +762,36 @@ impl PlaybackAppService {
         page: taru_core::PageRequest,
     ) -> Result<Vec<TranscodeSessionRecord>> {
         self.store.list_transcode_sessions(filter, page).await
+    }
+
+    pub(crate) async fn support_evidence_context(
+        &self,
+        request: PlaybackSupportEvidenceRequest,
+    ) -> Result<PlaybackSupportEvidenceContext> {
+        let session = match request.session_id {
+            Some(session_id) => Some(self.get_transcode_session(session_id).await?),
+            None => None,
+        };
+        if let (Some(session), Some(source_id)) = (&session, request.source_id) {
+            if session.source_id != source_id {
+                return Err(TaruError::InvalidInput {
+                    message: format!(
+                        "playback support evidence source_id {source_id} does not match session {} source_id {}",
+                        session.id, session.source_id
+                    ),
+                });
+            }
+        }
+        let source_id = session
+            .as_ref()
+            .map(|session| session.source_id)
+            .or(request.source_id);
+        let source = match source_id {
+            Some(source_id) => Some(self.get_source_or_not_found(source_id).await?),
+            None => None,
+        };
+
+        Ok(PlaybackSupportEvidenceContext { session, source })
     }
 
     #[must_use]

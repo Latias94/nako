@@ -1,12 +1,13 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 8] = [
+const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 9] = [
     ("overview", "overview"),
     ("catalogGovernanceItems", "catalog/governance/items"),
     ("events", "events"),
     ("jobs", "jobs"),
     ("playbackSessions", "playback/sessions"),
     ("playbackRuntime", "playback/runtime"),
+    ("playbackSupport", "playback/support"),
     ("storageStaging", "storage/staging"),
     ("systemConfig", "system/config"),
 ];
@@ -66,6 +67,11 @@ export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
   source_id?: string;
   kind?: string;
   state?: string;
+}
+
+export interface AdminPlaybackSupportQuery {
+  session_id?: string;
+  source_id?: string;
 }
 
 export interface AdminStorageStagingQuery extends AdminPageQuery {
@@ -298,6 +304,68 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
   };
 }
 
+export interface AdminPlaybackSupportEvidenceResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  subject: {
+    session_id: string | null;
+    source_id: string | null;
+  };
+  session: {
+    id: string;
+    source_id: string;
+    kind: string;
+    state: string;
+    failure_category: string | null;
+    has_failure_message: boolean;
+    active: boolean;
+    terminal: boolean;
+    request_key_fingerprint: string;
+    output_artifact_kind: string;
+    created_at: string;
+    updated_at: string;
+    started_at: string | null;
+    completed_at: string | null;
+  } | null;
+  source: {
+    source_id: string;
+    library_id: string;
+    item_id: string;
+    source_scheme: string;
+    file_name: string;
+    size_bytes: number | null;
+    has_fingerprint: boolean;
+  } | null;
+  runtime: {
+    readiness: AdminPlaybackRuntimeDiagnosticsResponse["readiness"];
+    ffmpeg: AdminPlaybackRuntimeDiagnosticsResponse["ffmpeg"];
+    hardware: {
+      policy: Record<string, unknown>;
+      selected_acceleration: string;
+      fallback_used: boolean;
+      capability_count: number;
+      unavailable_capabilities: Array<{
+        accelerator: string;
+        reason_code: string;
+        encoder_discovery_status: string;
+        device_initialization_status: string;
+        smoke_probe_status: string;
+      }>;
+    };
+    transcode: AdminPlaybackRuntimeDiagnosticsResponse["transcode"];
+    remux: AdminPlaybackRuntimeDiagnosticsResponse["remux"];
+    remote_playback: AdminPlaybackRuntimeDiagnosticsResponse["remote_playback"];
+    staging: AdminPlaybackRuntimeDiagnosticsResponse["staging"];
+  };
+  redaction: {
+    paths_redacted: boolean;
+    source_references_redacted: boolean;
+    ffmpeg_commands_redacted: boolean;
+    stderr_redacted: boolean;
+    credentials_redacted: boolean;
+  };
+}
+
 export interface AdminStorageStagingDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -470,8 +538,10 @@ mod tests {
             "AdminOutboxEventsQuery",
             "AdminJobsQuery",
             "AdminPlaybackSessionsQuery",
+            "AdminPlaybackSupportQuery",
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
+            "AdminPlaybackSupportEvidenceResponse",
             "AdminServerConfigDiagnosticsResponse",
         ] {
             assert!(
@@ -490,6 +560,7 @@ mod tests {
             "fetchlike",
             "requestjson",
             "source_uri",
+            "source_locator",
             "cache_uri",
             "storage_uri",
             "database_url",
