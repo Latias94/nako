@@ -6,6 +6,14 @@ attention.
 
 ## Current Workstreams
 
+- [generated-sdk-runtime-ownership](generated-sdk-runtime-ownership/README.md):
+  active planning lane for deciding whether Public Client API runtime
+  responsibilities such as HTTP execution, public error parsing, API-version
+  header checks, request preview redaction, and transport failure mapping remain
+  Android-owned, move into a narrow generated SDK/runtime seam, or should be
+  pulled forward into a shared Rust client core / UniFFI target state without
+  moving Android UI, Media3, token storage, product diagnostics, SDK publishing,
+  KMP, or full-platform Rust/UniFFI migration ownership.
 - [generated-sdk-forward-compat-tolerance](generated-sdk-forward-compat-tolerance/README.md):
   completed follow-on for deciding and implementing generated Public Client SDK
   unknown string-enum and API-version tolerance without moving Android UI,
