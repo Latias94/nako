@@ -7,8 +7,8 @@
   "scope_kind": "release_hardening",
   "problem": "Taru has a verified self-hosted release baseline but still lacks an operator-facing artifact, container, startup preflight, release script, and packaging documentation path.",
   "summary": "Turn source-built Taru into a packageable and diagnosable self-hosted distribution while deciding the next product lane after packaging.",
-  "current_milestone": "M2",
-  "current_task": "RPD-030",
+  "current_milestone": "M3",
+  "current_task": "RPD-040",
   "task_prefix": "RPD",
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/release-packaging-and-distribution/README.md" },
@@ -23,7 +23,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "RPD-030",
-    "notes": "Artifact Contract V0 and config-check preflight are in place. Continue with Taru server container and compose packaging."
+    "next_task": "RPD-040",
+    "notes": "Artifact Contract V0, config-check preflight, and container/compose packaging are in place. Continue with release artifact scripts and CI shape."
   }
 }

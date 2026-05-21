@@ -24,9 +24,9 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Taru server has a container build path or explicitly documented blocker.
-- [ ] Compose examples include durable volumes and safe local defaults.
-- [ ] Docker/compose config checks are recorded.
+- [x] Taru server has a container build path or explicitly documented blocker.
+- [x] Compose examples include durable volumes and safe local defaults.
+- [x] Docker/compose config checks are recorded.
 
 ## M3 — Artifact Script And CI Shape
 

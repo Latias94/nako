@@ -21,7 +21,10 @@ pub struct TaruServerConfig {
     pub listen_addr: SocketAddr,
     #[serde(default)]
     pub database_backend: DatabaseBackendKind,
+    #[serde(default)]
     pub database_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub database_url_env: Option<String>,
     #[serde(default)]
     pub auth: AuthConfig,
     #[serde(default = "default_ffprobe_path")]
@@ -377,18 +380,44 @@ pub fn load_config(path: &Path) -> Result<TaruServerConfig> {
     })
 }
 
+pub fn resolve_database_url(config: &TaruServerConfig) -> Result<String> {
+    resolve_database_url_with_env(config, |name| std::env::var(name).ok())
+}
+
+fn resolve_database_url_with_env(
+    config: &TaruServerConfig,
+    env_lookup: impl Fn(&str) -> Option<String>,
+) -> Result<String> {
+    if let Some(env_name) = config.database_url_env.as_deref() {
+        return env_lookup(env_name)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| TaruError::InvalidInput {
+                message: format!("database_url_env={env_name} is missing or empty"),
+            });
+    }
+
+    if config.database_url.trim().is_empty() {
+        return Err(TaruError::InvalidInput {
+            message: "database_url or database_url_env must be configured".to_owned(),
+        });
+    }
+
+    Ok(config.database_url.clone())
+}
+
 mod preflight;
 #[cfg(test)]
+use preflight::ConfigPreflightStatus;
+#[cfg(test)]
 use preflight::preflight_config_with_env;
-pub use preflight::{
-    ConfigPreflightOptions, ConfigPreflightStatus, preflight_config, render_config_preflight_text,
-};
+pub use preflight::{ConfigPreflightOptions, preflight_config, render_config_preflight_text};
 
 pub fn example_config() -> Result<String> {
     let config = TaruServerConfig {
         listen_addr: default_listen_addr(),
         database_backend: DatabaseBackendKind::Sqlite,
         database_url: "sqlite://taru.db".to_owned(),
+        database_url_env: None,
         auth: AuthConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: default_ffmpeg_path(),
@@ -1004,6 +1033,29 @@ mod tests {
     }
 
     #[test]
+    fn config_accepts_database_url_env_without_inline_database_url() {
+        let config = toml::from_str::<TaruServerConfig>(
+            r#"
+            database_backend = "postgres"
+            database_url_env = "TARU_DATABASE_URL"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(config.database_backend, DatabaseBackendKind::Postgres);
+        assert!(config.database_url.is_empty());
+        assert_eq!(
+            config.database_url_env.as_deref(),
+            Some("TARU_DATABASE_URL")
+        );
+    }
+
+    #[test]
     fn config_debug_redacts_literal_runtime_and_header_secrets() {
         let mut config = toml::from_str::<TaruServerConfig>(
             r#"
@@ -1202,11 +1254,59 @@ mod tests {
         assert!(!json.contains("${"));
     }
 
+    #[test]
+    fn config_preflight_accepts_database_url_env_without_leaking_value() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("unused.db"), media_root);
+        config.database_backend = DatabaseBackendKind::Postgres;
+        config.database_url.clear();
+        config.database_url_env = Some("TARU_DATABASE_URL".to_owned());
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([
+                ("TARU_ADMIN_TOKEN", "secret"),
+                (
+                    "TARU_DATABASE_URL",
+                    "postgres://taru:db-secret@postgres/taru",
+                ),
+            ]),
+        );
+        let json = serde_json::to_string(&report).unwrap();
+
+        assert_eq!(report.status, ConfigPreflightStatus::Warn);
+        assert!(json.contains("database_url_env=TARU_DATABASE_URL"));
+        assert!(!json.contains("db-secret"));
+        assert!(!json.contains("postgres/taru"));
+    }
+
+    #[test]
+    fn resolve_database_url_prefers_secret_environment_variable() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("unused.db"), media_root);
+        config.database_url = "sqlite://should-not-be-used.db".to_owned();
+        config.database_url_env = Some("TARU_DATABASE_URL".to_owned());
+
+        let database_url = resolve_database_url_with_env(
+            &config,
+            fake_env([("TARU_DATABASE_URL", "sqlite://from-env.db")]),
+        )
+        .unwrap();
+
+        assert_eq!(database_url, "sqlite://from-env.db");
+    }
+
     fn minimal_config(database_path: PathBuf, media_root: PathBuf) -> TaruServerConfig {
         TaruServerConfig {
             listen_addr: "127.0.0.1:3000".parse().unwrap(),
             database_backend: DatabaseBackendKind::Sqlite,
             database_url: format!("sqlite://{}", database_path.display()),
+            database_url_env: None,
             auth: AuthConfig::default(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),

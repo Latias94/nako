@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
-    [ValidateSet('docs', 'fast', 'db', 'api', 'postgres', 'workspace', 'all')]
+    [ValidateSet('docs', 'fast', 'db', 'api', 'postgres', 'container', 'workspace', 'all')]
     [string]$Mode = 'fast',
 
     [string]$PostgresUrl = $env:TARU_TEST_POSTGRES_URL,
@@ -91,6 +91,37 @@ function Invoke-PostgresContracts {
     } else {
         Invoke-Step 'scripts/postgres-contract-harness.ps1 -Suite managed-artwork -DatabaseUrl <provided>' {
             pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite managed-artwork -DatabaseUrl $DatabaseUrl
+        }
+    }
+}
+
+function Invoke-ContainerGate {
+    $composeEnv = @{
+        TARU_ADMIN_TOKEN = 'release-gate-admin-token'
+        TARU_POSTGRES_PASSWORD = 'release-gate-postgres-password'
+        TARU_MEDIA_ROOT = (Join-Path $RepoRoot 'target/release-gate/media/movies')
+    }
+
+    New-Item -ItemType Directory -Force -Path $composeEnv.TARU_MEDIA_ROOT | Out-Null
+
+    Invoke-Step 'cargo nextest run -p taru-server config --no-fail-fast' {
+        cargo nextest run -p taru-server config --no-fail-fast
+    }
+
+    Invoke-Step 'docker compose config for Taru SQLite stack' {
+        & {
+            $env:TARU_ADMIN_TOKEN = $composeEnv.TARU_ADMIN_TOKEN
+            $env:TARU_MEDIA_ROOT = $composeEnv.TARU_MEDIA_ROOT
+            docker compose -f deploy/compose/taru-sqlite.yml config | Out-Null
+        }
+    }
+
+    Invoke-Step 'docker compose config for Taru PostgreSQL stack' {
+        & {
+            $env:TARU_ADMIN_TOKEN = $composeEnv.TARU_ADMIN_TOKEN
+            $env:TARU_POSTGRES_PASSWORD = $composeEnv.TARU_POSTGRES_PASSWORD
+            $env:TARU_MEDIA_ROOT = $composeEnv.TARU_MEDIA_ROOT
+            docker compose -f deploy/compose/taru-postgres.yml config | Out-Null
         }
     }
 }
@@ -210,6 +241,10 @@ if (Test-Mode @('fast', 'api')) {
     Invoke-Step 'cargo nextest run -p taru-server self_host_smoke --no-fail-fast' {
         cargo nextest run -p taru-server self_host_smoke --no-fail-fast
     }
+}
+
+if (Test-Mode @('container')) {
+    Invoke-ContainerGate
 }
 
 if (Test-Mode @('workspace')) {

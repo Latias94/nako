@@ -22,6 +22,7 @@ export TARU_ADMIN_TOKEN='replace-with-a-long-random-token'
 export TMDB_READ_ACCESS_TOKEN='optional-provider-token'
 export BANGUMI_TOKEN='optional-provider-token'
 export DOUBAN_API_KEY='optional-provider-key'
+export TARU_DATABASE_URL='postgres://taru:replace-with-a-long-random-password@127.0.0.1:5432/taru'
 export TARU_POSTGRES_PASSWORD='replace-with-a-long-random-password'
 ```
 
@@ -91,15 +92,15 @@ PostgreSQL mode is explicit:
 
 ```toml
 database_backend = "postgres"
-database_url = "postgres://taru:${TARU_POSTGRES_PASSWORD}@127.0.0.1:5432/taru"
+database_url_env = "TARU_DATABASE_URL"
 ```
 
-Current Taru config treats `database_url` as a literal string. If your runtime
-does not expand `${TARU_POSTGRES_PASSWORD}` before Taru reads the file, render
-the config from your secret manager or service manager before launch. Do not
-commit a real database password. `config-check` intentionally fails unresolved
-`${...}` markers so a packaged server does not start with a placeholder
-credential.
+Set `TARU_DATABASE_URL` from your secret manager or service manager before
+launch. Do not commit a real database password. Inline `database_url` remains
+available for non-secret SQLite examples, but PostgreSQL examples should prefer
+`database_url_env` so committed config files never contain credentials.
+`config-check` intentionally fails unresolved `${...}` markers so a packaged
+server does not start with a placeholder credential.
 
 To start only PostgreSQL for local testing:
 
@@ -129,6 +130,42 @@ Cache/rebuildable state:
 Keep `database_url`, `artwork.artifact_root`, `remux_staging_root`, and library
 roots on separate, clearly named paths. Do not place cache roots inside media
 library roots, otherwise scans may ingest generated files.
+
+## Container And Compose
+
+The repository includes an initial local container build path:
+
+- `Dockerfile`: multi-stage `taru-server` build with FFmpeg/FFprobe in the
+  runtime image.
+- `deploy/container/sqlite.taru.toml`: container SQLite config mounted at
+  `/config/taru.toml`.
+- `deploy/container/postgres.taru.toml`: container PostgreSQL config using
+  `database_url_env = "TARU_DATABASE_URL"`.
+- `deploy/compose/taru-sqlite.yml`: Taru + durable SQLite/artwork/cache
+  volumes.
+- `deploy/compose/taru-postgres.yml`: Taru + PostgreSQL 17 with durable DB,
+  artifact, and cache volumes.
+
+Copy `deploy/compose/.env.example` to `deploy/compose/.env`, replace every
+value, and point `TARU_MEDIA_ROOT` at an existing host media directory. The
+compose files bind Taru to `127.0.0.1:3000` and run `config-check --create-dirs`
+before `serve`.
+
+SQLite compose:
+
+```bash
+docker compose --env-file deploy/compose/.env -f deploy/compose/taru-sqlite.yml up --build
+```
+
+PostgreSQL compose:
+
+```bash
+docker compose --env-file deploy/compose/.env -f deploy/compose/taru-postgres.yml up --build
+```
+
+Do not store media, SQLite databases, PostgreSQL data, Managed Artwork
+Artifacts, or remux cache inside the image layer. Treat named volumes and host
+media mounts as operator-owned state and back them up before upgrades.
 
 ## Auth
 
@@ -242,6 +279,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode pos
 - SQLite config: `deploy/sqlite/taru.toml`
 - PostgreSQL config: `deploy/postgres/taru.toml`
 - PostgreSQL compose service: `deploy/compose/postgres.yml`
+- Taru container configs: `deploy/container/sqlite.taru.toml` and
+  `deploy/container/postgres.taru.toml`
+- Taru compose stacks: `deploy/compose/taru-sqlite.yml` and
+  `deploy/compose/taru-postgres.yml`
 - Backup/restore/upgrade runbook: `docs/deployment/BACKUP_RESTORE_UPGRADE.md`
 - Release gate: `scripts/release-gate.ps1` and `scripts/release-gate.sh`
 - PostgreSQL contract harness: `scripts/postgres-contract-harness.ps1` and

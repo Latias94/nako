@@ -477,7 +477,7 @@ fn database_config_diagnostics(
     AdminDatabaseConfigDiagnostics {
         configured_backend_kind: configured_backend.as_str().to_owned(),
         active_backend_kind: active_backend.as_str().to_owned(),
-        url_scheme: database_url_scheme(&config.database_url),
+        url_scheme: database_url_scheme_from_config(config),
         runtime_supported: configured_backend == active_backend,
         migrated_on_startup,
         capabilities: database_backend_capabilities_diagnostics(store.capabilities()),
@@ -506,6 +506,18 @@ fn database_backend_capabilities_diagnostics(
         webhooks: capabilities.webhooks,
         search_index: capabilities.search_index,
     }
+}
+
+fn database_url_scheme_from_config(config: &crate::config::TaruServerConfig) -> String {
+    if let Some(env_name) = config.database_url_env.as_deref() {
+        return std::env::var(env_name)
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| database_url_scheme(&value))
+            .unwrap_or_else(|| "env".to_owned());
+    }
+
+    database_url_scheme(&config.database_url)
 }
 
 fn database_url_scheme(database_url: &str) -> String {

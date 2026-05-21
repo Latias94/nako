@@ -43,12 +43,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatI
 | 2026-05-21 | RPD-020 CLI smoke | temporary local SQLite config + `cargo run -q -p taru-server -- --config <temp>/taru.toml config-check --json --create-dirs` | Pass. `config-check` emits a passing redaction-safe JSON report and create/write-probes Taru-owned runtime directories. Build emitted pre-existing unused-code warnings from unrelated runtime modules. |
 | 2026-05-21 | RPD-020 diff hygiene | `git diff --check` | Pass. No whitespace errors; Git reported line-ending normalization warnings only. |
 | 2026-05-21 | RPD-020 module split verification | `cargo fmt --all -- --check`; `cargo nextest run -p taru-server config --no-fail-fast`; `git diff --check` | Pass. Split preflight implementation into `crates/taru-server/src/config/preflight.rs` while preserving the focused config gate. |
+| 2026-05-21 | RPD-030 container shape | `Dockerfile`, `.dockerignore`, `deploy/container/*.toml`, `deploy/compose/taru-*.yml` | Added initial Taru server container contract with non-root runtime image, FFmpeg/FFprobe, local-only compose ports, config preflight before serve, durable volumes, read-only media mount, and secret env placeholders. |
+| 2026-05-21 | RPD-030 config support | `cargo nextest run -p taru-server config --no-fail-fast` | Pass. Added `database_url_env` support so container PostgreSQL can inject the database URL without storing credentials in committed TOML. |
+| 2026-05-21 | RPD-030 binary build | `cargo build --locked --release -p taru-server` | Pass. Host release binary builds with locked dependencies; Dockerfile uses the same locked release-package build command. |
+| 2026-05-21 | RPD-030 compose gate | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container -SkipRedactionInventory` | Pass. Container gate runs Rust config tests plus `docker compose config` for SQLite and PostgreSQL Taru stacks with placeholder env values and a generated local media root. |
 
 ## Open Evidence Gaps
 
-- Server config/preflight command should be smoke-proven from packaged examples
-  after container paths are added.
-- Taru server container image is not yet defined.
+- Taru server image build should be proven where Docker build time is acceptable.
 - Release artifact scripts/checksums are not yet defined.
 - Shell script execution should be proven in Linux/CI once packaging workflows
   exist.

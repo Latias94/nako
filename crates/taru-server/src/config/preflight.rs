@@ -70,8 +70,8 @@ pub(super) fn preflight_config_with_env(
 ) -> ConfigPreflightReport {
     let mut checks = Vec::new();
 
-    checks.push(check_database_backend_url(config));
-    checks.extend(check_bind_and_auth(config, env_lookup));
+    checks.push(check_database_backend_url(config, &env_lookup));
+    checks.extend(check_bind_and_auth(config, &env_lookup));
     checks.extend(check_runtime_directories(config, options));
     checks.extend(check_libraries(config));
 
@@ -85,15 +85,22 @@ pub(super) fn preflight_config_with_env(
     }
 }
 
-fn check_database_backend_url(config: &TaruServerConfig) -> ConfigPreflightCheck {
-    let scheme = database_url_scheme(&config.database_url);
+fn check_database_backend_url(
+    config: &TaruServerConfig,
+    env_lookup: &impl Fn(&str) -> Option<String>,
+) -> ConfigPreflightCheck {
+    let (database_url, source_detail) = match effective_database_url(config, env_lookup) {
+        Ok(value) => value,
+        Err(check) => return check,
+    };
+    let scheme = database_url_scheme(&database_url);
     let expected = match config.database_backend {
         DatabaseBackendKind::Sqlite => "sqlite",
         DatabaseBackendKind::Postgres => "postgres or postgresql",
     };
     let backend = config.database_backend.to_string();
 
-    if config.database_url.contains("${") {
+    if database_url.contains("${") {
         return preflight_check(
             "database.backend_url",
             ConfigPreflightStatus::Fail,
@@ -121,7 +128,7 @@ fn check_database_backend_url(config: &TaruServerConfig) -> ConfigPreflightCheck
     }
 
     if config.database_backend == DatabaseBackendKind::Sqlite
-        && config.database_url.trim() == "sqlite::memory:"
+        && database_url.trim() == "sqlite::memory:"
     {
         return preflight_check(
             "database.backend_url",
@@ -135,13 +142,46 @@ fn check_database_backend_url(config: &TaruServerConfig) -> ConfigPreflightCheck
         "database.backend_url",
         ConfigPreflightStatus::Pass,
         "database backend and URL scheme are compatible",
-        format!("database_backend={backend}; url_scheme={scheme}"),
+        format!("database_backend={backend}; {source_detail}; url_scheme={scheme}"),
     )
+}
+
+fn effective_database_url(
+    config: &TaruServerConfig,
+    env_lookup: &impl Fn(&str) -> Option<String>,
+) -> std::result::Result<(String, String), ConfigPreflightCheck> {
+    if let Some(env_name) = config.database_url_env.as_deref() {
+        return env_lookup(env_name)
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| (value, format!("database_url_env={env_name}")))
+            .ok_or_else(|| {
+                preflight_check(
+                    "database.backend_url",
+                    ConfigPreflightStatus::Fail,
+                    "database_url_env is configured but the environment variable is missing or empty",
+                    format!("database_url_env={env_name}"),
+                )
+            });
+    }
+
+    if config.database_url.trim().is_empty() {
+        return Err(preflight_check(
+            "database.backend_url",
+            ConfigPreflightStatus::Fail,
+            "database_url or database_url_env must be configured",
+            "set an inline database_url or point database_url_env at a secret environment variable",
+        ));
+    }
+
+    Ok((
+        config.database_url.clone(),
+        "database_url=inline".to_owned(),
+    ))
 }
 
 fn check_bind_and_auth(
     config: &TaruServerConfig,
-    env_lookup: impl Fn(&str) -> Option<String>,
+    env_lookup: &impl Fn(&str) -> Option<String>,
 ) -> Vec<ConfigPreflightCheck> {
     let mut checks = Vec::new();
     let listen_ip = config.listen_addr.ip();

@@ -23,23 +23,28 @@ operator install/release docs.
 
 ## Active Task
 
-- Task ID: RPD-020
+- Task ID: RPD-030
 - Owner: codex
 - Files:
   - `crates/taru-server`
+  - `Dockerfile`
+  - `.dockerignore`
+  - `deploy`
+  - `scripts`
   - `docs/deployment`
   - `docs/workstreams/release-packaging-and-distribution/`
 - Validation:
   - focused server config/preflight tests
-  - `cargo nextest run -p taru-server config --no-fail-fast`
+  - `cargo build --locked --release -p taru-server`
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container -SkipRedactionInventory`
   - `git diff --check`
 - Status: DONE
 
 ## Next Recommended Action
 
-Continue with RPD-030 container build shape. RPD-020 added a `config-check`
-server command, redaction-safe config preflight report, create/write probes for
-Taru-owned runtime directories, and self-hosted docs.
+Continue with RPD-040 release artifact scripts and CI shape. RPD-030 added the
+Taru server container contract, SQLite/PostgreSQL compose stacks, `database_url_env`
+for secret DB URL injection, and a `release-gate` container mode.
 
 ## Follow-On Candidates
 

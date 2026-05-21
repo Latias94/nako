@@ -93,8 +93,8 @@ Current repository state at RPD-010:
 | Workspace version | `Cargo.toml` version `0.1.0`, Rust `1.85`, AGPL server license | Artifact manifest can reuse workspace package metadata. |
 | Server binary | `crates/taru-server` has a `taru-server` CLI with `config-example`, `serve`, scan, list, metadata, NFO commands | RPD-020 should add `config-check` rather than hiding preflight inside `serve`. |
 | Config examples | `deploy/sqlite/taru.toml` and `deploy/postgres/taru.toml` exist | Packaging should reuse these examples and make them preflight-friendly. |
-| Compose examples | `deploy/compose/postgres.yml` currently provides only PostgreSQL | RPD-030 must add a Taru server container/compose shape. |
-| Dockerfile | No Taru server `Dockerfile` or `.dockerignore` exists | RPD-030 owns the initial build context and image contract. |
+| Compose examples | `deploy/compose/postgres.yml` provides PostgreSQL-only; RPD-030 adds `deploy/compose/taru-sqlite.yml` and `deploy/compose/taru-postgres.yml` | Taru compose stacks now bind locally, run config preflight before serve, and keep durable state in volumes/host mounts. |
+| Dockerfile | RPD-030 adds a multi-stage Taru server `Dockerfile` and `.dockerignore` | Container image builds `taru-server` in Rust Bookworm and runs on Debian slim with FFmpeg, curl, sqlite runtime libs, and non-root user. |
 | Release scripts | `scripts/release-gate.*`, `self-host-smoke.*`, and `postgres-contract-harness.*` exist | RPD-040 should add artifact scripts and call existing gates rather than duplicating them. |
 | CI | `.github/workflows/release-gate.yml` runs fast, PostgreSQL, self-host smoke, API/SDK redaction gates | RPD-040 should add artifact job shape that invokes repo scripts. |
 | Deployment docs | `docs/deployment/SELF_HOSTED.md` and `BACKUP_RESTORE_UPGRADE.md` exist | RPD-050 should distinguish source-built dev flows from packaged operation. |

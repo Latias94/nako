@@ -8,7 +8,7 @@ redaction_inventory_pattern='storage_uri|managed-artwork://|source_uri|cache_uri
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release-gate.sh [--mode docs|fast|db|api|postgres|workspace|all] [--postgres-url URL] [--skip-redaction-inventory]
+Usage: scripts/release-gate.sh [--mode docs|fast|db|api|postgres|container|workspace|all] [--postgres-url URL] [--skip-redaction-inventory]
 
 Runs Taru's local release gate without deleting user data or assuming Docker.
 USAGE
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$mode" in
-  docs|fast|db|api|postgres|workspace|all) ;;
+  docs|fast|db|api|postgres|container|workspace|all) ;;
   *)
     echo "Invalid mode: $mode" >&2
     usage >&2
@@ -107,6 +107,26 @@ api_sdk_gate() {
   step git diff --check
 }
 
+container_gate() {
+  local media_root="$repo_root/target/release-gate/media/movies"
+  mkdir -p "$media_root"
+
+  step cargo nextest run -p taru-server config --no-fail-fast
+
+  echo
+  echo "==> docker compose config for Taru SQLite stack"
+  TARU_ADMIN_TOKEN="release-gate-admin-token" \
+    TARU_MEDIA_ROOT="$media_root" \
+    docker compose -f deploy/compose/taru-sqlite.yml config >/dev/null
+
+  echo
+  echo "==> docker compose config for Taru PostgreSQL stack"
+  TARU_ADMIN_TOKEN="release-gate-admin-token" \
+    TARU_POSTGRES_PASSWORD="release-gate-postgres-password" \
+    TARU_MEDIA_ROOT="$media_root" \
+    docker compose -f deploy/compose/taru-postgres.yml config >/dev/null
+}
+
 echo "Taru release gate"
 echo "Mode: $mode"
 echo "Repository: $repo_root"
@@ -135,6 +155,10 @@ if contains_mode "fast" || contains_mode "api"; then
   step cargo nextest run -p taru-api managed_artwork --no-fail-fast
   step cargo nextest run -p taru-server managed_artwork --no-fail-fast
   step cargo nextest run -p taru-server self_host_smoke --no-fail-fast
+fi
+
+if contains_mode "container"; then
+  container_gate
 fi
 
 if contains_mode "workspace"; then

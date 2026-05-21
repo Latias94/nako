@@ -1,21 +1,20 @@
-# Taru self-hosted PostgreSQL example.
+# Taru container SQLite example.
 #
-# Copy this file to your host-specific config location and replace all paths,
-# database credentials, and placeholder environment variable names before
-# production use.
+# Mounted by deploy/compose/taru-sqlite.yml at /config/taru.toml.
+# Durable state lives under /data; rebuildable cache lives under /cache.
 
-listen_addr = "127.0.0.1:3000"
-database_backend = "postgres"
-database_url_env = "TARU_DATABASE_URL"
+listen_addr = "0.0.0.0:3000"
+database_backend = "sqlite"
+database_url = "sqlite:///data/taru.db"
 ffprobe_path = "ffprobe"
 ffmpeg_path = "ffmpeg"
-scan_concurrency = 2
-probe_concurrency = 4
+scan_concurrency = 1
+probe_concurrency = 2
 metadata_concurrency = 2
 remux_concurrency = 1
 webhook_concurrency = 2
 remux_timeout_ms = 1800000
-remux_staging_root = "/var/cache/taru/remux"
+remux_staging_root = "/cache/remux"
 
 [auth]
 enabled = true
@@ -24,27 +23,27 @@ token_env = "TARU_ADMIN_TOKEN"
 [transcode]
 hardware_acceleration = "none"
 hardware_fallback = "cpu"
-cpu_concurrency = 2
+cpu_concurrency = 1
 gpu_concurrency = 1
 
 [staging]
-max_bytes = 214748364800
+max_bytes = 107374182400
 retention_ms = 604800000
 cleanup_on_startup = true
 
 [playback]
-remote_stream_concurrency = 16
-remote_stage_concurrency = 4
+remote_stream_concurrency = 8
+remote_stage_concurrency = 2
 
 [artwork]
-artifact_root = "/var/lib/taru/artwork"
+artifact_root = "/data/artwork"
 fetch_timeout_ms = 10000
 fetch_max_attempts = 2
 fetch_max_bytes = 26214400
-fetch_concurrency = 4
+fetch_concurrency = 2
 ingest_worker_enabled = true
 ingest_worker_idle_ms = 1000
-fetch_user_agent = "taru-self-hosted/0.1"
+fetch_user_agent = "taru-container/0.1"
 max_width = 20000
 max_height = 20000
 
@@ -52,8 +51,8 @@ max_height = 20000
 timeout_ms = 10000
 max_attempts = 2
 min_interval_ms = 250
-concurrency = 2
-user_agent = "taru-self-hosted/0.1"
+concurrency = 1
+user_agent = "taru-container/0.1"
 circuit_breaker_failures = 5
 circuit_breaker_backoff_ms = 60000
 

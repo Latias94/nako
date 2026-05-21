@@ -6,7 +6,7 @@ use std::{
 use taru_core::{Result, TaruError};
 use taru_db::{DatabaseConnectOptions, TaruDatabase};
 
-use crate::config::TaruServerConfig;
+use crate::config::{TaruServerConfig, resolve_database_url};
 
 mod addons;
 mod artwork;
@@ -64,7 +64,7 @@ impl TaruApp {
     pub async fn new(config: TaruServerConfig) -> Result<Self> {
         let store = TaruDatabase::connect_with_options(DatabaseConnectOptions {
             backend: config.database_backend,
-            url: config.database_url.clone(),
+            url: resolve_database_url(&config)?,
             sqlite_runtime: None,
         })
         .await?;

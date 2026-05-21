@@ -33,14 +33,16 @@ Task IDs use the `RPD` prefix.
 
 ## M2 — Container And Compose Packaging
 
-- [ ] RPD-030 [owner=codex] [deps=RPD-020] [scope=Dockerfile,deploy,docs/deployment,scripts,docs/workstreams/release-packaging-and-distribution]
+- [x] RPD-030 [owner=codex] [deps=RPD-020] [scope=Dockerfile,deploy,docs/deployment,scripts,docs/workstreams/release-packaging-and-distribution]
   Goal: Add a Taru server container build path and compose examples that run
   Taru with durable external volumes and PostgreSQL or SQLite configuration.
   Validation: Dockerfile/static build checks where Docker is available;
   `docker compose config`; docs grep for durable state, auth, DB, artifact root,
   and backup warnings; `git diff --check`.
   Review: Examples must not ship unsafe public binds or real secrets.
-  Evidence: container/compose outputs and docs.
+  Evidence: `Dockerfile`, `.dockerignore`, `deploy/container/*.toml`,
+  `deploy/compose/taru-*.yml`, `database_url_env`, `scripts/release-gate.*`
+  container mode, compose config output, and docs.
   Handoff: Continue with release artifact scripts/CI.
 
 ## M3 — Release Artifact Script And CI Shape

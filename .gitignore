@@ -30,3 +30,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Local environment files
+.env
+.env.*
+!.env.example
+deploy/compose/.env
