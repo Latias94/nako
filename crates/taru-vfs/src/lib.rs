@@ -394,6 +394,83 @@ pub struct StorageLinkPlan {
     pub message: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageApplyKind {
+    Copy,
+    Hardlink,
+    Symlink,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StorageApplyRequest {
+    pub source_uri: StorageUri,
+    pub target_uri: StorageUri,
+    pub kind: StorageApplyKind,
+}
+
+impl StorageApplyRequest {
+    #[must_use]
+    pub fn new(source_uri: StorageUri, target_uri: StorageUri, kind: StorageApplyKind) -> Self {
+        Self {
+            source_uri,
+            target_uri,
+            kind,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageApplyStatus {
+    Applied,
+    Unsupported,
+    SourceMissing,
+    SourceNotFile,
+    TargetParentMissing,
+    TargetParentNotDirectory,
+    TargetExists,
+    SecurityViolation,
+    ApplyFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageApplyObject {
+    pub uri: StorageUri,
+    pub kind: ObjectKind,
+    pub len: Option<u64>,
+    pub etag: Option<String>,
+    pub fingerprint_available: bool,
+    pub capabilities: StorageCapabilities,
+}
+
+impl StorageApplyObject {
+    #[must_use]
+    pub fn from_metadata(metadata: ObjectMetadata) -> Self {
+        Self {
+            uri: metadata.uri,
+            kind: metadata.kind,
+            len: metadata.len,
+            etag: metadata.etag,
+            fingerprint_available: metadata.fingerprint.is_some(),
+            capabilities: metadata.capabilities,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageApplyReport {
+    pub source_uri: StorageUri,
+    pub target_uri: StorageUri,
+    pub kind: StorageApplyKind,
+    pub status: StorageApplyStatus,
+    pub applied: bool,
+    pub target_created: bool,
+    pub source: Option<StorageApplyObject>,
+    pub target: Option<StorageApplyObject>,
+    pub message: String,
+}
+
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
     fn scheme(&self) -> &'static str;
@@ -465,6 +542,20 @@ pub trait StorageBackend: Send + Sync {
         })
     }
 
+    async fn apply(&self, request: StorageApplyRequest) -> Result<StorageApplyReport> {
+        Ok(StorageApplyReport {
+            source_uri: request.source_uri,
+            target_uri: request.target_uri,
+            kind: request.kind,
+            status: StorageApplyStatus::Unsupported,
+            applied: false,
+            target_created: false,
+            source: None,
+            target: None,
+            message: "storage backend does not support storage apply".to_owned(),
+        })
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let _ = request;
         Err(TaruError::Unsupported(
@@ -522,6 +613,10 @@ where
         self.as_ref().plan_link(request).await
     }
 
+    async fn apply(&self, request: StorageApplyRequest) -> Result<StorageApplyReport> {
+        self.as_ref().apply(request).await
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.as_ref().stage(request).await
     }
@@ -574,6 +669,10 @@ where
 
     async fn plan_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
         self.as_ref().plan_link(request).await
+    }
+
+    async fn apply(&self, request: StorageApplyRequest) -> Result<StorageApplyReport> {
+        self.as_ref().apply(request).await
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {

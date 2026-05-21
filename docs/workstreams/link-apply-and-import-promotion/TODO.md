@@ -48,14 +48,17 @@ Task IDs use the `LAIP` prefix.
 
 ## M3 — VFS Copy/Link Apply Primitive
 
-- [ ] LAIP-040 [owner=codex] [deps=LAIP-020,LAIP-030,LNA-020] [scope=crates/taru-vfs]
+- [x] LAIP-040 [owner=codex] [deps=LAIP-020,LAIP-030,LNA-020] [scope=crates/taru-vfs]
   Goal: Add storage-mediated copy/hardlink/symlink apply primitives that reuse
   planning safety checks, never expose OS path mutation to server code, and
   return typed redacted outcomes.
   Validation: `cargo nextest run -p taru-vfs link --no-fail-fast`; focused copy
   apply tests; `cargo fmt --all -- --check`; `git diff --check`.
   Evidence: VFS storage apply types, local backend tests, unsupported backend
-  behavior.
+  behavior. Completed with `StorageApplyKind`, `StorageApplyRequest`,
+  `StorageApplyStatus`, redacted `StorageApplyReport`, default unsupported
+  backend behavior, cached-backend forwarding, and local copy/hardlink/symlink
+  apply primitives that reuse planning safety and never overwrite targets.
   Handoff: Compose promotion apply orchestration in LAIP-050.
 
 ## M4 — Promotion Apply Orchestration

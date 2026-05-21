@@ -8,9 +8,9 @@ use taru_core::{
 
 use crate::{
     ByteRange, ObjectCacheState, ObjectCacheStatus, ObjectKind, ObjectListing, ObjectMetadata,
-    ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend, StorageCapabilities,
-    StorageLinkPlan, StorageLinkPlanRequest, StorageUri, StorageWriteReport, StorageWriteRequest,
-    VirtualFile,
+    ReadRange, ReadStream, StageRequest, StagedFile, StorageApplyReport, StorageApplyRequest,
+    StorageBackend, StorageCapabilities, StorageLinkPlan, StorageLinkPlanRequest, StorageUri,
+    StorageWriteReport, StorageWriteRequest, VirtualFile,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -248,6 +248,10 @@ where
 
     async fn plan_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
         self.inner.plan_link(request).await
+    }
+
+    async fn apply(&self, request: StorageApplyRequest) -> Result<StorageApplyReport> {
+        self.inner.apply(request).await
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
