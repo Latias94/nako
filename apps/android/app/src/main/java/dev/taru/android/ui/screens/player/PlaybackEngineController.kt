@@ -26,22 +26,24 @@ internal interface PlaybackEngineController {
 @OptIn(UnstableApi::class)
 internal fun media3PlaybackEngineController(
     context: Context,
-    launch: PlaybackLaunchRequest,
+    accessToken: String,
 ): PlaybackEngineController {
     val dataSourceFactory = DefaultHttpDataSource.Factory()
-        .setDefaultRequestProperties(launch.request.headers)
+        .setDefaultRequestProperties(playbackAuthorizationHeaders(accessToken))
     val mediaSourceFactory = DefaultMediaSourceFactory(context)
         .setDataSourceFactory(dataSourceFactory)
     return Media3PlaybackEngineController(
         player = ExoPlayer.Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
             .build(),
+        accessToken = accessToken,
     )
 }
 
 @OptIn(UnstableApi::class)
 private class Media3PlaybackEngineController(
     override val player: ExoPlayer,
+    private val accessToken: String,
 ) : PlaybackEngineController {
     override val playbackState: Int
         get() = player.playbackState
@@ -52,10 +54,11 @@ private class Media3PlaybackEngineController(
     override fun prepare(launch: PlaybackLaunchRequest) {
         player.stop()
         player.clearMediaItems()
-        val mediaItem = MediaItem.fromUri(launch.request.url)
-        if (launch.request.url.contains("/stream/hls/playlist.m3u8")) {
+        val finalRequest = launch.authenticatedRequest(accessToken)
+        val mediaItem = MediaItem.fromUri(finalRequest.url)
+        if (finalRequest.url.contains("/stream/hls/playlist.m3u8")) {
             val dataSourceFactory = DefaultHttpDataSource.Factory()
-                .setDefaultRequestProperties(launch.request.headers)
+                .setDefaultRequestProperties(finalRequest.headers)
             player.setMediaSource(
                 HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem),
             )
@@ -88,3 +91,10 @@ private class Media3PlaybackEngineController(
         player.release()
     }
 }
+
+private fun playbackAuthorizationHeaders(accessToken: String): Map<String, String> =
+    if (accessToken.isBlank()) {
+        emptyMap()
+    } else {
+        mapOf("Authorization" to "Bearer $accessToken")
+    }

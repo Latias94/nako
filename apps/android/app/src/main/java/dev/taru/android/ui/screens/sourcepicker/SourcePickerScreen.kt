@@ -27,6 +27,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.MediaSourceDto
@@ -40,6 +47,7 @@ import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.player.PlaybackResumeSource
 import dev.taru.android.player.ResumePlaybackPosition
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PlaybackSelectionUiState
 import dev.taru.android.ui.browse.SourceProbeUiState
@@ -59,7 +67,11 @@ internal data class SourcePickerDisplayModel(
     val factLabels: List<String>,
     val selected: Boolean,
     val playbackMode: PlaybackModePresentation?,
-)
+) {
+    val stateDescription: String = if (selected) "Selected" else "Not selected"
+    val accessibilityLabel: String =
+        "${if (selected) "Selected version" else "Choose version"}: $primaryLabel. $secondaryText."
+}
 
 internal data class PlaybackModePresentation(
     val label: String,
@@ -101,7 +113,7 @@ internal fun SourcePickerSurface(
 
         if (sources.isEmpty()) {
             Text(
-                text = "No playable Media Source is available from the Public Client API.",
+                text = "No playable version is available for this title.",
                 color = TaruTextSecondary,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -162,7 +174,7 @@ private fun SourceProbePanel(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
             verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
         ) {
-            StatusChip(text = "Loading source facts")
+            StatusChip(text = "Checking version details")
         }
         is SourceProbeUiState.Content -> {
             val facts = if (state.response.sourceId == selectedSource.id) {
@@ -174,8 +186,8 @@ private fun SourceProbePanel(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
             ) {
-                StatusChip(text = "Source facts")
-                facts.ifEmpty { listOf("No probe facts") }.forEach { fact ->
+                StatusChip(text = "Version details")
+                facts.ifEmpty { listOf("No details available") }.forEach { fact ->
                     StatusChip(text = fact)
                 }
             }
@@ -185,16 +197,16 @@ private fun SourceProbePanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Source facts unavailable",
+                text = "Version details unavailable",
                 color = TaruTextMuted,
                 style = MaterialTheme.typography.labelMedium,
             )
             OutlinedButton(onClick = onRetry) {
-                Text("Retry")
+                Text(stringResource(TaruStrings.retry))
             }
             if (state.diagnostics.category in serverChangeCategories) {
                 OutlinedButton(onClick = onChangeServer) {
-                    Text("Change server")
+                    Text(stringResource(TaruStrings.changeServer))
                 }
             }
         }
@@ -219,7 +231,7 @@ internal fun sourcePickerDisplayModel(
         ?.let(::playbackModePresentation)
     return SourcePickerDisplayModel(
         sourceId = source.id,
-        primaryLabel = source.fileName.ifBlank { "Media Source ${index + 1}" },
+        primaryLabel = source.fileName.ifBlank { "Version ${index + 1}" },
         secondaryText = sourcePickerSecondaryText(source, index),
         factLabels = sourcePickerFacts(source),
         selected = selected,
@@ -238,7 +250,7 @@ internal fun playbackModePresentation(
         )
         ClientPlaybackMode.Remux -> PlaybackModePresentation(
             label = "Remux",
-            consequence = "Server changes the container while preserving media streams.",
+            consequence = "Taru changes the container while keeping the original video and audio.",
             warning = "Container change",
         )
         ClientPlaybackMode.Transcode -> {
@@ -246,11 +258,11 @@ internal fun playbackModePresentation(
             PlaybackModePresentation(
                 label = if (isHls) "HLS" else "Transcode",
                 consequence = if (isHls) {
-                    "Server prepares an adaptive stream before playback."
+                    "Taru prepares an adaptive stream before playback."
                 } else {
-                    "Server converts media for device compatibility."
+                    "Taru converts the media for this device."
                 },
-                warning = "Server work required",
+                warning = "Prepared on server",
             )
         }
     }
@@ -260,7 +272,7 @@ private fun sourcePickerSecondaryText(
     index: Int,
 ): String =
     listOfNotNull(
-        source.libraryId.takeIf { it.isNotBlank() }?.let { "Media Library $it" },
+        source.libraryId.takeIf { it.isNotBlank() }?.let { "Library $it" },
         "Version ${index + 1}",
     ).joinToString(" / ")
 
@@ -288,12 +300,12 @@ private fun SourcePickerHeader(
             verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
         ) {
             Text(
-                text = "Source / Version",
+                text = "Version",
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
                 text = selectedSource?.fileName?.takeIf { it.isNotBlank() }
-                    ?: "Choose which Media Source Taru should prepare.",
+                    ?: "Choose which version Taru should prepare.",
                 color = TaruTextSecondary,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 2,
@@ -332,7 +344,7 @@ private fun SelectedSourceDecisionPanel(
                     onRequestDecision = onRequestDecision,
                 )
                 PlaybackSelectionUiState.Loading -> Text(
-                    text = "Checking compatibility and playback route through the Public Client API.",
+                    text = "Checking the best way to play this version.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -380,7 +392,7 @@ private fun DecisionIdleContent(
         text = if (resumePosition != null) {
             resumePositionBody(resumePosition)
         } else {
-            "Taru will prepare a client-safe playback decision before the player opens."
+            "Taru will check the best playback path before the player opens."
         },
         color = TaruTextSecondary,
         style = MaterialTheme.typography.bodyMedium,
@@ -417,7 +429,7 @@ private fun DecisionReadyContent(
             verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
         ) {
             Text(
-                text = "${presentation.label} route prepared",
+                text = "${presentation.label} ready",
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
@@ -457,7 +469,7 @@ private fun DecisionReadyContent(
             Text(if (resumePosition != null) "Start resume" else "Start playback")
         }
     } ?: Text(
-        text = "No playable route was prepared for this source.",
+        text = "No playable version was prepared.",
         color = TaruTextMuted,
         style = MaterialTheme.typography.labelMedium,
     )
@@ -465,17 +477,28 @@ private fun DecisionReadyContent(
 
 private fun resumePositionTitle(position: ResumePlaybackPosition): String =
     when (position.source) {
-        PlaybackResumeSource.UserPlaybackState -> "Resume from server state"
-        PlaybackResumeSource.DeviceLocal -> "Resume on this device"
+        PlaybackResumeSource.UserPlaybackState -> "Resume from your last server position"
+        PlaybackResumeSource.DeviceLocal -> "Resume where this device stopped"
     }
 
 private fun resumePositionBody(position: ResumePlaybackPosition): String =
     when (position.source) {
         PlaybackResumeSource.UserPlaybackState ->
-            "Taru will use authoritative User Playback State after checking the selected source."
+            "Taru will continue from the last position saved by your server after checking this version."
         PlaybackResumeSource.DeviceLocal ->
-            "A device-local position exists for the selected source. Taru still checks the source before playback."
+            "This device has a saved position for the selected version. Taru checks it before playback."
     }
+
+internal data class ResumePositionPresentation(
+    val title: String,
+    val body: String,
+)
+
+internal fun resumePositionPresentation(position: ResumePlaybackPosition): ResumePositionPresentation =
+    ResumePositionPresentation(
+        title = resumePositionTitle(position),
+        body = resumePositionBody(position),
+    )
 
 @Composable
 private fun DecisionFailureContent(
@@ -512,10 +535,10 @@ private fun DecisionFailureContent(
     }
     Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
         Button(onClick = onRetry) {
-            Text("Retry")
+            Text(stringResource(TaruStrings.retry))
         }
         OutlinedButton(onClick = onChangeServer) {
-            Text("Change server")
+            Text(stringResource(TaruStrings.changeServer))
         }
     }
 }
@@ -540,7 +563,18 @@ private fun SourcePickerRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onSelect),
+            .semantics {
+                contentDescription = model.accessibilityLabel
+                stateDescription = model.stateDescription
+                role = Role.RadioButton
+                selected = model.selected
+            }
+            .clickable(
+                enabled = enabled,
+                role = Role.RadioButton,
+                onClickLabel = if (model.selected) "Keep selected version" else "Choose this version",
+                onClick = onSelect,
+            ),
         shape = TaruShape.medium,
         color = containerColor,
         border = BorderStroke(1.dp, borderColor),
@@ -552,7 +586,7 @@ private fun SourcePickerRow(
         ) {
             RadioButton(
                 selected = model.selected,
-                onClick = onSelect,
+                onClick = null,
                 enabled = enabled,
             )
             Column(

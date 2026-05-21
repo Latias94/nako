@@ -7,6 +7,7 @@ import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.ui.browse.BrowseFacetUiFamily
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -30,6 +31,53 @@ class MediaItemDetailRouteTest {
             DetailRelationshipTarget.PersonDetail("person-keeper"),
             rows.single().target,
         )
+    }
+
+    @Test
+    fun detailCopyUsesViewerLanguageForUnavailableRelationships() {
+        assertEquals(
+            "More from this collection needs server support.",
+            relatedCollectionsSubtitle(collectionCount = 0),
+        )
+        assertEquals(
+            "2 collection link(s)",
+            relatedCollectionsSubtitle(collectionCount = 2),
+        )
+        assertEquals(
+            "Series and extras browsing needs server support.",
+            hierarchySubtitle(
+                MediaItemDto(
+                    id = "night-harbor",
+                    kind = "movie",
+                    metadata = CanonicalMetadataDto(title = "Night Harbor"),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun creditCopyUsesViewerLanguageInsteadOfApiTerms() {
+        val rows = creditRelationshipRows(
+            response = testDetailResponse(
+                credits = listOf(
+                    ItemCreditDto(
+                        personId = "person-keeper",
+                        role = JsonPrimitive("actor"),
+                        character = "Keeper",
+                    ),
+                    ItemCreditDto(
+                        personId = "",
+                        role = JsonPrimitive("director"),
+                    ),
+                ),
+            ),
+        )
+
+        val subtitles = rows.joinToString(" ") { it.subtitle }
+        assertTrue(subtitles.contains("related titles"))
+        assertFalse(subtitles.contains("Media Items"))
+        assertFalse(subtitles.contains("response"))
+        assertFalse(subtitles.contains("Public Client API"))
     }
 
     @Test

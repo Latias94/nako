@@ -184,13 +184,11 @@ class TaruPlaybackClientTest {
 
         val direct = client.directPlaybackTarget(
             profile = profile,
-            accessToken = "secret-token",
             sourceId = "source 1",
             range = "bytes=10-20",
         )
         val remux = client.remuxPlaybackTarget(
             profile = profile,
-            accessToken = "secret-token",
             sourceId = "source 1",
             capabilities = capabilities,
             outputContainer = ClientOutputContainer.Mkv,
@@ -198,7 +196,6 @@ class TaruPlaybackClientTest {
         )
         val hls = client.hlsPlaylistTarget(
             profile = profile,
-            accessToken = "secret-token",
             sourceId = "source 1",
             capabilities = PlaybackCapabilities(
                 containers = listOf("hls"),
@@ -207,7 +204,6 @@ class TaruPlaybackClientTest {
         )
         val segment = client.hlsSegmentTarget(
             profile = profile,
-            accessToken = "secret-token",
             sessionId = "session 1",
             segmentName = "seg 001.ts",
         )
@@ -232,8 +228,12 @@ class TaruPlaybackClientTest {
         assertEquals("bytes=10-20", direct.request.headers["Range"])
         assertEquals("bytes=0-", remux.request.headers["Range"])
         listOf(direct, remux, hls, segment).forEach { target ->
-            assertEquals("Bearer secret-token", target.request.headers["Authorization"])
+            assertEquals(null, target.request.headers["Authorization"])
             assertEquals("Bearer <redacted>", target.safeRequest.headers["Authorization"])
+            assertEquals(
+                "Bearer secret-token",
+                target.authenticatedRequest("secret-token").headers["Authorization"],
+            )
             assertFalse(target.safeRequest.toString().contains("secret-token"))
             assertFalse(target.toString().contains("secret-token"))
         }
@@ -439,9 +439,9 @@ class TaruPlaybackClientTest {
             ),
         )
 
-        val direct = client.recommendedPlaybackTarget(profile, "secret-token", directDecision)
-        val remux = client.recommendedPlaybackTarget(profile, "secret-token", remuxDecision)
-        val hls = client.recommendedPlaybackTarget(profile, "secret-token", hlsDecision)
+        val direct = client.recommendedPlaybackTarget(profile, directDecision)
+        val remux = client.recommendedPlaybackTarget(profile, remuxDecision)
+        val hls = client.recommendedPlaybackTarget(profile, hlsDecision)
 
         assertEquals("http://home.example.test/sources/source%201/stream", direct?.request?.url)
         assertEquals(
@@ -593,6 +593,25 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `preparing any playback target requires token before building launch request`() = runBlocking {
+        val transport = FakePlaybackTransport()
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = " ",
+            decision = playbackDecision(ClientPlaybackMode.DirectPlay),
+        )
+
+        assertTrue(result is PlaybackResult.Failure)
+        assertEquals(
+            PlaybackFailureCategory.MissingAccessToken,
+            (result as PlaybackResult.Failure).diagnostics.category,
+        )
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
     fun `playback errors are actionable and sanitized`() = runBlocking {
         val transport = FakePlaybackTransport(
             ResponseStep(
@@ -671,6 +690,65 @@ class TaruPlaybackClientTest {
         assertEquals("transport_error", diagnostics.publicError?.code)
         assertFalse(diagnostics.toString().contains("secret-token"))
         assertFalse(diagnostics.toString().contains("C:\\media"))
+    }
+
+    @Test
+    fun `session preflight public api errors reuse sanitized playback diagnostics`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 409,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    body = """{"code":"session_conflict","message":"ffmpeg.exe -i C:\\media\\night.mkv secret-token"}""",
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Remux, ClientOutputContainer.Mp4),
+        )
+
+        assertTrue(result is PlaybackResult.Failure)
+        val diagnostics = (result as PlaybackResult.Failure).diagnostics
+        assertEquals(PlaybackFailureCategory.SessionConflict, diagnostics.category)
+        assertEquals(409, diagnostics.statusCode)
+        assertEquals("session_conflict", diagnostics.publicError?.code)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+        assertFalse(diagnostics.toString().contains("secret-token"))
+        assertFalse(diagnostics.toString().contains("C:\\media"))
+        assertFalse(diagnostics.toString().contains("ffmpeg.exe"))
+    }
+
+    @Test
+    fun `session preflight unsupported api version is rejected by shared executor`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    body = "",
+                    headers = mapOf(
+                        TaruPublicApiContract.apiVersionHeader to listOf("v2"),
+                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-1"),
+                    ),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Remux, ClientOutputContainer.Mp4),
+        )
+
+        assertTrue(result is PlaybackResult.Failure)
+        val diagnostics = (result as PlaybackResult.Failure).diagnostics
+        assertEquals(PlaybackFailureCategory.UnsupportedApiVersion, diagnostics.category)
+        assertEquals("v2", diagnostics.observedApiVersion)
+        assertEquals("Bearer <redacted>", diagnostics.request?.headers?.get("Authorization"))
+        assertFalse(diagnostics.toString().contains("secret-token"))
     }
 
     private fun profile(baseUrl: String): ServerProfile =

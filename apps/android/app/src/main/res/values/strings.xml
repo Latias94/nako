@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Taru</string>
+    <string name="action_back">Back</string>
+    <string name="action_change_server">Change server</string>
+    <string name="action_copy_diagnostics">Copy diagnostics</string>
+    <string name="action_load_more">Load more</string>
+    <string name="action_loading_more">Loading more</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_search">Search</string>
+    <string name="action_switch_server">Switch server</string>
+    <string name="access_key_label">Server access key</string>
+    <string name="copy_diagnostics_a11y">Copy sanitized diagnostics</string>
+    <string name="player_session_active_a11y">Playback session is active</string>
 </resources>

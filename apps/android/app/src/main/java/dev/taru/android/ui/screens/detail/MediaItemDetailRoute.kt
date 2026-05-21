@@ -36,6 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
@@ -46,6 +51,7 @@ import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.player.ResumePlaybackPosition
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruBackdropArtwork
 import dev.taru.android.ui.artwork.TaruPosterArtwork
@@ -99,8 +105,8 @@ internal fun DetailRouteContent(
             ItemDetailUiState.Idle,
             ItemDetailUiState.Loading,
             -> LoadingCard(
-                title = "Loading Media Item",
-                body = "Fetching Canonical Metadata and client-safe source facts.",
+                title = "Loading title",
+                body = "Loading title details and playable versions.",
             )
             is ItemDetailUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -132,7 +138,7 @@ private fun DetailBackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = stringResource(TaruStrings.back),
         )
     }
 }
@@ -345,7 +351,7 @@ private fun DetailActionCluster(
             onClick = { selectedSource?.id?.let(onRequestPlayback) },
             enabled = selectedSource != null && playbackState !is PlaybackSelectionUiState.Loading,
         ) {
-            Text("Check source")
+            Text("Check version")
         }
         PlaybackStatusChip(
             playbackState = playbackState,
@@ -360,12 +366,12 @@ private fun PlaybackStatusChip(
     selectedSource: MediaSourceDto?,
 ) {
     val label = when (playbackState) {
-        PlaybackSelectionUiState.Idle -> if (selectedSource == null) "No source" else "Needs check"
+        PlaybackSelectionUiState.Idle -> if (selectedSource == null) "No version" else "Needs check"
         PlaybackSelectionUiState.Loading -> "Checking"
         is PlaybackSelectionUiState.Content -> if (playbackState.response.source.id == selectedSource?.id) {
             playbackModeLabel(playbackState.response.decision.mode)
         } else {
-            "Check source"
+            "Check version"
         }
         is PlaybackSelectionUiState.Failure -> "Playback issue"
     }
@@ -432,11 +438,7 @@ private fun RelatedMediaSection(
         rows = listOf(
             RelationshipRow(
                 title = "Collections",
-                subtitle = if (response.collections.isEmpty()) {
-                    "Collection browsing needs a Public Client API relationship."
-                } else {
-                    "${response.collections.size} collection link(s)"
-                },
+                subtitle = relatedCollectionsSubtitle(response.collections.size),
                 icon = Icons.AutoMirrored.Rounded.LibraryBooks,
                 target = BrowseFacetTarget(
                     family = BrowseFacetUiFamily.Collection,
@@ -453,7 +455,7 @@ private fun RelatedMediaSection(
             RelationshipRow(
                 title = "Studios",
                 subtitle = if (response.studios.isEmpty()) {
-                    "Studio browsing is not available from this response yet."
+                    "Studio browsing is not available for this title yet."
                 } else {
                     "${response.studios.size} studio link(s)"
                 },
@@ -508,6 +510,10 @@ private fun DetailRelationshipCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "${row.title}. ${row.subtitle}"
+                        role = Role.Button
+                    }
                     .clickable {
                         when (val target = row.target) {
                             is DetailRelationshipTarget.Facet -> onOpenFacet(target.target)
@@ -556,7 +562,7 @@ internal fun creditRelationshipRows(response: ItemDetailResponse): List<DetailRe
             subtitle = if (personId == null) {
                 "Person link unavailable for this credit."
             } else {
-                "Open Person Detail and related Media Items."
+                "Open this person and related titles."
             },
             icon = Icons.Rounded.Person,
             target = personId
@@ -609,11 +615,18 @@ private fun detailFactLabels(item: MediaItemDto): List<String> =
         item.parentId?.takeIf { it.isNotBlank() }?.let { add("In hierarchy") }
     }.ifEmpty { listOf(item.kind) }
 
-private fun hierarchySubtitle(item: MediaItemDto): String =
-    if (item.parentId.isNullOrBlank()) {
-        "Series, season, extras, and parent navigation need explicit API support."
+internal fun relatedCollectionsSubtitle(collectionCount: Int): String =
+    if (collectionCount <= 0) {
+        "More from this collection needs server support."
     } else {
-        "This item has a parent relationship, but hierarchy browsing is not available yet."
+        "$collectionCount collection link(s)"
+    }
+
+internal fun hierarchySubtitle(item: MediaItemDto): String =
+    if (item.parentId.isNullOrBlank()) {
+        "Series and extras browsing needs server support."
+    } else {
+        "This item belongs to a hierarchy, but browsing it needs server support."
     }
 
 private fun creditTitle(index: Int, credit: ItemCreditDto): String {

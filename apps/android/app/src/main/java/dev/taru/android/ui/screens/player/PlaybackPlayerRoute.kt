@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +57,7 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.DevicePlaybackPositionStore
 import dev.taru.android.player.PlaybackExitCoordinator
 import dev.taru.android.player.PlaybackLaunchRequest
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.StatusChip
@@ -99,10 +101,11 @@ internal fun PlaybackPlayerRoute(
             exitEffectScope = exitEffectScope,
         )
     }
-    val routeHost = remember(context, launch, exitEffectRunner) {
+    val playbackAccessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
+    val routeHost = remember(context, launch, exitEffectRunner, playbackAccessToken) {
         val engine = media3PlaybackEngineController(
             context = context,
-            launch = launch,
+            accessToken = playbackAccessToken,
         )
         PlayerRouteHost(
             launch = launch,
@@ -222,7 +225,7 @@ private fun PlayerTopOverlay(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(TaruStrings.back),
                 tint = Color.White,
             )
         }
@@ -281,6 +284,9 @@ private fun PlayerBottomOverlay(
     playerState: String,
     modifier: Modifier = Modifier,
 ) {
+    val sessionAccessibilityLabel =
+        chrome.sessionAccessibilityLabel
+            ?: stringResource(TaruStrings.playerSessionActiveAccessibility)
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -320,9 +326,9 @@ private fun PlayerBottomOverlay(
                 chrome.resumeLabel?.let { StatusChip(text = it) }
                 chrome.sessionLabel?.let { label ->
                     Box(
-                        modifier = chrome.sessionAccessibilityLabel
-                            ?.let { Modifier.semantics { contentDescription = it } }
-                            ?: Modifier,
+                        modifier = Modifier.semantics {
+                            contentDescription = sessionAccessibilityLabel
+                        },
                     ) {
                         StatusChip(text = label)
                     }
@@ -388,7 +394,7 @@ private fun PlaybackErrorSheet(
                     contentDescription = null,
                 )
                 Spacer(modifier = Modifier.width(TaruSpacing.small))
-                Text("Copy diagnostics")
+                Text(stringResource(TaruStrings.copyDiagnostics))
             }
             Spacer(modifier = Modifier.height(TaruSpacing.xsmall))
         }

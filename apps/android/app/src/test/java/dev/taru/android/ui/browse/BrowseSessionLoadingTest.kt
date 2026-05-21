@@ -10,16 +10,15 @@ import dev.taru.android.browse.LibraryListResponse
 import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
+import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.PageInfo
+import dev.taru.android.browse.PageRequest
 import dev.taru.android.browse.PersonDto
 import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.SearchItemHit
 import dev.taru.android.browse.SearchResponse
-import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.TagDto
 import dev.taru.android.browse.TagListResponse
-import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.media.MediaProbeDto
 import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.playback.ClientPlaybackDecision
@@ -28,6 +27,7 @@ import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackFailureCategory
 import dev.taru.android.playback.PlaybackMediaSourceDto
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.PlaybackStartRequest
 import dev.taru.android.playback.PlaybackStartResult
@@ -128,6 +128,102 @@ class BrowseSessionLoadingTest {
         val content = session.state.value.searchState as SearchUiState.Content
         assertEquals("second", session.state.value.submittedSearchQuery)
         assertEquals("second", content.response.hits.single().item.id)
+    }
+
+    @Test
+    fun `search load more appends the next public page without inventing totals`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            searchStates = listOf(
+                SearchUiState.Content(testSearch("night-harbor", page = testPage(limit = 2, offset = 0, returned = 2))),
+                SearchUiState.Content(testSearch("arrival", page = testPage(limit = 2, offset = 2, returned = 1))),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.SearchQueryChanged("harbor"))
+        session.dispatch(BrowseAction.SubmitSearch)?.join()
+        session.dispatch(BrowseAction.LoadMoreSearch)?.join()
+        val noMoreJob = session.dispatch(BrowseAction.LoadMoreSearch)
+
+        val content = session.state.value.searchState as SearchUiState.Content
+        assertEquals(listOf("night-harbor", "arrival"), content.response.hits.map { it.item.id })
+        assertEquals(testPage(limit = 2, offset = 2, returned = 1), content.response.page)
+        assertEquals(false, content.canLoadMore)
+        assertEquals(null, noMoreJob)
+        assertEquals(
+            listOf(
+                "harbor" to PageRequest(limit = 24, offset = 0),
+                "harbor" to PageRequest(limit = 2, offset = 2),
+            ),
+            dataSource.searchRequests,
+        )
+    }
+
+    @Test
+    fun `relationship index load more appends rows with server page semantics`() = runBlocking {
+        val dataSource = RecordingBrowseDataSource(
+            relationshipIndexStates = listOf(
+                testGenreIndexContent("genre-mystery", "Mystery", page = testPage(limit = 1, offset = 0, returned = 1)),
+                testGenreIndexContent("genre-drama", "Drama", page = testPage(limit = 1, offset = 1, returned = 1)),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Genres))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres)))?.join()
+        session.dispatch(BrowseAction.LoadMoreRelationshipIndex)?.join()
+
+        val content = session.state.value.relationshipIndexState as RelationshipIndexUiState.Content
+        assertEquals(listOf("Mystery", "Drama"), content.rows.map { it.title })
+        assertEquals(testPage(limit = 1, offset = 1, returned = 1), content.page)
+        assertEquals(
+            listOf(
+                RelationshipIndexFamily.Genres to PageRequest(limit = 50, offset = 0),
+                RelationshipIndexFamily.Genres to PageRequest(limit = 1, offset = 1),
+            ),
+            dataSource.relationshipIndexRequests,
+        )
+    }
+
+    @Test
+    fun `facet load more appends related items and preserves current route`() = runBlocking {
+        val target = BrowseFacetTarget(
+            family = BrowseFacetUiFamily.Genre,
+            label = "Mystery",
+            id = "genre-mystery",
+        )
+        val dataSource = RecordingBrowseDataSource(
+            facetStates = listOf(
+                FacetUiState.Content(testFacet(target, itemId = "night-harbor", page = testPage(limit = 1, offset = 0, returned = 1))),
+                FacetUiState.Content(testFacet(target, itemId = "arrival", page = testPage(limit = 1, offset = 1, returned = 0))),
+            ),
+        )
+        val session = BrowseSession(
+            dataSource = dataSource,
+            scope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        session.dispatch(BrowseAction.OpenFacet(target))
+        session.dispatch(BrowseAction.RouteDisplayed(TaruRoute.BrowseFacet(target)))?.join()
+        session.dispatch(BrowseAction.LoadMoreFacet)?.join()
+
+        val content = session.state.value.facetState as FacetUiState.Content
+        assertEquals(TaruRoute.BrowseFacet(target), session.state.value.currentRoute)
+        assertEquals(listOf("night-harbor", "arrival"), content.response.items.map { it.id })
+        assertEquals(false, content.canLoadMore)
+        assertEquals(
+            listOf(
+                target to PageRequest(limit = 24, offset = 0),
+                target to PageRequest(limit = 1, offset = 1),
+            ),
+            dataSource.facetRequests,
+        )
     }
 
     @Test
@@ -279,7 +375,7 @@ class BrowseSessionLoadingTest {
     fun `start playback failure keeps diagnostics in playback state`() = runBlocking {
         val diagnostics = SafePlaybackDiagnostics(
             category = PlaybackFailureCategory.MissingAccessToken,
-            userMessage = "Re-authenticate this server before requesting playback.",
+            userMessage = "Sign in again before requesting playback.",
         )
         val target = testPlaybackTarget("source-a")
         val session = BrowseSession(
@@ -399,7 +495,13 @@ class BrowseSessionLoadingTest {
         assertEquals("Mystery", row.title)
         assertEquals(BrowseFacetUiFamily.Genre, row.target.family)
         assertEquals("genre-mystery", row.target.id)
-        assertEquals(listOf(RelationshipIndexFamily.Genres, RelationshipIndexFamily.Genres), dataSource.relationshipIndexRequests)
+        assertEquals(
+            listOf(
+                RelationshipIndexFamily.Genres to PageRequest(limit = 50, offset = 0),
+                RelationshipIndexFamily.Genres to PageRequest(limit = 50, offset = 0),
+            ),
+            dataSource.relationshipIndexRequests,
+        )
 
         session.dispatch(BrowseAction.OpenFacet(row.target))
         assertEquals(TaruRoute.BrowseFacet(row.target), session.state.value.currentRoute)
@@ -424,7 +526,10 @@ class BrowseSessionLoadingTest {
         assertEquals("Lighthouse", row.title)
         assertEquals(BrowseFacetUiFamily.Tag, row.target.family)
         assertEquals("tag-lighthouse", row.target.id)
-        assertEquals(listOf(RelationshipIndexFamily.Tags), dataSource.relationshipIndexRequests)
+        assertEquals(
+            listOf(RelationshipIndexFamily.Tags to PageRequest(limit = 50, offset = 0)),
+            dataSource.relationshipIndexRequests,
+        )
 
         session.dispatch(BrowseAction.OpenFacet(row.target))
         assertEquals(TaruRoute.BrowseFacet(row.target), session.state.value.currentRoute)
@@ -515,7 +620,10 @@ private class DeferredSearchBrowseDataSource : BrowseDataSource {
     override suspend fun loadLibraryDetail(libraryId: String): LibraryDetailUiState =
         LibraryDetailUiState.Content(testLibrarySources(libraryId))
 
-    override suspend fun search(query: String): SearchUiState {
+    override suspend fun search(
+        query: String,
+        page: PageRequest,
+    ): SearchUiState {
         val deferred = searches.computeIfAbsent(query) { CompletableDeferred() }
         registered
             .computeIfAbsent(query) { CompletableDeferred() }
@@ -523,10 +631,16 @@ private class DeferredSearchBrowseDataSource : BrowseDataSource {
         return deferred.await()
     }
 
-    override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState =
+    override suspend fun loadFacet(
+        target: BrowseFacetTarget,
+        page: PageRequest,
+    ): FacetUiState =
         FacetUiState.Content(testFacet(target))
 
-    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState =
+    override suspend fun loadRelationshipIndex(
+        family: RelationshipIndexFamily,
+        page: PageRequest,
+    ): RelationshipIndexUiState =
         testGenreIndexContent()
 
     override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
@@ -577,6 +691,7 @@ private class RecordingBrowseDataSource(
         testLibrarySources("library-default"),
     ),
     private val searchState: SearchUiState = SearchUiState.Content(testSearch("item-default")),
+    private val searchStates: List<SearchUiState> = emptyList(),
     private val facetState: FacetUiState = FacetUiState.Content(
         testFacet(
             BrowseFacetTarget(
@@ -586,11 +701,13 @@ private class RecordingBrowseDataSource(
             ),
         ),
     ),
+    private val facetStates: List<FacetUiState> = emptyList(),
     private val personDetailState: PersonDetailUiState = PersonDetailUiState.Content(
         response = testPersonDetail("person-default"),
         relatedItems = testPersonItems("person-default"),
     ),
     private val relationshipIndexState: RelationshipIndexUiState = testGenreIndexContent(),
+    private val relationshipIndexStates: List<RelationshipIndexUiState> = emptyList(),
     private val detailState: ItemDetailUiState = ItemDetailUiState.Content(
         testDetail(
             itemId = "item-default",
@@ -609,12 +726,17 @@ private class RecordingBrowseDataSource(
     var homeLoads: Int = 0
         private set
     val searchQueries: MutableList<String> = mutableListOf()
+    val searchRequests: MutableList<Pair<String, PageRequest>> = mutableListOf()
     val facetTargets: MutableList<BrowseFacetTarget> = mutableListOf()
+    val facetRequests: MutableList<Pair<BrowseFacetTarget, PageRequest>> = mutableListOf()
     val personDetailRequests: MutableList<String> = mutableListOf()
-    val relationshipIndexRequests: MutableList<RelationshipIndexFamily> = mutableListOf()
+    val relationshipIndexRequests: MutableList<Pair<RelationshipIndexFamily, PageRequest>> = mutableListOf()
     val detailRequests: MutableList<String> = mutableListOf()
     val sourceProbeRequests: MutableList<String> = mutableListOf()
     val playbackRequests: MutableList<String> = mutableListOf()
+    private val queuedSearchStates = ArrayDeque(searchStates)
+    private val queuedFacetStates = ArrayDeque(facetStates)
+    private val queuedRelationshipIndexStates = ArrayDeque(relationshipIndexStates)
 
     override suspend fun loadHome(): BrowseUiState {
         homeLoads += 1
@@ -624,19 +746,30 @@ private class RecordingBrowseDataSource(
     override suspend fun loadLibraryDetail(libraryId: String): LibraryDetailUiState =
         libraryDetailState
 
-    override suspend fun search(query: String): SearchUiState {
+    override suspend fun search(
+        query: String,
+        page: PageRequest,
+    ): SearchUiState {
         searchQueries += query
-        return searchState
+        searchRequests += query to page
+        return queuedSearchStates.removeFirstOrNull() ?: searchState
     }
 
-    override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
+    override suspend fun loadFacet(
+        target: BrowseFacetTarget,
+        page: PageRequest,
+    ): FacetUiState {
         facetTargets += target
-        return facetState
+        facetRequests += target to page
+        return queuedFacetStates.removeFirstOrNull() ?: facetState
     }
 
-    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
-        relationshipIndexRequests += family
-        return relationshipIndexState
+    override suspend fun loadRelationshipIndex(
+        family: RelationshipIndexFamily,
+        page: PageRequest,
+    ): RelationshipIndexUiState {
+        relationshipIndexRequests += family to page
+        return queuedRelationshipIndexStates.removeFirstOrNull() ?: relationshipIndexState
     }
 
     override suspend fun loadPersonDetail(personId: String): PersonDetailUiState {
@@ -686,7 +819,10 @@ private fun testItems(id: String): dev.taru.android.browse.ItemsResponse =
         page = testPage(returned = 1),
     )
 
-private fun testSearch(itemId: String): SearchResponse =
+private fun testSearch(
+    itemId: String,
+    page: PageInfo = testPage(returned = 1),
+): SearchResponse =
     SearchResponse(
         hits = listOf(
             SearchItemHit(
@@ -694,16 +830,20 @@ private fun testSearch(itemId: String): SearchResponse =
                 score = 1.0f,
             ),
         ),
-        page = testPage(returned = 1),
+        page = page,
     )
 
-private fun testFacet(target: BrowseFacetTarget): FacetItemsResponse =
+private fun testFacet(
+    target: BrowseFacetTarget,
+    itemId: String = "night-harbor",
+    page: PageInfo = testPage(returned = 1),
+): FacetItemsResponse =
     FacetItemsResponse(
         family = BrowseFacetFamily.Genre,
         facetId = target.id.orEmpty(),
         facetLabel = target.label,
-        items = listOf(testItem("night-harbor")),
-        page = testPage(returned = 1),
+        items = listOf(testItem(itemId)),
+        page = page,
     )
 
 private fun testPersonDetail(personId: String): PersonResponse =
@@ -725,26 +865,34 @@ private fun testPersonItems(personId: String): FacetItemsResponse =
         page = testPage(returned = 1),
     )
 
-private fun testGenreIndexContent(): RelationshipIndexUiState.Content =
+private fun testGenreIndexContent(
+    id: String = "genre-mystery",
+    name: String = "Mystery",
+    page: PageInfo = testPage(returned = 1),
+): RelationshipIndexUiState.Content =
     GenreListResponse(
         genres = listOf(
             GenreDto(
-                id = "genre-mystery",
-                name = "Mystery",
+                id = id,
+                name = name,
             ),
         ),
-        page = testPage(returned = 1),
+        page = page,
     ).toRelationshipIndexContent()
 
-private fun testTagIndexContent(): RelationshipIndexUiState.Content =
+private fun testTagIndexContent(
+    id: String = "tag-lighthouse",
+    name: String = "Lighthouse",
+    page: PageInfo = testPage(returned = 1),
+): RelationshipIndexUiState.Content =
     TagListResponse(
         tags = listOf(
             TagDto(
-                id = "tag-lighthouse",
-                name = "Lighthouse",
+                id = id,
+                name = name,
             ),
         ),
-        page = testPage(returned = 1),
+        page = page,
     ).toRelationshipIndexContent()
 
 private fun testItem(id: String): MediaItemDto =
@@ -796,12 +944,7 @@ private fun testPlaybackTarget(
     sessionId: String? = null,
 ): PlaybackRequestTarget =
     PlaybackRequestTarget(
-        request = TaruHttpRequest(
-            method = "GET",
-            url = "http://127.0.0.1:3018/sources/$sourceId/stream",
-            headers = emptyMap(),
-        ),
-        safeRequest = SafeRequestPreview(
+        request = PlaybackRequestDescriptor(
             method = "GET",
             url = "http://127.0.0.1:3018/sources/$sourceId/stream",
             headers = emptyMap(),
@@ -809,9 +952,13 @@ private fun testPlaybackTarget(
         sessionId = sessionId,
     )
 
-private fun testPage(returned: Int): PageInfo =
+private fun testPage(
+    returned: Int,
+    limit: Int = 24,
+    offset: Long = 0,
+): PageInfo =
     PageInfo(
-        limit = 24,
-        offset = 0,
+        limit = limit,
+        offset = offset,
         returned = returned,
     )

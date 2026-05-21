@@ -79,7 +79,7 @@ internal fun HomeScreen(
         when (state) {
             BrowseUiState.Loading -> LoadingCard(
                 title = "Loading library",
-                body = "Fetching visible Media Libraries and Media Items.",
+                body = "Loading visible libraries and titles.",
             )
             is BrowseUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -119,7 +119,7 @@ internal fun HomeScreen(
                 if (state.libraries.libraries.isEmpty()) {
                     EmptyCard(
                         title = "No Media Libraries",
-                        body = "This server has no visible Media Libraries for the current access token.",
+                        body = "This profile does not have any visible libraries yet.",
                     )
                 } else {
                     LibraryCardRow(
@@ -129,13 +129,13 @@ internal fun HomeScreen(
                 }
 
                 SectionHeader(
-                    title = "Visible Media Items",
+                    title = "Visible Titles",
                     action = "${state.items.page.returned}",
                 )
                 if (state.items.items.isEmpty()) {
                     EmptyCard(
                         title = "No visible items",
-                        body = "The current access token can see libraries, but no Media Items were returned.",
+                        body = "This profile can see libraries, but there are no visible titles yet.",
                     )
                 } else {
                     MediaPosterRow(
@@ -258,7 +258,7 @@ private fun HomeHeader(
                 )
                 Text(
                     text = featuredItem?.let(::itemSecondaryText)
-                        ?: "Choose a Media Library, search for a known title, or open the first visible Media Item.",
+                        ?: "Choose a library, search for a known title, or open the first visible title.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 2,
@@ -338,7 +338,7 @@ private fun HomeAnchorRow(
     ) {
         HomeAnchorCard(
             title = "Media Libraries",
-            body = "Browse the active server by its structural Media Libraries.",
+            body = "Browse your server by its library structure.",
             icon = Icons.AutoMirrored.Rounded.LibraryBooks,
             action = "Open",
             onClick = onOpenLibrary,
@@ -352,14 +352,14 @@ private fun HomeAnchorRow(
         )
         HomeAnchorCard(
             title = "Genres",
-            body = "Browse server-backed genre labels and open related Media Items.",
+            body = "Browse server-backed genre labels and open related titles.",
             icon = Icons.Rounded.TheaterComedy,
             action = "Browse",
             onClick = onOpenGenres,
         )
         HomeAnchorCard(
             title = "Tags",
-            body = "Browse server-backed tag labels and open related Media Items.",
+            body = "Browse server-backed tag labels and open related titles.",
             icon = Icons.Rounded.LocalOffer,
             action = "Browse",
             onClick = onOpenTags,

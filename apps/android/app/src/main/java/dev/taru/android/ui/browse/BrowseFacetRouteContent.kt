@@ -28,9 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.MediaItemDto
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
@@ -41,6 +43,7 @@ internal fun BrowseFacetRouteContent(
     state: FacetUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
@@ -48,7 +51,7 @@ internal fun BrowseFacetRouteContent(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(TaruStrings.back),
             )
         }
         FacetHeader(
@@ -61,7 +64,7 @@ internal fun BrowseFacetRouteContent(
             FacetUiState.Loading,
             -> LoadingCard(
                 title = "Loading facet",
-                body = "Fetching related Media Items from the active server.",
+                body = "Loading related titles from your server.",
             )
             is FacetUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -75,6 +78,7 @@ internal fun BrowseFacetRouteContent(
             is FacetUiState.Content -> FacetResults(
                 target = target,
                 state = state,
+                onLoadMore = onLoadMore,
                 onOpenItem = onOpenItem,
             )
         }
@@ -85,22 +89,29 @@ internal fun BrowseFacetRouteContent(
 private fun FacetResults(
     target: BrowseFacetTarget,
     state: FacetUiState.Content,
+    onLoadMore: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
     SectionHeader(
-        title = "Related Media Items",
+        title = "Related Titles",
         action = "${state.response.page.returned}",
     )
     if (state.response.items.isEmpty()) {
         EmptyCard(
             title = "No related items",
-            body = "The active server returned an empty page for this relationship.",
+            body = "Your server did not find related titles for this list.",
         )
     } else {
         FacetResultSummary(target = target, state = state)
         MediaPosterRow(
             items = state.response.items,
             onOpenItem = onOpenItem,
+        )
+        LoadMoreFooter(
+            canLoadMore = state.canLoadMore,
+            isLoadingMore = state.isLoadingMore,
+            failureMessage = state.loadMoreFailure?.userMessage,
+            onLoadMore = onLoadMore,
         )
     }
 }
@@ -152,7 +163,7 @@ private fun FacetHeader(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
-                    StatusChip(text = target.id?.let { "API backed" } ?: "API gap")
+                    StatusChip(text = target.id?.let { "From server" } ?: "Not available")
                     StatusChip(text = returned?.let { "$it results" } ?: "Results")
                 }
             }
@@ -171,7 +182,7 @@ private fun FacetResultSummary(
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
-            text = "Results come from the active server relationship route. Unsupported families stay explicit API-gap states instead of local filtering.",
+            text = "Results come from your server. Taru keeps unavailable lists explicit instead of guessing locally.",
             color = TaruTextSecondary,
             style = MaterialTheme.typography.bodyMedium,
         )

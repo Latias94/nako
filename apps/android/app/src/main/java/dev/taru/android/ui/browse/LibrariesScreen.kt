@@ -28,14 +28,14 @@ internal fun LibrariesScreen(
     TaruScrollColumn {
         PageTitle(
             title = "Libraries",
-            subtitle = "Structural entry points for the active server.",
+            subtitle = "Browse your server by library.",
             icon = Icons.AutoMirrored.Rounded.LibraryBooks,
         )
 
         when (state) {
             BrowseUiState.Loading -> LoadingCard(
                 title = "Loading libraries",
-                body = "Fetching the active server library list.",
+                body = "Loading the libraries visible to this profile.",
             )
             is BrowseUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -55,7 +55,7 @@ internal fun LibrariesScreen(
                 if (state.libraries.libraries.isEmpty()) {
                     EmptyCard(
                         title = "No Media Libraries",
-                        body = "This server has no visible Media Libraries for the current access token.",
+                        body = "This profile does not have any visible libraries yet.",
                     )
                 } else {
                     LibraryCardRow(
@@ -65,13 +65,13 @@ internal fun LibrariesScreen(
                 }
 
                 SectionHeader(
-                    title = "Visible Media Items",
+                    title = "Visible Titles",
                     action = "${state.items.page.returned}",
                 )
                 if (state.items.items.isEmpty()) {
                     EmptyCard(
                         title = "No visible items",
-                        body = "The selected server returned an empty Media Item page.",
+                        body = "This library view is empty right now.",
                     )
                 } else {
                     MediaPosterRow(
@@ -106,7 +106,7 @@ private fun LibraryOverviewCard(
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Text(
-                    text = "Facet pages open only when the Public Client API returns stable relationship ids.",
+                    text = "Related pages open only when your server shares linkable labels.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )

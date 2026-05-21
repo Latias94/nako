@@ -1,25 +1,23 @@
 package dev.taru.android.browse
 
 import dev.taru.android.connection.PublicErrorEnvelope
+import dev.taru.android.connection.PublicApiAuth
+import dev.taru.android.connection.PublicApiFailure
+import dev.taru.android.connection.PublicApiFailureKind
+import dev.taru.android.connection.PublicApiResult
+import dev.taru.android.connection.PublicApiUrl
+import dev.taru.android.connection.PublicClientApiExecutor
 import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.SensitiveText
 import dev.taru.android.connection.ServerProfile
-import dev.taru.android.connection.TaruHttpRequest
-import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
-import java.io.IOException
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import javax.net.ssl.SSLException
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 class TaruBrowseClient(
     private val transport: TaruHttpTransport,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+    private val executor = PublicClientApiExecutor(transport, json)
+
     suspend fun listLibraries(
         profile: ServerProfile,
         accessToken: String,
@@ -28,7 +26,7 @@ class TaruBrowseClient(
         executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/libraries?limit=${page.limit}&offset=${page.offset}",
+            pathAndQuery = "/libraries${pageQuery(page)}",
         )
 
     suspend fun libraryDetail(
@@ -39,14 +37,14 @@ class TaruBrowseClient(
         if (libraryId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.MissingLibrary,
-                userMessage = "Choose a Media Library before opening library detail.",
+                userMessage = "Choose a library before opening details.",
             )
         }
 
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/libraries/${encodePathSegment(libraryId)}",
+            pathAndQuery = "/libraries/${PublicApiUrl.encodePathSegment(libraryId)}",
         )
     }
 
@@ -59,14 +57,14 @@ class TaruBrowseClient(
         if (libraryId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.MissingLibrary,
-                userMessage = "Choose a Media Library before listing its Media Sources.",
+                userMessage = "Choose a library before listing playable versions.",
             )
         }
 
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/libraries/${encodePathSegment(libraryId)}/sources${pageQuery(page)}",
+            pathAndQuery = "/libraries/${PublicApiUrl.encodePathSegment(libraryId)}/sources${pageQuery(page)}",
         )
     }
 
@@ -78,7 +76,7 @@ class TaruBrowseClient(
         executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/items?limit=${page.limit}&offset=${page.offset}",
+            pathAndQuery = "/items${pageQuery(page)}",
         )
 
     suspend fun searchItems(
@@ -100,14 +98,14 @@ class TaruBrowseClient(
         if (itemId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.MissingItem,
-                userMessage = "Choose a Media Item before opening detail.",
+                userMessage = "Choose a title before opening details.",
             )
         }
 
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/items/${encodePathSegment(itemId)}",
+            pathAndQuery = "/items/${PublicApiUrl.encodePathSegment(itemId)}",
         )
     }
 
@@ -119,14 +117,14 @@ class TaruBrowseClient(
         if (itemId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.MissingItem,
-                userMessage = "Choose a Media Item before loading artwork.",
+                userMessage = "Choose a title before loading artwork.",
             )
         }
 
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/items/${encodePathSegment(itemId)}/images",
+            pathAndQuery = "/items/${PublicApiUrl.encodePathSegment(itemId)}/images",
         )
     }
 
@@ -145,7 +143,7 @@ class TaruBrowseClient(
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/people/${encodePathSegment(personId)}",
+            pathAndQuery = "/people/${PublicApiUrl.encodePathSegment(personId)}",
         )
     }
 
@@ -180,7 +178,7 @@ class TaruBrowseClient(
         if (genreId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.InvalidResponse,
-                userMessage = "Choose a supported Genre facet before browsing related Media Items.",
+                userMessage = "Choose a supported genre before browsing related titles.",
             )
         }
 
@@ -188,7 +186,7 @@ class TaruBrowseClient(
             val result = executeJson<GenreItemsResponse>(
                 profile = profile,
                 accessToken = accessToken,
-                pathAndQuery = "/genres/${encodePathSegment(genreId)}/items${pageQuery(page)}",
+                pathAndQuery = "/genres/${PublicApiUrl.encodePathSegment(genreId)}/items${pageQuery(page)}",
             )
         ) {
             is BrowseResult.Success -> BrowseResult.Success(
@@ -214,7 +212,7 @@ class TaruBrowseClient(
         if (tagId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.InvalidResponse,
-                userMessage = "Choose a supported Tag facet before browsing related Media Items.",
+                userMessage = "Choose a supported tag before browsing related titles.",
             )
         }
 
@@ -222,7 +220,7 @@ class TaruBrowseClient(
             val result = executeJson<TagItemsResponse>(
                 profile = profile,
                 accessToken = accessToken,
-                pathAndQuery = "/tags/${encodePathSegment(tagId)}/items${pageQuery(page)}",
+                pathAndQuery = "/tags/${PublicApiUrl.encodePathSegment(tagId)}/items${pageQuery(page)}",
             )
         ) {
             is BrowseResult.Success -> BrowseResult.Success(
@@ -248,7 +246,7 @@ class TaruBrowseClient(
         if (personId.isBlank()) {
             return failure(
                 category = BrowseFailureCategory.InvalidResponse,
-                userMessage = "Choose a supported Person facet before browsing related Media Items.",
+                userMessage = "Choose a supported person before browsing related titles.",
             )
         }
 
@@ -256,7 +254,7 @@ class TaruBrowseClient(
             val result = executeJson<PersonItemsResponse>(
                 profile = profile,
                 accessToken = accessToken,
-                pathAndQuery = "/people/${encodePathSegment(personId)}/items${pageQuery(page)}",
+                pathAndQuery = "/people/${PublicApiUrl.encodePathSegment(personId)}/items${pageQuery(page)}",
             )
         ) {
             is BrowseResult.Success -> BrowseResult.Success(
@@ -278,158 +276,83 @@ class TaruBrowseClient(
         accessToken: String,
         pathAndQuery: String,
     ): BrowseResult<T> {
-        if (accessToken.isBlank()) {
-            return failure(
-                category = BrowseFailureCategory.MissingAccessToken,
-                userMessage = "Re-authenticate this server before browsing.",
+        return when (
+            val result = executor.executeJson<T>(
+                baseUrl = profile.baseUrl,
+                pathAndQuery = pathAndQuery,
+                auth = PublicApiAuth.Bearer(accessToken),
             )
-        }
-
-        val request = TaruHttpRequest(
-            method = "GET",
-            url = joinUrl(profile.baseUrl, pathAndQuery),
-            headers = mapOf("Authorization" to "Bearer $accessToken"),
-        )
-        val response = when (val result = executeOrFailure(request, accessToken)) {
-            is TransportResult.Failure -> return result.failure
-            is TransportResult.Response -> result.response
-        }
-
-        if (!response.isSuccessful()) {
-            return httpFailure(request, response, accessToken)
-        }
-
-        val observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader)
-        if (observedApiVersion != null && observedApiVersion != TaruPublicApiContract.expectedApiVersion) {
-            return failure(
-                category = BrowseFailureCategory.UnsupportedApiVersion,
-                userMessage = "This server uses an unsupported Public Client API version.",
-                observedApiVersion = observedApiVersion,
-                request = safeRequest(request),
+        ) {
+            is PublicApiResult.Success -> BrowseResult.Success(
+                value = result.value,
+                request = result.request,
             )
+            is PublicApiResult.Failure -> failureFor(pathAndQuery, result.failure)
         }
-
-        val decoded = try {
-            json.decodeFromString<T>(response.body)
-        } catch (_: SerializationException) {
-            return invalidResponseFailure(request)
-        } catch (_: IllegalArgumentException) {
-            return invalidResponseFailure(request)
-        }
-
-        return BrowseResult.Success(
-            value = decoded,
-            request = safeRequest(request),
-        )
     }
 
-    private suspend fun executeOrFailure(
-        request: TaruHttpRequest,
-        accessToken: String,
-    ): TransportResult =
-        try {
-            TransportResult.Response(transport.execute(request))
-        } catch (error: SSLException) {
-            TransportResult.Failure(
-                failure(
-                    category = BrowseFailureCategory.TlsOrCertificate,
-                    userMessage = "The server TLS certificate could not be trusted.",
-                    request = safeRequest(request),
-                ),
-            )
-        } catch (error: IOException) {
-            TransportResult.Failure(
-                failure(
-                    category = BrowseFailureCategory.UnreachableServer,
-                    userMessage = "The server could not be reached. Check the address and network.",
-                    publicError = PublicErrorEnvelope(
-                        code = "transport_error",
-                        message = SensitiveText.sanitize(error.message.orEmpty(), listOf(accessToken)),
-                    ),
-                    request = safeRequest(request),
-                ),
-            )
-        }
-
-    private fun httpFailure(
-        request: TaruHttpRequest,
-        response: TaruHttpResponse,
-        accessToken: String,
+    @PublishedApi
+    internal fun failureFor(
+        pathAndQuery: String,
+        failure: PublicApiFailure,
     ): BrowseResult.Failure {
-        val category = when (response.statusCode) {
-            401 -> BrowseFailureCategory.Unauthorized
-            403 -> BrowseFailureCategory.Forbidden
-            404 -> notFoundCategory(request)
-            else -> BrowseFailureCategory.PublicApiError
+        val category = when (failure.kind) {
+            PublicApiFailureKind.MissingAccessToken -> BrowseFailureCategory.MissingAccessToken
+            PublicApiFailureKind.UnreachableServer -> BrowseFailureCategory.UnreachableServer
+            PublicApiFailureKind.TlsOrCertificate -> BrowseFailureCategory.TlsOrCertificate
+            PublicApiFailureKind.UnsupportedApiVersion -> BrowseFailureCategory.UnsupportedApiVersion
+            PublicApiFailureKind.InvalidResponse -> BrowseFailureCategory.InvalidResponse
+            PublicApiFailureKind.HttpError -> when (failure.statusCode) {
+                401 -> BrowseFailureCategory.Unauthorized
+                403 -> BrowseFailureCategory.Forbidden
+                404 -> notFoundCategory(pathAndQuery)
+                else -> BrowseFailureCategory.PublicApiError
+            }
         }
-        val userMessage = when (category) {
-            BrowseFailureCategory.MissingItem ->
-                "The requested Media Item is no longer available."
-            BrowseFailureCategory.MissingLibrary ->
-                "The requested Media Library is no longer available."
-            BrowseFailureCategory.MissingPerson ->
-                "The requested Person is no longer available."
-            BrowseFailureCategory.Unauthorized ->
-                "The access token is invalid or expired."
-            BrowseFailureCategory.Forbidden ->
-                "This access token cannot browse the requested content."
-            else ->
-                "The server returned a public API error."
-        }
-
         return failure(
             category = category,
-            userMessage = userMessage,
-            statusCode = response.statusCode,
-            observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader),
-            publicError = parsePublicError(response.body, accessToken),
-            request = safeRequest(request),
+            userMessage = userMessageFor(category),
+            statusCode = failure.statusCode,
+            observedApiVersion = failure.observedApiVersion,
+            publicError = failure.publicError,
+            request = failure.request,
         )
     }
 
-    private fun invalidResponseFailure(request: TaruHttpRequest): BrowseResult.Failure =
-        failure(
-            category = BrowseFailureCategory.InvalidResponse,
-            userMessage = "The server response could not be understood.",
-            request = safeRequest(request),
-        )
-
-    private fun notFoundCategory(request: TaruHttpRequest): BrowseFailureCategory =
-        if (request.url.contains("/libraries/")) {
+    private fun notFoundCategory(pathAndQuery: String): BrowseFailureCategory =
+        if (pathAndQuery.contains("/libraries/")) {
             BrowseFailureCategory.MissingLibrary
-        } else if (request.url.contains("/people/") && !request.url.contains("/items")) {
+        } else if (pathAndQuery.contains("/people/") && !pathAndQuery.contains("/items")) {
             BrowseFailureCategory.MissingPerson
         } else {
             BrowseFailureCategory.MissingItem
         }
 
-    private fun parsePublicError(
-        body: String,
-        accessToken: String,
-    ): PublicErrorEnvelope? =
-        try {
-            SensitiveText.sanitizeEnvelope(
-                json.decodeFromString<PublicErrorEnvelope>(body),
-                listOf(accessToken),
-            )
-        } catch (_: SerializationException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
+    private fun userMessageFor(category: BrowseFailureCategory): String =
+        when (category) {
+            BrowseFailureCategory.MissingAccessToken ->
+                "Sign in again before browsing."
+            BrowseFailureCategory.MissingItem ->
+                "The requested title is no longer available."
+            BrowseFailureCategory.MissingLibrary ->
+                "The requested library is no longer available."
+            BrowseFailureCategory.MissingPerson ->
+                "The requested Person is no longer available."
+            BrowseFailureCategory.Unauthorized ->
+                "The server access key is invalid or expired."
+            BrowseFailureCategory.Forbidden ->
+                "This profile cannot browse the requested content."
+            BrowseFailureCategory.UnsupportedApiVersion ->
+                "This server is not compatible with this Taru app version."
+            BrowseFailureCategory.TlsOrCertificate ->
+                "The server TLS certificate could not be trusted."
+            BrowseFailureCategory.UnreachableServer ->
+                "The server could not be reached. Check the address and network."
+            BrowseFailureCategory.InvalidResponse ->
+                "The server reply could not be understood."
+            BrowseFailureCategory.PublicApiError ->
+                "The server reported a browsing issue."
         }
-
-    private fun safeRequest(request: TaruHttpRequest): SafeRequestPreview =
-        SafeRequestPreview(
-            method = request.method,
-            url = request.url,
-            headers = request.headers.mapValues { (name, value) ->
-                if (name.equals("Authorization", ignoreCase = true)) {
-                    "Bearer ${TaruPublicApiContract.redacted}"
-                } else {
-                    SensitiveText.sanitize(value)
-                }
-            },
-        )
 
     private fun failure(
         category: BrowseFailureCategory,
@@ -450,11 +373,8 @@ class TaruBrowseClient(
             ),
         )
 
-    private fun joinUrl(baseUrl: String, pathAndQuery: String): String =
-        "${baseUrl.trimEnd('/')}$pathAndQuery"
-
     private fun searchQuery(query: SearchRequest): String =
-        queryString(
+        PublicApiUrl.queryString(
             buildList {
                 if (query.query.isNotBlank()) {
                     add("q" to query.query)
@@ -468,31 +388,5 @@ class TaruBrowseClient(
         )
 
     private fun pageQuery(page: PageRequest): String =
-        queryString(
-            listOf(
-                "limit" to page.limit.toString(),
-                "offset" to page.offset.toString(),
-            ),
-        )
-
-    private fun queryString(pairs: List<Pair<String, String>>): String =
-        pairs.joinToString(
-            separator = "&",
-            prefix = "?",
-        ) { (name, value) ->
-            "${encodeQueryValue(name)}=${encodeQueryValue(value)}"
-        }
-
-    private fun encodeQueryValue(value: String): String =
-        URLEncoder.encode(value, StandardCharsets.UTF_8)
-
-    private fun encodePathSegment(value: String): String =
-        URLEncoder
-            .encode(value, StandardCharsets.UTF_8)
-            .replace("+", "%20")
-
-    private sealed interface TransportResult {
-        data class Response(val response: TaruHttpResponse) : TransportResult
-        data class Failure(val failure: BrowseResult.Failure) : TransportResult
-    }
+        PublicApiUrl.pageQuery(limit = page.limit, offset = page.offset)
 }

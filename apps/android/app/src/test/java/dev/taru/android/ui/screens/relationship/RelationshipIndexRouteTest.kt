@@ -33,7 +33,7 @@ class RelationshipIndexRouteTest {
         )
 
         assertEquals("Genres", presentation.title)
-        assertEquals("Server Genres Index", presentation.subtitle)
+        assertEquals("Browse by genre", presentation.subtitle)
         assertEquals("Browse By Genre", presentation.sectionTitle)
         assertEquals("1 visible", presentation.resultLabel)
         assertEquals("12 returned", presentation.returnedLabel)
@@ -64,7 +64,7 @@ class RelationshipIndexRouteTest {
         )
 
         assertEquals("Tags", presentation.title)
-        assertEquals("Server Tags Index", presentation.subtitle)
+        assertEquals("Browse by tag", presentation.subtitle)
         assertEquals("Browse By Tag", presentation.sectionTitle)
         assertEquals("No Tags", presentation.emptyTitle)
         assertEquals(BrowseFacetUiFamily.Tag, presentation.rows.single().target.family)

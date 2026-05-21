@@ -3,6 +3,7 @@ package dev.taru.android.player
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 
 enum class PlaybackResumeSource {
@@ -21,8 +22,7 @@ data class ResumePlaybackPosition(
 
 data class PlaybackLaunchRequest(
     val title: String,
-    val request: TaruHttpRequest,
-    val safeRequest: SafeRequestPreview,
+    val request: PlaybackRequestDescriptor,
     val serverProfileId: String,
     val mediaItemId: String,
     val sourceId: String,
@@ -31,6 +31,9 @@ data class PlaybackLaunchRequest(
     val resumePositionMs: Long? = null,
     val resumeSource: PlaybackResumeSource? = null,
 ) {
+    val safeRequest: SafeRequestPreview
+        get() = request.safeRequest
+
     val positionKey: DevicePlaybackPositionKey =
         DevicePlaybackPositionKey(
             serverProfileId = serverProfileId,
@@ -40,6 +43,9 @@ data class PlaybackLaunchRequest(
 
     override fun toString(): String =
         "PlaybackLaunchRequest(title=$title, safeRequest=$safeRequest, serverProfileId=$serverProfileId, mediaItemId=$mediaItemId, sourceId=$sourceId, playbackMode=$playbackMode, sessionId=$sessionId, resumePositionMs=$resumePositionMs, resumeSource=$resumeSource)"
+
+    fun authenticatedRequest(accessToken: String): TaruHttpRequest =
+        request.authenticatedRequest(accessToken)
 }
 
 fun playbackLaunchRequest(
@@ -56,7 +62,6 @@ fun playbackLaunchRequest(
     PlaybackLaunchRequest(
         title = title,
         request = target.request,
-        safeRequest = target.safeRequest,
         serverProfileId = serverProfileId,
         mediaItemId = mediaItemId,
         sourceId = sourceId,

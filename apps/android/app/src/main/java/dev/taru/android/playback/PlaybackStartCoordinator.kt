@@ -80,7 +80,7 @@ internal class PlaybackStartCoordinator(
             return PlaybackResult.Failure(
                 SafePlaybackDiagnostics(
                     category = PlaybackFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before requesting playback.",
+                    userMessage = "Sign in again before requesting playback.",
                 ),
             )
         }

@@ -195,7 +195,11 @@ internal sealed interface SearchUiState {
 
     data class Content(
         val response: SearchResponse,
-    ) : SearchUiState
+        val isLoadingMore: Boolean = false,
+        val loadMoreFailure: SafeBrowseDiagnostics? = null,
+    ) : SearchUiState {
+        val canLoadMore: Boolean = response.page.nextPageRequestOrNull() != null
+    }
 
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
@@ -208,7 +212,11 @@ internal sealed interface FacetUiState {
 
     data class Content(
         val response: FacetItemsResponse,
-    ) : FacetUiState
+        val isLoadingMore: Boolean = false,
+        val loadMoreFailure: SafeBrowseDiagnostics? = null,
+    ) : FacetUiState {
+        val canLoadMore: Boolean = response.page.nextPageRequestOrNull() != null
+    }
 
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
@@ -242,7 +250,11 @@ internal sealed interface RelationshipIndexUiState {
         val family: RelationshipIndexFamily,
         val rows: List<RelationshipIndexRow>,
         val page: PageInfo,
-    ) : RelationshipIndexUiState
+        val isLoadingMore: Boolean = false,
+        val loadMoreFailure: SafeBrowseDiagnostics? = null,
+    ) : RelationshipIndexUiState {
+        val canLoadMore: Boolean = page.nextPageRequestOrNull() != null
+    }
 
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
@@ -285,7 +297,7 @@ internal enum class BrowseFacetUiFamily(
     Studio("Studio"),
     Collection("Collection"),
     Year("Year"),
-    ItemKind("Media Item kind"),
+    ItemKind("Title type"),
     Library("Media Library"),
     SourceMode("Playback mode"),
 }

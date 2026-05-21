@@ -1,8 +1,7 @@
 package dev.taru.android.ui.screens.player
 
-import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.player.PlaybackResumeSource
 import dev.taru.android.player.playbackLaunchRequest
@@ -21,7 +20,7 @@ class PlayerPresentationTest {
         assertEquals("Night Harbor", chrome.title)
         assertEquals("Night Harbor", chrome.backdropTitle)
         assertEquals("HLS", chrome.modeLabel)
-        assertEquals("Local resume 1:32", chrome.resumeLabel)
+        assertEquals("Resume on this device 1:32", chrome.resumeLabel)
     }
 
     @Test
@@ -33,11 +32,11 @@ class PlayerPresentationTest {
             ),
         )
 
-        assertEquals("Server resume 1:32", chrome.resumeLabel)
+        assertEquals("Resume from server 1:32", chrome.resumeLabel)
     }
 
     @Test
-    fun playerChromeKeepsSessionIdOutOfVisibleLabelButAvailableToAutomation() {
+    fun playerChromeKeepsSessionIdOutOfVisibleAndAccessibilityLabels() {
         val chrome = playerChromePresentation(
             launch = launch(
                 resumePositionMs = null,
@@ -46,7 +45,8 @@ class PlayerPresentationTest {
         )
 
         assertEquals("Playback session active", chrome.sessionLabel)
-        assertEquals("Playback session id session-1", chrome.sessionAccessibilityLabel)
+        assertEquals("Playback session is active", chrome.sessionAccessibilityLabel)
+        assertFalse(chrome.toString().contains("session-1"))
     }
 
     @Test
@@ -72,6 +72,7 @@ class PlayerPresentationTest {
         )
 
         assertEquals("Playback interrupted", presentation.title)
+        assertFalse(presentation.body.contains("route"))
         assertTrue(presentation.diagnostics.contains("Bearer <redacted>"))
         assertFalse(presentation.diagnostics.contains("secret-token"))
     }
@@ -85,15 +86,9 @@ class PlayerPresentationTest {
         playbackLaunchRequest(
             title = title,
             target = PlaybackRequestTarget(
-                request = TaruHttpRequest(
+                request = PlaybackRequestDescriptor(
                     method = "GET",
                     url = "http://127.0.0.1:3018/sources/source-1/stream/hls/playlist.m3u8",
-                    headers = mapOf("Authorization" to "Bearer secret-token"),
-                ),
-                safeRequest = SafeRequestPreview(
-                    method = "GET",
-                    url = "http://127.0.0.1:3018/sources/source-1/stream/hls/playlist.m3u8",
-                    headers = mapOf("Authorization" to "Bearer <redacted>"),
                 ),
             ),
             serverProfileId = "server-1",

@@ -46,7 +46,6 @@ class PlaybackStartCoordinatorTest {
         val target = requireNotNull(
             playbackClient.recommendedPlaybackTarget(
                 profile = profile,
-                accessToken = "secret-token",
                 decision = decision,
                 capabilities = capabilities,
             ),
@@ -115,7 +114,6 @@ class PlaybackStartCoordinatorTest {
                 target = requireNotNull(
                     playbackClient.recommendedPlaybackTarget(
                         profile = profile,
-                        accessToken = "secret-token",
                         decision = decision,
                     ),
                 ),
@@ -155,7 +153,6 @@ class PlaybackStartCoordinatorTest {
         val target = requireNotNull(
             playbackClient.recommendedPlaybackTarget(
                 profile = profile,
-                accessToken = "secret-token",
                 decision = decision,
             ),
         )
@@ -188,7 +185,12 @@ class PlaybackStartCoordinatorTest {
         assertEquals(null, success.launch.sessionId)
         assertEquals(42_000L, success.launch.resumePositionMs)
         assertEquals(PlaybackResumeSource.DeviceLocal, success.launch.resumeSource)
-        assertEquals("Bearer current-secret-token", success.launch.request.headers["Authorization"])
+        assertEquals(null, success.launch.request.headers["Authorization"])
+        assertEquals(
+            "Bearer current-secret-token",
+            success.launch.authenticatedRequest("current-secret-token").headers["Authorization"],
+        )
+        assertFalse(success.launch.toString().contains("current-secret-token"))
         assertTrue(transport.requests.isEmpty())
         assertFalse(success.toString().contains("current-secret-token"))
     }

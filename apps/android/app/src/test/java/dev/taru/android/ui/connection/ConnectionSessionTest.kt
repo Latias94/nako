@@ -144,7 +144,7 @@ class ConnectionSessionTest {
             normalizedBaseUrl = baseUrl,
             diagnostics = SafeConnectionDiagnostics(
                 category = ConnectionFailureCategory.Unauthorized,
-                userMessage = "The access token is invalid or expired.",
+                userMessage = "The server access key is invalid or expired.",
                 publicError = PublicErrorEnvelope("unauthorized", "authentication required"),
             ),
         )

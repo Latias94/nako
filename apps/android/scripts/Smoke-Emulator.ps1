@@ -1142,7 +1142,7 @@ function Open-SmokeMediaDetail {
     }
 
     Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Open detail'
-    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check version' -TimeoutSeconds 25
 }
 
 function Return-ToSmokeMediaDetail {
@@ -1154,7 +1154,7 @@ function Return-ToSmokeMediaDetail {
 
     Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Back'
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Night Harbor' -TimeoutSeconds 25
-    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check source' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Check version' -TimeoutSeconds 25
 }
 
 function Return-ToSmokeHomeFromRelationshipIndex {
@@ -1190,13 +1190,13 @@ function Assert-SmokeFacetRoute {
 
     Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText -MaxSwipes 6
     Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText
-    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Media Items' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Titles' -TimeoutSeconds 25
     $requiredText = @(
         $FacetLabel,
         $FamilyLabel,
-        'API backed',
+        'From server',
         '1 results',
-        'Related Media Items',
+        'Related Titles',
         'Night Harbor'
     ) + $AdditionalRequiredText
     return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
@@ -1216,14 +1216,13 @@ function Assert-SmokeGenreIndexRoute {
     $evidence = @()
     $evidence += Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'genre-index' -RequiredText @(
         'Genres',
-        'Server Genres Index',
-        'Public API',
+        'Browse by genre',
+        'From server',
         '1 visible',
         '1 returned',
         'Browse By Genre',
         'Mystery',
-        'Genre',
-        'API backed'
+        'Genre'
     )
     $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Mystery' -FacetLabel 'Mystery' -FamilyLabel 'Genre' -Name 'genre-index-facet'
     Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir
@@ -1245,14 +1244,13 @@ function Assert-SmokeTagIndexRoute {
     $evidence = @()
     $evidence += Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name 'tag-index' -RequiredText @(
         'Tags',
-        'Server Tags Index',
-        'Public API',
+        'Browse by tag',
+        'From server',
         '1 visible',
         '1 returned',
         'Browse By Tag',
         'Lighthouse',
-        'Tag',
-        'API backed'
+        'Tag'
     )
     $evidence += Assert-SmokeFacetRoute -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -TapText 'Lighthouse' -FacetLabel 'Lighthouse' -FamilyLabel 'Tag' -Name 'tag-index-facet'
     Return-ToSmokeHomeFromRelationshipIndex -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -IndexSectionText 'Browse By Tag'
@@ -1274,12 +1272,12 @@ function Assert-SmokePersonDetailRoute {
     Swipe-UntilUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText -MaxSwipes 6
     Tap-UiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $TapText
     Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text $PersonName -TimeoutSeconds 25
-    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Media Items' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Text 'Related Titles' -TimeoutSeconds 25
     $requiredText = @(
         $PersonName,
         'Person',
         '1 related',
-        'Related Media Items',
+        'Related Titles',
         'Night Harbor'
     ) + $AdditionalRequiredText
     return Capture-SmokeSurface -AdbPath $AdbPath -DeviceSerial $DeviceSerial -OutputDir $OutputDir -Name $Name -RequiredText $requiredText
@@ -1474,17 +1472,17 @@ if ($stateMode -eq 'empty-setup') {
         'Connect to a server',
         'Display name',
         'Server URL',
-        'Access Token',
+        'Server access key',
         'Server profiles',
         'No saved server profiles.'
     )
 } elseif ($stateMode -eq 'profile-missing-token') {
-    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Authentication required'
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Sign in required'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
         'Smoke Server',
         'Your Taru library',
-        'Authentication required',
-        'Re-authenticate this server before browsing.',
+        'Sign in required',
+        'Sign in again before browsing.',
         'Settings'
     )
 
@@ -1505,8 +1503,8 @@ if ($stateMode -eq 'empty-setup') {
         'Server Profile',
         'Access, connection, and profile switching.',
         'Smoke Server',
-        'Server Access Token',
-        'Token reference is stored locally; token value is never shown.'
+        'Server sign-in',
+        'Stored securely on this device. The secret value is not displayed or copied.'
     )
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
@@ -1537,7 +1535,7 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail' -RequiredText @(
         'Night Harbor',
         'Resume',
-        'Check source',
+        'Check version',
         'Needs check'
     )
 
@@ -1554,7 +1552,7 @@ if ($stateMode -eq 'empty-setup') {
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-after-facet-back' -RequiredText @(
         'Night Harbor',
         'Resume',
-        'Check source',
+        'Check version',
         'Needs check'
     )
 
@@ -1565,34 +1563,36 @@ if ($stateMode -eq 'empty-setup') {
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Actor / as Keeper' -MaxSwipes 8
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'detail-cast-crew' -RequiredText @(
         'Actor / as Keeper',
-        'Open Person Detail and related Media Items.'
+        'Open this person and related titles.'
     )
     $surfaceEvidence += Assert-SmokePersonDetailRoute -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -TapText 'Actor / as Keeper' -PersonName 'Mira Vale' -Name 'person-detail'
     Return-ToSmokeMediaDetail -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume from server state'
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume from your last server position'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker-server-resume' -RequiredText @(
-        'Source / Version',
+        'Version',
         $(if ($stateMode -eq 'profile-active-remux') { 'Night Harbor.mkv' } else { 'Night Harbor.mp4' }),
-        'Resume from server state',
-        'Taru will use authoritative User Playback State after checking the selected source.',
+        'Resume from your last server position',
+        'Taru will continue from the last position saved by your server after checking this version.',
         'Resume'
     ) -ForbiddenText @(
         'Resume on this device',
-        'Local resume'
+        'Local resume',
+        'User Playback State'
     )
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Resume'
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text $(if ($stateMode -eq 'profile-active-remux') { 'Remux' } else { 'Direct' }) -TimeoutSeconds 25
-    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Source / Version'
+    Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Version'
     Swipe-UntilUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'source-picker' -RequiredText @(
-        'Source / Version',
+        'Version',
         $(if ($stateMode -eq 'profile-active-remux') { 'Night Harbor.mkv' } else { 'Night Harbor.mp4' }),
-        $(if ($stateMode -eq 'profile-active-remux') { 'Remux route prepared' } else { 'Direct route prepared' }),
+        $(if ($stateMode -eq 'profile-active-remux') { 'Remux ready' } else { 'Direct ready' }),
         'Start resume'
     ) -ForbiddenText @(
         'Resume on this device',
-        'Local resume'
+        'Local resume',
+        'route prepared'
     )
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Start resume'
@@ -1618,7 +1618,7 @@ if ($stateMode -eq 'empty-setup') {
         $playerRequiredText = @(
             'Night Harbor',
             'Direct',
-            'Server resume 0:01',
+            'Resume from server 0:01',
             '00:02'
         )
         $playerRequiredText += 'Ended'
@@ -1635,7 +1635,7 @@ if ($stateMode -eq 'empty-setup') {
     )
 
     Tap-UiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Back'
-    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check source' -TimeoutSeconds 25
+    Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Check version' -TimeoutSeconds 25
     if ($stateMode -eq 'profile-with-media') {
         $playbackSessionReadbackPath = Write-SmokePlaybackSessionReadbackArtifact `
             -OutputDir $outputDir `
@@ -1652,7 +1652,7 @@ if ($stateMode -eq 'empty-setup') {
     }
     $detailAfterPlayerRequiredText = @(
         'Night Harbor',
-        'Check source',
+        'Check version',
         'Needs check'
     )
     $detailAfterPlayerRequiredText += if ($stateMode -eq 'profile-with-media') {

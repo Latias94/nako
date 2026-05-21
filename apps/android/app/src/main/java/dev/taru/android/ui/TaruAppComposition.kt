@@ -1,8 +1,10 @@
 package dev.taru.android.ui
 
 import android.content.Context
+import dev.taru.android.BuildConfig
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.AndroidSecureTokenVault
+import dev.taru.android.connection.ConnectionSecurityPolicy
 import dev.taru.android.connection.JdkTaruHttpTransport
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.ServerProfileStore
@@ -47,15 +49,21 @@ internal class TaruAppEnvironment(
 }
 
 internal class AndroidTaruAppEnvironmentFactory(
-    private val transportFactory: () -> TaruHttpTransport = { JdkTaruHttpTransport() },
+    private val securityPolicy: ConnectionSecurityPolicy = defaultConnectionSecurityPolicy(),
+    private val transportFactory: (ConnectionSecurityPolicy) -> TaruHttpTransport = { policy ->
+        JdkTaruHttpTransport(securityPolicy = policy)
+    },
 ) {
     fun create(context: Context): TaruAppEnvironment {
         val appContext = context.applicationContext
-        val transport = transportFactory()
+        val transport = transportFactory(securityPolicy)
         return TaruAppEnvironment(
             store = SharedPreferencesServerProfileStore(appContext),
             tokenVault = AndroidSecureTokenVault(appContext),
-            connectionClient = TaruConnectionClient(transport),
+            connectionClient = TaruConnectionClient(
+                transport = transport,
+                securityPolicy = securityPolicy,
+            ),
             browseClient = TaruBrowseClient(transport),
             playbackClient = TaruPlaybackClient(transport),
             playbackPreferencesStore = SharedPreferencesPlaybackPreferencesStore(appContext),
@@ -64,6 +72,13 @@ internal class AndroidTaruAppEnvironmentFactory(
         )
     }
 }
+
+private fun defaultConnectionSecurityPolicy(): ConnectionSecurityPolicy =
+    if (BuildConfig.TARU_ALLOW_CLEARTEXT_HTTP) {
+        ConnectionSecurityPolicy.allowCleartextForLocalDevelopment()
+    } else {
+        ConnectionSecurityPolicy.production()
+    }
 
 private class StoreBackedTaruAppRuntime(
     private val store: ServerProfileStore,

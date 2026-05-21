@@ -1,6 +1,7 @@
 package dev.taru.android.ui.browse
 
 import dev.taru.android.browse.BrowseFailureCategory
+import dev.taru.android.browse.PageRequest
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.InMemoryTokenVault
 import dev.taru.android.connection.ServerProfile
@@ -18,7 +19,7 @@ import org.junit.Test
 
 class ClientBrowseDataSourceTest {
     @Test
-    fun `detail source probe and playback decision fail safely without access token`() = runBlocking {
+    fun `detail version probe and playback decision fail safely without saved access`() = runBlocking {
         val transport = RecordingTransport()
         val dataSource = ClientBrowseDataSource(
             profile = testProfile(),
@@ -215,6 +216,58 @@ class ClientBrowseDataSourceTest {
         assertEquals(
             listOf("Bearer secret-token", "Bearer secret-token"),
             transport.requests.map { it.headers["Authorization"] },
+        )
+    }
+
+    @Test
+    fun `search and facet data source preserve explicit paging requests`() = runBlocking {
+        val target = BrowseFacetTarget(
+            family = BrowseFacetUiFamily.Genre,
+            label = "Mystery",
+            id = "genre-mystery",
+        )
+        val transport = QueuedTransport(
+            ok(
+                """
+                {
+                  "hits": [],
+                  "page": {"limit": 24, "offset": 48, "returned": 0}
+                }
+                """.trimIndent(),
+            ),
+            ok(
+                """
+                {
+                  "genre": {"id":"genre-mystery","name":"Mystery","source":"nfo"},
+                  "items": [],
+                  "page": {"limit": 24, "offset": 72, "returned": 0}
+                }
+                """.trimIndent(),
+            ),
+        )
+        val vault = InMemoryTokenVault()
+        val profile = testProfile()
+        vault.saveToken(profile.tokenReference, "secret-token")
+        val dataSource = ClientBrowseDataSource(
+            profile = profile,
+            tokenVault = vault,
+            browseClient = TaruBrowseClient(transport),
+            playbackClient = TaruPlaybackClient(transport),
+            playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
+            userPlaybackClient = TaruUserPlaybackClient(transport),
+        )
+
+        val searchState = dataSource.search("night harbor", page = PageRequest(limit = 24, offset = 48))
+        val facetState = dataSource.loadFacet(target, page = PageRequest(limit = 24, offset = 72))
+
+        assertEquals(0, (searchState as SearchUiState.Content).response.page.returned)
+        assertEquals(0, (facetState as FacetUiState.Content).response.page.returned)
+        assertEquals(
+            listOf(
+                "http://127.0.0.1:3018/search?q=night+harbor&limit=24&offset=48",
+                "http://127.0.0.1:3018/genres/genre-mystery/items?limit=24&offset=72",
+            ),
+            transport.requests.map { it.url },
         )
     }
 }

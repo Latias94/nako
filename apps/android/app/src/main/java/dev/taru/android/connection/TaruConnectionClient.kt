@@ -1,17 +1,16 @@
 package dev.taru.android.connection
 
-import java.io.IOException
 import java.net.URI
-import javax.net.ssl.SSLException
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 class TaruConnectionClient(
     private val transport: TaruHttpTransport,
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val clockMillis: () -> Long = System::currentTimeMillis,
+    private val securityPolicy: ConnectionSecurityPolicy = ConnectionSecurityPolicy.production(),
 ) {
+    private val executor = PublicClientApiExecutor(transport, json)
+
     suspend fun testConnection(
         baseUrlInput: String,
         accessToken: String,
@@ -22,33 +21,42 @@ class TaruConnectionClient(
                 category = ConnectionFailureCategory.InvalidUrl,
                 userMessage = "Enter a valid HTTP or HTTPS Taru server URL.",
             )
+        val uri = URI(normalizedBaseUrl)
+        securityPolicy.cleartextFailure(uri)?.let { publicError ->
+            return failure(
+                normalizedBaseUrl = normalizedBaseUrl,
+                category = ConnectionFailureCategory.InsecureCleartextHttp,
+                userMessage = "Use HTTPS for this server, or switch to a local-development build that explicitly allows HTTP.",
+                publicError = publicError,
+                request = SafeRequestPreview(
+                    method = "GET",
+                    url = SensitiveText.sanitize(normalizedBaseUrl),
+                ),
+            )
+        }
 
         if (accessToken.isBlank()) {
             return failure(
                 normalizedBaseUrl = normalizedBaseUrl,
                 category = ConnectionFailureCategory.MissingAccessToken,
-                userMessage = "Enter a server access token.",
+                userMessage = "Enter a server access key.",
             )
         }
 
-        val healthRequest = TaruHttpRequest(
-            method = "GET",
-            url = joinUrl(normalizedBaseUrl, TaruPublicApiContract.healthPath),
-        )
-        val healthResponse = when (
-            val result = executeOrFailure(normalizedBaseUrl, healthRequest, accessToken)
+        val healthResult = when (
+            val result = executor.executeJson<HealthEnvelope>(
+                baseUrl = normalizedBaseUrl,
+                pathAndQuery = TaruPublicApiContract.healthPath,
+                auth = PublicApiAuth.None,
+                checkApiVersionHeader = false,
+                extraSecrets = listOf(accessToken),
+            )
         ) {
-            is TransportResult.Failure -> return result.failure
-            is TransportResult.Response -> result.response
+            is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
+            is PublicApiResult.Success -> result
         }
-
-        if (!healthResponse.isSuccessful()) {
-            return httpFailure(normalizedBaseUrl, healthRequest, healthResponse, accessToken)
-        }
-
-        val health = decodeHealth(healthResponse)
-            ?: return invalidResponseFailure(normalizedBaseUrl, healthRequest)
-        val observedHeaderVersion = healthResponse.header(TaruPublicApiContract.apiVersionHeader)
+        val health = healthResult.value
+        val observedHeaderVersion = healthResult.response.header(TaruPublicApiContract.apiVersionHeader)
         val observedVersion = when {
             health.version != TaruPublicApiContract.expectedApiVersion -> health.version
             observedHeaderVersion != null -> observedHeaderVersion
@@ -60,154 +68,84 @@ class TaruConnectionClient(
             return failure(
                 normalizedBaseUrl = normalizedBaseUrl,
                 category = ConnectionFailureCategory.UnsupportedApiVersion,
-                userMessage = "This server uses an unsupported Public Client API version.",
+                userMessage = "This server is not compatible with this Taru app version.",
                 observedApiVersion = observedVersion,
-                request = safeRequest(healthRequest),
+                request = healthResult.request,
             )
         }
 
-        val authProbeRequest = TaruHttpRequest(
-            method = "GET",
-            url = joinUrl(normalizedBaseUrl, TaruPublicApiContract.authProbePath),
-            headers = mapOf("Authorization" to "Bearer $accessToken"),
-        )
-        val authProbeResponse = when (
-            val result = executeOrFailure(normalizedBaseUrl, authProbeRequest, accessToken)
+        val authProbeResult = when (
+            val result = executor.executeResponse(
+                baseUrl = normalizedBaseUrl,
+                pathAndQuery = TaruPublicApiContract.authProbePath,
+                auth = PublicApiAuth.Bearer(accessToken),
+            )
         ) {
-            is TransportResult.Failure -> return result.failure
-            is TransportResult.Response -> result.response
-        }
-
-        if (!authProbeResponse.isSuccessful()) {
-            return httpFailure(normalizedBaseUrl, authProbeRequest, authProbeResponse, accessToken)
-        }
-        val authProbeVersion = authProbeResponse.header(TaruPublicApiContract.apiVersionHeader)
-        if (authProbeVersion != null && authProbeVersion != TaruPublicApiContract.expectedApiVersion) {
-            return failure(
-                normalizedBaseUrl = normalizedBaseUrl,
-                category = ConnectionFailureCategory.UnsupportedApiVersion,
-                userMessage = "This server uses an unsupported Public Client API version.",
-                observedApiVersion = authProbeVersion,
-                request = safeRequest(authProbeRequest),
-            )
+            is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
+            is PublicApiResult.Success -> result
         }
 
         return ConnectionCheckResult.Success(
             normalizedBaseUrl = normalizedBaseUrl,
             apiVersion = observedVersion,
             checkedAtMillis = clockMillis(),
-            healthRequest = safeRequest(healthRequest),
-            authProbeRequest = safeRequest(authProbeRequest),
+            healthRequest = healthResult.request,
+            authProbeRequest = authProbeResult.request,
         )
     }
 
-    private suspend fun executeOrFailure(
+    private fun failureFor(
         normalizedBaseUrl: String,
-        request: TaruHttpRequest,
-        accessToken: String,
-    ): TransportResult =
-        try {
-            TransportResult.Response(transport.execute(request))
-        } catch (error: SSLException) {
-            TransportResult.Failure(
-                failure(
-                    normalizedBaseUrl = normalizedBaseUrl,
-                    category = ConnectionFailureCategory.TlsOrCertificate,
-                    userMessage = "The server TLS certificate could not be trusted.",
-                    request = safeRequest(request),
-                ),
-            )
-        } catch (error: IOException) {
-            TransportResult.Failure(
-                failure(
-                    normalizedBaseUrl = normalizedBaseUrl,
-                    category = ConnectionFailureCategory.UnreachableServer,
-                    userMessage = "The server could not be reached. Check the address and network.",
-                    request = safeRequest(request),
-                    publicError = PublicErrorEnvelope(
-                        code = "transport_error",
-                        message = SensitiveText.sanitize(error.message.orEmpty(), listOf(accessToken)),
-                    ),
-                ),
-            )
-        }
-
-    private fun httpFailure(
-        normalizedBaseUrl: String,
-        request: TaruHttpRequest,
-        response: TaruHttpResponse,
-        accessToken: String,
+        failure: PublicApiFailure,
     ): ConnectionCheckResult.Failure {
-        val publicError = parsePublicError(response.body, accessToken)
-        val category = when (response.statusCode) {
-            401 -> ConnectionFailureCategory.Unauthorized
-            else -> ConnectionFailureCategory.PublicApiError
+        val category = when (failure.kind) {
+            PublicApiFailureKind.MissingAccessToken -> ConnectionFailureCategory.MissingAccessToken
+            PublicApiFailureKind.UnreachableServer -> ConnectionFailureCategory.UnreachableServer
+            PublicApiFailureKind.TlsOrCertificate -> ConnectionFailureCategory.TlsOrCertificate
+            PublicApiFailureKind.UnsupportedApiVersion -> ConnectionFailureCategory.UnsupportedApiVersion
+            PublicApiFailureKind.InvalidResponse -> ConnectionFailureCategory.InvalidResponse
+            PublicApiFailureKind.HttpError -> when (failure.statusCode) {
+                401 -> ConnectionFailureCategory.Unauthorized
+                else -> ConnectionFailureCategory.PublicApiError
+            }
         }
-        val userMessage = when (category) {
-            ConnectionFailureCategory.Unauthorized ->
-                "The access token is invalid or expired."
-            else ->
-                "The server returned a public API error."
+        val resolvedCategory = if (failure.publicError?.code == "cleartext_http_not_allowed") {
+            ConnectionFailureCategory.InsecureCleartextHttp
+        } else {
+            category
         }
-
         return failure(
             normalizedBaseUrl = normalizedBaseUrl,
-            category = category,
-            userMessage = userMessage,
-            statusCode = response.statusCode,
-            observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader),
-            publicError = publicError,
-            request = safeRequest(request),
+            category = resolvedCategory,
+            userMessage = userMessageFor(resolvedCategory),
+            statusCode = failure.statusCode,
+            observedApiVersion = failure.observedApiVersion,
+            publicError = failure.publicError,
+            request = failure.request,
         )
     }
 
-    private fun decodeHealth(response: TaruHttpResponse): HealthEnvelope? =
-        try {
-            json.decodeFromString<HealthEnvelope>(response.body)
-        } catch (_: SerializationException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
+    private fun userMessageFor(category: ConnectionFailureCategory): String =
+        when (category) {
+            ConnectionFailureCategory.InvalidUrl ->
+                "Enter a valid HTTP or HTTPS Taru server URL."
+            ConnectionFailureCategory.MissingAccessToken ->
+                "Enter a server access key."
+            ConnectionFailureCategory.UnreachableServer ->
+                "The server could not be reached. Check the address and network."
+            ConnectionFailureCategory.Unauthorized ->
+                "The server access key is invalid or expired."
+            ConnectionFailureCategory.UnsupportedApiVersion ->
+                "This server is not compatible with this Taru app version."
+            ConnectionFailureCategory.TlsOrCertificate ->
+                "The server TLS certificate could not be trusted."
+            ConnectionFailureCategory.InsecureCleartextHttp ->
+                "Use HTTPS for this server, or switch to a local-development build that explicitly allows HTTP."
+            ConnectionFailureCategory.PublicApiError ->
+                "The server reported an issue."
+            ConnectionFailureCategory.InvalidResponse ->
+                "The server reply could not be understood."
         }
-
-    private fun invalidResponseFailure(
-        normalizedBaseUrl: String,
-        request: TaruHttpRequest,
-    ): ConnectionCheckResult.Failure =
-        failure(
-            normalizedBaseUrl = normalizedBaseUrl,
-            category = ConnectionFailureCategory.InvalidResponse,
-            userMessage = "The server response could not be understood.",
-            request = safeRequest(request),
-        )
-
-    private fun parsePublicError(
-        body: String,
-        accessToken: String,
-    ): PublicErrorEnvelope? =
-        try {
-            SensitiveText.sanitizeEnvelope(
-                json.decodeFromString<PublicErrorEnvelope>(body),
-                listOf(accessToken),
-            )
-        } catch (_: SerializationException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-
-    private fun safeRequest(request: TaruHttpRequest): SafeRequestPreview =
-        SafeRequestPreview(
-            method = request.method,
-            url = request.url,
-            headers = request.headers.mapValues { (name, value) ->
-                if (name.equals("Authorization", ignoreCase = true)) {
-                    "Bearer ${TaruPublicApiContract.redacted}"
-                } else {
-                    SensitiveText.sanitize(value)
-                }
-            },
-        )
 
     private fun failure(
         normalizedBaseUrl: String?,
@@ -245,12 +183,5 @@ class TaruConnectionClient(
             return null
         }
         return uri.toString().trimEnd('/')
-    }
-
-    private fun joinUrl(baseUrl: String, pathAndQuery: String): String = "$baseUrl$pathAndQuery"
-
-    private sealed interface TransportResult {
-        data class Response(val response: TaruHttpResponse) : TransportResult
-        data class Failure(val failure: ConnectionCheckResult.Failure) : TransportResult
     }
 }

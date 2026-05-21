@@ -21,6 +21,16 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "TARU_ALLOW_CLEARTEXT_HTTP", "true")
+        }
+        release {
+            buildConfigField("boolean", "TARU_ALLOW_CLEARTEXT_HTTP", "false")
+        }
     }
 
     compileOptions {
