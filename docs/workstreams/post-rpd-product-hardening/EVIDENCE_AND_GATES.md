@@ -1,7 +1,7 @@
 # Post-RPD Product Hardening — Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## Gate Set
 
@@ -47,6 +47,7 @@ The exact closeout gate for metadata breadth is authoritative in
 | 2026-05-21 | PRPH-080 planning verification | `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `python -m json.tool docs/workstreams/link-apply-and-import-promotion/WORKSTREAM.json`; `git diff --check` | Pass. Umbrella and child workstream JSON files are valid and diff hygiene passed. `git diff --check` emitted only repository CRLF conversion warnings. |
 | 2026-05-21 | PRPH-090 lane scoring | `docs/workstreams/post-rpd-product-hardening/DESIGN.md`; `docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md`; `docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json` | Pass. NFO Sidecar Promotion Apply is complete. Playback/Transcode Ops Hardening is selected as the next mainline lane because local metadata, file-write, staged import, NFO sidecar, rollback, and repair boundaries are now proven. Downloads/watch-folder, network, AI, and addon runtime remain downstream or parallel only if they consume existing accepted boundaries. |
 | 2026-05-21 | PRPH-090 planning verification | `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `git diff --check` | Pass. Umbrella and NFO sidecar workstream JSON files are valid and diff hygiene passed. `git diff --check` emitted only repository CRLF conversion warnings. |
+| 2026-05-22 | PRPH-100 lane open | `python -m json.tool docs/workstreams/playback-transcode-ops-hardening/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check` | Pass. Playback/Transcode Ops Hardening is opened as the active mainline lane; PTOH-020 is the next executable task. `git diff --check` emitted only repository CRLF conversion warnings. |
 
 ## Notes
 

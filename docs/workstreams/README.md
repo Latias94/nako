@@ -10,7 +10,12 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
-  Current next action: open `playback-transcode-ops-hardening`.
+  Current next action: execute `playback-transcode-ops-hardening` PTOH-020.
+- [playback-transcode-ops-hardening](playback-transcode-ops-hardening/README.md):
+  active post-RPD mainline lane for hardening Playback Runtime readiness,
+  typed hardware/fallback diagnostics, transcode validation, session failure
+  taxonomy, and bounded Admin support evidence without changing metadata,
+  NFO, import, downloader, network, AI, or addon mutation boundaries.
 - [link-apply-and-import-promotion](link-apply-and-import-promotion/README.md):
   completed post-RPD mainline follow-on for turning Managed Import promotion
   previews into operator-confirmed, idempotent, rollback-aware Media Library

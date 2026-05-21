@@ -1,7 +1,7 @@
 # Post-RPD Product Hardening — TODO
 
 Status: Active
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 Task IDs use the `PRPH` prefix. This is an umbrella roadmap, so implementation
 tasks belong in child workstreams.
@@ -67,3 +67,15 @@ tasks belong in child workstreams.
   and addon runtime remain downstream or parallel only if they consume existing
   accepted boundaries.
   Handoff: Open `playback-transcode-ops-hardening`.
+
+## M6 — Playback/Transcode Ops Lane Open
+
+- [x] PRPH-100 [owner=planner] [deps=PRPH-090] [scope=docs/workstreams/playback-transcode-ops-hardening,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+  Goal: Open `playback-transcode-ops-hardening` as the next mainline
+  execution lane without duplicating completed M7/M25/M56 playback runtime
+  work.
+  Validation: Child workstream has design, TODO, milestones, gates,
+  workstream metadata, and handoff docs; parent umbrella and index point to
+  PTOH-020 as the next executable task.
+  Evidence: `docs/workstreams/playback-transcode-ops-hardening/DESIGN.md`
+  Handoff: Execute PTOH-020 playback runtime readiness contract.

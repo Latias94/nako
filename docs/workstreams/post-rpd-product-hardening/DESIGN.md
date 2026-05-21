@@ -1,7 +1,7 @@
 # Post-RPD Product Hardening Design
 
 Status: Active
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## Why This Lane Exists
 
@@ -346,8 +346,25 @@ operator playback confidence and transcode supportability.
 | Addon Runtime / Distribution | Downstream consumer | Addons now have more Taru-owned side-effect APIs to consume, but distribution/runtime should not expand before scoped API exposure and side-effect permission UX are decided. | Defer until Admin/API exposure of sidecar apply is stable. |
 
 PRPH-090 therefore selects Playback/Transcode Ops Hardening as the next
-mainline lane. If opened, it should stay runtime/diagnostic-focused: no metadata
-schema churn, no downloader protocol work, and no library file mutation.
+mainline lane. PRPH-100 opens `playback-transcode-ops-hardening` with PTOH-020
+as the first executable task. It must stay runtime/diagnostic-focused: no
+metadata schema churn, no downloader protocol work, and no library file
+mutation.
+
+## Playback/Transcode Ops Lane Open — 2026-05-22
+
+`playback-transcode-ops-hardening` is now the active mainline execution lane.
+It builds on completed `playback-streaming`, `transcode-runtime`, and
+`admin-playback-runtime-diagnostics` work rather than reopening those baselines.
+
+The next executable slice is PTOH-020: define a stable Admin-only playback
+runtime readiness contract that classifies FFmpeg probe, hardware capability,
+selected fallback, transcode budget, remote playback budget, and staging
+prerequisites without exposing raw paths, Source Locators, FFmpeg command
+lines, output paths, stderr payloads, secrets, or credentials.
+
+Downloads/watch-folder, network, AI, and addon runtime remain downstream or
+parallel only when they consume existing accepted Taru-owned boundaries.
 
 ## Closeout Condition
 

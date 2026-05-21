@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "slug": "playback-transcode-ops-hardening",
+  "title": "Playback Transcode Ops Hardening",
+  "status": "active",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "Playback and transcode runtime foundations exist, but operators still need stable readiness, validation, fallback, failure-taxonomy, and redacted support evidence to diagnose playback issues safely.",
+  "task_prefix": "PTOH",
+  "current_task": "PTOH-020",
+  "completed_tasks": [
+    "PTOH-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-transcode --tests",
+    "cargo nextest run -p taru-transcode --no-fail-fast",
+    "cargo nextest run -p taru-streaming --no-fail-fast",
+    "cargo check -p taru-api --tests",
+    "cargo nextest run -p taru-api admin_playback --no-fail-fast",
+    "cargo check -p taru-server --tests",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md",
+    "docs/workstreams/playback-transcode-ops-hardening/TODO.md",
+    "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/transcode-runtime/README.md",
+    "docs/workstreams/playback-streaming/README.md",
+    "docs/workstreams/admin-playback-runtime-diagnostics/DESIGN.md",
+    "crates/taru-transcode/src/hardware.rs",
+    "crates/taru-transcode/src/profile.rs",
+    "crates/taru-transcode/src/ffmpeg.rs",
+    "crates/taru-streaming/src",
+    "crates/taru-server/src/app/playback",
+    "crates/taru-server/src/http/admin.rs",
+    "crates/taru-api/src/admin.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "PTOH-020",
+    "notes": "Continue with an Admin-only playback runtime readiness contract. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
+  }
+}

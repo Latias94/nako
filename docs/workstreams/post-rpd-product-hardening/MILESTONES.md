@@ -1,7 +1,7 @@
 # Post-RPD Product Hardening — Milestones
 
 Status: Active
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## M0 — Scope And Evidence Freeze
 
@@ -78,3 +78,18 @@ Primary evidence:
 
 - `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
 - `docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md`
+
+## M6 — Playback/Transcode Ops Lane Open
+
+Exit criteria:
+
+- [x] `playback-transcode-ops-hardening` exists as a child workstream.
+- [x] Child docs define runtime/diagnostic scope, non-goals, tasks, gates, and
+  handoff.
+- [x] Parent umbrella and workstream index point to PTOH-020 as the next
+  executable task.
+
+Primary evidence:
+
+- `docs/workstreams/playback-transcode-ops-hardening/DESIGN.md`
+- `docs/workstreams/playback-transcode-ops-hardening/TODO.md`

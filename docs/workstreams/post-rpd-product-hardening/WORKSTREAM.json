@@ -3,7 +3,7 @@
   "slug": "post-rpd-product-hardening",
   "title": "Post-RPD Product Hardening",
   "status": "active",
-  "updated": "2026-05-21",
+  "updated": "2026-05-22",
   "scope_kind": "roadmap_umbrella",
   "problem": "After packaging, Taru needs an ordered product-hardening roadmap so metadata, NFO/link, playback, managed import, network, AI, and addon work do not blur authority boundaries.",
   "authoritative_docs": [
@@ -33,7 +33,8 @@
     "docs/workstreams/nfo-link-authority",
     "docs/workstreams/managed-import-staging",
     "docs/workstreams/link-apply-and-import-promotion",
-    "docs/workstreams/nfo-sidecar-promotion-apply"
+    "docs/workstreams/nfo-sidecar-promotion-apply",
+    "docs/workstreams/playback-transcode-ops-hardening"
   ],
   "completed_child_workstreams": [
     "docs/workstreams/metadata-provider-breadth",
@@ -55,17 +56,21 @@
     "docs/workstreams/managed-import-staging/DESIGN.md",
     "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
     "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
-    "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md"
+    "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md",
+    "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
     "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
     "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
-    "docs/adr/0021-video-first-media-server-domain-model.md"
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "open playback-transcode-ops-hardening",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, and NFO Sidecar Promotion Apply are completed. PRPH-090 selects Playback/Transcode Ops Hardening as the next mainline lane because local metadata, file-write, staged import, sidecar, rollback, and repair boundaries are now proven, and playback/transcode supportability is the next highest operator risk. Downloads/watch-folder, network, AI, and addon runtime remain downstream or parallel only if they consume existing accepted Taru-owned boundaries."
+    "next_task": "playback-transcode-ops-hardening PTOH-020",
+    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, and NFO Sidecar Promotion Apply are completed. PRPH-100 opened Playback/Transcode Ops Hardening as the active mainline lane because local metadata, file-write, staged import, sidecar, rollback, and repair boundaries are now proven, and playback/transcode supportability is the next highest operator risk. Downloads/watch-folder, network, AI, and addon runtime remain downstream or parallel only if they consume existing accepted Taru-owned boundaries."
   }
 }

@@ -1,7 +1,7 @@
 # Post-RPD Product Hardening — Handoff
 
 Status: Active
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## Current State
 
@@ -21,20 +21,25 @@ audit. LAIP-070 split NFO sidecar import/export mutation to
 Promotion Apply is now complete with accepted import/export apply, VFS
 write/restore, canonical metadata/local authority, hierarchy confirmation,
 rollback/repair, idempotent replay, and redacted diagnostics. PRPH-090 selects
-Playback/Transcode Ops Hardening as the next mainline lane.
+Playback/Transcode Ops Hardening as the next mainline lane, and PRPH-100 opens
+`playback-transcode-ops-hardening`.
 
 ## Active Task
 
-- Task ID: PRPH-090 / next lane open
-- Owner: planner
-- Files: `docs/workstreams/post-rpd-product-hardening`,
-  `docs/workstreams/playback-transcode-ops-hardening`
-- Validation: open or reuse a dedicated Playback/Transcode Ops Hardening
-  workstream with diagnostics/runtime gates.
+- Task ID: PTOH-020
+- Owner: unassigned
+- Files: `docs/workstreams/playback-transcode-ops-hardening`,
+  `crates/taru-transcode/src/hardware.rs`,
+  `crates/taru-server/src/app/playback`,
+  `crates/taru-server/src/http/admin.rs`,
+  `crates/taru-api/src/admin.rs`
+- Validation: implement and verify an Admin-only playback runtime readiness
+  contract with diagnostics/runtime gates.
 - Status: READY
 - Review: keep scope runtime/diagnostic-focused; do not mix downloader,
   metadata authority, sidecar apply, or library file mutation into this lane.
-- Evidence: PRPH-090 lane scoring in `DESIGN.md` and NSPA closeout evidence.
+- Evidence: PRPH-090 lane scoring in `DESIGN.md`, PRPH-100 lane open docs, and
+  NSPA closeout evidence.
 
 ## Decisions Since Last Update
 
@@ -78,14 +83,17 @@ Playback/Transcode Ops Hardening as the next mainline lane.
   Playback/Transcode Ops Hardening as the next mainline lane. Downloads/watch
   folder may be re-scored afterward, but must still enter through staged
   artifacts, promotion apply, and sidecar apply boundaries.
+- `playback-transcode-ops-hardening` is opened. The first executable task is
+  PTOH-020, which should harden runtime readiness diagnostics without changing
+  Public Client API behavior.
 
 ## Blockers
 
-- None for opening Playback/Transcode Ops Hardening.
+- None for PTOH-020.
 
 ## Next Recommended Action
 
-- Open `playback-transcode-ops-hardening` as the next mainline execution lane.
+- Execute PTOH-020 in `playback-transcode-ops-hardening`.
 - Keep downloads/watch-folder, network, AI, and addon runtime downstream or
   parallel only if they consume accepted Taru-owned boundaries and do not
   introduce new direct mutation paths.
