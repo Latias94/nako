@@ -12,7 +12,7 @@ ordered follow-ons. `metadata-provider-breadth` is complete. The next mainline
 lane, `nfo-link-authority`, has completed VFS link dry-run diagnostics,
 Source Duplicate Relationship filesystem-link suggestions, NFO authority
 preview, and the link apply split decision. The next mainline should be
-`managed-import-staging`.
+`managed-import-staging`, which is now open.
 
 ## Active Task
 
@@ -22,8 +22,8 @@ preview, and the link apply split decision. The next mainline should be
   `docs/workstreams/nfo-link-authority`
 - Validation: child closeout reviewed; next executable lane recorded
 - Status: ACTIVE
-- Review: open `managed-import-staging`
-- Evidence: `docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md`
+- Review: route execution through `managed-import-staging`
+- Evidence: `docs/workstreams/managed-import-staging/DESIGN.md`
 
 ## Decisions Since Last Update
 
@@ -53,7 +53,7 @@ preview, and the link apply split decision. The next mainline should be
 
 ## Next Recommended Action
 
-- Open `managed-import-staging`.
+- Execute `managed-import-staging` MIS-020.
 - Keep `post-rpd-product-hardening` active until the next lane is represented
   by durable docs, or close it if the roadmap no longer reduces coordination
   cost.

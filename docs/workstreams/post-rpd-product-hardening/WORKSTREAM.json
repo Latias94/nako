@@ -30,7 +30,8 @@
   ],
   "child_workstreams": [
     "docs/workstreams/metadata-provider-breadth",
-    "docs/workstreams/nfo-link-authority"
+    "docs/workstreams/nfo-link-authority",
+    "docs/workstreams/managed-import-staging"
   ],
   "completed_child_workstreams": [
     "docs/workstreams/metadata-provider-breadth",
@@ -45,7 +46,8 @@
     "docs/workstreams/metadata-provider-breadth/DESIGN.md",
     "docs/workstreams/metadata-provider-breadth/EVIDENCE_AND_GATES.md",
     "docs/workstreams/nfo-link-authority/DESIGN.md",
-    "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md"
+    "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/managed-import-staging/DESIGN.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
@@ -55,7 +57,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "managed-import-staging lane open",
-    "notes": "Metadata provider breadth and NFO/link authority are completed. Local authority diagnostics are now strong enough to design import/download promotion without unsafe writes. Recommended next mainline lane: managed-import-staging; actual hardlink/symlink apply remains a follow-on after promotion, rollback, cleanup, audit, and source duplicate confirmation semantics are explicit. Playback/transcode ops hardening remains the safest parallel sidecar candidate if its write scope stays disjoint."
+    "next_task": "managed-import-staging MIS-020",
+    "notes": "Metadata provider breadth and NFO/link authority are completed. Managed Import Staging is open. Next mainline task is MIS-020 durable Managed Import artifact domain/schema with backend-neutral contract tests. Actual hardlink/symlink apply remains a follow-on after promotion, rollback, cleanup, audit, and source duplicate confirmation semantics are explicit. Playback/transcode ops hardening remains the safest parallel sidecar candidate if its write scope stays disjoint."
   }
 }
