@@ -58,18 +58,82 @@ When this lane closes:
 
 ## Key Design Questions
 
-1. **Unregister semantics.** The default architecture recommendation is a
-   terminal lifecycle state that preserves audit records and revokes tokens,
-   rather than physical deletion that cascades side effects and candidates. If
-   the implementation chooses physical deletion, it must document why losing
-   Addon audit state is acceptable.
+1. **Unregister semantics.** AAO chooses a terminal runtime lifecycle state,
+   not physical deletion. `unregistered` Addons remain visible to Admin
+   history/detail reads, but cannot be enabled, cannot authenticate runtime
+   Addon routes, and cannot authorize side effects. Unregister atomically
+   revokes active Addon Tokens and clears the accepted grant set. Side Effect,
+   token, registration, and Addon Artwork Candidate history is preserved for
+   audit.
 2. **Health check contract.** Health checks should use a small Addon
    Protocol-owned contract and bounded timeout. Taru must not pass admin
    bearer tokens to an Addon Sidecar.
 3. **Diagnostics redaction.** Diagnostics may prove reachability, protocol
    version, declared resource availability, HTTP status class, latency, and
    safe error code. They must not echo raw Addon Tokens, admin bearer tokens,
-   payloads, Source Locators, storage URIs, local paths, or provider secrets.
+  payloads, Source Locators, storage URIs, local paths, or provider secrets.
+
+## Frozen MVP Contract
+
+### Lifecycle states
+
+AAO extends the Addon registration lifecycle to:
+
+- `enabled`: runtime Addon Token authentication and accepted grants may
+  authorize Addon runtime routes.
+- `disabled`: registration is retained, but runtime Addon Token authentication
+  fails before permission checks. Admins may re-enable after validation.
+- `unregistered`: terminal runtime state. Registration and audit history are
+  retained, active tokens are revoked, accepted grants are cleared, and runtime
+  Addon Token authentication always fails. AAO does not physically delete the
+  registration row or cascade historical records.
+
+Re-registering a previously unregistered `manifest_id` is allowed only through
+the normal registration route and starts from `disabled` with no accepted
+grants and no reusable token. It preserves the old registration history instead
+of pretending the Addon never existed.
+
+### Route contract
+
+AAO reserves these Admin API routes:
+
+- `PATCH /admin/v1/addons/{addon_id}/status`
+  - Body: `{ "status": "enabled" | "disabled" }`.
+  - Does not accept `unregistered`; unregister is a separate command.
+  - Enabling validates the stored manifest and accepted scopes/grants but does
+    not imply sidecar process management.
+- `POST /admin/v1/addons/{addon_id}/unregister`
+  - Transitions the registration to `unregistered`, revokes active Addon
+    Tokens, clears accepted grants, and returns a redaction-safe Admin
+    lifecycle response.
+  - AAO intentionally does not mount `DELETE /admin/v1/addons/{addon_id}` to
+    avoid implying physical deletion.
+- `POST /admin/v1/addons/{addon_id}/health-check`
+  - Calls the Addon Sidecar health contract at the accepted manifest base URL
+    with bounded timeout and protocol headers only.
+  - Does not send administrator bearer tokens, Addon Tokens, or resolved
+    Secret Reference values.
+- `GET /admin/v1/addons/{addon_id}/surfaces`
+  - Returns Entry Points, Hosted Pages, configuration schema metadata, Secret
+    Reference field declarations, Addon Task declarations, and Addon Event
+    Subscription declarations as Admin DTOs.
+  - Hosted Page URLs are external Addon Sidecar URLs and must not contain admin
+    bearer tokens or one-time secret launch parameters.
+- `POST /admin/v1/addons/{addon_id}/diagnostics/resource-call`
+  - Runs a bounded diagnostic call against one declared Addon Resource.
+  - Uses current manifest declarations and granted scopes to classify missing
+    resource, missing grant, protocol mismatch, timeout, retryable transport
+    failure, non-retryable HTTP failure, invalid envelope, and unsafe response
+    cases.
+  - Never echoes raw diagnostic payloads, response bodies, Addon Tokens, admin
+    tokens, Source Locators, storage paths, or provider secrets.
+
+### Addon Manager boundary
+
+AAO does not start, stop, install, update, remove, supervise, package, sign, or
+log Addon Sidecar processes. It only operates registrations, credentials,
+grants, health, surface metadata, and diagnostics for manually managed Addon
+Sidecars.
 
 ## Architecture Direction
 

@@ -7,17 +7,29 @@ Task IDs use the `AAO` prefix.
 
 ## M0 — Contract And Goal Baseline
 
-- [ ] AAO-010 [owner=planner] [deps=none] [scope=docs/workstreams/admin-addon-operations-mvp,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
+- [x] AAO-010 [owner=planner] [deps=none] [scope=docs/workstreams/admin-addon-operations-mvp,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
   Goal: Open the product Addon operations lane, freeze MVP route semantics,
   and decide unregister lifecycle policy before implementation.
   Validation: `git diff --check`.
   Review: Do not hide Addon Manager scope inside this lane. The unregister
   policy must explicitly choose terminal lifecycle state or physical deletion.
   Handoff: Continue with AAO-020 lifecycle mutation.
+  Progress: Frozen MVP contract chooses terminal `unregistered` lifecycle
+  state instead of physical deletion. Unregister preserves registration,
+  tokens, side effects, and candidate audit history, revokes active tokens,
+  clears accepted grants, and prevents all runtime Addon Token authentication.
+  Reserved Admin routes: `PATCH /admin/v1/addons/{addon_id}/status`, `POST
+  /admin/v1/addons/{addon_id}/unregister`, `POST
+  /admin/v1/addons/{addon_id}/health-check`, `GET
+  /admin/v1/addons/{addon_id}/surfaces`, and `POST
+  /admin/v1/addons/{addon_id}/diagnostics/resource-call`. AAO explicitly does
+  not mount `DELETE /admin/v1/addons/{addon_id}` and remains outside Addon
+  Manager scope.
+  Validation: `git diff --check`.
 
 ## M1 — Lifecycle Mutation
 
-- [ ] AAO-020 [owner=codex] [deps=AAO-010] [scope=crates/taru-core/src/addon.rs,crates/taru-db,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
+- [x] AAO-020 [owner=codex] [deps=AAO-010] [scope=crates/taru-core/src/repository/addon.rs,crates/taru-db,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/app/addons/principal.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Add an Admin Addon lifecycle command for enable/disable without using
   full registration upsert as status mutation.
   Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo nextest run -p taru-db addon --no-fail-fast`; `git diff --check`.
@@ -25,6 +37,17 @@ Task IDs use the `AAO` prefix.
   responses must not expose token hashes, raw tokens, or persistence-only
   fields.
   Handoff: Continue with AAO-030 unregister semantics.
+  Progress: Added `PATCH /admin/v1/addons/{addon_id}/status` with
+  `UpdateAddonStatusRequest`, explicit repository status mutation for SQLite
+  and PostgreSQL, Admin-service enable validation against the stored manifest
+  snapshot/granted scopes, and runtime principal resolution that rejects
+  disabled registrations before marking Addon Tokens used. Admin responses use
+  the existing redaction-safe registration detail envelope. The route only
+  accepts `enabled` / `disabled`; `unregistered` remains reserved for AAO-030.
+  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server
+  --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo
+  nextest run -p taru-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
+  `git diff --check`.
 
 - [ ] AAO-030 [owner=codex] [deps=AAO-020] [scope=crates/taru-core/src/addon.rs,crates/taru-db/migrations,crates/taru-db/migrations/postgres,crates/taru-db/src/sqlite/addons.rs,crates/taru-db/src/postgres.rs,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs]
   Goal: Implement unregister/delete semantics with token revocation and

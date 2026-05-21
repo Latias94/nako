@@ -2858,6 +2858,35 @@ async fn taru_database_sqlite_round_trips_addon_registration() {
             .unwrap()
             .is_empty()
     );
+
+    let enabled = store
+        .update_addon_registration_status(addon_id, AddonStatus::Enabled)
+        .await
+        .unwrap()
+        .expect("addon registration status is updated");
+    assert_eq!(enabled.id, addon_id);
+    assert_eq!(enabled.status, AddonStatus::Enabled);
+    assert_eq!(
+        store
+            .list_addon_registrations(Some(AddonStatus::Enabled))
+            .await
+            .unwrap(),
+        vec![enabled.clone()]
+    );
+    assert!(
+        store
+            .list_addon_registrations(Some(AddonStatus::Disabled))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        store
+            .update_addon_registration_status(AddonId::new(), AddonStatus::Disabled)
+            .await
+            .unwrap(),
+        None
+    );
 }
 
 #[tokio::test]

@@ -1,11 +1,12 @@
 use std::{collections::HashSet, sync::Arc};
 
-use taru_addon_protocol::{ensure_scope_grant, validate_manifest};
+use taru_addon_protocol::{AddonManifest, AddonScope, ensure_scope_grant, validate_manifest};
 use taru_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
     AddonTokenSummary, AddonTokensResponse, AdminAddonRegistrationDetail,
     AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
     IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    UpdateAddonStatusRequest,
 };
 use taru_core::{
     AddonId, AddonIssuedToken, AddonRegistrationRecord, AddonRepository, AddonStatus, AddonTokenId,
@@ -128,6 +129,30 @@ impl AddonAppService {
             .collect();
 
         Ok(AdminAddonRegistrationsResponse { addons })
+    }
+
+    pub async fn update_addon_status(
+        &self,
+        addon_id: AddonId,
+        request: UpdateAddonStatusRequest,
+    ) -> Result<AdminAddonRegistrationResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if request.status == AddonStatus::Enabled {
+            self.validate_registered_addon_can_be_enabled(&addon)?;
+        }
+
+        let addon = self
+            .store
+            .update_addon_registration_status(addon_id, request.status)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "addon_registration",
+                id: addon_id.to_string(),
+            })?;
+
+        Ok(AdminAddonRegistrationResponse {
+            addon: self.admin_addon_detail(&addon)?,
+        })
     }
 
     pub async fn issue_addon_token(
@@ -285,5 +310,39 @@ impl AddonAppService {
         AdminAddonRegistrationDetail::from_record(addon).map_err(|err| TaruError::InvalidInput {
             message: format!("failed to parse stored addon manifest: {err}"),
         })
+    }
+
+    fn validate_registered_addon_can_be_enabled(
+        &self,
+        addon: &AddonRegistrationRecord,
+    ) -> Result<()> {
+        let manifest: AddonManifest =
+            serde_json::from_str(&addon.manifest_json).map_err(|err| TaruError::InvalidInput {
+                message: format!("failed to parse stored addon manifest: {err}"),
+            })?;
+        validate_manifest(&manifest).map_err(|err| TaruError::InvalidInput {
+            message: err.to_string(),
+        })?;
+
+        let granted_scopes = addon
+            .granted_scopes
+            .iter()
+            .map(|scope| {
+                serde_json::from_value::<AddonScope>(serde_json::Value::String(scope.clone()))
+                    .map_err(|err| TaruError::InvalidInput {
+                        message: format!("invalid stored addon scope `{scope}`: {err}"),
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for resource in &manifest.resources {
+            ensure_scope_grant(&manifest, resource.kind, &granted_scopes).map_err(|err| {
+                TaruError::InvalidInput {
+                    message: err.to_string(),
+                }
+            })?;
+        }
+
+        Ok(())
     }
 }

@@ -1176,6 +1176,33 @@ impl AddonRepository for PostgresStore {
         rows.into_iter().map(row_to_addon_registration).collect()
     }
 
+    async fn update_addon_registration_status(
+        &self,
+        id: AddonId,
+        status: AddonStatus,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE addon_registrations
+            SET
+                status = $2,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(status.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        self.get_addon_registration(id).await
+    }
+
     async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord> {
         sqlx::query(
             r#"

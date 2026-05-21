@@ -3,11 +3,11 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, patch, post},
 };
 use taru_api::extension::{
     AddonAccessCheckRequest, IssueAddonTokenRequest, RegisterAddonRequest,
-    ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest,
+    ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
 use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
@@ -20,6 +20,10 @@ pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/addons", get(list_addons).post(register_addon))
         .route("/admin/v1/addons/{addon_id}", get(get_addon))
+        .route(
+            "/admin/v1/addons/{addon_id}/status",
+            patch(update_addon_status),
+        )
         .route(
             "/admin/v1/addons/{addon_id}/tokens",
             get(list_addon_tokens).post(issue_addon_token),
@@ -68,6 +72,17 @@ pub(super) async fn get_addon(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().get_addon_registration(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn update_addon_status(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<UpdateAddonStatusRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().update_addon_status(addon_id, request).await?,
+    ))
 }
 
 #[instrument(skip(app))]

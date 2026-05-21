@@ -2835,6 +2835,33 @@ where
             .collect::<Vec<_>>(),
         vec![addon_id]
     );
+    let disabled_addon = store
+        .update_addon_registration_status(addon_id, AddonStatus::Disabled)
+        .await
+        .unwrap()
+        .expect("addon status update returns registration");
+    assert_eq!(disabled_addon.id, addon_id);
+    assert_eq!(disabled_addon.status, AddonStatus::Disabled);
+    assert!(
+        store
+            .list_addon_registrations(Some(AddonStatus::Enabled))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let addon = store
+        .update_addon_registration_status(addon_id, AddonStatus::Enabled)
+        .await
+        .unwrap()
+        .expect("addon status update returns registration");
+    assert_eq!(addon.status, AddonStatus::Enabled);
+    assert!(
+        store
+            .update_addon_registration_status(AddonId::new(), AddonStatus::Disabled)
+            .await
+            .unwrap()
+            .is_none()
+    );
 
     let first_token = store
         .create_addon_token(NewAddonToken {

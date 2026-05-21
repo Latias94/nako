@@ -251,6 +251,16 @@ impl AddonRepository for TaruDatabase {
         self.backend().list_addon_registrations(status).await
     }
 
+    async fn update_addon_registration_status(
+        &self,
+        id: AddonId,
+        status: AddonStatus,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        self.backend()
+            .update_addon_registration_status(id, status)
+            .await
+    }
+
     async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord> {
         self.backend().create_addon_token(token).await
     }

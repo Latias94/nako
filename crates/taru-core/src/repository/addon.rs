@@ -25,6 +25,12 @@ pub trait AddonRepository: Send + Sync {
         status: Option<AddonStatus>,
     ) -> Result<Vec<AddonRegistrationRecord>>;
 
+    async fn update_addon_registration_status(
+        &self,
+        id: AddonId,
+        status: AddonStatus,
+    ) -> Result<Option<AddonRegistrationRecord>>;
+
     async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord>;
 
     async fn get_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>>;

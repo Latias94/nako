@@ -46,9 +46,9 @@ use taru_api::{
         AddonTokensResponse, AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
         AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
         EnqueueAutomationJobRequest, IssueAddonTokenRequest, RegisterAddonRequest,
-        ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpsertAutomationProviderRequest,
-        UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
-        WebhookEndpointsResponse,
+        ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
+        UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
+        WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
     },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecisionKind,

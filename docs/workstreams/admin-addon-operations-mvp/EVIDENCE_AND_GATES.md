@@ -31,7 +31,9 @@ cargo nextest run --workspace --no-fail-fast
 
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
-| 2026-05-21 | AAO-000 workstream open | Created `docs/workstreams/admin-addon-operations-mvp/` after release packaging and Addon architecture deepening completed. | Pending validation |
+| 2026-05-21 | AAO-000 workstream open | Created `docs/workstreams/admin-addon-operations-mvp/` after release packaging and Addon architecture deepening completed. | Pass |
+| 2026-05-21 | AAO-010 contract baseline | Froze the Admin Addon Operations MVP route contract and lifecycle policy. Chose terminal `unregistered` state over physical deletion, with active token revocation, accepted grant clearing, preserved audit history, and no `DELETE /admin/v1/addons/{addon_id}` route. Updated HTTP API planning notes and Admin Web Console matrix. Ran `git diff --check`. | Pass |
+| 2026-05-21 | AAO-020 lifecycle mutation | Added explicit `PATCH /admin/v1/addons/{addon_id}/status` for `enabled` / `disabled`, repository status mutation for SQLite/PostgreSQL, stored-manifest enable validation, and runtime disabled rejection before token usage refresh. Ran `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo nextest run -p taru-db addon --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`. | Pass |
 
 ## Redaction Gates
 

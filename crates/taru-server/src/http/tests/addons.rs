@@ -395,6 +395,131 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
 }
 
 #[tokio::test]
+async fn admin_addon_status_patch_enables_and_disables_runtime_access() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::ItemMetadataRead,
+            ],
+            status: None,
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    assert_eq!(registered.addon.summary.status, AddonStatus::Disabled);
+
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let disabled_runtime = addon_access_check(
+        &router,
+        Some(&issued.raw_token),
+        AddonAccessCheckRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+        },
+    )
+    .await;
+    assert_eq!(disabled_runtime.status(), StatusCode::FORBIDDEN);
+    let tokens_after_disabled_attempt =
+        request_json::<AddonTokensResponse>(&router, Method::GET, &token_path).await;
+    assert_eq!(tokens_after_disabled_attempt.tokens.len(), 1);
+    assert!(
+        tokens_after_disabled_attempt.tokens[0]
+            .last_used_at
+            .is_none()
+    );
+
+    let enabled = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::PATCH,
+        &format!("/admin/v1/addons/{addon_id}/status"),
+        &UpdateAddonStatusRequest {
+            status: AddonStatus::Enabled,
+        },
+    )
+    .await;
+    assert_eq!(enabled.addon.summary.status, AddonStatus::Enabled);
+    assert_eq!(enabled.addon.manifest.id, registered.addon.manifest.id);
+    let enabled_json = serde_json::to_value(&enabled).unwrap();
+    assert!(enabled_json["addon"].get("manifest_json").is_none());
+    assert!(!enabled_json.to_string().contains(&issued.raw_token));
+    assert!(!enabled_json.to_string().contains("token_hash"));
+
+    let enabled_filter = request_json::<AdminAddonRegistrationsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons?status=enabled",
+    )
+    .await;
+    assert_eq!(enabled_filter.addons.len(), 1);
+    assert_eq!(enabled_filter.addons[0].id, addon_id);
+
+    let allowed_runtime = addon_access_check(
+        &router,
+        Some(&issued.raw_token),
+        AddonAccessCheckRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+        },
+    )
+    .await;
+    assert_eq!(allowed_runtime.status(), StatusCode::OK);
+
+    let disabled = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::PATCH,
+        &format!("/admin/v1/addons/{addon_id}/status"),
+        &UpdateAddonStatusRequest {
+            status: AddonStatus::Disabled,
+        },
+    )
+    .await;
+    assert_eq!(disabled.addon.summary.status, AddonStatus::Disabled);
+
+    let disabled_again = addon_access_check(
+        &router,
+        Some(&issued.raw_token),
+        AddonAccessCheckRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+        },
+    )
+    .await;
+    assert_eq!(disabled_again.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_ones() {
     let temp = tempfile::tempdir().unwrap();
     let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;

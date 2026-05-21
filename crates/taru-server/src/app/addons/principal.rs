@@ -59,13 +59,6 @@ pub(super) async fn resolve_addon_principal_from_store(
         });
     }
 
-    let token = store
-        .mark_addon_token_used(token.id)
-        .await?
-        .ok_or_else(|| TaruError::Unauthorized {
-            message: "addon token is not active".to_owned(),
-        })?;
-
     let addon = store
         .get_addon_registration(token.addon_id)
         .await?
@@ -78,6 +71,13 @@ pub(super) async fn resolve_addon_principal_from_store(
             message: "addon registration is disabled".to_owned(),
         });
     }
+
+    let token = store
+        .mark_addon_token_used(token.id)
+        .await?
+        .ok_or_else(|| TaruError::Unauthorized {
+            message: "addon token is not active".to_owned(),
+        })?;
 
     let grants = store.list_addon_grants(addon.id).await?;
 

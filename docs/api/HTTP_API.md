@@ -1047,12 +1047,51 @@ provenance, Source Locators, storage URIs, or local filesystem paths.
 `GET /admin/v1/addons/{addon_id}` returns one registration detail or
 `404 not_found`.
 
+`PATCH /admin/v1/addons/{addon_id}/status` is the explicit lifecycle command
+for enable/disable. It must be used instead of re-submitting the full
+registration just to change runtime availability.
+
+```json
+{
+  "status": "enabled"
+}
+```
+
+The response uses the same redaction-safe registration detail envelope shown
+above. Enabling revalidates the stored manifest snapshot and granted Addon
+Scopes. Disabling retains the registration, tokens, grants, and audit history,
+but runtime Addon Token authentication fails before permission checks and does
+not refresh token `last_used_at`. The route accepts only `enabled` and
+`disabled`; terminal unregister remains a separate command.
+
 Addon resource calls use a versioned request/response envelope in
 `taru-addon-protocol`. The HTTP caller helper lives in `taru-addon-client`;
 calls are bounded by timeout and `max_attempts`; 408, 429, 5xx, and transport
 errors are retryable, while other 4xx responses fail without retry. HTTP
 handlers only register and inspect addons in M5; they do not call addon
 resource endpoints inline.
+
+Remaining planned Admin Addon Operations MVP routes are reserved under
+`/admin/v1/addons/{addon_id}`:
+
+- `POST /unregister` transitions the Addon to terminal `unregistered` runtime
+  state, revokes active Addon Tokens, clears accepted grants, and preserves
+  registration, token, Side Effect, and candidate audit history. Taru does not
+  mount `DELETE /admin/v1/addons/{addon_id}` for this MVP because unregister is
+  not physical deletion.
+- `POST /health-check` checks the Addon Sidecar with protocol headers and a
+  bounded timeout. It must not send administrator bearer tokens, Addon Tokens,
+  or resolved Secret Reference values to the Addon Sidecar.
+- `GET /surfaces` returns Admin read models for Addon Entry Points, Hosted
+  Pages, configuration schema metadata, Secret Reference fields, Addon Task
+  declarations, and Addon Event Subscription declarations.
+- `POST /diagnostics/resource-call` runs a bounded diagnostic call against a
+  declared Addon Resource and returns redacted classification facts only.
+
+All planned operation responses must avoid raw Addon Tokens, token hashes,
+admin bearer tokens, raw diagnostic payloads, raw response bodies, Source
+Locators, storage URIs, local filesystem paths, provider secrets, and raw
+network errors that may contain credentials.
 
 The workspace includes `taru-reference-addon`, a minimal metadata addon fixture
 used by the end-to-end test. It proves that a local addon can be registered and

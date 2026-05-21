@@ -169,6 +169,11 @@ pub struct AdminAddonRegistrationsResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UpdateAddonStatusRequest {
+    pub status: AddonStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct IssueAddonTokenRequest {
     #[serde(default)]
     pub label: Option<String>,
