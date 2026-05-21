@@ -1,6 +1,6 @@
 # NFO Sidecar Promotion Apply Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -235,3 +235,31 @@ This lane can close when:
   diagnostics;
 - focused Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
   pass.
+
+## Closeout Decision — 2026-05-21
+
+This lane is closed because the target state is implemented and freshly
+verified:
+
+- NFO sidecar apply is explicit, operator-accepted, idempotent, and preview
+  revalidated.
+- Export writes go through `taru-nfo` round-trip preservation and VFS
+  backup/atomic write/retention behavior.
+- Import applies local authority through canonical metadata, field-lock, and
+  hierarchy-confirmation boundaries.
+- Partial failures produce `failed_before_mutation`, `rollback_complete`, or
+  `repair_pending` terminal outcomes without false committed state.
+- VFS exposes a restore boundary so backup-backed rollback is storage-owned,
+  not a raw OS-path write from server orchestration.
+- Operator-facing outcomes redact raw local paths, raw XML, provider payloads,
+  and secrets.
+
+Follow-on exposure is intentionally split:
+
+- Admin API and UI can surface preview/accept/apply/replay diagnostics.
+- Public Client API should not expose raw sidecar paths or direct file writes.
+- Addons may request NFO side effects only through scoped Taru-owned apply
+  commands.
+- Downloads/watch-folder acquisition must produce staged artifacts and consume
+  Managed Import promotion plus NFO sidecar apply; it must not bypass either
+  boundary.

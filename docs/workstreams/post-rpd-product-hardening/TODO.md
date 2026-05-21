@@ -52,3 +52,18 @@ tasks belong in child workstreams.
   metadata-authority mutation boundary before downloads, AI, or Addon file
   writes deepen.
   Handoff: Execute `nfo-sidecar-promotion-apply` NSPA-020.
+
+## M5 — Post-NSPA Lane Scoring
+
+- [x] PRPH-090 [owner=planner] [deps=NSPA-070] [scope=docs/workstreams/post-rpd-product-hardening]
+  Goal: Re-score playback/transcode ops, downloads/watch-folder, network, AI,
+  and addon runtime after NFO Sidecar Promotion Apply closeout.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, and
+  HANDOFF.md agree on the next executable lane.
+  Evidence: Completed in the Post-NSPA Closeout Re-Score section of
+  `DESIGN.md`. Playback/Transcode Ops Hardening is selected as the next
+  mainline lane because local metadata, sidecar, import, file-write, rollback,
+  and repair boundaries are now proven. Downloads/watch-folder, network, AI,
+  and addon runtime remain downstream or parallel only if they consume existing
+  accepted boundaries.
+  Handoff: Open `playback-transcode-ops-hardening`.

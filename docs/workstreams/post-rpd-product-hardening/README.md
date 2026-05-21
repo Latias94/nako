@@ -4,7 +4,8 @@
 
 Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
 `link-apply-and-import-promotion` is complete; `nfo-sidecar-promotion-apply`
-is selected as the next mainline execution lane.
+is complete. The next recommended mainline lane is Playback/Transcode Ops
+Hardening.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -40,11 +41,11 @@ product risk is whether Taru can safely manage a real library:
 
 ## Current Decision
 
-After Managed Import promotion apply proved VFS-mediated target creation,
-catalog commit ordering, duplicate evidence, and cleanup audit, LAIP-070 split
-NFO sidecar mutation to `nfo-sidecar-promotion-apply`, and LAIP-080 closed the
-promotion apply lane. PRPH-080 selects NFO sidecar apply next because it is the
-remaining high-risk local Library File Write and metadata-authority boundary.
+After NFO sidecar apply proved accepted import/export, VFS write/restore,
+local authority, rollback/repair, and redacted audit boundaries, PRPH-090
+re-scores the roadmap. Playback/Transcode Ops Hardening is the next safest
+mainline lane because local library mutation boundaries are now proven and
+playback confidence is the highest day-to-day operator risk.
 
 ## Authoritative Docs
 

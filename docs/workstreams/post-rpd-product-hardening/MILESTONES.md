@@ -64,3 +64,17 @@ Primary evidence:
 
 - `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
 - `docs/workstreams/nfo-sidecar-promotion-apply/HANDOFF.md`
+
+## M5 — Post-NSPA Lane Scoring
+
+Exit criteria:
+
+- [x] NFO Sidecar Promotion Apply closeout evidence is reviewed.
+- [x] Playback/transcode ops, downloads/watch-folder, network, AI, and addon
+  runtime are re-scored.
+- [x] Next execution lane is selected without mixing library mutation scope.
+
+Primary evidence:
+
+- `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
+- `docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md`

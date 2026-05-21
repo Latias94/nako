@@ -323,6 +323,32 @@ PRPH-080 therefore does not open a new lane. It selects the existing
 `nfo-sidecar-promotion-apply` workstream as the next execution lane and returns
 implementation to NSPA-020.
 
+## Post-NSPA Closeout Re-Score — 2026-05-21
+
+`nfo-sidecar-promotion-apply` is now complete. Taru can explicitly accept NFO
+sidecar import/export, revalidate preview facts, export through NFO Round Trip
+and VFS write/backup/retention behavior, import local authority through
+canonical metadata and field locks, confirm hierarchy, restore from backups
+after audit failure, and record `failed_before_mutation`, `rollback_complete`,
+or `repair_pending` outcomes without raw path/XML leakage.
+
+This changes the product risk ordering: the highest local data-loss boundaries
+for metadata, sidecars, staged import, and library-file mutation are now
+represented by accepted apply workflows. The next product-hardening pressure is
+operator playback confidence and transcode supportability.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| Playback / Transcode Ops Hardening | Highest | Playback/transcode is the next daily operator pain point. Existing `transcode-runtime` and Admin playback diagnostics provide a baseline, but productization still needs clear preset validation, fallback explanations, hardware evidence, support bundles, and failure taxonomy without changing metadata/import authority. | Open next as the mainline execution lane. |
+| Downloads / Watch Folder | High but still downstream | Promotion apply and NFO sidecar apply are now safe enough for acquisition to consume, but protocol/download breadth must still start as staged artifacts and explicit promote/apply operations. | Re-score after playback ops, or open only if scoped to Managed Import intake without bypassing apply boundaries. |
+| Network Access Boundary | Useful sidecar | Remote access can harden trusted proxy, tunnel documentation, and endpoint policy without touching library mutation. | Safe parallel docs/runtime sidecar after playback lane opens. |
+| AI Assisted Library Ops | Downstream consumer | AI can propose generated artifacts and metadata/sidecar changes, but must reuse accepted apply boundaries and never write autonomously. | Defer until generated artifact intake is explicitly designed. |
+| Addon Runtime / Distribution | Downstream consumer | Addons now have more Taru-owned side-effect APIs to consume, but distribution/runtime should not expand before scoped API exposure and side-effect permission UX are decided. | Defer until Admin/API exposure of sidecar apply is stable. |
+
+PRPH-090 therefore selects Playback/Transcode Ops Hardening as the next
+mainline lane. If opened, it should stay runtime/diagnostic-focused: no metadata
+schema churn, no downloader protocol work, and no library file mutation.
+
 ## Closeout Condition
 
 This umbrella can close when:

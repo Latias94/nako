@@ -2,19 +2,20 @@
   "schema_version": 1,
   "slug": "nfo-sidecar-promotion-apply",
   "title": "NFO Sidecar Promotion Apply",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-21",
   "scope_kind": "execution",
   "problem": "NFO authority preview and safe sidecar write primitives exist, but actual NFO import/export mutation needs its own accepted, idempotent, rollback-aware Library File Write and metadata-authority boundary.",
   "task_prefix": "NSPA",
-  "current_task": "NSPA-070",
+  "current_task": null,
   "completed_tasks": [
     "NSPA-010",
     "NSPA-020",
     "NSPA-030",
     "NSPA-040",
     "NSPA-050",
-    "NSPA-060"
+    "NSPA-060",
+    "NSPA-070"
   ],
   "authoritative_docs": [
     {
@@ -80,8 +81,8 @@
     "docs/adr/0021-video-first-media-server-domain-model.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "NSPA-060",
-    "notes": "Accepted NFO import and export apply are in place through taru-nfo, VFS write/restore, canonical metadata, local authority, durable audit, and partial-failure rollback/repair boundaries. Next close or split API/UI/addon exposure in NSPA-070."
+    "default_action": "return_to_parent",
+    "next_task": "post-rpd-product-hardening PRPH-090",
+    "notes": "NFO Sidecar Promotion Apply is complete. Accepted NFO import/export apply, VFS write/restore, canonical metadata/local authority, durable audit, and partial-failure rollback/repair boundaries are implemented and freshly verified. Admin API, Public Client API, UI, Addon side effects, and downloads/watch-folder automation must consume this boundary rather than bypass it. Return to the post-RPD umbrella for the next lane re-score."
   }
 }

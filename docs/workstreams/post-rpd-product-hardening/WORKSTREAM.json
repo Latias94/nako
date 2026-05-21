@@ -39,7 +39,8 @@
     "docs/workstreams/metadata-provider-breadth",
     "docs/workstreams/nfo-link-authority",
     "docs/workstreams/managed-import-staging",
-    "docs/workstreams/link-apply-and-import-promotion"
+    "docs/workstreams/link-apply-and-import-promotion",
+    "docs/workstreams/nfo-sidecar-promotion-apply"
   ],
   "gates": [
     "git diff --check"
@@ -53,7 +54,8 @@
     "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md",
     "docs/workstreams/managed-import-staging/DESIGN.md",
     "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
-    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md"
+    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
@@ -63,7 +65,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "nfo-sidecar-promotion-apply NSPA-020",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, and Link Apply And Import Promotion are completed. PRPH-080 selects NFO Sidecar Promotion Apply as the next mainline lane because it is the remaining high-risk local Library File Write and metadata-authority mutation boundary. Execute NSPA-020 durable sidecar apply acceptance/audit next. Playback/transcode ops remains the safest parallel sidecar; downloads/watch-folder, network, AI, and addon runtime remain downstream. Do not implement downloader/watch-folder/addon autonomous apply until accepted apply, rollback/repair, VFS-only mutation, and catalog/sidecar consistency are proven."
+    "next_task": "open playback-transcode-ops-hardening",
+    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, and NFO Sidecar Promotion Apply are completed. PRPH-090 selects Playback/Transcode Ops Hardening as the next mainline lane because local metadata, file-write, staged import, sidecar, rollback, and repair boundaries are now proven, and playback/transcode supportability is the next highest operator risk. Downloads/watch-folder, network, AI, and addon runtime remain downstream or parallel only if they consume existing accepted Taru-owned boundaries."
   }
 }

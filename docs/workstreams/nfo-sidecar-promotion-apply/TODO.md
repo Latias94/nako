@@ -1,6 +1,6 @@
 # NFO Sidecar Promotion Apply — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 Task IDs use the `NSPA` prefix.
@@ -105,11 +105,14 @@ Task IDs use the `NSPA` prefix.
 
 ## M6 — Closeout And Exposure Split
 
-- [ ] NSPA-070 [owner=planner] [deps=NSPA-060] [scope=docs/workstreams/nfo-sidecar-promotion-apply,docs/workstreams/post-rpd-product-hardening]
+- [x] NSPA-070 [owner=planner] [deps=NSPA-060] [scope=docs/workstreams/nfo-sidecar-promotion-apply,docs/workstreams/post-rpd-product-hardening]
   Goal: Close or split the sidecar apply lane and decide whether Admin API,
   Public Client API, Addon side-effect, or UI exposure belongs in follow-on
   workstreams.
   Validation: fresh evidence gates are recorded; parent umbrella points to the
   next lane.
-  Evidence: closeout journal, updated handoff, and parent re-score.
-  Handoff: Return to `post-rpd-product-hardening` for next lane scoring.
+  Evidence: closeout journal, updated handoff, and parent re-score. Core
+  sidecar apply is complete; API/UI/Addons/downloads are follow-on consumers of
+  this boundary rather than part of this lane.
+  Handoff: Return to `post-rpd-product-hardening` for PRPH-090 post-NSPA lane
+  scoring.
