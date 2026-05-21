@@ -112,13 +112,60 @@ pub struct RegisterAddonRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AddonRegistrationResponse {
-    pub addon: AddonRegistrationRecord,
+pub struct AdminAddonRegistrationSummary {
+    pub id: AddonId,
+    pub manifest_id: String,
+    pub name: String,
+    pub version: String,
+    pub protocol_version: String,
+    pub base_url: String,
+    pub granted_scopes: Vec<String>,
+    pub status: AddonStatus,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminAddonRegistrationSummary {
+    #[must_use]
+    pub fn from_record(record: &AddonRegistrationRecord) -> Self {
+        Self {
+            id: record.id,
+            manifest_id: record.manifest_id.clone(),
+            name: record.name.clone(),
+            version: record.version.clone(),
+            protocol_version: record.protocol_version.clone(),
+            base_url: record.base_url.clone(),
+            granted_scopes: record.granted_scopes.clone(),
+            status: record.status,
+            created_at: record.created_at.clone(),
+            updated_at: record.updated_at.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AddonRegistrationsResponse {
-    pub addons: Vec<AddonRegistrationRecord>,
+pub struct AdminAddonRegistrationDetail {
+    pub summary: AdminAddonRegistrationSummary,
+    pub manifest: AddonManifest,
+}
+
+impl AdminAddonRegistrationDetail {
+    pub fn from_record(record: &AddonRegistrationRecord) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            summary: AdminAddonRegistrationSummary::from_record(record),
+            manifest: serde_json::from_str(&record.manifest_json)?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRegistrationResponse {
+    pub addon: AdminAddonRegistrationDetail,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRegistrationsResponse {
+    pub addons: Vec<AdminAddonRegistrationSummary>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

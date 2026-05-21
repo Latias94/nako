@@ -3,6 +3,7 @@ use taru_search::{SearchDocument, SearchIndex, SearchQuery};
 
 use crate::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, TaruDatabase,
+    sqlite::SqliteStore,
 };
 
 #[tokio::test]
@@ -3007,8 +3008,22 @@ async fn taru_database_sqlite_round_trips_addon_tokens_and_grants() {
 
 #[tokio::test]
 async fn taru_database_sqlite_round_trips_addon_side_effects_idempotently() {
-    let store = TaruDatabase::connect_in_memory().await.unwrap();
-    store.migrate().await.unwrap();
+    let sqlite = SqliteStore::connect_in_memory().await.unwrap();
+    sqlite.migrate().await.unwrap();
+
+    let fingerprint_column: (i64,) = sqlx::query_as(
+        r#"
+        SELECT [notnull]
+        FROM pragma_table_info('addon_side_effects')
+        WHERE name = 'request_fingerprint'
+        "#,
+    )
+    .fetch_one(sqlite.pool())
+    .await
+    .unwrap();
+    assert_eq!(fingerprint_column.0, 1);
+
+    let store = TaruDatabase::from_sqlite_for_tests(sqlite);
 
     let library_id = LibraryId::new();
     store
@@ -3094,6 +3109,16 @@ async fn taru_database_sqlite_round_trips_addon_side_effects_idempotently() {
         r#"{"origin":"reference-addon"}"#
     );
     assert_eq!(side_effect.payload_json, r#"{"title":"Demo"}"#);
+    assert_eq!(
+        side_effect.request_fingerprint,
+        AddonSideEffectRequestFingerprint::new(
+            AddonPermission::MetadataWrite,
+            library_id,
+            &AddonSideEffectTarget::media_source(source_id),
+            r#"{"origin":"reference-addon"}"#,
+            r#"{"title":"Demo"}"#,
+        )
+    );
 
     let duplicate = store
         .create_addon_side_effect(NewAddonSideEffect {

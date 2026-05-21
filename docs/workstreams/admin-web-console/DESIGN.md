@@ -239,9 +239,9 @@ Initial route families:
 /automation/providers
 /automation/jobs
 /automation/jobs/:jobId
-/addons
-/addons/new
-/addons/:addonId
+/admin/addons
+/admin/addons/new
+/admin/addons/:addonId
 /network
 /settings
 ```

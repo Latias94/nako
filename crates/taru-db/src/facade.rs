@@ -193,6 +193,11 @@ impl TaruDatabase {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn from_sqlite_for_tests(sqlite: SqliteStore) -> Self {
+        Self::from_sqlite(sqlite)
+    }
+
     fn from_postgres(postgres: PostgresStore) -> Self {
         Self {
             backend: Arc::new(postgres),

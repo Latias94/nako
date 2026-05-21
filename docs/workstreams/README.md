@@ -48,6 +48,12 @@ attention.
   completed lane for replacing Android handwritten Public Client API DTO and route
   mirrors with an OpenAPI-backed generated Kotlin/JVM SDK before mobile
   Rust/UniFFI is introduced.
+- [addon-architecture-deepening](addon-architecture-deepening/README.md):
+  completed architecture-first lane for deepening Addon Side Effect runtime,
+  fingerprinted idempotency, Protected Write payload contracts, Addon Manifest
+  declarations, Library File Write runtime, Admin Addon API DTO shielding, and
+  Addon persistence parity before broader Addon breadth hardens shallow
+  Interfaces.
 - [self-hosted-release-readiness](self-hosted-release-readiness/README.md):
   completed release hardening lane for turning Taru's completed server/runtime
   capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL

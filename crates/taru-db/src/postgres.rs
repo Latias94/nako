@@ -371,6 +371,7 @@ const ADDON_SIDE_EFFECT_SELECT: &str = r#"
                 target_kind,
                 target_id,
                 idempotency_key,
+                request_fingerprint,
                 provenance_json,
                 payload_json,
                 validation_status,
@@ -1414,6 +1415,14 @@ impl AddonRepository for PostgresStore {
         &self,
         side_effect: NewAddonSideEffect,
     ) -> Result<AddonSideEffectRecord> {
+        let request_fingerprint = AddonSideEffectRequestFingerprint::new(
+            side_effect.permission,
+            side_effect.library_id,
+            &side_effect.target,
+            &side_effect.provenance_json,
+            &side_effect.payload_json,
+        );
+
         sqlx::query(
             r#"
             INSERT INTO addon_side_effects (
@@ -1425,12 +1434,13 @@ impl AddonRepository for PostgresStore {
                 target_kind,
                 target_id,
                 idempotency_key,
+                request_fingerprint,
                 provenance_json,
                 payload_json,
                 validation_status,
                 safe_error_code
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             ON CONFLICT(addon_id, idempotency_key) DO NOTHING
             "#,
         )
@@ -1442,6 +1452,7 @@ impl AddonRepository for PostgresStore {
         .bind(side_effect.target.kind.as_str())
         .bind(&side_effect.target.id)
         .bind(&side_effect.idempotency_key)
+        .bind(request_fingerprint.as_str())
         .bind(&side_effect.provenance_json)
         .bind(&side_effect.payload_json)
         .bind(side_effect.validation_status.as_str())
@@ -10147,14 +10158,20 @@ fn row_to_addon_side_effect(row: PgRow) -> Result<AddonSideEffectRecord> {
         id: row_get(&row, "target_id")?,
     };
 
+    let permission = AddonPermission::parse(&row_get::<String>(&row, "permission")?)?;
+    let library_id = parse_id(row_get::<String>(&row, "library_id")?)?;
+    let request_fingerprint =
+        AddonSideEffectRequestFingerprint::parse(row_get::<String>(&row, "request_fingerprint")?)?;
+
     Ok(AddonSideEffectRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
         addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
         token_id: parse_id(row_get::<String>(&row, "token_id")?)?,
-        permission: AddonPermission::parse(&row_get::<String>(&row, "permission")?)?,
-        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        permission,
+        library_id,
         target,
         idempotency_key: row_get(&row, "idempotency_key")?,
+        request_fingerprint,
         provenance_json: row_get(&row, "provenance_json")?,
         payload_json: row_get(&row, "payload_json")?,
         validation_status: AddonSideEffectValidationStatus::parse(&row_get::<String>(

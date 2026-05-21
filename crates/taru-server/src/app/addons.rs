@@ -2,9 +2,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use taru_addon_protocol::{ensure_scope_grant, validate_manifest};
 use taru_api::extension::{
-    AddonGrantsResponse, AddonRegistrationResponse, AddonRegistrationsResponse,
-    AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse, AddonTokenSummary,
-    AddonTokensResponse, IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
+    AddonTokenSummary, AddonTokensResponse, AdminAddonRegistrationDetail,
+    AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
+    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
 };
 use taru_core::{
     AddonId, AddonIssuedToken, AddonRegistrationRecord, AddonRepository, AddonStatus, AddonTokenId,
@@ -20,6 +21,7 @@ mod intake;
 mod library_file_write;
 mod metadata_write;
 mod principal;
+mod runtime;
 mod side_effect_apply;
 mod target;
 
@@ -93,29 +95,39 @@ impl AddonAppService {
     pub async fn register_addon(
         &self,
         request: RegisterAddonRequest,
-    ) -> Result<AddonRegistrationResponse> {
+    ) -> Result<AdminAddonRegistrationResponse> {
         let addon = self.normalize_addon_registration(request)?;
         let addon = self.store.upsert_addon_registration(addon).await?;
 
-        Ok(AddonRegistrationResponse { addon })
+        Ok(AdminAddonRegistrationResponse {
+            addon: self.admin_addon_detail(&addon)?,
+        })
     }
 
     pub async fn get_addon_registration(
         &self,
         addon_id: AddonId,
-    ) -> Result<AddonRegistrationResponse> {
+    ) -> Result<AdminAddonRegistrationResponse> {
         let addon = self.get_addon_registration_or_not_found(addon_id).await?;
 
-        Ok(AddonRegistrationResponse { addon })
+        Ok(AdminAddonRegistrationResponse {
+            addon: self.admin_addon_detail(&addon)?,
+        })
     }
 
     pub async fn list_addon_registrations(
         &self,
         status: Option<AddonStatus>,
-    ) -> Result<AddonRegistrationsResponse> {
-        let addons = self.store.list_addon_registrations(status).await?;
+    ) -> Result<AdminAddonRegistrationsResponse> {
+        let addons = self
+            .store
+            .list_addon_registrations(status)
+            .await?
+            .iter()
+            .map(AdminAddonRegistrationSummary::from_record)
+            .collect();
 
-        Ok(AddonRegistrationsResponse { addons })
+        Ok(AdminAddonRegistrationsResponse { addons })
     }
 
     pub async fn issue_addon_token(
@@ -264,5 +276,14 @@ impl AddonAppService {
                 entity: "addon_registration",
                 id: addon_id.to_string(),
             })
+    }
+
+    fn admin_addon_detail(
+        &self,
+        addon: &AddonRegistrationRecord,
+    ) -> Result<AdminAddonRegistrationDetail> {
+        AdminAddonRegistrationDetail::from_record(addon).map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to parse stored addon manifest: {err}"),
+        })
     }
 }

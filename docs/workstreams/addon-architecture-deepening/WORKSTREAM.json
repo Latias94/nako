@@ -1,0 +1,32 @@
+{
+  "slug": "addon-architecture-deepening",
+  "title": "Addon Architecture Deepening",
+  "status": "completed",
+  "created_at": "2026-05-21",
+  "last_updated": "2026-05-21",
+  "objective": "Fearlessly deepen Taru's Addon architecture across Addon Side Effect runtime, idempotency, Protected Write payload contracts, Addon Manifest declarations, Library File Write runtime, Admin Addon API DTO shielding, and persistence parity.",
+  "task_prefix": "AAD",
+  "current_task": null,
+  "completed_at": "2026-05-21",
+  "first_executable_task": "AAD-010",
+  "related_adrs": [
+    "0003-http-addons-before-in-process-plugins",
+    "0014-durable-event-outbox-for-webhooks-and-automation",
+    "0015-capability-scoped-http-addons-and-automation-providers",
+    "0020-jellyfin-like-sidecar-addons-with-scoped-api-access",
+    "0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl",
+    "0027-admin-api-boundary-for-web-console",
+    "0029-postgresql-ready-persistence-boundary",
+    "0030-postgresql-ready-sql-dialect-and-migration-policy"
+  ],
+  "primary_crates": [
+    "taru-addon-protocol",
+    "taru-addon-client",
+    "taru-api",
+    "taru-core",
+    "taru-db",
+    "taru-reference-addon",
+    "taru-server"
+  ],
+  "validation_summary": "Focused Addon checks first; workspace check and nextest before closeout; PostgreSQL opt-in contracts when TARU_TEST_POSTGRES_URL is available."
+}

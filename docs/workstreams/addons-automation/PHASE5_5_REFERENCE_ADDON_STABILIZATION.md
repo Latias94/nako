@@ -16,9 +16,11 @@ audit.
 - The reference addon implements a `metadata` resource that accepts the Taru
   addon request envelope and returns a matching response envelope with a
   metadata suggestion artifact.
-- Added a server end-to-end test that starts the local reference addon, registers
-  it through `POST /addons`, queries it through `GET /addons/{addon_id}`, and
-  calls its metadata resource through `ReqwestAddonTransport`.
+- Added a server end-to-end test that starts the local reference addon,
+  registers it through the Addon management HTTP surface, queries it by Addon
+  ID, and calls its metadata resource through `ReqwestAddonTransport`.
+  Architecture deepening later moved the management HTTP surface from the
+  original root `/addons` routes to `/admin/v1/addons`.
 - Added addon author, webhook receiver, and automation provider guides.
 - Updated HTTP API, roadmap, goal map, workstream milestones, and TODO state.
 

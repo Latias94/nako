@@ -1,16 +1,19 @@
 use std::collections::HashSet;
 
+use taru_addon_protocol::AddonMetadataPatch;
 use taru_catalog::{
     CatalogLabelHydrationSelection, plan_item_catalog_label_projection, plan_item_search_projection,
 };
 use taru_core::{
     AddonId, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit,
-    AddonSideEffectRecord, CanonicalMetadata, MediaItem, MediaItemId, MetadataMergePolicy,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, Result, TaruError,
+    AddonSideEffectRecord, CanonicalMetadata, MediaItem, MetadataMergePolicy, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, Result, TaruError,
 };
 use taru_db::TaruDatabase;
 
-use super::target::resolve_side_effect_media_item;
+use super::{
+    side_effect_apply::AddonSideEffectApplyCommand, target::resolve_side_effect_media_item,
+};
 
 #[derive(Clone, Debug)]
 pub(super) struct AddonMetadataWriteAdapter {
@@ -25,7 +28,7 @@ impl AddonMetadataWriteAdapter {
     pub(super) async fn apply(
         &self,
         side_effect: &AddonSideEffectRecord,
-    ) -> Result<AppliedMetadataWrite> {
+    ) -> Result<AddonSideEffectApplyCommand> {
         let existing = resolve_side_effect_media_item(&self.store, side_effect).await?;
         let patch = parse_addon_metadata_patch(&side_effect.payload_json)?;
         let label_selection = patch.catalog_label_selection();
@@ -61,60 +64,26 @@ impl AddonMetadataWriteAdapter {
             }
         };
         let applied_source = addon_metadata_source_label(side_effect.addon_id);
-        let summary = self
-            .store
-            .commit_addon_metadata_write(&AddonMetadataWritePersistenceCommit {
+
+        Ok(AddonSideEffectApplyCommand::MetadataWrite(
+            AddonMetadataWritePersistenceCommit {
                 side_effect_id: side_effect.id,
                 item: updated,
                 catalog,
                 applied_source,
                 apply_report_json: None,
-            })
-            .await?;
-
-        let source = summary
-            .side_effect
-            .applied_source
-            .clone()
-            .unwrap_or_else(|| addon_metadata_source_label(side_effect.addon_id));
-        Ok(AppliedMetadataWrite {
-            item_id: summary.item_id,
-            source,
-            side_effect: summary.side_effect,
-        })
+            },
+        ))
     }
 }
 
-pub(super) struct AppliedMetadataWrite {
-    pub(super) item_id: MediaItemId,
-    pub(super) source: String,
-    pub(super) side_effect: AddonSideEffectRecord,
+trait AddonMetadataPatchExt {
+    fn apply_to(self, metadata: CanonicalMetadata) -> CanonicalMetadata;
+    fn validate(&self) -> Result<()>;
+    fn catalog_label_selection(&self) -> CatalogLabelHydrationSelection;
 }
 
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AddonMetadataPatch {
-    #[serde(default)]
-    title: Option<String>,
-    #[serde(default)]
-    original_title: Option<String>,
-    #[serde(default)]
-    sort_title: Option<String>,
-    #[serde(default)]
-    overview: Option<String>,
-    #[serde(default)]
-    release_date: Option<String>,
-    #[serde(default)]
-    runtime_minutes: Option<u32>,
-    #[serde(default)]
-    tagline: Option<String>,
-    #[serde(default)]
-    genres: Option<Vec<String>>,
-    #[serde(default)]
-    tags: Option<Vec<String>>,
-}
-
-impl AddonMetadataPatch {
+impl AddonMetadataPatchExt for AddonMetadataPatch {
     fn apply_to(self, mut metadata: CanonicalMetadata) -> CanonicalMetadata {
         if let Some(title) = self.title.and_then(non_empty_trimmed) {
             metadata.title = title;
@@ -175,6 +144,21 @@ impl AddonMetadataPatch {
         Ok(())
     }
 
+    fn catalog_label_selection(&self) -> CatalogLabelHydrationSelection {
+        CatalogLabelHydrationSelection {
+            genres: self.genres.is_some(),
+            tags: self.tags.is_some(),
+        }
+    }
+}
+
+trait AddonMetadataPatchValidationExt {
+    fn has_any_field(&self) -> bool;
+    fn validate_text_field(&self, field: &str, value: Option<&String>) -> Result<()>;
+    fn validate_list_field(&self, field: &str, value: Option<&Vec<String>>) -> Result<()>;
+}
+
+impl AddonMetadataPatchValidationExt for AddonMetadataPatch {
     fn has_any_field(&self) -> bool {
         self.title.is_some()
             || self.original_title.is_some()
@@ -185,13 +169,6 @@ impl AddonMetadataPatch {
             || self.tagline.is_some()
             || self.genres.is_some()
             || self.tags.is_some()
-    }
-
-    fn catalog_label_selection(&self) -> CatalogLabelHydrationSelection {
-        CatalogLabelHydrationSelection {
-            genres: self.genres.is_some(),
-            tags: self.tags.is_some(),
-        }
     }
 
     fn validate_text_field(&self, field: &str, value: Option<&String>) -> Result<()> {

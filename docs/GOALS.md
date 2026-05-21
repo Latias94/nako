@@ -26,10 +26,64 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is selected after the Admin API TypeScript
-Contract closeout.
+No active implementation goal is currently recorded. Pick the next goal from
+the roadmap or open a new workstream before starting a cross-cutting change.
 
 ## Completed Goals
+
+### Addon Architecture Deepening
+
+Status: completed.
+
+Objective:
+
+- Fearlessly deepen Taru's Addon architecture before broader Addon breadth
+  hardens shallow Interfaces.
+- Consolidate Addon Side Effect runtime lifecycle behavior into a deep Module.
+- Add fingerprinted Addon Side Effect idempotency semantics.
+- Move shipped Protected Write payload shapes behind explicit Interfaces.
+- Deepen Addon Manifest declarations for the next Addon Protocol concepts.
+- Deepen Library File Write beyond the current NFO-only Adapter.
+- Finish Admin Addon API DTO shielding and route ownership.
+- Preserve `taru-addon-protocol` as a permissive public protocol seam and keep
+  SQLite/PostgreSQL Addon state parity.
+
+Deliverables:
+
+- `docs/workstreams/addon-architecture-deepening/` as the authoritative
+  execution lane.
+- Updated Addon ADR statuses for shipped accepted decisions.
+- Focused Addon runtime, protocol, Admin API, and persistence tests as each
+  slice lands.
+
+Non-goals:
+
+- No Addon Manager lifecycle automation.
+- No OAuth-first Addon authorization.
+- No Native Plugin ABI or Jellyfin Plugin Compatibility.
+- No embedded JavaScript or WASI runtime.
+- No broad subtitle model, provider breadth, AI/vector search, network tunnel,
+  or playback feature expansion.
+
+First executable task:
+
+- AAD-020 Addon Side Effect Runtime depth after AAD-010 authority freeze.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/addon-architecture-deepening/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo check --workspace --tests`;
+  - `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`;
+  - `cargo nextest run -p taru-db addon --no-fail-fast`;
+  - `cargo nextest run -p taru-server addons --no-fail-fast`;
+  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`;
+  - `cargo nextest run -p taru-server library_file_write --no-fail-fast`;
+  - `cargo nextest run -p taru-api --no-fail-fast`;
+  - `cargo nextest run --workspace --no-fail-fast`;
+  - `git diff --check`.
 
 ### Admin API TypeScript Contract
 
@@ -1930,7 +1984,8 @@ Evidence for M5.3:
 Evidence for M5.4:
 
 - `taru-addon-protocol` defines the manifest, protocol version, resource
-  declarations, scopes, auth modes, request/response envelopes, mockable
+  declarations, scopes, auth modes, request/response envelopes, and Addon
+  Protected Write payload contracts. `taru-addon-client` owns the mockable
   transport, `ReqwestAddonTransport`, and bounded resource caller.
 - `taru-core` defines addon registration status and records plus
   `AddonRepository`.
@@ -1948,8 +2003,9 @@ Evidence for M5.5:
 - `taru-reference-addon` provides a minimal local metadata addon fixture with
   a valid manifest and HTTP resource route.
 - `taru-server` end-to-end tests register the reference addon through
-  `POST /addons`, query it through `GET /addons/{addon_id}`, and call the
-  metadata resource through `ReqwestAddonTransport`.
+  `POST /admin/v1/addons`, query it through
+  `GET /admin/v1/addons/{addon_id}`, and call the metadata resource through
+  `ReqwestAddonTransport`.
 - Addon author, webhook receiver, and automation provider guides document the
   current extension surface.
 - [Phase 5.5](workstreams/addons-automation/PHASE5_5_REFERENCE_ADDON_STABILIZATION.md)

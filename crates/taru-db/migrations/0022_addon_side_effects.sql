@@ -7,6 +7,7 @@ CREATE TABLE addon_side_effects (
     target_kind TEXT NOT NULL,
     target_id TEXT NOT NULL,
     idempotency_key TEXT NOT NULL,
+    request_fingerprint TEXT NOT NULL,
     provenance_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
     validation_status TEXT NOT NULL,

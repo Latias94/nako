@@ -17,8 +17,10 @@ depend on Taru wire contracts without inheriting the server implementation
 license or depending on Taru's internal domain model.
 
 `taru-addon-protocol` already establishes that pattern by using `Apache-2.0`.
-Future public protocol or SDK crates will need the same treatment if they are
-meant for independent reuse outside the server process.
+`taru-addon-client` follows the same permissive boundary for the optional Rust
+HTTP caller helper so the protocol crate can remain dependency-light. Future
+public protocol or SDK crates will need the same treatment if they are meant
+for independent reuse outside the server process.
 
 ## Decision
 
@@ -41,6 +43,11 @@ That boundary is for independent consumers, not for server convenience.
 Example addons or fixtures that live inside the repository may remain AGPL if
 they are not intended for external reuse.
 
+Protocol crates should not absorb transport stacks just because Taru's server
+or tests need a caller. If a permissive helper needs `reqwest`, async traits, or
+runtime-specific networking behavior, it belongs in a separate permissive
+client/helper crate that depends on the protocol crate.
+
 ## Consequences
 
 - Addon authors can reuse Taru protocol crates without inheriting the server
@@ -51,6 +58,9 @@ they are not intended for external reuse.
   to independent implementations.
 - Protocol crates require more discipline because they cannot casually import
   server internals.
+- Optional helper crates such as `taru-addon-client` may carry heavier
+  transport dependencies without making every wire-contract consumer inherit
+  them.
 - Some small wire types may be duplicated on purpose to keep the boundary
   clean.
 

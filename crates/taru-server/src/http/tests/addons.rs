@@ -112,10 +112,10 @@ pub(super) async fn propose_and_accept_remote_artwork(
     taru_core::ArtworkCandidateId,
     AcceptManagedArtworkCandidateResponse,
 ) {
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -127,7 +127,7 @@ pub(super) async fn propose_and_accept_remote_artwork(
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         router,
         Method::POST,
@@ -190,10 +190,10 @@ pub(super) async fn propose_and_accept_remote_artwork(
 }
 
 async fn register_artwork_addon(router: &Router, library_id: LibraryId) -> String {
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -205,7 +205,7 @@ async fn register_artwork_addon(router: &Router, library_id: LibraryId) -> Strin
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         router,
         Method::POST,
@@ -282,15 +282,30 @@ async fn propose_and_accept_remote_artwork_with_token(
 }
 
 #[tokio::test]
-async fn addon_routes_register_disabled_by_default_and_validate_contract() {
+async fn register_addon_routes_disabled_by_default_and_validate_contract() {
     let temp = tempfile::tempdir().unwrap();
     let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
     let manifest = addon_manifest();
 
-    let response = request_body_json::<AddonRegistrationResponse, _>(
+    let legacy_register = post_legacy_addon_registration(
+        &router,
+        RegisterAddonRequest {
+            id: None,
+            manifest: manifest.clone(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    assert_eq!(legacy_register.status(), StatusCode::NOT_FOUND);
+
+    let response = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: manifest.clone(),
@@ -303,28 +318,47 @@ async fn addon_routes_register_disabled_by_default_and_validate_contract() {
     )
     .await;
 
-    assert_eq!(response.addon.manifest_id, manifest.id);
-    assert_eq!(response.addon.status, AddonStatus::Disabled);
+    assert_eq!(response.addon.summary.manifest_id, manifest.id);
+    assert_eq!(response.addon.summary.status, AddonStatus::Disabled);
     assert_eq!(
-        response.addon.granted_scopes,
+        response.addon.summary.granted_scopes,
         vec!["item_metadata_suggest", "item_metadata_read"]
     );
-    assert!(!response.addon.manifest_json.contains("token"));
+    let response_json = serde_json::to_value(&response).unwrap();
+    assert!(response_json["addon"].get("manifest_json").is_none());
+    assert!(!response_json.to_string().contains("token"));
 
-    let disabled =
-        request_json::<AddonRegistrationsResponse>(&router, Method::GET, "/addons?status=disabled")
-            .await;
-    assert_eq!(disabled.addons, vec![response.addon.clone()]);
+    let disabled = request_json::<AdminAddonRegistrationsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons?status=disabled",
+    )
+    .await;
+    assert_eq!(disabled.addons, vec![response.addon.summary.clone()]);
 
-    let enabled =
-        request_json::<AddonRegistrationsResponse>(&router, Method::GET, "/addons?status=enabled")
-            .await;
+    let enabled = request_json::<AdminAddonRegistrationsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons?status=enabled",
+    )
+    .await;
     assert!(enabled.addons.is_empty());
 
-    let detail_path = format!("/addons/{}", response.addon.id);
+    let detail_path = format!("/admin/v1/addons/{}", response.addon.summary.id);
     let detail =
-        request_json::<AddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
+        request_json::<AdminAddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
     assert_eq!(detail, response);
+
+    let legacy_list = response_for(&router, Method::GET, "/addons").await;
+    assert_eq!(legacy_list.status(), StatusCode::NOT_FOUND);
+
+    let legacy_detail = response_for(
+        &router,
+        Method::GET,
+        &format!("/addons/{}", response.addon.summary.id),
+    )
+    .await;
+    assert_eq!(legacy_detail.status(), StatusCode::NOT_FOUND);
 
     let mut invalid_manifest = addon_manifest();
     invalid_manifest.resources[0].path = "metadata".to_owned();
@@ -361,6 +395,99 @@ async fn addon_routes_register_disabled_by_default_and_validate_contract() {
 }
 
 #[tokio::test]
+async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_ones() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.entry_points = vec![AddonEntryPointDeclaration::hosted_page(
+        "metadata-action",
+        AddonEntryPointKind::ItemAction,
+        "Suggest Metadata",
+        "/ui/metadata-action",
+        "diagnostics",
+        vec![AddonScope::ItemMetadataSuggest],
+    )];
+    manifest.hosted_pages = vec![AddonHostedPageDeclaration {
+        id: "diagnostics".to_owned(),
+        title: "Addon Diagnostics".to_owned(),
+        path: "/ui/diagnostics".to_owned(),
+        required_scopes: vec![AddonScope::ItemMetadataRead],
+    }];
+    manifest.configuration_schema = Some(AddonConfigurationSchema {
+        schema_id: "taru.example.metadata.config.v1".to_owned(),
+        schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "language": { "type": "string" }
+            },
+            "additionalProperties": false
+        }),
+    });
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration {
+        id: "library-scan-finished".to_owned(),
+        event_kind: "library_scan.succeeded".to_owned(),
+        path: "/events/library-scan-finished".to_owned(),
+        required_scopes: vec![AddonScope::WebhookEventRead],
+        filters: serde_json::json!({ "library_preset": "movies" }),
+    }];
+    manifest.tasks = vec![AddonTaskDeclaration {
+        id: "bulk-metadata-scrape".to_owned(),
+        name: "Bulk metadata scrape".to_owned(),
+        path: "/tasks/bulk-metadata-scrape".to_owned(),
+        description: Some("Runs metadata suggestions for selected items".to_owned()),
+        required_scopes: vec![AddonScope::AutomationRun],
+        timeout_ms: Some(30_000),
+        max_attempts: Some(2),
+    }];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+
+    let response = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: manifest.clone(),
+            granted_scopes: manifest.scopes.clone(),
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let stored_manifest = response.addon.manifest;
+    assert_eq!(stored_manifest.entry_points[0].id, "metadata-action");
+    assert_eq!(stored_manifest.hosted_pages[0].id, "diagnostics");
+    assert_eq!(stored_manifest.tasks[0].id, "bulk-metadata-scrape");
+    assert_eq!(
+        stored_manifest
+            .configuration_schema
+            .as_ref()
+            .unwrap()
+            .schema_id,
+        "taru.example.metadata.config.v1"
+    );
+
+    let mut invalid_manifest = manifest.clone();
+    invalid_manifest.tasks[0].required_scopes = vec![AddonScope::RecommendationWrite];
+    let invalid = post_addon_registration(
+        &router,
+        RegisterAddonRequest {
+            id: None,
+            manifest: invalid_manifest,
+            granted_scopes: manifest.scopes,
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+    let invalid_error = body_json::<ErrorResponse>(invalid).await;
+    assert_eq!(invalid_error.code, "invalid_input");
+    assert!(invalid_error.message.contains("task"));
+    assert!(invalid_error.message.contains("recommendation_write"));
+}
+
+#[tokio::test]
 async fn reference_addon_registers_queries_and_handles_resource_call() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addon_base_url = format!("http://{}", listener.local_addr().unwrap());
@@ -375,10 +502,10 @@ async fn reference_addon_registers_queries_and_handles_resource_call() {
     let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
     let manifest = taru_reference_addon::reference_manifest(addon_base_url);
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest,
@@ -390,17 +517,16 @@ async fn reference_addon_registers_queries_and_handles_resource_call() {
         },
     )
     .await;
-    assert_eq!(registered.addon.status, AddonStatus::Enabled);
+    assert_eq!(registered.addon.summary.status, AddonStatus::Enabled);
     assert_eq!(
-        registered.addon.manifest_id,
+        registered.addon.summary.manifest_id,
         taru_reference_addon::REFERENCE_ADDON_ID
     );
 
-    let detail_path = format!("/addons/{}", registered.addon.id);
+    let detail_path = format!("/admin/v1/addons/{}", registered.addon.summary.id);
     let detail =
-        request_json::<AddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
-    let stored_manifest =
-        serde_json::from_str::<AddonManifest>(&detail.addon.manifest_json).unwrap();
+        request_json::<AdminAddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
+    let stored_manifest = detail.addon.manifest;
     let granted_scopes = [
         AddonScope::ItemMetadataRead,
         AddonScope::ItemMetadataSuggest,
@@ -434,10 +560,10 @@ async fn addon_admin_routes_issue_rotate_revoke_tokens_and_replace_grants_withou
     let library_id = LibraryId::new();
     let router = test_router(temp.path().to_path_buf(), library_id).await;
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -449,7 +575,7 @@ async fn addon_admin_routes_issue_rotate_revoke_tokens_and_replace_grants_withou
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
 
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued_response = router
@@ -575,10 +701,10 @@ async fn addon_runtime_access_check_enforces_token_permission_and_library_scope(
     let other_library_id = LibraryId::new();
     let router = test_router(temp.path().to_path_buf(), library_id).await;
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -590,7 +716,7 @@ async fn addon_runtime_access_check_enforces_token_permission_and_library_scope(
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
@@ -727,7 +853,7 @@ async fn addon_token_cannot_authenticate_admin_routes() {
         test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, admin_token).await;
 
     let registered = register_addon_with_admin_token(&router, admin_token).await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json_with_bearer::<AddonTokenIssuedResponse, _>(
         &router,
@@ -794,10 +920,10 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -809,7 +935,7 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
@@ -949,6 +1075,29 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
         duplicate.side_effect.apply_status,
         AddonSideEffectApplyStatus::Applied
     );
+
+    let mut conflicting_payload = request.clone();
+    conflicting_payload.payload = serde_json::json!({
+        "title": "Conflicting Addon Title"
+    });
+    let conflict = addon_side_effect(&router, Some(&issued.raw_token), &conflicting_payload).await;
+    assert_eq!(conflict.status(), StatusCode::CONFLICT);
+    let conflict_body = to_bytes(conflict.into_body(), usize::MAX).await.unwrap();
+    let conflict_error: ErrorResponse = serde_json::from_slice(&conflict_body).unwrap();
+    assert_eq!(conflict_error.code, "conflict");
+    let conflict_text = String::from_utf8_lossy(&conflict_body);
+    assert!(!conflict_text.contains("Conflicting Addon Title"));
+    assert!(!conflict_text.contains("local:///Movies/demo.mkv"));
+    assert!(!conflict_text.contains(&issued.raw_token));
+
+    let mut conflicting_provenance = request.clone();
+    conflicting_provenance.provenance = serde_json::json!({
+        "origin": "reference-addon",
+        "request_id": "request-2"
+    });
+    let conflict =
+        addon_side_effect(&router, Some(&issued.raw_token), &conflicting_provenance).await;
+    assert_eq!(conflict.status(), StatusCode::CONFLICT);
 }
 
 #[tokio::test]
@@ -963,10 +1112,10 @@ async fn addon_side_effect_library_file_write_exports_missing_nfo_without_echoin
     library.options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
     store.upsert_library(&library).await.unwrap();
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -978,7 +1127,7 @@ async fn addon_side_effect_library_file_write_exports_missing_nfo_without_echoin
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
@@ -1060,8 +1209,14 @@ async fn addon_side_effect_library_file_write_exports_missing_nfo_without_echoin
         .as_ref()
         .expect("NFO export side effect report");
     assert_eq!(report["kind"], "nfo_export");
+    assert_eq!(report["target_kind"], "media_source");
     assert_eq!(report["file_role"], "nfo");
     assert_eq!(report["policy"], "create_missing");
+    assert_eq!(report["write_mode"], "create_missing");
+    assert_eq!(report["backup_policy"], "none");
+    assert_eq!(report["library_id"], library_id.to_string());
+    assert_eq!(report["source_id"], source.id.to_string());
+    assert_eq!(report["item_id"], source.item_id.to_string());
     assert_eq!(report["exported_items"], 1);
     assert_eq!(report["skipped_items"], 0);
     assert_eq!(report["failed_items"], 0);
@@ -1109,10 +1264,10 @@ async fn addon_side_effect_library_file_write_replaces_existing_nfo_with_backup_
     )
     .unwrap();
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -1124,7 +1279,7 @@ async fn addon_side_effect_library_file_write_replaces_existing_nfo_with_backup_
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
@@ -1187,6 +1342,11 @@ async fn addon_side_effect_library_file_write_replaces_existing_nfo_with_backup_
         .expect("NFO export side effect report");
     assert_eq!(report["kind"], "nfo_export");
     assert_eq!(report["policy"], "replace_existing_preserving");
+    assert_eq!(report["write_mode"], "atomic_replace");
+    assert_eq!(report["backup_policy"], "existing_file_keep_latest");
+    assert_eq!(report["library_id"], library_id.to_string());
+    assert_eq!(report["source_id"], source.id.to_string());
+    assert_eq!(report["item_id"], source.item_id.to_string());
     assert_eq!(report["exported_items"], 1);
     assert_eq!(report["backed_up_items"], 1);
     assert_eq!(report["failed_items"], 0);
@@ -1221,10 +1381,10 @@ async fn addon_side_effect_library_file_write_rejects_raw_payload_and_media_item
     library.options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
     store.upsert_library(&library).await.unwrap();
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -1236,7 +1396,7 @@ async fn addon_side_effect_library_file_write_rejects_raw_payload_and_media_item
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
@@ -1343,10 +1503,10 @@ async fn addon_side_effect_artwork_write_proposes_candidate_without_public_artwo
     let library_id = source.library_id;
     let remote_url = "https://artwork.example.test/posters/demo.jpg?token=secret";
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -1358,7 +1518,7 @@ async fn addon_side_effect_artwork_write_proposes_candidate_without_public_artwo
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -1514,10 +1674,10 @@ async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_art
     let library_id = source.library_id;
     let remote_url = "https://artwork.example.test/posters/demo.jpg?token=secret";
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -1529,7 +1689,7 @@ async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_art
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -1666,10 +1826,10 @@ async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_with
     let library_id = source.library_id;
     let (remote_url, expected_byte_len) = tiny_artwork_server().await;
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -1681,7 +1841,7 @@ async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_with
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -3556,10 +3716,10 @@ async fn addon_side_effect_artwork_write_rejects_unsafe_payloads_and_media_sourc
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -3571,7 +3731,7 @@ async fn addon_side_effect_artwork_write_rejects_unsafe_payloads_and_media_sourc
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -3810,10 +3970,10 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
         .await
         .unwrap();
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -3825,7 +3985,7 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -3939,10 +4099,10 @@ async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_cata
         .await
         .unwrap();
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -3954,7 +4114,7 @@ async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_cata
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -4049,10 +4209,10 @@ async fn addon_side_effect_intake_rejects_unauthorized_scope_revoked_token_and_b
         .await
         .unwrap();
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -4064,7 +4224,7 @@ async fn addon_side_effect_intake_rejects_unauthorized_scope_revoked_token_and_b
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
@@ -4190,10 +4350,10 @@ async fn addon_side_effect_metadata_write_records_apply_failure_without_leaking_
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
 
-    let registered = request_body_json::<AddonRegistrationResponse, _>(
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
@@ -4205,7 +4365,7 @@ async fn addon_side_effect_metadata_write_records_apply_failure_without_leaking_
         },
     )
     .await;
-    let addon_id = registered.addon.id;
+    let addon_id = registered.addon.summary.id;
     let issued = request_body_json::<AddonTokenIssuedResponse, _>(
         &router,
         Method::POST,
@@ -4282,11 +4442,11 @@ async fn addon_side_effect_metadata_write_records_apply_failure_without_leaking_
 async fn register_addon_with_admin_token(
     router: &Router,
     admin_token: &str,
-) -> AddonRegistrationResponse {
+) -> AdminAddonRegistrationResponse {
     request_body_json_with_bearer(
         router,
         Method::POST,
-        "/addons",
+        "/admin/v1/addons",
         admin_token,
         &RegisterAddonRequest {
             id: None,

@@ -527,9 +527,9 @@ GET  /webhooks/endpoints
 GET  /webhooks/endpoints/{endpoint_id}
 GET  /events/{event_id}/webhook-attempts
 POST /events/{event_id}/webhooks/deliver
-POST /addons
-GET  /addons
-GET  /addons/{addon_id}
+POST /admin/v1/addons
+GET  /admin/v1/addons
+GET  /admin/v1/addons/{addon_id}
 POST /admin/v1/addons/{addon_id}/tokens
 GET  /admin/v1/addons/{addon_id}/tokens
 POST /admin/v1/addons/{addon_id}/tokens/{token_id}/rotate
@@ -924,10 +924,11 @@ and `next_retry_at` for retryable failures.
 
 ## Addon Routes
 
-`POST /addons` registers or updates an HTTP addon manifest. Addons are disabled
-by default. A caller must explicitly request `"status": "enabled"` and grant
-every scope required by each declared resource before an enabled registration is
-accepted.
+Addon administration is an Admin API surface. `POST /admin/v1/addons`
+registers or updates an HTTP addon manifest. Addons are disabled by default. A
+caller must explicitly request `"status": "enabled"` and grant every scope
+required by each declared resource before an enabled registration is accepted.
+The old root `/addons` registration/list/detail routes are not mounted.
 
 ```json
 {
@@ -953,6 +954,37 @@ accepted.
     "auth": "bearer",
     "default_timeout_ms": 10000,
     "default_max_attempts": 2,
+    "entry_points": [
+      {
+        "id": "metadata-action",
+        "kind": "item_action",
+        "label": "Suggest Metadata",
+        "path": "/ui/metadata-action",
+        "hosted_page_id": "diagnostics",
+        "required_scopes": ["item_metadata_suggest"]
+      }
+    ],
+    "hosted_pages": [
+      {
+        "id": "diagnostics",
+        "title": "Addon Diagnostics",
+        "path": "/ui/diagnostics",
+        "required_scopes": ["item_metadata_read"]
+      }
+    ],
+    "configuration_schema": {
+      "schema_id": "taru.example.metadata.config.v1",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "language": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "secret_reference_fields": [],
+    "event_subscriptions": [],
+    "tasks": [],
     "scopes": ["item_metadata_read", "item_metadata_suggest"]
   },
   "granted_scopes": ["item_metadata_read", "item_metadata_suggest"],
@@ -964,29 +996,72 @@ The current addon protocol version is `2026-05-15`. Taru rejects manifests
 with unsupported protocol versions, non-HTTP base URLs, relative resource
 paths, duplicate resource declarations, invalid timeout/retry bounds, or
 resource scopes that are not declared by the manifest.
+The manifest may also declare Addon Entry Points, Addon Hosted Pages, an Addon
+Configuration Schema, Secret Reference fields, Addon Event Subscriptions, and
+Addon Tasks. These declarations are validated during registration but do not
+by themselves grant runtime authority: declaration `required_scopes` must be
+present in the manifest-level `scopes`, resource calls still require granted
+scopes, and Addon Side Effects still require accepted Addon Permission grants.
+Taru rejects duplicate declaration IDs within a declaration class, relative
+declaration paths, entry points that reference unknown hosted pages, non-object
+configuration schemas, and invalid Addon Task timeout/retry bounds.
 
-Persisted registration responses include the manifest snapshot,
-`granted_scopes`, and enabled/disabled status. They do not include resolved
-runtime secrets.
+Admin registration responses shield persistence records. Create/detail
+responses return a summary plus the parsed manifest snapshot; list responses
+return summaries only. The response does not expose `manifest_json`, raw token
+values, token hashes, resolved runtime secrets, raw side-effect payloads, raw
+provenance, Source Locators, storage URIs, or local filesystem paths.
 
-`GET /addons` lists registrations. `GET /addons?status=enabled` and
-`GET /addons?status=disabled` filter by status. `GET /addons/{addon_id}`
-returns one registration or `404 not_found`.
+```json
+{
+  "addon": {
+    "summary": {
+      "id": "018f0000-0000-7000-8000-000000000002",
+      "manifest_id": "example.metadata",
+      "name": "Example Metadata",
+      "version": "0.1.0",
+      "protocol_version": "2026-05-15",
+      "base_url": "https://example.test/addon",
+      "granted_scopes": ["item_metadata_read", "item_metadata_suggest"],
+      "status": "disabled",
+      "created_at": "2026-05-21T12:00:00.000Z",
+      "updated_at": "2026-05-21T12:00:00.000Z"
+    },
+    "manifest": {
+      "id": "example.metadata",
+      "name": "Example Metadata",
+      "version": "0.1.0",
+      "protocol_version": "2026-05-15",
+      "base_url": "https://example.test/addon",
+      "auth": "bearer",
+      "resources": [],
+      "scopes": []
+    }
+  }
+}
+```
+
+`GET /admin/v1/addons` lists registration summaries.
+`GET /admin/v1/addons?status=enabled` and
+`GET /admin/v1/addons?status=disabled` filter by status.
+`GET /admin/v1/addons/{addon_id}` returns one registration detail or
+`404 not_found`.
 
 Addon resource calls use a versioned request/response envelope in
-`taru-addon-protocol`. Calls are bounded by timeout and `max_attempts`; 408,
-429, 5xx, and transport errors are retryable, while other 4xx responses fail
-without retry. HTTP handlers only register and inspect addons in M5; they do
-not call addon resource endpoints inline.
+`taru-addon-protocol`. The HTTP caller helper lives in `taru-addon-client`;
+calls are bounded by timeout and `max_attempts`; 408, 429, 5xx, and transport
+errors are retryable, while other 4xx responses fail without retry. HTTP
+handlers only register and inspect addons in M5; they do not call addon
+resource endpoints inline.
 
 The workspace includes `taru-reference-addon`, a minimal metadata addon fixture
-used by the M5.5 end-to-end test. It proves that a local addon can be
-registered, queried, and called through the protocol transport.
+used by the end-to-end test. It proves that a local addon can be registered and
+queried through `/admin/v1/addons`, then called through the protocol transport.
 
-Admin-only addon token routes live under `/admin/v1/addons/{addon_id}`. They
-are for issuing credentials to a registered Addon Sidecar; they do not make an
-addon an admin client, and they are separate from the manifest `auth` value used
-when Taru calls the addon.
+Addon token routes live under `/admin/v1/addons/{addon_id}`. They are for
+issuing credentials to a registered Addon Sidecar; they do not make an addon an
+admin client, and they are separate from the manifest `auth` value used when
+Taru calls the addon.
 
 `POST /admin/v1/addons/{addon_id}/tokens` issues a new Addon Token. The response
 contains the raw token exactly once:
@@ -1185,12 +1260,21 @@ but the side-effect record still stores the specific library being targeted.
 The current `metadata_write` payload accepts only these top-level fields:
 `title`, `original_title`, `sort_title`, `overview`, `release_date`,
 `runtime_minutes`, `tagline`, `genres`, and `tags`. Unknown fields are rejected
-as an apply failure and are not echoed back to the Addon Sidecar. The current
-`library_file_write` NFO export slice accepts only `media_source` targets;
-`media_item` targets are rejected until multi-source and Source Variant
-behavior is explicit. The current `artwork_write` candidate slice accepts only
-`media_item` targets; `media_source` targets are rejected until source-derived
-thumbnail ownership is explicit.
+as an apply failure and are not echoed back to the Addon Sidecar. This wire
+shape is represented by `taru_addon_protocol::AddonMetadataPatch` for Addon
+authors and reference Addons.
+
+The current `library_file_write` NFO export slice accepts only `media_source`
+targets; `media_item` targets are rejected until multi-source and Source
+Variant behavior is explicit. Its payload wire shape is represented by
+`taru_addon_protocol::AddonLibraryFileWritePayload` with
+`AddonLibraryFileRole::Nfo` and `AddonLibraryFileWritePolicy`.
+
+The current `artwork_write` candidate slice accepts only `media_item` targets;
+`media_source` targets are rejected until source-derived thumbnail ownership is
+explicit. Its payload wire shape is represented by
+`taru_addon_protocol::AddonArtworkWritePayload`; the only accepted source kind
+is `remote_url`.
 
 Successful responses expose only the safe audit summary:
 
@@ -1222,13 +1306,20 @@ Successful responses expose only the safe audit summary:
 ```
 
 For an applied NFO export, `applied_source` is `nfo_export` and
-`apply_report` contains only redacted aggregate fields:
+`apply_report` contains only safe IDs, policy facts, and redacted aggregate
+fields:
 
 ```json
 {
   "kind": "nfo_export",
+  "target_kind": "media_source",
   "file_role": "nfo",
   "policy": "replace_existing_preserving",
+  "write_mode": "atomic_replace",
+  "backup_policy": "existing_file_keep_latest",
+  "library_id": "018f0000-0000-7000-8000-000000000003",
+  "source_id": "018f0000-0000-7000-8000-000000000005",
+  "item_id": "018f0000-0000-7000-8000-000000000007",
   "scanned_sources": 1,
   "exported_items": 1,
   "skipped_items": 0,
@@ -1239,6 +1330,12 @@ For an applied NFO export, `applied_source` is `nfo_export` and
   "prune_failures": 0
 }
 ```
+
+The Library File Write runtime owns target derivation, file-role dispatch,
+writable-storage validation, execution permits, NFO/VFS delegation, and report
+redaction. Reports never include raw Source Locators, storage URIs, local
+paths, backup URIs, raw NFO XML, file contents, remote handles, payload JSON,
+or provenance JSON.
 
 For an applied Artwork Candidate proposal, `applied_source` is
 `artwork_candidate` and `apply_report` contains only the candidate ID, image

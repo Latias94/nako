@@ -2,7 +2,14 @@
 
 ## Status
 
-Proposed
+Accepted
+
+## Status Note
+
+Accepted by implementation evidence from the completed Addons and Automation
+workstream and subsequent Addon Token, Protected Write, Library File Write, and
+Managed Artwork Addon lanes. Native Plugin and Jellyfin Plugin Compatibility
+remain explicitly out of scope unless a future ADR supersedes this decision.
 
 ## Context
 

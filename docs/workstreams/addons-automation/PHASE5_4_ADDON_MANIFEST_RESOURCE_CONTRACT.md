@@ -23,6 +23,10 @@ bounded caller contract before adding a reference addon.
   bearer/shared-secret runtime authentication headers, non-retryable 4xx
   handling, retryable 408/429/5xx/network handling, and response envelope
   validation.
+- Architecture deepening later moved `AddonTransport`,
+  `ReqwestAddonTransport`, and `call_addon_resource` to the separate
+  permissive `taru-addon-client` crate so `taru-addon-protocol` could remain a
+  dependency-light wire-contract crate.
 - Added `AddonStatus`, addon registration records, `AddonRepository`, SQLite
   migration `0012_addons.sql`, and SQLite persistence.
 - Added HTTP routes for addon registration and inspection.
@@ -44,8 +48,10 @@ different protocol version.
 ## Resource Calls
 
 Resource calls use the `network.addon` budget class conceptually. The first
-caller is library code in `taru-addon-protocol`; HTTP handlers still only
-register and inspect addons. Handlers do not call addon HTTP endpoints inline.
+caller shipped as library code in `taru-addon-protocol`; architecture
+deepening later moved that caller to `taru-addon-client`. HTTP handlers still
+only register and inspect addons. Handlers do not call addon HTTP endpoints
+inline.
 
 Runtime secrets are passed to the caller and emitted only as request headers.
 They are not stored in manifests, jobs, outbox events, or registration records.
@@ -59,7 +65,7 @@ Retry policy is deliberately bounded:
 
 ## HTTP Surface
 
-Initial routes:
+Initial routes shipped in M5:
 
 - `POST /addons`
 - `GET /addons`
@@ -69,6 +75,10 @@ Initial routes:
 `POST /addons` validates the manifest and granted scopes before persistence.
 Registrations are disabled by default unless the caller explicitly requests
 `enabled` and grants the required scopes.
+
+Later architecture deepening moved this management surface to
+`/admin/v1/addons` and removed the root `/addons` compatibility routes before
+Taru had external users. This file remains a historical M5 phase note.
 
 ## Non-Goals
 

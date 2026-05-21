@@ -2,7 +2,14 @@
 
 ## Status
 
-Proposed
+Accepted
+
+## Status Note
+
+Accepted by implementation evidence from the completed Addons and Automation
+workstream. Taru now persists event outbox records for external delivery and
+automation paths. Future Addon Event Subscription delivery may build on this
+outbox, but should not bypass the durable event boundary.
 
 ## Context
 

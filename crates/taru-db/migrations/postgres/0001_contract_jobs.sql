@@ -743,6 +743,7 @@ CREATE TABLE IF NOT EXISTS addon_side_effects (
     target_kind text NOT NULL,
     target_id text NOT NULL,
     idempotency_key text NOT NULL,
+    request_fingerprint text NOT NULL,
     provenance_json text NOT NULL,
     payload_json text NOT NULL,
     validation_status text NOT NULL,

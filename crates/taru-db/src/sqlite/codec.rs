@@ -717,14 +717,20 @@ pub(crate) fn row_to_addon_side_effect(row: SqliteRow) -> Result<AddonSideEffect
         id: row_get(&row, "target_id")?,
     };
 
+    let permission = AddonPermission::parse(&row_get::<String>(&row, "permission")?)?;
+    let library_id = parse_id(row_get::<String>(&row, "library_id")?)?;
+    let request_fingerprint =
+        AddonSideEffectRequestFingerprint::parse(row_get::<String>(&row, "request_fingerprint")?)?;
+
     Ok(AddonSideEffectRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
         addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
         token_id: parse_id(row_get::<String>(&row, "token_id")?)?,
-        permission: AddonPermission::parse(&row_get::<String>(&row, "permission")?)?,
-        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        permission,
+        library_id,
         target,
         idempotency_key: row_get(&row, "idempotency_key")?,
+        request_fingerprint,
         provenance_json: row_get(&row, "provenance_json")?,
         payload_json: row_get(&row, "payload_json")?,
         validation_status: AddonSideEffectValidationStatus::parse(&row_get::<String>(

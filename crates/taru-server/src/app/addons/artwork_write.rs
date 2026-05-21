@@ -1,11 +1,14 @@
+use taru_addon_protocol::{AddonArtworkKind, AddonArtworkSourceKind, AddonArtworkWritePayload};
 use taru_core::{
     AddonSideEffectRecord, AddonSideEffectTargetKind, ArtworkCandidateId,
-    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ImageKind, MediaItemId,
-    NewArtworkCandidate, Result, TaruError,
+    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ImageKind, NewArtworkCandidate, Result,
+    TaruError,
 };
 use taru_db::TaruDatabase;
 
-use super::target::resolve_side_effect_media_item;
+use super::{
+    side_effect_apply::AddonSideEffectApplyCommand, target::resolve_side_effect_media_item,
+};
 
 #[derive(Clone, Debug)]
 pub(super) struct AddonArtworkWriteAdapter {
@@ -20,7 +23,7 @@ impl AddonArtworkWriteAdapter {
     pub(super) async fn apply(
         &self,
         side_effect: &AddonSideEffectRecord,
-    ) -> Result<AppliedArtworkCandidate> {
+    ) -> Result<AddonSideEffectApplyCommand> {
         let payload = parse_addon_artwork_write_payload(&side_effect.payload_json)?;
         if side_effect.target.kind != AddonSideEffectTargetKind::MediaItem {
             return Err(TaruError::InvalidInput {
@@ -66,37 +69,24 @@ impl AddonArtworkWriteAdapter {
             (candidate.id, true)
         };
 
-        Ok(AppliedArtworkCandidate {
-            item_id: item.id,
-            source: "artwork_candidate".to_owned(),
-            report_json: artwork_candidate_apply_report(candidate_id, &kind, created)?,
-        })
+        Ok(AddonSideEffectApplyCommand::applied(
+            side_effect.id,
+            item.id,
+            "artwork_candidate",
+            Some(artwork_candidate_apply_report(
+                candidate_id,
+                &kind,
+                created,
+            )?),
+        ))
     }
 }
 
-pub(super) struct AppliedArtworkCandidate {
-    pub(super) item_id: MediaItemId,
-    pub(super) source: String,
-    pub(super) report_json: String,
+trait AddonArtworkKindExt {
+    fn into_image_kind(self) -> ImageKind;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum AddonArtworkIntent {
-    ProposeArtwork,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum AddonArtworkKind {
-    Poster,
-    Backdrop,
-    Logo,
-    Banner,
-    Thumbnail,
-}
-
-impl AddonArtworkKind {
+impl AddonArtworkKindExt for AddonArtworkKind {
     fn into_image_kind(self) -> ImageKind {
         match self {
             Self::Poster => ImageKind::Poster,
@@ -119,38 +109,14 @@ fn image_kind_report_value(kind: &ImageKind) -> &'static str {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AddonArtworkSourcePayload {
-    kind: ArtworkCandidateSourceKind,
-    url: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AddonArtworkWritePayload {
-    intent: AddonArtworkIntent,
-    kind: AddonArtworkKind,
-    source: AddonArtworkSourcePayload,
-    #[serde(default)]
-    language: Option<String>,
-    #[serde(default)]
-    width: Option<u32>,
-    #[serde(default)]
-    height: Option<u32>,
-}
-
 fn parse_addon_artwork_write_payload(payload_json: &str) -> Result<AddonArtworkWritePayload> {
     let payload = serde_json::from_str::<AddonArtworkWritePayload>(payload_json).map_err(|_| {
         TaruError::InvalidInput {
             message: "invalid addon artwork_write payload".to_owned(),
         }
     })?;
-    match payload.intent {
-        AddonArtworkIntent::ProposeArtwork => {}
-    }
     match payload.source.kind {
-        ArtworkCandidateSourceKind::RemoteUrl => {}
+        AddonArtworkSourceKind::RemoteUrl => {}
     }
     validate_artwork_dimension("width", payload.width)?;
     validate_artwork_dimension("height", payload.height)?;

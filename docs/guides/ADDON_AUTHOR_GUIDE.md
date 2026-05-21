@@ -20,6 +20,29 @@ Required manifest fields:
 
 The current protocol version is `2026-05-15`.
 
+Optional manifest declarations describe future-facing Addon Protocol concepts
+without granting runtime authority by themselves:
+
+- `entry_points`: user-visible Addon Entry Points such as item actions,
+  settings, diagnostics, or task launchers. Each entry point has an `id`,
+  `kind`, `label`, absolute `path`, optional `hosted_page_id`, and
+  `required_scopes`.
+- `hosted_pages`: Addon Hosted Pages served by the sidecar for advanced
+  settings or diagnostics. They are external pages; Taru does not treat them as
+  trusted admin UI and does not pass admin credentials to them.
+- `configuration_schema`: an Addon Configuration Schema object identified by
+  `schema_id`. Taru stores and presents configuration from this schema.
+- `secret_reference_fields`: Secret Reference fields for sensitive settings.
+  These declare references only; plaintext secrets do not belong in the
+  manifest.
+- `event_subscriptions`: Addon Event Subscriptions with `id`, `event_kind`,
+  absolute delivery `path`, optional JSON `filters`, and `required_scopes`.
+  Event delivery runtime breadth is deferred, but the declaration contract is
+  explicit.
+- `tasks`: Addon Task declarations with `id`, `name`, absolute execution
+  `path`, optional `description`, `required_scopes`, `timeout_ms`, and
+  `max_attempts`. Taru owns task lifecycle when this runtime is implemented.
+
 ## Resources
 
 Each resource declaration defines:
@@ -33,6 +56,10 @@ Each resource declaration defines:
 
 Taru rejects duplicate resources, relative paths, unsupported protocol
 versions, invalid timeout/retry bounds, and undeclared required scopes.
+It also rejects duplicate declaration IDs within each declaration class,
+relative declaration paths, entry points that reference unknown hosted pages,
+non-object configuration schemas, invalid task timeout/retry bounds, and
+declaration scopes that are not listed in the manifest-level `scopes`.
 
 ## Envelopes
 
@@ -78,13 +105,35 @@ Taru validates response identity fields before trusting the response.
 
 ## Registration
 
-`POST /addons` registers a manifest. Addons are disabled by default. To enable
-an addon, explicitly set `status` to `enabled` and grant every scope required
-by every declared resource.
+`POST /admin/v1/addons` registers a manifest. Addons are disabled by default.
+To enable an addon, explicitly set `status` to `enabled` and grant every scope
+required by every declared resource. Registration, listing, and detail lookup
+are Admin API operations; Taru no longer mounts the old root `/addons`
+management routes.
 
 Runtime secrets are not stored in the manifest. If an addon uses bearer or
 shared-secret auth, Taru resolves the secret at call time and sends it as an
 HTTP header.
+
+## Protected Write Payload Contracts
+
+Addon Side Effect Protected Writes use explicit payload structs from
+`taru-addon-protocol`:
+
+- `AddonMetadataPatch` for `metadata_write`.
+- `AddonArtworkWritePayload` for the first `artwork_write` Addon Artwork
+  Candidate proposal slice.
+- `AddonLibraryFileWritePayload` for the first `library_file_write` NFO Export
+  slice.
+
+These structs describe the wire payload only. They do not expose Taru
+persistence records, raw Source Locators, storage paths, cache URIs, token
+material, or selected-artwork state.
+
+`taru-addon-protocol` is intentionally a dependency-light wire-contract crate.
+Rust hosts that want Taru's bounded HTTP caller, mockable transport trait, and
+`ReqwestAddonTransport` can depend on the separate permissive
+`taru-addon-client` crate.
 
 ## Reference Addon
 
@@ -93,6 +142,11 @@ the M5.5 end-to-end test. It exposes:
 
 - `reference_manifest(base_url)`
 - `build_router()`
+- `demo_metadata_patch(title)`
+- `demo_nfo_export_payload()`
 
 The reference addon is intentionally small. It proves the wire contract and is
-not a full metadata provider.
+not a full metadata provider. Its manifest includes a sample Addon Entry Point,
+Addon Hosted Page, and Addon Configuration Schema so Addon authors can see the
+declaration contract without needing the deferred Addon Manager, Event
+Subscription runtime, or Addon Task scheduler.

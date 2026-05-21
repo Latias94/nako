@@ -7,6 +7,7 @@ use taru_core::{
     AddonGrantId, AddonPermission, AddonPrincipal, AddonRepository, AddonTokenStatus, LibraryId,
     NewAddonGrant, Result, TaruError, hash_addon_token,
 };
+use taru_db::TaruDatabase;
 
 use super::AddonAppService;
 
@@ -17,7 +18,7 @@ impl AddonAppService {
         request: AddonAccessCheckRequest,
     ) -> Result<AddonAccessCheckResponse> {
         let principal = self.resolve_addon_principal(raw_token).await?;
-        self.authorize_addon_principal(&principal, request.permission, request.library_id)?;
+        authorize_addon_principal_grant(&principal, request.permission, request.library_id)?;
 
         Ok(AddonAccessCheckResponse {
             addon_id: principal.addon.id,
@@ -29,85 +30,88 @@ impl AddonAppService {
     }
 
     pub async fn resolve_addon_principal(&self, raw_token: &str) -> Result<AddonPrincipal> {
-        let raw_token = raw_token.trim();
-        if raw_token.is_empty() {
-            return Err(TaruError::Unauthorized {
-                message: "addon token is required".to_owned(),
-            });
-        }
+        resolve_addon_principal_from_store(&self.store, raw_token).await
+    }
+}
 
-        let token_hash = hash_addon_token(raw_token);
-        let token = self
-            .store
-            .find_addon_token_by_hash(&token_hash)
-            .await?
-            .ok_or_else(|| TaruError::Unauthorized {
-                message: "addon token is invalid".to_owned(),
-            })?;
-
-        if token.status != AddonTokenStatus::Active {
-            return Err(TaruError::Unauthorized {
-                message: "addon token is not active".to_owned(),
-            });
-        }
-
-        let token = self
-            .store
-            .mark_addon_token_used(token.id)
-            .await?
-            .ok_or_else(|| TaruError::Unauthorized {
-                message: "addon token is not active".to_owned(),
-            })?;
-
-        let addon = self
-            .store
-            .get_addon_registration(token.addon_id)
-            .await?
-            .ok_or_else(|| TaruError::Unauthorized {
-                message: "addon registration is missing".to_owned(),
-            })?;
-
-        if addon.status != taru_core::AddonStatus::Enabled {
-            return Err(TaruError::Forbidden {
-                message: "addon registration is disabled".to_owned(),
-            });
-        }
-
-        let grants = self.store.list_addon_grants(addon.id).await?;
-
-        Ok(AddonPrincipal {
-            addon,
-            token,
-            grants,
-        })
+pub(super) async fn resolve_addon_principal_from_store(
+    store: &TaruDatabase,
+    raw_token: &str,
+) -> Result<AddonPrincipal> {
+    let raw_token = raw_token.trim();
+    if raw_token.is_empty() {
+        return Err(TaruError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        });
     }
 
-    pub fn authorize_addon_principal(
-        &self,
-        principal: &AddonPrincipal,
-        permission: AddonPermission,
-        library_id: Option<LibraryId>,
-    ) -> Result<()> {
-        if principal.allows(permission, library_id) {
-            return Ok(());
-        }
+    let token_hash = hash_addon_token(raw_token);
+    let token = store
+        .find_addon_token_by_hash(&token_hash)
+        .await?
+        .ok_or_else(|| TaruError::Unauthorized {
+            message: "addon token is invalid".to_owned(),
+        })?;
 
-        Err(TaruError::Forbidden {
-            message: match library_id {
-                Some(library_id) => format!(
-                    "addon {} is not granted {} for library {}",
-                    principal.addon.id,
-                    permission.as_str(),
-                    library_id
-                ),
-                None => format!(
-                    "addon {} is not granted {}",
-                    principal.addon.id,
-                    permission.as_str()
-                ),
-            },
-        })
+    if token.status != AddonTokenStatus::Active {
+        return Err(TaruError::Unauthorized {
+            message: "addon token is not active".to_owned(),
+        });
     }
+
+    let token = store
+        .mark_addon_token_used(token.id)
+        .await?
+        .ok_or_else(|| TaruError::Unauthorized {
+            message: "addon token is not active".to_owned(),
+        })?;
+
+    let addon = store
+        .get_addon_registration(token.addon_id)
+        .await?
+        .ok_or_else(|| TaruError::Unauthorized {
+            message: "addon registration is missing".to_owned(),
+        })?;
+
+    if addon.status != taru_core::AddonStatus::Enabled {
+        return Err(TaruError::Forbidden {
+            message: "addon registration is disabled".to_owned(),
+        });
+    }
+
+    let grants = store.list_addon_grants(addon.id).await?;
+
+    Ok(AddonPrincipal {
+        addon,
+        token,
+        grants,
+    })
+}
+
+pub(super) fn authorize_addon_principal_grant(
+    principal: &AddonPrincipal,
+    permission: AddonPermission,
+    library_id: Option<LibraryId>,
+) -> Result<()> {
+    if principal.allows(permission, library_id) {
+        return Ok(());
+    }
+
+    Err(TaruError::Forbidden {
+        message: match library_id {
+            Some(library_id) => format!(
+                "addon {} is not granted {} for library {}",
+                principal.addon.id,
+                permission.as_str(),
+                library_id
+            ),
+            None => format!(
+                "addon {} is not granted {}",
+                principal.addon.id,
+                permission.as_str()
+            ),
+        },
+    })
 }
 
 pub(super) fn normalize_token_label(label: Option<&str>) -> Result<String> {

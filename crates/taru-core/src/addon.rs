@@ -218,6 +218,63 @@ impl AddonSideEffectTarget {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectRequestFingerprint {
+    value: String,
+}
+
+impl AddonSideEffectRequestFingerprint {
+    #[must_use]
+    pub fn new(
+        permission: AddonPermission,
+        library_id: LibraryId,
+        target: &AddonSideEffectTarget,
+        provenance_json: &str,
+        payload_json: &str,
+    ) -> Self {
+        let mut hasher = Sha256::new();
+        update_fingerprint_part(&mut hasher, "v1");
+        update_fingerprint_part(&mut hasher, permission.as_str());
+        update_fingerprint_part(&mut hasher, &library_id.to_string());
+        update_fingerprint_part(&mut hasher, target.kind.as_str());
+        update_fingerprint_part(&mut hasher, &target.id);
+        update_fingerprint_part(&mut hasher, provenance_json);
+        update_fingerprint_part(&mut hasher, payload_json);
+        let digest = hasher.finalize();
+
+        Self {
+            value: format!("sha256:{}", lowercase_hex(&digest)),
+        }
+    }
+
+    pub fn parse(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let valid = value.strip_prefix("sha256:").is_some_and(|digest| {
+            digest.len() == 64 && digest.chars().all(|c| c.is_ascii_hexdigit())
+        });
+        if !valid {
+            return Err(TaruError::Database {
+                message: format!("invalid addon side effect request fingerprint: {value}"),
+            });
+        }
+
+        Ok(Self {
+            value: value.to_ascii_lowercase(),
+        })
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+
+impl std::fmt::Display for AddonSideEffectRequestFingerprint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.value)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewAddonRegistration {
     pub id: AddonId,
     pub manifest_id: String,
@@ -310,6 +367,7 @@ pub struct AddonSideEffectRecord {
     pub library_id: LibraryId,
     pub target: AddonSideEffectTarget,
     pub idempotency_key: String,
+    pub request_fingerprint: AddonSideEffectRequestFingerprint,
     #[serde(skip_serializing)]
     pub provenance_json: String,
     #[serde(skip_serializing)]
@@ -428,6 +486,11 @@ fn lowercase_hex(bytes: &[u8]) -> String {
         output.push(HEX[(byte & 0x0f) as usize] as char);
     }
     output
+}
+
+fn update_fingerprint_part(hasher: &mut Sha256, value: &str) {
+    hasher.update(value.len().to_be_bytes());
+    hasher.update(value.as_bytes());
 }
 
 #[cfg(test)]

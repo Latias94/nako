@@ -18,8 +18,8 @@ use super::{auth, error::ApiResult, query::AddonListQuery};
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
-        .route("/addons", get(list_addons).post(register_addon))
-        .route("/addons/{addon_id}", get(get_addon))
+        .route("/admin/v1/addons", get(list_addons).post(register_addon))
+        .route("/admin/v1/addons/{addon_id}", get(get_addon))
         .route(
             "/admin/v1/addons/{addon_id}/tokens",
             get(list_addon_tokens).post(issue_addon_token),

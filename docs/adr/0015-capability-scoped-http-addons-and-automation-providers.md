@@ -2,7 +2,15 @@
 
 ## Status
 
-Proposed
+Accepted
+
+## Status Note
+
+Accepted by implementation evidence from the completed Addons and Automation
+workstream and follow-on Addon Token Grants Side Effects workstream. Addon
+manifest resource scopes and accepted Addon Permissions remain distinct
+Interfaces; the Addon Architecture Deepening workstream owns further
+clarification without weakening the default-deny model.
 
 ## Context
 

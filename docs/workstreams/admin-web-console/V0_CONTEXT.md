@@ -176,9 +176,9 @@ The exact routing technology is not fixed. Use these as product routes:
 /automation/providers
 /automation/jobs
 /automation/jobs/:jobId
-/addons
-/addons/new
-/addons/:addonId
+/admin/addons
+/admin/addons/new
+/admin/addons/:addonId
 /network
 /settings
 ```

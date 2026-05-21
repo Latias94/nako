@@ -12,9 +12,11 @@ use axum::{
     routing::get,
 };
 use serde::{Serialize, de::DeserializeOwned};
+use taru_addon_client::{ReqwestAddonTransport, call_addon_resource};
 use taru_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, AddonAuth, AddonManifest, AddonResource, AddonResourceDeclaration,
-    AddonScope, ReqwestAddonTransport, call_addon_resource,
+    ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
+    AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHostedPageDeclaration,
+    AddonManifest, AddonResource, AddonResourceDeclaration, AddonScope, AddonTaskDeclaration,
 };
 use taru_api::{
     admin::{
@@ -39,9 +41,9 @@ use taru_api::{
     },
     extension::{
         AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment,
-        AddonGrantsResponse, AddonRegistrationResponse, AddonRegistrationsResponse,
-        AddonSideEffectResponse, AddonSideEffectTargetRequest, AddonTokenIssuedResponse,
-        AddonTokenResponse, AddonTokenRotationResponse, AddonTokensResponse,
+        AddonGrantsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
+        AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
+        AddonTokensResponse, AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
         AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
         EnqueueAutomationJobRequest, IssueAddonTokenRequest, RegisterAddonRequest,
         ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpsertAutomationProviderRequest,
@@ -648,6 +650,12 @@ fn addon_manifest() -> AddonManifest {
             timeout_ms: Some(5_000),
             max_attempts: Some(2),
         }],
+        entry_points: Vec::new(),
+        hosted_pages: Vec::new(),
+        configuration_schema: None,
+        secret_reference_fields: Vec::new(),
+        event_subscriptions: Vec::new(),
+        tasks: Vec::new(),
         auth: AddonAuth::Bearer,
         default_timeout_ms: Some(10_000),
         default_max_attempts: Some(2),
@@ -667,9 +675,41 @@ async fn post_addon_registration(
         .oneshot(
             Request::builder()
                 .method(Method::POST)
+                .uri("/admin/v1/addons")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn post_legacy_addon_registration(
+    router: &Router,
+    request: RegisterAddonRequest,
+) -> axum::response::Response {
+    router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
                 .uri("/addons")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn response_for(router: &Router, method: Method, uri: &str) -> axum::response::Response {
+    router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -680,17 +720,7 @@ async fn request_json<T>(router: &Router, method: Method, uri: &str) -> T
 where
     T: DeserializeOwned,
 {
-    let response = router
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(method)
-                .uri(uri)
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = response_for(router, method, uri).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     body_json(response).await

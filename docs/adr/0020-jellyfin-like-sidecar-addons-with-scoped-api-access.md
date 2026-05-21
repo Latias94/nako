@@ -2,7 +2,16 @@
 
 ## Status
 
-Proposed.
+Accepted.
+
+## Status Note
+
+Accepted by implementation evidence from Addon registration, Addon Token
+issuance/rotation/revocation, Library-Scoped Addon Grants, Addon Side Effect
+intake, Canonical Metadata Protected Writes, Addon Artwork Candidate proposals,
+and the first NFO Library File Write path. Addon Manager lifecycle automation,
+OAuth-first authorization, Native Plugin ABI, and Jellyfin Plugin Compatibility
+remain deferred.
 
 ## Context
 

@@ -1,35 +1,22 @@
 use std::sync::Arc;
 
 use taru_core::{
-    AddonPermission, AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
-    AddonSideEffectRecord, AddonSideEffectValidationStatus, Result, TaruError,
+    AddonMetadataWritePersistenceCommit, AddonPermission, AddonRepository,
+    AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
+    AddonSideEffectRecord, AddonSideEffectValidationStatus, MediaItemId, MetadataRepository,
+    Result, TaruError,
 };
 use taru_db::TaruDatabase;
 use tokio::sync::Semaphore;
 
 use super::{
-    AddonAppService, artwork_write::AddonArtworkWriteAdapter,
-    library_file_write::AddonLibraryFileWriteAdapter, metadata_write::AddonMetadataWriteAdapter,
+    artwork_write::AddonArtworkWriteAdapter, library_file_write::AddonLibraryFileWriteAdapter,
+    metadata_write::AddonMetadataWriteAdapter,
 };
 use crate::app::storage::StorageBackendRegistry;
 
-impl AddonAppService {
-    pub(super) async fn apply_addon_side_effect(
-        &self,
-        side_effect: AddonSideEffectRecord,
-    ) -> Result<AddonSideEffectRecord> {
-        AddonSideEffectApplyRouter::new(
-            self.store.clone(),
-            self.permits.clone(),
-            self.storage_backends.clone(),
-        )
-        .apply(side_effect)
-        .await
-    }
-}
-
 #[derive(Clone, Debug)]
-struct AddonSideEffectApplyRouter {
+pub(super) struct AddonSideEffectApplyRouter {
     store: TaruDatabase,
     metadata_write: AddonMetadataWriteAdapter,
     library_file_write: AddonLibraryFileWriteAdapter,
@@ -37,7 +24,7 @@ struct AddonSideEffectApplyRouter {
 }
 
 impl AddonSideEffectApplyRouter {
-    fn new(
+    pub(super) fn new(
         store: TaruDatabase,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
@@ -54,83 +41,73 @@ impl AddonSideEffectApplyRouter {
         }
     }
 
-    async fn apply(&self, side_effect: AddonSideEffectRecord) -> Result<AddonSideEffectRecord> {
+    pub(super) async fn apply(
+        &self,
+        side_effect: AddonSideEffectRecord,
+    ) -> Result<AddonSideEffectRecord> {
         if side_effect.validation_status != AddonSideEffectValidationStatus::Accepted {
-            return self
-                .store
-                .set_addon_side_effect_apply_outcome(
-                    side_effect.id,
-                    AddonSideEffectApplyOutcome {
-                        status: AddonSideEffectApplyStatus::Skipped,
-                        error_code: side_effect.safe_error_code.clone(),
-                        item_id: None,
-                        source: None,
-                        report_json: None,
-                    },
-                )
-                .await;
+            return self.record_validation_rejection(&side_effect).await;
         }
 
-        match side_effect.permission {
-            AddonPermission::MetadataWrite => match self.metadata_write.apply(&side_effect).await {
-                Ok(applied) => {
-                    debug_assert_eq!(applied.side_effect.applied_item_id, Some(applied.item_id));
-                    debug_assert_eq!(
-                        applied.side_effect.applied_source.as_deref(),
-                        Some(applied.source.as_str())
-                    );
-                    Ok(applied.side_effect)
-                }
-                Err(error) => self.record_apply_failure(side_effect.id, error).await,
-            },
-            AddonPermission::LibraryFileWrite => {
-                match self.library_file_write.apply(&side_effect).await {
-                    Ok(applied) => {
-                        self.store
-                            .set_addon_side_effect_apply_outcome(
-                                side_effect.id,
-                                AddonSideEffectApplyOutcome {
-                                    status: AddonSideEffectApplyStatus::Applied,
-                                    error_code: None,
-                                    item_id: Some(applied.item_id),
-                                    source: Some(applied.source),
-                                    report_json: Some(applied.report_json),
-                                },
-                            )
+        let side_effect_id = side_effect.id;
+        let command = match side_effect.permission {
+            AddonPermission::MetadataWrite => self.metadata_write.apply(&side_effect).await,
+            AddonPermission::LibraryFileWrite => self.library_file_write.apply(&side_effect).await,
+            AddonPermission::ArtworkWrite => self.artwork_write.apply(&side_effect).await,
+            _ => Ok(AddonSideEffectApplyCommand::skipped(
+                side_effect_id,
+                "unsupported",
+            )),
+        };
+
+        match command {
+            Ok(command) => {
+                let command_side_effect_id = command.side_effect_id();
+                match self.commit_apply_command(command).await {
+                    Ok(side_effect) => Ok(side_effect),
+                    Err(error) => {
+                        self.record_apply_failure(command_side_effect_id, error)
                             .await
                     }
-                    Err(error) => self.record_apply_failure(side_effect.id, error).await,
                 }
             }
-            AddonPermission::ArtworkWrite => match self.artwork_write.apply(&side_effect).await {
-                Ok(applied) => {
-                    self.store
-                        .set_addon_side_effect_apply_outcome(
-                            side_effect.id,
-                            AddonSideEffectApplyOutcome {
-                                status: AddonSideEffectApplyStatus::Applied,
-                                error_code: None,
-                                item_id: Some(applied.item_id),
-                                source: Some(applied.source),
-                                report_json: Some(applied.report_json),
-                            },
-                        )
-                        .await
-                }
-                Err(error) => self.record_apply_failure(side_effect.id, error).await,
-            },
-            _ => {
+            Err(error) => self.record_apply_failure(side_effect_id, error).await,
+        }
+    }
+
+    pub(super) async fn record_validation_rejection(
+        &self,
+        side_effect: &AddonSideEffectRecord,
+    ) -> Result<AddonSideEffectRecord> {
+        self.store
+            .set_addon_side_effect_apply_outcome(
+                side_effect.id,
+                AddonSideEffectApplyOutcome {
+                    status: AddonSideEffectApplyStatus::Skipped,
+                    error_code: side_effect.safe_error_code.clone(),
+                    item_id: None,
+                    source: None,
+                    report_json: None,
+                },
+            )
+            .await
+    }
+
+    async fn commit_apply_command(
+        &self,
+        command: AddonSideEffectApplyCommand,
+    ) -> Result<AddonSideEffectRecord> {
+        match command {
+            AddonSideEffectApplyCommand::MetadataWrite(commit) => {
+                let summary = self.store.commit_addon_metadata_write(&commit).await?;
+                Ok(summary.side_effect)
+            }
+            AddonSideEffectApplyCommand::Outcome {
+                side_effect_id,
+                outcome,
+            } => {
                 self.store
-                    .set_addon_side_effect_apply_outcome(
-                        side_effect.id,
-                        AddonSideEffectApplyOutcome {
-                            status: AddonSideEffectApplyStatus::Skipped,
-                            error_code: Some("unsupported".to_owned()),
-                            item_id: None,
-                            source: None,
-                            report_json: None,
-                        },
-                    )
+                    .set_addon_side_effect_apply_outcome(side_effect_id, outcome)
                     .await
             }
         }
@@ -138,7 +115,7 @@ impl AddonSideEffectApplyRouter {
 
     async fn record_apply_failure(
         &self,
-        side_effect_id: taru_core::AddonSideEffectId,
+        side_effect_id: AddonSideEffectId,
         error: TaruError,
     ) -> Result<AddonSideEffectRecord> {
         let error_code = side_effect_apply_error_code(&error).to_owned();
@@ -158,7 +135,56 @@ impl AddonSideEffectApplyRouter {
     }
 }
 
-pub(super) fn side_effect_apply_error_code(error: &TaruError) -> &'static str {
+#[derive(Debug)]
+pub(super) enum AddonSideEffectApplyCommand {
+    MetadataWrite(AddonMetadataWritePersistenceCommit),
+    Outcome {
+        side_effect_id: AddonSideEffectId,
+        outcome: AddonSideEffectApplyOutcome,
+    },
+}
+
+impl AddonSideEffectApplyCommand {
+    fn side_effect_id(&self) -> AddonSideEffectId {
+        match self {
+            Self::MetadataWrite(commit) => commit.side_effect_id,
+            Self::Outcome { side_effect_id, .. } => *side_effect_id,
+        }
+    }
+
+    pub(super) fn applied(
+        side_effect_id: AddonSideEffectId,
+        item_id: MediaItemId,
+        source: impl Into<String>,
+        report_json: Option<String>,
+    ) -> Self {
+        Self::Outcome {
+            side_effect_id,
+            outcome: AddonSideEffectApplyOutcome {
+                status: AddonSideEffectApplyStatus::Applied,
+                error_code: None,
+                item_id: Some(item_id),
+                source: Some(source.into()),
+                report_json,
+            },
+        }
+    }
+
+    fn skipped(side_effect_id: AddonSideEffectId, error_code: impl Into<String>) -> Self {
+        Self::Outcome {
+            side_effect_id,
+            outcome: AddonSideEffectApplyOutcome {
+                status: AddonSideEffectApplyStatus::Skipped,
+                error_code: Some(error_code.into()),
+                item_id: None,
+                source: None,
+                report_json: None,
+            },
+        }
+    }
+}
+
+fn side_effect_apply_error_code(error: &TaruError) -> &'static str {
     match error {
         TaruError::InvalidInput { .. } => "invalid_payload",
         TaruError::Forbidden { .. } => "forbidden",

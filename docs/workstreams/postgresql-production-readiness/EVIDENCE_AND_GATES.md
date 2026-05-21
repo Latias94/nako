@@ -520,6 +520,10 @@ Review notes:
   for durable delivery/apply behavior, but the contract exercises them only
   through repository records that already mark sensitive side-effect fields as
   skipped for serialization.
+- Post-close AAD-090 update: Addon Side Effects now also require
+  `request_fingerprint` in the clean PostgreSQL proof schema, matching the
+  SQLite base schema. AAD-090 did not rerun PostgreSQL opt-in contracts because
+  `TARU_TEST_POSTGRES_URL` was not set in that session.
 
 ### 2026-05-20 — PGR-090 Managed Artwork PostgreSQL Parity Split
 

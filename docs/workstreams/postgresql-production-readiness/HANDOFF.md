@@ -87,8 +87,12 @@ stale active session recovery.
 PGR-080 added Event/Addons/Automation contracts and PostgreSQL parity for Event
 Outbox idempotency/filtering, Webhook endpoints/delivery attempts, Addon
 registration/token/grant/side-effect state, and Automation provider/artifact
-state. PGR-090 split Managed Artwork PostgreSQL parity out of M62 into a named
-follow-on instead of enabling a large SQLite-only runtime surface partially.
+state. A later Addon architecture pass (AAD-090, 2026-05-21) updated the clean
+Addon Side Effect schema to require `request_fingerprint` in both SQLite and
+the PostgreSQL proof schema; PostgreSQL opt-in contracts still require
+`TARU_TEST_POSTGRES_URL`. PGR-090 split Managed Artwork PostgreSQL parity out
+of M62 into a named follow-on instead of enabling a large SQLite-only runtime
+surface partially.
 PGR-100 added safe database backend diagnostics and updated API/Admin contract
 docs for explicit SQLite/PostgreSQL backend selection. PGR-110 deleted the
 remaining facade-level SQLite convenience constructors and isolated direct

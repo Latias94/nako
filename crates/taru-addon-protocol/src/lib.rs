@@ -1,6 +1,5 @@
-use std::{collections::HashSet, fmt, time::Duration};
+use std::{collections::HashSet, fmt};
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 pub const ADDON_PROTOCOL_VERSION: &str = "2026-05-15";
@@ -15,6 +14,18 @@ pub struct AddonManifest {
     pub description: Option<String>,
     #[serde(default)]
     pub resources: Vec<AddonResourceDeclaration>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entry_points: Vec<AddonEntryPointDeclaration>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hosted_pages: Vec<AddonHostedPageDeclaration>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration_schema: Option<AddonConfigurationSchema>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub secret_reference_fields: Vec<AddonSecretReferenceFieldDeclaration>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub event_subscriptions: Vec<AddonEventSubscriptionDeclaration>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tasks: Vec<AddonTaskDeclaration>,
     pub auth: AddonAuth,
     #[serde(default)]
     pub default_timeout_ms: Option<u64>,
@@ -66,6 +77,233 @@ impl AddonResource {
             Self::Automation => "automation",
             Self::Webhook => "webhook",
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEntryPointDeclaration {
+    pub id: String,
+    pub kind: AddonEntryPointKind,
+    pub label: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_page_id: Option<String>,
+    #[serde(default)]
+    pub required_scopes: Vec<AddonScope>,
+}
+
+impl AddonEntryPointDeclaration {
+    #[must_use]
+    pub fn hosted_page(
+        id: impl Into<String>,
+        kind: AddonEntryPointKind,
+        label: impl Into<String>,
+        path: impl Into<String>,
+        hosted_page_id: impl Into<String>,
+        required_scopes: Vec<AddonScope>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind,
+            label: label.into(),
+            path: path.into(),
+            hosted_page_id: Some(hosted_page_id.into()),
+            required_scopes,
+        }
+    }
+
+    #[must_use]
+    pub fn action(
+        id: impl Into<String>,
+        kind: AddonEntryPointKind,
+        label: impl Into<String>,
+        path: impl Into<String>,
+        required_scopes: Vec<AddonScope>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind,
+            label: label.into(),
+            path: path.into(),
+            hosted_page_id: None,
+            required_scopes,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonEntryPointKind {
+    ItemAction,
+    LibraryAction,
+    AdminAction,
+    Settings,
+    Diagnostics,
+    TaskLauncher,
+}
+
+impl AddonEntryPointKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ItemAction => "item_action",
+            Self::LibraryAction => "library_action",
+            Self::AdminAction => "admin_action",
+            Self::Settings => "settings",
+            Self::Diagnostics => "diagnostics",
+            Self::TaskLauncher => "task_launcher",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonHostedPageDeclaration {
+    pub id: String,
+    pub title: String,
+    pub path: String,
+    #[serde(default)]
+    pub required_scopes: Vec<AddonScope>,
+}
+
+impl AddonHostedPageDeclaration {
+    #[must_use]
+    pub fn new(
+        id: impl Into<String>,
+        title: impl Into<String>,
+        path: impl Into<String>,
+        required_scopes: Vec<AddonScope>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            title: title.into(),
+            path: path.into(),
+            required_scopes,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonConfigurationSchema {
+    pub schema_id: String,
+    pub schema: serde_json::Value,
+}
+
+impl AddonConfigurationSchema {
+    #[must_use]
+    pub fn new(schema_id: impl Into<String>, schema: serde_json::Value) -> Self {
+        Self {
+            schema_id: schema_id.into(),
+            schema,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSecretReferenceFieldDeclaration {
+    pub id: String,
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub required: bool,
+}
+
+impl AddonSecretReferenceFieldDeclaration {
+    #[must_use]
+    pub fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        description: Option<String>,
+        required: bool,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            description,
+            required,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventSubscriptionDeclaration {
+    pub id: String,
+    pub event_kind: String,
+    pub path: String,
+    #[serde(default)]
+    pub required_scopes: Vec<AddonScope>,
+    #[serde(default)]
+    pub filters: serde_json::Value,
+}
+
+impl AddonEventSubscriptionDeclaration {
+    #[must_use]
+    pub fn new(
+        id: impl Into<String>,
+        event_kind: impl Into<String>,
+        path: impl Into<String>,
+        required_scopes: Vec<AddonScope>,
+        filters: serde_json::Value,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            event_kind: event_kind.into(),
+            path: path.into(),
+            required_scopes,
+            filters,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskDeclaration {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub required_scopes: Vec<AddonScope>,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub max_attempts: Option<u32>,
+}
+
+impl AddonTaskDeclaration {
+    #[must_use]
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        path: impl Into<String>,
+        required_scopes: Vec<AddonScope>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            path: path.into(),
+            description: None,
+            required_scopes,
+            timeout_ms: None,
+            max_attempts: None,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_execution_bounds(
+        mut self,
+        timeout_ms: Option<u64>,
+        max_attempts: Option<u32>,
+    ) -> Self {
+        self.timeout_ms = timeout_ms;
+        self.max_attempts = max_attempts;
+        self
+    }
+
+    #[must_use]
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
     }
 }
 
@@ -129,80 +367,128 @@ pub struct AddonResourceResponse {
     pub artifacts: Vec<AddonArtifact>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AddonHttpRequest {
-    pub url: String,
-    pub headers: Vec<(String, String)>,
-    pub body: String,
-    pub timeout_ms: u64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AddonHttpResponse {
-    pub status: u16,
-    pub body: String,
-}
-
-#[async_trait]
-pub trait AddonTransport: Send + Sync {
-    async fn post(&self, request: AddonHttpRequest) -> AddonProtocolResult<AddonHttpResponse>;
-}
-
-#[derive(Clone, Debug)]
-pub struct ReqwestAddonTransport {
-    client: reqwest::Client,
-}
-
-impl Default for ReqwestAddonTransport {
-    fn default() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
-    }
-}
-
-impl ReqwestAddonTransport {
-    #[must_use]
-    pub fn new(client: reqwest::Client) -> Self {
-        Self { client }
-    }
-}
-
-#[async_trait]
-impl AddonTransport for ReqwestAddonTransport {
-    async fn post(&self, request: AddonHttpRequest) -> AddonProtocolResult<AddonHttpResponse> {
-        let mut builder = self
-            .client
-            .post(&request.url)
-            .timeout(Duration::from_millis(request.timeout_ms))
-            .body(request.body);
-
-        for (name, value) in request.headers {
-            builder = builder.header(name, value);
-        }
-
-        let response = builder
-            .send()
-            .await
-            .map_err(|err| AddonManifestError::Http {
-                message: err.to_string(),
-            })?;
-        let status = response.status().as_u16();
-        let body = response
-            .text()
-            .await
-            .map_err(|err| AddonManifestError::Http {
-                message: err.to_string(),
-            })?;
-
-        Ok(AddonHttpResponse { status, body })
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonArtifact {
     pub kind: String,
     pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataPatch {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub original_title: Option<String>,
+    #[serde(default)]
+    pub sort_title: Option<String>,
+    #[serde(default)]
+    pub overview: Option<String>,
+    #[serde(default)]
+    pub release_date: Option<String>,
+    #[serde(default)]
+    pub runtime_minutes: Option<u32>,
+    #[serde(default)]
+    pub tagline: Option<String>,
+    #[serde(default)]
+    pub genres: Option<Vec<String>>,
+    #[serde(default)]
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonArtworkIntent {
+    ProposeArtwork,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonArtworkKind {
+    Poster,
+    Backdrop,
+    Logo,
+    Banner,
+    Thumbnail,
+}
+
+impl AddonArtworkKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Poster => "poster",
+            Self::Backdrop => "backdrop",
+            Self::Logo => "logo",
+            Self::Banner => "banner",
+            Self::Thumbnail => "thumbnail",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonArtworkSourceKind {
+    RemoteUrl,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonArtworkSourcePayload {
+    pub kind: AddonArtworkSourceKind,
+    pub url: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonArtworkWritePayload {
+    pub intent: AddonArtworkIntent,
+    pub kind: AddonArtworkKind,
+    pub source: AddonArtworkSourcePayload,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonLibraryFileRole {
+    Nfo,
+}
+
+impl AddonLibraryFileRole {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Nfo => "nfo",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonLibraryFileWritePolicy {
+    CreateMissing,
+    ReplaceExistingPreserving,
+}
+
+impl AddonLibraryFileWritePolicy {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CreateMissing => "create_missing",
+            Self::ReplaceExistingPreserving => "replace_existing_preserving",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonLibraryFileWritePayload {
+    pub file_role: AddonLibraryFileRole,
+    pub policy: AddonLibraryFileWritePolicy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -217,13 +503,32 @@ pub enum AddonManifestError {
     InvalidResourcePath {
         path: String,
     },
+    InvalidDeclarationPath {
+        declaration: &'static str,
+        path: String,
+    },
     DuplicateResource {
         resource: AddonResource,
+    },
+    DuplicateDeclaration {
+        declaration: &'static str,
+        id: String,
+    },
+    UnknownHostedPageReference {
+        entry_point_id: String,
+        hosted_page_id: String,
     },
     EmptyResources,
     MissingDeclaredScope {
         resource: AddonResource,
         scope: AddonScope,
+    },
+    MissingDeclaredScopeForDeclaration {
+        declaration: &'static str,
+        scope: AddonScope,
+    },
+    InvalidConfigurationSchema {
+        message: String,
     },
     InvalidTimeout {
         value: u64,
@@ -236,12 +541,6 @@ pub enum AddonManifestError {
     },
     ResourceNotDeclared {
         resource: AddonResource,
-    },
-    HttpStatus {
-        status: u16,
-    },
-    Http {
-        message: String,
     },
     InvalidEnvelope {
         message: String,
@@ -261,9 +560,25 @@ impl fmt::Display for AddonManifestError {
             Self::InvalidResourcePath { path } => {
                 write!(formatter, "addon resource path must be absolute: {path}")
             }
+            Self::InvalidDeclarationPath { declaration, path } => {
+                write!(
+                    formatter,
+                    "addon {declaration} path must be absolute: {path}"
+                )
+            }
             Self::DuplicateResource { resource } => {
                 write!(formatter, "duplicate addon resource: {}", resource.as_str())
             }
+            Self::DuplicateDeclaration { declaration, id } => {
+                write!(formatter, "duplicate addon {declaration} declaration: {id}")
+            }
+            Self::UnknownHostedPageReference {
+                entry_point_id,
+                hosted_page_id,
+            } => write!(
+                formatter,
+                "addon entry_point {entry_point_id} references unknown hosted_page {hosted_page_id}"
+            ),
             Self::EmptyResources => write!(formatter, "addon manifest must declare resources"),
             Self::MissingDeclaredScope { resource, scope } => write!(
                 formatter,
@@ -271,6 +586,14 @@ impl fmt::Display for AddonManifestError {
                 resource.as_str(),
                 scope.as_str()
             ),
+            Self::MissingDeclaredScopeForDeclaration { declaration, scope } => write!(
+                formatter,
+                "addon {declaration} declaration requires undeclared scope {}",
+                scope.as_str()
+            ),
+            Self::InvalidConfigurationSchema { message } => {
+                write!(formatter, "invalid addon configuration schema: {message}")
+            }
             Self::InvalidTimeout { value } => {
                 write!(
                     formatter,
@@ -296,8 +619,6 @@ impl fmt::Display for AddonManifestError {
                     resource.as_str()
                 )
             }
-            Self::HttpStatus { status } => write!(formatter, "addon returned HTTP {status}"),
-            Self::Http { message } => write!(formatter, "addon HTTP call failed: {message}"),
             Self::InvalidEnvelope { message } => {
                 write!(formatter, "invalid addon envelope: {message}")
             }
@@ -318,10 +639,7 @@ pub fn validate_manifest(manifest: &AddonManifest) -> AddonProtocolResult<()> {
             actual: manifest.protocol_version.clone(),
         });
     }
-    let Ok(base_url) = reqwest::Url::parse(&manifest.base_url) else {
-        return Err(AddonManifestError::InvalidBaseUrl);
-    };
-    if !matches!(base_url.scheme(), "http" | "https") {
+    if !has_http_base_url(&manifest.base_url) {
         return Err(AddonManifestError::InvalidBaseUrl);
     }
     if manifest.resources.is_empty() {
@@ -362,6 +680,7 @@ pub fn validate_manifest(manifest: &AddonManifest) -> AddonProtocolResult<()> {
             }
         }
     }
+    validate_manifest_declarations(manifest, &declared_scopes)?;
 
     Ok(())
 }
@@ -389,127 +708,6 @@ pub fn ensure_scope_grant(
     }
 
     Ok(())
-}
-
-pub async fn call_addon_resource<T>(
-    transport: &T,
-    manifest: &AddonManifest,
-    resource: AddonResource,
-    granted_scopes: &[AddonScope],
-    request_id: impl Into<String>,
-    payload: serde_json::Value,
-    bearer_token: Option<&str>,
-) -> AddonProtocolResult<AddonResourceResponse>
-where
-    T: AddonTransport,
-{
-    validate_manifest(manifest)?;
-    ensure_scope_grant(manifest, resource, granted_scopes)?;
-    let declaration = manifest
-        .resources
-        .iter()
-        .find(|candidate| candidate.kind == resource)
-        .ok_or(AddonManifestError::ResourceNotDeclared { resource })?;
-    let request_id = request_id.into();
-    let timeout_ms = declaration
-        .timeout_ms
-        .or(manifest.default_timeout_ms)
-        .unwrap_or(10_000);
-    validate_timeout(timeout_ms)?;
-    let max_attempts = declaration
-        .max_attempts
-        .or(manifest.default_max_attempts)
-        .unwrap_or(1);
-    validate_max_attempts(max_attempts)?;
-    let envelope = AddonResourceRequest {
-        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
-        addon_id: manifest.id.clone(),
-        resource,
-        request_id: request_id.clone(),
-        payload,
-    };
-    let body =
-        serde_json::to_string(&envelope).map_err(|err| AddonManifestError::InvalidEnvelope {
-            message: format!("failed to serialize addon request: {err}"),
-        })?;
-    let mut headers = vec![
-        ("content-type".to_owned(), "application/json".to_owned()),
-        (
-            "x-taru-addon-protocol-version".to_owned(),
-            ADDON_PROTOCOL_VERSION.to_owned(),
-        ),
-        ("x-taru-addon-id".to_owned(), manifest.id.clone()),
-        (
-            "x-taru-addon-resource".to_owned(),
-            resource.as_str().to_owned(),
-        ),
-        ("x-taru-request-id".to_owned(), request_id.clone()),
-    ];
-    match manifest.auth {
-        AddonAuth::None => {}
-        AddonAuth::Bearer => {
-            let token = bearer_token.ok_or(AddonManifestError::MissingAuthToken {
-                auth: AddonAuth::Bearer,
-            })?;
-            headers.push(("authorization".to_owned(), format!("Bearer {token}")));
-        }
-        AddonAuth::SharedSecret => {
-            let token = bearer_token.ok_or(AddonManifestError::MissingAuthToken {
-                auth: AddonAuth::SharedSecret,
-            })?;
-            headers.push(("x-taru-addon-secret".to_owned(), token.to_owned()));
-        }
-    }
-
-    let mut last_error = None;
-    for attempt in 1..=max_attempts {
-        let mut attempt_headers = headers.clone();
-        attempt_headers.push(("x-taru-attempt".to_owned(), attempt.to_string()));
-        let response = transport
-            .post(AddonHttpRequest {
-                url: resource_url(&manifest.base_url, &declaration.path),
-                headers: attempt_headers,
-                body: body.clone(),
-                timeout_ms,
-            })
-            .await;
-
-        let response = match response {
-            Ok(response) => response,
-            Err(err) if attempt < max_attempts && err.is_retryable() => {
-                last_error = Some(err);
-                continue;
-            }
-            Err(err) => return Err(err),
-        };
-
-        if !(200..300).contains(&response.status) {
-            let err = AddonManifestError::HttpStatus {
-                status: response.status,
-            };
-            if attempt < max_attempts && err.is_retryable() {
-                last_error = Some(err);
-                continue;
-            }
-            return Err(err);
-        }
-
-        let envelope =
-            serde_json::from_str::<AddonResourceResponse>(&response.body).map_err(|err| {
-                AddonManifestError::InvalidEnvelope {
-                    message: format!("failed to parse addon response: {err}"),
-                }
-            })?;
-        validate_resource_response(&envelope, manifest, resource, &request_id)?;
-
-        return Ok(envelope);
-    }
-
-    Err(
-        last_error.unwrap_or(AddonManifestError::InvalidMaxAttempts {
-            value: max_attempts,
-        }),
-    )
 }
 
 pub fn validate_resource_response(
@@ -552,16 +750,152 @@ pub fn validate_resource_response(
     Ok(())
 }
 
-fn resource_url(base_url: &str, path: &str) -> String {
-    format!("{}{}", base_url.trim_end_matches('/'), path)
-}
-
 fn validate_non_empty(value: &str, field: &'static str) -> AddonProtocolResult<()> {
     if value.trim().is_empty() {
         Err(AddonManifestError::EmptyField { field })
     } else {
         Ok(())
     }
+}
+
+fn validate_manifest_declarations(
+    manifest: &AddonManifest,
+    declared_scopes: &HashSet<AddonScope>,
+) -> AddonProtocolResult<()> {
+    let mut entry_point_ids = HashSet::new();
+    for entry_point in &manifest.entry_points {
+        validate_non_empty(&entry_point.id, "entry_points.id")?;
+        validate_non_empty(&entry_point.label, "entry_points.label")?;
+        validate_absolute_declaration_path("entry_point", &entry_point.path)?;
+        validate_unique_declaration_id("entry_point", &entry_point.id, &mut entry_point_ids)?;
+        validate_declared_scopes("entry_point", &entry_point.required_scopes, declared_scopes)?;
+    }
+
+    let mut hosted_page_ids = HashSet::new();
+    for hosted_page in &manifest.hosted_pages {
+        validate_non_empty(&hosted_page.id, "hosted_pages.id")?;
+        validate_non_empty(&hosted_page.title, "hosted_pages.title")?;
+        validate_absolute_declaration_path("hosted_page", &hosted_page.path)?;
+        validate_unique_declaration_id("hosted_page", &hosted_page.id, &mut hosted_page_ids)?;
+        validate_declared_scopes("hosted_page", &hosted_page.required_scopes, declared_scopes)?;
+    }
+
+    for entry_point in &manifest.entry_points {
+        if let Some(hosted_page_id) = &entry_point.hosted_page_id {
+            if !hosted_page_ids.contains(hosted_page_id) {
+                return Err(AddonManifestError::UnknownHostedPageReference {
+                    entry_point_id: entry_point.id.clone(),
+                    hosted_page_id: hosted_page_id.clone(),
+                });
+            }
+        }
+    }
+
+    if let Some(configuration_schema) = &manifest.configuration_schema {
+        validate_non_empty(
+            &configuration_schema.schema_id,
+            "configuration_schema.schema_id",
+        )?;
+        if !configuration_schema.schema.is_object() {
+            return Err(AddonManifestError::InvalidConfigurationSchema {
+                message: "schema must be a JSON object".to_owned(),
+            });
+        }
+    }
+
+    let mut secret_reference_ids = HashSet::new();
+    for secret_reference in &manifest.secret_reference_fields {
+        validate_non_empty(&secret_reference.id, "secret_reference_fields.id")?;
+        validate_non_empty(&secret_reference.label, "secret_reference_fields.label")?;
+        validate_unique_declaration_id(
+            "secret_reference_field",
+            &secret_reference.id,
+            &mut secret_reference_ids,
+        )?;
+    }
+
+    let mut event_subscription_ids = HashSet::new();
+    for event_subscription in &manifest.event_subscriptions {
+        validate_non_empty(&event_subscription.id, "event_subscriptions.id")?;
+        validate_non_empty(
+            &event_subscription.event_kind,
+            "event_subscriptions.event_kind",
+        )?;
+        validate_absolute_declaration_path("event_subscription", &event_subscription.path)?;
+        validate_unique_declaration_id(
+            "event_subscription",
+            &event_subscription.id,
+            &mut event_subscription_ids,
+        )?;
+        validate_declared_scopes(
+            "event_subscription",
+            &event_subscription.required_scopes,
+            declared_scopes,
+        )?;
+    }
+
+    let mut task_ids = HashSet::new();
+    for task in &manifest.tasks {
+        validate_non_empty(&task.id, "tasks.id")?;
+        validate_non_empty(&task.name, "tasks.name")?;
+        validate_absolute_declaration_path("task", &task.path)?;
+        validate_unique_declaration_id("task", &task.id, &mut task_ids)?;
+        validate_declared_scopes("task", &task.required_scopes, declared_scopes)?;
+        if let Some(timeout) = task.timeout_ms {
+            validate_timeout(timeout)?;
+        }
+        if let Some(max_attempts) = task.max_attempts {
+            validate_max_attempts(max_attempts)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_absolute_declaration_path(
+    declaration: &'static str,
+    path: &str,
+) -> AddonProtocolResult<()> {
+    if path.starts_with('/') {
+        Ok(())
+    } else {
+        Err(AddonManifestError::InvalidDeclarationPath {
+            declaration,
+            path: path.to_owned(),
+        })
+    }
+}
+
+fn validate_unique_declaration_id(
+    declaration: &'static str,
+    id: &str,
+    seen: &mut HashSet<String>,
+) -> AddonProtocolResult<()> {
+    if seen.insert(id.to_owned()) {
+        Ok(())
+    } else {
+        Err(AddonManifestError::DuplicateDeclaration {
+            declaration,
+            id: id.to_owned(),
+        })
+    }
+}
+
+fn validate_declared_scopes(
+    declaration: &'static str,
+    required_scopes: &[AddonScope],
+    declared_scopes: &HashSet<AddonScope>,
+) -> AddonProtocolResult<()> {
+    for scope in required_scopes {
+        if !declared_scopes.contains(scope) {
+            return Err(AddonManifestError::MissingDeclaredScopeForDeclaration {
+                declaration,
+                scope: *scope,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_timeout(value: u64) -> AddonProtocolResult<()> {
@@ -580,26 +914,21 @@ fn validate_max_attempts(value: u32) -> AddonProtocolResult<()> {
     }
 }
 
-impl AddonManifestError {
-    #[must_use]
-    fn is_retryable(&self) -> bool {
-        match self {
-            Self::Http { .. } => true,
-            Self::HttpStatus { status } => {
-                *status == 408 || *status == 429 || (500..600).contains(status)
-            }
-            _ => false,
-        }
+fn has_http_base_url(value: &str) -> bool {
+    let Some((scheme, rest)) = value.split_once("://") else {
+        return false;
+    };
+    if !matches!(scheme, "http" | "https") {
+        return false;
     }
+    let Some(authority) = rest.split(['/', '?', '#']).next() else {
+        return false;
+    };
+    !authority.trim().is_empty() && !authority.contains(char::is_whitespace)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::VecDeque,
-        sync::{Arc, Mutex},
-    };
-
     use super::*;
 
     #[test]
@@ -640,6 +969,162 @@ mod tests {
             validate_manifest(&manifest),
             Err(AddonManifestError::DuplicateResource { .. })
         ));
+
+        let mut manifest = valid_manifest();
+        manifest.base_url = "file:///tmp/addon".to_owned();
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::InvalidBaseUrl)
+        ));
+
+        let mut manifest = valid_manifest();
+        manifest.base_url = "https:///missing-authority".to_owned();
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::InvalidBaseUrl)
+        ));
+    }
+
+    #[test]
+    fn validates_manifest_declaration_contracts() {
+        let mut manifest = valid_manifest();
+        manifest.hosted_pages = vec![AddonHostedPageDeclaration {
+            id: "diagnostics".to_owned(),
+            title: "Addon Diagnostics".to_owned(),
+            path: "/ui/diagnostics".to_owned(),
+            required_scopes: vec![AddonScope::ItemMetadataRead],
+        }];
+        manifest.entry_points = vec![AddonEntryPointDeclaration::hosted_page(
+            "metadata-action",
+            AddonEntryPointKind::ItemAction,
+            "Suggest Metadata",
+            "/ui/metadata-action",
+            "diagnostics",
+            vec![AddonScope::ItemMetadataSuggest],
+        )];
+        manifest.configuration_schema = Some(AddonConfigurationSchema {
+            schema_id: "taru.reference.metadata.config.v1".to_owned(),
+            schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "language": { "type": "string" },
+                    "api_key": { "type": "string", "x-taru-secret-reference": true }
+                },
+                "additionalProperties": false
+            }),
+        });
+        manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration {
+            id: "api_key".to_owned(),
+            label: "API Key".to_owned(),
+            description: Some("Resolved by Taru when the addon is called".to_owned()),
+            required: true,
+        }];
+        manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration {
+            id: "library-scan-finished".to_owned(),
+            event_kind: "library_scan.succeeded".to_owned(),
+            path: "/events/library-scan-finished".to_owned(),
+            required_scopes: vec![AddonScope::WebhookEventRead],
+            filters: serde_json::json!({ "library_preset": "movies" }),
+        }];
+        manifest.tasks = vec![AddonTaskDeclaration {
+            id: "bulk-metadata-scrape".to_owned(),
+            name: "Bulk metadata scrape".to_owned(),
+            path: "/tasks/bulk-metadata-scrape".to_owned(),
+            description: Some("Runs metadata suggestions for selected items".to_owned()),
+            required_scopes: vec![AddonScope::AutomationRun],
+            timeout_ms: Some(30_000),
+            max_attempts: Some(2),
+        }];
+        manifest
+            .scopes
+            .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+
+        validate_manifest(&manifest).unwrap();
+    }
+
+    #[test]
+    fn rejects_invalid_manifest_declarations() {
+        let mut manifest = valid_manifest();
+        manifest.entry_points = vec![AddonEntryPointDeclaration {
+            id: "metadata-action".to_owned(),
+            kind: AddonEntryPointKind::ItemAction,
+            label: "Suggest Metadata".to_owned(),
+            path: "ui/metadata-action".to_owned(),
+            hosted_page_id: None,
+            required_scopes: vec![AddonScope::ItemMetadataSuggest],
+        }];
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::InvalidDeclarationPath {
+                declaration: "entry_point",
+                ..
+            })
+        ));
+
+        let mut manifest = valid_manifest();
+        manifest.hosted_pages = vec![
+            AddonHostedPageDeclaration {
+                id: "diagnostics".to_owned(),
+                title: "Diagnostics".to_owned(),
+                path: "/ui/diagnostics".to_owned(),
+                required_scopes: Vec::new(),
+            },
+            AddonHostedPageDeclaration {
+                id: "diagnostics".to_owned(),
+                title: "Diagnostics Duplicate".to_owned(),
+                path: "/ui/diagnostics-2".to_owned(),
+                required_scopes: Vec::new(),
+            },
+        ];
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::DuplicateDeclaration {
+                declaration: "hosted_page",
+                ..
+            })
+        ));
+
+        let mut manifest = valid_manifest();
+        manifest.entry_points = vec![AddonEntryPointDeclaration {
+            id: "metadata-action".to_owned(),
+            kind: AddonEntryPointKind::ItemAction,
+            label: "Suggest Metadata".to_owned(),
+            path: "/ui/metadata-action".to_owned(),
+            hosted_page_id: Some("missing-page".to_owned()),
+            required_scopes: vec![AddonScope::ItemMetadataSuggest],
+        }];
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::UnknownHostedPageReference { .. })
+        ));
+
+        let mut manifest = valid_manifest();
+        manifest.tasks = vec![AddonTaskDeclaration {
+            id: "bulk-metadata-scrape".to_owned(),
+            name: "Bulk metadata scrape".to_owned(),
+            path: "/tasks/bulk-metadata-scrape".to_owned(),
+            description: None,
+            required_scopes: vec![AddonScope::AutomationRun],
+            timeout_ms: Some(30_000),
+            max_attempts: Some(2),
+        }];
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::MissingDeclaredScopeForDeclaration {
+                declaration: "task",
+                scope: AddonScope::AutomationRun,
+            })
+        ));
+
+        let mut manifest = valid_manifest();
+        manifest.configuration_schema = Some(AddonConfigurationSchema {
+            schema_id: "taru.reference.metadata.config.v1".to_owned(),
+            schema: serde_json::json!("not-an-object"),
+        });
+        assert!(matches!(
+            validate_manifest(&manifest),
+            Err(AddonManifestError::InvalidConfigurationSchema { .. })
+        ));
     }
 
     #[test]
@@ -673,165 +1158,65 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn calls_resource_with_bearer_auth_and_validates_response() {
-        let manifest = valid_manifest();
-        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
-            status: 200,
-            body: response_json(&manifest, "request-1"),
-        }));
-
-        let response = call_addon_resource(
-            &transport,
-            &manifest,
-            AddonResource::Metadata,
-            &[
-                AddonScope::ItemMetadataRead,
-                AddonScope::ItemMetadataSuggest,
-            ],
-            "request-1",
-            serde_json::json!({"item_id":"item-1"}),
-            Some("token-1"),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(response.payload["title"], "The Matrix");
-        let requests = transport.requests();
-        assert_eq!(requests.len(), 1);
+    #[test]
+    fn protected_write_payload_contracts_keep_wire_shape() {
+        let metadata = AddonMetadataPatch {
+            title: Some("Demo".to_owned()),
+            genres: Some(vec!["Drama".to_owned()]),
+            ..AddonMetadataPatch::default()
+        };
         assert_eq!(
-            requests[0].url,
-            "https://example.test/addon/metadata".to_owned()
+            serde_json::to_value(&metadata).unwrap(),
+            serde_json::json!({
+                "title": "Demo",
+                "original_title": null,
+                "sort_title": null,
+                "overview": null,
+                "release_date": null,
+                "runtime_minutes": null,
+                "tagline": null,
+                "genres": ["Drama"],
+                "tags": null
+            })
         );
+
+        let artwork = AddonArtworkWritePayload {
+            intent: AddonArtworkIntent::ProposeArtwork,
+            kind: AddonArtworkKind::Poster,
+            source: AddonArtworkSourcePayload {
+                kind: AddonArtworkSourceKind::RemoteUrl,
+                url: "https://addon.example/poster.jpg".to_owned(),
+            },
+            language: Some("en".to_owned()),
+            width: Some(1000),
+            height: Some(1500),
+        };
         assert_eq!(
-            header_value(&requests[0], "authorization"),
-            Some("Bearer token-1")
+            serde_json::to_value(&artwork).unwrap(),
+            serde_json::json!({
+                "intent": "propose_artwork",
+                "kind": "poster",
+                "source": {
+                    "kind": "remote_url",
+                    "url": "https://addon.example/poster.jpg"
+                },
+                "language": "en",
+                "width": 1000,
+                "height": 1500
+            })
         );
-        assert_eq!(header_value(&requests[0], "x-taru-attempt"), Some("1"));
-        assert_eq!(requests[0].timeout_ms, 5_000);
-        assert!(requests[0].body.contains("\"request_id\":\"request-1\""));
-    }
 
-    #[tokio::test]
-    async fn retries_retryable_errors_with_the_same_request_id() {
-        let manifest = valid_manifest();
-        let transport = MockTransport::default();
-        transport.push_response(Err(AddonManifestError::Http {
-            message: "temporary network failure".to_owned(),
-        }));
-        transport.push_response(Ok(AddonHttpResponse {
-            status: 200,
-            body: response_json(&manifest, "request-2"),
-        }));
-
-        let response = call_addon_resource(
-            &transport,
-            &manifest,
-            AddonResource::Metadata,
-            &[
-                AddonScope::ItemMetadataRead,
-                AddonScope::ItemMetadataSuggest,
-            ],
-            "request-2",
-            serde_json::json!({"item_id":"item-1"}),
-            Some("token-1"),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(response.request_id, "request-2");
-        let requests = transport.requests();
-        assert_eq!(requests.len(), 2);
-        assert_eq!(requests[0].body, requests[1].body);
-        assert_eq!(header_value(&requests[0], "x-taru-attempt"), Some("1"));
-        assert_eq!(header_value(&requests[1], "x-taru-attempt"), Some("2"));
-    }
-
-    #[tokio::test]
-    async fn does_not_retry_non_retryable_http_status() {
-        let manifest = valid_manifest();
-        let transport = MockTransport::default();
-        transport.push_response(Ok(AddonHttpResponse {
-            status: 400,
-            body: "{}".to_owned(),
-        }));
-        transport.push_response(Ok(AddonHttpResponse {
-            status: 200,
-            body: response_json(&manifest, "request-3"),
-        }));
-
-        let err = call_addon_resource(
-            &transport,
-            &manifest,
-            AddonResource::Metadata,
-            &[
-                AddonScope::ItemMetadataRead,
-                AddonScope::ItemMetadataSuggest,
-            ],
-            "request-3",
-            serde_json::json!({"item_id":"item-1"}),
-            Some("token-1"),
-        )
-        .await
-        .unwrap_err();
-
-        assert_eq!(err, AddonManifestError::HttpStatus { status: 400 });
-        assert_eq!(transport.requests().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn rejects_invalid_response_mapping() {
-        let manifest = valid_manifest();
-        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
-            status: 200,
-            body: response_json(&manifest, "different-request"),
-        }));
-
-        let err = call_addon_resource(
-            &transport,
-            &manifest,
-            AddonResource::Metadata,
-            &[
-                AddonScope::ItemMetadataRead,
-                AddonScope::ItemMetadataSuggest,
-            ],
-            "request-4",
-            serde_json::json!({"item_id":"item-1"}),
-            Some("token-1"),
-        )
-        .await
-        .unwrap_err();
-
-        assert!(matches!(err, AddonManifestError::InvalidEnvelope { .. }));
-    }
-
-    #[tokio::test]
-    async fn requires_auth_token_for_authenticated_addons() {
-        let manifest = valid_manifest();
-        let transport = MockTransport::default();
-
-        let err = call_addon_resource(
-            &transport,
-            &manifest,
-            AddonResource::Metadata,
-            &[
-                AddonScope::ItemMetadataRead,
-                AddonScope::ItemMetadataSuggest,
-            ],
-            "request-5",
-            serde_json::json!({"item_id":"item-1"}),
-            None,
-        )
-        .await
-        .unwrap_err();
-
+        let file_write = AddonLibraryFileWritePayload {
+            file_role: AddonLibraryFileRole::Nfo,
+            policy: AddonLibraryFileWritePolicy::ReplaceExistingPreserving,
+        };
         assert_eq!(
-            err,
-            AddonManifestError::MissingAuthToken {
-                auth: AddonAuth::Bearer
-            }
+            serde_json::to_value(&file_write).unwrap(),
+            serde_json::json!({
+                "file_role": "nfo",
+                "policy": "replace_existing_preserving"
+            })
         );
-        assert!(transport.requests().is_empty());
     }
 
     fn valid_manifest() -> AddonManifest {
@@ -854,6 +1239,12 @@ mod tests {
                 timeout_ms: Some(5_000),
                 max_attempts: Some(2),
             }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
             auth: AddonAuth::Bearer,
             default_timeout_ms: Some(10_000),
             default_max_attempts: Some(2),
@@ -861,67 +1252,6 @@ mod tests {
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
             ],
-        }
-    }
-
-    fn response_json(manifest: &AddonManifest, request_id: &str) -> String {
-        serde_json::to_string(&AddonResourceResponse {
-            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
-            addon_id: manifest.id.clone(),
-            resource: AddonResource::Metadata,
-            request_id: request_id.to_owned(),
-            payload: serde_json::json!({"title":"The Matrix"}),
-            artifacts: vec![AddonArtifact {
-                kind: "metadata_suggestion".to_owned(),
-                payload: serde_json::json!({"title":"The Matrix"}),
-            }],
-        })
-        .unwrap()
-    }
-
-    fn header_value<'a>(request: &'a AddonHttpRequest, name: &str) -> Option<&'a str> {
-        request
-            .headers
-            .iter()
-            .find(|(candidate, _)| candidate == name)
-            .map(|(_, value)| value.as_str())
-    }
-
-    #[derive(Clone, Default)]
-    struct MockTransport {
-        responses: Arc<Mutex<VecDeque<AddonProtocolResult<AddonHttpResponse>>>>,
-        requests: Arc<Mutex<Vec<AddonHttpRequest>>>,
-    }
-
-    impl MockTransport {
-        fn with_response(response: AddonProtocolResult<AddonHttpResponse>) -> Self {
-            let transport = Self::default();
-            transport.push_response(response);
-            transport
-        }
-
-        fn push_response(&self, response: AddonProtocolResult<AddonHttpResponse>) {
-            self.responses.lock().unwrap().push_back(response);
-        }
-
-        fn requests(&self) -> Vec<AddonHttpRequest> {
-            self.requests.lock().unwrap().clone()
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl AddonTransport for MockTransport {
-        async fn post(&self, request: AddonHttpRequest) -> AddonProtocolResult<AddonHttpResponse> {
-            self.requests.lock().unwrap().push(request);
-            self.responses
-                .lock()
-                .unwrap()
-                .pop_front()
-                .unwrap_or_else(|| {
-                    Err(AddonManifestError::Http {
-                        message: "mock transport response queue was empty".to_owned(),
-                    })
-                })
         }
     }
 }

@@ -11,7 +11,26 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: completed for M63.
+Status: completed for Addon Architecture Deepening.
+
+The latest architecture focus was Addon Architecture Deepening, completed on
+2026-05-21. It intentionally removed compatibility seams while Taru still has
+no deployed users and deepened Addon boundaries before broader Addon breadth:
+
+- Addon Side Effect runtime lifecycle;
+- fingerprinted Addon Side Effect idempotency;
+- Protected Write payload protocol contracts;
+- Addon Manifest declarations;
+- Library File Write runtime;
+- Admin Addon API DTO shielding under `/admin/v1/addons`;
+- `taru-addon-protocol` / `taru-addon-client` crate separation;
+- SQLite/PostgreSQL Addon Side Effect fingerprint schema parity.
+
+Authoritative lane:
+
+- `docs/workstreams/addon-architecture-deepening/`
+
+Previous architecture focus:
 
 M63 was the fearless architecture-deepening lane after M62 PostgreSQL
 Production Readiness. It intentionally prioritized deeper Modules and workflow
