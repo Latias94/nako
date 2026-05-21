@@ -477,7 +477,7 @@ fn local_metadata_reader_to_dto(reader: LocalMetadataReader) -> ClientLocalMetad
         LocalMetadataReader::Nfo => ClientLocalMetadataReader::Nfo,
         LocalMetadataReader::Embedded => ClientLocalMetadataReader::Embedded,
         LocalMetadataReader::Sidecar => ClientLocalMetadataReader::Sidecar,
-        LocalMetadataReader::Other(value) => ClientLocalMetadataReader::Other(value),
+        LocalMetadataReader::Other(value) => ClientLocalMetadataReader::Other(value.to_string()),
     }
 }
 
@@ -508,7 +508,7 @@ fn external_provider_to_dto(provider: ExternalProvider) -> ClientExternalProvide
         ExternalProvider::Bangumi => ClientExternalProvider::Bangumi,
         ExternalProvider::Imdb => ClientExternalProvider::Imdb,
         ExternalProvider::Local => ClientExternalProvider::Local,
-        ExternalProvider::Other(value) => ClientExternalProvider::Other(value),
+        ExternalProvider::Other(value) => ClientExternalProvider::Other(value.to_string()),
     }
 }
 
@@ -531,7 +531,7 @@ pub fn image_kind_to_dto(kind: ImageKind) -> ClientImageKind {
         ImageKind::Logo => ClientImageKind::Logo,
         ImageKind::Thumbnail => ClientImageKind::Thumbnail,
         ImageKind::Banner => ClientImageKind::Banner,
-        ImageKind::Other(value) => ClientImageKind::Other(value),
+        ImageKind::Other(value) => ClientImageKind::Other(value.to_string()),
     }
 }
 
@@ -542,7 +542,7 @@ fn credit_role_to_dto(role: CreditRole) -> ClientCreditRole {
         CreditRole::Writer => ClientCreditRole::Writer,
         CreditRole::Producer => ClientCreditRole::Producer,
         CreditRole::Creator => ClientCreditRole::Creator,
-        CreditRole::Other(value) => ClientCreditRole::Other(value),
+        CreditRole::Other(value) => ClientCreditRole::Other(value.to_string()),
     }
 }
 
@@ -553,7 +553,7 @@ fn media_stream_kind_to_dto(kind: MediaStreamKind) -> ClientMediaStreamKind {
         MediaStreamKind::Subtitle => ClientMediaStreamKind::Subtitle,
         MediaStreamKind::Data => ClientMediaStreamKind::Data,
         MediaStreamKind::Attachment => ClientMediaStreamKind::Attachment,
-        MediaStreamKind::Other(value) => ClientMediaStreamKind::Other(value),
+        MediaStreamKind::Other(value) => ClientMediaStreamKind::Other(value.to_string()),
     }
 }
 

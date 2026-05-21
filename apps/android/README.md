@@ -18,6 +18,8 @@ Included:
 - server URL plus access-token setup shell;
 - `GET /health` preflight and lightweight authenticated Public Client API
   probe;
+- shared Rust client-core / UniFFI connection probe with Android-supplied
+  transport;
 - API-version and public error-envelope parsing;
 - browse, search, detail, source picker, settings, and player UI surfaces;
 - playback decision request construction and Media3 player launch smoke;
@@ -27,7 +29,7 @@ Included:
 
 Still out of scope for this Android app baseline:
 
-- UniFFI or shared Rust mobile core;
+- Rust-owned Android networking;
 - downloads/offline playback;
 - external player handoff;
 - CI device-farm or golden screenshot infrastructure.
@@ -37,9 +39,45 @@ Still out of scope for this Android app baseline:
 - JDK 21.
 - Android SDK with platform `android-36`.
 - Android build tools available from the configured SDK.
+- Rust toolchain with the installed Android targets:
+  `aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`,
+  and `x86_64-linux-android`.
+- Android NDK. Set `ANDROID_NDK_HOME`, `NDK_HOME`, or Gradle property
+  `android.ndk.home`.
 
 The Gradle project uses its own wrapper. Do not add `apps/android` to the Rust
 Cargo workspace.
+
+## Rust / UniFFI Build Topology
+
+The app uses three separate Rust/UniFFI artifacts:
+
+1. host `taru-client-uniffi` shared library for JVM tests and binding
+   generation;
+2. generated Kotlin bindings under `app/build/generated/source/uniffi/`;
+3. Android ABI `libtaru_client_uniffi.so` libraries under
+   `app/build/generated/jniLibs/<variant>/`.
+
+JVM unit tests depend only on the host library and generated Kotlin bindings.
+APK packaging builds Android ABI libraries through the variant JNI merge path,
+not through every ordinary `preBuild`.
+
+By default Android packaging builds all supported ABIs. For focused local
+iteration, pass a comma-separated ABI set:
+
+```powershell
+.\gradlew.bat :app:assembleDebug -PtaruRustAndroidAbis=x86_64
+.\gradlew.bat :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a,x86_64
+```
+
+Supported ABI names are `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`.
+Generated binding sources and JNI libraries live under `app/build/generated/`
+and are not committed.
+
+The connection flow uses the Rust core only for protocol-level request
+construction, response interpretation, API-version checks, public error parsing,
+and redaction-safe previews. Android still owns HTTP execution, cleartext/TLS
+policy, token vaults, profile persistence, product diagnostics, UI, and Media3.
 
 ## Commands
 

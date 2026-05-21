@@ -5,13 +5,13 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import dev.taru.sdk.TARU_API_VERSION_HEADER
 
 class TaruUserPlaybackClientTest {
     @Test
@@ -23,18 +23,13 @@ class TaruUserPlaybackClientTest {
                     {
                       "items": [
                         {
-                          "item": {
-                            "id": "item 1",
-                            "kind": "movie",
-                            "metadata": {
-                              "title": "Night Harbor",
-                              "release_date": "2026-01-01",
-                              "runtime_minutes": 106,
-                              "genres": ["Mystery"],
-                              "tags": [],
-                              "ratings": []
-                            }
-                          },
+                          "item": ${mediaItemJson(
+                              id = "item 1",
+                              title = "Night Harbor",
+                              releaseDate = "2026-01-01",
+                              runtimeMinutes = 106,
+                              genresJson = "[\"Mystery\"]",
+                          ).prependIndent("                          ")},
                           "state": {
                             "item_id": "item 1",
                             "source_id": "source 1",
@@ -174,7 +169,7 @@ class TaruUserPlaybackClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 401,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"unauthorized","message":"bad token secret-token in C:\\media\\night.mkv"}""",
                 ),
             ),
@@ -209,7 +204,7 @@ class TaruUserPlaybackClientTest {
     private fun ok(body: String): TaruHttpResponse =
         TaruHttpResponse(
             statusCode = 200,
-            headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+            headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
             body = body,
         )
 
@@ -235,6 +230,52 @@ class TaruUserPlaybackClientTest {
         }
         """.trimIndent()
     }
+
+    private fun mediaItemJson(
+        id: String,
+        title: String,
+        kind: String = "movie",
+        parentIdJson: String = "null",
+        originalTitle: String? = null,
+        sortTitle: String? = null,
+        overview: String? = null,
+        releaseDate: String? = null,
+        runtimeMinutes: Int? = null,
+        tagline: String? = null,
+        genresJson: String = "[]",
+        tagsJson: String = "[]",
+        ratingsJson: String = "[]",
+        creditsJson: String = "[]",
+        collectionsJson: String = "[]",
+        studiosJson: String = "[]",
+        externalIdsJson: String = "[]",
+    ): String =
+        """
+        {
+          "id": "$id",
+          "kind": "$kind",
+          "parent_id": $parentIdJson,
+          "metadata": {
+            "title": "$title",
+            "original_title": ${jsonStringOrNull(originalTitle)},
+            "sort_title": ${jsonStringOrNull(sortTitle)},
+            "overview": ${jsonStringOrNull(overview)},
+            "release_date": ${jsonStringOrNull(releaseDate)},
+            "runtime_minutes": ${runtimeMinutes ?: "null"},
+            "tagline": ${jsonStringOrNull(tagline)},
+            "genres": $genresJson,
+            "tags": $tagsJson,
+            "ratings": $ratingsJson,
+            "credits": $creditsJson,
+            "collections": $collectionsJson,
+            "studios": $studiosJson,
+            "external_ids": $externalIdsJson
+          }
+        }
+        """.trimIndent()
+
+    private fun jsonStringOrNull(value: String?): String =
+        value?.let { "\"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" } ?: "null"
 }
 
 private sealed interface FakeStep

@@ -5,13 +5,14 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import dev.taru.sdk.TARU_API_VERSION_HEADER
+import dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER
 
 class TaruPlaybackClientTest {
     @Test
@@ -91,7 +92,6 @@ class TaruPlaybackClientTest {
                         "id": "source 1",
                         "library_id": "library-1",
                         "item_id": "item-1",
-                        "locator": "file:///srv/media/night-harbor.mkv",
                         "file_name": "night-harbor.mkv",
                         "size_bytes": 42,
                         "fingerprint": null
@@ -172,6 +172,61 @@ class TaruPlaybackClientTest {
     }
 
     @Test
+    fun `unknown playback decision mode decodes to safe unsupported fallback`() = runBlocking {
+        val transport = FakePlaybackTransport(
+            ResponseStep(
+                ok(
+                    """
+                    {
+                      "source": {
+                        "id": "source 1",
+                        "library_id": "library-1",
+                        "item_id": "item-1",
+                        "file_name": "night-harbor.mkv",
+                        "size_bytes": 42,
+                        "fingerprint": null
+                      },
+                      "probe": null,
+                      "decision": {
+                        "mode": "server_future_mode",
+                        "reason": "future server mode",
+                        "direct_play": null,
+                        "transcode_plan": null
+                      }
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+        )
+        val client = TaruPlaybackClient(transport)
+
+        val result = client.getPlaybackDecision(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            sourceId = "source 1",
+        )
+
+        assertTrue(result is PlaybackResult.Success)
+        val success = result as PlaybackResult.Success
+        assertEquals(ClientPlaybackMode.Unknown, success.value.decision.mode)
+        assertEquals(null, client.recommendedPlaybackTarget(profile("http://home.example.test"), success.value))
+
+        val prepared = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = success.value,
+        )
+
+        assertTrue(prepared is PlaybackResult.Failure)
+        assertEquals(
+            PlaybackFailureCategory.UnsupportedSource,
+            (prepared as PlaybackResult.Failure).diagnostics.category,
+        )
+        assertTrue(transport.requests.size == 1)
+        assertFalse(prepared.toString().contains("secret-token"))
+    }
+
+    @Test
     fun `streaming targets use stable paths methods headers queries and safe previews`() {
         val client = TaruPlaybackClient(FakePlaybackTransport())
         val profile = profile("http://home.example.test/api")
@@ -227,6 +282,14 @@ class TaruPlaybackClientTest {
         )
         assertEquals("bytes=10-20", direct.request.headers["Range"])
         assertEquals("bytes=0-", remux.request.headers["Range"])
+        assertEquals(
+            "http://home.example.test/api/sources/source%201/stream/remux",
+            client.remuxPlaybackTarget(
+                profile = profile,
+                sourceId = "source 1",
+                outputContainer = ClientOutputContainer.Hls,
+            ).request.url,
+        )
         listOf(direct, remux, hls, segment).forEach { target ->
             assertEquals(null, target.request.headers["Authorization"])
             assertEquals("Bearer <redacted>", target.safeRequest.headers["Authorization"])
@@ -401,7 +464,6 @@ class TaruPlaybackClientTest {
                 id = "source 1",
                 libraryId = "library-1",
                 itemId = "item-1",
-                locator = "file:///srv/media/night-harbor.mkv",
                 fileName = "night-harbor.mkv",
             ),
             decision = ClientPlaybackDecision(
@@ -466,8 +528,8 @@ class TaruPlaybackClientTest {
                 ok(
                     body = "",
                     headers = mapOf(
-                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
-                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-1"),
+                        TARU_API_VERSION_HEADER to listOf("v1"),
+                        TARU_PLAYBACK_SESSION_ID_HEADER to listOf("session-remux-1"),
                     ),
                 ),
             ),
@@ -499,8 +561,8 @@ class TaruPlaybackClientTest {
                 ok(
                     body = "",
                     headers = mapOf(
-                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
-                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-forced"),
+                        TARU_API_VERSION_HEADER to listOf("v1"),
+                        TARU_PLAYBACK_SESSION_ID_HEADER to listOf("session-remux-forced"),
                     ),
                 ),
             ),
@@ -533,8 +595,8 @@ class TaruPlaybackClientTest {
                 ok(
                     body = "#EXTM3U\n",
                     headers = mapOf(
-                        TaruPublicApiContract.apiVersionHeader to listOf("v1"),
-                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-hls-1"),
+                        TARU_API_VERSION_HEADER to listOf("v1"),
+                        TARU_PLAYBACK_SESSION_ID_HEADER to listOf("session-hls-1"),
                     ),
                 ),
             ),
@@ -617,7 +679,7 @@ class TaruPlaybackClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 400,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"unsupported","message":"ffmpeg.exe -i C:\\media\\night.mkv secret-token file:///tmp/source.mkv"}""",
                 ),
             ),
@@ -698,7 +760,7 @@ class TaruPlaybackClientTest {
             ResponseStep(
                 TaruHttpResponse(
                     statusCode = 409,
-                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                     body = """{"code":"session_conflict","message":"ffmpeg.exe -i C:\\media\\night.mkv secret-token"}""",
                 ),
             ),
@@ -729,8 +791,8 @@ class TaruPlaybackClientTest {
                 ok(
                     body = "",
                     headers = mapOf(
-                        TaruPublicApiContract.apiVersionHeader to listOf("v2"),
-                        TaruPublicApiContract.playbackSessionIdHeader to listOf("session-remux-1"),
+                        TARU_API_VERSION_HEADER to listOf("v2"),
+                        TARU_PLAYBACK_SESSION_ID_HEADER to listOf("session-remux-1"),
                     ),
                 ),
             ),
@@ -763,7 +825,7 @@ class TaruPlaybackClientTest {
     private fun ok(body: String): TaruHttpResponse =
         TaruHttpResponse(
             statusCode = 200,
-            headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+            headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
             body = body,
         )
 
@@ -786,7 +848,6 @@ class TaruPlaybackClientTest {
                 id = "source 1",
                 libraryId = "library-1",
                 itemId = "item-1",
-                locator = "file:///srv/media/night-harbor.mkv",
                 fileName = "night-harbor.mkv",
             ),
             decision = when (mode) {
@@ -818,6 +879,10 @@ class TaruPlaybackClientTest {
                         audioCodec = "aac",
                         hardwareAcceleration = ClientHardwareAcceleration.None,
                     ),
+                )
+                ClientPlaybackMode.Unknown -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Unknown,
+                    reason = "unknown",
                 )
             },
         )

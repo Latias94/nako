@@ -557,6 +557,70 @@ mod tests {
     }
 
     #[test]
+    fn public_wire_values_preserve_unknown_additive_strings() {
+        let response = serde_json::from_value::<PlaybackDecisionResponse>(serde_json::json!({
+            "source": {
+                "id": "source-1",
+                "library_id": "library-1",
+                "item_id": "item-1",
+                "file_name": "Demo.mp4",
+                "size_bytes": 42,
+                "fingerprint": null
+            },
+            "probe": null,
+            "decision": {
+                "mode": "server_future_mode",
+                "reason": "future mode",
+                "direct_play": null,
+                "transcode_plan": {
+                    "output_container": "future_container",
+                    "video_codec": null,
+                    "audio_codec": null,
+                    "hardware_acceleration": "quantum_gpu"
+                }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            response.decision.mode,
+            ClientPlaybackMode::Other("server_future_mode".to_owned())
+        );
+        assert!(!response.decision.mode.is_known());
+        let plan = response.decision.transcode_plan.unwrap();
+        assert_eq!(
+            plan.output_container,
+            ClientOutputContainer::Other("future_container".to_owned())
+        );
+        assert_eq!(
+            plan.hardware_acceleration,
+            ClientHardwareAcceleration::Other("quantum_gpu".to_owned())
+        );
+
+        let encoded = serde_json::to_value(PlaybackDecisionResponse {
+            source: response.source,
+            probe: None,
+            decision: ClientPlaybackDecision {
+                mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
+                reason: "future mode".to_owned(),
+                direct_play: None,
+                transcode_plan: Some(plan),
+            },
+        })
+        .unwrap();
+
+        assert_eq!(encoded["decision"]["mode"], "server_future_mode");
+        assert_eq!(
+            encoded["decision"]["transcode_plan"]["output_container"],
+            "future_container"
+        );
+        assert_eq!(
+            encoded["decision"]["transcode_plan"]["hardware_acceleration"],
+            "quantum_gpu"
+        );
+    }
+
+    #[test]
     fn public_transcode_session_response_hides_server_paths() {
         let response = TranscodeSessionResponse {
             session: TranscodeSessionDto {

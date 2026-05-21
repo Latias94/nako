@@ -3,10 +3,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use reqwest::{
     Method, StatusCode, Url,
-    header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue, RANGE},
+    header::{HeaderMap, HeaderName, HeaderValue, RANGE},
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use taru_client_core::{
+    CoreHttpHeader, CoreHttpRequest, CoreHttpRequestSpec, CoreHttpResponse, CoreQueryParam,
+    CoreRuntimeFailure, CoreRuntimeFailureKind,
+};
 pub use taru_client_protocol::{
     API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, ClientOutputContainer,
     ContinueWatchingResponse, ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse,
@@ -714,8 +718,7 @@ impl TaruClient {
     {
         let request = self.build_request(method, path, query, auth)?;
         let response = self.transport.send(request).await?;
-        self.ensure_success(&response)?;
-        self.ensure_version(&response)?;
+        self.ensure_response_policy(&response)?;
         serde_json::from_slice(&response.body).map_err(|source| TaruClientError::Decode {
             path: path.to_owned(),
             source,
@@ -743,8 +746,7 @@ impl TaruClient {
             source,
         })?;
         let response = self.transport.send(request).await?;
-        self.ensure_success(&response)?;
-        self.ensure_version(&response)?;
+        self.ensure_response_policy(&response)?;
         serde_json::from_slice(&response.body).map_err(|source| TaruClientError::Decode {
             path: path.to_owned(),
             source,
@@ -761,45 +763,23 @@ impl TaruClient {
     where
         Q: QueryParams + ?Sized,
     {
-        let mut url = self
-            .base_url
-            .join(path.trim_start_matches('/'))
-            .map_err(|source| TaruClientError::InvalidPath {
-                path: path.to_owned(),
-                reason: source.to_string(),
-            })?;
-
+        let mut query_pairs = Vec::new();
         if let Some(query) = query {
-            let mut query_pairs = Vec::new();
             query.append_query(&mut query_pairs);
-            if !query_pairs.is_empty() {
-                let mut pairs = url.query_pairs_mut();
-                for (key, value) in query_pairs {
-                    pairs.append_pair(&key, &value);
-                }
-            }
         }
-
-        let mut headers = HeaderMap::new();
-        if auth {
-            if let Some(token) = &self.bearer_token {
-                let value =
-                    HeaderValue::from_str(&format!("Bearer {token}")).map_err(|source| {
-                        TaruClientError::InvalidHeader {
-                            name: AUTHORIZATION,
-                            source,
-                        }
-                    })?;
-                headers.insert(AUTHORIZATION, value);
-            }
-        }
-
-        Ok(ClientRequest {
-            method,
-            url,
-            headers,
-            body: Vec::new(),
-        })
+        let spec = CoreHttpRequestSpec::new(path, self.base_url.as_str(), method.as_str(), path)
+            .query(
+                query_pairs
+                    .into_iter()
+                    .map(|(name, value)| CoreQueryParam::new(name, value))
+                    .collect(),
+            )
+            .access_token(if auth {
+                self.bearer_token.clone()
+            } else {
+                None
+            });
+        core_request_to_client_request(taru_client_core::build_core_request(&spec), path)
     }
 
     fn build_streaming_request<Q>(
@@ -824,41 +804,15 @@ impl TaruClient {
         Ok(request)
     }
 
-    fn ensure_success(&self, response: &ClientResponse) -> Result<(), TaruClientError> {
-        if response.status.is_success() {
-            return Ok(());
+    fn ensure_response_policy(&self, response: &ClientResponse) -> Result<(), TaruClientError> {
+        match taru_client_core::interpret_core_response(
+            &core_response_from_client_response(response)?,
+            None,
+            &[self.bearer_token.as_deref().unwrap_or_default()],
+        ) {
+            Ok(()) => Ok(()),
+            Err(failure) => Err(taru_error_from_core_failure(response.status, failure)),
         }
-
-        let body = serde_json::from_slice::<ErrorResponse>(&response.body).unwrap_or_else(|_| {
-            ErrorResponse {
-                code: "invalid_input".to_owned(),
-                message: response
-                    .status
-                    .canonical_reason()
-                    .unwrap_or("HTTP error")
-                    .to_owned(),
-            }
-        });
-        Err(TaruClientError::Api {
-            status: response.status,
-            body,
-        })
-    }
-
-    fn ensure_version(&self, response: &ClientResponse) -> Result<(), TaruClientError> {
-        let header_name = HeaderName::from_static(API_VERSION_HEADER);
-        if let Some(version) = response.headers.get(header_name) {
-            let version = version
-                .to_str()
-                .map_err(|source| TaruClientError::InvalidVersionHeader { source })?;
-            if version != API_VERSION {
-                return Err(TaruClientError::UnsupportedApiVersion {
-                    expected: API_VERSION,
-                    actual: version.to_owned(),
-                });
-            }
-        }
-        Ok(())
     }
 }
 
@@ -952,7 +906,7 @@ impl QueryParams for ImageVariantQuery {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RemuxPlaybackQuery<'a> {
     pub capabilities: PlaybackCapabilitiesQuery<'a>,
     pub output_container: Option<ClientOutputContainer>,
@@ -961,10 +915,10 @@ pub struct RemuxPlaybackQuery<'a> {
 impl QueryParams for RemuxPlaybackQuery<'_> {
     fn append_query(&self, pairs: &mut Vec<(String, String)>) {
         self.capabilities.append_query(pairs);
-        if let Some(output_container) = self.output_container {
+        if let Some(output_container) = &self.output_container {
             pairs.push((
                 "output_container".to_owned(),
-                output_container_wire_value(output_container).to_owned(),
+                output_container.wire_value().to_owned(),
             ));
         }
     }
@@ -993,6 +947,96 @@ pub struct ClientResponse {
     pub status: StatusCode,
     pub headers: HeaderMap,
     pub body: Vec<u8>,
+}
+
+fn core_request_to_client_request(
+    request: CoreHttpRequest,
+    path: &str,
+) -> Result<ClientRequest, TaruClientError> {
+    let method = Method::from_bytes(request.method.as_bytes()).map_err(|source| {
+        TaruClientError::InvalidPath {
+            path: path.to_owned(),
+            reason: source.to_string(),
+        }
+    })?;
+    let url = Url::parse(&request.url).map_err(|source| TaruClientError::InvalidPath {
+        path: path.to_owned(),
+        reason: source.to_string(),
+    })?;
+    let mut headers = HeaderMap::new();
+    for header in request.headers {
+        let name = HeaderName::from_bytes(header.name.as_bytes()).map_err(|source| {
+            TaruClientError::InvalidPath {
+                path: path.to_owned(),
+                reason: source.to_string(),
+            }
+        })?;
+        let value = HeaderValue::from_str(&header.value).map_err(|source| {
+            TaruClientError::InvalidHeader {
+                name: name.clone(),
+                source,
+            }
+        })?;
+        headers.insert(name, value);
+    }
+    Ok(ClientRequest {
+        method,
+        url,
+        headers,
+        body: request.body_utf8.unwrap_or_default().into_bytes(),
+    })
+}
+
+fn core_response_from_client_response(
+    response: &ClientResponse,
+) -> Result<CoreHttpResponse, TaruClientError> {
+    let mut headers = Vec::new();
+    for (name, value) in &response.headers {
+        let value = value.to_str().map_err(|source| {
+            if name.as_str().eq_ignore_ascii_case(API_VERSION_HEADER) {
+                TaruClientError::InvalidVersionHeader { source }
+            } else {
+                TaruClientError::InvalidPath {
+                    path: String::new(),
+                    reason: source.to_string(),
+                }
+            }
+        })?;
+        headers.push(CoreHttpHeader::new(name.as_str(), value));
+    }
+    Ok(CoreHttpResponse {
+        request_id: String::new(),
+        status_code: i32::from(response.status.as_u16()),
+        headers,
+        body_utf8: String::from_utf8_lossy(&response.body).into_owned(),
+    })
+}
+
+fn taru_error_from_core_failure(
+    status: StatusCode,
+    failure: CoreRuntimeFailure,
+) -> TaruClientError {
+    match failure.kind {
+        CoreRuntimeFailureKind::HttpError => TaruClientError::Api {
+            status,
+            body: failure
+                .public_error
+                .map(|error| ErrorResponse {
+                    code: error.code,
+                    message: error.message,
+                })
+                .unwrap_or_else(|| ErrorResponse {
+                    code: "invalid_input".to_owned(),
+                    message: status.canonical_reason().unwrap_or("HTTP error").to_owned(),
+                }),
+        },
+        CoreRuntimeFailureKind::UnsupportedApiVersion => TaruClientError::UnsupportedApiVersion {
+            expected: API_VERSION,
+            actual: failure.observed_api_version.unwrap_or_default(),
+        },
+        CoreRuntimeFailureKind::InvalidResponse => TaruClientError::InvalidCoreResponse,
+        CoreRuntimeFailureKind::MissingAccessToken => TaruClientError::MissingAccessToken,
+    }
 }
 
 #[async_trait]
@@ -1074,38 +1118,21 @@ pub enum TaruClientError {
         path: String,
         source: serde_json::Error,
     },
+    #[error("missing access token")]
+    MissingAccessToken,
+    #[error("invalid response")]
+    InvalidCoreResponse,
 }
 
 #[must_use]
 fn encode_path_segment(value: &str) -> String {
-    let mut encoded = String::new();
-    for byte in value.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                encoded.push(char::from(byte));
-            }
-            _ => {
-                encoded.push('%');
-                encoded.push_str(&format!("{byte:02X}"));
-            }
-        }
-    }
-    encoded
-}
-
-#[must_use]
-const fn output_container_wire_value(value: ClientOutputContainer) -> &'static str {
-    match value {
-        ClientOutputContainer::Hls => "hls",
-        ClientOutputContainer::Mp4 => "mp4",
-        ClientOutputContainer::Mkv => "mkv",
-    }
+    taru_client_core::encode_path_segment(value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest::header::HeaderValue;
+    use reqwest::header::{AUTHORIZATION, HeaderValue};
     use serde_json::json;
     use std::{collections::VecDeque, sync::Mutex};
     use taru_client_protocol::{

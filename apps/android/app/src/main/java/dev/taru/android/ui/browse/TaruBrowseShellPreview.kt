@@ -16,6 +16,8 @@ import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
 import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.userplayback.TaruUserPlaybackClient
+import dev.taru.sdk.PageQuery
+import dev.taru.sdk.TaruPublicClientRequests
 
 @Preview
 @Composable
@@ -41,9 +43,9 @@ private fun TaruBrowseShellPreview() {
                         "id": "source-1",
                         "library_id": "library-1",
                         "item_id": "item-1",
-                        "locator": "file:///preview/night-harbor.mkv",
                         "file_name": "night-harbor.mkv",
-                        "size_bytes": 42
+                        "size_bytes": 42,
+                        "fingerprint": null
                       },
                       "probe": null,
                       "decision": {
@@ -63,26 +65,23 @@ private fun TaruBrowseShellPreview() {
     )
     val userPlaybackClient = TaruUserPlaybackClient(
         transport = object : TaruHttpTransport {
-            override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
-                if (request.url.contains("/continue-watching")) {
+                    override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
+                if (request.url.matches(TaruPublicClientRequests.listContinueWatching(PageQuery(limit = 12)).pathAndQuery)) {
                     TaruHttpResponse(
                         statusCode = 200,
                         body = """
                         {
                           "items": [
                             {
-                              "item": {
-                                "id": "item-1",
-                                "kind": "movie",
-                                "metadata": {
-                                  "title": "Night Harbor",
-                                  "release_date": "2024-01-01",
-                                  "runtime_minutes": 106,
-                                  "genres": ["Mystery"],
-                                  "tags": ["Lighthouse"],
-                                  "ratings": []
-                                }
-                              },
+                              "item": ${previewMediaItemJson(
+                                  id = "item-1",
+                                  title = "Night Harbor",
+                                  overview = null,
+                                  releaseDate = "2024-01-01",
+                                  runtimeMinutes = 106,
+                                  genresJson = "[\"Mystery\"]",
+                                  tagsJson = "[\"Lighthouse\"]",
+                              ).prependIndent("                              ")},
                               "state": {
                                 "item_id": "item-1",
                                 "source_id": "source-1",
@@ -146,20 +145,20 @@ private fun TaruBrowseShellPreview() {
             browseClient = TaruBrowseClient(
                 transport = object : TaruHttpTransport {
                     override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
-                        if (request.url.contains("/libraries")) {
+                        if (request.url.matches(TaruPublicClientRequests.listLibraries(PageQuery()).pathAndQuery)) {
                             TaruHttpResponse(
                                 statusCode = 200,
-                                body = """{"libraries":[{"id":"library-1","name":"Movies","options":{"domain":"video","preset":"movies"}}],"page":{"limit":50,"offset":0,"returned":1}}""",
+                                body = """{"libraries":[{"id":"library-1","name":"Movies","roots":[],"options":${previewLibraryOptionsJson()}}],"page":{"limit":50,"offset":0,"returned":1}}""",
                             )
-                        } else if (request.url.contains("/items/item-1")) {
+                        } else if (request.url.matches(TaruPublicClientRequests.getItem("item-1").pathAndQuery)) {
                             TaruHttpResponse(
                                 statusCode = 200,
-                                body = """{"item":{"id":"item-1","kind":"movie","metadata":{"title":"Night Harbor","overview":"A remote harbor town begins to glow after midnight.","release_date":"2024-01-01","runtime_minutes":106,"genres":["Mystery"],"tags":["Lighthouse"],"ratings":[],"images":[]}},"sources":[{"id":"source-1","library_id":"library-1","item_id":"item-1","locator":"file:///preview/night-harbor.mkv","file_name":"night-harbor.mkv","size_bytes":42}],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}""",
+                                body = """{"item":${previewMediaItemJson(id = "item-1", title = "Night Harbor", overview = "A remote harbor town begins to glow after midnight.", releaseDate = "2024-01-01", runtimeMinutes = 106, genresJson = "[\"Mystery\"]", tagsJson = "[\"Lighthouse\"]")},"sources":[{"id":"source-1","library_id":"library-1","item_id":"item-1","file_name":"night-harbor.mkv","size_bytes":42,"fingerprint":null}],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}""",
                             )
                         } else {
                             TaruHttpResponse(
                                 statusCode = 200,
-                                body = """{"items":[{"id":"item-1","kind":"movie","metadata":{"title":"Night Harbor","release_date":"2024-01-01","runtime_minutes":106,"genres":["Mystery"],"tags":["Lighthouse"],"ratings":[],"images":[]}}],"page":{"limit":24,"offset":0,"returned":1}}""",
+                                body = """{"items":[${previewMediaItemJson(id = "item-1", title = "Night Harbor", releaseDate = "2024-01-01", runtimeMinutes = 106, genresJson = "[\"Mystery\"]", tagsJson = "[\"Lighthouse\"]")}],"page":{"limit":24,"offset":0,"returned":1}}""",
                             )
                         }
                 },
@@ -173,3 +172,23 @@ private fun TaruBrowseShellPreview() {
         )
     }
 }
+
+private fun previewLibraryOptionsJson(): String =
+    """{"domain":"video","preset":"movies","naming_strategy":"movie","scan":{"realtime_monitor":true,"max_depth":null},"metadata_profile":{"item_kinds":["movie"],"local_readers":["nfo"],"metadata_providers":["tmdb"],"image_providers":["tmdb"],"language":"en","country":"US","refresh_mode":"missing_only","local_metadata_policy":"local_first"}}"""
+
+private fun previewMediaItemJson(
+    id: String,
+    title: String,
+    overview: String? = null,
+    releaseDate: String? = null,
+    runtimeMinutes: Int? = null,
+    genresJson: String = "[]",
+    tagsJson: String = "[]",
+): String =
+    """{"id":"$id","kind":"movie","parent_id":null,"metadata":{"title":"$title","original_title":null,"sort_title":null,"overview":${previewJsonStringOrNull(overview)},"release_date":${previewJsonStringOrNull(releaseDate)},"runtime_minutes":${runtimeMinutes ?: "null"},"tagline":null,"genres":$genresJson,"tags":$tagsJson,"ratings":[],"credits":[],"collections":[],"studios":[],"external_ids":[]}}"""
+
+private fun previewJsonStringOrNull(value: String?): String =
+    value?.let { "\"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" } ?: "null"
+
+private fun String.matches(pathAndQuery: String): Boolean =
+    trimEnd('/').endsWith(pathAndQuery)

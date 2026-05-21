@@ -36,13 +36,13 @@ import dev.taru.android.connection.InMemoryTokenVault
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.TaruConnectionClient
-import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
+import dev.taru.sdk.TARU_API_VERSION_HEADER
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -301,7 +301,7 @@ private fun TaruConnectionShellPreview() {
                         ): dev.taru.android.connection.TaruHttpResponse =
                             dev.taru.android.connection.TaruHttpResponse(
                                 statusCode = 200,
-                                headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                                headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
                                 body = """{"status":"ok","version":"v1"}""",
                             )
                     },

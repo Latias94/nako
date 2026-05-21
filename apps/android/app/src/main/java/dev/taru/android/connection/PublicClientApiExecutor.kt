@@ -1,8 +1,8 @@
 package dev.taru.android.connection
 
+import dev.taru.sdk.TARU_API_VERSION
+import dev.taru.sdk.TARU_API_VERSION_HEADER
 import java.io.IOException
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import javax.net.ssl.SSLException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
@@ -107,7 +107,7 @@ internal class PublicClientApiExecutor(
 
         val request = TaruHttpRequest(
             method = method,
-            url = PublicApiUrl.join(baseUrl, pathAndQuery),
+            url = "$baseUrl".trimEnd('/') + pathAndQuery,
             headers = buildMap {
                 if (auth is PublicApiAuth.Bearer) {
                     put("Authorization", "Bearer $accessToken")
@@ -141,18 +141,18 @@ internal class PublicClientApiExecutor(
                 PublicApiFailure(
                     kind = PublicApiFailureKind.HttpError,
                     statusCode = response.statusCode,
-                    observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader),
+                    observedApiVersion = response.header(TARU_API_VERSION_HEADER),
                     publicError = parsePublicError(response.body, secrets),
                     request = safeRequest,
                 ),
             )
         }
 
-        val observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader)
+        val observedApiVersion = response.header(TARU_API_VERSION_HEADER)
         if (
             checkApiVersionHeader &&
             observedApiVersion != null &&
-            observedApiVersion != TaruPublicApiContract.expectedApiVersion
+            observedApiVersion != TARU_API_VERSION
         ) {
             return PublicApiResult.Failure(
                 PublicApiFailure(
@@ -179,7 +179,7 @@ internal class PublicClientApiExecutor(
             url = SensitiveText.sanitize(request.url, secrets),
             headers = request.headers.mapValues { (name, value) ->
                 if (name.equals("Authorization", ignoreCase = true)) {
-                    "Bearer ${TaruPublicApiContract.redacted}"
+                    "Bearer ${SensitiveText.redacted}"
                 } else {
                     SensitiveText.sanitize(value, secrets)
                 }
@@ -262,40 +262,4 @@ internal class PublicClientApiExecutor(
         data class Response(val response: TaruHttpResponse) : TransportResult
         data class Failure(val failure: PublicApiResult.Failure) : TransportResult
     }
-}
-
-internal object PublicApiUrl {
-    fun join(baseUrl: String, pathAndQuery: String): String =
-        "${baseUrl.trimEnd('/')}$pathAndQuery"
-
-    fun pageQuery(
-        limit: Int,
-        offset: Long,
-    ): String =
-        queryString(
-            listOf(
-                "limit" to limit.toString(),
-                "offset" to offset.toString(),
-            ),
-        )
-
-    fun queryString(pairs: List<Pair<String, String>>): String =
-        if (pairs.isEmpty()) {
-            ""
-        } else {
-            pairs.joinToString(
-                separator = "&",
-                prefix = "?",
-            ) { (name, value) ->
-                "${encodeQueryValue(name)}=${encodeQueryValue(value)}"
-            }
-        }
-
-    fun encodePathSegment(value: String): String =
-        URLEncoder
-            .encode(value, StandardCharsets.UTF_8)
-            .replace("+", "%20")
-
-    private fun encodeQueryValue(value: String): String =
-        URLEncoder.encode(value, StandardCharsets.UTF_8)
 }

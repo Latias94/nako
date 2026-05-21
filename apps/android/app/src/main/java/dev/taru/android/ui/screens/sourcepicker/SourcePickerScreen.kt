@@ -265,6 +265,11 @@ internal fun playbackModePresentation(
                 warning = "Prepared on server",
             )
         }
+        ClientPlaybackMode.Unknown -> PlaybackModePresentation(
+            label = "Unknown",
+            consequence = "This server returned a playback mode this app does not understand.",
+            warning = "Unsupported",
+        )
     }
 
 private fun sourcePickerSecondaryText(

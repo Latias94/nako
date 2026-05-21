@@ -1,9 +1,7 @@
 package dev.taru.android.artwork
 
-import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.connection.ServerProfile
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
+import dev.taru.android.browse.PublicImageRefDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -12,47 +10,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PublicArtworkTest {
-    private val json = Json { ignoreUnknownKeys = true }
-
     @Test
-    fun `item detail decodes public image refs without raw locators`() {
-        val detail = json.decodeFromString<ItemDetailResponse>(
-            """
-            {
-              "item": {
-                "id": "item-1",
-                "kind": "movie",
-                "metadata": {
-                  "title": "Night Harbor",
-                  "genres": [],
-                  "tags": [],
-                  "ratings": []
-                }
-              },
-              "sources": [],
-              "credits": [],
-              "genres": [],
-              "tags": [],
-              "collections": [],
-              "studios": [],
-              "images": [
-                {
-                  "id": "poster-1",
-                  "owner": {"item": "item-1"},
-                  "kind": "poster",
-                  "url": "/images/poster-1",
-                  "width": 1000,
-                  "height": 1500,
-                  "language": null,
-                  "media_type": "image/png",
-                  "etag": "hash-1"
-                }
-              ]
-            }
-            """.trimIndent(),
+    fun `public image refs are safe app models without raw locators`() {
+        val image = imageRef(
+            id = "poster-1",
+            kind = "poster",
+            url = "/images/poster-1",
+            mediaType = "image/png",
+            etag = "hash-1",
+            width = 1000,
+            height = 1500,
         )
 
-        val image = detail.images.single()
         assertEquals("poster-1", image.id)
         assertEquals("/images/poster-1", image.url)
         assertEquals("poster", image.kindWireValue())
@@ -63,14 +32,13 @@ class PublicArtworkTest {
 
     @Test
     fun `selected artwork request is scoped to active server and redacts safe output`() {
-        val detail = json.decodeFromString<ItemDetailResponse>(detailWithImages())
         val source = PublicArtworkSource(
             profile = profile("server-1", "http://home.example.test/base"),
             accessToken = "secret-token",
         )
 
         val request = source.requestFor(
-            image = preferredPublicArtwork(detail.images, PublicArtworkSlot.Poster),
+            image = preferredPublicArtwork(images(), PublicArtworkSlot.Poster),
         )
 
         assertNotNull(request)
@@ -86,7 +54,7 @@ class PublicArtworkTest {
     @Test
     fun `active server controls selected artwork base url and token`() {
         val image = preferredPublicArtwork(
-            images = json.decodeFromString<ItemDetailResponse>(detailWithImages()).images,
+            images = images(),
             slot = PublicArtworkSlot.Backdrop,
         )
 
@@ -113,27 +81,23 @@ class PublicArtworkTest {
             profile = profile("server-1", "http://home.example.test"),
             accessToken = "secret-token",
         )
-        val detail = json.decodeFromString<ItemDetailResponse>(
-            detailWithImages(
-                posterUrl = "https://evil.example.test/images/poster-1",
-                backdropUrl = "/admin/v1/artwork/private",
-            ),
+        val images = images(
+            posterUrl = "https://evil.example.test/images/poster-1",
+            backdropUrl = "/admin/v1/artwork/private",
         )
 
-        assertNull(source.requestFor(preferredPublicArtwork(detail.images, PublicArtworkSlot.Poster)))
-        assertNull(source.requestFor(preferredPublicArtwork(detail.images, PublicArtworkSlot.Backdrop)))
+        assertNull(source.requestFor(preferredPublicArtwork(images, PublicArtworkSlot.Poster)))
+        assertNull(source.requestFor(preferredPublicArtwork(images, PublicArtworkSlot.Backdrop)))
         assertNull(
             source.requestFor(
-                json.decodeFromString<ItemDetailResponse>(
-                    detailWithImages(posterUrl = "/images/poster-1?token=leak"),
-                ).images.first { it.id == "poster-1" },
+                images(posterUrl = "/images/poster-1?token=leak").first { it.id == "poster-1" },
             ),
         )
         assertNull(
             PublicArtworkSource(
                 profile = profile("server-1", "http://home.example.test"),
                 accessToken = " ",
-            ).requestFor(detail.images.first()),
+            ).requestFor(images.first()),
         )
     }
 
@@ -149,52 +113,49 @@ class PublicArtworkTest {
             lastObservedApiVersion = "v1",
         )
 
-    private fun detailWithImages(
+    private fun images(
         posterUrl: String = "/images/poster-1",
         backdropUrl: String = "/images/backdrop-1",
-    ): String =
-        """
-        {
-          "item": {
-            "id": "item-1",
-            "kind": "movie",
-            "metadata": {
-              "title": "Night Harbor",
-              "genres": [],
-              "tags": [],
-              "ratings": []
-            }
-          },
-          "sources": [],
-          "credits": [],
-          "genres": [],
-          "tags": [],
-          "collections": [],
-          "studios": [],
-          "images": [
-            {
-              "id": "backdrop-1",
-              "owner": {"item": "item-1"},
-              "kind": "backdrop",
-              "url": "$backdropUrl",
-              "width": 1920,
-              "height": 1080,
-              "language": null,
-              "media_type": "image/webp",
-              "etag": "hash-backdrop"
-            },
-            {
-              "id": "poster-1",
-              "owner": {"item": "item-1"},
-              "kind": "poster",
-              "url": "$posterUrl",
-              "width": 1000,
-              "height": 1500,
-              "language": null,
-              "media_type": "image/png",
-              "etag": "hash-poster"
-            }
-          ]
-        }
-        """.trimIndent()
+    ): List<PublicImageRefDto> =
+        listOf(
+            imageRef(
+                id = "backdrop-1",
+                kind = "backdrop",
+                url = backdropUrl,
+                width = 1920,
+                height = 1080,
+                mediaType = "image/webp",
+                etag = "hash-backdrop",
+            ),
+            imageRef(
+                id = "poster-1",
+                kind = "poster",
+                url = posterUrl,
+                width = 1000,
+                height = 1500,
+                mediaType = "image/png",
+                etag = "hash-poster",
+            ),
+        )
+
+    private fun imageRef(
+        id: String,
+        kind: String,
+        url: String,
+        width: Int? = null,
+        height: Int? = null,
+        mediaType: String? = null,
+        etag: String? = null,
+    ): PublicImageRefDto =
+        PublicImageRefDto(
+            id = id,
+            owner = mapOf("item" to "item-1"),
+            kind = kind,
+            url = url,
+            width = width,
+            height = height,
+            language = null,
+            mediaType = mediaType,
+            etag = etag,
+        )
 }

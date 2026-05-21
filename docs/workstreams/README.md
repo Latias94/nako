@@ -32,6 +32,22 @@ attention.
   Douban, and Bangumi metadata matching, non-destructive ambiguous refresh, and
   cross-provider candidate review before NFO/link, import, AI, or addon
   metadata breadth depends on provider authority.
+- [generated-sdk-runtime-ownership](generated-sdk-runtime-ownership/README.md):
+  active planning lane for deciding whether Public Client API runtime
+  responsibilities such as HTTP execution, public error parsing, API-version
+  header checks, request preview redaction, and transport failure mapping remain
+  Android-owned, move into a narrow generated SDK/runtime seam, or should be
+  pulled forward into a shared Rust client core / UniFFI target state without
+  moving Android UI, Media3, token storage, product diagnostics, SDK publishing,
+  KMP, or full-platform Rust/UniFFI migration ownership.
+- [generated-sdk-forward-compat-tolerance](generated-sdk-forward-compat-tolerance/README.md):
+  completed follow-on for deciding and implementing generated Public Client SDK
+  unknown string-enum and API-version tolerance without moving Android UI,
+  Media3 playback, diagnostics, SDK publishing, KMP, or Rust/UniFFI ownership.
+- [android-generated-public-client-sdk](android-generated-public-client-sdk/README.md):
+  completed lane for replacing Android handwritten Public Client API DTO and route
+  mirrors with an OpenAPI-backed generated Kotlin/JVM SDK before mobile
+  Rust/UniFFI is introduced.
 - [self-hosted-release-readiness](self-hosted-release-readiness/README.md):
   completed release hardening lane for turning Taru's completed server/runtime
   capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL

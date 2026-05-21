@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "slug": "android-uniffi-native-smoke",
+  "title": "Android UniFFI Native Smoke",
+  "status": "closed",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "JVM tests use the host UniFFI library and APK assembly only proves packaging, so the project still needs a focused Android runtime smoke that loads the packaged taru-client-uniffi native library on device/emulator.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-uniffi-native-smoke/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-uniffi-native-smoke/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-uniffi-native-smoke/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-uniffi-native-smoke/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-uniffi-native-smoke/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/android-uniffi-native-smoke/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon",
+    "python -m json.tool docs/workstreams/android-uniffi-native-smoke/WORKSTREAM.json > $null",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/workstreams/android-rust-core-runtime-hardening/CLOSEOUT.md",
+    "apps/android/app/build.gradle.kts",
+    "apps/android/app/src/androidTest/java/dev/taru/android/uniffi",
+    "crates/taru-client-uniffi/src/lib.rs",
+    "crates/taru-client-core/src/lib.rs",
+    "apps/android/app/src/androidTest/java/dev/taru/android/uniffi/TaruUniFfiNativeSmokeTest.kt",
+    "apps/android/gradle/libs.versions.toml",
+    "docs/workstreams/android-uniffi-native-smoke/CLOSEOUT.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "open_new_workstream",
+    "notes": "This lane is closed. Start a new workstream for broader device/emulator playback launch coverage or additional UniFFI route tracers."
+  }
+}

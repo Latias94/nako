@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "slug": "generated-sdk-runtime-ownership",
+  "title": "Generated SDK Runtime Ownership",
+  "status": "closed",
+  "updated": "2026-05-21",
+  "scope_kind": "planning",
+  "problem": "Android still owns reusable Public Client API runtime semantics after generated SDK DTO/request adoption, and the owner is willing to pull shared Rust client-core complexity forward now if that prevents future architecture debt.",
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo fmt --package taru-client-core --package taru-client-uniffi --package taru-client --package taru-client-protocol --check",
+    "cargo nextest run -p taru-client-core --no-fail-fast",
+    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "cargo nextest run -p taru-client --no-fail-fast",
+    "cargo nextest run -p taru-client-protocol --no-fail-fast",
+    "cargo fmt --package taru-api --check",
+    "cargo nextest run -p taru-api kotlin_sdk --no-fail-fast",
+    "apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon"
+  ],
+  "evidence": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md",
+    "docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md",
+    "docs/workstreams/generated-sdk-forward-compat-tolerance/CLOSEOUT.md",
+    "crates/taru-api/src/sdk.rs",
+    "crates/taru-client/src/lib.rs",
+    "crates/taru-client-protocol/src/lib.rs",
+    "crates/taru-client-protocol/src/catalog.rs",
+    "sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt",
+    "apps/android/app/src/main/java/dev/taru/android/connection/PublicClientApiExecutor.kt",
+    "apps/android/app/src/main/java/dev/taru/android/connection/TaruHttpTransport.kt",
+    "apps/android/app/src/main/java/dev/taru/android/connection/SensitiveText.kt",
+    "apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt",
+    "apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt"
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md"
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "Lane closed on 2026-05-21. SDKRT-050 selected split-not-broaden after the connection tracer proved the no-socket Rust core / UniFFI / Android-supplied transport boundary. Start follow-on lanes for Android Rust/UniFFI build ergonomics, taru-client reuse of taru-client-core, Rust public wire tolerance, playback or browse core tracers, SDK publishing/KMP, iOS, or Rust-owned networking."
+  }
+}

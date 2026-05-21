@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "TaruAndroid"
 include(":app")
+include(":taru-public-client-sdk")
+project(":taru-public-client-sdk").projectDir = file("../../sdk/kotlin")

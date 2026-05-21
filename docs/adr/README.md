@@ -49,3 +49,5 @@ evidence has been reviewed.
 - [0028: Resolve User Playback State Through a Stable Principal](0028-user-playback-state-principal-and-public-contract.md)
 - [0029: Use a PostgreSQL-Ready Persistence Boundary](0029-postgresql-ready-persistence-boundary.md)
 - [0030: Define PostgreSQL-Ready SQL Dialect And Migration Policy](0030-postgresql-ready-sql-dialect-and-migration-policy.md)
+- [0031: Sequence Generated Client SDK Before Mobile Rust FFI](0031-android-client-sdk-before-mobile-rust-ffi.md)
+- [0032: Pull Shared Rust Client Core Forward Behind App-Supplied Transport](0032-shared-rust-client-core-app-supplied-transport.md)

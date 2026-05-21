@@ -5,7 +5,6 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
@@ -17,6 +16,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import dev.taru.sdk.TARU_API_VERSION_HEADER
 
 class PlaybackExitCoordinatorTest {
     @Test
@@ -170,7 +170,7 @@ class PlaybackExitCoordinatorTest {
     private fun ok(body: String): TaruHttpResponse =
         TaruHttpResponse(
             statusCode = 200,
-            headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+            headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
             body = body,
         )
 

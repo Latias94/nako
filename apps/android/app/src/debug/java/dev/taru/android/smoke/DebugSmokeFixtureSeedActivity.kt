@@ -8,12 +8,12 @@ import dev.taru.android.connection.AndroidSecureTokenVault
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.SharedPreferencesServerProfileStore
-import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.SharedPreferencesPlaybackPreferencesStore
 import dev.taru.android.player.DevicePlaybackPosition
 import dev.taru.android.player.DevicePlaybackPositionKey
 import dev.taru.android.player.SharedPreferencesDevicePlaybackPositionStore
+import dev.taru.sdk.TARU_API_VERSION
 import java.net.URI
 
 class DebugSmokeFixtureSeedActivity : Activity() {
@@ -156,7 +156,7 @@ internal fun debugSmokeFixtureProfileSnapshot(
                 displayName = request.displayName,
                 baseUrl = request.baseUrl,
                 tokenReference = request.tokenReference,
-                lastObservedApiVersion = TaruPublicApiContract.expectedApiVersion,
+                lastObservedApiVersion = TARU_API_VERSION,
                 lastSuccessfulConnectionAtMillis = request.checkedAtMillis,
                 lastPublicError = null,
             ),
