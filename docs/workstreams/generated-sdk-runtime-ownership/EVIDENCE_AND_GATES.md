@@ -8,6 +8,7 @@ Last updated: 2026-05-21
 - `docs/adr/0025-openapi-public-client-sdk-contract.md`
 - `docs/adr/0026-native-client-shells-with-shared-rust-client-core.md`
 - `docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md`
+- `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`
 - `docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md`
 - `docs/workstreams/generated-sdk-forward-compat-tolerance/CLOSEOUT.md`
 - `crates/taru-api/src/sdk.rs`
@@ -116,3 +117,19 @@ git diff --check
 
 No implementation evidence yet. The lane is now ready for `SDKRT-020` target
 ADR and FFI-safe core API definition.
+- 2026-05-21: Completed `SDKRT-020` contract decision.
+  - Added
+    `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`.
+  - Marked ADR 0031 superseded for post-generated-SDK mobile Rust/UniFFI
+    sequencing.
+  - Updated ADR index.
+  - Frozen target: new no-socket `taru-client-core`, existing `taru-client` as
+    reqwest adapter, future thin `taru-client-uniffi`, and first connection
+    tracer with Android-supplied transport.
+  - `python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null`
+    passed after the `SDKRT-020` updates.
+  - `git diff --check` passed after the `SDKRT-020` updates. Git reported
+    line-ending normalization warnings for touched ADR/workstream docs.
+
+No implementation evidence yet. The lane is now ready for `SDKRT-030` Rust
+core tracer implementation.

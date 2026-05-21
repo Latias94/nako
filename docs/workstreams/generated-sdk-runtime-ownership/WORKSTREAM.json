@@ -46,6 +46,7 @@
   "evidence": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md",
     "docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md",
     "docs/workstreams/generated-sdk-forward-compat-tolerance/CLOSEOUT.md",
@@ -63,11 +64,12 @@
   "adr_refs": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md"
   ],
-  "current_task": "SDKRT-020",
+  "current_task": "SDKRT-030",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "SDKRT-010 selected early shared Rust client core / UniFFI target state with app-supplied Android transport. Continue with SDKRT-020 only: create or supersede the ADR and define FFI-safe core API/crate/build topology before implementation. Split SDK publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime work into separate lanes."
+    "notes": "SDKRT-020 created ADR 0032 and froze the no-socket taru-client-core plus app-supplied Android transport target. Continue with SDKRT-030 only: implement and test the smallest Rust core connection tracer. Do not wire Android or UniFFI before the core API is proven. Split SDK publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime work into separate lanes."
   }
 }

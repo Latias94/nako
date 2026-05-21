@@ -68,7 +68,9 @@ playback must remain app-owned.
 `SDKRT-010` is complete. It selected early shared Rust client core / UniFFI
 target state with app-supplied Android transport as the durable direction.
 
-Next executable slice: `SDKRT-020`. Create or supersede the ADR for pulling
-Rust client core forward, then define the FFI-safe core API, crate topology,
-Android build topology, and first connection-flow tracer. Implementation should
-not start before `SDKRT-020` freezes that contract.
+`SDKRT-020` is complete. ADR 0032 now owns the target state and supersedes ADR
+0031's post-generated-SDK mobile Rust/UniFFI sequencing.
+
+Next executable slice: `SDKRT-030`. Implement the smallest no-socket
+`taru-client-core` tracer and tests for connection health plus authenticated
+library auth probe. Do not wire Android or UniFFI in that task.

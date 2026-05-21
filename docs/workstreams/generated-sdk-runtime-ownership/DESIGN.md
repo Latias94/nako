@@ -18,6 +18,7 @@ portable SDK/runtime seam before more clients duplicate them.
   - `docs/adr/0025-openapi-public-client-sdk-contract.md`
   - `docs/adr/0026-native-client-shells-with-shared-rust-client-core.md`
   - `docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md`
+  - `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`
 - Existing docs:
   - `docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md`
   - `docs/workstreams/generated-sdk-forward-compat-tolerance/CLOSEOUT.md`
@@ -110,8 +111,8 @@ policy.
 ### ADR Impact
 
 ADR 0031 should not remain the active sequencing rule for the next Android
-runtime step. `SDKRT-020` must create a new ADR, or explicitly supersede the
-mobile-FFI sequencing portion of ADR 0031, with this target state:
+runtime step. `SDKRT-020` created ADR 0032 and explicitly superseded the
+mobile-FFI sequencing portion of ADR 0031 with this target state:
 
 - generated SDK adoption has completed enough to unblock shared Rust client
   core work;
@@ -123,6 +124,74 @@ mobile-FFI sequencing portion of ADR 0031, with this target state:
 ADR 0025 and ADR 0026 remain valid. ADR 0031 remains useful historical
 sequencing context, but its "wait for stronger cross-platform triggers" rule is
 superseded for this lane by the owner's explicit risk preference.
+
+## SDKRT-020 Contract Decision
+
+Status: Frozen on 2026-05-21.
+
+ADR authority: `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`.
+
+`SDKRT-020` freezes the target as a **no-socket, FFI-safe Rust client core**
+plus **app-supplied Android transport**.
+
+### Crate Topology
+
+| Crate/module | Role |
+| --- | --- |
+| `taru-client-protocol` | Public Client API wire DTOs, route inventory, public constants, public wire vocabularies. |
+| `taru-client-core` | New permissive, no-socket, FFI-safe core for request specs, response interpretation, API-version checks, public error parsing, redaction primitives, and later playback decision/request interpretation. |
+| `taru-client` | Existing Rust async/reqwest adapter; should reuse `taru-client-core` as the core grows. |
+| `taru-client-uniffi` | Thin UniFFI binding over `taru-client-core`; owns binding scaffolding, not runtime policy. |
+| `sdk/kotlin` | Generated JVM DTO/request artifact for contract parity and JVM consumers; not the durable runtime owner. |
+| `apps/android/app` | Platform shell, supplied transport, profile/token storage, cleartext/TLS policy, product diagnostics, Compose, Media3. |
+
+### FFI-Safe Core API Shape
+
+The first implementation should avoid generic route execution over FFI. Use
+explicit records and explicit stateful probe calls:
+
+- `CoreHttpHeader { name: String, value: String }`
+- `CoreHttpRequest { request_id: String, method: String, url: String,
+  headers: Vec<CoreHttpHeader>, body_utf8: Option<String>,
+  safe_preview: CoreSafeRequestPreview }`
+- `CoreHttpResponse { request_id: String, status_code: i32,
+  headers: Vec<CoreHttpHeader>, body_utf8: String }`
+- `CoreSafeRequestPreview { method: String, url: String,
+  headers: Vec<CoreHttpHeader> }`
+- `CorePublicError { code: String, message: String }`
+- `CoreRuntimeFailure { kind: CoreRuntimeFailureKind, status_code: Option<i32>,
+  observed_api_version: Option<String>, public_error: Option<CorePublicError>,
+  request: Option<CoreSafeRequestPreview> }`
+- `CoreConnectionProbeOutcome` with explicit variants for next request,
+  success, or failure.
+
+Do not expose `reqwest`, `Url`, `HeaderMap`, `StatusCode`, borrowed data,
+generic deserializers, async traits, or platform exceptions across UniFFI.
+
+### First Connection Tracer
+
+The first tracer is the connection flow, not playback:
+
+1. Android validates/normalizes input base URL and applies cleartext policy.
+2. Rust core builds unauthenticated `GET /health`.
+3. Android executes the request through existing transport.
+4. Rust core interprets status, API-version header, public error envelope, and
+   `HealthResponse`.
+5. Rust core builds authenticated `GET /libraries?limit=1&offset=0`.
+6. Android executes the request.
+7. Rust core interprets the auth probe status/version/error envelope. It may
+   skip library-list DTO decode for the first tracer.
+8. Android maps core outcomes to existing connection diagnostics and user copy.
+
+### Required Guardrails Before SDKRT-030
+
+- Do not move Android profile persistence, token vaults, cleartext/TLS policy,
+  product messages, Compose, navigation, or Media3.
+- Do not decode strict-enum browse/playback DTOs in Rust for Android until
+  Rust public wire tolerance is implemented.
+- Do not add Rust-owned Android networking in the first tracer.
+- Document local build commands and prerequisites before making ordinary
+  Android builds depend on generated UniFFI bindings.
 
 ## Frozen Ownership Matrix
 

@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted.
+Superseded by [0032: Pull Shared Rust Client Core Forward Behind
+App-Supplied Transport](0032-shared-rust-client-core-app-supplied-transport.md)
+for post-generated-SDK mobile Rust/UniFFI sequencing.
+
+This ADR remains the historical record for why Android generated SDK adoption
+was sequenced before mobile Rust/UniFFI.
 
 ## Context
 

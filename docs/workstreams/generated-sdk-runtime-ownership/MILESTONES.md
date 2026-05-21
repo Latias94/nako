@@ -22,6 +22,8 @@ superseded or amended by `SDKRT-020` before implementation.
 
 ## M1 — Runtime Contract Decision
 
+Status: Complete on 2026-05-21.
+
 Exit when the chosen runtime boundary has an explicit API shape or an explicit
 no-code closeout decision.
 
@@ -35,6 +37,10 @@ Acceptance criteria:
   Android build topology are named before code;
 - compatibility and publishing implications are recorded;
 - the first tracer is small enough to review independently.
+
+Result: ADR 0032 now owns the target state. The first tracer is a no-socket
+Rust client core with app-supplied Android transport for connection health plus
+auth probe. `SDKRT-030` may implement the Rust-side core tracer only.
 
 ## M2 — Small Runtime/Core Tracer
 

@@ -14,12 +14,12 @@ Last updated: 2026-05-21
 
 ## M1 — Runtime Contract Decision
 
-- [ ] SDKRT-020 [owner=codex] [deps=SDKRT-010] [scope=docs/adr,docs/workstreams/generated-sdk-runtime-ownership,crates/taru-client,crates/taru-client-protocol,crates/taru-api/src/sdk.rs,sdk/kotlin]
+- [x] SDKRT-020 [owner=codex] [deps=SDKRT-010] [scope=docs/adr,docs/workstreams/generated-sdk-runtime-ownership,crates/taru-client,crates/taru-client-protocol,crates/taru-api/src/sdk.rs,sdk/kotlin]
   Goal: Define the smallest selected runtime/core API shape and record whether ADR 0031 is amended or superseded. If early Rust core is selected, define crate topology, FFI-safe data shapes, app-supplied versus Rust-owned transport, and the first Android tracer. If no runtime move is selected, close or split the lane without code.
   Validation: ADR/workstream docs name the selected option, rejected alternatives, compatibility expectations, build topology, and first tracer.
   Review: Runtime/core API must consume Public Client API contract surfaces without becoming an Android product API or hidden portable application framework.
-  Evidence: `docs/workstreams/generated-sdk-runtime-ownership/DESIGN.md`
-  Handoff: Do not generate, hand-write, or FFI-bind runtime code until this task chooses the contract shape.
+  Evidence: `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`; `docs/workstreams/generated-sdk-runtime-ownership/DESIGN.md#sdkrt-020-contract-decision`
+  Handoff: DONE. ADR 0032 supersedes ADR 0031's post-generated-SDK mobile Rust/UniFFI sequencing. `SDKRT-030` may implement the smallest no-socket `taru-client-core` tracer and tests, but must not add Android UniFFI consumption before the core API is proven.
 
 ## M2 — Small Runtime/Core Tracer
 
