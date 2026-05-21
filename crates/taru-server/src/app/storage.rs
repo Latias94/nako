@@ -509,6 +509,15 @@ impl StorageBackend for LibraryStorageBackend {
         self.record_result(&result);
         result
     }
+
+    async fn cleanup(
+        &self,
+        request: taru_vfs::StorageCleanupRequest,
+    ) -> Result<taru_vfs::StorageCleanupReport> {
+        let result = self.inner.cleanup(request).await;
+        self.record_result(&result);
+        result
+    }
 }
 
 impl LibraryStorageBackend {

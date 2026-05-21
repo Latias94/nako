@@ -79,12 +79,16 @@ Task IDs use the `LAIP` prefix.
 
 ## M5 — Partial Failure Rollback And Cleanup
 
-- [ ] LAIP-060 [owner=codex] [deps=LAIP-050] [scope=crates/taru-server,crates/taru-vfs]
+- [x] LAIP-060 [owner=codex] [deps=LAIP-050] [scope=crates/taru-server,crates/taru-vfs]
   Goal: Inject failures after storage creation and prove rollback or
   cleanup-pending audit behavior without marking artifacts promoted.
   Validation: focused tests with failing repository/storage doubles prove
   cleanup-complete and cleanup-pending outcomes.
-  Evidence: rollback/cleanup tests and audit outcomes.
+  Evidence: Completed with VFS storage cleanup primitives, local cleanup tests,
+  default unsupported cleanup behavior, post-storage catalog failure injection,
+  cleanup-complete audit when local cleanup succeeds, cleanup-pending audit when
+  cleanup is unsupported, terminal replay for cleanup outcomes, and proof that
+  failed applies do not mark artifacts promoted.
   Handoff: Decide NFO sidecar mutation split in LAIP-070.
 
 ## M6 — NFO Sidecar Mutation Split Decision

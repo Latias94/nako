@@ -16,7 +16,7 @@ use taru_db::TaruDatabase;
 use crate::app::TaruApp;
 use crate::app::managed_import::{
     AcceptManagedImportPromotionRequest, ApplyManagedImportPromotionRequest,
-    CreateManagedImportArtifactRequest, ManagedImportAppService,
+    CreateManagedImportArtifactRequest, ManagedImportAppService, ManagedImportCatalogFailurePoint,
 };
 use crate::config::{
     AuthConfig, LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig,
@@ -1241,6 +1241,251 @@ async fn managed_import_apply_uses_storage_backend_apply_boundary() {
     );
 }
 
+#[tokio::test]
+async fn managed_import_apply_cleans_storage_target_when_catalog_commit_fails() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Cleanup Complete (2026)")).unwrap();
+    fs::write(
+        temp.path().join("incoming").join("Cleanup Complete.mkv"),
+        b"media!",
+    )
+    .unwrap();
+    let target_path = temp
+        .path()
+        .join("Movies")
+        .join("Cleanup Complete (2026)")
+        .join("Cleanup Complete.mkv");
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Cleanup%20Complete.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Cleanup Complete.mkv".to_owned()),
+            original_file_name: Some("Cleanup Complete.mkv".to_owned()),
+            intended_locator: Some(
+                "Movies/Cleanup Complete (2026)/Cleanup Complete.mkv".to_owned(),
+            ),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-cleanup-complete".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-cleanup-complete-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+
+    let service = app
+        .managed_import()
+        .with_catalog_failure_for_test(ManagedImportCatalogFailurePoint::BeforeMediaItem);
+    let err = service
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("injected catalog commit failure"));
+    assert!(!target_path.exists());
+    assert!(
+        store
+            .list_media_sources(library_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let artifact_after = store
+        .get_managed_import_artifact(artifact.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(artifact_after.state, ManagedImportArtifactState::Staged);
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        apply_record.state,
+        ManagedImportPromotionApplyState::CleanupComplete
+    );
+    assert_eq!(
+        apply_record.safe_error_code.as_deref(),
+        Some("promotion_apply_catalog_commit_failed_cleanup_complete")
+    );
+    let outcome: serde_json::Value =
+        serde_json::from_str(apply_record.outcome_json.as_deref().unwrap()).unwrap();
+    assert_eq!(outcome["writes_library"], false);
+    assert_eq!(outcome["storage_mutation"], true);
+    assert_eq!(outcome["media_source_mutation"], false);
+    assert_eq!(outcome["target_created"], true);
+    assert_eq!(outcome["catalog_commit_completed"], false);
+    assert_eq!(outcome["storage_cleanup_attempted"], true);
+    assert_eq!(outcome["storage_cleanup_complete"], true);
+    assert_eq!(outcome["cleanup_status"], "cleaned");
+
+    let replayed = service
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    assert!(replayed.replayed);
+    assert_eq!(
+        replayed.state,
+        ManagedImportPromotionApplyState::CleanupComplete
+    );
+}
+
+#[tokio::test]
+async fn managed_import_apply_records_cleanup_pending_when_storage_cleanup_is_unsupported() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Cleanup Pending (2026)")).unwrap();
+    fs::write(
+        temp.path().join("incoming").join("Cleanup Pending.mkv"),
+        b"media!",
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Cleanup%20Pending.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Cleanup Pending.mkv".to_owned()),
+            original_file_name: Some("Cleanup Pending.mkv".to_owned()),
+            intended_locator: Some("Movies/Cleanup Pending (2026)/Cleanup Pending.mkv".to_owned()),
+            size_bytes: Some(6),
+            fingerprint: Some("fingerprint-cleanup-pending".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-cleanup-pending-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: LibraryPreset::Movies,
+                webdav: None,
+            },
+            std::sync::Arc::new(ApplyOnlySuccessBackend),
+        )
+        .await;
+
+    let service = app
+        .managed_import()
+        .with_catalog_failure_for_test(ManagedImportCatalogFailurePoint::BeforeMediaItem);
+    let err = service
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("injected catalog commit failure"));
+    assert!(
+        store
+            .list_media_sources(library_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let artifact_after = store
+        .get_managed_import_artifact(artifact.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        artifact_after.state,
+        ManagedImportArtifactState::CleanupPending
+    );
+    let apply_record = store
+        .get_managed_import_promotion_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        apply_record.state,
+        ManagedImportPromotionApplyState::CleanupPending
+    );
+    assert_eq!(
+        apply_record.safe_error_code.as_deref(),
+        Some("promotion_apply_catalog_commit_failed_cleanup_pending")
+    );
+    let outcome: serde_json::Value =
+        serde_json::from_str(apply_record.outcome_json.as_deref().unwrap()).unwrap();
+    assert_eq!(outcome["writes_library"], false);
+    assert_eq!(outcome["storage_mutation"], true);
+    assert_eq!(outcome["media_source_mutation"], false);
+    assert_eq!(outcome["target_created"], true);
+    assert_eq!(outcome["catalog_commit_completed"], false);
+    assert_eq!(outcome["storage_cleanup_attempted"], true);
+    assert_eq!(outcome["storage_cleanup_complete"], false);
+    assert_eq!(outcome["cleanup_status"], "unsupported");
+
+    let replayed = service
+        .apply_promotion(ApplyManagedImportPromotionRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    assert!(replayed.replayed);
+    assert_eq!(
+        replayed.state,
+        ManagedImportPromotionApplyState::CleanupPending
+    );
+}
+
 async fn seed_library(store: &TaruDatabase) -> Library {
     let library = Library {
         id: LibraryId::new(),
@@ -1347,12 +1592,7 @@ impl StorageBackend for ApplyOnlySuccessBackend {
     async fn apply(&self, request: StorageApplyRequest) -> taru_core::Result<StorageApplyReport> {
         assert_eq!(request.kind, StorageApplyKind::Copy);
         assert!(request.source_uri.as_str().starts_with("local://"));
-        assert!(
-            request
-                .target_uri
-                .as_str()
-                .starts_with("local:///Movies/Boundary (2026)/Boundary.mkv")
-        );
+        assert!(request.target_uri.as_str().starts_with("local:///Movies/"));
         let source = StorageApplyObject {
             uri: request.source_uri.clone(),
             kind: taru_vfs::ObjectKind::File,

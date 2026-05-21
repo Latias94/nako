@@ -52,10 +52,10 @@ Primary evidence:
 
 Exit criteria:
 
-- Copy/hardlink/symlink apply is storage-mediated.
-- Planning safety checks are reused or revalidated.
-- Unsupported backends return typed outcomes.
-- Server code does not manipulate OS paths directly.
+- [x] Copy/hardlink/symlink apply is storage-mediated.
+- [x] Planning safety checks are reused or revalidated.
+- [x] Unsupported backends return typed outcomes.
+- [x] Server code does not manipulate OS paths directly.
 
 Primary evidence:
 
@@ -66,10 +66,10 @@ Primary evidence:
 
 Exit criteria:
 
-- Apply revalidates plan facts.
-- Storage target durability precedes catalog writes.
-- Media Source and duplicate relationship commits are consistent.
-- Redacted audit outcomes are recorded.
+- [x] Apply revalidates plan facts.
+- [x] Storage target durability precedes catalog writes.
+- [x] Media Source and duplicate relationship commits are consistent.
+- [x] Redacted audit outcomes are recorded.
 
 Primary evidence:
 
@@ -80,13 +80,17 @@ Primary evidence:
 
 Exit criteria:
 
-- Injected partial failures are tested.
-- Created targets are rolled back or recorded as cleanup-pending.
-- Failed applies never mark artifacts promoted.
+- [x] Injected partial failures are tested.
+- [x] Created targets are cleaned up or recorded as cleanup-pending.
+- [x] Failed applies never mark artifacts promoted.
 
 Primary evidence:
 
-- rollback/cleanup tests in `taru-server` and `taru-vfs`.
+- VFS cleanup primitives and tests in `crates/taru-vfs/src/lib.rs`,
+  `crates/taru-vfs/src/local.rs`, and `crates/taru-vfs/src/cache.rs`.
+- Promotion apply cleanup-complete / cleanup-pending tests in
+  `crates/taru-server/src/app/tests/managed_import.rs`.
+- Cleanup audit orchestration in `crates/taru-server/src/app/managed_import.rs`.
 
 ## M6 — NFO Sidecar Decision
 

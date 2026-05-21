@@ -471,6 +471,38 @@ pub struct StorageApplyReport {
     pub message: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StorageCleanupRequest {
+    pub target_uri: StorageUri,
+}
+
+impl StorageCleanupRequest {
+    #[must_use]
+    pub fn new(target_uri: StorageUri) -> Self {
+        Self { target_uri }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageCleanupStatus {
+    Cleaned,
+    Unsupported,
+    TargetMissing,
+    TargetNotFile,
+    SecurityViolation,
+    CleanupFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageCleanupReport {
+    pub target_uri: StorageUri,
+    pub status: StorageCleanupStatus,
+    pub cleaned: bool,
+    pub target: Option<StorageApplyObject>,
+    pub message: String,
+}
+
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
     fn scheme(&self) -> &'static str;
@@ -556,6 +588,16 @@ pub trait StorageBackend: Send + Sync {
         })
     }
 
+    async fn cleanup(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
+        Ok(StorageCleanupReport {
+            target_uri: request.target_uri,
+            status: StorageCleanupStatus::Unsupported,
+            cleaned: false,
+            target: None,
+            message: "storage backend does not support storage cleanup".to_owned(),
+        })
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let _ = request;
         Err(TaruError::Unsupported(
@@ -617,6 +659,10 @@ where
         self.as_ref().apply(request).await
     }
 
+    async fn cleanup(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
+        self.as_ref().cleanup(request).await
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.as_ref().stage(request).await
     }
@@ -673,6 +719,10 @@ where
 
     async fn apply(&self, request: StorageApplyRequest) -> Result<StorageApplyReport> {
         self.as_ref().apply(request).await
+    }
+
+    async fn cleanup(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
+        self.as_ref().cleanup(request).await
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {

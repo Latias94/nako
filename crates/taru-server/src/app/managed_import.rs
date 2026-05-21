@@ -20,7 +20,8 @@ use taru_core::{
 use taru_db::TaruDatabase;
 use taru_vfs::{
     StorageApplyKind, StorageApplyReport, StorageApplyRequest, StorageApplyStatus, StorageBackend,
-    StorageLinkKind, StorageLinkPlanRequest, StorageUri,
+    StorageCleanupReport, StorageCleanupRequest, StorageCleanupStatus, StorageLinkKind,
+    StorageLinkPlanRequest, StorageUri,
 };
 
 use super::storage::StorageBackendRegistry;
@@ -29,6 +30,8 @@ use super::storage::StorageBackendRegistry;
 pub(crate) struct ManagedImportAppService {
     store: TaruDatabase,
     storage_backends: Option<StorageBackendRegistry>,
+    #[cfg(test)]
+    catalog_failure: Option<ManagedImportCatalogFailurePoint>,
 }
 
 impl ManagedImportAppService {
@@ -36,6 +39,8 @@ impl ManagedImportAppService {
         Self {
             store,
             storage_backends: None,
+            #[cfg(test)]
+            catalog_failure: None,
         }
     }
 
@@ -46,7 +51,18 @@ impl ManagedImportAppService {
         Self {
             store,
             storage_backends: Some(storage_backends),
+            #[cfg(test)]
+            catalog_failure: None,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_catalog_failure_for_test(
+        mut self,
+        point: ManagedImportCatalogFailurePoint,
+    ) -> Self {
+        self.catalog_failure = Some(point);
+        self
     }
 
     pub(crate) async fn create_artifact(
@@ -332,7 +348,12 @@ impl ManagedImportAppService {
             })?;
 
         validate_promotion_apply_request(&accepted, request.requested_by)?;
-        if accepted.state == ManagedImportPromotionApplyState::Promoted {
+        if matches!(
+            accepted.state,
+            ManagedImportPromotionApplyState::Promoted
+                | ManagedImportPromotionApplyState::CleanupComplete
+                | ManagedImportPromotionApplyState::CleanupPending
+        ) {
             return Ok(ManagedImportPromotionAcceptanceDiagnostic::from_record(
                 accepted, true,
             ));
@@ -505,9 +526,24 @@ impl ManagedImportAppService {
                 id: accepted.id.to_string(),
             })?;
 
-        let catalog_commit = self
+        let catalog_commit = match self
             .commit_promoted_media_source(&artifact, &library, &committing, &plan, &apply_report)
-            .await?;
+            .await
+        {
+            Ok(catalog_commit) => catalog_commit,
+            Err(failure) => {
+                self.record_post_storage_catalog_failure(
+                    &artifact,
+                    &committing,
+                    &plan,
+                    &apply_report,
+                    backend.as_ref(),
+                    &failure,
+                )
+                .await?;
+                return Err(failure.error);
+            }
+        };
         let promoted = self
             .store
             .set_managed_import_promotion_apply_state(
@@ -588,6 +624,82 @@ impl ManagedImportAppService {
             })
     }
 
+    async fn record_post_storage_catalog_failure(
+        &self,
+        artifact: &ManagedImportArtifactRecord,
+        apply: &ManagedImportPromotionApplyRecord,
+        plan: &ManagedImportPromotionPlan,
+        apply_report: &StorageApplyReport,
+        backend: &dyn StorageBackend,
+        failure: &PromotionCatalogCommitFailure,
+    ) -> Result<ManagedImportPromotionApplyRecord> {
+        let cleanup_report = match backend
+            .cleanup(StorageCleanupRequest::new(apply_report.target_uri.clone()))
+            .await
+        {
+            Ok(report) => report,
+            Err(_err) => StorageCleanupReport {
+                target_uri: apply_report.target_uri.clone(),
+                status: StorageCleanupStatus::CleanupFailed,
+                cleaned: false,
+                target: apply_report.target.clone(),
+                message: "storage cleanup failed before reporting outcome".to_owned(),
+            },
+        };
+        let cleanup_complete = storage_cleanup_complete(&cleanup_report);
+        let (state, artifact_state, safe_error_code, safe_message) = if cleanup_complete {
+            (
+                ManagedImportPromotionApplyState::CleanupComplete,
+                None,
+                "promotion_apply_catalog_commit_failed_cleanup_complete",
+                "promotion catalog commit failed after storage apply; storage cleanup completed",
+            )
+        } else {
+            (
+                ManagedImportPromotionApplyState::CleanupPending,
+                Some(ManagedImportArtifactState::CleanupPending),
+                "promotion_apply_catalog_commit_failed_cleanup_pending",
+                "promotion catalog commit failed after storage apply; storage cleanup is pending",
+            )
+        };
+
+        let updated = self
+            .store
+            .set_managed_import_promotion_apply_state(
+                apply.id,
+                state,
+                super::current_time_ms()?,
+                Some(post_storage_catalog_failure_outcome_json(
+                    apply,
+                    plan,
+                    apply_report,
+                    &cleanup_report,
+                    failure,
+                    cleanup_complete,
+                )?),
+                Some(safe_error_code.to_owned()),
+                Some(safe_message.to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: apply.id.to_string(),
+            })?;
+
+        if let Some(artifact_state) = artifact_state {
+            self.store
+                .set_managed_import_artifact_state(
+                    artifact.id,
+                    artifact_state,
+                    super::current_time_ms()?,
+                    artifact.diagnostics_json.clone(),
+                )
+                .await?;
+        }
+
+        Ok(updated)
+    }
+
     async fn commit_promoted_media_source(
         &self,
         artifact: &ManagedImportArtifactRecord,
@@ -595,7 +707,18 @@ impl ManagedImportAppService {
         apply: &ManagedImportPromotionApplyRecord,
         plan: &ManagedImportPromotionPlan,
         apply_report: &StorageApplyReport,
-    ) -> Result<PromotionCatalogCommit> {
+    ) -> std::result::Result<PromotionCatalogCommit, PromotionCatalogCommitFailure> {
+        #[cfg(test)]
+        if self.catalog_failure == Some(ManagedImportCatalogFailurePoint::BeforeMediaItem) {
+            return Err(PromotionCatalogCommitFailure::new(
+                TaruError::Database {
+                    message: "injected catalog commit failure before media item".to_owned(),
+                },
+                false,
+                false,
+            ));
+        }
+
         let media_source_id = MediaSourceId::new();
         let item_id = MediaItemId::new();
         let item = MediaItem {
@@ -619,19 +742,27 @@ impl ManagedImportAppService {
             fingerprint: artifact.fingerprint.clone(),
         };
 
-        self.store.upsert_media_item(&item).await?;
+        self.store
+            .upsert_media_item(&item)
+            .await
+            .map_err(|error| PromotionCatalogCommitFailure::new(error, true, false))?;
         self.store
             .upsert_library_item_state(&LibraryItemState {
                 library_id: apply.target_library_id,
                 item_id,
                 provisional: false,
             })
-            .await?;
-        self.store.upsert_media_source(&source).await?;
+            .await
+            .map_err(|error| PromotionCatalogCommitFailure::new(error, true, false))?;
+        self.store
+            .upsert_media_source(&source)
+            .await
+            .map_err(|error| PromotionCatalogCommitFailure::new(error, true, false))?;
 
         let duplicate_relationship_count = self
             .commit_duplicate_relationships(media_source_id, plan)
-            .await?;
+            .await
+            .map_err(|error| PromotionCatalogCommitFailure::new(error, true, true))?;
 
         Ok(PromotionCatalogCommit {
             item_id,
@@ -928,6 +1059,34 @@ struct PromotionCatalogCommit {
     duplicate_relationship_count: usize,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PromotionCatalogCommitFailure {
+    error: TaruError,
+    catalog_may_have_partial_writes: bool,
+    media_source_may_have_been_written: bool,
+}
+
+impl PromotionCatalogCommitFailure {
+    #[must_use]
+    fn new(
+        error: TaruError,
+        catalog_may_have_partial_writes: bool,
+        media_source_may_have_been_written: bool,
+    ) -> Self {
+        Self {
+            error,
+            catalog_may_have_partial_writes,
+            media_source_may_have_been_written,
+        }
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ManagedImportCatalogFailurePoint {
+    BeforeMediaItem,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct ManagedImportArtifactDiagnostics {
     pub(crate) limit: u32,
@@ -1089,7 +1248,10 @@ fn validate_promotion_apply_request(
     }
     if !matches!(
         record.state,
-        ManagedImportPromotionApplyState::Accepted | ManagedImportPromotionApplyState::Promoted
+        ManagedImportPromotionApplyState::Accepted
+            | ManagedImportPromotionApplyState::Promoted
+            | ManagedImportPromotionApplyState::CleanupComplete
+            | ManagedImportPromotionApplyState::CleanupPending
     ) {
         return Err(TaruError::Conflict {
             message: format!(
@@ -1348,6 +1510,36 @@ fn promoted_outcome_json(
     .map_err(database_error)
 }
 
+fn post_storage_catalog_failure_outcome_json(
+    record: &ManagedImportPromotionApplyRecord,
+    plan: &ManagedImportPromotionPlan,
+    apply_report: &StorageApplyReport,
+    cleanup_report: &StorageCleanupReport,
+    failure: &PromotionCatalogCommitFailure,
+    cleanup_complete: bool,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "writes_library": failure.catalog_may_have_partial_writes,
+        "storage_mutation": apply_report.applied,
+        "media_source_mutation": failure.media_source_may_have_been_written,
+        "target_created": apply_report.target_created,
+        "operation_kind": record.operation_kind,
+        "operation_status": apply_report.status,
+        "source_scheme": apply_report.source_uri.scheme(),
+        "target_scheme": apply_report.target_uri.scheme(),
+        "destination_locator": record.destination_locator,
+        "duplicate_hint_count": plan.duplicate_hints.len(),
+        "catalog_commit_started": true,
+        "catalog_commit_completed": false,
+        "catalog_may_have_partial_writes": failure.catalog_may_have_partial_writes,
+        "storage_cleanup_attempted": true,
+        "storage_cleanup_complete": cleanup_complete,
+        "cleanup_status": cleanup_report.status
+    }))
+    .map_err(database_error)
+}
+
 fn storage_apply_failure_outcome_json(
     record: &ManagedImportPromotionApplyRecord,
     apply_report: &StorageApplyReport,
@@ -1380,6 +1572,14 @@ fn pre_mutation_failure_outcome_json(
         "safe_error_code": safe_error_code
     }))
     .map_err(database_error)
+}
+
+fn storage_cleanup_complete(report: &StorageCleanupReport) -> bool {
+    report.cleaned
+        || matches!(
+            report.status,
+            StorageCleanupStatus::Cleaned | StorageCleanupStatus::TargetMissing
+        )
 }
 
 fn storage_apply_error_code(status: StorageApplyStatus) -> &'static str {

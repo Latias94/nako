@@ -12,9 +12,10 @@ use crate::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageApplyKind,
     StorageApplyObject, StorageApplyReport, StorageApplyRequest, StorageApplyStatus,
     StorageBackend, StorageBackupMode, StorageBackupPolicy, StorageBackupPruneFailure,
-    StorageBackupReport, StorageCapabilities, StorageLinkKind, StorageLinkPlan,
-    StorageLinkPlanRequest, StorageLinkPlanStatus, StorageUri, StorageWriteMode,
-    StorageWriteReport, StorageWriteRequest, VirtualFile,
+    StorageBackupReport, StorageCapabilities, StorageCleanupReport, StorageCleanupRequest,
+    StorageCleanupStatus, StorageLinkKind, StorageLinkPlan, StorageLinkPlanRequest,
+    StorageLinkPlanStatus, StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest,
+    VirtualFile,
 };
 
 #[derive(Clone, Debug)]
@@ -106,12 +107,56 @@ impl LocalFsBackend {
         Ok(candidate)
     }
 
+    fn cleanup_path_for(&self, uri: &StorageUri) -> Result<PathBuf> {
+        self.ensure_local_scheme(uri)?;
+
+        let relative = relative_path(uri)?;
+        let candidate = self.root.join(relative);
+        let parent = candidate.parent().ok_or_else(|| {
+            TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "local cleanup target has no parent directory",
+            )
+        })?;
+        let canonical_parent = parent.canonicalize().map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                TaruError::NotFound {
+                    entity: "storage_object",
+                    id: uri.to_string(),
+                }
+            } else {
+                TaruError::storage_io(
+                    uri.to_string(),
+                    format!("failed to resolve local cleanup parent: {err}"),
+                )
+            }
+        })?;
+
+        if !canonical_parent.starts_with(&self.root) {
+            return Err(TaruError::storage(
+                uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "resolved local cleanup path escaped backend root",
+            ));
+        }
+
+        Ok(candidate)
+    }
+
     fn metadata_for(&self, path: &Path, uri: StorageUri) -> Result<ObjectMetadata> {
         let metadata = fs::symlink_metadata(path).map_err(|err| {
-            TaruError::storage_io(
-                uri.to_string(),
-                format!("failed to read local metadata: {err}"),
-            )
+            if err.kind() == ErrorKind::NotFound {
+                TaruError::NotFound {
+                    entity: "storage_object",
+                    id: uri.to_string(),
+                }
+            } else {
+                TaruError::storage_io(
+                    uri.to_string(),
+                    format!("failed to read local metadata: {err}"),
+                )
+            }
         })?;
 
         let file_type = metadata.file_type();
@@ -357,6 +402,10 @@ impl StorageBackend for LocalFsBackend {
 
     async fn apply(&self, request: StorageApplyRequest) -> Result<StorageApplyReport> {
         self.apply_local(request)
+    }
+
+    async fn cleanup(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
+        self.cleanup_local(request)
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
@@ -673,6 +722,91 @@ impl LocalFsBackend {
         })
     }
 
+    fn cleanup_local(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
+        if let Err(err) = self.ensure_local_scheme(&request.target_uri) {
+            return Ok(cleanup_request_error_report(
+                request,
+                err,
+                "cleanup target uses an unsupported storage scheme",
+            ));
+        }
+
+        let target_path = match self.cleanup_path_for(&request.target_uri) {
+            Ok(path) => path,
+            Err(TaruError::NotFound { .. }) => {
+                return Ok(cleanup_report(
+                    request,
+                    StorageCleanupStatus::TargetMissing,
+                    false,
+                    None,
+                    "cleanup target is already missing",
+                ));
+            }
+            Err(err) if local_path_error_is_security_violation(&err) => {
+                return Ok(cleanup_report(
+                    request,
+                    StorageCleanupStatus::SecurityViolation,
+                    false,
+                    None,
+                    "cleanup target escaped the local backend root",
+                ));
+            }
+            Err(err) => return Err(err),
+        };
+        let target = match self.metadata_for(&target_path, request.target_uri.clone()) {
+            Ok(target) => target,
+            Err(TaruError::NotFound { .. }) => {
+                return Ok(cleanup_report(
+                    request,
+                    StorageCleanupStatus::TargetMissing,
+                    false,
+                    None,
+                    "cleanup target is already missing",
+                ));
+            }
+            Err(err) => return Err(err),
+        };
+
+        if !matches!(target.kind, ObjectKind::File | ObjectKind::Symlink) {
+            return Ok(cleanup_report(
+                request,
+                StorageCleanupStatus::TargetNotFile,
+                false,
+                Some(target),
+                "cleanup target is not a file object",
+            ));
+        }
+
+        match fs::remove_file(&target_path) {
+            Ok(()) => {
+                if let Some(parent) = target_path.parent() {
+                    sync_directory_if_possible(parent);
+                }
+                Ok(cleanup_report(
+                    request,
+                    StorageCleanupStatus::Cleaned,
+                    true,
+                    Some(target),
+                    "storage target cleanup completed by the local backend",
+                ))
+            }
+            Err(err) if err.kind() == ErrorKind::NotFound => Ok(cleanup_report(
+                request,
+                StorageCleanupStatus::TargetMissing,
+                false,
+                Some(target),
+                "cleanup target is already missing",
+            )),
+            Err(_err) => Ok(cleanup_report(
+                request,
+                StorageCleanupStatus::CleanupFailed,
+                false,
+                Some(target),
+                "storage target cleanup failed in the local backend",
+            )),
+        }
+    }
+
     fn write_string_atomic_replace(
         &self,
         uri: &StorageUri,
@@ -927,6 +1061,52 @@ fn apply_request_error_report(
             request,
             StorageApplyStatus::ApplyFailed,
             "storage apply request could not be validated",
+        ),
+    }
+}
+
+fn cleanup_report(
+    request: StorageCleanupRequest,
+    status: StorageCleanupStatus,
+    cleaned: bool,
+    target: Option<ObjectMetadata>,
+    message: impl Into<String>,
+) -> StorageCleanupReport {
+    StorageCleanupReport {
+        target_uri: request.target_uri,
+        status,
+        cleaned,
+        target: target.map(StorageApplyObject::from_metadata),
+        message: message.into(),
+    }
+}
+
+fn cleanup_request_error_report(
+    request: StorageCleanupRequest,
+    err: TaruError,
+    fallback_message: &'static str,
+) -> StorageCleanupReport {
+    match err {
+        err if local_path_error_is_security_violation(&err) => cleanup_report(
+            request,
+            StorageCleanupStatus::SecurityViolation,
+            false,
+            None,
+            "storage cleanup request escaped the backend root",
+        ),
+        TaruError::InvalidInput { .. } => cleanup_report(
+            request,
+            StorageCleanupStatus::Unsupported,
+            false,
+            None,
+            fallback_message,
+        ),
+        _ => cleanup_report(
+            request,
+            StorageCleanupStatus::CleanupFailed,
+            false,
+            None,
+            "storage cleanup request could not be validated",
         ),
     }
 }
@@ -1662,6 +1842,113 @@ mod tests {
             assert_eq!(report.status, StorageApplyStatus::Unsupported);
             assert!(!report.applied);
             assert!(report.message.contains("does not support storage apply"));
+        });
+    }
+
+    #[test]
+    fn local_backend_cleanup_removes_file_without_exposing_os_paths() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+            fs::write(temp.path().join("movies").join("demo-copy.mkv"), "media").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let target = StorageUri::from_parts("local", "movies/demo-copy.mkv").unwrap();
+
+            let report = backend
+                .cleanup(StorageCleanupRequest::new(target.clone()))
+                .await
+                .unwrap();
+
+            assert_eq!(report.target_uri, target);
+            assert_eq!(report.status, StorageCleanupStatus::Cleaned);
+            assert!(report.cleaned);
+            assert_eq!(report.target.unwrap().kind, ObjectKind::File);
+            assert!(!temp.path().join("movies").join("demo-copy.mkv").exists());
+            assert!(
+                !report
+                    .message
+                    .contains(temp.path().to_string_lossy().as_ref())
+            );
+        });
+    }
+
+    #[test]
+    fn local_backend_cleanup_refuses_directories_without_mutation() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let report = backend
+                .cleanup(StorageCleanupRequest::new(
+                    StorageUri::from_parts("local", "movies").unwrap(),
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(report.status, StorageCleanupStatus::TargetNotFile);
+            assert!(!report.cleaned);
+            assert_eq!(report.target.unwrap().kind, ObjectKind::Directory);
+            assert!(temp.path().join("movies").exists());
+        });
+    }
+
+    #[test]
+    fn local_backend_cleanup_reports_security_violation_without_mutation() {
+        pollster::block_on(async {
+            let root = tempfile::tempdir().unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            fs::write(outside.path().join("outside.mkv"), "outside").unwrap();
+
+            let backend = LocalFsBackend::new(root.path()).unwrap();
+            let report = backend
+                .cleanup(StorageCleanupRequest::new(
+                    StorageUri::parse("local:///../outside.mkv").unwrap(),
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(report.status, StorageCleanupStatus::SecurityViolation);
+            assert!(!report.cleaned);
+            assert!(outside.path().join("outside.mkv").exists());
+        });
+    }
+
+    #[test]
+    fn local_backend_cleanup_reports_missing_target_without_mutation() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let report = backend
+                .cleanup(StorageCleanupRequest::new(
+                    StorageUri::from_parts("local", "movies/missing.mkv").unwrap(),
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(report.status, StorageCleanupStatus::TargetMissing);
+            assert!(!report.cleaned);
+            assert!(temp.path().join("movies").exists());
+        });
+    }
+
+    #[test]
+    fn default_backend_cleanup_is_unsupported_without_mutation() {
+        pollster::block_on(async {
+            let backend = DirectOnlyBackend;
+            let report = backend
+                .cleanup(StorageCleanupRequest::new(
+                    StorageUri::from_parts("memory", "target.mkv").unwrap(),
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(report.status, StorageCleanupStatus::Unsupported);
+            assert!(!report.cleaned);
+            assert!(report.message.contains("does not support storage cleanup"));
         });
     }
 
