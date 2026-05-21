@@ -1,6 +1,6 @@
 # Release Packaging And Distribution — Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 ## Current State
@@ -21,27 +21,34 @@ The missing layer is packaging/distribution: artifact contract, startup/config
 preflight, container build path, release artifact script, checksums, and
 operator install/release docs.
 
-## Active Task
+## Closeout
 
-- Task ID: RPD-040
+- Task ID: RPD-070
 - Owner: codex
 - Files:
-  - `scripts`
-  - `.github`
   - `docs/deployment`
   - `docs/workstreams/release-packaging-and-distribution/`
 - Validation:
-  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf`
-  - `bash scripts/package-release.sh --dry-run`
-  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -SkipBuild -OutputDir target/package-release-rpd040`
+  - docs inventory covers install, config, start, verify, backup, upgrade,
+    rollback, logs, diagnostics, support bundle, and checksums
+  - future lane matrix exists
   - `git diff --check`
 - Status: DONE
 
 ## Next Recommended Action
 
-Continue with RPD-050 operator release checklist and install docs. RPD-040 added
-repo-owned package scripts, release manifest/checksum output, artifact docs, and
-a GitHub Actions workflow shape that calls the Bash package script.
+Open the next product workstream. Recommended: Metadata Provider Breadth. If
+downloads is prioritized instead, open `managed-import-staging` with a narrow
+quarantine/validate/manual-promote scope rather than a broad downloads lane.
+
+## Residual Risks
+
+- Docker image build was not repeated during closeout; the Dockerfile uses the
+  proven locked release build command and compose config is covered.
+- Bash package script dry-run was proven locally; full Bash package execution
+  should be proven by Linux CI through `.github/workflows/release-package.yml`.
+- Full workspace release gate remains a broader CI/workspace responsibility and
+  was not rerun for this packaging closeout.
 
 ## Follow-On Candidates
 

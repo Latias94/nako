@@ -2,13 +2,13 @@
   "schema_version": 1,
   "slug": "release-packaging-and-distribution",
   "title": "Release Packaging And Distribution",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-21",
   "scope_kind": "release_hardening",
   "problem": "Taru has a verified self-hosted release baseline but still lacks an operator-facing artifact, container, startup preflight, release script, and packaging documentation path.",
   "summary": "Turn source-built Taru into a packageable and diagnosable self-hosted distribution while deciding the next product lane after packaging.",
-  "current_milestone": "M4",
-  "current_task": "RPD-050",
+  "current_milestone": "closed",
+  "current_task": null,
   "task_prefix": "RPD",
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/release-packaging-and-distribution/README.md" },
@@ -22,8 +22,8 @@
     "docs/workstreams/self-hosted-release-readiness"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "RPD-050",
-    "notes": "Artifact Contract V0, config-check preflight, container/compose packaging, and release artifact scripts/CI shape are in place. Continue with operator release checklist docs."
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Release packaging and distribution lane completed. Recommended next lane: Metadata Provider Breadth; split Downloads as managed-import-staging if prioritized."
   }
 }

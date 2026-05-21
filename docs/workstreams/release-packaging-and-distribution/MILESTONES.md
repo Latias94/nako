@@ -40,23 +40,23 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Install and first-start docs exist.
-- [ ] Upgrade/rollback links to backup/restore guidance.
-- [ ] Logs, diagnostics, checksums, and support bundle expectations are clear.
+- [x] Install and first-start docs exist.
+- [x] Upgrade/rollback links to backup/restore guidance.
+- [x] Logs, diagnostics, checksums, and support bundle expectations are clear.
 
 ## M5 — Future Lane Decision
 
 Exit criteria:
 
-- [ ] Metadata, NFO/link, Playback/transcode, Downloads, Network traversal, and
+- [x] Metadata, NFO/link, Playback/transcode, Downloads, Network traversal, and
   AI are compared by value/risk/dependencies.
-- [ ] Downloads has a precise first-safe-slice definition or is deferred.
-- [ ] The next product lane recommendation is recorded.
+- [x] Downloads has a precise first-safe-slice definition or is deferred.
+- [x] The next product lane recommendation is recorded.
 
 ## M6 — Closeout
 
 Exit criteria:
 
-- [ ] Workstream TODO is complete or residual work is split.
-- [ ] Evidence proves the release packaging contract.
-- [ ] `WORKSTREAM.json` status is completed or closed.
+- [x] Workstream TODO is complete or residual work is split.
+- [x] Evidence proves the release packaging contract.
+- [x] `WORKSTREAM.json` status is completed or closed.

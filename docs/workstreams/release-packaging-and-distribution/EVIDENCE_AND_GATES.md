@@ -50,9 +50,19 @@ bash scripts/package-release.sh --dry-run
 | 2026-05-21 | RPD-030 compose gate | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container -SkipRedactionInventory` | Pass. Container gate runs Rust config tests plus `docker compose config` for SQLite and PostgreSQL Taru stacks with placeholder env values and a generated local media root. |
 | 2026-05-21 | RPD-040 dry-run scripts | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf`; `bash scripts/package-release.sh --dry-run` | Pass. Both packaging entrypoints expose a non-publishing dry-run path. Bash dry-run tolerates the current WSL environment without rustc and reports `unknown-target`. |
 | 2026-05-21 | RPD-040 package output | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -SkipBuild -OutputDir target/package-release-rpd040` | Pass. Generated zip archive, copied release manifest, and `SHA256SUMS`; manifest includes binary, Docker/compose/config examples, deployment docs, release artifact guide, license, README, git revision, target triple, dirty flag, and preflight command. |
+| 2026-05-21 | RPD-050 operator docs | `docs/deployment/RELEASE_CHECKLIST.md`; `docs/deployment/RELEASE_ARTIFACTS.md`; `docs/deployment/SELF_HOSTED.md`; `docs/deployment/BACKUP_RESTORE_UPGRADE.md` | Pass. Operator docs now cover artifact verification, config/secrets, first start, compose start, health/diagnostics, backup, upgrade, rollback, and support bundle boundaries. |
+| 2026-05-21 | RPD-060 future lane decision | `docs/workstreams/release-packaging-and-distribution/DESIGN.md` | Pass. Added decision matrix for Metadata, NFO/link, Playback/transcode, Downloads/managed import staging, Network traversal, AI, and Addon distribution; recommends Metadata Provider Breadth next, with Downloads split to `managed-import-staging` if prioritized. |
+| 2026-05-21 | RPD-070 closeout docs gate | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode docs -SkipRedactionInventory` | Pass. Formatting and diff hygiene passed for docs-safe closeout. |
+| 2026-05-21 | RPD-070 closeout container gate | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container -SkipRedactionInventory` | Pass. Re-ran focused config tests and compose config checks for SQLite/PostgreSQL Taru stacks. |
+| 2026-05-21 | RPD-070 closeout package gate | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf`; `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -SkipBuild -OutputDir target/package-release-rpd-closeout` | Pass. Re-proved packaging dry-run plus real manifest/archive/checksum emission from existing release binary. |
+| 2026-05-21 | RPD-070 closeout diff hygiene | `cargo fmt --all -- --check`; `git diff --check` | Pass. Rust formatting and whitespace checks are clean; Git reported line-ending normalization warnings only. |
 
 ## Open Evidence Gaps
 
 - Taru server image build should be proven where Docker build time is acceptable.
 - Shell script execution should be proven in Linux/CI once packaging workflows
   exist.
+- Full `release-gate fast/workspace` and Docker image build were not repeated
+  during closeout to keep this packaging closeout bounded. RPD-030/RPD-040
+  proved focused config, compose, host release build, and package emission; CI
+  retains broader release-gate coverage.

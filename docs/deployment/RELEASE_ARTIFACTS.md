@@ -80,5 +80,6 @@ taru-server --config /config/taru.toml config-check --create-dirs
 ```
 
 See `docs/deployment/SELF_HOSTED.md` and
-`docs/deployment/BACKUP_RESTORE_UPGRADE.md` for first start, backup, upgrade,
-and rollback guidance.
+`docs/deployment/RELEASE_CHECKLIST.md` for install and first start. See
+`docs/deployment/BACKUP_RESTORE_UPGRADE.md` for backup, upgrade, and rollback
+guidance.

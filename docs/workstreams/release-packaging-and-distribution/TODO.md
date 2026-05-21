@@ -61,7 +61,7 @@ Task IDs use the `RPD` prefix.
 
 ## M4 — Operator Release Checklist And Install Docs
 
-- [ ] RPD-050 [owner=codex] [deps=RPD-040] [scope=docs/deployment,docs/workstreams/release-packaging-and-distribution]
+- [x] RPD-050 [owner=codex] [deps=RPD-040] [scope=docs/deployment,docs/workstreams/release-packaging-and-distribution]
   Goal: Document install, first start, upgrade, rollback, backup, logs,
   diagnostics, and support bundle expectations for packaged Taru.
   Validation: docs inventory covers install, config, start, verify, backup,
@@ -69,27 +69,31 @@ Task IDs use the `RPD` prefix.
   --check`.
   Review: The docs must distinguish source-built development from packaged
   operation.
-  Evidence: release checklist docs.
+  Evidence: `docs/deployment/RELEASE_CHECKLIST.md`,
+  `docs/deployment/RELEASE_ARTIFACTS.md`, `docs/deployment/SELF_HOSTED.md`,
+  and `docs/deployment/BACKUP_RESTORE_UPGRADE.md`.
   Handoff: Continue with future-lane evaluation.
 
 ## M5 — Future Lane Evaluation: Metadata, NFO, Playback, Downloads
 
-- [ ] RPD-060 [owner=planner] [deps=RPD-050] [scope=docs/workstreams/release-packaging-and-distribution,docs/workstreams/README.md]
+- [x] RPD-060 [owner=planner] [deps=RPD-050] [scope=docs/workstreams/release-packaging-and-distribution,docs/workstreams/README.md]
   Goal: Decide which product lane should follow packaging and record explicit
   split criteria for Metadata provider breadth, NFO/link management,
   Playback/transcode hardening, Downloads, Network traversal, and AI.
   Validation: decision matrix exists; no implementation hidden in planning;
   `git diff --check`.
   Review: Downloads must be defined precisely before implementation.
-  Evidence: decision matrix in `DESIGN.md` or a follow-on doc.
+  Evidence: decision matrix in `DESIGN.md`; recommended next lane is Metadata
+  Provider Breadth, with Downloads split to `managed-import-staging` if chosen.
   Handoff: Open the selected next product workstream.
 
 ## M6 — Closeout
 
-- [ ] RPD-070 [owner=planner] [deps=RPD-060] [scope=docs/workstreams/release-packaging-and-distribution,docs/workstreams/README.md]
+- [x] RPD-070 [owner=planner] [deps=RPD-060] [scope=docs/workstreams/release-packaging-and-distribution,docs/workstreams/README.md]
   Goal: Verify and close the packaging lane or split incomplete work.
   Validation: release packaging gates, final `cargo fmt --all -- --check`,
   `git diff --check`, and all required artifact/container/docs evidence.
   Review: Close only when an operator can follow docs from artifact to running
   instance.
-  Evidence: closeout journal and completed workstream docs.
+  Evidence: closeout journal, completed workstream docs, docs/container/package
+  gates, and final diff hygiene.

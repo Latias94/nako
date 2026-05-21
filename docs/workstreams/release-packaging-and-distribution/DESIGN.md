@@ -138,6 +138,31 @@ Current repository state at RPD-010:
 
 ## Candidate Follow-On Product Lanes
 
+Follow-on scoring uses:
+
+- Value: expected user/operator impact after packaging.
+- Dependency fit: whether the lane builds on packaging/preflight rather than
+  forcing unrelated foundations.
+- Risk: security, data-loss, protocol, UX, and operational ambiguity.
+- First safe slice: smallest boundary that can be implemented without smuggling
+  a broader product into the core server.
+
+| Lane | Value | Dependency fit | Risk | First safe slice | Recommendation |
+| --- | --- | --- | --- | --- | --- |
+| Metadata Provider Breadth | High | High | Medium | Provider capability registry, matching policy, raw response retention, and manual confirmation for TMDB/Bangumi/Douban conflicts | Strong candidate after packaging. |
+| NFO And Link Management | High | High | Medium-High | Explicit local sidecar authority, import/export conflict policy, and link inventory diagnostics without writing new links first | Strong candidate, but split link mutation from NFO policy. |
+| Playback / Transcode Product Hardening | High | Medium | Medium | Operator-facing FFmpeg/hardware diagnostics plus preset validation before broader queue policy | Strong candidate if daily playback is the next product promise. |
+| Downloads / Managed Import Staging | Medium-High | Medium | High | Taru-managed import staging for operator-provided URLs or Addon-proposed artifacts; quarantine, validate, then promote manually | Worth doing, but only after precise PRD; do not start with torrent/Usenet. |
+| Network Traversal | Medium-High | Medium | High | Deployment docs and reverse-proxy/tunnel contract before any built-in traversal runtime | Defer until local deployment trust is stable. |
+| AI | Medium | Low-Medium | Medium-High | Assisted matching/title cleanup with explainable confidence and no autonomous writes | Defer until metadata/import authority is stronger. |
+| Addon Distribution | Medium | Medium | Medium | Manifest/package validation and sidecar trust policy separate from server release artifact | Defer; current release artifact excludes addon sidecars. |
+
+Recommended next product lane: **Metadata Provider Breadth**, with a narrow
+matching/capability/conflict slice. If the priority is immediate daily playback
+quality instead of library enrichment, choose Playback / Transcode Product
+Hardening. Downloads should become a separate PRD/workstream named
+`managed-import-staging`, not a generic "downloads" feature.
+
 ### Metadata Provider Breadth
 
 High value after packaging because operators will immediately ask for TMDB,
