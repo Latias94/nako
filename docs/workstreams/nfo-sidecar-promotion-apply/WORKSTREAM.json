@@ -7,13 +7,14 @@
   "scope_kind": "execution",
   "problem": "NFO authority preview and safe sidecar write primitives exist, but actual NFO import/export mutation needs its own accepted, idempotent, rollback-aware Library File Write and metadata-authority boundary.",
   "task_prefix": "NSPA",
-  "current_task": "NSPA-060",
+  "current_task": "NSPA-070",
   "completed_tasks": [
     "NSPA-010",
     "NSPA-020",
     "NSPA-030",
     "NSPA-040",
-    "NSPA-050"
+    "NSPA-050",
+    "NSPA-060"
   ],
   "authoritative_docs": [
     {
@@ -58,7 +59,11 @@
     "crates/taru-nfo/src/preview.rs",
     "crates/taru-nfo/src/summary.rs",
     "crates/taru-server/src/app/nfo.rs",
+    "crates/taru-server/src/app/storage.rs",
+    "crates/taru-server/src/app/tests/mod.rs",
     "crates/taru-server/src/app/tests/nfo.rs",
+    "crates/taru-vfs/src/lib.rs",
+    "crates/taru-vfs/src/local.rs",
     "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
     "docs/workstreams/nfo-link-authority/DESIGN.md",
     "docs/workstreams/nfo-round-trip-preservation/DESIGN.md",
@@ -77,6 +82,6 @@
   "continue_policy": {
     "default_action": "continue",
     "next_task": "NSPA-060",
-    "notes": "Accepted NFO import and export apply are in place through taru-nfo, VFS write, canonical metadata, local authority, and durable audit boundaries. Next add partial-failure rollback/repair gates."
+    "notes": "Accepted NFO import and export apply are in place through taru-nfo, VFS write/restore, canonical metadata, local authority, durable audit, and partial-failure rollback/repair boundaries. Next close or split API/UI/addon exposure in NSPA-070."
   }
 }

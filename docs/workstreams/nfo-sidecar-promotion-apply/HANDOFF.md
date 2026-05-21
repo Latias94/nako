@@ -65,7 +65,7 @@ Existing prerequisites are in place:
   content-fingerprint preview snapshots, import dispatch in
   `apply_sidecar_apply`, and focused server tests.
 
-## Active Task
+## Recently Completed Task
 
 - Task ID: NSPA-060
 - Owner: codex
@@ -86,7 +86,24 @@ Existing prerequisites are in place:
   diagnostic leakage. The fourth NSPA-060 slice forces a backup retention prune
   diagnostic failure during export and proves the apply remains `Committed`
   with redacted `prune_failure_count` diagnostics rather than a false failure or
-  raw path/XML leakage.
+  raw path/XML leakage. The fifth NSPA-060 slice adds a VFS restore boundary
+  and server rollback orchestration: backup-backed export audit failure records
+  `RollbackComplete` after restoring the previous sidecar, while injected
+  restore failure records `RepairPending`; both paths replay idempotently and
+  avoid raw path/XML diagnostics.
+
+## Active Task
+
+- Task ID: NSPA-070
+- Owner: planner
+- Files: `docs/workstreams/nfo-sidecar-promotion-apply`,
+  `docs/workstreams/post-rpd-product-hardening`
+- Validation: fresh closeout evidence is recorded; parent umbrella points to
+  the next lane.
+- Status: READY
+- Evidence: NSPA-060 is complete with rollback/repair gates and fresh focused
+  verification. NSPA-070 should decide whether Admin API, Public Client API,
+  Addon side-effect, or UI exposure belongs in follow-on workstreams.
 
 ## Decisions
 
@@ -112,7 +129,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Continue NSPA-060 with TDD: add failing storage/repository doubles or storage
-  seams for backup restore/rollback failures. Keep proving
-  failed-before-mutation, rollback-complete, or repair-pending outcomes instead
-  of any false committed state.
+- Execute NSPA-070: close or split this lane, update parent
+  `post-rpd-product-hardening` scoring, and decide whether sidecar apply should
+  surface first through Admin API, Addon side effects, UI, or a narrow internal
+  service contract.

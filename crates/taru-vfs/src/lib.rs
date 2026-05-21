@@ -503,6 +503,46 @@ pub struct StorageCleanupReport {
     pub message: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StorageRestoreRequest {
+    pub backup_uri: StorageUri,
+    pub target_uri: StorageUri,
+}
+
+impl StorageRestoreRequest {
+    #[must_use]
+    pub fn new(backup_uri: StorageUri, target_uri: StorageUri) -> Self {
+        Self {
+            backup_uri,
+            target_uri,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageRestoreStatus {
+    Restored,
+    Unsupported,
+    BackupMissing,
+    BackupNotFile,
+    TargetParentMissing,
+    TargetParentNotDirectory,
+    SecurityViolation,
+    RestoreFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageRestoreReport {
+    pub backup_uri: StorageUri,
+    pub target_uri: StorageUri,
+    pub status: StorageRestoreStatus,
+    pub restored: bool,
+    pub backup: Option<StorageApplyObject>,
+    pub target: Option<StorageApplyObject>,
+    pub message: String,
+}
+
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
     fn scheme(&self) -> &'static str;
@@ -598,6 +638,18 @@ pub trait StorageBackend: Send + Sync {
         })
     }
 
+    async fn restore(&self, request: StorageRestoreRequest) -> Result<StorageRestoreReport> {
+        Ok(StorageRestoreReport {
+            backup_uri: request.backup_uri,
+            target_uri: request.target_uri,
+            status: StorageRestoreStatus::Unsupported,
+            restored: false,
+            backup: None,
+            target: None,
+            message: "storage backend does not support storage restore".to_owned(),
+        })
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let _ = request;
         Err(TaruError::Unsupported(
@@ -663,6 +715,10 @@ where
         self.as_ref().cleanup(request).await
     }
 
+    async fn restore(&self, request: StorageRestoreRequest) -> Result<StorageRestoreReport> {
+        self.as_ref().restore(request).await
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.as_ref().stage(request).await
     }
@@ -723,6 +779,10 @@ where
 
     async fn cleanup(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
         self.as_ref().cleanup(request).await
+    }
+
+    async fn restore(&self, request: StorageRestoreRequest) -> Result<StorageRestoreReport> {
+        self.as_ref().restore(request).await
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {

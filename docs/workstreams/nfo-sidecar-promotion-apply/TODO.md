@@ -70,7 +70,7 @@ Task IDs use the `NSPA` prefix.
 
 ## M5 — Partial Failure Rollback And Repair
 
-- [ ] NSPA-060 [owner=codex] [deps=NSPA-040,NSPA-050] [scope=crates/taru-server,crates/taru-vfs,crates/taru-db]
+- [x] NSPA-060 [owner=codex] [deps=NSPA-040,NSPA-050] [scope=crates/taru-server,crates/taru-vfs,crates/taru-db]
   Goal: Inject failures across export write, backup restore, metadata commit,
   audit commit, and retention diagnostics. Prove failed-before-mutation,
   rollback-complete, or repair-pending terminal outcomes.
@@ -95,6 +95,12 @@ Task IDs use the `NSPA` prefix.
   failure; the audit outcome records `prune_failure_count` without raw path/XML
   leakage. Remaining NSPA-060 coverage still needs backup restore/rollback
   gates.
+  Progress: 2026-05-21 backup restore/rollback coverage now adds a VFS
+  `StorageRestoreRequest` boundary and server rollback orchestration. Export
+  audit failure after backup-backed sidecar mutation records
+  `RollbackComplete` when the previous sidecar is restored, or `RepairPending`
+  when restore fails; both outcomes replay idempotently and keep diagnostics
+  redacted. NSPA-060 is DONE.
   Handoff: Decide API/UI/addon exposure in NSPA-070.
 
 ## M6 — Closeout And Exposure Split

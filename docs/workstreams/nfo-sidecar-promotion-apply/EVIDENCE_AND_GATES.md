@@ -63,6 +63,8 @@ claiming lane closeout.
 | 2026-05-21 | NSPA-060 focused verification | `cargo fmt --all -- --check`; `cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast`; `cargo nextest run -p taru-server nfo --no-fail-fast` | Pass. Server sidecar apply and broader server NFO tests passed with import metadata commit failure coverage included. Broader lane gates for `taru-nfo`, `taru-vfs`, and `taru-db` were not rerun because this slice changes server orchestration and a server-level test seam only. |
 | 2026-05-21 | NSPA-060 retention diagnostic failure slice | `crates/taru-server/src/app/tests/nfo.rs`; `cargo nextest run -p taru-server nfo_sidecar_apply_export_retention_diagnostic_failure_commits_with_redacted_warning --no-fail-fast` | Pass. A forced export with a backup prune diagnostic failure commits the sidecar write, preserves round-trip XML, leaves the failed prune candidate in place, records `prune_failure_count`, and avoids raw path/XML leakage. |
 | 2026-05-21 | NSPA-060 focused verification | `cargo fmt --all -- --check`; `cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast`; `cargo nextest run -p taru-server nfo --no-fail-fast` | Pass. Server sidecar apply and broader server NFO tests passed with retention diagnostic failure coverage included. Broader lane gates for `taru-nfo`, `taru-vfs`, and `taru-db` were not rerun because this slice adds a server-level regression test over existing lower-level VFS retention diagnostics and does not change lower-level crates. |
+| 2026-05-21 | NSPA-060 backup restore/rollback slice | `crates/taru-vfs/src/lib.rs`; `crates/taru-vfs/src/local.rs`; `crates/taru-server/src/app/nfo.rs`; `crates/taru-server/src/app/storage.rs`; `crates/taru-server/src/app/tests/nfo.rs`; `cargo nextest run -p taru-vfs local_backend_restore --no-fail-fast`; `cargo nextest run -p taru-server nfo_sidecar_apply_export_audit_failure_restores_backup_and_records_rollback_complete --no-fail-fast`; `cargo nextest run -p taru-server nfo_sidecar_apply_export_audit_failure_records_repair_pending_when_backup_restore_fails --no-fail-fast` | Pass. VFS now exposes backup-to-target restore with local atomic replacement. Server export apply attempts rollback after backup-backed sidecar mutation when final audit commit fails, records `RollbackComplete` on restored backup, and records `RepairPending` when restore fails; both outcomes replay idempotently and avoid raw path/XML diagnostics. |
+| 2026-05-21 | NSPA-060 closeout verification | `cargo fmt --all -- --check`; `cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast`; `cargo nextest run -p taru-server nfo --no-fail-fast`; `cargo nextest run -p taru-vfs --no-fail-fast`; `cargo nextest run -p taru-nfo --no-fail-fast`; `cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast`; `cargo check -p taru-server` | Pass. All NSPA-060 failure boundaries are covered: export write, audit commit, import metadata commit, retention diagnostic failure, backup restore success, and backup restore failure. `cargo check -p taru-server` passed with existing unrelated unused/dead-code warnings. |
 
 ## Evidence Anchors
 
@@ -78,7 +80,11 @@ claiming lane closeout.
 - `crates/taru-nfo/src/preview.rs`
 - `crates/taru-nfo/src/summary.rs`
 - `crates/taru-server/src/app/nfo.rs`
+- `crates/taru-server/src/app/storage.rs`
+- `crates/taru-server/src/app/tests/mod.rs`
 - `crates/taru-server/src/app/tests/nfo.rs`
+- `crates/taru-vfs/src/lib.rs`
+- `crates/taru-vfs/src/local.rs`
 - `docs/workstreams/nfo-link-authority/DESIGN.md`
 - `docs/workstreams/nfo-round-trip-preservation/DESIGN.md`
 - `docs/workstreams/nfo-storage-write-policy/DESIGN.md`

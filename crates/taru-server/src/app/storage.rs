@@ -518,6 +518,15 @@ impl StorageBackend for LibraryStorageBackend {
         self.record_result(&result);
         result
     }
+
+    async fn restore(
+        &self,
+        request: taru_vfs::StorageRestoreRequest,
+    ) -> Result<taru_vfs::StorageRestoreReport> {
+        let result = self.inner.restore(request).await;
+        self.record_result(&result);
+        result
+    }
 }
 
 impl LibraryStorageBackend {

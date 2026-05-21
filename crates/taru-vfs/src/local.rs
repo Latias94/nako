@@ -14,8 +14,8 @@ use crate::{
     StorageBackend, StorageBackupMode, StorageBackupPolicy, StorageBackupPruneFailure,
     StorageBackupReport, StorageCapabilities, StorageCleanupReport, StorageCleanupRequest,
     StorageCleanupStatus, StorageLinkKind, StorageLinkPlan, StorageLinkPlanRequest,
-    StorageLinkPlanStatus, StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest,
-    VirtualFile,
+    StorageLinkPlanStatus, StorageRestoreReport, StorageRestoreRequest, StorageRestoreStatus,
+    StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest, VirtualFile,
 };
 
 #[derive(Clone, Debug)]
@@ -406,6 +406,10 @@ impl StorageBackend for LocalFsBackend {
 
     async fn cleanup(&self, request: StorageCleanupRequest) -> Result<StorageCleanupReport> {
         self.cleanup_local(request)
+    }
+
+    async fn restore(&self, request: StorageRestoreRequest) -> Result<StorageRestoreReport> {
+        self.restore_local(request)
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
@@ -807,6 +811,156 @@ impl LocalFsBackend {
         }
     }
 
+    fn restore_local(&self, request: StorageRestoreRequest) -> Result<StorageRestoreReport> {
+        if let Err(err) = self.ensure_local_scheme(&request.backup_uri) {
+            return Ok(restore_request_error_report(
+                request,
+                err,
+                "restore backup uses an unsupported storage scheme",
+            ));
+        }
+        if let Err(err) = self.ensure_local_scheme(&request.target_uri) {
+            return Ok(restore_request_error_report(
+                request,
+                err,
+                "restore target uses an unsupported storage scheme",
+            ));
+        }
+
+        let backup_path = match self.path_for(&request.backup_uri) {
+            Ok(path) => path,
+            Err(TaruError::NotFound { .. }) => {
+                return Ok(restore_report(
+                    request,
+                    StorageRestoreStatus::BackupMissing,
+                    false,
+                    None,
+                    None,
+                    "restore backup is missing",
+                ));
+            }
+            Err(err) if local_path_error_is_security_violation(&err) => {
+                return Ok(restore_request_error_report(
+                    request,
+                    err,
+                    "restore backup escaped the local backend root",
+                ));
+            }
+            Err(err) => return Err(err),
+        };
+        let target_path = match self.writable_path_for(&request.target_uri) {
+            Ok(path) => path,
+            Err(TaruError::NotFound { .. }) => {
+                return Ok(restore_report(
+                    request,
+                    StorageRestoreStatus::TargetParentMissing,
+                    false,
+                    None,
+                    None,
+                    "restore target parent is missing",
+                ));
+            }
+            Err(err) if local_path_error_is_security_violation(&err) => {
+                return Ok(restore_request_error_report(
+                    request,
+                    err,
+                    "restore target escaped the local backend root",
+                ));
+            }
+            Err(err) => return Err(err),
+        };
+        let backup = match self.metadata_for(&backup_path, request.backup_uri.clone()) {
+            Ok(metadata) => metadata,
+            Err(TaruError::NotFound { .. }) => {
+                return Ok(restore_report(
+                    request,
+                    StorageRestoreStatus::BackupMissing,
+                    false,
+                    None,
+                    None,
+                    "restore backup is missing",
+                ));
+            }
+            Err(err) => return Err(err),
+        };
+        if backup.kind != ObjectKind::File {
+            return Ok(restore_report(
+                request,
+                StorageRestoreStatus::BackupNotFile,
+                false,
+                Some(StorageApplyObject::from_metadata(backup)),
+                None,
+                "restore backup is not a file object",
+            ));
+        }
+        let Some(parent) = target_path.parent() else {
+            return Ok(restore_report(
+                request,
+                StorageRestoreStatus::SecurityViolation,
+                false,
+                Some(StorageApplyObject::from_metadata(backup)),
+                None,
+                "restore target has no parent directory",
+            ));
+        };
+        let parent_metadata = match fs::metadata(parent) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                return Ok(restore_report(
+                    request,
+                    StorageRestoreStatus::TargetParentMissing,
+                    false,
+                    Some(StorageApplyObject::from_metadata(backup)),
+                    None,
+                    "restore target parent is missing",
+                ));
+            }
+            Err(err) => {
+                return Err(TaruError::storage_io(
+                    request.target_uri.to_string(),
+                    format!("failed to read local restore target parent metadata: {err}"),
+                ));
+            }
+        };
+        if !parent_metadata.is_dir() {
+            return Ok(restore_report(
+                request,
+                StorageRestoreStatus::TargetParentNotDirectory,
+                false,
+                Some(StorageApplyObject::from_metadata(backup)),
+                None,
+                "restore target parent is not a directory",
+            ));
+        }
+
+        let restore_result =
+            restore_file_atomically(&request.target_uri, &backup_path, &target_path);
+        match restore_result {
+            Ok(_) => {
+                sync_directory_if_possible(parent);
+                let target = self.metadata_for(&target_path, request.target_uri.clone())?;
+                Ok(restore_report(
+                    request,
+                    StorageRestoreStatus::Restored,
+                    true,
+                    Some(StorageApplyObject::from_metadata(backup)),
+                    Some(StorageApplyObject::from_metadata(target)),
+                    "storage target restored from backup by the local backend",
+                ))
+            }
+            Err(_err) => Ok(restore_report(
+                request.clone(),
+                StorageRestoreStatus::RestoreFailed,
+                false,
+                Some(StorageApplyObject::from_metadata(backup)),
+                self.metadata_for(&target_path, request.target_uri.clone())
+                    .map(StorageApplyObject::from_metadata)
+                    .ok(),
+                "storage restore failed in the local backend",
+            )),
+        }
+    }
+
     fn write_string_atomic_replace(
         &self,
         uri: &StorageUri,
@@ -1111,6 +1265,58 @@ fn cleanup_request_error_report(
     }
 }
 
+fn restore_report(
+    request: StorageRestoreRequest,
+    status: StorageRestoreStatus,
+    restored: bool,
+    backup: Option<StorageApplyObject>,
+    target: Option<StorageApplyObject>,
+    message: impl Into<String>,
+) -> StorageRestoreReport {
+    StorageRestoreReport {
+        backup_uri: request.backup_uri,
+        target_uri: request.target_uri,
+        status,
+        restored,
+        backup,
+        target,
+        message: message.into(),
+    }
+}
+
+fn restore_request_error_report(
+    request: StorageRestoreRequest,
+    err: TaruError,
+    fallback_message: &'static str,
+) -> StorageRestoreReport {
+    match err {
+        err if local_path_error_is_security_violation(&err) => restore_report(
+            request,
+            StorageRestoreStatus::SecurityViolation,
+            false,
+            None,
+            None,
+            "storage restore request escaped the backend root",
+        ),
+        TaruError::InvalidInput { .. } => restore_report(
+            request,
+            StorageRestoreStatus::Unsupported,
+            false,
+            None,
+            None,
+            fallback_message,
+        ),
+        _ => restore_report(
+            request,
+            StorageRestoreStatus::RestoreFailed,
+            false,
+            None,
+            None,
+            "storage restore request could not be validated",
+        ),
+    }
+}
+
 fn apply_status_from_link_status(status: StorageLinkPlanStatus) -> StorageApplyStatus {
     match status {
         StorageLinkPlanStatus::Ready => StorageApplyStatus::Applied,
@@ -1151,6 +1357,30 @@ fn copy_file_create_new(source_path: &Path, target_path: &Path) -> std::io::Resu
     }
 
     copy_result
+}
+
+fn restore_file_atomically(
+    uri: &StorageUri,
+    backup_path: &Path,
+    target_path: &Path,
+) -> Result<bool> {
+    let temp_path = atomic_temp_path(target_path);
+    let restore_result = (|| -> Result<bool> {
+        fs::copy(backup_path, &temp_path).map_err(|err| {
+            TaruError::storage_io(
+                uri.to_string(),
+                format!("failed to copy local backup into restore temp file: {err}"),
+            )
+        })?;
+        sync_file_if_possible(&temp_path);
+        replace_temp_file(uri, &temp_path, target_path)
+    })();
+
+    if restore_result.is_err() {
+        let _ = fs::remove_file(&temp_path);
+    }
+
+    restore_result
 }
 
 #[cfg(not(windows))]
@@ -1632,6 +1862,69 @@ mod tests {
                 "local:///movies/demo.nfo.taru-backup-0000"
             );
             assert!(movies.join("demo.nfo.taru-backup-0000").exists());
+        });
+    }
+
+    #[test]
+    fn local_backend_restore_replaces_target_from_backup_atomically() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let movies = temp.path().join("movies");
+            fs::create_dir(&movies).unwrap();
+            fs::write(movies.join("demo.nfo"), "new-but-uncommitted").unwrap();
+            fs::write(movies.join("demo.nfo.taru-backup-0001"), "old").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let backup_uri =
+                StorageUri::from_parts("local", "movies/demo.nfo.taru-backup-0001").unwrap();
+            let target_uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+
+            let report = backend
+                .restore(StorageRestoreRequest::new(
+                    backup_uri.clone(),
+                    target_uri.clone(),
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(report.backup_uri, backup_uri);
+            assert_eq!(report.target_uri, target_uri);
+            assert_eq!(report.status, StorageRestoreStatus::Restored);
+            assert!(report.restored);
+            assert_eq!(backend.read_to_string(&target_uri).await.unwrap(), "old");
+            assert_eq!(
+                backend.read_to_string(&report.backup_uri).await.unwrap(),
+                "old"
+            );
+            assert_no_atomic_temp_files(&movies);
+        });
+    }
+
+    #[test]
+    fn local_backend_restore_reports_missing_backup_without_touching_target() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            let movies = temp.path().join("movies");
+            fs::create_dir(&movies).unwrap();
+            fs::write(movies.join("demo.nfo"), "new-but-uncommitted").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let target_uri = StorageUri::from_parts("local", "movies/demo.nfo").unwrap();
+            let report = backend
+                .restore(StorageRestoreRequest::new(
+                    StorageUri::from_parts("local", "movies/missing.nfo.taru-backup-0001").unwrap(),
+                    target_uri.clone(),
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(report.status, StorageRestoreStatus::BackupMissing);
+            assert!(!report.restored);
+            assert_eq!(
+                backend.read_to_string(&target_uri).await.unwrap(),
+                "new-but-uncommitted"
+            );
+            assert_no_atomic_temp_files(&movies);
         });
     }
 

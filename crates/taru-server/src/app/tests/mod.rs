@@ -42,8 +42,8 @@ use taru_transcode::{
 };
 use taru_vfs::{
     ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest,
-    StagedFile, StorageBackend, StorageCapabilities, StorageUri, StorageWriteReport,
-    StorageWriteRequest, VirtualFile,
+    StagedFile, StorageBackend, StorageCapabilities, StorageRestoreReport, StorageRestoreRequest,
+    StorageRestoreStatus, StorageUri, StorageWriteReport, StorageWriteRequest, VirtualFile,
 };
 use tokio::{
     net::TcpListener,

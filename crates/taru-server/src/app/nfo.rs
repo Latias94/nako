@@ -12,10 +12,10 @@ use taru_db::TaruDatabase;
 use taru_nfo::{
     MovieNfoCodec, NfoAuthorityPreviewAction, NfoAuthorityPreviewDecision,
     NfoAuthorityPreviewOperation, NfoAuthorityPreviewReason, NfoAuthorityPreviewRequest,
-    NfoAuthorityPreviewSummary, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
-    NfoExportSourceRequest, NfoExportSourceSummary, NfoExportSummary, NfoImportRequest,
-    NfoImportSourceRequest, NfoImportSourceSummary, NfoImportSummary, NfoJobInput,
-    NfoLibraryRunOutcome, NfoService, NfoSidecarCheckpoint,
+    NfoAuthorityPreviewSummary, NfoBackupReport, NfoCancellationCheck, NfoCancellationDecision,
+    NfoExportRequest, NfoExportSourceRequest, NfoExportSourceSummary, NfoExportSummary,
+    NfoImportRequest, NfoImportSourceRequest, NfoImportSourceSummary, NfoImportSummary,
+    NfoJobInput, NfoLibraryRunOutcome, NfoService, NfoSidecarCheckpoint,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::Semaphore;
@@ -496,7 +496,7 @@ impl NfoAppService {
                 return Err(err);
             }
         };
-        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend.clone(), self.store.clone(), MovieNfoCodec);
         let summary = service
             .export_media_source(NfoExportSourceRequest {
                 library_id: accepted.target_library_id,
@@ -507,7 +507,9 @@ impl NfoAppService {
             .await?;
 
         if summary.exported_items == 1 && summary.failed_items == 0 {
-            return self.commit_export_sidecar_apply(&accepted, &summary).await;
+            return self
+                .commit_export_sidecar_apply(&accepted, &summary, backend.as_ref())
+                .await;
         }
 
         let failed = self
@@ -692,13 +694,14 @@ impl NfoAppService {
         &self,
         accepted: &NfoSidecarApplyRecord,
         summary: &NfoExportSourceSummary,
+        backend: &dyn StorageBackend,
     ) -> Result<NfoSidecarApplyAcceptanceDiagnostic> {
         match self.write_export_committed_audit(accepted, summary).await {
             Ok(committed) => Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
                 committed, false,
             )),
             Err(err) => {
-                self.record_export_repair_pending_after_audit_commit_failure(accepted, summary)
+                self.record_export_terminal_after_audit_commit_failure(accepted, summary, backend)
                     .await
                     .map_err(|_| nfo_sidecar_audit_and_repair_audit_failed_error())?;
                 Err(nfo_sidecar_audit_commit_failed_error(err))
@@ -730,10 +733,30 @@ impl NfoAppService {
             })
     }
 
+    async fn record_export_terminal_after_audit_commit_failure(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoExportSourceSummary,
+        backend: &dyn StorageBackend,
+    ) -> Result<NfoSidecarApplyRecord> {
+        let rollback = attempt_export_rollback_from_backup(summary, backend).await;
+        if rollback.restored {
+            return self
+                .record_export_rollback_complete_after_audit_commit_failure(
+                    accepted, summary, &rollback,
+                )
+                .await;
+        }
+
+        self.record_export_repair_pending_after_audit_commit_failure(accepted, summary, &rollback)
+            .await
+    }
+
     async fn record_export_repair_pending_after_audit_commit_failure(
         &self,
         accepted: &NfoSidecarApplyRecord,
         summary: &NfoExportSourceSummary,
+        rollback: &NfoSidecarRollbackReport,
     ) -> Result<NfoSidecarApplyRecord> {
         self.store
             .set_nfo_sidecar_apply_state(
@@ -741,11 +764,38 @@ impl NfoAppService {
                 NfoSidecarApplyState::RepairPending,
                 super::current_time_ms()?,
                 Some(nfo_sidecar_export_repair_pending_outcome_json(
-                    accepted, summary,
+                    accepted, summary, rollback,
                 )?),
                 Some("nfo_sidecar_apply_audit_commit_failed".to_owned()),
                 Some(
                     "NFO sidecar export apply wrote the sidecar but failed to commit final audit state"
+                        .to_owned(),
+                ),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    async fn record_export_rollback_complete_after_audit_commit_failure(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoExportSourceSummary,
+        rollback: &NfoSidecarRollbackReport,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::RollbackComplete,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_export_rollback_complete_outcome_json(
+                    accepted, summary, rollback,
+                )?),
+                Some("nfo_sidecar_apply_audit_commit_failed_rollback_complete".to_owned()),
+                Some(
+                    "NFO sidecar export apply wrote the sidecar, failed final audit, and restored the previous sidecar from backup"
                         .to_owned(),
                 ),
             )
@@ -1560,6 +1610,7 @@ fn nfo_sidecar_export_not_committed_outcome_json(
 fn nfo_sidecar_export_repair_pending_outcome_json(
     record: &NfoSidecarApplyRecord,
     summary: &NfoExportSourceSummary,
+    rollback: &NfoSidecarRollbackReport,
 ) -> Result<String> {
     serde_json::to_string(&serde_json::json!({
         "accepted": true,
@@ -1576,6 +1627,39 @@ fn nfo_sidecar_export_repair_pending_outcome_json(
         "exported_items": summary.exported_items,
         "backed_up_items": summary.backed_up_items,
         "backup_count": summary.backups.len(),
+        "prune_failure_count": summary.prune_failures.len(),
+        "rollback_attempted": rollback.attempted,
+        "rollback_complete": rollback.restored,
+        "rollback_status": rollback.status,
+        "rollback_backup_count": rollback.backup_count
+    }))
+    .map_err(database_error)
+}
+
+fn nfo_sidecar_export_rollback_complete_outcome_json(
+    record: &NfoSidecarApplyRecord,
+    summary: &NfoExportSourceSummary,
+    rollback: &NfoSidecarRollbackReport,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": false,
+        "writes_library": false,
+        "storage_mutation": true,
+        "metadata_mutation": false,
+        "repair_required": false,
+        "audit_commit_completed": false,
+        "rollback_attempted": rollback.attempted,
+        "rollback_complete": rollback.restored,
+        "rollback_status": rollback.status,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::RollbackComplete,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator),
+        "source_id": summary.source_id,
+        "exported_items": summary.exported_items,
+        "backed_up_items": summary.backed_up_items,
+        "backup_count": summary.backups.len(),
+        "rollback_backup_count": rollback.backup_count,
         "prune_failure_count": summary.prune_failures.len()
     }))
     .map_err(database_error)
@@ -1643,6 +1727,81 @@ fn nfo_sidecar_pre_mutation_failure_outcome_json(
         "safe_error_code": safe_error_code
     }))
     .map_err(database_error)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct NfoSidecarRollbackReport {
+    attempted: bool,
+    restored: bool,
+    status: &'static str,
+    backup_count: usize,
+}
+
+impl NfoSidecarRollbackReport {
+    const fn not_attempted(backup_count: usize) -> Self {
+        Self {
+            attempted: false,
+            restored: false,
+            status: "not_attempted",
+            backup_count,
+        }
+    }
+}
+
+async fn attempt_export_rollback_from_backup(
+    summary: &NfoExportSourceSummary,
+    backend: &dyn StorageBackend,
+) -> NfoSidecarRollbackReport {
+    let Some(backup) = newest_export_backup(summary) else {
+        return NfoSidecarRollbackReport::not_attempted(summary.backups.len());
+    };
+
+    match backend
+        .restore(taru_vfs::StorageRestoreRequest::new(
+            backup.backup_uri.clone(),
+            backup.original_uri.clone(),
+        ))
+        .await
+    {
+        Ok(report) if report.restored => NfoSidecarRollbackReport {
+            attempted: true,
+            restored: true,
+            status: "restored",
+            backup_count: summary.backups.len(),
+        },
+        Ok(report) => NfoSidecarRollbackReport {
+            attempted: true,
+            restored: false,
+            status: storage_restore_status_code(report.status),
+            backup_count: summary.backups.len(),
+        },
+        Err(_) => NfoSidecarRollbackReport {
+            attempted: true,
+            restored: false,
+            status: "restore_error",
+            backup_count: summary.backups.len(),
+        },
+    }
+}
+
+fn newest_export_backup(summary: &NfoExportSourceSummary) -> Option<&NfoBackupReport> {
+    summary
+        .backups
+        .iter()
+        .max_by(|left, right| left.backup_uri.as_str().cmp(right.backup_uri.as_str()))
+}
+
+fn storage_restore_status_code(status: taru_vfs::StorageRestoreStatus) -> &'static str {
+    match status {
+        taru_vfs::StorageRestoreStatus::Restored => "restored",
+        taru_vfs::StorageRestoreStatus::Unsupported => "unsupported",
+        taru_vfs::StorageRestoreStatus::BackupMissing => "backup_missing",
+        taru_vfs::StorageRestoreStatus::BackupNotFile => "backup_not_file",
+        taru_vfs::StorageRestoreStatus::TargetParentMissing => "target_parent_missing",
+        taru_vfs::StorageRestoreStatus::TargetParentNotDirectory => "target_parent_not_directory",
+        taru_vfs::StorageRestoreStatus::SecurityViolation => "security_violation",
+        taru_vfs::StorageRestoreStatus::RestoreFailed => "restore_failed",
+    }
 }
 
 fn nfo_sidecar_audit_commit_failed_error(error: TaruError) -> TaruError {

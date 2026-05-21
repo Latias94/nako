@@ -59,10 +59,10 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Injected partial failures are tested.
-- [ ] Failed-before-mutation, rollback-complete, and repair-pending outcomes are
+- [x] Injected partial failures are tested.
+- [x] Failed-before-mutation, rollback-complete, and repair-pending outcomes are
   distinguishable.
-- [ ] No failure path claims a false committed state.
+- [x] No failure path claims a false committed state.
 
 ## M6 — Closeout
 
