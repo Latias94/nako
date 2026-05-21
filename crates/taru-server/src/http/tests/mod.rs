@@ -29,13 +29,14 @@ use taru_api::{
         AdminManagedArtworkArtifactStrayFileCleanupStatus,
         AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
         AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
-        AdminStorageStagingDiagnosticsResponse, IgnoreIngestionFailureRequest,
-        IngestionFailuresResponse, JobResponse, ProcessManagedArtworkIngestResponse,
-        PublishSelectedArtworkResponse, RequeueManagedArtworkIngestResponse,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus, UnpublishSelectedArtworkResponse,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessReason,
+        AdminPlaybackReadinessStatus, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListResponse,
+        AdminServerConfigDiagnosticsResponse, AdminStorageStagingDiagnosticsResponse,
+        IgnoreIngestionFailureRequest, IngestionFailuresResponse, JobResponse,
+        ProcessManagedArtworkIngestResponse, PublishSelectedArtworkResponse,
+        RequeueManagedArtworkIngestResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
+        StorageBackendRuntimeStateScope, StorageBackendStatus, UnpublishSelectedArtworkResponse,
     },
     extension::{
         AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment,
@@ -500,6 +501,53 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
         content.push_str("echo  V..... h264_nvenc\r\n");
         content.push_str("echo  V..... h264_vaapi\r\n");
         content.push_str("echo  V..... h264_qsv\r\n");
+        content.push_str("exit /b 0\r\n");
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
+fn fake_ffmpeg_encoder_script(root: &FsPath, name: &str, encoder_lines: &[&str]) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let mut content = String::from("#!/bin/sh\n");
+        content.push_str("if [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n");
+        for line in encoder_lines {
+            content.push_str(&format!("  printf '{}\\n'\n", line));
+        }
+        content.push_str("  exit 0\nfi\n");
+        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("printf remuxed > \"$out\"\n");
+        content.push_str("exit 0\n");
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str("set out=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
+        content.push_str("exit /b 0\r\n");
+        content.push_str(":encoders\r\n");
+        for line in encoder_lines {
+            content.push_str(&format!("echo {line}\r\n"));
+        }
         content.push_str("exit /b 0\r\n");
         fs::write(&path, content).unwrap();
         path

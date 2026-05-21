@@ -574,7 +574,7 @@ impl PlaybackAppService {
         });
         let output_container = remux_output_container(&decision)?;
         let profile_identity = playback_profile
-            .remux_transcode_profile(output_container)
+            .try_remux_transcode_profile(output_container)?
             .identity();
         let request_identity =
             profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
@@ -613,7 +613,7 @@ impl PlaybackAppService {
         });
         let transcode_plan = hls_transcode_plan(&decision)?;
         let profile_identity = playback_profile
-            .hls_transcode_profile(transcode_plan, self.hls.hardware_selection.acceleration)
+            .try_hls_transcode_profile(transcode_plan, self.hls.hardware_selection.acceleration)?
             .identity();
         let request_identity =
             profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));

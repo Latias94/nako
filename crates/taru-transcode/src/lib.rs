@@ -278,6 +278,134 @@ mod tests {
     }
 
     #[test]
+    fn transcode_profile_validation_rejects_remux_with_video_codec() {
+        let mut profile = TranscodeProfile::remux(RemuxTranscodeProfile {
+            output_container: RemuxContainer::Mp4,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+        profile.video_codec = Some("h264".to_owned());
+
+        let err = profile.validate().unwrap_err();
+
+        assert_eq!(
+            err.reason,
+            TranscodeProfileValidationReason::RemuxMustNotTranscodeVideo
+        );
+        assert!(err.operator_message.contains("remux"));
+        assert!(!err.operator_message.contains("input"));
+    }
+
+    #[test]
+    #[should_panic(expected = "transcode profile must be valid before identity")]
+    fn transcode_profile_identity_rejects_invalid_profile() {
+        let mut profile = TranscodeProfile::remux(RemuxTranscodeProfile {
+            output_container: RemuxContainer::Mp4,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+        profile.hardware_acceleration = HardwareAcceleration::Nvenc;
+
+        let _ = profile.identity();
+    }
+
+    #[test]
+    fn transcode_profile_validation_rejects_hls_with_unsupported_codecs() {
+        let mut profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("vp9".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::None,
+            track_selection: TranscodeTrackSelection::default(),
+            max_video_bitrate: None,
+            prefer_hdr: None,
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+
+        let err = profile.validate().unwrap_err();
+        assert_eq!(
+            err.reason,
+            TranscodeProfileValidationReason::HlsVideoCodecUnsupported
+        );
+
+        profile.video_codec = Some("h264".to_owned());
+        profile.audio_codec = Some("opus".to_owned());
+        let err = profile.validate().unwrap_err();
+        assert_eq!(
+            err.reason,
+            TranscodeProfileValidationReason::HlsAudioCodecUnsupported
+        );
+        assert!(!err.operator_message.contains("local:///"));
+    }
+
+    #[test]
+    fn transcode_profile_validation_accepts_current_hls_playback_profile() {
+        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("H264".to_owned()),
+            audio_codec: Some(" AAC ".to_owned()),
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: Some(2),
+            },
+            max_video_bitrate: Some(8_000_000),
+            prefer_hdr: Some(true),
+            remote_input: true,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+
+        profile.validate().unwrap();
+        assert_eq!(profile.video_codec.as_deref(), Some("h264"));
+        assert_eq!(profile.audio_codec.as_deref(), Some("aac"));
+    }
+
+    #[test]
+    fn playback_transcode_plan_validation_rejects_runtime_selected_hardware() {
+        let plan = TranscodePlan {
+            input_locator: "local:///demo.mkv".to_owned(),
+            output_container: OutputContainer::Hls,
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+        };
+
+        let err = plan.validate_for_playback_request().unwrap_err();
+
+        assert_eq!(
+            err.reason,
+            TranscodePlanValidationReason::HardwareAccelerationMustBeSelectedByRuntime
+        );
+        assert!(!err.operator_message.contains("local:///"));
+    }
+
+    #[test]
+    fn playback_transcode_plan_validation_rejects_unsupported_hls_codecs() {
+        let mut plan = TranscodePlan {
+            input_locator: "local:///demo.mkv".to_owned(),
+            output_container: OutputContainer::Hls,
+            video_codec: Some("vp9".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: HardwareAcceleration::None,
+        };
+
+        let err = plan.validate_for_playback_request().unwrap_err();
+        assert_eq!(
+            err.reason,
+            TranscodePlanValidationReason::HlsMustUseSupportedVideoCodec
+        );
+
+        plan.video_codec = Some("h264".to_owned());
+        plan.audio_codec = Some("opus".to_owned());
+        let err = plan.validate_for_playback_request().unwrap_err();
+        assert_eq!(
+            err.reason,
+            TranscodePlanValidationReason::HlsMustUseSupportedAudioCodec
+        );
+    }
+
+    #[test]
     fn hardware_policy_selects_available_and_falls_back_to_cpu() {
         let report = HardwareAccelerationReport::with_available([HardwareAcceleration::Nvenc]);
         let nvenc = select_hardware_acceleration(
@@ -494,6 +622,90 @@ mod tests {
         .unwrap_err();
 
         assert!(err.to_string().contains("unavailable"));
+    }
+
+    #[test]
+    fn hardware_readiness_classifies_cpu_fallback_without_probe_details() {
+        let report = HardwareAccelerationReport::cpu_only();
+        let policy = HardwareAccelerationPolicy {
+            requested: HardwareAcceleration::Nvenc,
+            fallback: HardwareAccelerationFallback::Cpu,
+        };
+        let selection = select_hardware_acceleration(policy, &report).unwrap();
+
+        let readiness = hardware_acceleration_readiness(policy, &selection, &report);
+
+        assert_eq!(
+            readiness.status,
+            HardwareAccelerationReadinessStatus::Degraded
+        );
+        assert_eq!(
+            readiness.reason,
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
+        );
+        assert_eq!(readiness.requested, HardwareAcceleration::Nvenc);
+        assert_eq!(readiness.selected, HardwareAcceleration::None);
+        assert!(readiness.fallback_used);
+    }
+
+    #[test]
+    fn hardware_readiness_classifies_fail_policy_without_selection() {
+        let report = HardwareAccelerationReport::cpu_only();
+        let policy = HardwareAccelerationPolicy {
+            requested: HardwareAcceleration::QuickSync,
+            fallback: HardwareAccelerationFallback::Fail,
+        };
+
+        let readiness = hardware_acceleration_readiness_without_selection(policy, &report);
+
+        assert_eq!(
+            readiness.status,
+            HardwareAccelerationReadinessStatus::Unavailable
+        );
+        assert_eq!(
+            readiness.reason,
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy
+        );
+        assert_eq!(readiness.requested, HardwareAcceleration::QuickSync);
+        assert_eq!(readiness.selected, HardwareAcceleration::QuickSync);
+        assert!(!readiness.fallback_used);
+    }
+
+    #[test]
+    fn hardware_readiness_preserves_probe_failure_reason_for_cpu_fallback() {
+        let report = HardwareAccelerationReport {
+            capabilities: vec![HardwareAccelerationCapability {
+                accelerator: HardwareAcceleration::Vaapi,
+                available: false,
+                device: None,
+                reason: Some("ffmpeg hardware capability probe failed".to_owned()),
+                encoder_discovery: HardwareEncoderDiscovery::probe_error(
+                    "failed to run ffmpeg hardware capability probe: denied",
+                ),
+                device_initialization: HardwareDeviceInitialization::not_run(
+                    HardwareAcceleration::Vaapi,
+                ),
+                smoke_probe: HardwareSmokeProbe::not_run(HardwareAcceleration::Vaapi),
+            }],
+        };
+        let policy = HardwareAccelerationPolicy {
+            requested: HardwareAcceleration::Vaapi,
+            fallback: HardwareAccelerationFallback::Cpu,
+        };
+        let selection = select_hardware_acceleration(policy, &report).unwrap();
+
+        let readiness = hardware_acceleration_readiness(policy, &selection, &report);
+
+        assert_eq!(
+            readiness.status,
+            HardwareAccelerationReadinessStatus::Degraded
+        );
+        assert_eq!(
+            readiness.reason,
+            HardwareAccelerationReadinessReason::ProbeError
+        );
+        assert_eq!(readiness.selected, HardwareAcceleration::None);
+        assert!(readiness.fallback_used);
     }
 
     #[test]

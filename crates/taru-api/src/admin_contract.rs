@@ -227,6 +227,15 @@ export interface AdminPlaybackSessionListResponse {
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
+  readiness: {
+    status: string;
+    reason: string;
+    checks: Array<{
+      name: string;
+      status: string;
+      reason: string;
+    }>;
+  };
   ffmpeg: {
     probe_status: string;
     has_probe_error: boolean;

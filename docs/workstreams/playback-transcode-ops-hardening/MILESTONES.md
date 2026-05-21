@@ -21,6 +21,8 @@ Primary evidence:
 
 ## M1 — Runtime Readiness Contract
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
 - Admin playback runtime diagnostics include a stable readiness classification
@@ -36,6 +38,8 @@ Primary evidence:
 - `crates/taru-server/src/http/tests/system.rs`
 
 ## M2 — Validation And Fallback Reasons
+
+Status: completed on 2026-05-22.
 
 Exit criteria:
 

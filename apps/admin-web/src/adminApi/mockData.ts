@@ -246,6 +246,34 @@ export const mockPlaybackSessions: AdminPlaybackSessionListResponse = {
 export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
   admin_api_version: "v1",
   public_api_version: "v1",
+  readiness: {
+    status: "ready",
+    reason: "ffmpeg_probe_ready",
+    checks: [
+      { name: "ffmpeg_probe", status: "ready", reason: "ffmpeg_probe_ready" },
+      {
+        name: "hardware_acceleration",
+        status: "ready",
+        reason: "requested_accelerator_ready",
+      },
+      {
+        name: "selected_fallback",
+        status: "ready",
+        reason: "selected_acceleration_ready",
+      },
+      {
+        name: "transcode_budget",
+        status: "ready",
+        reason: "transcode_budget_ready",
+      },
+      {
+        name: "remote_playback_budget",
+        status: "ready",
+        reason: "remote_playback_budget_ready",
+      },
+      { name: "staging", status: "ready", reason: "staging_ready" },
+    ],
+  },
   ffmpeg: {
     probe_status: "ready",
     has_probe_error: false,

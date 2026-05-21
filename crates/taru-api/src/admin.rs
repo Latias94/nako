@@ -10,7 +10,9 @@ use taru_core::{
     TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use taru_transcode::{
-    HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
+    HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationReadiness,
+    HardwareAccelerationReadinessReason, HardwareAccelerationReadinessStatus,
+    HardwareAccelerationSelection,
 };
 
 use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
@@ -316,12 +318,181 @@ impl AdminPlaybackSessionListItem {
 pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
+    pub readiness: AdminPlaybackReadinessDiagnostics,
     pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
     pub hardware: AdminPlaybackHardwareDiagnostics,
     pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackReadinessDiagnostics {
+    pub status: AdminPlaybackReadinessStatus,
+    pub reason: AdminPlaybackReadinessReason,
+    pub checks: Vec<AdminPlaybackReadinessCheck>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+impl From<HardwareAccelerationReadinessStatus> for AdminPlaybackReadinessStatus {
+    fn from(status: HardwareAccelerationReadinessStatus) -> Self {
+        match status {
+            HardwareAccelerationReadinessStatus::Ready => Self::Ready,
+            HardwareAccelerationReadinessStatus::Degraded => Self::Degraded,
+            HardwareAccelerationReadinessStatus::Unavailable => Self::Unavailable,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackReadinessReason {
+    Ready,
+    FfmpegProbeReady,
+    CpuRequested,
+    RequestedAcceleratorReady,
+    RequestedAcceleratorUnavailableFallbackToCpu,
+    RequestedAcceleratorUnavailableFailPolicy,
+    ProbeError,
+    DeviceInitializationFailed,
+    SmokeProbeFailed,
+    SelectedAccelerationReady,
+    CpuFallbackActive,
+    TranscodeBudgetReady,
+    TranscodeBudgetClamped,
+    RemotePlaybackBudgetReady,
+    RemotePlaybackBudgetClamped,
+    StagingReady,
+    StagingBudgetDisabled,
+}
+
+impl From<HardwareAccelerationReadinessReason> for AdminPlaybackReadinessReason {
+    fn from(reason: HardwareAccelerationReadinessReason) -> Self {
+        match reason {
+            HardwareAccelerationReadinessReason::CpuRequested => Self::CpuRequested,
+            HardwareAccelerationReadinessReason::RequestedAcceleratorReady => {
+                Self::RequestedAcceleratorReady
+            }
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu => {
+                Self::RequestedAcceleratorUnavailableFallbackToCpu
+            }
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
+                Self::RequestedAcceleratorUnavailableFailPolicy
+            }
+            HardwareAccelerationReadinessReason::ProbeError => Self::ProbeError,
+            HardwareAccelerationReadinessReason::DeviceInitializationFailed => {
+                Self::DeviceInitializationFailed
+            }
+            HardwareAccelerationReadinessReason::SmokeProbeFailed => Self::SmokeProbeFailed,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackReadinessCheck {
+    pub name: AdminPlaybackReadinessCheckName,
+    pub status: AdminPlaybackReadinessStatus,
+    pub reason: AdminPlaybackReadinessReason,
+}
+
+impl AdminPlaybackReadinessCheck {
+    #[must_use]
+    pub const fn ready(
+        name: AdminPlaybackReadinessCheckName,
+        reason: AdminPlaybackReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminPlaybackReadinessStatus::Ready,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn degraded(
+        name: AdminPlaybackReadinessCheckName,
+        reason: AdminPlaybackReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminPlaybackReadinessStatus::Degraded,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn unavailable(
+        name: AdminPlaybackReadinessCheckName,
+        reason: AdminPlaybackReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminPlaybackReadinessStatus::Unavailable,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub fn from_hardware(readiness: HardwareAccelerationReadiness) -> Self {
+        Self {
+            name: AdminPlaybackReadinessCheckName::HardwareAcceleration,
+            status: readiness.status.into(),
+            reason: readiness.reason.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackReadinessCheckName {
+    FfmpegProbe,
+    HardwareAcceleration,
+    SelectedFallback,
+    TranscodeBudget,
+    RemotePlaybackBudget,
+    Staging,
+}
+
+impl AdminPlaybackReadinessDiagnostics {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminPlaybackReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminPlaybackReadinessStatus::Unavailable)
+        {
+            AdminPlaybackReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminPlaybackReadinessStatus::Degraded)
+        {
+            AdminPlaybackReadinessStatus::Degraded
+        } else {
+            AdminPlaybackReadinessStatus::Ready
+        };
+        let reason = checks
+            .iter()
+            .find(|check| check.status == status)
+            .map_or(AdminPlaybackReadinessReason::Ready, |check| check.reason);
+
+        Self {
+            status,
+            reason,
+            checks,
+        }
+    }
+
+    #[must_use]
+    pub fn from_hardware(readiness: HardwareAccelerationReadiness) -> Self {
+        Self::from_checks(vec![AdminPlaybackReadinessCheck::from_hardware(readiness)])
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1144,6 +1315,16 @@ mod tests {
         let response = AdminPlaybackRuntimeDiagnosticsResponse {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
             public_api_version: API_VERSION.to_owned(),
+            readiness: AdminPlaybackReadinessDiagnostics::from_checks(vec![
+                AdminPlaybackReadinessCheck::degraded(
+                    AdminPlaybackReadinessCheckName::FfmpegProbe,
+                    AdminPlaybackReadinessReason::ProbeError,
+                ),
+                AdminPlaybackReadinessCheck::ready(
+                    AdminPlaybackReadinessCheckName::TranscodeBudget,
+                    AdminPlaybackReadinessReason::TranscodeBudgetReady,
+                ),
+            ]),
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Degraded,
                 has_probe_error: true,
@@ -1215,6 +1396,11 @@ mod tests {
         let body = value.to_string();
 
         assert_eq!(value["admin_api_version"], "v1");
+        assert_eq!(value["readiness"]["status"], "degraded");
+        assert_eq!(value["readiness"]["reason"], "probe_error");
+        assert_eq!(value["readiness"]["checks"][0]["name"], "ffmpeg_probe");
+        assert_eq!(value["readiness"]["checks"][0]["status"], "degraded");
+        assert_eq!(value["readiness"]["checks"][1]["name"], "transcode_budget");
         assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
         assert_eq!(value["hardware"]["policy"]["requested"], "nvenc");
         assert_eq!(value["hardware"]["selection"]["acceleration"], "none");

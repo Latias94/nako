@@ -7,9 +7,11 @@
   "scope_kind": "execution",
   "problem": "Playback and transcode runtime foundations exist, but operators still need stable readiness, validation, fallback, failure-taxonomy, and redacted support evidence to diagnose playback issues safely.",
   "task_prefix": "PTOH",
-  "current_task": "PTOH-020",
+  "current_task": "PTOH-040",
   "completed_tasks": [
-    "PTOH-010"
+    "PTOH-010",
+    "PTOH-020",
+    "PTOH-030"
   ],
   "authoritative_docs": [
     {
@@ -44,6 +46,7 @@
     "cargo nextest run -p taru-streaming --no-fail-fast",
     "cargo check -p taru-api --tests",
     "cargo nextest run -p taru-api admin_playback --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
     "cargo check -p taru-server --tests",
     "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
     "git diff --check",
@@ -57,12 +60,17 @@
     "docs/workstreams/playback-streaming/README.md",
     "docs/workstreams/admin-playback-runtime-diagnostics/DESIGN.md",
     "crates/taru-transcode/src/hardware.rs",
+    "crates/taru-transcode/src/lib.rs",
+    "crates/taru-transcode/src/plan.rs",
     "crates/taru-transcode/src/profile.rs",
     "crates/taru-transcode/src/ffmpeg.rs",
     "crates/taru-streaming/src",
     "crates/taru-server/src/app/playback",
     "crates/taru-server/src/http/admin.rs",
-    "crates/taru-api/src/admin.rs"
+    "crates/taru-server/src/http/tests",
+    "crates/taru-api/src/admin.rs",
+    "crates/taru-api/src/admin_contract.rs",
+    "apps/admin-web/src/adminApi/generated/contract.ts"
   ],
   "adr_refs": [
     "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
@@ -71,7 +79,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTOH-020",
-    "notes": "Continue with an Admin-only playback runtime readiness contract. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
+    "next_task": "PTOH-040",
+    "notes": "PTOH-020 completed an Admin-only playback runtime readiness contract. PTOH-030 completed playback transcode profile/plan validation before session creation. Continue with session failure taxonomy. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
   }
 }

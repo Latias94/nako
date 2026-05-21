@@ -1490,6 +1490,27 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         diagnostics.ffmpeg.probe_status,
         AdminPlaybackRuntimeStatus::Ready
     );
+    assert_eq!(
+        diagnostics.readiness.status,
+        AdminPlaybackReadinessStatus::Ready
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        AdminPlaybackReadinessReason::FfmpegProbeReady
+    );
+    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::HardwareAcceleration
+        && check.reason == AdminPlaybackReadinessReason::RequestedAcceleratorReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::TranscodeBudget
+        && check.reason == AdminPlaybackReadinessReason::TranscodeBudgetReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::RemotePlaybackBudget
+        && check.reason == AdminPlaybackReadinessReason::RemotePlaybackBudgetReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::Staging
+        && check.reason == AdminPlaybackReadinessReason::StagingReady));
     assert!(!diagnostics.ffmpeg.has_probe_error);
     assert_eq!(diagnostics.ffmpeg.hardware_capability_count, 4);
     assert_eq!(diagnostics.ffmpeg.available_gpu_capabilities, 3);
@@ -1549,6 +1570,116 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(diagnostics.staging.max_bytes, 123_456);
     assert_eq!(diagnostics.staging.retention_ms, 654_321);
     assert!(diagnostics.staging.cleanup_on_startup);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!body.contains("secret-cache"));
+    assert!(!body.contains("ffmpeg_path"));
+    assert!(!body.contains("remux_staging_root"));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("token"));
+}
+
+#[tokio::test]
+async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let ffmpeg_path =
+        fake_ffmpeg_encoder_script(temp.path(), "runtime-cpu-fallback", &[" V..... libx264"]);
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 3,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 90_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig {
+            hardware_acceleration: taru_transcode::HardwareAcceleration::Nvenc,
+            hardware_fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 0,
+            gpu_concurrency: 0,
+        },
+        staging: StagingConfig {
+            max_bytes: 123_456,
+            retention_ms: 654_321,
+            cleanup_on_startup: true,
+        },
+        playback: PlaybackConfig {
+            remote_stream_concurrency: 0,
+            remote_stage_concurrency: 0,
+        },
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    let router = build_router(app);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/runtime")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminPlaybackRuntimeDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.readiness.status,
+        AdminPlaybackReadinessStatus::Degraded
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        AdminPlaybackReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
+    );
+    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::HardwareAcceleration
+        && check.reason
+            == AdminPlaybackReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::SelectedFallback
+        && check.reason == AdminPlaybackReadinessReason::CpuFallbackActive));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::TranscodeBudget
+        && check.reason == AdminPlaybackReadinessReason::TranscodeBudgetClamped));
+    assert_eq!(
+        diagnostics.hardware.selection.acceleration,
+        taru_transcode::HardwareAcceleration::None
+    );
+    assert!(diagnostics.hardware.selection.fallback_used);
+    assert_eq!(diagnostics.transcode.effective_cpu_slots, 1);
+    assert_eq!(diagnostics.transcode.effective_gpu_slots, 1);
+    assert_eq!(diagnostics.remote_playback.stream_permits_max, 1);
+    assert_eq!(diagnostics.remote_playback.stage_permits_max, 1);
 
     assert!(!body.contains(&temp.path().display().to_string()));
     assert!(!body.contains(&ffmpeg_path.display().to_string()));

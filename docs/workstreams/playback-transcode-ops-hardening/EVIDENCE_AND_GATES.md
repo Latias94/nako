@@ -14,6 +14,7 @@ cargo nextest run -p taru-transcode --no-fail-fast
 cargo nextest run -p taru-streaming --no-fail-fast
 cargo check -p taru-api --tests
 cargo nextest run -p taru-api admin_playback --no-fail-fast
+cargo nextest run -p taru-api admin_contract --no-fail-fast
 cargo check -p taru-server --tests
 cargo nextest run -p taru-server http::tests::system --no-fail-fast
 git diff --check
@@ -50,6 +51,8 @@ git diff --check
 | Date | Task | Command / Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-22 | PTOH-010 | `python -m json.tool docs/workstreams/playback-transcode-ops-hardening/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check` | Pass. Scope is runtime/readiness/diagnostics only; implementation starts at PTOH-020. `git diff --check` emitted only repository CRLF conversion warnings. |
+| 2026-05-22 | PTOH-020 | `cargo nextest run -p taru-transcode hardware --no-fail-fast`; `cargo nextest run -p taru-server admin_v1_playback_runtime --no-fail-fast`; `cargo nextest run -p taru-api admin_playback --no-fail-fast`; `cargo check -p taru-api --tests`; `cargo check -p taru-server --tests`; `cargo nextest run -p taru-api admin_contract --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. `taru-transcode` hardware tests: 9 passed. Admin playback runtime HTTP tests: 2 passed. Admin playback DTO tests: 2 passed. Admin contract tests: 5 passed. API/server test checks passed. Formatting passed. Public client protocol had no changed files. `git diff --check` emitted only repository CRLF conversion warnings. |
+| 2026-05-22 | PTOH-030 | `cargo nextest run -p taru-transcode --no-fail-fast`; `cargo nextest run -p taru-streaming --no-fail-fast`; `cargo nextest run -p taru-server playback --no-fail-fast`; `cargo nextest run -p taru-api admin_playback --no-fail-fast`; `cargo nextest run -p taru-api admin_contract --no-fail-fast`; `cargo fmt --all -- --check`; `python -m json.tool docs/workstreams/playback-transcode-ops-hardening/WORKSTREAM.json`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. `taru-transcode`: 35 passed. `taru-streaming`: 10 passed. Focused server playback/app/admin runtime coverage: 49 passed. Admin playback DTO tests: 2 passed. Admin contract tests: 5 passed. Formatting and JSON validation passed. Public client protocol had no changed files. `git diff --check` emitted only repository CRLF conversion warnings. |
 
 ## Redaction Checklist
 

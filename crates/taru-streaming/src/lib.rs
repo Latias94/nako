@@ -217,6 +217,28 @@ mod tests {
     }
 
     #[test]
+    fn playback_profile_rejects_invalid_runtime_selected_hardware_plan() {
+        let profile = PlaybackProfile::from_context(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+        );
+        let plan = taru_transcode::TranscodePlan {
+            input_locator: "local:///demo.mkv".to_owned(),
+            output_container: taru_transcode::OutputContainer::Hls,
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: taru_transcode::HardwareAcceleration::Nvenc,
+        };
+
+        let err = profile
+            .try_hls_transcode_profile(&plan, taru_transcode::HardwareAcceleration::Nvenc)
+            .unwrap_err();
+
+        assert!(err.to_string().contains("hardware acceleration selection"));
+        assert!(!err.to_string().contains("local:///"));
+    }
+
+    #[test]
     fn direct_play_response_plan_handles_full_empty_and_partial_ranges() {
         let empty = plan_direct_play_response(0, "video/mp4", DirectPlayRangeRequest::None);
         assert_eq!(empty.status, DirectPlayResponseStatus::Ok);

@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-use taru_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamKind};
+use taru_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamKind, Result};
 use taru_transcode::{
     HardwareAcceleration, HlsTranscodeProfile, OutputContainer, RemuxContainer,
     RemuxTranscodeProfile, TranscodePlan, TranscodeProfile, TranscodeTrackSelection,
+    validate_playback_transcode_plan, validate_transcode_profile,
 };
 
 use super::direct::content_type_for_file_name;
@@ -128,12 +129,22 @@ impl PlaybackProfile {
 
     #[must_use]
     pub fn remux_transcode_profile(&self, output_container: RemuxContainer) -> TranscodeProfile {
-        TranscodeProfile::remux(RemuxTranscodeProfile {
+        self.try_remux_transcode_profile(output_container)
+            .expect("playback remux profile must be valid")
+    }
+
+    pub fn try_remux_transcode_profile(
+        &self,
+        output_container: RemuxContainer,
+    ) -> Result<TranscodeProfile> {
+        let profile = TranscodeProfile::remux(RemuxTranscodeProfile {
             output_container,
             track_selection: self.track_selection(),
             remote_input: self.storage.remote,
             playback_profile_key: self.identity().persisted_request_key().to_owned(),
-        })
+        });
+        validate_transcode_profile(&profile)?;
+        Ok(profile)
     }
 
     #[must_use]
@@ -142,7 +153,17 @@ impl PlaybackProfile {
         plan: &TranscodePlan,
         hardware_acceleration: HardwareAcceleration,
     ) -> TranscodeProfile {
-        TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+        self.try_hls_transcode_profile(plan, hardware_acceleration)
+            .expect("playback hls profile must be valid")
+    }
+
+    pub fn try_hls_transcode_profile(
+        &self,
+        plan: &TranscodePlan,
+        hardware_acceleration: HardwareAcceleration,
+    ) -> Result<TranscodeProfile> {
+        validate_playback_transcode_plan(plan)?;
+        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: plan.video_codec.clone(),
             audio_codec: plan.audio_codec.clone(),
             hardware_acceleration,
@@ -151,7 +172,9 @@ impl PlaybackProfile {
             prefer_hdr: self.preferences.prefer_hdr,
             remote_input: self.storage.remote,
             playback_profile_key: self.identity().persisted_request_key().to_owned(),
-        })
+        });
+        validate_transcode_profile(&profile)?;
+        Ok(profile)
     }
 }
 

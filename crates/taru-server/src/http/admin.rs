@@ -23,6 +23,8 @@ use taru_api::{
         AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
         AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
         AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
+        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
+        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
         AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
         AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
         AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
@@ -43,7 +45,7 @@ use taru_core::{
 use taru_db::{DatabaseBackendCapabilities, TaruDatabase};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
-    HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus,
+    HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, hardware_acceleration_readiness,
 };
 
 use crate::{
@@ -681,12 +683,10 @@ pub(super) async fn get_admin_playback_runtime(
         .iter()
         .map(hardware_capability_diagnostic)
         .collect::<Vec<_>>();
-    let has_probe_error = capabilities.iter().any(|capability| {
+    let has_ffmpeg_probe_error = capabilities.iter().any(|capability| {
         matches!(
             capability.reason_code,
             AdminPlaybackHardwareCapabilityReason::ProbeError
-                | AdminPlaybackHardwareCapabilityReason::DeviceInitializationFailed
-                | AdminPlaybackHardwareCapabilityReason::SmokeProbeFailed
         )
     });
     let available_gpu_capabilities = capabilities
@@ -695,16 +695,49 @@ pub(super) async fn get_admin_playback_runtime(
         .count();
     let transcode_budget = playback.transcode_budget.bounded();
 
+    let remote_playback = remote_budget_summary(
+        storage,
+        playback.remote_stream_concurrency,
+        playback.remote_stage_concurrency,
+    );
+    let staging = AdminPlaybackStagingDiagnostics {
+        max_bytes: playback.staging_max_bytes,
+        retention_ms: playback.staging_retention_ms,
+        cleanup_on_startup: playback.staging_cleanup_on_startup,
+        startup_deleted_records: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
+        startup_deleted_files: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+    };
+    let readiness = playback_readiness_diagnostics(
+        has_ffmpeg_probe_error,
+        hardware_acceleration_readiness(
+            playback.hardware_policy,
+            &playback.hardware_selection,
+            &playback.hardware_report,
+        ),
+        playback.hardware_selection.fallback_used,
+        playback.transcode_budget,
+        transcode_budget,
+        &remote_playback,
+        &staging,
+    );
+
     Json(AdminPlaybackRuntimeDiagnosticsResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
+        readiness,
         ffmpeg: AdminPlaybackFfmpegDiagnostics {
-            probe_status: if has_probe_error {
+            probe_status: if has_ffmpeg_probe_error {
                 AdminPlaybackRuntimeStatus::Degraded
             } else {
                 AdminPlaybackRuntimeStatus::Ready
             },
-            has_probe_error,
+            has_probe_error: has_ffmpeg_probe_error,
             hardware_capability_count: usize_to_u32(capabilities.len()),
             available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
         },
@@ -724,24 +757,8 @@ pub(super) async fn get_admin_playback_runtime(
             max_concurrent_sessions: playback.remux_concurrency,
             timeout_ms: playback.remux_timeout_ms,
         },
-        remote_playback: remote_budget_summary(
-            storage,
-            playback.remote_stream_concurrency,
-            playback.remote_stage_concurrency,
-        ),
-        staging: AdminPlaybackStagingDiagnostics {
-            max_bytes: playback.staging_max_bytes,
-            retention_ms: playback.staging_retention_ms,
-            cleanup_on_startup: playback.staging_cleanup_on_startup,
-            startup_deleted_records: startup
-                .staging_cleanup
-                .as_ref()
-                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
-            startup_deleted_files: startup
-                .staging_cleanup
-                .as_ref()
-                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
-        },
+        remote_playback,
+        staging,
     })
 }
 
@@ -972,6 +989,77 @@ fn remote_budget_summary(
         stage_permits_max: stage_permits_max.max(configured_stage_permits),
         state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
     }
+}
+
+fn playback_readiness_diagnostics(
+    has_probe_error: bool,
+    hardware_readiness: taru_transcode::HardwareAccelerationReadiness,
+    fallback_used: bool,
+    configured_budget: taru_transcode::TranscodeResourceBudget,
+    effective_budget: taru_transcode::TranscodeResourceBudget,
+    remote_playback: &AdminPlaybackRemoteBudgetDiagnostics,
+    staging: &AdminPlaybackStagingDiagnostics,
+) -> AdminPlaybackReadinessDiagnostics {
+    AdminPlaybackReadinessDiagnostics::from_checks(vec![
+        if has_probe_error {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::FfmpegProbe,
+                AdminPlaybackReadinessReason::ProbeError,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::FfmpegProbe,
+                AdminPlaybackReadinessReason::FfmpegProbeReady,
+            )
+        },
+        AdminPlaybackReadinessCheck::from_hardware(hardware_readiness),
+        if fallback_used {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::SelectedFallback,
+                AdminPlaybackReadinessReason::CpuFallbackActive,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::SelectedFallback,
+                AdminPlaybackReadinessReason::SelectedAccelerationReady,
+            )
+        },
+        if configured_budget.cpu_slots == effective_budget.cpu_slots
+            && configured_budget.gpu_slots == effective_budget.gpu_slots
+        {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::TranscodeBudget,
+                AdminPlaybackReadinessReason::TranscodeBudgetReady,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::TranscodeBudget,
+                AdminPlaybackReadinessReason::TranscodeBudgetClamped,
+            )
+        },
+        if remote_playback.stream_permits_max > 0 && remote_playback.stage_permits_max > 0 {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::RemotePlaybackBudget,
+                AdminPlaybackReadinessReason::RemotePlaybackBudgetReady,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::RemotePlaybackBudget,
+                AdminPlaybackReadinessReason::RemotePlaybackBudgetClamped,
+            )
+        },
+        if staging.max_bytes > 0 {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::Staging,
+                AdminPlaybackReadinessReason::StagingReady,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::unavailable(
+                AdminPlaybackReadinessCheckName::Staging,
+                AdminPlaybackReadinessReason::StagingBudgetDisabled,
+            )
+        },
+    ])
 }
 
 fn usize_to_u32(value: usize) -> u32 {

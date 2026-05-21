@@ -17,7 +17,7 @@ Task IDs use the `PTOH` prefix.
 
 ## M1 — Runtime Readiness Contract
 
-- [ ] PTOH-020 [owner=unassigned] [deps=PTOH-010] [scope=crates/taru-transcode/src/hardware.rs,crates/taru-server/src/app/playback,crates/taru-server/src/http/admin.rs,crates/taru-api/src/admin.rs]
+- [x] PTOH-020 [owner=codex] [deps=PTOH-010] [scope=crates/taru-transcode/src/hardware.rs,crates/taru-transcode/src/lib.rs,crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests,apps/admin-web/src/adminApi/generated/contract.ts,apps/admin-web/src/adminApi/mockData.ts]
   Goal: Add or refine a stable Admin-only playback runtime readiness contract
   that classifies FFmpeg probe, hardware acceleration, selected fallback,
   transcode budget, remote playback budget, and staging prerequisites without
@@ -26,12 +26,15 @@ Task IDs use the `PTOH` prefix.
   `cargo nextest run -p taru-server admin_v1_playback_runtime --no-fail-fast`;
   `cargo nextest run -p taru-api admin_playback --no-fail-fast`.
   Review: `review-workstream` before accepting completion.
-  Evidence: updated Admin playback runtime diagnostics tests and DTOs.
-  Handoff: Keep the route read-only and Admin-owned.
+  Evidence: `HardwareAccelerationReadiness`,
+  `AdminPlaybackReadinessDiagnostics`, `GET /admin/v1/playback/runtime`
+  tests, and Admin TypeScript contract sync.
+  Handoff: PTOH-020 is DONE. Continue with PTOH-030 validation and fallback
+  reason hardening.
 
 ## M2 — Validation And Fallback Reasons
 
-- [ ] PTOH-030 [owner=unassigned] [deps=PTOH-020] [scope=crates/taru-transcode/src/profile.rs,crates/taru-transcode/src/plan.rs,crates/taru-transcode/src/ffmpeg.rs,crates/taru-transcode/src/hardware.rs,crates/taru-streaming/src,crates/taru-server/src/app/playback]
+- [x] PTOH-030 [owner=codex] [deps=PTOH-020] [scope=crates/taru-transcode/src/profile.rs,crates/taru-transcode/src/plan.rs,crates/taru-streaming/src,crates/taru-server/src/app/playback]
   Goal: Validate playback transcode request/profile facts before session
   creation or execution, and replace fragile fallback strings with stable
   reason categories plus redacted operator messages.
@@ -40,9 +43,10 @@ Task IDs use the `PTOH` prefix.
   focused playback app tests if server composition changes.
   Review: `review-workstream` must check that validation stays in the narrowest
   owning crate and does not create Public Client API churn.
-  Evidence: validation tests for invalid profile/request combinations and
-  fallback reason categories.
-  Handoff: If the work becomes a full Transcode Profile feature, split it.
+  Evidence: `TranscodeProfileValidationReason`,
+  `TranscodePlanValidationReason`, `PlaybackProfile::try_*_transcode_profile`,
+  playback app pre-session validation call sites, and redaction-focused tests.
+  Handoff: PTOH-030 is DONE. Continue with PTOH-040 session failure taxonomy.
 
 ## M3 — Session Failure Taxonomy
 
