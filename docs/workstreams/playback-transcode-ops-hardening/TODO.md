@@ -1,6 +1,6 @@
 # Playback Transcode Ops Hardening — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `PTOH` prefix.
@@ -85,7 +85,7 @@ Task IDs use the `PTOH` prefix.
 
 ## M5 — Closeout And Parent Re-Score
 
-- [ ] PTOH-060 [owner=planner] [deps=PTOH-050] [scope=docs/workstreams/playback-transcode-ops-hardening,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+- [x] PTOH-060 [owner=planner] [deps=PTOH-050] [scope=docs/workstreams/playback-transcode-ops-hardening,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
   Goal: Verify final gates, close or split follow-ons, and re-score
   downloads/watch-folder, network, AI, and addon runtime in the post-RPD
   umbrella.
@@ -95,4 +95,7 @@ Task IDs use the `PTOH` prefix.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
   closeout/re-score notes.
-  Handoff: Return to `post-rpd-product-hardening` with the next lane decision.
+  Handoff: DONE. Returned to `post-rpd-product-hardening`; PRPH-120 opened
+  `downloads-watch-folder-intake`. Continue with DWI-020. Network remains a
+  high-value sidecar; AI and Addon runtime stay downstream consumers of
+  accepted Taru-owned boundaries.

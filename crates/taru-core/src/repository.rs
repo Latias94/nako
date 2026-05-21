@@ -1,3 +1,4 @@
+mod acquisition_intake;
 mod addon;
 mod automation;
 mod catalog;
@@ -17,6 +18,7 @@ mod user_playback;
 mod vfs;
 mod webhook;
 
+pub use acquisition_intake::*;
 pub use addon::*;
 pub use automation::*;
 pub use catalog::*;

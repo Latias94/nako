@@ -1,6 +1,6 @@
 # Playback Transcode Ops Hardening
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Purpose
@@ -18,12 +18,14 @@ reading local paths, FFmpeg command lines, logs, or secrets.
 
 ## Current Decision
 
-PTOH-010 opens the lane as the next mainline child of
-`post-rpd-product-hardening`.
+This lane is complete. PTOH-020 through PTOH-050 shipped a runtime/readiness,
+validation/fallback, failure-taxonomy, and bounded Admin support evidence
+surface for Playback Runtime supportability. PTOH-060 closes the lane and
+returns routing to `post-rpd-product-hardening`.
 
-The first executable task is PTOH-020: define and prove a stable playback
-runtime readiness contract on top of the existing Admin playback runtime
-diagnostics and `taru-transcode` hardware evidence.
+Downloadable support bundles, Admin UI workflows, adaptive ladders, optimized
+versions, downloader/watch-folder acquisition, network traversal, AI, and Addon
+runtime behavior remain split follow-ons.
 
 ## Authoritative Docs
 

@@ -25,6 +25,7 @@ async fn taru_database_postgres_runtime_capabilities_include_managed_artwork() {
         DatabaseBackendCapabilities::postgres_supported_scope(),
         DatabaseBackendCapabilities {
             lifecycle: true,
+            acquisition_intake: true,
             libraries: true,
             jobs: true,
             job_leases: true,

@@ -2,18 +2,19 @@
   "schema_version": 1,
   "slug": "playback-transcode-ops-hardening",
   "title": "Playback Transcode Ops Hardening",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "execution",
   "problem": "Playback and transcode runtime foundations exist, but operators still need stable readiness, validation, fallback, failure-taxonomy, and redacted support evidence to diagnose playback issues safely.",
   "task_prefix": "PTOH",
-  "current_task": "PTOH-060",
+  "current_task": null,
   "completed_tasks": [
     "PTOH-010",
     "PTOH-020",
     "PTOH-030",
     "PTOH-040",
-    "PTOH-050"
+    "PTOH-050",
+    "PTOH-060"
   ],
   "authoritative_docs": [
     {
@@ -86,8 +87,8 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "PTOH-060",
-    "notes": "PTOH-020 completed an Admin-only playback runtime readiness contract. PTOH-030 completed playback transcode profile/plan validation before session creation. PTOH-040 completed session failure taxonomy with redacted persisted/operator messages and public client coarse-category compatibility. PTOH-050 completed an Admin-only support evidence read model for runtime/session/source context with redaction, mismatched context rejection, Admin contract sync, and no public client protocol changes. Continue with closeout and parent umbrella re-score. Keep the lane runtime/diagnostic-focused and split public client changes, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, downloader/watch-folder work, network access, AI, or Addon runtime changes into separate workstreams."
+    "default_action": "return_to_parent",
+    "next_task": "downloads-watch-folder-intake DWI-020",
+    "notes": "Playback/Transcode Ops Hardening is complete. PTOH-020 shipped Admin-only playback runtime readiness. PTOH-030 shipped pre-session transcode profile/plan validation and typed fallback reasons. PTOH-040 shipped session failure taxonomy with redacted persisted/operator messages and public client coarse-category compatibility. PTOH-050 shipped Admin-only support evidence for runtime/session/source context with redaction, mismatched context rejection, Admin contract sync, and no public client protocol changes. PTOH-060 closed the lane and re-scored the parent umbrella. PRPH-120 opened downloads-watch-folder-intake as staged artifact acquisition; continue with DWI-020. Keep support bundles/UI, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, distributed transcode, network access, AI, and Addon runtime as split follow-ons."
   }
 }

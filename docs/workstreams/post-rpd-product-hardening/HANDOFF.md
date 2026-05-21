@@ -22,24 +22,25 @@ Promotion Apply is now complete with accepted import/export apply, VFS
 write/restore, canonical metadata/local authority, hierarchy confirmation,
 rollback/repair, idempotent replay, and redacted diagnostics. PRPH-090 selects
 Playback/Transcode Ops Hardening as the next mainline lane, and PRPH-100 opens
-`playback-transcode-ops-hardening`.
+`playback-transcode-ops-hardening`. Playback/Transcode Ops Hardening is now
+complete with Admin runtime readiness, pre-session validation, failure
+taxonomy, and bounded Admin support evidence. PRPH-110 selects
+downloads/watch-folder intake as the next mainline lane. PRPH-120 opens
+`downloads-watch-folder-intake`.
 
 ## Active Task
 
-- Task ID: PTOH-020
+- Task ID: DWI-030
 - Owner: unassigned
-- Files: `docs/workstreams/playback-transcode-ops-hardening`,
-  `crates/taru-transcode/src/hardware.rs`,
-  `crates/taru-server/src/app/playback`,
-  `crates/taru-server/src/http/admin.rs`,
-  `crates/taru-api/src/admin.rs`
-- Validation: implement and verify an Admin-only playback runtime readiness
-  contract with diagnostics/runtime gates.
+- Files: `crates/taru-server/src/app`, `crates/taru-server/src/app/tests`
+- Validation: `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`.
 - Status: READY
-- Review: keep scope runtime/diagnostic-focused; do not mix downloader,
-  metadata authority, sidecar apply, or library file mutation into this lane.
-- Evidence: PRPH-090 lane scoring in `DESIGN.md`, PRPH-100 lane open docs, and
-  NSPA closeout evidence.
+- Review: keep acquisition intake separate from network traversal, AI writes,
+  Addon runtime, NFO mutation shortcuts, and playback support follow-ons.
+- Evidence: PRPH-110 lane scoring in `DESIGN.md`,
+  `playback-transcode-ops-hardening` closeout evidence,
+  `downloads-watch-folder-intake` open docs, DWI-020 persistence evidence, and
+  completed staging / promotion / sidecar apply workstreams.
 
 ## Decisions Since Last Update
 
@@ -86,14 +87,25 @@ Playback/Transcode Ops Hardening as the next mainline lane, and PRPH-100 opens
 - `playback-transcode-ops-hardening` is opened. The first executable task is
   PTOH-020, which should harden runtime readiness diagnostics without changing
   Public Client API behavior.
+- `playback-transcode-ops-hardening` is complete. It stayed Admin-only and
+  runtime/diagnostic-focused, with Public Client API and `taru-client-protocol`
+  unchanged.
+- PRPH-110 selects downloads/watch-folder intake next. The correct shape is
+  staged artifact acquisition and watch-folder candidate discovery; protocol
+  downloaders, direct library writes, network traversal, AI writes, and Addon
+  runtime are separate lanes.
+- PRPH-120 opens `downloads-watch-folder-intake`.
+- DWI-020 durable intake candidate domain/persistence is complete.
 
 ## Blockers
 
-- None for PTOH-020.
+- None for DWI-030.
 
 ## Next Recommended Action
 
-- Execute PTOH-020 in `playback-transcode-ops-hardening`.
-- Keep downloads/watch-folder, network, AI, and addon runtime downstream or
-  parallel only if they consume accepted Taru-owned boundaries and do not
-  introduce new direct mutation paths.
+- Execute DWI-030 in `downloads-watch-folder-intake`.
+- Next slice should add app-service record/list behavior and candidate
+  acceptance into Managed Import artifacts without promotion apply or direct
+  library writes.
+- Keep network as the best sidecar, and keep AI/Addons downstream consumers of
+  accepted Taru-owned boundaries.

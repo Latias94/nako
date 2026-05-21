@@ -10,9 +10,14 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
-  Current next action: execute `playback-transcode-ops-hardening` PTOH-020.
+  Current next action: execute `downloads-watch-folder-intake` DWI-030.
+- [downloads-watch-folder-intake](downloads-watch-folder-intake/README.md):
+  active post-RPD mainline lane for acquisition intake and watch-folder
+  candidate discovery that feeds Managed Import artifacts and accepted
+  promotion/apply workflows without protocol-specific downloader runtime,
+  direct library writes, network traversal, AI writes, or Addon runtime scope.
 - [playback-transcode-ops-hardening](playback-transcode-ops-hardening/README.md):
-  active post-RPD mainline lane for hardening Playback Runtime readiness,
+  completed post-RPD mainline lane for hardening Playback Runtime readiness,
   typed hardware/fallback diagnostics, transcode validation, session failure
   taxonomy, and bounded Admin support evidence without changing metadata,
   NFO, import, downloader, network, AI, or addon mutation boundaries.

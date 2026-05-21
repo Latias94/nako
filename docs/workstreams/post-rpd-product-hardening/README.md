@@ -3,9 +3,10 @@
 ## Status
 
 Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
-`link-apply-and-import-promotion` is complete; `nfo-sidecar-promotion-apply`
-is complete. `playback-transcode-ops-hardening` is open as the current
-mainline lane.
+`nfo-link-authority`, `managed-import-staging`,
+`link-apply-and-import-promotion`, `nfo-sidecar-promotion-apply`, and
+`playback-transcode-ops-hardening` are complete. `downloads-watch-folder-intake`
+is open as the current mainline lane.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -35,18 +36,18 @@ product risk is whether Taru can safely manage a real library:
 4. `link-apply-and-import-promotion`
 5. `nfo-sidecar-promotion-apply`
 6. `playback-transcode-ops-hardening`
-7. `network-access-boundary`
-8. `ai-assisted-library-ops`
-9. `addon-runtime-and-distribution`
+7. `downloads-watch-folder-intake`
+8. `network-access-boundary`
+9. `ai-assisted-library-ops`
+10. `addon-runtime-and-distribution`
 
 ## Current Decision
 
-After NFO sidecar apply proved accepted import/export, VFS write/restore,
-local authority, rollback/repair, and redacted audit boundaries, PRPH-090
-re-scored the roadmap. PRPH-100 opened Playback/Transcode Ops Hardening as the
-current mainline lane because local library mutation boundaries are now proven
-and playback confidence is the highest day-to-day operator risk. The next
-executable task is PTOH-020.
+After Playback/Transcode Ops Hardening closed, PRPH-110 re-scored the remaining
+roadmap. PRPH-120 opened `downloads-watch-folder-intake` as the next mainline
+lane, but only as staged artifact intake that consumes Taru-owned Managed
+Import Staging, Link Apply, NFO Sidecar Apply, and playback support evidence.
+The next executable task is DWI-030.
 
 ## Authoritative Docs
 
@@ -65,6 +66,7 @@ executable task is PTOH-020.
 - [link-apply-and-import-promotion](../link-apply-and-import-promotion/README.md)
 - [nfo-sidecar-promotion-apply](../nfo-sidecar-promotion-apply/README.md)
 - [playback-transcode-ops-hardening](../playback-transcode-ops-hardening/README.md)
+- [downloads-watch-folder-intake](../downloads-watch-folder-intake/README.md)
 - [metadata-catalog](../metadata-catalog/README.md)
 - [transcode-runtime](../transcode-runtime/README.md)
 - [nfo-round-trip-preservation](../nfo-round-trip-preservation/README.md)

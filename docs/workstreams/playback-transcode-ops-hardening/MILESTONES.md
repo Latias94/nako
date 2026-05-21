@@ -1,6 +1,6 @@
 # Playback Transcode Ops Hardening — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## M0 — Scope And Evidence Freeze
@@ -97,13 +97,15 @@ Primary evidence:
 
 ## M5 — Closeout And Parent Re-Score
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Final gates pass with fresh evidence.
-- Workstream status and completed tasks are updated.
-- Parent post-RPD umbrella re-scores downloads/watch-folder, network, AI, and
+- [x] Final gates pass with fresh evidence.
+- [x] Workstream status and completed tasks are updated.
+- [x] Parent post-RPD umbrella re-scores downloads/watch-folder, network, AI, and
   addon runtime.
-- Follow-ons are split rather than hidden in this lane.
+- [x] Follow-ons are split rather than hidden in this lane.
 
 Primary evidence:
 

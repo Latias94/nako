@@ -1,6 +1,6 @@
 # Playback Transcode Ops Hardening Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -147,6 +147,32 @@ This lane is split into vertical slices:
 5. closeout and parent re-score.
 
 Each task must leave a fresh evidence entry before the next task is accepted.
+
+## Closeout Summary — 2026-05-22
+
+The lane closed with the intended operator-supportability contract:
+
+- `GET /admin/v1/playback/runtime` exposes stable readiness checks for FFmpeg
+  probe state, hardware capability, fallback selection, transcode budget,
+  remote playback budget, and staging prerequisites.
+- Playback transcode profile and plan construction reject unsafe or impossible
+  combinations before session identity, staging, or FFmpeg execution.
+- Transcode session failures are categorized by support boundary while public
+  client responses keep their coarse compatibility contract.
+- `GET /admin/v1/playback/support` provides a bounded Admin-only evidence read
+  model for runtime/session/source context without raw Source Locators, local
+  paths, FFmpeg paths, command argv, output paths, raw stderr, fingerprints,
+  secrets, or credentials.
+- Admin TypeScript contract, typed client, mock data, and tests were synced for
+  the Admin API surface only.
+- Public Client API and `taru-client-protocol` remained unchanged.
+
+Residual work is intentionally split:
+
+- downloadable support bundles, retention, and Admin UI workflows;
+- adaptive bitrate ladders and durable Optimized Versions;
+- direct remote FFmpeg credentials or distributed transcode workers;
+- downloader/watch-folder, network access, AI, and Addon runtime lanes.
 
 ## Closeout Condition
 

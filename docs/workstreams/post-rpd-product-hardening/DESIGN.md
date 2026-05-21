@@ -66,9 +66,10 @@ schema/API churn.
 - A durable post-RPD roadmap orders all major product-hardening lanes.
 - The first execution lane, `metadata-provider-breadth`, is closed with fresh
   evidence.
-- The next mainline execution lane is `nfo-link-authority`.
-- Downloads are split as `managed-import-staging`, not implemented as generic
-  acquisition inside core Taru.
+- Completed execution lanes record evidence and closeout before the next lane
+  becomes current.
+- Downloads are split first as staged artifact intake, not implemented as
+  generic acquisition inside core Taru.
 - AI writes enter only as **Generated Artifacts** accepted through Taru-owned
   workflows.
 - Addon distribution remains deferred until metadata/import/file-write
@@ -101,6 +102,7 @@ schema/API churn.
 | NFO And Link Authority | metadata authority, NFO preservation, VFS write policy | safe library file writes, import promotion, interoperability |
 | Playback / Transcode Ops Hardening | RPD preflight, transcode runtime, admin diagnostics | daily playback confidence, support bundles, future profiles |
 | Managed Import Staging | metadata matching, NFO/link authority, artifact storage patterns | safe downloads/acquisition, watch-folder import, addon-proposed artifacts |
+| Downloads / Watch Folder Intake | managed import staging, accepted promotion apply, NFO sidecar apply, playback supportability | safe acquisition candidates without direct library mutation |
 | Network Access Boundary | auth, packaging, release docs | remote clients, tunnel provider integration |
 | AI Assisted Library Ops | metadata/import authority, acceptance workflows | explainable matching/title cleanup without autonomous writes |
 | Addon Runtime / Distribution | addon permissions, side-effect APIs, managed artifact intake | broader ecosystem without core trust-boundary leaks |
@@ -152,10 +154,13 @@ NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply` because it
 is a separate **Library File Write** and metadata-authority workflow. LAIP-080
 closed the promotion apply lane after fresh closeout gates.
 
-### Wave 4 — Network And AI
+### Wave 4 — Acquisition Intake, Network, And AI
 
-Harden remote access endpoints and add AI assistance only after the metadata
-and import acceptance boundaries are trustworthy.
+Open downloads/watch-folder intake after metadata, local file writes, staged
+import, NFO sidecar apply, and playback supportability are trustworthy. Harden
+remote access endpoints as a sidecar when it does not weaken auth or library
+mutation boundaries. Add AI assistance only after generated artifact intake and
+acceptance workflows are explicit.
 
 ### Wave 5 — Addon Runtime / Distribution
 
@@ -353,11 +358,11 @@ mutation.
 
 ## Playback/Transcode Ops Lane Open — 2026-05-22
 
-`playback-transcode-ops-hardening` is now the active mainline execution lane.
+`playback-transcode-ops-hardening` opened as the active mainline execution lane.
 It builds on completed `playback-streaming`, `transcode-runtime`, and
 `admin-playback-runtime-diagnostics` work rather than reopening those baselines.
 
-The next executable slice is PTOH-020: define a stable Admin-only playback
+The first executable slice was PTOH-020: define a stable Admin-only playback
 runtime readiness contract that classifies FFmpeg probe, hardware capability,
 selected fallback, transcode budget, remote playback budget, and staging
 prerequisites without exposing raw paths, Source Locators, FFmpeg command
@@ -365,6 +370,34 @@ lines, output paths, stderr payloads, secrets, or credentials.
 
 Downloads/watch-folder, network, AI, and addon runtime remain downstream or
 parallel only when they consume existing accepted Taru-owned boundaries.
+
+## Post-PTOH Closeout Re-Score — 2026-05-22
+
+`playback-transcode-ops-hardening` is now complete. Taru can report playback
+runtime readiness, explain hardware fallback and validation failures, categorize
+transcode session failures, and provide bounded Admin-only support evidence
+without raw Source Locators, local paths, FFmpeg command lines, output paths,
+raw stderr, fingerprints, secrets, credentials, or Public Client API churn.
+
+That shifts the next product risk back to acquisition breadth. Metadata
+authority, local NFO/link semantics, managed staging, accepted promotion apply,
+NFO sidecar apply, rollback/repair, and playback supportability are now proven
+well enough to accept new candidates, but only if acquisition produces staged
+artifacts and explicit apply plans rather than direct library mutations.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| Downloads / Watch Folder Intake | Highest | Operators need a way to bring files into Taru from watched folders or future download outputs. The safe shape is now clear: discover or accept candidates into Taru-owned staging, produce redacted diagnostics and promotion evidence, and hand off to existing Link Apply and NFO Sidecar Apply workflows. | Open next as the mainline execution lane. Start with intake/domain/watch-folder candidate records, not torrent/Usenet/protocol-specific downloader runtime. |
+| Network Access Boundary | High sidecar | Remote clients matter, and playback supportability is now stronger. This lane can harden endpoint, reverse-proxy, trusted-header, and tunnel-provider policy without touching library mutation. | Safe parallel sidecar after downloads/watch-folder intake is opened, or next if acquisition needs to wait. |
+| AI Assisted Library Ops | Medium downstream | AI can propose match/title/sidecar cleanup as Generated Artifacts, but autonomous writes would bypass accepted metadata/import/sidecar boundaries. | Defer until generated artifact intake and acceptance queues are explicit. |
+| Addon Runtime / Distribution | Medium downstream | Addons have more Taru-owned side-effect APIs to consume, but runtime/distribution still needs scoped permission UX and side-effect routing into proven apply paths. | Defer until acquisition intake and generated artifact/side-effect queues are stable. |
+| Support Bundles / Playback UI | Useful follow-on | PTOH-050 exposes a read model, but not downloadable bundles, retention, or Admin UI workflow. | Split as a playback support follow-on only if operator workflow becomes urgent; do not block acquisition intake. |
+
+PRPH-110 therefore selects downloads/watch-folder intake as the next mainline
+lane. PRPH-120 should open `downloads-watch-folder-intake` with a narrow first
+slice: staged artifact acquisition intake and watch-folder candidate discovery.
+It must not add direct library writes, protocol-specific downloader behavior,
+NFO mutation shortcuts, network traversal, AI writes, or Addon runtime changes.
 
 ## Closeout Condition
 

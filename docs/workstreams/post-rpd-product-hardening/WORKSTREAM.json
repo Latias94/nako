@@ -34,14 +34,16 @@
     "docs/workstreams/managed-import-staging",
     "docs/workstreams/link-apply-and-import-promotion",
     "docs/workstreams/nfo-sidecar-promotion-apply",
-    "docs/workstreams/playback-transcode-ops-hardening"
+    "docs/workstreams/playback-transcode-ops-hardening",
+    "docs/workstreams/downloads-watch-folder-intake"
   ],
   "completed_child_workstreams": [
     "docs/workstreams/metadata-provider-breadth",
     "docs/workstreams/nfo-link-authority",
     "docs/workstreams/managed-import-staging",
     "docs/workstreams/link-apply-and-import-promotion",
-    "docs/workstreams/nfo-sidecar-promotion-apply"
+    "docs/workstreams/nfo-sidecar-promotion-apply",
+    "docs/workstreams/playback-transcode-ops-hardening"
   ],
   "gates": [
     "git diff --check"
@@ -58,7 +60,9 @@
     "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
     "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md",
     "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md",
-    "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md"
+    "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/downloads-watch-folder-intake/DESIGN.md",
+    "docs/workstreams/downloads-watch-folder-intake/EVIDENCE_AND_GATES.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
@@ -70,7 +74,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "playback-transcode-ops-hardening PTOH-020",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, and NFO Sidecar Promotion Apply are completed. PRPH-100 opened Playback/Transcode Ops Hardening as the active mainline lane because local metadata, file-write, staged import, sidecar, rollback, and repair boundaries are now proven, and playback/transcode supportability is the next highest operator risk. Downloads/watch-folder, network, AI, and addon runtime remain downstream or parallel only if they consume existing accepted Taru-owned boundaries."
+    "next_task": "downloads-watch-folder-intake DWI-030",
+    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, and Playback/Transcode Ops Hardening are completed. PRPH-110 re-scored the remaining lanes after playback supportability closed. PRPH-120 opened Downloads / Watch-Folder Intake as staged artifact acquisition that consumes Managed Import Staging, Link Apply, NFO Sidecar Apply, and playback support evidence. DWI-020 durable intake candidate domain/persistence is complete. Execute DWI-030 app-service intake and Managed Import artifact handoff next. Network access is the best parallel sidecar if scoped to endpoint/proxy/tunnel policy. AI and Addon runtime remain downstream consumers of generated artifacts, scoped side-effect APIs, and accepted Taru-owned apply boundaries."
   }
 }

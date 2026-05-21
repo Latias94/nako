@@ -1,6 +1,8 @@
 use std::{future::Future, sync::OnceLock};
 
 use taru_core::{
+    AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
+    AcquisitionIntakeCandidateState, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
     AddonId, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit, AddonPermission,
     AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
     AddonSideEffectTarget, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
@@ -29,18 +31,18 @@ use taru_core::{
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
     MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
-    MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NewAddonGrant,
-    NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
-    NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
-    NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
-    NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
-    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
-    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
-    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
-    RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
+    MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource,
+    NewAcquisitionIntakeCandidate, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect,
+    NewAddonToken, NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig,
+    NewIngestionFailure, NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest,
+    NewManagedImportArtifact, NewManagedImportPromotionApply, NewMetadataProviderAttempt,
+    NewNfoSidecarApply, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
+    NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
+    NfoSidecarApplyId, NfoSidecarApplyOperationKind, NfoSidecarApplyRepository,
+    NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
+    ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
+    ProviderRawResponse, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
+    RecoverExpiredJobLeases, RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
     SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
     StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
@@ -66,6 +68,7 @@ enum ContractFamily {
     ScanCommit,
     MetadataCatalog,
     ManagedArtwork,
+    AcquisitionIntake,
     ManagedImport,
     NfoSidecarApply,
     PlaybackRuntime,
@@ -83,6 +86,7 @@ impl ContractFamily {
             Self::ScanCommit => "scan_commit",
             Self::MetadataCatalog => "metadata_catalog",
             Self::ManagedArtwork => "managed_artwork",
+            Self::AcquisitionIntake => "acquisition_intake",
             Self::ManagedImport => "managed_import",
             Self::NfoSidecarApply => "nfo_sidecar_apply",
             Self::PlaybackRuntime => "playback_runtime",
@@ -323,6 +327,16 @@ impl<T> ManagedImportContractBackend for T where
         + MediaRepository
         + StagingManifestRepository
         + ManagedImportRepository
+{
+}
+
+trait AcquisitionIntakeContractBackend:
+    ManagedImportContractBackend + AcquisitionIntakeRepository
+{
+}
+
+impl<T> AcquisitionIntakeContractBackend for T where
+    T: ManagedImportContractBackend + AcquisitionIntakeRepository
 {
 }
 
@@ -4526,6 +4540,186 @@ where
     assert_eq!(missing, None);
 }
 
+async fn acquisition_intake_contract_round_trips_candidates_and_state<S>(store: S)
+where
+    S: AcquisitionIntakeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let artifact_id = ManagedImportArtifactId::new();
+    store
+        .upsert_managed_import_artifact(NewManagedImportArtifact {
+            id: artifact_id,
+            target_library_id: library.id,
+            source_kind: ManagedImportSourceKind::WatchedCandidate,
+            source_uri: "file:///incoming/Demo.mkv".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Demo.mkv".to_owned()),
+            original_file_name: Some("Demo.mkv".to_owned()),
+            intended_locator: Some("Movies/Demo (2026)/Demo.mkv".to_owned()),
+            size_bytes: Some(120),
+            fingerprint: Some("fingerprint-demo".to_owned()),
+            state: ManagedImportArtifactState::Staged,
+            diagnostics_json: Some(r#"{"redacted":true}"#.to_owned()),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    let id = AcquisitionIntakeCandidateId::new();
+    let source_kind = AcquisitionIntakeSourceKind::WatchFolder;
+    let candidate = NewAcquisitionIntakeCandidate {
+        id,
+        target_library_id: library.id,
+        source_kind: source_kind.clone(),
+        source_key: "watch:incoming/demo.mkv:fingerprint-demo".to_owned(),
+        source_uri: "local:///incoming/Demo.mkv".to_owned(),
+        display_name: Some("Demo.mkv".to_owned()),
+        intended_locator: Some("Movies/Demo (2026)/Demo.mkv".to_owned()),
+        size_bytes: Some(120),
+        fingerprint: Some("fingerprint-demo".to_owned()),
+        managed_import_artifact_id: None,
+        state: AcquisitionIntakeCandidateState::Discovered,
+        diagnostics_json: Some(r#"{"redacted":true,"writes_library":false}"#.to_owned()),
+        first_seen_at_ms: 1_100,
+        last_seen_at_ms: 1_100,
+        created_at_ms: 1_100,
+        updated_at_ms: 1_100,
+    };
+
+    let saved = store
+        .upsert_acquisition_intake_candidate(candidate)
+        .await
+        .unwrap();
+    assert_eq!(saved.id, id);
+    assert_eq!(saved.target_library_id, library.id);
+    assert_eq!(saved.source_kind, source_kind);
+    assert_eq!(saved.source_key, "watch:incoming/demo.mkv:fingerprint-demo");
+    assert_eq!(saved.managed_import_artifact_id, None);
+    assert_eq!(saved.state, AcquisitionIntakeCandidateState::Discovered);
+    assert_eq!(
+        store.get_acquisition_intake_candidate(id).await.unwrap(),
+        Some(saved.clone())
+    );
+    assert_eq!(
+        store
+            .find_acquisition_intake_candidate_by_source_key(
+                library.id,
+                &AcquisitionIntakeSourceKind::WatchFolder,
+                "watch:incoming/demo.mkv:fingerprint-demo",
+            )
+            .await
+            .unwrap(),
+        Some(saved.clone())
+    );
+
+    let ready = store
+        .set_acquisition_intake_candidate_state(
+            id,
+            AcquisitionIntakeCandidateState::Ready,
+            1_200,
+            Some(r#"{"ready":true,"writes_library":false}"#.to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(ready.state, AcquisitionIntakeCandidateState::Ready);
+    assert_eq!(ready.updated_at_ms, 1_200);
+    assert_eq!(
+        ready.diagnostics_json.as_deref(),
+        Some(r#"{"ready":true,"writes_library":false}"#)
+    );
+
+    let accepted = store
+        .link_acquisition_intake_candidate_managed_import_artifact(
+            id,
+            artifact_id,
+            1_300,
+            Some(r#"{"accepted":true,"managed_import_linked":true}"#.to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(accepted.state, AcquisitionIntakeCandidateState::Accepted);
+    assert_eq!(accepted.managed_import_artifact_id, Some(artifact_id));
+    assert_eq!(accepted.updated_at_ms, 1_300);
+
+    let operator_candidate = store
+        .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+            id: AcquisitionIntakeCandidateId::new(),
+            target_library_id: library.id,
+            source_kind: AcquisitionIntakeSourceKind::OperatorSubmitted,
+            source_key: "operator:manual-demo".to_owned(),
+            source_uri: "upload://manual-demo".to_owned(),
+            display_name: Some("Manual Demo.mkv".to_owned()),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state: AcquisitionIntakeCandidateState::Blocked,
+            diagnostics_json: Some(r#"{"blocked":["missing_artifact"]}"#.to_owned()),
+            first_seen_at_ms: 1_400,
+            last_seen_at_ms: 1_400,
+            created_at_ms: 1_400,
+            updated_at_ms: 1_400,
+        })
+        .await
+        .unwrap();
+
+    let accepted_items = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: Some(AcquisitionIntakeCandidateState::Accepted),
+                source_kind: None,
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(accepted_items, vec![accepted.clone()]);
+
+    let operator_items = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: Some(AcquisitionIntakeSourceKind::OperatorSubmitted),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(operator_items, vec![operator_candidate]);
+
+    let linked_items = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: None,
+                managed_import_artifact_id: Some(artifact_id),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(linked_items, vec![accepted]);
+
+    let missing = store
+        .set_acquisition_intake_candidate_state(
+            AcquisitionIntakeCandidateId::new(),
+            AcquisitionIntakeCandidateState::Rejected,
+            1_500,
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing, None);
+}
+
 async fn nfo_sidecar_apply_contract_round_trips_acceptance_and_audit<S>(store: S)
 where
     S: NfoSidecarApplyContractBackend,
@@ -4922,6 +5116,16 @@ database_contract_pair!(
         "promotion_apply_round_trips_acceptance_and_audit"
     ),
     contract = promotion_apply_contract_round_trips_acceptance_and_audit,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_acquisition_intake_contract_round_trips_candidates_and_state,
+    postgres = postgres_acquisition_intake_contract_round_trips_candidates_and_state,
+    case = ContractCase::migrated(
+        ContractFamily::AcquisitionIntake,
+        "round_trips_candidates_and_state"
+    ),
+    contract = acquisition_intake_contract_round_trips_candidates_and_state,
 );
 
 database_contract_pair!(

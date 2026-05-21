@@ -93,3 +93,35 @@ Primary evidence:
 
 - `docs/workstreams/playback-transcode-ops-hardening/DESIGN.md`
 - `docs/workstreams/playback-transcode-ops-hardening/TODO.md`
+
+## M7 — Post-Playback Ops Lane Scoring
+
+Exit criteria:
+
+- [x] Playback/Transcode Ops Hardening closeout evidence is reviewed.
+- [x] Downloads/watch-folder, network, AI, and addon runtime are re-scored.
+- [x] The next mainline lane is selected without mixing downloader protocols,
+  network traversal, AI writes, or Addon runtime behavior into playback
+  supportability.
+
+Primary evidence:
+
+- `docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
+
+## M8 — Downloads / Watch-Folder Intake Lane Open
+
+Status: completed on 2026-05-22.
+
+Exit criteria:
+
+- [x] `downloads-watch-folder-intake` exists as a child workstream.
+- [x] Child docs define acquisition-intake scope, non-goals, tasks, gates, and
+  handoff.
+- [x] Parent umbrella and workstream index point to the first executable intake
+  task.
+
+Primary evidence:
+
+- `docs/workstreams/downloads-watch-folder-intake/DESIGN.md`
+- `docs/workstreams/downloads-watch-folder-intake/TODO.md`

@@ -1,15 +1,14 @@
 # Playback Transcode Ops Hardening — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
 
-This lane is active as the next mainline child of `post-rpd-product-hardening`
-after NFO sidecar apply closed the remaining local metadata/library-file
-mutation risk. Existing playback/transcode baselines are already complete in
-`playback-streaming`, `transcode-runtime`, and
-`admin-playback-runtime-diagnostics`.
+This lane is complete as the post-NFO-sidecar playback/transcode
+supportability child of `post-rpd-product-hardening`. Existing
+playback/transcode baselines remain owned by `playback-streaming`,
+`transcode-runtime`, and `admin-playback-runtime-diagnostics`.
 
 PTOH-020 is complete. It adds a typed readiness contract across
 `taru-transcode`, Admin API DTOs, Admin HTTP runtime diagnostics, and the Admin
@@ -39,22 +38,19 @@ secrets, and credentials. The route rejects mismatched session/source query
 contexts. Admin TypeScript contract and Admin web typed client/mocks were
 updated; Public Client API and `taru-client-protocol` remain unchanged.
 
-## Active Task
+PTOH-060 is complete. The lane status, task ledger, milestone evidence, final
+JSON/diff gates, parent umbrella re-score, and workstream index now agree.
+
+## Closeout State
 
 - Task ID: PTOH-060
-- Owner: unassigned
-- Files:
+- Status: DONE
+- Final scope:
   - `docs/workstreams/playback-transcode-ops-hardening`
   - `docs/workstreams/post-rpd-product-hardening`
   - `docs/workstreams/README.md`
-- Validation:
-  - `verify-rust-workstream` records fresh final evidence
-  - `python -m json.tool docs/workstreams/playback-transcode-ops-hardening/WORKSTREAM.json`
-  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
-  - `git diff --check`
-- Status: READY
-- Review: closeout must re-check evidence completeness and parent umbrella
-  re-score.
+- Review result: no blocking findings. The target state is met, and remaining
+  work is split into follow-ons rather than hidden in this lane.
 
 ## Decisions Since Opening
 
@@ -91,16 +87,19 @@ updated; Public Client API and `taru-client-protocol` remain unchanged.
 
 ## Blockers
 
-- None for PTOH-060.
+- None.
 
 ## Next Recommended Action
 
-Run PTOH-060 closeout:
+`post-rpd-product-hardening` PRPH-120 opened
+`downloads-watch-folder-intake`. Continue with DWI-020: durable intake
+candidate domain/persistence. That lane should consume Managed Import Staging,
+Link Apply, NFO Sidecar Apply, and Playback support evidence instead of
+introducing direct library writes or protocol-specific downloader behavior in
+core Taru.
 
-1. review the whole playback-transcode-ops-hardening lane for unclosed scope,
-   stale docs, and missing evidence;
-2. run final verification gates appropriate for the lane;
-3. close or split follow-ons for downloadable support bundles, retention,
-   Admin UI support workflows, or adaptive/optimized playback features;
-4. re-score the parent post-RPD umbrella, especially downloads/watch-folder,
-   network access, AI-assisted library ops, and addon runtime.
+Split follow-ons if needed:
+
+- downloadable support bundles, retention, and Admin UI workflows;
+- adaptive HLS ladders and durable Optimized Versions;
+- direct remote FFmpeg credentials or distributed transcode workers.

@@ -78,4 +78,32 @@ tasks belong in child workstreams.
   workstream metadata, and handoff docs; parent umbrella and index point to
   PTOH-020 as the next executable task.
   Evidence: `docs/workstreams/playback-transcode-ops-hardening/DESIGN.md`
-  Handoff: Execute PTOH-020 playback runtime readiness contract.
+  Handoff: DONE. Playback lane completed through PTOH-060 and returned to
+  parent re-score.
+
+## M7 — Post-Playback Ops Lane Scoring
+
+- [x] PRPH-110 [owner=planner] [deps=PTOH-060] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/playback-transcode-ops-hardening,docs/workstreams/README.md]
+  Goal: Re-score downloads/watch-folder, network, AI, and addon runtime after
+  Playback/Transcode Ops Hardening closeout.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, HANDOFF.md,
+  and workstream index agree on the next executable lane.
+  Evidence: `DESIGN.md` Post-PTOH Closeout Re-Score and
+  `docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md`.
+  Handoff: Downloads/watch-folder intake is selected as the next mainline
+  action because metadata authority, local file writes, staged import,
+  accepted promotion apply, NFO sidecar apply, and playback supportability are
+  now proven.
+
+## M8 — Downloads / Watch-Folder Intake Lane Open
+
+- [x] PRPH-120 [owner=planner] [deps=PRPH-110] [scope=docs/workstreams/downloads-watch-folder-intake,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+  Goal: Open `downloads-watch-folder-intake` as a dedicated workstream for
+  staged artifact acquisition intake, watch-folder candidate discovery, redacted
+  diagnostics, and explicit handoff into existing promotion/apply workflows.
+  Validation: Child workstream has design, TODO, milestones, gates, workstream
+  metadata, and handoff docs; parent umbrella and index point to the first
+  executable task.
+  Evidence: `docs/workstreams/downloads-watch-folder-intake/DESIGN.md`.
+  Handoff: DONE. Execute DWI-020 durable intake candidate domain without adding
+  protocol-specific downloader behavior or direct library writes.

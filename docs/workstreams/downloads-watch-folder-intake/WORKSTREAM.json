@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "slug": "downloads-watch-folder-intake",
+  "title": "Downloads / Watch-Folder Intake",
+  "status": "active",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "Downloads, watch-folder candidates, and future external acquisition outputs need a Taru-owned intake boundary that creates staged artifacts and diagnostics without bypassing Managed Import, promotion apply, NFO sidecar apply, or playback supportability boundaries.",
+  "task_prefix": "DWI",
+  "current_task": "DWI-030",
+  "completed_tasks": [
+    "DWI-010",
+    "DWI-020"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/downloads-watch-folder-intake/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/downloads-watch-folder-intake/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/downloads-watch-folder-intake/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/downloads-watch-folder-intake/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/downloads-watch-folder-intake/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/downloads-watch-folder-intake/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-db acquisition_intake --no-fail-fast",
+    "cargo nextest run -p taru-server acquisition_intake --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm run check from apps/admin-web after Admin contract/client changes",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/downloads-watch-folder-intake/DESIGN.md",
+    "docs/workstreams/downloads-watch-folder-intake/TODO.md",
+    "docs/workstreams/downloads-watch-folder-intake/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/managed-import-staging/DESIGN.md",
+    "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
+    "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md",
+    "crates/taru-core/src/managed_import.rs",
+    "crates/taru-core/src/acquisition_intake.rs",
+    "crates/taru-core/src/repository/managed_import.rs",
+    "crates/taru-core/src/repository/acquisition_intake.rs",
+    "crates/taru-db/src/contract_tests.rs",
+    "crates/taru-db/src/sqlite/acquisition_intake.rs",
+    "crates/taru-db/src/postgres.rs",
+    "crates/taru-server/src/app/managed_import.rs",
+    "crates/taru-vfs/src/lib.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0002-internal-vfs-before-os-mounting.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "DWI-030",
+    "notes": "DWI-010 opened Downloads / Watch-Folder Intake as the next mainline post-RPD lane. DWI-020 completed durable intake candidate domain/persistence and backend-neutral tests. Continue with DWI-030 app-service intake and Managed Import artifact handoff. Do not implement torrent, Usenet, download-client protocols, network traversal, AI writes, Addon runtime, Admin UI polish, automatic promotion apply, NFO sidecar mutation shortcuts, direct library writes, Public Client API changes, or taru-client-protocol changes in this lane unless explicitly split and accepted."
+  }
+}
