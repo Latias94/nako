@@ -298,6 +298,31 @@ The apply boundary is now split into two separate mutation classes:
 | Addon Runtime / Distribution | Downstream consumer | Addons should call Taru-owned apply/file-write APIs instead of inventing direct filesystem mutation. | Defer until core side-effect APIs are proven. |
 | Downloads / Watch Folder | Downstream of promotion apply | Acquisition should produce staged artifacts and use existing promotion apply; it should not bypass sidecar/file-write policy. | Re-score after LAIP closeout and NFO sidecar apply decision. |
 
+## Post-LAIP Closeout Re-Score — 2026-05-21
+
+`link-apply-and-import-promotion` is now complete. Taru can accept a staged
+artifact promotion, revalidate plan facts, create the target through VFS,
+commit catalog/duplicate state after target durability, and record
+cleanup-complete or cleanup-pending outcomes after partial failure. That closes
+the first mutating import boundary, but not every library-file side effect.
+
+The remaining highest-risk data-loss boundary is accepted NFO sidecar
+import/export. It is the last local authority write still sitting between
+today's safe promotion path and later download/watch-folder/addon breadth.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| NFO Sidecar Promotion Apply | Highest | It owns the remaining local **Library File Write** and metadata-authority mutation: NFO Round Trip, backup, retention, field locks, hierarchy confirmation, rollback/repair, idempotency, and redacted audit. It directly protects local library data before downloads, AI, or Addons can safely propose file/metadata changes. | Select as next mainline lane. Execute `nfo-sidecar-promotion-apply` NSPA-020. |
+| Playback / Transcode Ops Hardening | High sidecar | Playback confidence matters, but existing `transcode-runtime` and `admin-playback-runtime-diagnostics` already cover a baseline. Additional ops hardening is valuable and mostly disjoint if limited to diagnostics, preset validation, fallback reasons, and support evidence. | Keep as the safest parallel sidecar after NSPA acceptance/audit starts. |
+| Downloads / Watch Folder | High but downstream | Promotion apply is now proven, but acquisition still must not bypass NFO sidecar policy, staged artifact intake, or accepted apply. Watch-folder imports often rely on sidecar metadata next to media files. | Defer until NFO sidecar apply acceptance/audit exists, then open a downloader/watch-folder acquisition lane. |
+| Network Access Boundary | Useful but not data-authority critical | Remote access should harden endpoint, trusted proxy, and tunnel-provider contracts without weakening auth or library writes. | Defer or run as docs/runtime sidecar after current local authority write is underway. |
+| AI Assisted Library Ops | Blocked by accepted side effects | AI should produce **Generated Artifacts** and consume acceptance workflows, not directly mutate canonical metadata or sidecars. | Defer until NFO sidecar apply and import acceptance surfaces are proven. |
+| Addon Runtime / Distribution | Downstream consumer | Addons should call Taru-owned metadata/import/file-write APIs and scoped tokens rather than inventing direct filesystem mutation. | Defer until core side-effect APIs, including NFO sidecar apply, are stable. |
+
+PRPH-080 therefore does not open a new lane. It selects the existing
+`nfo-sidecar-promotion-apply` workstream as the next execution lane and returns
+implementation to NSPA-020.
+
 ## Closeout Condition
 
 This umbrella can close when:

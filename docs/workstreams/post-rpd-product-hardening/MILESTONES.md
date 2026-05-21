@@ -50,3 +50,17 @@ Exit criteria:
 - Active child lanes own their implementation details.
 - Remaining lanes are either opened, re-scored, or intentionally deferred.
 - Workstream index reflects the current active product lane.
+
+## M4 — Post-LAIP Lane Scoring
+
+Exit criteria:
+
+- [x] LAIP closeout evidence is reviewed.
+- [x] NFO sidecar apply, playback/transcode ops, network, AI, addon runtime,
+  and downloads/watch-folder are re-scored.
+- [x] Next execution lane is selected without opening a duplicate workstream.
+
+Primary evidence:
+
+- `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
+- `docs/workstreams/nfo-sidecar-promotion-apply/HANDOFF.md`

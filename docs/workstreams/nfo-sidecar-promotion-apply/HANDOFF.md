@@ -27,8 +27,8 @@ Existing prerequisites are in place:
 - Files: `crates/taru-core`, `crates/taru-db`
 - Validation: focused DB contract tests for durable sidecar apply records,
   idempotency-key lookup, state transitions, and redacted audit snapshots.
-- Status: READY after LAIP-080 closeout or umbrella re-scoring
-- Evidence: NSPA-010 planning docs
+- Status: READY
+- Evidence: NSPA-010 planning docs and PRPH-080 lane scoring
 
 ## Decisions
 
@@ -50,14 +50,9 @@ Existing prerequisites are in place:
 
 ## Blockers
 
-- None for planning.
-- NSPA implementation should start after LAIP-080 closeout or explicit umbrella
-  re-scoring to avoid two active mutation lanes competing for the same mental
-  model.
+- None.
 
 ## Next Recommended Action
 
-- Finish LAIP-080 closeout first.
-- If the umbrella selects NFO sidecar apply next, execute NSPA-020 with TDD:
-  add failing persistence contract tests, then implement durable sidecar apply
-  domain and repository storage.
+- Execute NSPA-020 with TDD: add failing persistence contract tests, then
+  implement durable sidecar apply domain and repository storage.

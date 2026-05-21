@@ -40,12 +40,15 @@ tasks belong in child workstreams.
 
 ## M4 — Post-LAIP Lane Scoring
 
-- [ ] PRPH-080 [owner=planner] [deps=LAIP-080] [scope=docs/workstreams/post-rpd-product-hardening]
+- [x] PRPH-080 [owner=planner] [deps=LAIP-080] [scope=docs/workstreams/post-rpd-product-hardening]
   Goal: Re-score NFO sidecar apply, playback/transcode ops, network, AI, addon
   runtime, and downloads/watch-folder after Managed Import promotion apply
   closeout.
   Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, and
   HANDOFF.md agree on the next executable lane.
-  Evidence: LAIP closeout evidence and `nfo-sidecar-promotion-apply` planning
-  docs.
-  Handoff: Execute the chosen next child workstream.
+  Evidence: Completed in the Post-LAIP Closeout Re-Score section of
+  `DESIGN.md`. `nfo-sidecar-promotion-apply` is selected as the next mainline
+  lane because it is the remaining local Library File Write and
+  metadata-authority mutation boundary before downloads, AI, or Addon file
+  writes deepen.
+  Handoff: Execute `nfo-sidecar-promotion-apply` NSPA-020.

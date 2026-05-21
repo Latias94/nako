@@ -16,20 +16,20 @@ promotion-preview lane. `link-apply-and-import-promotion` is complete after
 implementing accepted promotion apply, VFS-mediated target creation, catalog
 commit ordering, duplicate evidence, and cleanup-complete/cleanup-pending
 audit. LAIP-070 split NFO sidecar import/export mutation to
-`nfo-sidecar-promotion-apply`. The next umbrella task is PRPH-080 lane scoring.
+`nfo-sidecar-promotion-apply`. PRPH-080 selected
+`nfo-sidecar-promotion-apply` as the next mainline execution lane.
 
 ## Active Task
 
-- Task ID: PRPH-080
+- Task ID: NSPA-020
 - Owner: planner
-- Files: `docs/workstreams/post-rpd-product-hardening`,
-  `docs/workstreams/nfo-sidecar-promotion-apply`
-- Validation: re-score `nfo-sidecar-promotion-apply`, playback/transcode ops,
-  network, AI, addon runtime, and downloads/watch-folder against current
-  closeout evidence.
+- Files: `docs/workstreams/nfo-sidecar-promotion-apply`, `crates/taru-core`,
+  `crates/taru-db`
+- Validation: focused DB contract tests for durable sidecar apply records,
+  idempotency-key lookup, state transitions, and redacted audit snapshots.
 - Status: READY
-- Review: choose the next executable child lane and update umbrella docs.
-- Evidence: `docs/workstreams/link-apply-and-import-promotion/EVIDENCE_AND_GATES.md`
+- Review: execute through `nfo-sidecar-promotion-apply`.
+- Evidence: PRPH-080 lane scoring in `DESIGN.md` and NSPA-010 planning docs.
 
 ## Decisions Since Last Update
 
@@ -65,14 +65,19 @@ audit. LAIP-070 split NFO sidecar import/export mutation to
   redacted audit requirements.
 - Keep playback/transcode ops hardening as a parallel sidecar candidate only
   if it stays diagnostic/runtime-focused and avoids NFO/import write scope.
+- PRPH-080 selects `nfo-sidecar-promotion-apply` as the next mainline lane.
+  Playback/transcode ops remains the safest parallel sidecar. Downloads and
+  watch-folder acquisition remain downstream of accepted promotion and NFO
+  sidecar apply boundaries.
 
 ## Blockers
 
-- None for PRPH-080.
+- None for NSPA-020.
 
 ## Next Recommended Action
 
-- Execute PRPH-080 lane scoring.
+- Execute `nfo-sidecar-promotion-apply` NSPA-020 with TDD.
 - Keep `post-rpd-product-hardening` active while it continues ordering the next
-  product-hardening lanes. Re-score NFO sidecar apply, playback/transcode ops,
-  network, AI, addon runtime, and downloads/watch-folder after LAIP closeout.
+  product-hardening lanes. After NSPA has durable acceptance/audit, re-check
+  whether playback/transcode ops should run as a parallel sidecar or whether
+  NFO export apply should continue as the mainline.
