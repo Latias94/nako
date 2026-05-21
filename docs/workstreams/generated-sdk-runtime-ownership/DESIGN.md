@@ -1,6 +1,6 @@
 # Generated SDK Runtime Ownership
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -275,6 +275,40 @@ This lane should close with one of two honest outcomes:
 Either outcome must leave an explicit ownership matrix and split SDK
 publishing, KMP, Rust/UniFFI, and wider multi-SDK runtime work into separate
 lanes.
+
+## SDKRT-050 Closeout Decision
+
+Status: Frozen on 2026-05-21.
+
+Selected outcome: **split follow-ons and close this lane**.
+
+The first Android connection tracer is sufficient for this workstream. It
+proved the core architectural boundary that mattered here:
+
+- Rust owns protocol-level request construction, API-version observation,
+  public error-envelope parsing, invalid-response classification, and redacted
+  safe request previews for the migrated connection probe.
+- UniFFI is a thin binding layer over the no-socket Rust core.
+- Android supplies transport execution and keeps base URL normalization,
+  cleartext/TLS policy, profile selection, token vaults, product failure
+  categories, user copy, Compose state, navigation, and Media3.
+
+Do not broaden browse or playback in this lane. Those route families would mix
+new questions that deserve separate ownership and validation:
+
+- Rust public wire string tolerance before Android delegates browse/playback
+  DTO decode to Rust.
+- Whether `taru-client` should reuse `taru-client-core` before more duplicated
+  Rust request/error policy appears.
+- Android native build ergonomics for generated UniFFI bindings and Android ABI
+  libraries.
+- Playback decision/request interpretation without moving Media3 or player
+  session presentation.
+- Browse/search route interpretation without hiding Android product taxonomy.
+- SDK publishing, KMP, iOS, and multi-SDK runtime policy.
+
+This closeout keeps ADR 0032 as the target-state authority while preventing the
+workstream from becoming a catch-all migration lane.
 
 ## In Scope
 

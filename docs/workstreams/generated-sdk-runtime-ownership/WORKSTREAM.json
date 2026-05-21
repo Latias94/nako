@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "generated-sdk-runtime-ownership",
   "title": "Generated SDK Runtime Ownership",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-21",
   "scope_kind": "planning",
   "problem": "Android still owns reusable Public Client API runtime semantics after generated SDK DTO/request adoption, and the owner is willing to pull shared Rust client-core complexity forward now if that prevents future architecture debt.",
@@ -30,6 +30,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/generated-sdk-runtime-ownership/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/generated-sdk-runtime-ownership/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -69,9 +73,9 @@
     "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md"
   ],
-  "current_task": "SDKRT-050",
+  "current_task": null,
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "SDKRT-030 implemented and tested the no-socket taru-client-core connection tracer. SDKRT-035 added a compile-only taru-client-uniffi binding crate over that tracer. SDKRT-040 wired Android connection checks to the Rust core / UniFFI binding boundary while preserving Android-owned transport, token storage, profile persistence, diagnostics, UI, and Media3. Continue with SDKRT-050 only if broadening is intentional; otherwise split SDK publishing, KMP, Rust-owned networking, playback, browse, and multi-SDK runtime work into separate lanes."
+    "default_action": "closed",
+    "notes": "Lane closed on 2026-05-21. SDKRT-050 selected split-not-broaden after the connection tracer proved the no-socket Rust core / UniFFI / Android-supplied transport boundary. Start follow-on lanes for Android Rust/UniFFI build ergonomics, taru-client reuse of taru-client-core, Rust public wire tolerance, playback or browse core tracers, SDK publishing/KMP, iOS, or Rust-owned networking."
   }
 }

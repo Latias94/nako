@@ -1,33 +1,32 @@
 # Generated SDK Runtime Ownership — Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Current State
 
-`SDKRT-010`, `SDKRT-020`, `SDKRT-030`, `SDKRT-035`, and `SDKRT-040` are
-complete. The prior SDK lanes are closed:
+`SDKRT-010`, `SDKRT-020`, `SDKRT-030`, `SDKRT-035`, `SDKRT-040`, `SDKRT-050`,
+and `SDKRT-090` are complete. The workstream is closed.
+
+The prior SDK lanes are closed:
 
 - `android-generated-public-client-sdk` moved Android DTO and route mirrors to
   an OpenAPI-backed Kotlin/JVM SDK.
 - `generated-sdk-forward-compat-tolerance` made generated public string values
   tolerant of unknown future wire values.
 
-The remaining question has been frozen at the M0 level: Android still owns
-execution, public error parsing, API-version header checks, redaction,
-transport failure mapping, and product diagnostics today, but the durable target
-is now an early shared Rust client core with app-supplied Android transport.
+The runtime ownership question is resolved for this lane: the durable target is
+an early shared Rust client core with app-supplied Android transport, and this
+lane proved the first Android connection tracer through UniFFI.
 
-The owner has clarified that shared Rust client core / UniFFI complexity can be
-pulled forward now if doing so prevents future architecture debt. Treat early
-Rust core as a first-class candidate, not as an automatic follow-on.
+Android connection checks now use the Rust core / UniFFI boundary for request
+construction and response interpretation. Android still owns HTTP execution,
+base URL normalization, cleartext/TLS policy, profile and token storage,
+failure categories, user copy, Compose/navigation, UI, and Media3.
 
 ## Active Task
 
-`SDKRT-050` is ready if the lane should continue.
-
-Goal: decide whether to broaden the proven Rust core / UniFFI tracer across
-repeated route families or split follow-ons and close this workstream.
+None. The workstream is closed.
 
 ## Decisions Already Inherited
 
@@ -76,28 +75,55 @@ repeated route families or split follow-ons and close this workstream.
 - First tracer may skip library-list DTO decode to avoid strict Rust enum
   tolerance blockers.
 
-## Open Decisions
+## Closeout Decision
 
-- Whether Gradle should keep building all Android Rust ABIs during every app
-  pre-build, or later move this to a more incremental/package-aware task.
-- Whether to broaden only nearby connection/runtime code or close now and split
-  playback/browse/client-core reuse into separate lanes.
+`SDKRT-050` selected split-not-broaden. The connection tracer is enough to prove
+the first Rust core / UniFFI / Android-supplied transport boundary. Broader
+route-family migrations now require separate lanes because they mix Rust wire
+tolerance, Gradle/native packaging, product diagnostics, playback semantics,
+browse/search semantics, and SDK publishing/KMP policy.
 
 ## Blockers
 
-None for `SDKRT-050`.
+None for the closed lane.
 
-## Recommended Next Step
+## Recommended Follow-Ons
 
-Continue with `SDKRT-050`: either broaden narrowly or split follow-ons. Do not
-silently move playback, profile persistence, token vaults, UI, or Rust-owned
-networking into this lane.
+Recommended order:
+
+1. `android-rust-uniffi-build-ergonomics`: make the Gradle/NDK/UniFFI pipeline
+   incremental and package-aware; decide debug/release ABI strategy and symbol
+   stripping.
+2. `rust-client-core-adapter-reuse`: make `taru-client` reuse
+   `taru-client-core` so Rust request/error/version/redaction policy does not
+   fork.
+3. `rust-public-wire-tolerance`: preserve unknown additive public string values
+   in Rust before moving browse/playback DTO decode behind UniFFI.
+4. `android-playback-core-tracer`: move only playback decision/request
+   interpretation into Rust core while keeping Media3 and player presentation
+   Android-owned.
+5. `android-browse-core-tracer`: move only browse route interpretation that
+   removes duplication without hiding Android product taxonomy.
+6. `mobile-sdk-publishing-kmp`: decide Maven publishing, KMP/iOS posture, and
+   multi-SDK runtime policy.
+
+Do not silently move profile persistence, token vaults, UI, Media3, or
+Rust-owned networking in any of these follow-ons.
+
+## Residual Risks
+
+- Android ordinary app builds now invoke the UniFFI/native-library path. This is
+  intentional, but build ergonomics and release packaging need a dedicated lane.
+- The connection tracer avoids strict-enum browse/playback decode; Rust wire
+  tolerance must be solved before broader Android decode moves to Rust.
+- `taru-client` and `taru-client-core` can drift until the adapter-reuse lane
+  consolidates request/error/version/redaction policy.
+- Android still maps core runtime failures into product categories. That is the
+  desired boundary, but each new route-family tracer needs focused tests.
 
 ## Verification
 
-Planning docs should pass:
+Fresh closeout evidence is recorded in
+`docs/workstreams/generated-sdk-runtime-ownership/EVIDENCE_AND_GATES.md`.
 
-```powershell
-python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null
-git diff --check
-```
+Closeout docs: `docs/workstreams/generated-sdk-runtime-ownership/CLOSEOUT.md`.

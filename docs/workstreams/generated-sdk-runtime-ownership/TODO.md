@@ -1,6 +1,6 @@
 # Generated SDK Runtime Ownership — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## M0 — Runtime Ownership Freeze
@@ -50,18 +50,18 @@ Last updated: 2026-05-21
 
 ## M5 — Broaden Or Split
 
-- [ ] SDKRT-050 [owner=codex] [deps=SDKRT-040] [scope=sdk/kotlin,apps/android/app/src/main/java/dev/taru/android]
+- [x] SDKRT-050 [owner=codex] [deps=SDKRT-040] [scope=sdk/kotlin,apps/android/app/src/main/java/dev/taru/android]
   Goal: Decide whether to broaden the tracer across repeated route families or split follow-ons. Do not move platform/product policy merely to reduce local code.
   Validation: Focused SDK and Android tests for every migrated family; `git diff --check`.
   Review: Broadening must remove duplication without hiding Android-specific behavior in SDK code.
-  Evidence: `EVIDENCE_AND_GATES.md`
-  Handoff: Prefer closing and splitting over turning this lane into publishing, KMP, or full-platform Rust/UniFFI migration work.
+  Evidence: `docs/workstreams/generated-sdk-runtime-ownership/CLOSEOUT.md#sdkrt-050-decision-split-not-broaden`; `docs/workstreams/generated-sdk-runtime-ownership/EVIDENCE_AND_GATES.md#evidence-log`
+  Handoff: DONE. The lane closes and splits follow-ons instead of broadening browse, playback, SDK publishing, KMP, Rust-owned networking, or multi-SDK runtime work here. The connection tracer is enough to prove the Rust core / UniFFI boundary; wider route-family migrations need their own tolerance, product-policy, and validation lanes.
 
 ## M6 — Closeout
 
-- [ ] SDKRT-090 [owner=planner] [deps=SDKRT-050] [scope=docs/workstreams/generated-sdk-runtime-ownership]
+- [x] SDKRT-090 [owner=planner] [deps=SDKRT-050] [scope=docs/workstreams/generated-sdk-runtime-ownership]
   Goal: Close the lane, record final ownership, evidence, residual risks, and split follow-ons.
   Validation: Fresh final gate evidence is recorded; `WORKSTREAM.json`, `TODO.md`, `HANDOFF.md`, and `EVIDENCE_AND_GATES.md` agree.
   Review: Run workstream review for compliance and code-quality findings before marking complete.
   Evidence: `docs/workstreams/generated-sdk-runtime-ownership/CLOSEOUT.md`
-  Handoff: Remaining SDK publishing, KMP, Rust/UniFFI, and multi-SDK runtime tolerance stay separate.
+  Handoff: DONE. Closeout records no blocking review findings, passed closeout gates, residual risks, and separate follow-on lanes.

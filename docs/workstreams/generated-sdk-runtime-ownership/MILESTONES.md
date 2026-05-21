@@ -1,6 +1,6 @@
 # Generated SDK Runtime Ownership — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## M0 — Runtime Ownership Freeze
@@ -101,6 +101,8 @@ token/profile state, user messages, failure categories, UI, and Media3.
 
 ## M5 — Broaden Or Split
 
+Status: Complete on 2026-05-21.
+
 Exit when the lane either broadens the proven runtime seam across repeated
 families with fresh gates, or splits follow-ons and closes.
 
@@ -111,7 +113,15 @@ Acceptance criteria:
 - publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime
   work remain separate.
 
+Result: The lane deliberately split instead of broadening. The connection
+tracer already proves the no-socket Rust core / UniFFI / Android-supplied
+transport boundary. Browse, playback, Rust protocol tolerance, `taru-client`
+adapter reuse, Gradle/native build ergonomics, SDK publishing, KMP, iOS, and
+Rust-owned networking are now separate follow-ons.
+
 ## M6 — Closeout
+
+Status: Complete on 2026-05-21.
 
 Exit when:
 
@@ -120,3 +130,7 @@ Exit when:
 - `WORKSTREAM.json` status and current task are updated;
 - closeout notes record residual risks and follow-ons;
 - workstream review has no blocking findings.
+
+Result: `CLOSEOUT.md`, `TODO.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and
+`WORKSTREAM.json` agree that the lane is closed. Fresh closeout gates are
+recorded in `EVIDENCE_AND_GATES.md`; review found no blocking findings.

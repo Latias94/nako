@@ -1,6 +1,6 @@
 # Generated SDK Runtime Ownership — Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Evidence Anchors
@@ -203,3 +203,36 @@ core tracer implementation.
       not be stripped and was packaged as-is.
     - `git diff --check` passed with line-ending normalization warnings for
       touched workspace, Android, and workstream files.
+- 2026-05-21: Completed `SDKRT-050` split-not-broaden decision and `SDKRT-090`
+  closeout review.
+  - Decision: close this lane instead of broadening browse/playback or SDK
+    publishing/KMP work here. The connection tracer proves the Rust core /
+    UniFFI / Android-supplied transport boundary. Further route-family
+    migrations are split into follow-ons because they require separate Rust
+    wire-tolerance, Gradle/native packaging, `taru-client` reuse, playback,
+    browse, and SDK publishing decisions.
+  - Review result:
+    - Workstream compliance blocking findings: none.
+    - Code-quality blocking findings: none.
+    - Missing gates: none for the closeout claim.
+    - Residual risks are recorded in `CLOSEOUT.md` and `HANDOFF.md`.
+  - Fresh closeout gates passed:
+    - `cargo fmt --package taru-client-core --package taru-client-uniffi --check`
+    - `cargo nextest run -p taru-client-core --no-fail-fast` passed with 7 tests.
+    - `cargo nextest run -p taru-client-uniffi --no-fail-fast` passed with 1 test.
+    - `cargo run -p taru-uniffi-bindgen -- --help`
+    - `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon`
+    - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`
+    - `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
+    - `cargo nextest run -p taru-client --no-fail-fast` passed with 9 tests.
+    - `cargo nextest run -p taru-client-protocol --no-fail-fast` passed with 8 tests.
+    - `cargo fmt --package taru-api --check`
+    - `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast` passed with 3 tests.
+    - `npm run check --prefix sdk/typescript`
+    - `cargo nextest run -p taru-api --no-fail-fast` passed with 45 tests.
+    - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
+    - `cargo fmt --package taru-client --package taru-client-protocol --check`
+  - Final planning/document gates passed after the closeout doc updates:
+    - `python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null`
+    - `git diff --check` passed with line-ending normalization warnings for
+      touched workstream docs.

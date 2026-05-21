@@ -1,6 +1,6 @@
 # Generated SDK Runtime Ownership
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -63,7 +63,7 @@ playback must remain app-owned.
 - `docs/workstreams/generated-sdk-runtime-ownership/HANDOFF.md`
 - `docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json`
 
-## First Executable Slice
+## Final State
 
 `SDKRT-010` is complete. It selected early shared Rust client core / UniFFI
 target state with app-supplied Android transport as the durable direction.
@@ -71,6 +71,12 @@ target state with app-supplied Android transport as the durable direction.
 `SDKRT-020` is complete. ADR 0032 now owns the target state and supersedes ADR
 0031's post-generated-SDK mobile Rust/UniFFI sequencing.
 
-Next executable slice: `SDKRT-030`. Implement the smallest no-socket
-`taru-client-core` tracer and tests for connection health plus authenticated
-library auth probe. Do not wire Android or UniFFI in that task.
+`SDKRT-030`, `SDKRT-035`, and `SDKRT-040` are complete. The repository now has
+a no-socket `taru-client-core` connection tracer, a thin `taru-client-uniffi`
+binding crate, repository-pinned UniFFI binding generation, Android Gradle
+wiring for the generated Kotlin binding and native libraries, and Android
+connection checks consuming the Rust core through the UniFFI boundary.
+
+`SDKRT-050` closed by splitting follow-ons instead of broadening route families
+inside this lane. See `CLOSEOUT.md` for the final ownership claim, evidence,
+residual risks, and next lanes.
