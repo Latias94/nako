@@ -5,8 +5,8 @@ Last updated: 2026-05-21
 
 ## Current State
 
-`SDKRT-010`, `SDKRT-020`, `SDKRT-030`, and `SDKRT-035` are complete. The prior
-SDK lanes are closed:
+`SDKRT-010`, `SDKRT-020`, `SDKRT-030`, `SDKRT-035`, and `SDKRT-040` are
+complete. The prior SDK lanes are closed:
 
 - `android-generated-public-client-sdk` moved Android DTO and route mirrors to
   an OpenAPI-backed Kotlin/JVM SDK.
@@ -24,11 +24,10 @@ Rust core as a first-class candidate, not as an automatic follow-on.
 
 ## Active Task
 
-`SDKRT-040` is ready.
+`SDKRT-050` is ready if the lane should continue.
 
-Goal: wire the Android connection flow to the proven Rust core / UniFFI binding
-boundary while keeping Android-owned transport, token storage, profile
-persistence, product diagnostics, UI, and Media3 responsibilities unchanged.
+Goal: decide whether to broaden the proven Rust core / UniFFI tracer across
+repeated route families or split follow-ons and close this workstream.
 
 ## Decisions Already Inherited
 
@@ -79,22 +78,20 @@ persistence, product diagnostics, UI, and Media3 responsibilities unchanged.
 
 ## Open Decisions
 
-- What Gradle/NDK/UniFFI build topology is acceptable for ordinary Android
-  builds?
-- Whether generated Kotlin binding sources should be committed now or produced
-  by a documented Gradle/bindgen task in the Android build.
+- Whether Gradle should keep building all Android Rust ABIs during every app
+  pre-build, or later move this to a more incremental/package-aware task.
+- Whether to broaden only nearby connection/runtime code or close now and split
+  playback/browse/client-core reuse into separate lanes.
 
 ## Blockers
 
-None for `SDKRT-040`; however, ordinary Android builds must make the new Rust /
-UniFFI prerequisite explicit if native binding consumption is introduced.
+None for `SDKRT-050`.
 
 ## Recommended Next Step
 
-Continue with `SDKRT-040`: inspect the generated UniFFI Kotlin shape, choose the
-least surprising Android build integration, then migrate only the connection
-probe flow. Do not broaden into playback, profile persistence, token vaults, UI,
-or Rust-owned networking.
+Continue with `SDKRT-050`: either broaden narrowly or split follow-ons. Do not
+silently move playback, profile persistence, token vaults, UI, or Rust-owned
+networking into this lane.
 
 ## Verification
 

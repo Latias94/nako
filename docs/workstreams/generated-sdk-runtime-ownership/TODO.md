@@ -41,12 +41,12 @@ Last updated: 2026-05-21
 
 ## M4 — Android Consumption Tracer
 
-- [ ] SDKRT-040 [owner=codex] [deps=SDKRT-035] [scope=apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/test/java/dev/taru/android]
+- [x] SDKRT-040 [owner=codex] [deps=SDKRT-035] [scope=apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/build.gradle.kts,apps/android/gradle/libs.versions.toml,apps/android/app/src/test/java/dev/taru/android/connection,apps/android/README.md,crates/taru-uniffi-bindgen]
   Goal: Migrate one low-risk Android flow to the selected runtime/core tracer while keeping product diagnostics, cleartext policy, token storage, and Media3 ownership in Android.
   Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`; add playback focused tests only if playback code changes.
   Review: Android failure categories and user messages remain app-owned; token-safe request previews remain redaction-safe. If UniFFI is used, ordinary Android build and test commands must document the new Rust/NDK prerequisites.
-  Evidence: Android focused unit tests and `EVIDENCE_AND_GATES.md`
-  Handoff: If the tracer increases coupling or worsens diagnostics, revert the design direction by patching forward rather than broadening.
+  Evidence: `apps/android/app/src/main/java/dev/taru/android/connection/RustConnectionCore.kt`; `apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt`; `apps/android/app/src/test/java/dev/taru/android/connection/TaruConnectionClientTest.kt`; `docs/workstreams/generated-sdk-runtime-ownership/JOURNAL/2026-05-21-sdkrt-040.md`
+  Handoff: DONE. Android connection checks now use the Rust core / UniFFI binding boundary for probe request construction and response interpretation while Android still executes transport and owns token/profile/security/diagnostic/UI behavior.
 
 ## M5 — Broaden Or Split
 

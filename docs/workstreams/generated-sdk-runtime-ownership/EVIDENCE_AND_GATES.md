@@ -71,6 +71,13 @@ python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.
 git diff --check
 ```
 
+For Android UniFFI consumption, also run:
+
+```powershell
+cargo run -p taru-uniffi-bindgen -- --help
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
+```
+
 ## Closeout Gates
 
 Use the broader gate set before closing an implementation lane:
@@ -166,3 +173,33 @@ core tracer implementation.
     passed.
   - `git diff --check` passed. Git reported line-ending normalization warnings
     for touched workspace/workstream files.
+- 2026-05-21: Completed `SDKRT-040` Android UniFFI connection consumption
+  tracer.
+  - Added `crates/taru-uniffi-bindgen` so Gradle can invoke the repository's
+    pinned UniFFI version instead of relying on a globally installed bindgen.
+  - Updated Android Gradle wiring to generate Kotlin bindings from
+    `taru-client-uniffi`, build Android ABI `libtaru_client_uniffi.so` files
+    from Rust targets, add the generated source/JNI directories, and set the
+    host library override for JVM unit tests.
+  - Added the Android `RustConnectionCore` adapter and moved
+    `TaruConnectionClient` connection probing to the Rust core / UniFFI binding
+    boundary.
+  - Android still owns base URL normalization, cleartext/TLS policy, transport
+    execution, token/profile storage, product failure categories, user-facing
+    messages, UI, and Media3.
+  - `cargo run -p taru-uniffi-bindgen -- --help` passed.
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`
+    passed after one failing iteration fixed a Kotlin self-recursion bug in the
+    adapter.
+  - Final checkpoint also passed:
+    - `cargo fmt --all --check`
+    - `cargo nextest run -p taru-client-core --no-fail-fast`
+    - `cargo nextest run -p taru-client-uniffi --no-fail-fast`
+    - `python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null`
+    - `cargo run -p taru-uniffi-bindgen -- --help`
+    - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`
+    - `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
+      passed. Android packaging warned that `libtaru_client_uniffi.so` could
+      not be stripped and was packaged as-is.
+    - `git diff --check` passed with line-ending normalization warnings for
+      touched workspace, Android, and workstream files.

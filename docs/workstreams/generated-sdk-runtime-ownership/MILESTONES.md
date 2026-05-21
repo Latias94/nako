@@ -83,6 +83,8 @@ to `taru-client-core`.
 
 ## M4 — Android Consumption Tracer
 
+Status: Complete on 2026-05-21.
+
 Exit when one Android flow consumes the runtime tracer without moving product
 diagnostics into SDK code.
 
@@ -92,6 +94,10 @@ Acceptance criteria:
 - cleartext policy and token storage remain Android-owned;
 - focused Android tests prove existing diagnostics and safe request previews;
 - no Compose, navigation, or Media3 ownership change appears in the diff.
+
+Result: Android connection checks now consume the Rust core through the UniFFI
+binding boundary. Android still owns HTTP execution, cleartext/TLS policy,
+token/profile state, user messages, failure categories, UI, and Media3.
 
 ## M5 — Broaden Or Split
 

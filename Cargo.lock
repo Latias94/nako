@@ -2601,6 +2601,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "taru-uniffi-bindgen"
+version = "0.1.0"
+dependencies = [
+ "uniffi",
+]
+
+[[package]]
 name = "taru-vfs"
 version = "0.1.0"
 dependencies = [
@@ -2989,7 +2996,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc5f2297ee5b893405bed1a6929faec4713a061df158ecf5198089f23910d470"
 dependencies = [
  "anyhow",
+ "camino",
  "cargo_metadata",
+ "clap",
  "uniffi_bindgen",
  "uniffi_core",
  "uniffi_macros",

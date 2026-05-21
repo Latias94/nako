@@ -1,23 +1,18 @@
 package dev.taru.android.connection
 
-import dev.taru.sdk.PageQuery
-import dev.taru.sdk.TARU_API_VERSION
-import dev.taru.sdk.TARU_API_VERSION_HEADER
-import dev.taru.sdk.HealthResponse
-import dev.taru.sdk.TaruPublicClientRequests
+import java.io.IOException
 import java.net.URI
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
+import javax.net.ssl.SSLException
+import uniffi.taru_client_uniffi.CoreConnectionProbeOutcome
+import uniffi.taru_client_uniffi.CoreConnectionProbeOutcomeKind
+import uniffi.taru_client_uniffi.CoreHttpRequest
 
 class TaruConnectionClient(
     private val transport: TaruHttpTransport,
-    private val json: Json = Json { ignoreUnknownKeys = true },
     private val clockMillis: () -> Long = System::currentTimeMillis,
     private val securityPolicy: ConnectionSecurityPolicy = ConnectionSecurityPolicy.production(),
+    private val connectionCore: ConnectionCore = RustConnectionCore,
 ) {
-    private val executor = PublicClientApiExecutor(transport, json)
-
     suspend fun testConnection(
         baseUrlInput: String,
         accessToken: String,
@@ -50,62 +45,73 @@ class TaruConnectionClient(
             )
         }
 
-        val healthResult = when (
-            val result = executor.executeResponse(
-                baseUrl = normalizedBaseUrl,
-                pathAndQuery = TaruPublicClientRequests.health().pathAndQuery,
-                auth = PublicApiAuth.None,
-                checkApiVersionHeader = true,
-                extraSecrets = listOf(accessToken),
+        val startOutcome = connectionCore.startConnectionProbe(
+            baseUrl = normalizedBaseUrl,
+            accessToken = accessToken,
+        )
+        val healthRequest = when (startOutcome.kind) {
+            CoreConnectionProbeOutcomeKind.FAILURE -> return failureFor(
+                normalizedBaseUrl,
+                failureFrom(startOutcome),
+            )
+            CoreConnectionProbeOutcomeKind.NEXT_REQUEST -> startOutcome.nextRequest
+                ?: return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            CoreConnectionProbeOutcomeKind.SUCCESS -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
+        }
+        val healthResponse = when (
+            val result = executeCoreRequest(
+                request = healthRequest,
+                accessToken = accessToken,
             )
         ) {
             is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
-            is PublicApiResult.Success -> result
-        }
-        val healthVersion = parseHealthVersion(healthResult.response.body)
-            ?: return failure(
-                normalizedBaseUrl = normalizedBaseUrl,
-                category = ConnectionFailureCategory.InvalidResponse,
-                userMessage = userMessageFor(ConnectionFailureCategory.InvalidResponse),
-                request = healthResult.request,
-            )
-        val observedHeaderVersion = healthResult.response.header(TARU_API_VERSION_HEADER)
-        val observedVersion = when {
-            healthVersion != TARU_API_VERSION -> healthVersion
-            observedHeaderVersion != null -> observedHeaderVersion
-            else -> healthVersion
-        }
-        if (healthVersion != TARU_API_VERSION ||
-            observedHeaderVersion?.let { it != TARU_API_VERSION } == true
-        ) {
-            return failure(
-                normalizedBaseUrl = normalizedBaseUrl,
-                category = ConnectionFailureCategory.UnsupportedApiVersion,
-                userMessage = "This server is not compatible with this Taru app version.",
-                observedApiVersion = observedVersion,
-                request = healthResult.request,
-            )
+            is PublicApiResult.Success -> result.response.toCoreResponse(healthRequest.requestId)
         }
 
-        val authProbeResult = when (
-            val result = executor.executeResponse(
-                baseUrl = normalizedBaseUrl,
-                pathAndQuery = TaruPublicClientRequests
-                    .listLibraries(PageQuery(limit = 1, offset = 0))
-                    .pathAndQuery,
-                auth = PublicApiAuth.Bearer(accessToken),
+        val healthOutcome = connectionCore.advanceConnectionProbe(
+            baseUrl = normalizedBaseUrl,
+            accessToken = accessToken,
+            response = healthResponse,
+        )
+        val authProbeRequest = when (healthOutcome.kind) {
+            CoreConnectionProbeOutcomeKind.FAILURE -> return failureFor(
+                normalizedBaseUrl,
+                failureFrom(healthOutcome),
+            )
+            CoreConnectionProbeOutcomeKind.NEXT_REQUEST -> healthOutcome.nextRequest
+                ?: return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            CoreConnectionProbeOutcomeKind.SUCCESS -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
+        }
+        val authProbeResponse = when (
+            val result = executeCoreRequest(
+                request = authProbeRequest,
+                accessToken = accessToken,
             )
         ) {
             is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
-            is PublicApiResult.Success -> result
+            is PublicApiResult.Success -> result.response.toCoreResponse(authProbeRequest.requestId)
+        }
+        val authOutcome = connectionCore.advanceConnectionProbe(
+            baseUrl = normalizedBaseUrl,
+            accessToken = accessToken,
+            response = authProbeResponse,
+        )
+        val success = when (authOutcome.kind) {
+            CoreConnectionProbeOutcomeKind.FAILURE -> return failureFor(
+                normalizedBaseUrl,
+                failureFrom(authOutcome),
+            )
+            CoreConnectionProbeOutcomeKind.NEXT_REQUEST -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            CoreConnectionProbeOutcomeKind.SUCCESS -> authOutcome.success
+                ?: return invalidCoreOutcomeFailure(normalizedBaseUrl)
         }
 
         return ConnectionCheckResult.Success(
             normalizedBaseUrl = normalizedBaseUrl,
-            apiVersion = observedVersion,
+            apiVersion = success.apiVersion,
             checkedAtMillis = clockMillis(),
-            healthRequest = healthResult.request,
-            authProbeRequest = authProbeResult.request,
+            healthRequest = success.healthRequest.toAndroidPreview(),
+            authProbeRequest = success.authProbeRequest.toAndroidPreview(),
         )
     }
 
@@ -183,6 +189,69 @@ class TaruConnectionClient(
             ),
         )
 
+    private suspend fun executeCoreRequest(
+        request: CoreHttpRequest,
+        accessToken: String,
+    ): PublicApiResult<TaruHttpResponse> {
+        val androidRequest = request.toAndroidRequest()
+        val safeRequest = request.safePreview.toAndroidPreview()
+        val response = try {
+            transport.execute(androidRequest)
+        } catch (error: CleartextHttpNotPermittedException) {
+            return PublicApiResult.Failure(
+                PublicApiFailure(
+                    kind = PublicApiFailureKind.UnreachableServer,
+                    publicError = PublicErrorEnvelope(
+                        code = "cleartext_http_not_allowed",
+                        message = SensitiveText.sanitize(
+                            error.message.orEmpty(),
+                            listOf(accessToken),
+                        ),
+                    ),
+                    request = safeRequest,
+                ),
+            )
+        } catch (_: SSLException) {
+            return PublicApiResult.Failure(
+                PublicApiFailure(
+                    kind = PublicApiFailureKind.TlsOrCertificate,
+                    request = safeRequest,
+                ),
+            )
+        } catch (error: IOException) {
+            return PublicApiResult.Failure(
+                PublicApiFailure(
+                    kind = PublicApiFailureKind.UnreachableServer,
+                    publicError = PublicErrorEnvelope(
+                        code = "transport_error",
+                        message = SensitiveText.sanitize(
+                            error.message.orEmpty(),
+                            listOf(accessToken),
+                        ),
+                    ),
+                    request = safeRequest,
+                ),
+            )
+        }
+
+        return PublicApiResult.Success(
+            value = response,
+            request = safeRequest,
+            response = response,
+        )
+    }
+
+    private fun invalidCoreOutcomeFailure(normalizedBaseUrl: String): ConnectionCheckResult.Failure =
+        failure(
+            normalizedBaseUrl = normalizedBaseUrl,
+            category = ConnectionFailureCategory.InvalidResponse,
+            userMessage = userMessageFor(ConnectionFailureCategory.InvalidResponse),
+        )
+
+    private fun failureFrom(outcome: CoreConnectionProbeOutcome): PublicApiFailure =
+        outcome.failure?.toPublicApiFailure()
+            ?: PublicApiFailure(PublicApiFailureKind.InvalidResponse)
+
     private fun normalizeBaseUrl(input: String): String? {
         val trimmed = input.trim().trimEnd('/')
         if (trimmed.isBlank()) {
@@ -199,16 +268,4 @@ class TaruConnectionClient(
         }
         return uri.toString().trimEnd('/')
     }
-
-    private fun parseHealthVersion(body: String): String? =
-        try {
-            val health = json.decodeFromString<HealthResponse>(body)
-            health.version.wireValue.takeIf {
-                health.status.isNotBlank() && it.isNotBlank()
-            }
-        } catch (_: SerializationException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        }
 }

@@ -71,6 +71,45 @@ class TaruConnectionClientTest {
     }
 
     @Test
+    fun `connection flow is driven by rust core binding with android-owned transport`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
+                    body = """{"status":"ok","version":"v1"}""",
+                ),
+            ),
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
+                    body = """{"items":[],"page":{"limit":1,"offset":0,"returned":0}}""",
+                ),
+            ),
+        )
+        val client = TaruConnectionClient(
+            transport = transport,
+            clockMillis = { 42L },
+            securityPolicy = ConnectionSecurityPolicy.allowCleartextForLocalDevelopment(),
+            connectionCore = RustConnectionCore,
+        )
+
+        val result = client.testConnection(
+            baseUrlInput = "http://localhost:3000",
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is ConnectionCheckResult.Success)
+        val success = result as ConnectionCheckResult.Success
+        assertEquals("v1", success.apiVersion)
+        assertEquals("http://localhost:3000/health", transport.requests[0].url)
+        assertEquals("http://localhost:3000/libraries?limit=1&offset=0", transport.requests[1].url)
+        assertEquals("Bearer secret-token", transport.requests[1].headers["Authorization"])
+        assertEquals("Bearer <redacted>", success.authProbeRequest.headers["Authorization"])
+    }
+
+    @Test
     fun `unreachable server returns sanitized diagnostics`() = runBlocking {
         val transport = FakeTransport(
             ThrowStep(IOException("failed with secret-token at C:\\media\\demo.mkv")),
