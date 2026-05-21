@@ -28,7 +28,7 @@ Task IDs use the `NSPA` prefix.
 
 ## M2 — App Service Acceptance And Idempotent Replay
 
-- [ ] NSPA-030 [owner=codex] [deps=NSPA-020] [scope=crates/taru-server]
+- [x] NSPA-030 [owner=codex] [deps=NSPA-020] [scope=crates/taru-server]
   Goal: Add an app-service command that explicitly accepts a current NFO
   authority preview, records a durable sidecar apply attempt, replays matching
   idempotency keys, rejects mismatched/stale requests, and performs no file or
@@ -36,7 +36,9 @@ Task IDs use the `NSPA` prefix.
   Validation: focused server tests prove accepted preview snapshot, stale
   preview rejection, idempotent replay, redacted diagnostics, and no VFS write
   or canonical metadata mutation.
-  Evidence: app-service request/response types and tests.
+  Evidence: `AcceptNfoSidecarApplyRequest`,
+  `NfoSidecarApplyAcceptanceDiagnostic`, `accept_sidecar_apply`, and focused
+  server tests.
   Handoff: Implement export apply in NSPA-040.
 
 ## M3 — Export Sidecar Apply

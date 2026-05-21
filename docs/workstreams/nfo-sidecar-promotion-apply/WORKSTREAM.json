@@ -7,10 +7,11 @@
   "scope_kind": "execution",
   "problem": "NFO authority preview and safe sidecar write primitives exist, but actual NFO import/export mutation needs its own accepted, idempotent, rollback-aware Library File Write and metadata-authority boundary.",
   "task_prefix": "NSPA",
-  "current_task": "NSPA-030",
+  "current_task": "NSPA-040",
   "completed_tasks": [
     "NSPA-010",
-    "NSPA-020"
+    "NSPA-020",
+    "NSPA-030"
   ],
   "authoritative_docs": [
     {
@@ -51,6 +52,8 @@
     "crates/taru-db/src/sqlite/nfo_sidecar_apply.rs",
     "crates/taru-db/migrations/0033_nfo_sidecar_applies.sql",
     "crates/taru-db/migrations/postgres/0005_nfo_sidecar_applies.sql",
+    "crates/taru-server/src/app/nfo.rs",
+    "crates/taru-server/src/app/tests/nfo.rs",
     "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
     "docs/workstreams/nfo-link-authority/DESIGN.md",
     "docs/workstreams/nfo-round-trip-preservation/DESIGN.md",
@@ -68,7 +71,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "NSPA-030",
-    "notes": "Durable NFO sidecar apply persistence is in place. Next wire server acceptance/replay without file or metadata mutation."
+    "next_task": "NSPA-040",
+    "notes": "Server-side NFO sidecar apply acceptance/replay is in place without file or metadata mutation. Next implement accepted export sidecar apply through taru-nfo and VFS write boundaries."
   }
 }

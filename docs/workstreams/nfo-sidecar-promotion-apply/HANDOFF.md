@@ -20,7 +20,7 @@ Existing prerequisites are in place:
 - LAIP promotion apply proves accepted, idempotent, cleanup-aware storage and
   catalog mutation for Media Sources, but it does not mutate sidecars.
 
-## Completed Task
+## Completed Tasks
 
 - Task ID: NSPA-020
 - Owner: codex
@@ -31,16 +31,28 @@ Existing prerequisites are in place:
 - Evidence: core domain records, repository trait, SQLite/PostgreSQL
   migrations and adapters, facade dispatch, and backend-neutral contract tests.
 
-## Active Task
-
 - Task ID: NSPA-030
 - Owner: codex
 - Files: `crates/taru-server`
 - Validation: focused server tests prove accepted preview snapshot, stale
   preview rejection, idempotent replay, redacted diagnostics, and no VFS write
   or canonical metadata mutation.
+- Status: DONE
+- Evidence: `AcceptNfoSidecarApplyRequest`,
+  `NfoSidecarApplyAcceptanceDiagnostic`, `accept_sidecar_apply`, and focused
+  server tests.
+
+## Active Task
+
+- Task ID: NSPA-040
+- Owner: codex
+- Files: `crates/taru-nfo`, `crates/taru-vfs`, `crates/taru-server`
+- Validation: focused tests prove create, preservation-aware update,
+  backup-required forced update, retention diagnostics, stale sidecar
+  rejection, and redacted reports.
 - Status: READY
-- Evidence: NSPA-020 durable persistence and audit records.
+- Evidence: NSPA-020 durable persistence/audit records and NSPA-030 explicit
+  acceptance/replay boundary.
 
 ## Decisions
 
@@ -66,7 +78,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Execute NSPA-030 with TDD: add the server app-service command that accepts a
-  current NFO authority preview, records an NFO sidecar apply attempt, replays
-  matching idempotency keys, rejects stale/mismatched requests, and performs no
-  file or metadata mutation yet.
+- Execute NSPA-040 with TDD: add export-sidecar apply for accepted NFO apply
+  records by revalidating current preview facts, rendering through `taru-nfo`,
+  writing only through VFS backup/atomic replace APIs, recording committed or
+  failed-before-mutation audit state, and keeping diagnostics redacted.

@@ -31,10 +31,10 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Server app service records explicit sidecar apply acceptance.
-- [ ] Matching idempotency keys replay safely.
-- [ ] Mismatched/stale requests are rejected.
-- [ ] No sidecar file write or canonical metadata mutation occurs before apply
+- [x] Server app service records explicit sidecar apply acceptance.
+- [x] Matching idempotency keys replay safely.
+- [x] Mismatched/stale requests are rejected.
+- [x] No sidecar file write or canonical metadata mutation occurs before apply
   tasks.
 
 ## M3 — Export Apply

@@ -3,12 +3,15 @@ use std::sync::Arc;
 use serde::Serialize;
 use taru_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobRepository, Library, LibraryId, LibraryRepository, NewJob, NewOutboxEvent, Result,
-    TaruError,
+    JobRepository, Library, LibraryId, LibraryRepository, MediaItemId, MediaRepository,
+    MediaSourceId, NewJob, NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId,
+    NfoSidecarApplyOperationKind, NfoSidecarApplyRecord, NfoSidecarApplyRepository,
+    NfoSidecarApplyState, Result, TaruError, UserPrincipalId,
 };
 use taru_db::TaruDatabase;
 use taru_nfo::{
-    MovieNfoCodec, NfoAuthorityPreviewOperation, NfoAuthorityPreviewRequest,
+    MovieNfoCodec, NfoAuthorityPreviewAction, NfoAuthorityPreviewDecision,
+    NfoAuthorityPreviewOperation, NfoAuthorityPreviewReason, NfoAuthorityPreviewRequest,
     NfoAuthorityPreviewSummary, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
     NfoExportSummary, NfoImportRequest, NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome,
     NfoService, NfoSidecarCheckpoint,
@@ -36,6 +39,69 @@ pub struct NfoImportCommandOutput {
 pub struct NfoExportCommandOutput {
     pub job: Job,
     pub export: NfoExportSummary,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AcceptNfoSidecarApplyRequest {
+    pub(crate) target_library_id: LibraryId,
+    pub(crate) media_item_id: MediaItemId,
+    pub(crate) media_source_id: Option<MediaSourceId>,
+    pub(crate) requested_by: UserPrincipalId,
+    pub(crate) idempotency_key: String,
+    pub(crate) operation_kind: NfoSidecarApplyOperationKind,
+    pub(crate) sidecar_locator: String,
+    pub(crate) accepted_preview: NfoAuthorityPreviewSummary,
+    pub(crate) accepted_warning_codes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct NfoSidecarApplyAcceptanceDiagnostic {
+    pub(crate) id: NfoSidecarApplyId,
+    pub(crate) target_library_id: LibraryId,
+    pub(crate) media_item_id: MediaItemId,
+    pub(crate) media_source_id: Option<MediaSourceId>,
+    pub(crate) requested_by: UserPrincipalId,
+    pub(crate) operation_kind: NfoSidecarApplyOperationKind,
+    pub(crate) sidecar_scheme: Option<String>,
+    pub(crate) sidecar_locator: Option<String>,
+    pub(crate) state: NfoSidecarApplyState,
+    pub(crate) replayed: bool,
+    pub(crate) accepted_preview_snapshot: bool,
+    pub(crate) accepted_warnings_snapshot: bool,
+    pub(crate) policy_version: String,
+    pub(crate) has_outcome: bool,
+    pub(crate) safe_error_code: Option<String>,
+    pub(crate) safe_message: Option<String>,
+    pub(crate) has_raw_storage_path: bool,
+    pub(crate) created_at_ms: i64,
+    pub(crate) updated_at_ms: i64,
+}
+
+impl NfoSidecarApplyAcceptanceDiagnostic {
+    #[must_use]
+    pub(crate) fn from_record(record: NfoSidecarApplyRecord, replayed: bool) -> Self {
+        Self {
+            id: record.id,
+            target_library_id: record.target_library_id,
+            media_item_id: record.media_item_id,
+            media_source_id: record.media_source_id,
+            requested_by: record.requested_by,
+            operation_kind: record.operation_kind,
+            sidecar_scheme: uri_scheme(&record.sidecar_locator).map(str::to_owned),
+            sidecar_locator: Some(record.sidecar_locator),
+            state: record.state,
+            replayed,
+            accepted_preview_snapshot: !record.accepted_preview_json.trim().is_empty(),
+            accepted_warnings_snapshot: record.accepted_warnings_json.is_some(),
+            policy_version: record.policy_version,
+            has_outcome: record.outcome_json.is_some(),
+            safe_error_code: record.safe_error_code,
+            safe_message: record.safe_message,
+            has_raw_storage_path: false,
+            created_at_ms: record.created_at_ms,
+            updated_at_ms: record.updated_at_ms,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -158,6 +224,135 @@ impl NfoAppService {
                 force,
             })
             .await
+    }
+
+    pub(crate) async fn accept_sidecar_apply(
+        &self,
+        request: AcceptNfoSidecarApplyRequest,
+    ) -> Result<NfoSidecarApplyAcceptanceDiagnostic> {
+        let idempotency_key = require_non_empty(
+            "NFO sidecar apply idempotency_key",
+            request.idempotency_key.clone(),
+        )?;
+        let sidecar_locator = require_non_empty(
+            "NFO sidecar apply sidecar_locator",
+            request.sidecar_locator.clone(),
+        )?;
+        let preview_operation = preview_operation_for_apply(request.operation_kind)?;
+        let accepted_preview_json = accepted_nfo_preview_json(&request.accepted_preview)?;
+        let accepted_warning_codes =
+            validate_nfo_accepted_warning_codes(request.accepted_warning_codes.clone())?;
+
+        if let Some(existing) = self
+            .store
+            .find_nfo_sidecar_apply_by_idempotency_key(request.target_library_id, &idempotency_key)
+            .await?
+        {
+            validate_idempotent_nfo_sidecar_apply_replay(
+                &existing,
+                &request,
+                &idempotency_key,
+                &sidecar_locator,
+                &accepted_preview_json,
+                &accepted_warning_codes,
+            )?;
+            return Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+                existing, true,
+            ));
+        }
+
+        let accepted_decision = validate_accepted_preview_target(
+            &request.accepted_preview,
+            request.target_library_id,
+            request.media_item_id,
+            request.media_source_id,
+            request.operation_kind,
+            preview_operation,
+            &sidecar_locator,
+        )?;
+        let accepted_source_id = accepted_decision.source_id;
+        let accepted_warnings_json = accepted_nfo_warnings_json(
+            accepted_decision,
+            request.accepted_preview.force,
+            &accepted_warning_codes,
+        )?;
+
+        let source = self
+            .store
+            .get_media_source(accepted_source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: accepted_source_id.to_string(),
+            })?;
+        if source.library_id != request.target_library_id
+            || source.item_id != request.media_item_id
+            || request
+                .media_source_id
+                .is_some_and(|source_id| source_id != source.id)
+        {
+            return Err(TaruError::Conflict {
+                message: "NFO sidecar apply target no longer matches cataloged media source"
+                    .to_owned(),
+            });
+        }
+        self.store
+            .get_media_item(request.media_item_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_item",
+                id: request.media_item_id.to_string(),
+            })?;
+
+        let current_preview = self
+            .preview_library_nfo_authority(
+                request.target_library_id,
+                preview_operation,
+                request.accepted_preview.force,
+            )
+            .await?;
+        if current_preview != request.accepted_preview {
+            return Err(TaruError::Conflict {
+                message: "NFO sidecar apply preview is stale; refresh preview before accepting"
+                    .to_owned(),
+            });
+        }
+
+        let now_ms = super::current_time_ms()?;
+        let outcome_json = serde_json::json!({
+            "accepted": true,
+            "preview_revalidated": true,
+            "writes_library": false,
+            "storage_mutation": false,
+            "metadata_mutation": false
+        })
+        .to_string();
+        let record = self
+            .store
+            .upsert_nfo_sidecar_apply(NewNfoSidecarApply {
+                id: NfoSidecarApplyId::new(),
+                target_library_id: request.target_library_id,
+                media_item_id: request.media_item_id,
+                media_source_id: request.media_source_id,
+                requested_by: request.requested_by,
+                idempotency_key,
+                operation_kind: request.operation_kind,
+                sidecar_locator,
+                accepted_preview_json,
+                accepted_warnings_json,
+                policy_version: NFO_SIDECAR_APPLY_POLICY_VERSION.to_owned(),
+                state: NfoSidecarApplyState::Accepted,
+                outcome_json: Some(outcome_json),
+                safe_error_code: None,
+                safe_message: Some("NFO sidecar apply accepted for future execution".to_owned()),
+                created_at_ms: now_ms,
+                updated_at_ms: now_ms,
+            })
+            .await?;
+
+        Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+            record, false,
+        ))
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
@@ -534,6 +729,8 @@ impl NfoAppService {
     }
 }
 
+const NFO_SIDECAR_APPLY_POLICY_VERSION: &str = "nfo-sidecar-acceptance-v1";
+
 pub(crate) async fn ensure_nfo_export_writable(
     backend: &dyn StorageBackend,
     library: &taru_core::Library,
@@ -556,6 +753,317 @@ pub(crate) async fn ensure_nfo_export_writable(
             "NFO export requires a writable storage backend",
         ))
     }
+}
+
+fn preview_operation_for_apply(
+    operation_kind: NfoSidecarApplyOperationKind,
+) -> Result<NfoAuthorityPreviewOperation> {
+    match operation_kind {
+        NfoSidecarApplyOperationKind::ExportSidecar => Ok(NfoAuthorityPreviewOperation::Export),
+        NfoSidecarApplyOperationKind::ImportSidecar => Ok(NfoAuthorityPreviewOperation::Import),
+        NfoSidecarApplyOperationKind::RoundTripUpdate => Err(TaruError::Unsupported(
+            "NFO round-trip sidecar apply requires a dedicated round-trip planner",
+        )),
+    }
+}
+
+fn validate_accepted_preview_target<'a>(
+    preview: &'a NfoAuthorityPreviewSummary,
+    target_library_id: LibraryId,
+    media_item_id: MediaItemId,
+    media_source_id: Option<MediaSourceId>,
+    operation_kind: NfoSidecarApplyOperationKind,
+    preview_operation: NfoAuthorityPreviewOperation,
+    sidecar_locator: &str,
+) -> Result<&'a NfoAuthorityPreviewDecision> {
+    if preview.library_id != target_library_id || preview.operation != preview_operation {
+        return Err(TaruError::Conflict {
+            message: "NFO sidecar apply preview does not match the requested library or operation"
+                .to_owned(),
+        });
+    }
+
+    let decision = preview
+        .decisions
+        .iter()
+        .find(|decision| {
+            decision.item_id == media_item_id
+                && media_source_id.is_none_or(|source_id| decision.source_id == source_id)
+        })
+        .ok_or_else(|| TaruError::Conflict {
+            message: "NFO sidecar apply target is not present in the accepted preview".to_owned(),
+        })?;
+
+    let decision_sidecar = decision.nfo_uri.as_ref().map(ToString::to_string);
+    if decision_sidecar.as_deref() != Some(sidecar_locator) {
+        return Err(TaruError::Conflict {
+            message: "NFO sidecar apply sidecar locator does not match the accepted preview"
+                .to_owned(),
+        });
+    }
+
+    if !decision_is_accept_ready(decision, operation_kind) {
+        return Err(TaruError::Conflict {
+            message: format!(
+                "NFO sidecar apply target is not ready for acceptance: {:?}",
+                decision.reason
+            ),
+        });
+    }
+
+    Ok(decision)
+}
+
+fn decision_is_accept_ready(
+    decision: &NfoAuthorityPreviewDecision,
+    operation_kind: NfoSidecarApplyOperationKind,
+) -> bool {
+    match operation_kind {
+        NfoSidecarApplyOperationKind::ExportSidecar => matches!(
+            (decision.action, decision.reason),
+            (
+                NfoAuthorityPreviewAction::Create,
+                NfoAuthorityPreviewReason::ExportWouldCreateSidecar
+            ) | (
+                NfoAuthorityPreviewAction::Update,
+                NfoAuthorityPreviewReason::ExportWouldUpdateExistingSidecar
+            )
+        ),
+        NfoSidecarApplyOperationKind::ImportSidecar => matches!(
+            (decision.action, decision.reason),
+            (
+                NfoAuthorityPreviewAction::Update,
+                NfoAuthorityPreviewReason::ImportWouldReadSidecar
+            )
+        ),
+        NfoSidecarApplyOperationKind::RoundTripUpdate => false,
+    }
+}
+
+fn validate_idempotent_nfo_sidecar_apply_replay(
+    existing: &NfoSidecarApplyRecord,
+    request: &AcceptNfoSidecarApplyRequest,
+    idempotency_key: &str,
+    sidecar_locator: &str,
+    accepted_preview_json: &str,
+    accepted_warning_codes: &[String],
+) -> Result<()> {
+    if existing.target_library_id != request.target_library_id
+        || existing.media_item_id != request.media_item_id
+        || existing.media_source_id != request.media_source_id
+        || existing.requested_by != request.requested_by
+        || existing.idempotency_key != idempotency_key
+        || existing.operation_kind != request.operation_kind
+        || existing.sidecar_locator != sidecar_locator
+        || existing.accepted_preview_json != accepted_preview_json
+        || existing.policy_version != NFO_SIDECAR_APPLY_POLICY_VERSION
+        || !accepted_warnings_match_replay(
+            existing.accepted_warnings_json.as_deref(),
+            accepted_warning_codes,
+        )
+    {
+        return Err(TaruError::Conflict {
+            message: "NFO sidecar apply idempotency key was already used for a different acceptance request".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn validate_nfo_accepted_warning_codes(warnings: Vec<String>) -> Result<Vec<String>> {
+    let mut normalized = Vec::with_capacity(warnings.len());
+    for warning in warnings {
+        let warning = require_non_empty("NFO sidecar apply accepted warning code", warning)?;
+        if !warning
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-')
+        {
+            return Err(TaruError::InvalidInput {
+                message: "NFO sidecar apply accepted warning codes must be safe lowercase tokens"
+                    .to_owned(),
+            });
+        }
+        if !normalized.contains(&warning) {
+            normalized.push(warning);
+        }
+    }
+    normalized.sort();
+
+    Ok(normalized)
+}
+
+fn accepted_nfo_warnings_json(
+    decision: &NfoAuthorityPreviewDecision,
+    force: bool,
+    accepted_warning_codes: &[String],
+) -> Result<Option<String>> {
+    if !force && !decision.backup_required && accepted_warning_codes.is_empty() {
+        return Ok(None);
+    }
+
+    serde_json::to_string(&serde_json::json!({
+        "accepted_warning_codes": accepted_warning_codes,
+        "force": force,
+        "backup_required": decision.backup_required,
+        "preview_action": preview_action_name(decision.action),
+        "preview_reason": preview_reason_name(decision.reason)
+    }))
+    .map(Some)
+    .map_err(database_error)
+}
+
+fn accepted_warnings_match_replay(
+    existing_warnings_json: Option<&str>,
+    accepted_warning_codes: &[String],
+) -> bool {
+    if existing_warnings_json.is_none() {
+        return accepted_warning_codes.is_empty();
+    }
+
+    existing_warnings_json
+        .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+        .and_then(|value| value.get("accepted_warning_codes").cloned())
+        .and_then(|codes| serde_json::from_value::<Vec<String>>(codes).ok())
+        .is_some_and(|mut codes| {
+            codes.sort();
+            codes == accepted_warning_codes
+        })
+}
+
+fn accepted_nfo_preview_json(preview: &NfoAuthorityPreviewSummary) -> Result<String> {
+    serde_json::to_string(&NfoAuthorityPreviewSnapshot::from(preview)).map_err(database_error)
+}
+
+#[derive(Serialize)]
+struct NfoAuthorityPreviewSnapshot<'a> {
+    library_id: LibraryId,
+    operation: &'static str,
+    policy: taru_core::LocalMetadataPolicy,
+    force: bool,
+    scanned_sources: u64,
+    create_items: u64,
+    skip_items: u64,
+    update_items: u64,
+    backup_required_items: u64,
+    policy_rejected_items: u64,
+    failure_items: u64,
+    decisions: Vec<NfoAuthorityPreviewDecisionSnapshot<'a>>,
+}
+
+impl<'a> From<&'a NfoAuthorityPreviewSummary> for NfoAuthorityPreviewSnapshot<'a> {
+    fn from(preview: &'a NfoAuthorityPreviewSummary) -> Self {
+        Self {
+            library_id: preview.library_id,
+            operation: preview_operation_name(preview.operation),
+            policy: preview.policy,
+            force: preview.force,
+            scanned_sources: preview.scanned_sources,
+            create_items: preview.create_items,
+            skip_items: preview.skip_items,
+            update_items: preview.update_items,
+            backup_required_items: preview.backup_required_items,
+            policy_rejected_items: preview.policy_rejected_items,
+            failure_items: preview.failure_items,
+            decisions: preview
+                .decisions
+                .iter()
+                .map(NfoAuthorityPreviewDecisionSnapshot::from)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct NfoAuthorityPreviewDecisionSnapshot<'a> {
+    source_id: MediaSourceId,
+    item_id: MediaItemId,
+    locator: &'a str,
+    nfo_uri: Option<String>,
+    action: &'static str,
+    reason: &'static str,
+    backup_required: bool,
+    message: &'a str,
+}
+
+impl<'a> From<&'a NfoAuthorityPreviewDecision> for NfoAuthorityPreviewDecisionSnapshot<'a> {
+    fn from(decision: &'a NfoAuthorityPreviewDecision) -> Self {
+        Self {
+            source_id: decision.source_id,
+            item_id: decision.item_id,
+            locator: &decision.locator,
+            nfo_uri: decision.nfo_uri.as_ref().map(ToString::to_string),
+            action: preview_action_name(decision.action),
+            reason: preview_reason_name(decision.reason),
+            backup_required: decision.backup_required,
+            message: &decision.message,
+        }
+    }
+}
+
+fn preview_operation_name(operation: NfoAuthorityPreviewOperation) -> &'static str {
+    match operation {
+        NfoAuthorityPreviewOperation::Import => "import",
+        NfoAuthorityPreviewOperation::Export => "export",
+    }
+}
+
+fn preview_action_name(action: NfoAuthorityPreviewAction) -> &'static str {
+    match action {
+        NfoAuthorityPreviewAction::Create => "create",
+        NfoAuthorityPreviewAction::Skip => "skip",
+        NfoAuthorityPreviewAction::Update => "update",
+        NfoAuthorityPreviewAction::PolicyRejected => "policy_rejected",
+        NfoAuthorityPreviewAction::Fail => "fail",
+    }
+}
+
+fn preview_reason_name(reason: NfoAuthorityPreviewReason) -> &'static str {
+    match reason {
+        NfoAuthorityPreviewReason::ExportWouldCreateSidecar => "export_would_create_sidecar",
+        NfoAuthorityPreviewReason::ExportWouldSkipExistingSidecar => {
+            "export_would_skip_existing_sidecar"
+        }
+        NfoAuthorityPreviewReason::ExportWouldUpdateExistingSidecar => {
+            "export_would_update_existing_sidecar"
+        }
+        NfoAuthorityPreviewReason::ImportWouldReadSidecar => "import_would_read_sidecar",
+        NfoAuthorityPreviewReason::ImportSidecarMissing => "import_sidecar_missing",
+        NfoAuthorityPreviewReason::PolicyDoesNotAllowOperation => "policy_does_not_allow_operation",
+        NfoAuthorityPreviewReason::UnsupportedMediaKind => "unsupported_media_kind",
+        NfoAuthorityPreviewReason::MissingMediaItem => "missing_media_item",
+        NfoAuthorityPreviewReason::InvalidSidecarPath => "invalid_sidecar_path",
+        NfoAuthorityPreviewReason::StorageReadFailed => "storage_read_failed",
+        NfoAuthorityPreviewReason::StorageUnsupported => "storage_unsupported",
+        NfoAuthorityPreviewReason::NfoParseFailed => "nfo_parse_failed",
+        NfoAuthorityPreviewReason::NfoRenderFailed => "nfo_render_failed",
+        NfoAuthorityPreviewReason::NfoPreservationFailed => "nfo_preservation_failed",
+    }
+}
+
+fn require_non_empty(label: &str, value: String) -> Result<String> {
+    optional_non_empty(Some(value)).ok_or_else(|| TaruError::InvalidInput {
+        message: format!("{label} cannot be empty"),
+    })
+}
+
+fn optional_non_empty(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim().to_owned();
+        (!trimmed.is_empty()).then_some(trimmed)
+    })
+}
+
+fn database_error<E: std::fmt::Display>(err: E) -> TaruError {
+    TaruError::Database {
+        message: err.to_string(),
+    }
+}
+
+fn uri_scheme(value: &str) -> Option<&str> {
+    value
+        .split_once(':')
+        .map(|(scheme, _)| scheme)
+        .filter(|scheme| !scheme.is_empty())
 }
 
 #[derive(Clone, Debug)]
