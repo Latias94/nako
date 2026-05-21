@@ -62,6 +62,7 @@ use crate::config::{
 };
 
 mod catalog;
+mod managed_import;
 mod metadata;
 mod nfo;
 mod playback;

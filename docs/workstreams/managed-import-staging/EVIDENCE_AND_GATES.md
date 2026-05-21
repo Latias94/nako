@@ -40,11 +40,22 @@ claiming lane closeout.
 | Date | Scope | Command / Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-21 | MIS-010 planning | Reviewed `CONTEXT.md`, post-RPD closeout, NFO/link authority closeout, existing VFS staging manifests, staging cleanup/service code, and DB staging contracts | Pass. First safe slice is durable Managed Import artifact domain/schema, not downloader implementation or promotion apply. |
+| 2026-05-21 | MIS-020 TDD red gate | `cargo nextest run -p taru-db managed_import --no-fail-fast` | Expected fail. Contract test could not compile because `ManagedImportRepository` was not implemented for SQLite/PostgreSQL/facade yet. |
+| 2026-05-21 | MIS-020 implementation gate | `cargo nextest run -p taru-db managed_import --no-fail-fast` | Pass. `sqlite_managed_import_contract_round_trips_artifacts_and_state` proves durable artifact round-trip, source lookup, list filters, staging-manifest reference, and state transition. PostgreSQL paired contract compiles and remains ignored unless `TARU_TEST_POSTGRES_URL` is provided. |
+| 2026-05-21 | MIS-020 formatting | `cargo fmt --all -- --check` | Pass. |
+| 2026-05-21 | MIS-020 diff hygiene | `git diff --check` | Pass with repository line-ending warnings only; no whitespace errors. |
+| 2026-05-21 | MIS-030 server diagnostics | `cargo nextest run -p taru-server managed_import --no-fail-fast` | Pass. Service tests prove create/list diagnostics are redacted, library scoped, enriched from staging manifest facts, reject mutating creation states, and do not create Media Sources. |
 
 ## Evidence Anchors
 
 - `crates/taru-core/src/staging.rs`
+- `crates/taru-core/src/managed_import.rs`
+- `crates/taru-core/src/repository/managed_import.rs`
 - `crates/taru-core/src/repository/vfs.rs`
+- `crates/taru-db/src/sqlite/managed_import.rs`
+- `crates/taru-db/src/postgres.rs`
+- `crates/taru-server/src/app/managed_import.rs`
+- `crates/taru-server/src/app/tests/managed_import.rs`
 - `crates/taru-server/src/app/staging.rs`
 - `docs/workstreams/managed-import-staging/DESIGN.md`
 - `docs/workstreams/nfo-link-authority/DESIGN.md`

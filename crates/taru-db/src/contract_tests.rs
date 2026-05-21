@@ -22,16 +22,18 @@ use taru_core::{
     LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
     LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
     ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaItem, MediaItemId, MediaKind,
-    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
-    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
-    MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit, MetadataRepository,
-    MetadataSource, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
-    NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
-    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
-    NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
-    NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportRepository,
+    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NewAddonGrant,
+    NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
+    NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
+    NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
     OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
     ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
     ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
@@ -61,6 +63,7 @@ enum ContractFamily {
     ScanCommit,
     MetadataCatalog,
     ManagedArtwork,
+    ManagedImport,
     PlaybackRuntime,
     EventAddonAutomation,
     RuntimePromotion,
@@ -76,6 +79,7 @@ impl ContractFamily {
             Self::ScanCommit => "scan_commit",
             Self::MetadataCatalog => "metadata_catalog",
             Self::ManagedArtwork => "managed_artwork",
+            Self::ManagedImport => "managed_import",
             Self::PlaybackRuntime => "playback_runtime",
             Self::EventAddonAutomation => "event_addon_automation",
             Self::RuntimePromotion => "runtime_promotion",
@@ -296,6 +300,24 @@ trait VfsStagingContractBackend:
 
 impl<T> VfsStagingContractBackend for T where
     T: LifecycleContractBackend + VfsCacheRepository + StagingManifestRepository
+{
+}
+
+trait ManagedImportContractBackend:
+    LifecycleContractBackend
+    + LibraryRepository
+    + MediaRepository
+    + StagingManifestRepository
+    + ManagedImportRepository
+{
+}
+
+impl<T> ManagedImportContractBackend for T where
+    T: LifecycleContractBackend
+        + LibraryRepository
+        + MediaRepository
+        + StagingManifestRepository
+        + ManagedImportRepository
 {
 }
 
@@ -4187,6 +4209,155 @@ where
     assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 0);
 }
 
+async fn managed_import_contract_round_trips_artifacts_and_state<S>(store: S)
+where
+    S: ManagedImportContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let staging_manifest_id = StagingManifestId::new();
+    let staging_manifest = NewStagingManifestRecord {
+        id: staging_manifest_id,
+        source_uri: "local:///incoming/Demo.mkv".to_owned(),
+        source_scheme: "local".to_owned(),
+        purpose: StagingPurpose::ProbeInput,
+        local_path: "/var/cache/taru/import/demo.mkv".to_owned(),
+        size_bytes: Some(120),
+        etag: Some("etag-demo".to_owned()),
+        fingerprint: Some("fingerprint-demo".to_owned()),
+        state: StagingState::Ready,
+        created_at_ms: 1_000,
+        updated_at_ms: 1_000,
+        last_accessed_at_ms: 1_000,
+        expires_at_ms: Some(50_000),
+        active_leases: 0,
+        validation_error: None,
+    };
+    store
+        .upsert_staging_manifest_record(staging_manifest)
+        .await
+        .unwrap();
+
+    let id = ManagedImportArtifactId::new();
+    let source_kind = ManagedImportSourceKind::WatchedCandidate;
+    let artifact = NewManagedImportArtifact {
+        id,
+        target_library_id: library.id,
+        source_kind: source_kind.clone(),
+        source_uri: "file:///incoming/Demo.mkv".to_owned(),
+        staging_manifest_id: Some(staging_manifest_id),
+        artifact_uri: Some("staging:///managed-import/demo.mkv".to_owned()),
+        original_file_name: Some("Demo.mkv".to_owned()),
+        intended_locator: Some("Movies/Demo (2026)/Demo.mkv".to_owned()),
+        size_bytes: Some(120),
+        fingerprint: Some("fingerprint-demo".to_owned()),
+        state: ManagedImportArtifactState::Staged,
+        diagnostics_json: Some(r#"{"redacted":true}"#.to_owned()),
+        created_at_ms: 1_100,
+        updated_at_ms: 1_200,
+    };
+
+    let saved = store
+        .upsert_managed_import_artifact(artifact.clone())
+        .await
+        .unwrap();
+    assert_eq!(saved.id, id);
+    assert_eq!(saved.target_library_id, library.id);
+    assert_eq!(saved.source_kind, source_kind);
+    assert_eq!(saved.staging_manifest_id, Some(staging_manifest_id));
+    assert_eq!(saved.state, ManagedImportArtifactState::Staged);
+    assert_eq!(saved.size_bytes, Some(120));
+    assert_eq!(
+        store.get_managed_import_artifact(id).await.unwrap(),
+        Some(saved.clone())
+    );
+    assert_eq!(
+        store
+            .find_managed_import_artifact_by_source(
+                library.id,
+                &ManagedImportSourceKind::WatchedCandidate,
+                "file:///incoming/Demo.mkv",
+            )
+            .await
+            .unwrap(),
+        Some(saved.clone())
+    );
+
+    let planned = store
+        .set_managed_import_artifact_state(
+            id,
+            ManagedImportArtifactState::Planned,
+            1_300,
+            Some(r#"{"plan":"copy","writes_library":false}"#.to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(planned.state, ManagedImportArtifactState::Planned);
+    assert_eq!(planned.updated_at_ms, 1_300);
+    assert_eq!(
+        planned.diagnostics_json.as_deref(),
+        Some(r#"{"plan":"copy","writes_library":false}"#)
+    );
+
+    let proposed_id = ManagedImportArtifactId::new();
+    let proposed = store
+        .upsert_managed_import_artifact(NewManagedImportArtifact {
+            id: proposed_id,
+            target_library_id: library.id,
+            source_kind: ManagedImportSourceKind::AddonProposed,
+            source_uri: "addon://demo/artifact/1".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: None,
+            original_file_name: Some("Addon Demo.mkv".to_owned()),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            state: ManagedImportArtifactState::Proposed,
+            diagnostics_json: None,
+            created_at_ms: 1_400,
+            updated_at_ms: 1_400,
+        })
+        .await
+        .unwrap();
+
+    let planned_items = store
+        .list_managed_import_artifacts(
+            ManagedImportArtifactListFilter {
+                target_library_id: Some(library.id),
+                state: Some(ManagedImportArtifactState::Planned),
+                source_kind: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(planned_items, vec![planned.clone()]);
+
+    let proposed_items = store
+        .list_managed_import_artifacts(
+            ManagedImportArtifactListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: Some(ManagedImportSourceKind::AddonProposed),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(proposed_items, vec![proposed]);
+
+    let missing = store
+        .set_managed_import_artifact_state(
+            ManagedImportArtifactId::new(),
+            ManagedImportArtifactState::Rejected,
+            1_500,
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing, None);
+}
+
 async fn migrate_contract<S>(store: S)
 where
     S: LifecycleContractBackend,
@@ -4431,4 +4602,14 @@ database_contract_pair!(
         "preserves_reservation_budget_and_leases"
     ),
     contract = staging_manifest_contract_preserves_reservation_budget_and_leases,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_managed_import_contract_round_trips_artifacts_and_state,
+    postgres = postgres_managed_import_contract_round_trips_artifacts_and_state,
+    case = ContractCase::migrated(
+        ContractFamily::ManagedImport,
+        "round_trips_artifacts_and_state"
+    ),
+    contract = managed_import_contract_round_trips_artifacts_and_state,
 );

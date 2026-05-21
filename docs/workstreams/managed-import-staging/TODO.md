@@ -16,23 +16,28 @@ Task IDs use the `MIS` prefix.
 
 ## M1 — Durable Import Artifact Domain
 
-- [ ] MIS-020 [owner=codex] [deps=MIS-010] [scope=crates/taru-core,crates/taru-db]
+- [x] MIS-020 [owner=codex] [deps=MIS-010] [scope=crates/taru-core,crates/taru-db]
   Goal: Add Managed Import artifact IDs, states, source kinds, repository
   traits, SQLite/PostgreSQL migrations, and backend-neutral contract tests.
   Validation: `cargo nextest run -p taru-db managed_import --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
   Evidence: core domain records, repository trait, migrations, DB contract
-  tests.
+  tests. Completed with `ManagedImportArtifactId`,
+  `ManagedImportSourceKind`, `ManagedImportArtifactState`,
+  `ManagedImportRepository`, SQLite/PostgreSQL migrations, facade capability,
+  and backend-neutral contract coverage.
   Handoff: Wire app/service diagnostics in MIS-030.
 
 ## M2 — App Service Diagnostics
 
-- [ ] MIS-030 [owner=codex] [deps=MIS-020] [scope=crates/taru-server]
+- [x] MIS-030 [owner=codex] [deps=MIS-020] [scope=crates/taru-server]
   Goal: Add server app service methods to create/list redacted Managed Import
   artifacts without fetching external bytes or writing library files.
   Validation: focused server app tests prove redaction, library scoping, and no
   library mutation.
-  Evidence: `taru-server` app tests and service boundary.
+  Evidence: `taru-server` app tests and service boundary. Completed with
+  `ManagedImportAppService`, redacted diagnostics, library existence checks,
+  staging-manifest enrichment, mutating-state rejection, and focused tests.
   Handoff: Add non-mutating promotion plan preview in MIS-040.
 
 ## M3 — Promotion Plan Preview

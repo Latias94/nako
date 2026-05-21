@@ -12,6 +12,7 @@ pub(crate) mod jobs;
 pub(crate) mod library;
 pub(crate) mod library_item;
 pub(crate) mod local_inference;
+pub(crate) mod managed_import;
 pub(crate) mod media;
 pub(crate) mod metadata;
 mod migrations;

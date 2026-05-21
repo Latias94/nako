@@ -20,18 +20,31 @@ Primary evidence:
 
 Exit criteria:
 
-- Core domain records and state enums exist.
-- Repository trait is explicit.
-- SQLite/PostgreSQL migrations preserve backend parity.
-- Contract tests round-trip Managed Import artifacts.
+- [x] Core domain records and state enums exist.
+- [x] Repository trait is explicit.
+- [x] SQLite/PostgreSQL migrations preserve backend parity.
+- [x] Contract tests round-trip Managed Import artifacts.
+
+Primary evidence:
+
+- `crates/taru-core/src/managed_import.rs`
+- `crates/taru-core/src/repository/managed_import.rs`
+- `crates/taru-db/migrations/0031_managed_import_artifacts.sql`
+- `crates/taru-db/migrations/postgres/0003_managed_import_artifacts.sql`
+- `crates/taru-db/src/contract_tests.rs`
 
 ## M2 — App Service Diagnostics
 
 Exit criteria:
 
-- Server service can create/list staged import artifact diagnostics.
-- Diagnostics are redacted and library-scoped.
-- No external fetch or library write is performed.
+- [x] Server service can create/list staged import artifact diagnostics.
+- [x] Diagnostics are redacted and library-scoped.
+- [x] No external fetch or library write is performed.
+
+Primary evidence:
+
+- `crates/taru-server/src/app/managed_import.rs`
+- `crates/taru-server/src/app/tests/managed_import.rs`
 
 ## M3 — Promotion Plan Preview
 

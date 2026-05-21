@@ -152,6 +152,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "user playback states",
         include_str!("../../migrations/0030_user_playback_states.sql"),
     ),
+    (
+        31,
+        "managed import artifacts",
+        include_str!("../../migrations/0031_managed_import_artifacts.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

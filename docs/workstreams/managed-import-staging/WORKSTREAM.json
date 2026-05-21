@@ -7,9 +7,11 @@
   "scope_kind": "execution",
   "problem": "Downloads, watch-folder candidates, and Addon-proposed artifacts need Taru-owned quarantine, diagnostics, and explicit promotion planning before any media library writes.",
   "task_prefix": "MIS",
-  "current_task": "MIS-020",
+  "current_task": "MIS-040",
   "completed_tasks": [
-    "MIS-010"
+    "MIS-010",
+    "MIS-020",
+    "MIS-030"
   ],
   "authoritative_docs": [
     {
@@ -43,7 +45,13 @@
     "docs/workstreams/managed-import-staging/TODO.md",
     "docs/workstreams/managed-import-staging/EVIDENCE_AND_GATES.md",
     "crates/taru-core/src/staging.rs",
-    "crates/taru-core/src/repository/vfs.rs"
+    "crates/taru-core/src/repository/vfs.rs",
+    "crates/taru-core/src/managed_import.rs",
+    "crates/taru-core/src/repository/managed_import.rs",
+    "crates/taru-db/src/sqlite/managed_import.rs",
+    "crates/taru-db/src/postgres.rs",
+    "crates/taru-server/src/app/managed_import.rs",
+    "crates/taru-server/src/app/tests/managed_import.rs"
   ],
   "adr_refs": [
     "docs/adr/0002-internal-vfs-before-os-mounting.md",
@@ -54,7 +62,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "MIS-020",
-    "notes": "Start with durable Managed Import artifact domain/schema and backend-neutral contract tests. Do not add generic downloader protocols or promotion apply until rollback, cleanup, audit, and operator confirmation semantics are explicit."
+    "next_task": "MIS-040",
+    "notes": "Build non-mutating promotion plan preview. It must explain destination, duplicate/link hints, NFO/provider identity hints, and blocked reasons without copy/move/link/delete in library roots."
   }
 }

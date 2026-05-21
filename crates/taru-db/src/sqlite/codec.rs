@@ -151,6 +151,20 @@ pub(crate) fn source_duplicate_evidence_kind_from_parts(
     SourceDuplicateEvidenceKind::from_parts(&kind, kind_key)
 }
 
+pub(crate) fn managed_import_source_kind_to_parts(
+    kind: &ManagedImportSourceKind,
+) -> (String, String) {
+    let (kind, kind_key) = kind.as_parts();
+    (kind.to_owned(), kind_key.to_owned())
+}
+
+pub(crate) fn managed_import_source_kind_from_parts(
+    kind: String,
+    kind_key: String,
+) -> ManagedImportSourceKind {
+    ManagedImportSourceKind::from_parts(&kind, kind_key)
+}
+
 pub(crate) fn local_inference_evidence_source_to_parts(
     source: &LocalInferenceEvidenceSource,
 ) -> (String, String) {

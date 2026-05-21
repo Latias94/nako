@@ -25,6 +25,7 @@ trait DatabaseBackendAdapter:
     + ArtworkTaskRepository
     + ArtworkCandidateRepository
     + ManagedArtworkRepository
+    + ManagedImportRepository
     + MetadataRepository
     + ProviderMappingRepository
     + SourceDuplicateRepository
@@ -59,6 +60,7 @@ impl<T> DatabaseBackendAdapter for T where
         + ArtworkTaskRepository
         + ArtworkCandidateRepository
         + ManagedArtworkRepository
+        + ManagedImportRepository
         + MetadataRepository
         + ProviderMappingRepository
         + SourceDuplicateRepository
@@ -93,6 +95,7 @@ pub struct DatabaseBackendCapabilities {
     pub addons: bool,
     pub automation: bool,
     pub managed_artwork: bool,
+    pub managed_import: bool,
     pub vfs_cache: bool,
     pub webhooks: bool,
     pub search_index: bool,
@@ -116,6 +119,7 @@ impl DatabaseBackendCapabilities {
             addons: true,
             automation: true,
             managed_artwork: true,
+            managed_import: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,
@@ -139,6 +143,7 @@ impl DatabaseBackendCapabilities {
             addons: true,
             automation: true,
             managed_artwork: true,
+            managed_import: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,
@@ -1139,6 +1144,58 @@ impl ManagedArtworkRepository for TaruDatabase {
     ) -> Result<ManagedArtworkArtifactCleanupReport> {
         self.backend()
             .cleanup_unselected_managed_artwork_artifacts(page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl ManagedImportRepository for TaruDatabase {
+    async fn upsert_managed_import_artifact(
+        &self,
+        artifact: NewManagedImportArtifact,
+    ) -> Result<ManagedImportArtifactRecord> {
+        self.backend()
+            .upsert_managed_import_artifact(artifact)
+            .await
+    }
+
+    async fn get_managed_import_artifact(
+        &self,
+        id: ManagedImportArtifactId,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        self.backend().get_managed_import_artifact(id).await
+    }
+
+    async fn find_managed_import_artifact_by_source(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &ManagedImportSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        self.backend()
+            .find_managed_import_artifact_by_source(target_library_id, source_kind, source_uri)
+            .await
+    }
+
+    async fn list_managed_import_artifacts(
+        &self,
+        filter: ManagedImportArtifactListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<ManagedImportArtifactRecord>> {
+        self.backend()
+            .list_managed_import_artifacts(filter, page)
+            .await
+    }
+
+    async fn set_managed_import_artifact_state(
+        &self,
+        id: ManagedImportArtifactId,
+        state: ManagedImportArtifactState,
+        updated_at_ms: i64,
+        diagnostics_json: Option<String>,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        self.backend()
+            .set_managed_import_artifact_state(id, state, updated_at_ms, diagnostics_json)
             .await
     }
 }

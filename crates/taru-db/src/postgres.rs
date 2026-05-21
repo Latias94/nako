@@ -27,6 +27,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "managed artwork",
         include_str!("../migrations/postgres/0002_managed_artwork.sql"),
     ),
+    (
+        3,
+        "managed import artifacts",
+        include_str!("../migrations/postgres/0003_managed_import_artifacts.sql"),
+    ),
 ];
 
 const JOB_SELECT: &str = r#"
@@ -486,6 +491,26 @@ const STAGING_MANIFEST_RECORD_SELECT: &str = r#"
                 active_leases,
                 validation_error
             FROM staging_manifest_records
+            "#;
+
+const MANAGED_IMPORT_ARTIFACT_SELECT: &str = r#"
+            SELECT
+                id::text AS id,
+                target_library_id::text AS target_library_id,
+                source_kind,
+                source_kind_key,
+                source_uri,
+                staging_manifest_id::text AS staging_manifest_id,
+                artifact_uri,
+                original_file_name,
+                intended_locator,
+                size_bytes,
+                fingerprint,
+                state,
+                diagnostics_json,
+                created_at_ms,
+                updated_at_ms
+            FROM managed_import_artifacts
             "#;
 
 #[derive(Clone, Debug)]
@@ -4356,6 +4381,180 @@ impl SourceDuplicateRepository for PostgresStore {
         rows.into_iter()
             .map(row_to_source_duplicate_relationship)
             .collect()
+    }
+}
+
+#[async_trait::async_trait]
+impl ManagedImportRepository for PostgresStore {
+    async fn upsert_managed_import_artifact(
+        &self,
+        artifact: NewManagedImportArtifact,
+    ) -> Result<ManagedImportArtifactRecord> {
+        let (source_kind, source_kind_key) =
+            managed_import_source_kind_to_parts(&artifact.source_kind);
+        sqlx::query(
+            r#"
+            INSERT INTO managed_import_artifacts (
+                id, target_library_id, source_kind, source_kind_key, source_uri,
+                staging_manifest_id, artifact_uri, original_file_name, intended_locator,
+                size_bytes, fingerprint, state, diagnostics_json, created_at_ms, updated_at_ms
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ON CONFLICT(id) DO UPDATE SET
+                target_library_id = excluded.target_library_id,
+                source_kind = excluded.source_kind,
+                source_kind_key = excluded.source_kind_key,
+                source_uri = excluded.source_uri,
+                staging_manifest_id = excluded.staging_manifest_id,
+                artifact_uri = excluded.artifact_uri,
+                original_file_name = excluded.original_file_name,
+                intended_locator = excluded.intended_locator,
+                size_bytes = excluded.size_bytes,
+                fingerprint = excluded.fingerprint,
+                state = excluded.state,
+                diagnostics_json = excluded.diagnostics_json,
+                updated_at_ms = excluded.updated_at_ms,
+                updated_at = statement_timestamp()
+            "#,
+        )
+        .bind(artifact.id.as_uuid())
+        .bind(artifact.target_library_id.as_uuid())
+        .bind(source_kind)
+        .bind(source_kind_key)
+        .bind(&artifact.source_uri)
+        .bind(artifact.staging_manifest_id.map(|id| id.as_uuid()))
+        .bind(&artifact.artifact_uri)
+        .bind(&artifact.original_file_name)
+        .bind(&artifact.intended_locator)
+        .bind(optional_u64_to_i64(artifact.size_bytes)?)
+        .bind(&artifact.fingerprint)
+        .bind(artifact.state.as_str())
+        .bind(&artifact.diagnostics_json)
+        .bind(artifact.created_at_ms)
+        .bind(artifact.updated_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_managed_import_artifact(artifact.id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_artifact",
+                id: artifact.id.to_string(),
+            })
+    }
+
+    async fn get_managed_import_artifact(
+        &self,
+        id: ManagedImportArtifactId,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        let row = sqlx::query(&format!(
+            r#"
+            {MANAGED_IMPORT_ARTIFACT_SELECT}
+            WHERE id = $1
+            "#
+        ))
+        .bind(id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_managed_import_artifact).transpose()
+    }
+
+    async fn find_managed_import_artifact_by_source(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &ManagedImportSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        let (source_kind, source_kind_key) = managed_import_source_kind_to_parts(source_kind);
+        let row = sqlx::query(&format!(
+            r#"
+            {MANAGED_IMPORT_ARTIFACT_SELECT}
+            WHERE target_library_id = $1
+              AND source_kind = $2
+              AND source_kind_key = $3
+              AND source_uri = $4
+            "#
+        ))
+        .bind(target_library_id.as_uuid())
+        .bind(source_kind)
+        .bind(source_kind_key)
+        .bind(source_uri)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_managed_import_artifact).transpose()
+    }
+
+    async fn list_managed_import_artifacts(
+        &self,
+        filter: ManagedImportArtifactListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<ManagedImportArtifactRecord>> {
+        let page = page.clamped();
+        let target_library_id = filter.target_library_id.map(|id| id.as_uuid());
+        let state = filter.state.map(ManagedImportArtifactState::as_str);
+        let (source_kind, source_kind_key) = filter
+            .source_kind
+            .as_ref()
+            .map(managed_import_source_kind_to_parts)
+            .map_or((None, None), |(kind, kind_key)| {
+                (Some(kind), Some(kind_key))
+            });
+        let rows = sqlx::query(&format!(
+            r#"
+            {MANAGED_IMPORT_ARTIFACT_SELECT}
+            WHERE ($1::uuid IS NULL OR target_library_id = $1)
+              AND ($2::text IS NULL OR state = $2)
+              AND ($3::text IS NULL OR (source_kind = $3 AND source_kind_key = $4))
+            ORDER BY updated_at_ms DESC, id ASC
+            LIMIT $5 OFFSET $6
+            "#
+        ))
+        .bind(target_library_id)
+        .bind(state)
+        .bind(source_kind)
+        .bind(source_kind_key)
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_managed_import_artifact)
+            .collect()
+    }
+
+    async fn set_managed_import_artifact_state(
+        &self,
+        id: ManagedImportArtifactId,
+        state: ManagedImportArtifactState,
+        updated_at_ms: i64,
+        diagnostics_json: Option<String>,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE managed_import_artifacts
+            SET state = $2,
+                updated_at_ms = $3,
+                diagnostics_json = $4,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(state.as_str())
+        .bind(updated_at_ms)
+        .bind(diagnostics_json)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_managed_import_artifact(id).await
     }
 }
 
@@ -9324,6 +9523,31 @@ fn row_to_source_duplicate_relationship(row: PgRow) -> Result<SourceDuplicateRel
     })
 }
 
+fn row_to_managed_import_artifact(row: PgRow) -> Result<ManagedImportArtifactRecord> {
+    Ok(ManagedImportArtifactRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        target_library_id: parse_id(row_get::<String>(&row, "target_library_id")?)?,
+        source_kind: managed_import_source_kind_from_parts(
+            row_get(&row, "source_kind")?,
+            row_get(&row, "source_kind_key")?,
+        ),
+        source_uri: row_get(&row, "source_uri")?,
+        staging_manifest_id: parse_optional_id(row_get::<Option<String>>(
+            &row,
+            "staging_manifest_id",
+        )?)?,
+        artifact_uri: row_get(&row, "artifact_uri")?,
+        original_file_name: row_get(&row, "original_file_name")?,
+        intended_locator: row_get(&row, "intended_locator")?,
+        size_bytes: optional_i64_to_u64(row_get(&row, "size_bytes")?)?,
+        fingerprint: row_get(&row, "fingerprint")?,
+        state: ManagedImportArtifactState::parse(&row_get::<String>(&row, "state")?)?,
+        diagnostics_json: row_get(&row, "diagnostics_json")?,
+        created_at_ms: row_get(&row, "created_at_ms")?,
+        updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
 fn row_to_user_playback_state(row: PgRow) -> Result<UserPlaybackState> {
     Ok(UserPlaybackState {
         principal_id: UserPrincipalId::new(row_get::<String>(&row, "principal_id")?)?,
@@ -9959,6 +10183,18 @@ fn source_duplicate_evidence_kind_from_parts(
     kind_key: String,
 ) -> SourceDuplicateEvidenceKind {
     SourceDuplicateEvidenceKind::from_parts(&kind, kind_key)
+}
+
+fn managed_import_source_kind_to_parts(kind: &ManagedImportSourceKind) -> (String, String) {
+    let (kind, kind_key) = kind.as_parts();
+    (kind.to_owned(), kind_key.to_owned())
+}
+
+fn managed_import_source_kind_from_parts(
+    kind: String,
+    kind_key: String,
+) -> ManagedImportSourceKind {
+    ManagedImportSourceKind::from_parts(&kind, kind_key)
 }
 
 fn credit_role_to_parts(role: &CreditRole) -> (String, String) {
