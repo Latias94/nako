@@ -1373,6 +1373,143 @@ async fn nfo_sidecar_apply_export_audit_failure_records_repair_pending() {
 }
 
 #[tokio::test]
+async fn nfo_sidecar_apply_export_write_failure_records_failed_before_mutation() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().to_path_buf(),
+        preset: taru_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![library_config.clone()],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(FailingNfoWriteBackend::new(temp.path()).unwrap()),
+        )
+        .await;
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Write Failure Export".to_owned(),
+            overview: Some("Write fails before sidecar mutation".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Export, false)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_export_preview_request(
+            &preview,
+            item.id,
+            source.id,
+            "nfo-sidecar-export-write-failure-1",
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .nfo()
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+    let stored = store
+        .get_nfo_sidecar_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let outcome: serde_json::Value =
+        serde_json::from_str(stored.outcome_json.as_deref().unwrap()).unwrap();
+
+    assert!(err.to_string().contains("nfo_sidecar_export_not_committed"));
+    assert_eq!(stored.state, NfoSidecarApplyState::FailedBeforeMutation);
+    assert_eq!(
+        stored.safe_error_code.as_deref(),
+        Some("nfo_sidecar_export_not_committed")
+    );
+    assert!(!temp.path().join("demo.nfo").exists());
+    assert_eq!(outcome["committed"], false);
+    assert_eq!(outcome["writes_library"], false);
+    assert_eq!(outcome["storage_mutation"], false);
+    assert_eq!(outcome["metadata_mutation"], false);
+    assert_eq!(outcome["failed_items"], 1);
+    assert_eq!(outcome["failure_count"], 1);
+    assert!(
+        !stored
+            .outcome_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains(&temp.path().display().to_string())
+    );
+    assert!(
+        !stored
+            .outcome_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains("<movie")
+    );
+}
+
+#[tokio::test]
 async fn nfo_sidecar_apply_rejects_stale_export_apply_before_overwrite() {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
@@ -2300,5 +2437,85 @@ fn accept_current_import_preview_request(
             .to_string(),
         accepted_preview: preview.clone(),
         accepted_warning_codes: Vec::new(),
+    }
+}
+
+struct FailingNfoWriteBackend {
+    inner: LocalFsBackend,
+}
+
+impl FailingNfoWriteBackend {
+    fn new(root: impl Into<PathBuf>) -> taru_core::Result<Self> {
+        Ok(Self {
+            inner: LocalFsBackend::new(root)?,
+        })
+    }
+
+    fn fail_if_nfo_write(&self, uri: &StorageUri) -> taru_core::Result<()> {
+        if uri.as_str().ends_with(".nfo") {
+            return Err(TaruError::storage_io(
+                uri.to_string(),
+                "injected NFO sidecar write failure before storage mutation",
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl StorageBackend for FailingNfoWriteBackend {
+    fn scheme(&self) -> &'static str {
+        self.inner.scheme()
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> taru_core::Result<ObjectMetadata> {
+        self.inner.stat(uri).await
+    }
+
+    async fn list(&self, uri: &StorageUri) -> taru_core::Result<Vec<ObjectMetadata>> {
+        self.inner.list(uri).await
+    }
+
+    async fn open_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> taru_core::Result<VirtualFile> {
+        self.inner.open_range(uri, range).await
+    }
+
+    async fn read_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> taru_core::Result<ReadRange> {
+        self.inner.read_range(uri, range).await
+    }
+
+    async fn stream_range(
+        &self,
+        uri: &StorageUri,
+        range: Option<ByteRange>,
+    ) -> taru_core::Result<ReadStream> {
+        self.inner.stream_range(uri, range).await
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> taru_core::Result<String> {
+        self.inner.read_to_string(uri).await
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> taru_core::Result<()> {
+        self.fail_if_nfo_write(uri)?;
+        self.inner.write_string(uri, content).await
+    }
+
+    async fn write(&self, request: StorageWriteRequest) -> taru_core::Result<StorageWriteReport> {
+        self.fail_if_nfo_write(&request.uri)?;
+        self.inner.write(request).await
+    }
+
+    async fn stage(&self, request: StageRequest) -> taru_core::Result<StagedFile> {
+        self.inner.stage(request).await
     }
 }

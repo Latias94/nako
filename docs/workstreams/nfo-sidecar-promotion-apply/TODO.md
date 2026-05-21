@@ -82,6 +82,10 @@ Task IDs use the `NSPA` prefix.
   metadata mutation. Remaining NSPA-060 coverage still needs export write,
   backup restore/rollback, metadata commit, and retention diagnostic failure
   gates before this task is DONE.
+  Progress: 2026-05-21 export write failure injection now proves
+  `FailedBeforeMutation` without creating a sidecar or leaking raw path/XML
+  diagnostics. Remaining NSPA-060 coverage still needs backup
+  restore/rollback, metadata commit, and retention diagnostic failure gates.
   Handoff: Decide API/UI/addon exposure in NSPA-070.
 
 ## M6 — Closeout And Exposure Split

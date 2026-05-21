@@ -78,7 +78,9 @@ Existing prerequisites are in place:
   boundaries. The first NSPA-060 slice now injects final audit commit failure
   after export sidecar write and after import metadata mutation; both paths
   record `RepairPending`, replay as terminal diagnostics, and avoid raw path/XML
-  leakage.
+  leakage. The second NSPA-060 slice injects export write failure through a
+  failing storage backend and proves `FailedBeforeMutation` without sidecar
+  creation or raw path/XML leakage.
 
 ## Decisions
 
@@ -104,7 +106,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Continue NSPA-060 with TDD: add failing storage/repository doubles for export
-  write, backup restore or rollback, metadata commit, and retention diagnostic
-  failures. Keep proving failed-before-mutation, rollback-complete, or
-  repair-pending outcomes instead of any false committed state.
+- Continue NSPA-060 with TDD: add failing storage/repository doubles for backup
+  restore or rollback, metadata commit, and retention diagnostic failures. Keep
+  proving failed-before-mutation, rollback-complete, or repair-pending outcomes
+  instead of any false committed state.
