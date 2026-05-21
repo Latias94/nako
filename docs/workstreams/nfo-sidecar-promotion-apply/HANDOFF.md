@@ -73,9 +73,12 @@ Existing prerequisites are in place:
 - Validation: tests with failing storage/repository doubles prove no false
   committed state and no unredacted diagnostics across export/import partial
   failures.
-- Status: READY
+- Status: IN_PROGRESS
 - Evidence: NSPA-040 export apply and NSPA-050 import apply mutation
-  boundaries.
+  boundaries. The first NSPA-060 slice now injects final audit commit failure
+  after export sidecar write and after import metadata mutation; both paths
+  record `RepairPending`, replay as terminal diagnostics, and avoid raw path/XML
+  leakage.
 
 ## Decisions
 
@@ -101,7 +104,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Execute NSPA-060 with TDD: inject failures around accepted export/import
-  mutation and audit commits, then prove failed-before-mutation,
-  rollback-complete, or repair-pending outcomes instead of any false committed
-  state.
+- Continue NSPA-060 with TDD: add failing storage/repository doubles for export
+  write, backup restore or rollback, metadata commit, and retention diagnostic
+  failures. Keep proving failed-before-mutation, rollback-complete, or
+  repair-pending outcomes instead of any false committed state.

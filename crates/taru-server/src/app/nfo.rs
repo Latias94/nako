@@ -129,6 +129,14 @@ pub(crate) struct NfoAppService {
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
+    #[cfg(test)]
+    audit_failure: Option<NfoSidecarApplyAuditFailurePoint>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum NfoSidecarApplyAuditFailurePoint {
+    BeforeCommittedState,
 }
 
 impl NfoAppService {
@@ -143,7 +151,18 @@ impl NfoAppService {
             permits,
             storage_backends,
             runtime,
+            #[cfg(test)]
+            audit_failure: None,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_audit_failure_for_test(
+        mut self,
+        point: NfoSidecarApplyAuditFailurePoint,
+    ) -> Self {
+        self.audit_failure = Some(point);
+        self
     }
 
     pub(crate) async fn enqueue_nfo_import(&self, library_id: LibraryId) -> Result<Job> {
@@ -381,6 +400,14 @@ impl NfoAppService {
                 accepted, true,
             ));
         }
+        if matches!(
+            accepted.state,
+            NfoSidecarApplyState::RepairPending | NfoSidecarApplyState::RollbackComplete
+        ) {
+            return Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+                accepted, true,
+            ));
+        }
         match accepted.operation_kind {
             NfoSidecarApplyOperationKind::ExportSidecar => {
                 self.apply_export_sidecar_apply(accepted).await
@@ -479,26 +506,7 @@ impl NfoAppService {
             .await?;
 
         if summary.exported_items == 1 && summary.failed_items == 0 {
-            let committed = self
-                .store
-                .set_nfo_sidecar_apply_state(
-                    accepted.id,
-                    NfoSidecarApplyState::Committed,
-                    super::current_time_ms()?,
-                    Some(nfo_sidecar_export_committed_outcome_json(
-                        &accepted, &summary,
-                    )?),
-                    None,
-                    Some("NFO sidecar export apply committed".to_owned()),
-                )
-                .await?
-                .ok_or_else(|| TaruError::NotFound {
-                    entity: "nfo_sidecar_apply",
-                    id: accepted.id.to_string(),
-                })?;
-            return Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
-                committed, false,
-            ));
+            return self.commit_export_sidecar_apply(&accepted, &summary).await;
         }
 
         let failed = self
@@ -614,26 +622,7 @@ impl NfoAppService {
             .await?;
 
         if summary.imported_items == 1 && summary.failed_items == 0 {
-            let committed = self
-                .store
-                .set_nfo_sidecar_apply_state(
-                    accepted.id,
-                    NfoSidecarApplyState::Committed,
-                    super::current_time_ms()?,
-                    Some(nfo_sidecar_import_committed_outcome_json(
-                        &accepted, &summary,
-                    )?),
-                    None,
-                    Some("NFO sidecar import apply committed".to_owned()),
-                )
-                .await?
-                .ok_or_else(|| TaruError::NotFound {
-                    entity: "nfo_sidecar_apply",
-                    id: accepted.id.to_string(),
-                })?;
-            return Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
-                committed, false,
-            ));
+            return self.commit_import_sidecar_apply(&accepted, &summary).await;
         }
 
         let failed = self
@@ -687,6 +676,154 @@ impl NfoAppService {
                 entity: "nfo_sidecar_apply",
                 id: accepted.id.to_string(),
             })
+    }
+
+    async fn commit_export_sidecar_apply(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoExportSourceSummary,
+    ) -> Result<NfoSidecarApplyAcceptanceDiagnostic> {
+        match self.write_export_committed_audit(accepted, summary).await {
+            Ok(committed) => Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+                committed, false,
+            )),
+            Err(err) => {
+                self.record_export_repair_pending_after_audit_commit_failure(accepted, summary)
+                    .await
+                    .map_err(|_| nfo_sidecar_audit_and_repair_audit_failed_error())?;
+                Err(nfo_sidecar_audit_commit_failed_error(err))
+            }
+        }
+    }
+
+    async fn write_export_committed_audit(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoExportSourceSummary,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.fail_nfo_sidecar_audit_commit_for_test()?;
+        self.store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::Committed,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_export_committed_outcome_json(
+                    accepted, summary,
+                )?),
+                None,
+                Some("NFO sidecar export apply committed".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    async fn record_export_repair_pending_after_audit_commit_failure(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoExportSourceSummary,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::RepairPending,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_export_repair_pending_outcome_json(
+                    accepted, summary,
+                )?),
+                Some("nfo_sidecar_apply_audit_commit_failed".to_owned()),
+                Some(
+                    "NFO sidecar export apply wrote the sidecar but failed to commit final audit state"
+                        .to_owned(),
+                ),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    async fn commit_import_sidecar_apply(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoImportSourceSummary,
+    ) -> Result<NfoSidecarApplyAcceptanceDiagnostic> {
+        match self.write_import_committed_audit(accepted, summary).await {
+            Ok(committed) => Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+                committed, false,
+            )),
+            Err(err) => {
+                self.record_import_repair_pending_after_audit_commit_failure(accepted, summary)
+                    .await
+                    .map_err(|_| nfo_sidecar_audit_and_repair_audit_failed_error())?;
+                Err(nfo_sidecar_audit_commit_failed_error(err))
+            }
+        }
+    }
+
+    async fn write_import_committed_audit(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoImportSourceSummary,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.fail_nfo_sidecar_audit_commit_for_test()?;
+        self.store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::Committed,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_import_committed_outcome_json(
+                    accepted, summary,
+                )?),
+                None,
+                Some("NFO sidecar import apply committed".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    async fn record_import_repair_pending_after_audit_commit_failure(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        summary: &NfoImportSourceSummary,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::RepairPending,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_import_repair_pending_outcome_json(
+                    accepted, summary,
+                )?),
+                Some("nfo_sidecar_apply_audit_commit_failed".to_owned()),
+                Some(
+                    "NFO sidecar import apply mutated metadata but failed to commit final audit state"
+                        .to_owned(),
+                ),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })
+    }
+
+    fn fail_nfo_sidecar_audit_commit_for_test(&self) -> Result<()> {
+        #[cfg(test)]
+        {
+            if self.audit_failure == Some(NfoSidecarApplyAuditFailurePoint::BeforeCommittedState) {
+                return Err(TaruError::Database {
+                    message: "injected NFO sidecar apply audit commit failure".to_owned(),
+                });
+            }
+        }
+        Ok(())
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
@@ -1215,7 +1352,10 @@ fn validate_nfo_sidecar_apply_request(
     }
     if !matches!(
         record.state,
-        NfoSidecarApplyState::Accepted | NfoSidecarApplyState::Committed
+        NfoSidecarApplyState::Accepted
+            | NfoSidecarApplyState::Committed
+            | NfoSidecarApplyState::RepairPending
+            | NfoSidecarApplyState::RollbackComplete
     ) {
         return Err(TaruError::Conflict {
             message: format!(
@@ -1395,6 +1535,30 @@ fn nfo_sidecar_export_not_committed_outcome_json(
     .map_err(database_error)
 }
 
+fn nfo_sidecar_export_repair_pending_outcome_json(
+    record: &NfoSidecarApplyRecord,
+    summary: &NfoExportSourceSummary,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": false,
+        "writes_library": true,
+        "storage_mutation": true,
+        "metadata_mutation": false,
+        "repair_required": true,
+        "audit_commit_completed": false,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::RepairPending,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator),
+        "source_id": summary.source_id,
+        "exported_items": summary.exported_items,
+        "backed_up_items": summary.backed_up_items,
+        "backup_count": summary.backups.len(),
+        "prune_failure_count": summary.prune_failures.len()
+    }))
+    .map_err(database_error)
+}
+
 fn nfo_sidecar_import_not_committed_outcome_json(
     record: &NfoSidecarApplyRecord,
     summary: &NfoImportSourceSummary,
@@ -1418,6 +1582,29 @@ fn nfo_sidecar_import_not_committed_outcome_json(
     .map_err(database_error)
 }
 
+fn nfo_sidecar_import_repair_pending_outcome_json(
+    record: &NfoSidecarApplyRecord,
+    summary: &NfoImportSourceSummary,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": false,
+        "writes_library": true,
+        "storage_mutation": false,
+        "metadata_mutation": true,
+        "repair_required": true,
+        "audit_commit_completed": false,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::RepairPending,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator),
+        "source_id": summary.source_id,
+        "discovered_nfo": summary.discovered_nfo,
+        "imported_items": summary.imported_items,
+        "failure_count": summary.failures.len()
+    }))
+    .map_err(database_error)
+}
+
 fn nfo_sidecar_pre_mutation_failure_outcome_json(
     record: &NfoSidecarApplyRecord,
     safe_error_code: &str,
@@ -1434,6 +1621,20 @@ fn nfo_sidecar_pre_mutation_failure_outcome_json(
         "safe_error_code": safe_error_code
     }))
     .map_err(database_error)
+}
+
+fn nfo_sidecar_audit_commit_failed_error(error: TaruError) -> TaruError {
+    TaruError::Conflict {
+        message: format!("nfo_sidecar_apply_audit_commit_failed: {error}"),
+    }
+}
+
+fn nfo_sidecar_audit_and_repair_audit_failed_error() -> TaruError {
+    TaruError::Database {
+        message:
+            "NFO sidecar apply mutation completed, committed-state audit failed, and repair-pending audit also failed"
+                .to_owned(),
+    }
 }
 
 fn accepted_nfo_preview_json(preview: &NfoAuthorityPreviewSummary) -> Result<String> {

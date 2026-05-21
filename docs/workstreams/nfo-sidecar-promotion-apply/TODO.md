@@ -77,6 +77,11 @@ Task IDs use the `NSPA` prefix.
   Validation: tests with failing storage/repository doubles prove no false
   committed state and no unredacted diagnostics.
   Evidence: failure-injection tests and audit state transitions.
+  Progress: 2026-05-21 audit commit failure injection now proves
+  repair-pending terminal outcomes after export sidecar write and after import
+  metadata mutation. Remaining NSPA-060 coverage still needs export write,
+  backup restore/rollback, metadata commit, and retention diagnostic failure
+  gates before this task is DONE.
   Handoff: Decide API/UI/addon exposure in NSPA-070.
 
 ## M6 — Closeout And Exposure Split

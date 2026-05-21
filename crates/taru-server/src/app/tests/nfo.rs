@@ -1,5 +1,7 @@
 use super::*;
-use crate::app::nfo::{AcceptNfoSidecarApplyRequest, ApplyNfoSidecarApplyRequest};
+use crate::app::nfo::{
+    AcceptNfoSidecarApplyRequest, ApplyNfoSidecarApplyRequest, NfoSidecarApplyAuditFailurePoint,
+};
 use taru_core::{
     LibraryItemRepository, LibraryItemState, NfoSidecarApplyOperationKind,
     NfoSidecarApplyRepository, NfoSidecarApplyState, UserPrincipalId,
@@ -1226,6 +1228,151 @@ async fn nfo_sidecar_apply_exports_accepted_create_preview_and_commits_audit() {
 }
 
 #[tokio::test]
+async fn nfo_sidecar_apply_export_audit_failure_records_repair_pending() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Repair Pending Export".to_owned(),
+            overview: Some("Sidecar write succeeds before audit failure".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Export, false)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_export_preview_request(
+            &preview,
+            item.id,
+            source.id,
+            "nfo-sidecar-export-audit-failure-1",
+        ))
+        .await
+        .unwrap();
+    let service = app
+        .nfo()
+        .with_audit_failure_for_test(NfoSidecarApplyAuditFailurePoint::BeforeCommittedState);
+
+    let err = service
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+    let repair_pending = store
+        .get_nfo_sidecar_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let replayed = service
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let outcome: serde_json::Value =
+        serde_json::from_str(repair_pending.outcome_json.as_deref().unwrap()).unwrap();
+    let sidecar_xml = fs::read_to_string(temp.path().join("demo.nfo")).unwrap();
+
+    assert!(
+        err.to_string()
+            .contains("nfo_sidecar_apply_audit_commit_failed")
+    );
+    assert_eq!(repair_pending.state, NfoSidecarApplyState::RepairPending);
+    assert_eq!(
+        repair_pending.safe_error_code.as_deref(),
+        Some("nfo_sidecar_apply_audit_commit_failed")
+    );
+    assert_eq!(replayed.state, NfoSidecarApplyState::RepairPending);
+    assert!(replayed.replayed);
+    assert!(sidecar_xml.contains("<title>Repair Pending Export</title>"));
+    assert_eq!(outcome["committed"], false);
+    assert_eq!(outcome["writes_library"], true);
+    assert_eq!(outcome["storage_mutation"], true);
+    assert_eq!(outcome["metadata_mutation"], false);
+    assert_eq!(outcome["repair_required"], true);
+    assert_eq!(outcome["audit_commit_completed"], false);
+    assert!(
+        !repair_pending
+            .outcome_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains(&temp.path().display().to_string())
+    );
+    assert!(
+        !repair_pending
+            .outcome_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains("<movie")
+    );
+}
+
+#[tokio::test]
 async fn nfo_sidecar_apply_rejects_stale_export_apply_before_overwrite() {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
@@ -1614,6 +1761,167 @@ async fn nfo_sidecar_apply_imports_accepted_sidecar_into_metadata_and_locks() {
     assert!(outcome.contains(r#""imported_items":1"#));
     assert!(!outcome.contains(&temp.path().display().to_string()));
     assert!(!outcome.contains("<movie"));
+}
+
+#[tokio::test]
+async fn nfo_sidecar_apply_import_audit_failure_records_repair_pending() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie>
+  <title>Repair Pending Import</title>
+  <plot>Metadata mutation succeeds before audit failure</plot>
+</movie>
+"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::LocalFirst;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Original Title".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Import, false)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_import_preview_request(
+            &preview,
+            item.id,
+            source.id,
+            "nfo-sidecar-import-audit-failure-1",
+        ))
+        .await
+        .unwrap();
+    let service = app
+        .nfo()
+        .with_audit_failure_for_test(NfoSidecarApplyAuditFailurePoint::BeforeCommittedState);
+
+    let err = service
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+    let repair_pending = store
+        .get_nfo_sidecar_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let replayed = service
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+    let locks = store.list_field_locks(item.id).await.unwrap();
+    let outcome: serde_json::Value =
+        serde_json::from_str(repair_pending.outcome_json.as_deref().unwrap()).unwrap();
+
+    assert!(
+        err.to_string()
+            .contains("nfo_sidecar_apply_audit_commit_failed")
+    );
+    assert_eq!(repair_pending.state, NfoSidecarApplyState::RepairPending);
+    assert_eq!(
+        repair_pending.safe_error_code.as_deref(),
+        Some("nfo_sidecar_apply_audit_commit_failed")
+    );
+    assert_eq!(replayed.state, NfoSidecarApplyState::RepairPending);
+    assert!(replayed.replayed);
+    assert_eq!(loaded.metadata.title, "Repair Pending Import");
+    assert_eq!(
+        loaded.metadata.overview,
+        Some("Metadata mutation succeeds before audit failure".to_owned())
+    );
+    assert!(locks.iter().any(|lock| {
+        lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::Nfo
+    }));
+    assert_eq!(outcome["committed"], false);
+    assert_eq!(outcome["writes_library"], true);
+    assert_eq!(outcome["storage_mutation"], false);
+    assert_eq!(outcome["metadata_mutation"], true);
+    assert_eq!(outcome["repair_required"], true);
+    assert_eq!(outcome["audit_commit_completed"], false);
+    assert!(
+        !repair_pending
+            .outcome_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains(&temp.path().display().to_string())
+    );
+    assert!(
+        !repair_pending
+            .outcome_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains("<movie")
+    );
 }
 
 #[tokio::test]
