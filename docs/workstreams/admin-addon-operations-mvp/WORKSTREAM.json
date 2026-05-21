@@ -1,0 +1,24 @@
+{
+  "slug": "admin-addon-operations-mvp",
+  "title": "Admin Addon Operations MVP",
+  "status": "active",
+  "created_at": "2026-05-21",
+  "last_updated": "2026-05-21",
+  "objective": "Productize Addon administration with explicit lifecycle mutation, unregister semantics, health checks, hosted surface read models, and resource-call diagnostics without expanding into Addon Manager scope.",
+  "task_prefix": "AAO",
+  "current_task": "AAO-010",
+  "first_executable_task": "AAO-010",
+  "upstream_workstreams": [
+    "release-packaging-and-distribution",
+    "addon-architecture-deepening"
+  ],
+  "primary_crates": [
+    "taru-addon-protocol",
+    "taru-addon-client",
+    "taru-api",
+    "taru-core",
+    "taru-db",
+    "taru-server"
+  ],
+  "validation_summary": "Focused Addon protocol/client/API/server/DB gates first; workspace checks and PostgreSQL opt-in contracts before closeout when available."
+}

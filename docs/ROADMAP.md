@@ -11,7 +11,24 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: completed for Addon Architecture Deepening.
+Status: active for Admin Addon Operations MVP.
+
+The current productization focus is Admin Addon Operations MVP. Release
+Packaging and Addon Architecture Deepening are complete, so the next gap is
+operator control and diagnostics for manually registered Addon Sidecars:
+
+- enable/disable lifecycle mutation;
+- unregister semantics;
+- Addon Health Check;
+- hosted Addon surface read models;
+- resource-call diagnostics;
+- redaction-safe Admin DTOs and docs.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-addon-operations-mvp/`
+
+Latest completed architecture focus:
 
 The latest architecture focus was Addon Architecture Deepening, completed on
 2026-05-21. It intentionally removed compatibility seams while Taru still has

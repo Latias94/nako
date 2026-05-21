@@ -48,6 +48,11 @@ attention.
   completed lane for replacing Android handwritten Public Client API DTO and route
   mirrors with an OpenAPI-backed generated Kotlin/JVM SDK before mobile
   Rust/UniFFI is introduced.
+- [admin-addon-operations-mvp](admin-addon-operations-mvp/README.md):
+  active productization lane for Addon lifecycle mutation, unregister
+  semantics, Addon Health Check, hosted Addon surface read models, and
+  redaction-safe resource-call diagnostics without expanding into Addon Manager
+  scope.
 - [addon-architecture-deepening](addon-architecture-deepening/README.md):
   completed architecture-first lane for deepening Addon Side Effect runtime,
   fingerprinted idempotency, Protected Write payload contracts, Addon Manifest

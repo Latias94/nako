@@ -26,8 +26,46 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is currently recorded. Pick the next goal from
-the roadmap or open a new workstream before starting a cross-cutting change.
+### Admin Addon Operations MVP
+
+Status: active.
+
+Objective:
+
+- Productize the Addon administration surface now that release packaging and
+  Addon architecture deepening are complete.
+- Add explicit Admin lifecycle operations for enable/disable and unregister.
+- Add Addon Health Check and resource-call diagnostics without leaking
+  credentials, payloads, Source Locators, storage paths, or admin authority.
+- Expose Addon Entry Points, Hosted Pages, configuration schema metadata,
+  Addon Task declarations, and Event Subscription declarations as Admin read
+  models.
+
+Deliverables:
+
+- `docs/workstreams/admin-addon-operations-mvp/` as the authoritative
+  execution lane.
+- Admin API routes under `/admin/v1/addons/{addon_id}` for lifecycle,
+  health, surfaces, and diagnostics.
+- Focused Addon protocol/client/API/server/DB tests and docs.
+
+Non-goals:
+
+- No Addon Manager discovery, install, update, marketplace, package signing,
+  process supervision, or sidecar process removal.
+- No OAuth-first Addon authorization.
+- No Native Plugin ABI or Jellyfin Plugin Compatibility.
+- No embedded trusted Admin UI.
+- No full Addon Task runtime or Addon Event Subscription delivery.
+
+First executable task:
+
+- AAO-010 Contract and goal baseline.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-addon-operations-mvp/`.
 
 ## Completed Goals
 
