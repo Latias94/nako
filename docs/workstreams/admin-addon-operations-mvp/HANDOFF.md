@@ -13,9 +13,9 @@ Upstream workstreams are complete:
 
 Admin Addon API currently supports registration/list/detail under
 `/admin/v1/addons`, explicit enable/disable lifecycle mutation, terminal
-unregister, redaction-safe health checks, plus token issue/list/rotate/revoke
-and grant replace/list. The remaining product gap is surface/resource
-diagnostics.
+unregister, redaction-safe health checks, hosted surface read models, plus
+token issue/list/rotate/revoke and grant replace/list. The remaining product
+gap is resource-call diagnostics.
 
 AAO-010 is complete. The lane now has a frozen MVP contract:
 
@@ -54,20 +54,27 @@ reachability, latency, protocol/manifest facts, and safe error codes. Health
 checks do not send administrator bearer tokens, Addon Tokens, resolved Secret
 Reference values, or resource-call payloads to Addon Sidecars.
 
+AAO-050 is complete. `GET /admin/v1/addons/{addon_id}/surfaces` returns Admin
+read models for manifest-declared Entry Points, Hosted Pages, Configuration
+Schema metadata, Secret Reference field declarations, Addon Tasks, and Addon
+Event Subscriptions. Hosted Page URLs are derived from manifest base URL and
+declared paths only; Taru does not append administrator bearer tokens, Addon
+Tokens, launch secrets, or resolved Secret Reference values.
+
 ## Active Task
 
-AAO-050 — Hosted surface read models.
+AAO-060 — Resource-call diagnostics.
 
 ## Next Steps
 
-1. Execute AAO-050 by adding Admin read models for manifest-declared Addon
-   Entry Points, Hosted Pages, configuration schema metadata, Secret Reference
-   fields, Addon Tasks, and Addon Event Subscriptions.
-2. Keep hosted page URLs external Addon Sidecar URLs and never append admin
-   bearer tokens, Addon Tokens, one-time launch secrets, or resolved Secret
-   Reference values.
-3. Keep DTOs in `taru-api::extension` and orchestration in
-   `taru-server::app::addons`.
+1. Execute AAO-060 by adding a bounded Admin resource-call diagnostic route
+   for declared Addon Resources.
+2. Classify missing resource declarations, missing grants, protocol mismatch,
+   unreachable sidecars, retryable/non-retryable HTTP failures, invalid
+   envelopes, and unsafe response cases with safe error codes only.
+3. Never echo raw diagnostic payloads, response bodies, Addon Tokens, admin
+   tokens, Source Locators, storage paths, provider secrets, or raw network
+   errors.
 
 ## Constraints
 

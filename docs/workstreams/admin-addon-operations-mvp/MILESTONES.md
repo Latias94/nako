@@ -36,13 +36,14 @@ Exit criteria:
 ## M2 — Health And Diagnostics
 
 Status: In Progress. AAO-040 shipped redaction-safe Addon Health Checks
-through `POST /admin/v1/addons/{addon_id}/health-check`. Hosted surface read
-models and resource-call diagnostics remain.
+through `POST /admin/v1/addons/{addon_id}/health-check`. AAO-050 shipped
+hosted surface read models through
+`GET /admin/v1/addons/{addon_id}/surfaces`. Resource-call diagnostics remain.
 
 Exit criteria:
 
 - Admin Addon Health Check exists and is redaction-safe. Complete.
-- Admin Addon surface read models are shaped for UI use.
+- Admin Addon surface read models are shaped for UI use. Complete.
 - Resource-call diagnostics are bounded and safe.
 - Addon Sidecars never receive admin bearer tokens. Complete for health
   checks; must remain true for diagnostics and hosted surfaces.

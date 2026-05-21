@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use taru_addon_protocol::{AddonHealthStatus, AddonManifest, AddonScope};
+use taru_addon_protocol::{
+    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonManifest, AddonScope,
+    AddonTaskDeclaration,
+};
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
     AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
@@ -210,6 +213,100 @@ pub struct AdminAddonHealthCheckResponse {
     pub protocol_checked_at: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub safe_error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSurfacesResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub entry_points: Vec<AdminAddonEntryPointSurface>,
+    pub hosted_pages: Vec<AdminAddonHostedPageSurface>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration_schema: Option<AdminAddonConfigurationSchemaSurface>,
+    pub secret_reference_fields: Vec<AdminAddonSecretReferenceFieldSurface>,
+    pub tasks: Vec<AdminAddonTaskSurface>,
+    pub event_subscriptions: Vec<AdminAddonEventSubscriptionSurface>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonEntryPointSurface {
+    pub id: String,
+    pub kind: AddonEntryPointKind,
+    pub label: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_page_id: Option<String>,
+    pub required_scopes: Vec<AddonScope>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonHostedPageSurface {
+    pub id: String,
+    pub title: String,
+    pub path: String,
+    pub url: String,
+    pub required_scopes: Vec<AddonScope>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonConfigurationSchemaSurface {
+    pub schema_id: String,
+    pub schema: serde_json::Value,
+}
+
+impl From<AddonConfigurationSchema> for AdminAddonConfigurationSchemaSurface {
+    fn from(value: AddonConfigurationSchema) -> Self {
+        Self {
+            schema_id: value.schema_id,
+            schema: value.schema,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSecretReferenceFieldSurface {
+    pub id: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub required: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonTaskSurface {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub required_scopes: Vec<AddonScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_attempts: Option<u32>,
+}
+
+impl From<AddonTaskDeclaration> for AdminAddonTaskSurface {
+    fn from(value: AddonTaskDeclaration) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            path: value.path,
+            description: value.description,
+            required_scopes: value.required_scopes,
+            timeout_ms: value.timeout_ms,
+            max_attempts: value.max_attempts,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonEventSubscriptionSurface {
+    pub id: String,
+    pub event_kind: String,
+    pub path: String,
+    pub required_scopes: Vec<AddonScope>,
+    pub filters: serde_json::Value,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

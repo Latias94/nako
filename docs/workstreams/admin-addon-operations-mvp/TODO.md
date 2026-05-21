@@ -96,7 +96,7 @@ Task IDs use the `AAO` prefix.
   -p taru-server addons --no-fail-fast`; `cargo fmt --all -- --check`; `git
   diff --check`.
 
-- [ ] AAO-050 [owner=codex] [deps=AAO-040] [scope=crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
+- [x] AAO-050 [owner=codex] [deps=AAO-040] [scope=crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
   Goal: Add Admin read models for Addon Entry Points, Hosted Pages,
   Configuration Schema metadata, Addon Task declarations, and Event
   Subscription declarations.
@@ -105,6 +105,15 @@ Task IDs use the `AAO` prefix.
   Review: Hosted Pages are external Addon Sidecar pages, not trusted embedded
   Admin UI. Do not expose secrets or admin bearer-token launch URLs.
   Handoff: Continue with AAO-060 resource-call diagnostics.
+  Progress: Added `GET /admin/v1/addons/{addon_id}/surfaces` and Admin DTOs
+  for Entry Points, Hosted Pages, Configuration Schema, Secret Reference field
+  declarations, Addon Tasks, and Addon Event Subscriptions. Hosted Page URLs
+  are derived from stored manifest `base_url` plus declared absolute path and
+  never include administrator bearer tokens, Addon Tokens, launch secrets, or
+  resolved Secret Reference values.
+  Validation: `cargo check -p taru-api -p taru-server --tests`; `cargo
+  nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all --
+  --check`; `git diff --check`.
 
 - [ ] AAO-060 [owner=codex] [deps=AAO-040] [scope=crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Add bounded resource-call diagnostics for declared Addon Resources so

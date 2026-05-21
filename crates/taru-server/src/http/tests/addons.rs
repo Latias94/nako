@@ -1006,6 +1006,107 @@ async fn admin_addon_health_check_classifies_unreachable_without_raw_error_leak(
 }
 
 #[tokio::test]
+async fn admin_addon_surfaces_returns_manifest_declarations_without_launch_secrets() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = taru_reference_addon::reference_manifest("https://addon.example.test/base");
+    manifest.secret_reference_fields = vec![
+        taru_addon_protocol::AddonSecretReferenceFieldDeclaration::new(
+            "api_key",
+            "API Key",
+            Some("Resolved by Taru at runtime".to_owned()),
+            true,
+        ),
+    ];
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scan-finished",
+        "library_scan.succeeded",
+        "/events/library-scan-finished",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"library_preset":"movies"}),
+    )];
+    manifest.tasks = vec![
+        AddonTaskDeclaration::new(
+            "bulk-metadata-scrape",
+            "Bulk Metadata Scrape",
+            "/tasks/bulk-metadata-scrape",
+            vec![AddonScope::AutomationRun],
+        )
+        .with_description("Suggests metadata for selected items")
+        .with_execution_bounds(Some(30_000), Some(2)),
+    ];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+
+    let path = format!("/admin/v1/addons/{addon_id}/surfaces");
+    let raw = response_for(&router, Method::GET, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonSurfacesResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(
+        response.manifest_id,
+        taru_reference_addon::REFERENCE_ADDON_ID
+    );
+    assert_eq!(response.entry_points.len(), 1);
+    assert_eq!(response.entry_points[0].id, "suggest-metadata");
+    assert_eq!(
+        response.entry_points[0].hosted_page_id.as_deref(),
+        Some("diagnostics")
+    );
+    assert_eq!(response.hosted_pages.len(), 1);
+    assert_eq!(response.hosted_pages[0].id, "diagnostics");
+    assert_eq!(
+        response.hosted_pages[0].url,
+        "https://addon.example.test/base/ui/diagnostics"
+    );
+    assert_eq!(
+        response.configuration_schema.as_ref().unwrap().schema_id,
+        "taru.reference.metadata.config.v1"
+    );
+    assert_eq!(response.secret_reference_fields.len(), 1);
+    assert_eq!(response.secret_reference_fields[0].id, "api_key");
+    assert_eq!(response.secret_reference_fields[0].label, "API Key");
+    assert!(response.secret_reference_fields[0].required);
+    assert_eq!(response.tasks.len(), 1);
+    assert_eq!(response.tasks[0].id, "bulk-metadata-scrape");
+    assert_eq!(response.tasks[0].timeout_ms, Some(30_000));
+    assert_eq!(response.tasks[0].max_attempts, Some(2));
+    assert_eq!(response.event_subscriptions.len(), 1);
+    assert_eq!(
+        response.event_subscriptions[0].event_kind,
+        "library_scan.succeeded"
+    );
+    assert_eq!(
+        response.event_subscriptions[0].filters["library_preset"],
+        "movies"
+    );
+    assert!(!text.contains("Bearer"));
+    assert!(!text.contains("taru_at_"));
+    assert!(!text.contains("launch_token"));
+    assert!(!text.contains("secret_value"));
+}
+
+#[tokio::test]
 async fn addon_admin_routes_issue_rotate_revoke_tokens_and_replace_grants_without_leaking_hashes() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

@@ -1122,12 +1122,58 @@ raw network errors or sidecar response bodies:
 }
 ```
 
+`GET /admin/v1/addons/{addon_id}/surfaces` returns manifest-declared Addon
+surfaces as UI-ready Admin read models. Hosted Page URLs are derived by joining
+the stored manifest `base_url` with each absolute hosted page path. Taru does
+not append administrator bearer tokens, Addon Tokens, one-time launch secrets,
+or resolved Secret Reference values.
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000001",
+  "manifest_id": "example.metadata",
+  "entry_points": [
+    {
+      "id": "suggest-metadata",
+      "kind": "item_action",
+      "label": "Suggest Metadata",
+      "path": "/ui/suggest-metadata",
+      "hosted_page_id": "diagnostics",
+      "required_scopes": ["item_metadata_suggest"]
+    }
+  ],
+  "hosted_pages": [
+    {
+      "id": "diagnostics",
+      "title": "Diagnostics",
+      "path": "/ui/diagnostics",
+      "url": "https://addon.example.test/base/ui/diagnostics",
+      "required_scopes": ["item_metadata_read"]
+    }
+  ],
+  "configuration_schema": {
+    "schema_id": "example.metadata.config.v1",
+    "schema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "secret_reference_fields": [
+    {
+      "id": "api_key",
+      "label": "API Key",
+      "description": "Resolved by Taru at runtime",
+      "required": true
+    }
+  ],
+  "tasks": [],
+  "event_subscriptions": []
+}
+```
+
 Remaining planned Admin Addon Operations MVP routes are reserved under
 `/admin/v1/addons/{addon_id}`:
 
-- `GET /surfaces` returns Admin read models for Addon Entry Points, Hosted
-  Pages, configuration schema metadata, Secret Reference fields, Addon Task
-  declarations, and Addon Event Subscription declarations.
 - `POST /diagnostics/resource-call` runs a bounded diagnostic call against a
   declared Addon Resource and returns redacted classification facts only.
 

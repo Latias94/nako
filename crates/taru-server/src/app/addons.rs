@@ -4,10 +4,13 @@ use taru_addon_client::{AddonClientError, ReqwestAddonTransport, check_addon_hea
 use taru_addon_protocol::{AddonManifest, AddonScope, ensure_scope_grant, validate_manifest};
 use taru_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
-    AddonTokenSummary, AddonTokensResponse, AdminAddonHealthCheckResponse,
-    AdminAddonHealthCheckStatus, AdminAddonRegistrationDetail, AdminAddonRegistrationResponse,
-    AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
+    AddonTokenSummary, AddonTokensResponse, AdminAddonConfigurationSchemaSurface,
+    AdminAddonEntryPointSurface, AdminAddonEventSubscriptionSurface, AdminAddonHealthCheckResponse,
+    AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface, AdminAddonRegistrationDetail,
+    AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
+    AdminAddonSecretReferenceFieldSurface, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    UpdateAddonStatusRequest,
 };
 use taru_core::{
     AddonId, AddonIssuedToken, AddonRegistrationRecord, AddonRepository, AddonStatus, AddonTokenId,
@@ -270,6 +273,77 @@ impl AddonAppService {
         }
     }
 
+    pub async fn get_addon_surfaces(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonSurfacesResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        let manifest = self.stored_manifest(&addon)?;
+        validate_manifest(&manifest).map_err(|err| TaruError::InvalidInput {
+            message: err.to_string(),
+        })?;
+
+        Ok(AdminAddonSurfacesResponse {
+            addon_id,
+            manifest_id: addon.manifest_id,
+            entry_points: manifest
+                .entry_points
+                .into_iter()
+                .map(|entry_point| AdminAddonEntryPointSurface {
+                    id: entry_point.id,
+                    kind: entry_point.kind,
+                    label: entry_point.label,
+                    path: entry_point.path,
+                    hosted_page_id: entry_point.hosted_page_id,
+                    required_scopes: entry_point.required_scopes,
+                })
+                .collect(),
+            hosted_pages: manifest
+                .hosted_pages
+                .into_iter()
+                .map(|hosted_page| {
+                    let url = addon_surface_url(&addon.base_url, &hosted_page.path);
+                    AdminAddonHostedPageSurface {
+                        id: hosted_page.id,
+                        title: hosted_page.title,
+                        path: hosted_page.path,
+                        url,
+                        required_scopes: hosted_page.required_scopes,
+                    }
+                })
+                .collect(),
+            configuration_schema: manifest
+                .configuration_schema
+                .map(AdminAddonConfigurationSchemaSurface::from),
+            secret_reference_fields: manifest
+                .secret_reference_fields
+                .into_iter()
+                .map(|field| AdminAddonSecretReferenceFieldSurface {
+                    id: field.id,
+                    label: field.label,
+                    description: field.description,
+                    required: field.required,
+                })
+                .collect(),
+            tasks: manifest
+                .tasks
+                .into_iter()
+                .map(AdminAddonTaskSurface::from)
+                .collect(),
+            event_subscriptions: manifest
+                .event_subscriptions
+                .into_iter()
+                .map(|subscription| AdminAddonEventSubscriptionSurface {
+                    id: subscription.id,
+                    event_kind: subscription.event_kind,
+                    path: subscription.path,
+                    required_scopes: subscription.required_scopes,
+                    filters: subscription.filters,
+                })
+                .collect(),
+        })
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
@@ -508,4 +582,8 @@ fn safe_health_error_code(err: &AddonClientError) -> &'static str {
         AddonClientError::HttpStatus { .. } => "http_failure",
         AddonClientError::Http { .. } => "transport_failure",
     }
+}
+
+fn addon_surface_url(base_url: &str, path: &str) -> String {
+    format!("{}{}", base_url.trim_end_matches('/'), path)
 }
