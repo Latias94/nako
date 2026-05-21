@@ -26,14 +26,23 @@ proposed milestone.
 
 ## Current Goal
 
+No active implementation goal is currently set.
+
+Recommended next goal:
+
+- Admin Web Console Addon Operations UI, or a dedicated Addon Manager lane if
+  process/package lifecycle automation becomes the product priority.
+
+## Completed Goals
+
 ### Admin Addon Operations MVP
 
-Status: active.
+Status: completed.
 
 Objective:
 
-- Productize the Addon administration surface now that release packaging and
-  Addon architecture deepening are complete.
+- Productize the Addon administration surface after release packaging and
+  Addon architecture deepening.
 - Add explicit Admin lifecycle operations for enable/disable and unregister.
 - Add Addon Health Check and resource-call diagnostics without leaking
   credentials, payloads, Source Locators, storage paths, or admin authority.
@@ -43,10 +52,10 @@ Objective:
 
 Deliverables:
 
-- `docs/workstreams/admin-addon-operations-mvp/` as the authoritative
+- `docs/workstreams/admin-addon-operations-mvp/` as the authoritative closed
   execution lane.
 - Admin API routes under `/admin/v1/addons/{addon_id}` for lifecycle,
-  health, surfaces, and diagnostics.
+  unregister, health, surfaces, and diagnostics.
 - Focused Addon protocol/client/API/server/DB tests and docs.
 
 Non-goals:
@@ -58,16 +67,22 @@ Non-goals:
 - No embedded trusted Admin UI.
 - No full Addon Task runtime or Addon Event Subscription delivery.
 
-First executable task:
-
-- AAO-010 Contract and goal baseline.
-
 Evidence:
 
 - Workstream docs:
   `docs/workstreams/admin-addon-operations-mvp/`.
-
-## Completed Goals
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-api -p taru-core -p taru-db -p taru-server --tests`;
+  - `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`;
+  - `cargo nextest run -p taru-db addon --no-fail-fast`;
+  - `cargo nextest run -p taru-server addons --no-fail-fast`;
+  - `cargo check --workspace --tests`;
+  - `cargo nextest run --workspace --no-fail-fast` with 532 tests passed and
+    25 skipped;
+  - `git diff --check`.
+- PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+  unset in the closeout environment.
 
 ### Addon Architecture Deepening
 

@@ -1,6 +1,6 @@
 # Admin Addon Operations MVP
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -156,3 +156,6 @@ This lane can close when:
 - workspace checks pass when practical;
 - PostgreSQL opt-in contracts are run when `TARU_TEST_POSTGRES_URL` is
   available, or skipped with explicit evidence.
+
+Closed on 2026-05-21 after AAO-010 through AAO-070 completed. No follow-on
+workstream was required for this MVP closeout.

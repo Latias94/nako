@@ -1,6 +1,6 @@
 # Admin Addon Operations MVP — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 ## M0 — Contract And Goal Baseline
@@ -51,8 +51,13 @@ Exit criteria:
 
 ## M3 — Closeout
 
+Status: Complete. AAO-070 closed the lane after fresh focused Addon gates,
+workspace check, workspace nextest, formatting, and diff evidence. PostgreSQL
+opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was not set.
+
 Exit criteria:
 
-- All AAO tasks are complete or split into named follow-ons.
-- Evidence and gates are fresh.
+- All AAO tasks are complete or split into named follow-ons. Complete.
+- Evidence and gates are fresh. Complete.
 - API docs and Addon Author Guide explain the shipped operator behavior.
+  Complete.

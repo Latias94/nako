@@ -1,6 +1,6 @@
 # Admin Addon Operations MVP — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 Task IDs use the `AAO` prefix.
@@ -139,9 +139,26 @@ Task IDs use the `AAO` prefix.
 
 ## M3 — Closeout
 
-- [ ] AAO-070 [owner=planner] [deps=AAO-020,AAO-030,AAO-040,AAO-050,AAO-060] [scope=docs/workstreams/admin-addon-operations-mvp,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md]
+- [x] AAO-070 [owner=planner] [deps=AAO-020,AAO-030,AAO-040,AAO-050,AAO-060] [scope=docs/workstreams/admin-addon-operations-mvp,docs/GOALS.md,docs/ROADMAP.md,docs/workstreams/README.md]
   Goal: Verify and close the Admin Addon Operations MVP lane, or split any
   remaining independent tails into named follow-ons.
   Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`; focused Addon nextest gates; workspace nextest when practical; PostgreSQL opt-in contracts when available; `git diff --check`.
   Review: No vague Addon Manager bucket. Close only when an operator can manage
   Addon lifecycle and diagnose sidecar reachability safely.
+  Progress: Closed the lane after verifying the design target state: operators
+  can manage manually registered Addon Sidecars through registration,
+  enable/disable lifecycle mutation, terminal unregister, health checks,
+  surface read models, resource-call diagnostics, token management, and grant
+  management under `/admin/v1/addons`. No hidden tail was split from this
+  closeout. Addon Manager discovery/install/update/package signing/process
+  supervision/logs/rollback/removal, full Addon Task runtime, and Addon Event
+  Subscription delivery remain explicit future non-goals rather than vague
+  buckets.
+  Validation: `cargo fmt --all -- --check`; `cargo check -p
+  taru-addon-protocol -p taru-addon-client -p taru-api -p taru-core -p taru-db
+  -p taru-server --tests`; `cargo nextest run -p taru-addon-protocol -p
+  taru-addon-client --no-fail-fast`; `cargo nextest run -p taru-db addon
+  --no-fail-fast`; `cargo nextest run -p taru-server addons --no-fail-fast`;
+  `cargo check --workspace --tests`; `cargo nextest run --workspace
+  --no-fail-fast`; `git diff --check`. PostgreSQL opt-in contracts were
+  skipped because `TARU_TEST_POSTGRES_URL` was not set.

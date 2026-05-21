@@ -11,28 +11,31 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active for Admin Addon Operations MVP.
+Status: no active architecture/productization focus is set after Admin Addon
+Operations MVP closeout.
 
-The current productization focus is Admin Addon Operations MVP. Release
-Packaging and Addon Architecture Deepening are complete, so the next gap is
+Latest completed architecture focus:
+
+Admin Addon Operations MVP closed on 2026-05-21. Release Packaging and Addon
+Architecture Deepening were already complete, and this lane productized
 operator control and diagnostics for manually registered Addon Sidecars:
 
 - enable/disable lifecycle mutation;
-- unregister semantics;
-- Addon Health Check;
+- terminal unregister semantics;
+- redaction-safe Addon Health Check;
 - hosted Addon surface read models;
-- resource-call diagnostics;
+- bounded resource-call diagnostics;
 - redaction-safe Admin DTOs and docs.
 
 Authoritative lane:
 
 - `docs/workstreams/admin-addon-operations-mvp/`
 
-Latest completed architecture focus:
+Previous architecture focus:
 
-The latest architecture focus was Addon Architecture Deepening, completed on
-2026-05-21. It intentionally removed compatibility seams while Taru still has
-no deployed users and deepened Addon boundaries before broader Addon breadth:
+Addon Architecture Deepening completed on 2026-05-21. It intentionally removed
+compatibility seams while Taru still has no deployed users and deepened Addon
+boundaries before broader Addon breadth:
 
 - Addon Side Effect runtime lifecycle;
 - fingerprinted Addon Side Effect idempotency;
@@ -47,7 +50,7 @@ Authoritative lane:
 
 - `docs/workstreams/addon-architecture-deepening/`
 
-Previous architecture focus:
+Earlier architecture focus:
 
 M63 was the fearless architecture-deepening lane after M62 PostgreSQL
 Production Readiness. It intentionally prioritized deeper Modules and workflow

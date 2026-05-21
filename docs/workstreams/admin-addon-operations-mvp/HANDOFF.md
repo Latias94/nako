@@ -1,6 +1,6 @@
 # Admin Addon Operations MVP — Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 ## Current State
@@ -15,7 +15,7 @@ Admin Addon API currently supports registration/list/detail under
 `/admin/v1/addons`, explicit enable/disable lifecycle mutation, terminal
 unregister, redaction-safe health checks, hosted surface read models, bounded
 resource-call diagnostics, plus token issue/list/rotate/revoke and grant
-replace/list. The remaining work is closeout verification.
+replace/list. The lane is closed.
 
 AAO-010 is complete. The lane now has a frozen MVP contract:
 
@@ -73,16 +73,36 @@ network errors.
 
 ## Active Task
 
-AAO-070 — Closeout.
+None. AAO-070 closed the workstream on 2026-05-21.
 
-## Next Steps
+## Closeout
 
-1. Execute AAO-070 closeout: run fresh preferred gates and decide whether
-   workspace-wide checks are practical in this session.
-2. Update docs/workstream closeout notes and verify `docs/api/HTTP_API.md`,
-   Addon Author Guide, and Admin API matrix match shipped behavior.
-3. Close the workstream or split any remaining independent tails into named
-   follow-ons.
+AAO-070 is complete. The design target state is met: an operator can manage
+manually registered Addon Sidecars through registration, enable/disable
+lifecycle mutation, terminal unregister, health checks, hosted surface read
+models, resource-call diagnostics, token management, and grant management under
+`/admin/v1/addons`.
+
+No hidden tail was kept inside this lane. Addon Manager discovery, install,
+update, package signing, process supervision, logs, rollback, removal, full
+Addon Task runtime, and Addon Event Subscription delivery remain explicit
+future non-goals rather than vague buckets.
+
+Closeout validation passed:
+
+- `cargo fmt --all -- --check`;
+- `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-api -p
+  taru-core -p taru-db -p taru-server --tests`;
+- `cargo nextest run -p taru-addon-protocol -p taru-addon-client
+  --no-fail-fast`;
+- `cargo nextest run -p taru-db addon --no-fail-fast`;
+- `cargo nextest run -p taru-server addons --no-fail-fast`;
+- `cargo check --workspace --tests`;
+- `cargo nextest run --workspace --no-fail-fast`;
+- `git diff --check`.
+
+PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+not set.
 
 ## Constraints
 

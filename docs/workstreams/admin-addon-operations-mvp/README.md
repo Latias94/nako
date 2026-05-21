@@ -1,6 +1,6 @@
 # Admin Addon Operations MVP
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 This workstream productizes the Addon administration surface after Addon
@@ -17,9 +17,15 @@ Authoritative docs:
 - [Evidence and gates](EVIDENCE_AND_GATES.md)
 - [Handoff](HANDOFF.md)
 
-## First Executable Task
+## Closeout
 
-Start with AAO-010: freeze the MVP contract and lifecycle semantics before
-adding routes. The first implementation task should not proceed until the
-workstream decides whether unregister is terminal soft state or physical
-deletion.
+Closed on 2026-05-21. AAO-010 through AAO-070 are complete. The shipped
+operator surface includes explicit enable/disable lifecycle mutation, terminal
+unregister, redaction-safe Addon Health Checks, hosted surface read models,
+bounded resource-call diagnostics, token management, and grant management under
+`/admin/v1/addons`.
+
+No hidden tail was kept inside this lane. Addon Manager discovery, install,
+update, package signing, process supervision, logs, rollback, removal,
+full Addon Task runtime, and Addon Event Subscription delivery remain explicit
+non-goals for future named workstreams.
