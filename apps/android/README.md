@@ -79,6 +79,20 @@ construction, response interpretation, API-version checks, public error parsing,
 and redaction-safe previews. Android still owns HTTP execution, cleartext/TLS
 policy, token vaults, profile persistence, product diagnostics, UI, and Media3.
 
+Use the native UniFFI smoke script when you need to prove packaged JNI libraries
+load on a connected device or emulator:
+
+```powershell
+.\scripts\Validate-UniFfiNativeSmoke.ps1 -Serial 3B15BC01DH500000 -Abi arm64-v8a
+.\scripts\Validate-UniFfiNativeSmoke.ps1 -Serial emulator-5554 -Abi x86_64
+```
+
+The script is opt-in. It builds `:app:assembleDebug` and
+`:app:assembleDebugAndroidTest` for the selected ABI, verifies the connected
+device reports that ABI, installs both APKs, and runs
+`dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest`. Ordinary JVM validation and
+debug APK assembly do not require a connected device.
+
 ## Commands
 
 From `apps/android`:
@@ -87,6 +101,7 @@ From `apps/android`:
 .\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:testDebugUnitTest
 .\scripts\Validate-AndroidLocal.ps1 -SkipSmoke
+.\scripts\Validate-UniFfiNativeSmoke.ps1 -Serial <device-serial> -Abi arm64-v8a
 .\scripts\Smoke-Emulator.ps1
 ```
 

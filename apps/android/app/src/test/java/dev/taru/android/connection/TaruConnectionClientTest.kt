@@ -92,7 +92,6 @@ class TaruConnectionClientTest {
             transport = transport,
             clockMillis = { 42L },
             securityPolicy = ConnectionSecurityPolicy.allowCleartextForLocalDevelopment(),
-            connectionCore = RustConnectionCore,
         )
 
         val result = client.testConnection(

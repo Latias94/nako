@@ -3,16 +3,24 @@ package dev.taru.android.connection
 import java.io.IOException
 import java.net.URI
 import javax.net.ssl.SSLException
-import uniffi.taru_client_uniffi.CoreConnectionProbeOutcome
-import uniffi.taru_client_uniffi.CoreConnectionProbeOutcomeKind
-import uniffi.taru_client_uniffi.CoreHttpRequest
 
-class TaruConnectionClient(
+class TaruConnectionClient private constructor(
     private val transport: TaruHttpTransport,
     private val clockMillis: () -> Long = System::currentTimeMillis,
     private val securityPolicy: ConnectionSecurityPolicy = ConnectionSecurityPolicy.production(),
-    private val connectionCore: ConnectionCore = RustConnectionCore,
+    private val connectionCore: ConnectionCore,
 ) {
+    constructor(
+        transport: TaruHttpTransport,
+        clockMillis: () -> Long = System::currentTimeMillis,
+        securityPolicy: ConnectionSecurityPolicy = ConnectionSecurityPolicy.production(),
+    ) : this(
+        transport = transport,
+        clockMillis = clockMillis,
+        securityPolicy = securityPolicy,
+        connectionCore = RustConnectionCore,
+    )
+
     suspend fun testConnection(
         baseUrlInput: String,
         accessToken: String,
@@ -49,14 +57,13 @@ class TaruConnectionClient(
             baseUrl = normalizedBaseUrl,
             accessToken = accessToken,
         )
-        val healthRequest = when (startOutcome.kind) {
-            CoreConnectionProbeOutcomeKind.FAILURE -> return failureFor(
+        val healthRequest = when (startOutcome) {
+            is ConnectionCoreOutcome.Failure -> return failureFor(
                 normalizedBaseUrl,
-                failureFrom(startOutcome),
+                startOutcome.failure,
             )
-            CoreConnectionProbeOutcomeKind.NEXT_REQUEST -> startOutcome.nextRequest
-                ?: return invalidCoreOutcomeFailure(normalizedBaseUrl)
-            CoreConnectionProbeOutcomeKind.SUCCESS -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            is ConnectionCoreOutcome.NextRequest -> startOutcome.request
+            is ConnectionCoreOutcome.Success -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
         }
         val healthResponse = when (
             val result = executeCoreRequest(
@@ -65,22 +72,22 @@ class TaruConnectionClient(
             )
         ) {
             is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
-            is PublicApiResult.Success -> result.response.toCoreResponse(healthRequest.requestId)
+            is PublicApiResult.Success -> result.response
         }
 
         val healthOutcome = connectionCore.advanceConnectionProbe(
             baseUrl = normalizedBaseUrl,
             accessToken = accessToken,
+            request = healthRequest,
             response = healthResponse,
         )
-        val authProbeRequest = when (healthOutcome.kind) {
-            CoreConnectionProbeOutcomeKind.FAILURE -> return failureFor(
+        val authProbeRequest = when (healthOutcome) {
+            is ConnectionCoreOutcome.Failure -> return failureFor(
                 normalizedBaseUrl,
-                failureFrom(healthOutcome),
+                healthOutcome.failure,
             )
-            CoreConnectionProbeOutcomeKind.NEXT_REQUEST -> healthOutcome.nextRequest
-                ?: return invalidCoreOutcomeFailure(normalizedBaseUrl)
-            CoreConnectionProbeOutcomeKind.SUCCESS -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            is ConnectionCoreOutcome.NextRequest -> healthOutcome.request
+            is ConnectionCoreOutcome.Success -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
         }
         val authProbeResponse = when (
             val result = executeCoreRequest(
@@ -89,29 +96,29 @@ class TaruConnectionClient(
             )
         ) {
             is PublicApiResult.Failure -> return failureFor(normalizedBaseUrl, result.failure)
-            is PublicApiResult.Success -> result.response.toCoreResponse(authProbeRequest.requestId)
+            is PublicApiResult.Success -> result.response
         }
         val authOutcome = connectionCore.advanceConnectionProbe(
             baseUrl = normalizedBaseUrl,
             accessToken = accessToken,
+            request = authProbeRequest,
             response = authProbeResponse,
         )
-        val success = when (authOutcome.kind) {
-            CoreConnectionProbeOutcomeKind.FAILURE -> return failureFor(
+        val success = when (authOutcome) {
+            is ConnectionCoreOutcome.Failure -> return failureFor(
                 normalizedBaseUrl,
-                failureFrom(authOutcome),
+                authOutcome.failure,
             )
-            CoreConnectionProbeOutcomeKind.NEXT_REQUEST -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
-            CoreConnectionProbeOutcomeKind.SUCCESS -> authOutcome.success
-                ?: return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            is ConnectionCoreOutcome.NextRequest -> return invalidCoreOutcomeFailure(normalizedBaseUrl)
+            is ConnectionCoreOutcome.Success -> authOutcome.success
         }
 
         return ConnectionCheckResult.Success(
             normalizedBaseUrl = normalizedBaseUrl,
             apiVersion = success.apiVersion,
             checkedAtMillis = clockMillis(),
-            healthRequest = success.healthRequest.toAndroidPreview(),
-            authProbeRequest = success.authProbeRequest.toAndroidPreview(),
+            healthRequest = success.healthRequest,
+            authProbeRequest = success.authProbeRequest,
         )
     }
 
@@ -190,11 +197,11 @@ class TaruConnectionClient(
         )
 
     private suspend fun executeCoreRequest(
-        request: CoreHttpRequest,
+        request: ConnectionCoreRequest,
         accessToken: String,
     ): PublicApiResult<TaruHttpResponse> {
-        val androidRequest = request.toAndroidRequest()
-        val safeRequest = request.safePreview.toAndroidPreview()
+        val androidRequest = request.httpRequest
+        val safeRequest = request.safePreview
         val response = try {
             transport.execute(androidRequest)
         } catch (error: CleartextHttpNotPermittedException) {
@@ -247,10 +254,6 @@ class TaruConnectionClient(
             category = ConnectionFailureCategory.InvalidResponse,
             userMessage = userMessageFor(ConnectionFailureCategory.InvalidResponse),
         )
-
-    private fun failureFrom(outcome: CoreConnectionProbeOutcome): PublicApiFailure =
-        outcome.failure?.toPublicApiFailure()
-            ?: PublicApiFailure(PublicApiFailureKind.InvalidResponse)
 
     private fun normalizeBaseUrl(input: String): String? {
         val trimmed = input.trim().trimEnd('/')

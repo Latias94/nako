@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "android-uniffi-boundary-hardening",
+  "title": "Android UniFFI Boundary Hardening",
+  "status": "closed",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "The ADR 0032 UniFFI seam is correct but needs adapter encapsulation, core module locality, boundary drift guards, and repeatable native smoke validation before more Android routes move through Rust core.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-uniffi-boundary-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-uniffi-boundary-hardening/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-uniffi-boundary-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-uniffi-boundary-hardening/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/android-uniffi-boundary-hardening/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon",
+    "cargo fmt --package taru-client-core --check",
+    "cargo nextest run -p taru-client-core --no-fail-fast",
+    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "cargo nextest run -p taru-client --no-fail-fast",
+    "./scripts/guard-uniffi-boundary.ps1",
+    "apps/android/scripts/Validate-UniFfiNativeSmoke.ps1 -Serial <device> -Abi arm64-v8a",
+    "python -m json.tool docs/workstreams/android-uniffi-boundary-hardening/WORKSTREAM.json > $null",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-21",
+      "task": "UBF-010",
+      "summary": "Opened the hardening lane and froze target state, task order, and gates."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "UBF-020",
+      "summary": "Hid generated UniFFI connection outcome/request types behind Android-owned ConnectionCore values; connection JVM gate passed."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "UBF-030",
+      "summary": "Split taru-client-core into focused modules while preserving lib.rs public API; core, UniFFI, and taru-client gates passed."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "UBF-040",
+      "summary": "Added scripts/guard-uniffi-boundary.ps1 and verified taru-client-uniffi dependency boundary plus package tests."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "UBF-050",
+      "summary": "Added apps/android/scripts/Validate-UniFfiNativeSmoke.ps1, documented usage, and verified x86_64 emulator native UniFFI smoke; OPPO serial was not connected."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "UBF-090",
+      "summary": "Closed the UniFFI boundary hardening lane with final targeted Rust, Android, guard, docs, and native-smoke evidence."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "related_workstreams": [
+    "docs/workstreams/android-rust-core-runtime-hardening/",
+    "docs/workstreams/android-uniffi-native-smoke/",
+    "docs/workstreams/android-arm64-uniffi-release-smoke/"
+  ],
+  "next_task": null,
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This lane is closed. Start a new workstream for browse/catalog Rust-core migration or CI/release integration of the new guard and native smoke script."
+  }
+}
