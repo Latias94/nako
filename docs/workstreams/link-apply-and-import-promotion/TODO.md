@@ -32,14 +32,18 @@ Task IDs use the `LAIP` prefix.
 
 ## M2 — App Service Acceptance And Idempotent Replay
 
-- [ ] LAIP-030 [owner=codex] [deps=LAIP-020] [scope=crates/taru-server]
+- [x] LAIP-030 [owner=codex] [deps=LAIP-020] [scope=crates/taru-server]
   Goal: Add app service command that explicitly accepts a promotion plan,
   records a durable apply attempt, replays matching idempotency keys, and rejects
   mismatched stale or blocked requests without storage mutation.
   Validation: focused server tests prove operator confirmation fields,
   redacted diagnostics, idempotent replay, stale-plan rejection, and no library
   file or Media Source write before mutation tasks.
-  Evidence: `taru-server` app tests and service boundary.
+  Evidence: `ManagedImportAppService::accept_promotion`,
+  `AcceptManagedImportPromotionRequest`, redacted acceptance diagnostics, and
+  `taru-server` app tests. Completed with explicit operator/idempotency
+  acceptance, accepted plan/warning snapshots, idempotent replay conflict
+  checks, blocked-plan rejection, and no storage or Media Source mutation.
   Handoff: Add VFS mutation primitives in LAIP-040.
 
 ## M3 — VFS Copy/Link Apply Primitive

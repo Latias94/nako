@@ -9,18 +9,20 @@ The lane is open as the follow-on split from `managed-import-staging` and
 `nfo-link-authority`. Managed Import can now produce a non-mutating promotion
 preview, and VFS can perform non-mutating link dry-run diagnostics. Durable
 promotion acceptance/audit records now exist before any storage mutation is
-added.
+added. The server app service can now explicitly accept a current promotion
+plan, record the durable apply attempt, replay matching idempotency keys, reject
+mismatched keys, and reject blocked plans without storage or Media Source
+mutation.
 
 ## Active Task
 
-- Task ID: LAIP-030
+- Task ID: LAIP-040
 - Owner: codex
-- Files: `crates/taru-server`
-- Validation: focused server tests prove operator confirmation fields,
-  redacted diagnostics, idempotent replay, stale-plan rejection, and no library
-  file or Media Source write before mutation tasks
+- Files: `crates/taru-vfs`
+- Validation: `cargo nextest run -p taru-vfs link --no-fail-fast`; focused copy
+  apply tests; `cargo fmt --all -- --check`; `git diff --check`
 - Status: READY
-- Evidence: LAIP-010 and LAIP-020 are recorded in `EVIDENCE_AND_GATES.md`
+- Evidence: LAIP-010 through LAIP-030 are recorded in `EVIDENCE_AND_GATES.md`
 
 ## Decisions
 
@@ -36,13 +38,15 @@ added.
   not a false promoted state.
 - LAIP-020 records apply/audit state only. It does not add copy/link/move/delete
   behavior and does not promote Media Sources.
+- LAIP-030 records accepted apply attempts only. It does not add copy/link/move
+  /delete behavior and does not promote Media Sources.
 
 ## Blockers
 
-- None for LAIP-030.
+- None for LAIP-040.
 
 ## Next Recommended Action
 
-- Execute LAIP-030: add app-service acceptance/replay that records or replays
-  explicit apply attempts, rejects stale/blocked requests, and still performs
-  no storage or Media Source mutation.
+- Execute LAIP-040: add VFS-mediated copy/hardlink/symlink apply primitives
+  that reuse planning safety and return typed outcomes without exposing OS path
+  mutation to server code.

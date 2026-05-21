@@ -4,13 +4,15 @@ use serde::Serialize;
 use taru_core::{
     Library, LibraryId, LibraryRepository, LocalMetadataPolicy, ManagedImportArtifactId,
     ManagedImportArtifactListFilter, ManagedImportArtifactRecord, ManagedImportArtifactState,
-    ManagedImportPromotionBlockedReason, ManagedImportPromotionDuplicateHint,
-    ManagedImportPromotionFileOperation, ManagedImportPromotionNfoAuthorityHint,
-    ManagedImportPromotionOperationKind, ManagedImportPromotionOperationStatus,
-    ManagedImportPromotionPlan, ManagedImportPromotionProviderIdentityHint,
-    ManagedImportRepository, ManagedImportSourceKind, MediaRepository, MediaSource,
-    NewManagedImportArtifact, PageRequest, Result, SourceDuplicateEvidenceKind, StagingManifestId,
-    StagingManifestRepository, TaruError,
+    ManagedImportPromotionApplyId, ManagedImportPromotionApplyRecord,
+    ManagedImportPromotionApplyState, ManagedImportPromotionBlockedReason,
+    ManagedImportPromotionDuplicateHint, ManagedImportPromotionFileOperation,
+    ManagedImportPromotionNfoAuthorityHint, ManagedImportPromotionOperationKind,
+    ManagedImportPromotionOperationStatus, ManagedImportPromotionPlan,
+    ManagedImportPromotionProviderIdentityHint, ManagedImportRepository, ManagedImportSourceKind,
+    MediaRepository, MediaSource, NewManagedImportArtifact, NewManagedImportPromotionApply,
+    PageRequest, Result, SourceDuplicateEvidenceKind, StagingManifestId, StagingManifestRepository,
+    TaruError, UserPrincipalId,
 };
 use taru_db::TaruDatabase;
 use taru_vfs::{StorageBackend, StorageLinkKind, StorageLinkPlanRequest, StorageUri};
@@ -192,6 +194,122 @@ impl ManagedImportAppService {
             provider_identity,
             blocked_reasons,
         })
+    }
+
+    pub(crate) async fn accept_promotion(
+        &self,
+        request: AcceptManagedImportPromotionRequest,
+    ) -> Result<ManagedImportPromotionAcceptanceDiagnostic> {
+        if request.operation_kind == ManagedImportPromotionOperationKind::Move {
+            return Err(TaruError::Unsupported(
+                "managed import move promotion apply is deferred until source-retention semantics are proven",
+            ));
+        }
+
+        let idempotency_key = require_non_empty(
+            "managed import promotion idempotency_key",
+            request.idempotency_key.clone(),
+        )?;
+        let plan = self.preview_promotion_plan(request.artifact_id).await?;
+
+        if let Some(existing) = self
+            .store
+            .find_managed_import_promotion_apply_by_idempotency_key(
+                plan.target_library_id,
+                &idempotency_key,
+            )
+            .await?
+        {
+            validate_idempotent_promotion_replay(&existing, &request, &plan)?;
+            return Ok(ManagedImportPromotionAcceptanceDiagnostic::from_record(
+                existing, true,
+            ));
+        }
+
+        let blocking_reasons = promotion_acceptance_blocking_reasons(&plan, request.operation_kind);
+        if !blocking_reasons.is_empty() {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "promotion plan is blocked: {}",
+                    promotion_blocked_reason_summary(&blocking_reasons)
+                ),
+            });
+        }
+
+        let operation = plan
+            .file_operations
+            .iter()
+            .find(|operation| operation.kind == request.operation_kind)
+            .ok_or_else(|| TaruError::InvalidInput {
+                message: format!(
+                    "promotion operation is not available in the current plan: {}",
+                    request.operation_kind.as_str()
+                ),
+            })?;
+        if !operation.can_apply || operation.status != ManagedImportPromotionOperationStatus::Ready
+        {
+            return Err(TaruError::Conflict {
+                message: format!(
+                    "promotion operation is not ready: {}",
+                    request.operation_kind.as_str()
+                ),
+            });
+        }
+
+        let destination_locator =
+            plan.destination_locator
+                .clone()
+                .ok_or_else(|| TaruError::Conflict {
+                    message: "promotion plan does not have a destination locator".to_owned(),
+                })?;
+        let artifact = self
+            .store
+            .get_managed_import_artifact(request.artifact_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_artifact",
+                id: request.artifact_id.to_string(),
+            })?;
+        let now_ms = super::current_time_ms()?;
+        let accepted_plan_json = accepted_promotion_plan_json(&plan, request.operation_kind)?;
+        let accepted_warnings_json = accepted_blocked_reasons_json(
+            &request.accepted_blocked_reasons,
+            !plan.duplicate_hints.is_empty(),
+            plan.nfo_authority.backup_required,
+            plan.provider_identity.needs_identity_review,
+        )?;
+        let outcome_json = serde_json::json!({
+            "accepted": true,
+            "writes_library": false,
+            "storage_mutation": false,
+            "media_source_mutation": false
+        })
+        .to_string();
+        let record = self
+            .store
+            .upsert_managed_import_promotion_apply(NewManagedImportPromotionApply {
+                id: ManagedImportPromotionApplyId::new(),
+                artifact_id: artifact.id,
+                target_library_id: plan.target_library_id,
+                requested_by: request.requested_by,
+                idempotency_key,
+                operation_kind: request.operation_kind,
+                source_artifact_uri: artifact.artifact_uri,
+                destination_locator,
+                accepted_plan_json,
+                accepted_warnings_json,
+                state: ManagedImportPromotionApplyState::Accepted,
+                outcome_json: Some(outcome_json),
+                safe_error_code: None,
+                safe_message: Some("promotion accepted for future storage apply".to_owned()),
+                created_at_ms: now_ms,
+                updated_at_ms: now_ms,
+            })
+            .await?;
+
+        Ok(ManagedImportPromotionAcceptanceDiagnostic::from_record(
+            record, false,
+        ))
     }
 
     async fn preview_file_operations(
@@ -432,6 +550,15 @@ pub(crate) struct CreateManagedImportArtifactRequest {
     pub(crate) diagnostics_json: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AcceptManagedImportPromotionRequest {
+    pub(crate) artifact_id: ManagedImportArtifactId,
+    pub(crate) requested_by: UserPrincipalId,
+    pub(crate) idempotency_key: String,
+    pub(crate) operation_kind: ManagedImportPromotionOperationKind,
+    pub(crate) accepted_blocked_reasons: Vec<ManagedImportPromotionBlockedReason>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct ManagedImportArtifactDiagnostics {
     pub(crate) limit: u32,
@@ -458,6 +585,58 @@ pub(crate) struct ManagedImportArtifactDiagnostic {
     pub(crate) has_diagnostics: bool,
     pub(crate) created_at_ms: i64,
     pub(crate) updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ManagedImportPromotionAcceptanceDiagnostic {
+    pub(crate) id: ManagedImportPromotionApplyId,
+    pub(crate) artifact_id: ManagedImportArtifactId,
+    pub(crate) target_library_id: LibraryId,
+    pub(crate) requested_by: UserPrincipalId,
+    pub(crate) operation_kind: ManagedImportPromotionOperationKind,
+    pub(crate) source_scheme: Option<String>,
+    pub(crate) destination_locator: Option<String>,
+    pub(crate) state: ManagedImportPromotionApplyState,
+    pub(crate) replayed: bool,
+    pub(crate) accepted_plan_snapshot: bool,
+    pub(crate) accepted_warnings_snapshot: bool,
+    pub(crate) has_outcome: bool,
+    pub(crate) safe_error_code: Option<String>,
+    pub(crate) safe_message: Option<String>,
+    pub(crate) has_raw_source_uri: bool,
+    pub(crate) has_raw_fingerprint: bool,
+    pub(crate) created_at_ms: i64,
+    pub(crate) updated_at_ms: i64,
+}
+
+impl ManagedImportPromotionAcceptanceDiagnostic {
+    #[must_use]
+    pub(crate) fn from_record(record: ManagedImportPromotionApplyRecord, replayed: bool) -> Self {
+        Self {
+            id: record.id,
+            artifact_id: record.artifact_id,
+            target_library_id: record.target_library_id,
+            requested_by: record.requested_by,
+            operation_kind: record.operation_kind,
+            source_scheme: record
+                .source_artifact_uri
+                .as_deref()
+                .and_then(uri_scheme)
+                .map(str::to_owned),
+            destination_locator: Some(record.destination_locator),
+            state: record.state,
+            replayed,
+            accepted_plan_snapshot: !record.accepted_plan_json.trim().is_empty(),
+            accepted_warnings_snapshot: record.accepted_warnings_json.is_some(),
+            has_outcome: record.outcome_json.is_some(),
+            safe_error_code: record.safe_error_code,
+            safe_message: record.safe_message,
+            has_raw_source_uri: false,
+            has_raw_fingerprint: false,
+            created_at_ms: record.created_at_ms,
+            updated_at_ms: record.updated_at_ms,
+        }
+    }
 }
 
 impl ManagedImportArtifactDiagnostic {
@@ -505,6 +684,99 @@ fn validate_create_state(state: ManagedImportArtifactState) -> Result<()> {
     Ok(())
 }
 
+fn validate_idempotent_promotion_replay(
+    existing: &ManagedImportPromotionApplyRecord,
+    request: &AcceptManagedImportPromotionRequest,
+    plan: &ManagedImportPromotionPlan,
+) -> Result<()> {
+    let destination_matches = plan
+        .destination_locator
+        .as_deref()
+        .is_some_and(|locator| locator == existing.destination_locator);
+    if existing.artifact_id != request.artifact_id
+        || existing.operation_kind != request.operation_kind
+        || existing.requested_by != request.requested_by
+        || existing.target_library_id != plan.target_library_id
+        || !destination_matches
+    {
+        return Err(TaruError::Conflict {
+            message: "managed import promotion idempotency key was already used for a different acceptance request".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn accepted_promotion_plan_json(
+    plan: &ManagedImportPromotionPlan,
+    operation_kind: ManagedImportPromotionOperationKind,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "artifact_id": plan.artifact_id,
+        "artifact_state": plan.artifact_state,
+        "target_library_id": plan.target_library_id,
+        "destination_locator": plan.destination_locator,
+        "operation_kind": operation_kind,
+        "duplicate_hint_count": plan.duplicate_hints.len(),
+        "nfo_policy": plan.nfo_authority.policy,
+        "provider_identity_review": plan.provider_identity.needs_identity_review,
+        "blocked_reasons": plan.blocked_reasons,
+        "writes_library": false
+    }))
+    .map_err(database_error)
+}
+
+fn accepted_blocked_reasons_json(
+    accepted_blocked_reasons: &[ManagedImportPromotionBlockedReason],
+    has_duplicate_hints: bool,
+    nfo_backup_required: bool,
+    provider_identity_review: bool,
+) -> Result<Option<String>> {
+    if accepted_blocked_reasons.is_empty()
+        && !has_duplicate_hints
+        && !nfo_backup_required
+        && !provider_identity_review
+    {
+        return Ok(None);
+    }
+
+    serde_json::to_string(&serde_json::json!({
+        "accepted_blocked_reasons": accepted_blocked_reasons,
+        "has_duplicate_hints": has_duplicate_hints,
+        "nfo_backup_required": nfo_backup_required,
+        "provider_identity_review": provider_identity_review
+    }))
+    .map(Some)
+    .map_err(database_error)
+}
+
+fn promotion_blocked_reason_summary(reasons: &[ManagedImportPromotionBlockedReason]) -> String {
+    reasons
+        .iter()
+        .map(|reason| format!("{reason:?}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn promotion_acceptance_blocking_reasons(
+    plan: &ManagedImportPromotionPlan,
+    operation_kind: ManagedImportPromotionOperationKind,
+) -> Vec<ManagedImportPromotionBlockedReason> {
+    plan.blocked_reasons
+        .iter()
+        .copied()
+        .filter(|reason| {
+            !matches!(
+                (operation_kind, reason),
+                (
+                    ManagedImportPromotionOperationKind::Copy,
+                    ManagedImportPromotionBlockedReason::StoragePlanningUnavailable
+                )
+            )
+        })
+        .collect()
+}
+
 fn require_non_empty(label: &str, value: String) -> Result<String> {
     optional_non_empty(Some(value)).ok_or_else(|| TaruError::InvalidInput {
         message: format!("{label} cannot be empty"),
@@ -516,6 +788,12 @@ fn optional_non_empty(value: Option<String>) -> Option<String> {
         let trimmed = value.trim().to_owned();
         (!trimmed.is_empty()).then_some(trimmed)
     })
+}
+
+fn database_error<E: std::fmt::Display>(err: E) -> TaruError {
+    TaruError::Database {
+        message: err.to_string(),
+    }
 }
 
 fn uri_scheme(value: &str) -> Option<&str> {

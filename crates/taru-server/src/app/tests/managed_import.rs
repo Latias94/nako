@@ -3,16 +3,19 @@ use std::{fs, path::PathBuf};
 use taru_core::{
     CanonicalMetadata, DatabaseLifecycle, ExternalProvider, Library, LibraryId, LibraryOptions,
     LibraryPreset, LibraryRepository, ManagedImportArtifactListFilter, ManagedImportArtifactState,
-    ManagedImportPromotionBlockedReason, ManagedImportPromotionOperationKind,
-    ManagedImportPromotionOperationStatus, ManagedImportRepository, ManagedImportSourceKind,
-    MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
-    NewStagingManifestRecord, PageRequest, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState,
+    ManagedImportPromotionApplyState, ManagedImportPromotionBlockedReason,
+    ManagedImportPromotionOperationKind, ManagedImportPromotionOperationStatus,
+    ManagedImportRepository, ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind,
+    MediaRepository, MediaSource, MediaSourceId, NewStagingManifestRecord, PageRequest,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
 };
 use taru_db::TaruDatabase;
 
 use crate::app::TaruApp;
-use crate::app::managed_import::{CreateManagedImportArtifactRequest, ManagedImportAppService};
+use crate::app::managed_import::{
+    AcceptManagedImportPromotionRequest, CreateManagedImportArtifactRequest,
+    ManagedImportAppService,
+};
 use crate::config::{
     AuthConfig, LocalLibraryConfig, MetadataConfig, PlaybackConfig, StagingConfig,
     TaruServerConfig, TranscodeConfig,
@@ -409,6 +412,193 @@ async fn managed_import_promotion_preview_blocks_destination_escape() {
         plan.file_operations.iter().all(|operation| {
             operation.status == ManagedImportPromotionOperationStatus::Blocked
         })
+    );
+    assert!(
+        store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn managed_import_accepts_promotion_plan_with_idempotent_replay_without_mutation() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("incoming")).unwrap();
+    fs::create_dir_all(temp.path().join("Movies").join("Demo (2026)")).unwrap();
+    fs::write(temp.path().join("incoming").join("Demo.mkv"), b"media!").unwrap();
+    let library_id = LibraryId::new();
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(
+        managed_import_test_config(temp.path(), library_id),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let artifact = app
+        .managed_import()
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library_id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Demo.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Demo.mkv".to_owned()),
+            original_file_name: Some("Demo.mkv".to_owned()),
+            intended_locator: Some("Movies/Demo (2026)/Demo.mkv".to_owned()),
+            size_bytes: Some(5),
+            fingerprint: Some("fingerprint-demo".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let accepted = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Hardlink,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let replayed = app
+        .managed_import()
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: artifact.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-demo-1".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Hardlink,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(accepted.id, replayed.id);
+    assert!(replayed.replayed);
+    assert_eq!(accepted.state, ManagedImportPromotionApplyState::Accepted);
+    assert_eq!(
+        accepted.operation_kind,
+        ManagedImportPromotionOperationKind::Hardlink
+    );
+    assert_eq!(accepted.target_library_id, library_id);
+    assert_eq!(accepted.source_scheme.as_deref(), Some("local"));
+    assert_eq!(
+        accepted.destination_locator.as_deref(),
+        Some("local:///Movies/Demo (2026)/Demo.mkv")
+    );
+    assert!(accepted.accepted_plan_snapshot);
+    assert!(!accepted.has_raw_source_uri);
+    assert!(!accepted.has_raw_fingerprint);
+    assert!(
+        !temp
+            .path()
+            .join("Movies")
+            .join("Demo (2026)")
+            .join("Demo.mkv")
+            .exists()
+    );
+    assert!(
+        store
+            .list_media_sources(library_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn managed_import_acceptance_rejects_mismatched_replay_and_blocked_plan() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = seed_library(&store).await;
+    let service = ManagedImportAppService::new(store.clone());
+    let ready = service
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library.id,
+            source_kind: ManagedImportSourceKind::LocalFile,
+            source_uri: "file:///operator/private/Ready.mkv".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Ready.mkv".to_owned()),
+            original_file_name: Some("Ready.mkv".to_owned()),
+            intended_locator: Some("Movies/Ready (2026)/Ready.mkv".to_owned()),
+            size_bytes: Some(5),
+            fingerprint: Some("fingerprint-ready".to_owned()),
+            state: Some(ManagedImportArtifactState::Staged),
+            diagnostics_json: Some(r#"{"provider_candidates":1}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    service
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: ready.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-conflict".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap();
+
+    let mismatch = service
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: ready.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-conflict".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Hardlink,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap_err();
+    assert!(mismatch.to_string().contains("idempotency key"));
+
+    let blocked = service
+        .create_artifact(CreateManagedImportArtifactRequest {
+            id: None,
+            target_library_id: library.id,
+            source_kind: ManagedImportSourceKind::OperatorUrl,
+            source_uri: "https://example.test/private/Blocked.mkv?token=secret".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: None,
+            original_file_name: None,
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            state: Some(ManagedImportArtifactState::Proposed),
+            diagnostics_json: None,
+        })
+        .await
+        .unwrap();
+
+    let blocked_err = service
+        .accept_promotion(AcceptManagedImportPromotionRequest {
+            artifact_id: blocked.id,
+            requested_by: UserPrincipalId::local_admin(),
+            idempotency_key: "accept-blocked".to_owned(),
+            operation_kind: ManagedImportPromotionOperationKind::Copy,
+            accepted_blocked_reasons: Vec::new(),
+        })
+        .await
+        .unwrap_err();
+    assert!(
+        blocked_err
+            .to_string()
+            .contains("promotion plan is blocked")
+    );
+    assert!(
+        store
+            .list_managed_import_promotion_applies_for_artifact(
+                blocked.id,
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
     );
     assert!(
         store

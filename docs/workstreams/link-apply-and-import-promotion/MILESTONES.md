@@ -38,10 +38,10 @@ Primary evidence:
 
 Exit criteria:
 
-- Server app service records explicit apply acceptance.
-- Matching idempotency keys replay safely.
-- Mismatched requests are rejected.
-- No storage or Media Source mutation occurs before mutation tasks.
+- [x] Server app service records explicit apply acceptance.
+- [x] Matching idempotency keys replay safely.
+- [x] Mismatched requests are rejected.
+- [x] No storage or Media Source mutation occurs before mutation tasks.
 
 Primary evidence:
 

@@ -7,10 +7,11 @@
   "scope_kind": "execution",
   "problem": "Managed Import previews and NFO/link dry-runs need an operator-confirmed, auditable, rollback-aware mutation boundary before staged artifacts can become Media Sources in a Media Library.",
   "task_prefix": "LAIP",
-  "current_task": "LAIP-030",
+  "current_task": "LAIP-040",
   "completed_tasks": [
     "LAIP-010",
-    "LAIP-020"
+    "LAIP-020",
+    "LAIP-030"
   ],
   "authoritative_docs": [
     {
@@ -67,7 +68,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "LAIP-030",
-    "notes": "Durable promotion acceptance/audit records are implemented. Next add app-service acceptance/replay without storage mutation. Do not implement copy/link/move/delete or Media Source promotion until LAIP-030 proves idempotency, plan revalidation, stale/blocked rejection, and redacted diagnostics."
+    "next_task": "LAIP-040",
+    "notes": "Durable promotion acceptance/audit and app-service acceptance/replay are implemented without storage mutation. Next add VFS-mediated copy/hardlink/symlink apply primitives. Do not implement Media Source promotion until storage mutation outcomes are typed and tested."
   }
 }
