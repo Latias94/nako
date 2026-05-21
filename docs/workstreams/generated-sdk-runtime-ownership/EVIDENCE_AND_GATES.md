@@ -61,6 +61,16 @@ If playback runtime consumption changes, also run focused playback tests:
 apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon
 ```
 
+For the current Rust core / UniFFI tracer checkpoint, use:
+
+```powershell
+cargo fmt --package taru-client-core --package taru-client-uniffi --check
+cargo nextest run -p taru-client-core --no-fail-fast
+cargo nextest run -p taru-client-uniffi --no-fail-fast
+python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null
+git diff --check
+```
+
 ## Closeout Gates
 
 Use the broader gate set before closing an implementation lane:
@@ -133,3 +143,26 @@ ADR and FFI-safe core API definition.
 
 No implementation evidence yet. The lane is now ready for `SDKRT-030` Rust
 core tracer implementation.
+- 2026-05-21: Completed `SDKRT-030` no-socket Rust client core tracer.
+  - Added `crates/taru-client-core` with FFI-safe request, response, preview,
+    outcome, success, public-error, and failure records.
+  - The core tracer builds unauthenticated health requests, advances to an
+    authenticated library auth probe, interprets app-supplied responses, checks
+    API-version observations, parses public error envelopes, classifies invalid
+    response bodies, and redacts bearer tokens in safe previews.
+  - Android transport, token storage, product diagnostics, UI, and Media3
+    ownership were not changed.
+  - `cargo fmt --package taru-client-core --package taru-client-uniffi --check`
+    passed after the Rust core and UniFFI scaffold updates.
+  - `cargo nextest run -p taru-client-core --no-fail-fast` passed with 7 tests.
+- 2026-05-21: Completed `SDKRT-035` UniFFI compile-only scaffold.
+  - Added `crates/taru-client-uniffi` as a thin binding crate over
+    `taru-client-core`.
+  - The binding crate exposes FFI-safe records/enums/functions only and delegates
+    behavior to `taru-client-core`.
+  - No Android app behavior was wired in this milestone.
+  - `cargo nextest run -p taru-client-uniffi --no-fail-fast` passed with 1 test.
+  - `python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null`
+    passed.
+  - `git diff --check` passed. Git reported line-ending normalization warnings
+    for touched workspace/workstream files.

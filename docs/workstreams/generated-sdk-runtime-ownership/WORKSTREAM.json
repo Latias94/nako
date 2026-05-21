@@ -35,7 +35,9 @@
   "gates": [
     "python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null",
     "git diff --check",
-    "cargo fmt --package taru-client --package taru-client-protocol --check",
+    "cargo fmt --package taru-client-core --package taru-client-uniffi --package taru-client --package taru-client-protocol --check",
+    "cargo nextest run -p taru-client-core --no-fail-fast",
+    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
     "cargo nextest run -p taru-client --no-fail-fast",
     "cargo nextest run -p taru-client-protocol --no-fail-fast",
     "cargo fmt --package taru-api --check",
@@ -67,9 +69,9 @@
     "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md"
   ],
-  "current_task": "SDKRT-030",
+  "current_task": "SDKRT-040",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "SDKRT-020 created ADR 0032 and froze the no-socket taru-client-core plus app-supplied Android transport target. Continue with SDKRT-030 only: implement and test the smallest Rust core connection tracer. Do not wire Android or UniFFI before the core API is proven. Split SDK publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime work into separate lanes."
+    "notes": "SDKRT-030 implemented and tested the no-socket taru-client-core connection tracer. SDKRT-035 added a compile-only taru-client-uniffi binding crate over that tracer. Continue with SDKRT-040: wire only the Android connection flow to the binding boundary while preserving Android-owned transport, token storage, profile persistence, diagnostics, UI, and Media3. Split SDK publishing, KMP, full-platform Rust-owned networking, and multi-SDK runtime work into separate lanes."
   }
 }

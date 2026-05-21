@@ -5,7 +5,8 @@ Last updated: 2026-05-21
 
 ## Current State
 
-`SDKRT-010` and `SDKRT-020` are complete. The prior SDK lanes are closed:
+`SDKRT-010`, `SDKRT-020`, `SDKRT-030`, and `SDKRT-035` are complete. The prior
+SDK lanes are closed:
 
 - `android-generated-public-client-sdk` moved Android DTO and route mirrors to
   an OpenAPI-backed Kotlin/JVM SDK.
@@ -23,11 +24,11 @@ Rust core as a first-class candidate, not as an automatic follow-on.
 
 ## Active Task
 
-`SDKRT-030` is ready.
+`SDKRT-040` is ready.
 
-Goal: implement the smallest no-socket Rust client core tracer and tests. Do
-not wire Android or UniFFI yet unless the core API is already proven and the
-task scope is explicitly split.
+Goal: wire the Android connection flow to the proven Rust core / UniFFI binding
+boundary while keeping Android-owned transport, token storage, profile
+persistence, product diagnostics, UI, and Media3 responsibilities unchanged.
 
 ## Decisions Already Inherited
 
@@ -78,24 +79,22 @@ task scope is explicitly split.
 
 ## Open Decisions
 
-- Exact Rust module/file layout inside `taru-client-core`.
-- Exact test fixture shape for the connection probe state machine.
-- How will Rust-side public wire values preserve unknown additive strings so
-  Android does not regress from the Kotlin generated SDK tolerance lane?
 - What Gradle/NDK/UniFFI build topology is acceptable for ordinary Android
   builds?
+- Whether generated Kotlin binding sources should be committed now or produced
+  by a documented Gradle/bindgen task in the Android build.
 
 ## Blockers
 
-None for `SDKRT-030`. Do not wire Android or UniFFI before the core request /
-response state machine is implemented and tested.
+None for `SDKRT-040`; however, ordinary Android builds must make the new Rust /
+UniFFI prerequisite explicit if native binding consumption is introduced.
 
 ## Recommended Next Step
 
-Set a Codex goal for `SDKRT-030` only. Suggested implementation scope:
-`crates/taru-client-core` plus workspace membership and tests. Keep Android,
-UniFFI, and generated Kotlin SDK untouched in this task unless a compile gate
-requires a narrow adjustment.
+Continue with `SDKRT-040`: inspect the generated UniFFI Kotlin shape, choose the
+least surprising Android build integration, then migrate only the connection
+probe flow. Do not broaden into playback, profile persistence, token vaults, UI,
+or Rust-owned networking.
 
 ## Verification
 

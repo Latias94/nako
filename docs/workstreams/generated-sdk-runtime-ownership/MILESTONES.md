@@ -44,6 +44,8 @@ auth probe. `SDKRT-030` may implement the Rust-side core tracer only.
 
 ## M2 — Small Runtime/Core Tracer
 
+Status: Complete on 2026-05-21.
+
 Exit only if the lane chooses implementation. The tracer must prove
 protocol-level runtime semantics without broad migration.
 
@@ -58,7 +60,28 @@ Acceptance criteria:
 - SDK tests cover success, HTTP error, invalid JSON, unsupported API version,
   and redaction behavior.
 
-## M3 — Android Consumption Tracer
+Result: `crates/taru-client-core` now owns the no-socket connection health plus
+auth-probe tracer. Android still supplies transport and product diagnostics.
+
+## M3 — UniFFI Compile-Only Scaffold
+
+Status: Complete on 2026-05-21.
+
+Exit when the UniFFI compile-only scaffold exists and builds without Android
+app behavior depending on it.
+
+Acceptance criteria:
+
+- `taru-client-uniffi` is a thin binding layer over `taru-client-core`;
+- no runtime policy lives in the binding crate;
+- binding compilation/generation commands are documented;
+- Android app code is not changed in this milestone.
+
+Result: `crates/taru-client-uniffi` now exposes a thin UniFFI surface over the
+core tracer. It duplicates only FFI-safe records/enums and delegates behavior
+to `taru-client-core`.
+
+## M4 — Android Consumption Tracer
 
 Exit when one Android flow consumes the runtime tracer without moving product
 diagnostics into SDK code.
@@ -70,7 +93,7 @@ Acceptance criteria:
 - focused Android tests prove existing diagnostics and safe request previews;
 - no Compose, navigation, or Media3 ownership change appears in the diff.
 
-## M4 — Broaden Or Split
+## M5 — Broaden Or Split
 
 Exit when the lane either broadens the proven runtime seam across repeated
 families with fresh gates, or splits follow-ons and closes.
@@ -82,7 +105,7 @@ Acceptance criteria:
 - publishing, KMP, full-platform Rust/UniFFI migration, and multi-SDK runtime
   work remain separate.
 
-## M5 — Closeout
+## M6 — Closeout
 
 Exit when:
 

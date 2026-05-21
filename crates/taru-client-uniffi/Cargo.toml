@@ -1,0 +1,16 @@
+[package]
+name = "taru-client-uniffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+taru-client-core = { path = "../taru-client-core" }
+uniffi.workspace = true
