@@ -1,6 +1,6 @@
 # Managed Import Staging — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## M0 — Lane Open
@@ -65,13 +65,27 @@ Primary evidence:
 
 Exit criteria:
 
-- Apply is either implemented with rollback/audit proof or explicitly split.
-- Hardlink/symlink mutation is not smuggled into planning.
+- [x] Apply is either implemented with rollback/audit proof or explicitly
+  split.
+- [x] Hardlink/symlink mutation is not smuggled into planning.
+- [x] Follow-on workstream records operator confirmation, rollback, cleanup,
+  audit, and storage mutation gates.
+
+Primary evidence:
+
+- `docs/workstreams/managed-import-staging/DESIGN.md`
+- `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`
 
 ## M5 — Closeout
 
 Exit criteria:
 
-- Fresh validation is recorded.
-- Parent umbrella and workstream index agree on status.
-- Follow-ons are explicit.
+- [x] Fresh validation is recorded.
+- [x] Parent umbrella and workstream index agree on status.
+- [x] Follow-ons are explicit.
+
+Primary evidence:
+
+- `docs/workstreams/managed-import-staging/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/managed-import-staging/HANDOFF.md`
+- `docs/workstreams/post-rpd-product-hardening/HANDOFF.md`

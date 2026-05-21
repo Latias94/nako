@@ -1,6 +1,6 @@
 # Managed Import Staging
 
-Status: Active
+Status: Complete
 
 This workstream is the next post-RPD mainline after `nfo-link-authority`. It
 turns downloads, watch-folder candidates, and Addon-proposed artifacts into a
@@ -48,3 +48,4 @@ that an operator or later acceptance workflow can approve.
 - [nfo-link-authority](../nfo-link-authority/README.md)
 - [managed-artwork-fetch-artifact-storage](../managed-artwork-fetch-artifact-storage/README.md)
 - [addon-library-file-write-policy](../addon-library-file-write-policy/README.md)
+- [link-apply-and-import-promotion](../link-apply-and-import-promotion/README.md)

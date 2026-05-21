@@ -3,8 +3,9 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     LibraryId, ManagedImportArtifactId, ManagedImportArtifactListFilter,
-    ManagedImportArtifactRecord, ManagedImportArtifactState, ManagedImportSourceKind,
-    NewManagedImportArtifact, Result,
+    ManagedImportArtifactRecord, ManagedImportArtifactState, ManagedImportPromotionApplyId,
+    ManagedImportPromotionApplyRecord, ManagedImportPromotionApplyState, ManagedImportSourceKind,
+    NewManagedImportArtifact, NewManagedImportPromotionApply, Result,
 };
 
 #[async_trait]
@@ -39,4 +40,36 @@ pub trait ManagedImportRepository: Send + Sync {
         updated_at_ms: i64,
         diagnostics_json: Option<String>,
     ) -> Result<Option<ManagedImportArtifactRecord>>;
+
+    async fn upsert_managed_import_promotion_apply(
+        &self,
+        apply: NewManagedImportPromotionApply,
+    ) -> Result<ManagedImportPromotionApplyRecord>;
+
+    async fn get_managed_import_promotion_apply(
+        &self,
+        id: ManagedImportPromotionApplyId,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>>;
+
+    async fn find_managed_import_promotion_apply_by_idempotency_key(
+        &self,
+        target_library_id: LibraryId,
+        idempotency_key: &str,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>>;
+
+    async fn list_managed_import_promotion_applies_for_artifact(
+        &self,
+        artifact_id: ManagedImportArtifactId,
+        page: PageRequest,
+    ) -> Result<Vec<ManagedImportPromotionApplyRecord>>;
+
+    async fn set_managed_import_promotion_apply_state(
+        &self,
+        id: ManagedImportPromotionApplyId,
+        state: ManagedImportPromotionApplyState,
+        updated_at_ms: i64,
+        outcome_json: Option<String>,
+        safe_error_code: Option<String>,
+        safe_message: Option<String>,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>>;
 }

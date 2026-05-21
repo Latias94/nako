@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ExternalProvider, LibraryId, LocalMetadataPolicy, ManagedImportArtifactId, MediaSourceId,
-    Result, SourceDuplicateEvidenceKind, StagingManifestId, TaruError,
+    ExternalProvider, LibraryId, LocalMetadataPolicy, ManagedImportArtifactId,
+    ManagedImportPromotionApplyId, MediaSourceId, Result, SourceDuplicateEvidenceKind,
+    StagingManifestId, TaruError, UserPrincipalId,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -179,6 +180,32 @@ pub enum ManagedImportPromotionOperationKind {
     Symlink,
 }
 
+impl ManagedImportPromotionOperationKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Copy => "copy",
+            Self::Move => "move",
+            Self::Hardlink => "hardlink",
+            Self::Symlink => "symlink",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "copy" => Ok(Self::Copy),
+            "move" => Ok(Self::Move),
+            "hardlink" => Ok(Self::Hardlink),
+            "symlink" => Ok(Self::Symlink),
+            _ => Err(TaruError::Database {
+                message: format!(
+                    "unknown managed import promotion operation stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ManagedImportPromotionOperationStatus {
@@ -246,4 +273,100 @@ pub enum ManagedImportPromotionBlockedReason {
     DestinationEscapesLibrary,
     ProviderIdentityMissing,
     StoragePlanningUnavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedImportPromotionApplyState {
+    Requested,
+    Validating,
+    Accepted,
+    ApplyingStorage,
+    CommittingCatalog,
+    Promoted,
+    Rejected,
+    FailedBeforeMutation,
+    CleanupPending,
+    CleanupComplete,
+    RollbackComplete,
+}
+
+impl ManagedImportPromotionApplyState {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Requested => "requested",
+            Self::Validating => "validating",
+            Self::Accepted => "accepted",
+            Self::ApplyingStorage => "applying_storage",
+            Self::CommittingCatalog => "committing_catalog",
+            Self::Promoted => "promoted",
+            Self::Rejected => "rejected",
+            Self::FailedBeforeMutation => "failed_before_mutation",
+            Self::CleanupPending => "cleanup_pending",
+            Self::CleanupComplete => "cleanup_complete",
+            Self::RollbackComplete => "rollback_complete",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "requested" => Ok(Self::Requested),
+            "validating" => Ok(Self::Validating),
+            "accepted" => Ok(Self::Accepted),
+            "applying_storage" => Ok(Self::ApplyingStorage),
+            "committing_catalog" => Ok(Self::CommittingCatalog),
+            "promoted" => Ok(Self::Promoted),
+            "rejected" => Ok(Self::Rejected),
+            "failed_before_mutation" => Ok(Self::FailedBeforeMutation),
+            "cleanup_pending" => Ok(Self::CleanupPending),
+            "cleanup_complete" => Ok(Self::CleanupComplete),
+            "rollback_complete" => Ok(Self::RollbackComplete),
+            _ => Err(TaruError::Database {
+                message: format!(
+                    "unknown managed import promotion apply state stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewManagedImportPromotionApply {
+    pub id: ManagedImportPromotionApplyId,
+    pub artifact_id: ManagedImportArtifactId,
+    pub target_library_id: LibraryId,
+    pub requested_by: UserPrincipalId,
+    pub idempotency_key: String,
+    pub operation_kind: ManagedImportPromotionOperationKind,
+    pub source_artifact_uri: Option<String>,
+    pub destination_locator: String,
+    pub accepted_plan_json: String,
+    pub accepted_warnings_json: Option<String>,
+    pub state: ManagedImportPromotionApplyState,
+    pub outcome_json: Option<String>,
+    pub safe_error_code: Option<String>,
+    pub safe_message: Option<String>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedImportPromotionApplyRecord {
+    pub id: ManagedImportPromotionApplyId,
+    pub artifact_id: ManagedImportArtifactId,
+    pub target_library_id: LibraryId,
+    pub requested_by: UserPrincipalId,
+    pub idempotency_key: String,
+    pub operation_kind: ManagedImportPromotionOperationKind,
+    pub source_artifact_uri: Option<String>,
+    pub destination_locator: String,
+    pub accepted_plan_json: String,
+    pub accepted_warnings_json: Option<String>,
+    pub state: ManagedImportPromotionApplyState,
+    pub outcome_json: Option<String>,
+    pub safe_error_code: Option<String>,
+    pub safe_message: Option<String>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
 }

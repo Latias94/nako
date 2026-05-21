@@ -10,10 +10,14 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
+- [link-apply-and-import-promotion](link-apply-and-import-promotion/README.md):
+  active post-RPD mainline follow-on for turning Managed Import promotion
+  previews into operator-confirmed, idempotent, rollback-aware Media Library
+  mutations through VFS/storage and durable audit records.
 - [managed-import-staging](managed-import-staging/README.md):
-  active post-RPD mainline lane for Taru-owned quarantine, diagnostics, and
-  explicit promotion planning before downloads, watch-folder candidates, or
-  Addon-proposed artifacts can write into a Media Library.
+  completed post-RPD mainline lane for Taru-owned quarantine, diagnostics, and
+  explicit non-mutating promotion planning before downloads, watch-folder
+  candidates, or Addon-proposed artifacts can write into a Media Library.
 - [nfo-link-authority](nfo-link-authority/README.md):
   completed post-RPD mainline lane for making NFO/local metadata authority,
   non-destructive link planning, and Source Duplicate Relationship evidence

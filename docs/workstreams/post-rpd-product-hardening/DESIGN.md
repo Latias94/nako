@@ -140,6 +140,9 @@ Implement Taru-owned quarantine/staging/import-plan behavior for operator URLs,
 watch-folder candidates, or addon-proposed artifacts. Do not start with
 torrent, Usenet, or protocol-specific acquisition in core Taru.
 
+Status: staging and non-mutating promotion preview completed on 2026-05-21.
+Actual promotion apply is split to `link-apply-and-import-promotion`.
+
 ### Wave 4 — Network And AI
 
 Harden remote access endpoints and add AI assistance only after the metadata
@@ -250,6 +253,27 @@ The downloads idea remains valuable, but the correct shape is
 `managed-import-staging`: Taru-owned quarantine, probe, duplicate/link hints,
 metadata inference, and explicit promote plans. It should not start as a
 generic downloader in core Taru.
+
+## Post-Managed-Import Re-Score — 2026-05-21
+
+`managed-import-staging` completed the non-mutating side of import promotion:
+durable artifact records, redacted diagnostics, promotion preview, VFS link
+dry-run summary, duplicate hints, NFO authority hints, provider identity review,
+and explicit blockers. That removes the need to keep staging open, but it also
+makes the next highest-risk boundary sharper: Taru still cannot safely mutate a
+Media Library root from a staged artifact.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| Link Apply And Import Promotion | Highest | This is the first mutating step after staging: copy/link target creation, Media Source commit, duplicate evidence, rollback/cleanup, and audit must be proven before downloads/watch-folder/addon-proposed artifacts can become library files. | Open next as the mainline execution lane. |
+| Playback / Transcode Ops Hardening | High sidecar | Still useful for daily operations and mostly disjoint from import apply if limited to diagnostics, preset validation, fallback reasons, and runtime evidence. | Safe parallel sidecar candidate after apply domain work starts. |
+| Network Access Boundary | Useful but not data-authority critical | Remote access matters, but it should not precede local library mutation safety now that import staging is ready. | Defer or run as docs/runtime sidecar. |
+| AI Assisted Library Ops | Blocked by acceptance durability | AI suggestions must reuse the same acceptance/audit model rather than invent autonomous writes. | Defer until promotion acceptance/apply is durable. |
+| Addon Runtime / Distribution | Downstream consumer | Addons should propose artifacts and side effects into proven Taru-owned apply paths. | Defer until apply boundaries are proven. |
+
+Downloads remain downstream of this decision. The next shape is not a generic
+downloader; it is first a safe promotion apply boundary for already-staged
+artifacts.
 
 ## Closeout Condition
 

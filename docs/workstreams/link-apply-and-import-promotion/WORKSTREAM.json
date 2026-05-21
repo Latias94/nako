@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "slug": "link-apply-and-import-promotion",
+  "title": "Link Apply And Import Promotion",
+  "status": "active",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "Managed Import previews and NFO/link dry-runs need an operator-confirmed, auditable, rollback-aware mutation boundary before staged artifacts can become Media Sources in a Media Library.",
+  "task_prefix": "LAIP",
+  "current_task": "LAIP-030",
+  "completed_tasks": [
+    "LAIP-010",
+    "LAIP-020"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/link-apply-and-import-promotion/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/link-apply-and-import-promotion/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/link-apply-and-import-promotion/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/link-apply-and-import-promotion/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/link-apply-and-import-promotion/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-db promotion_apply --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
+    "docs/workstreams/link-apply-and-import-promotion/TODO.md",
+    "docs/workstreams/link-apply-and-import-promotion/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/managed-import-staging/DESIGN.md",
+    "docs/workstreams/nfo-link-authority/DESIGN.md",
+    "crates/taru-core/src/managed_import.rs",
+    "crates/taru-core/src/repository/managed_import.rs",
+    "crates/taru-db/migrations/0032_managed_import_promotion_applies.sql",
+    "crates/taru-db/migrations/postgres/0004_managed_import_promotion_applies.sql",
+    "crates/taru-db/src/contract_tests.rs",
+    "crates/taru-db/src/sqlite/managed_import.rs",
+    "crates/taru-db/src/postgres.rs",
+    "crates/taru-vfs/src/lib.rs",
+    "crates/taru-vfs/src/local.rs",
+    "crates/taru-server/src/app/managed_import.rs",
+    "crates/taru-server/src/app/tests/managed_import.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0002-internal-vfs-before-os-mounting.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "LAIP-030",
+    "notes": "Durable promotion acceptance/audit records are implemented. Next add app-service acceptance/replay without storage mutation. Do not implement copy/link/move/delete or Media Source promotion until LAIP-030 proves idempotency, plan revalidation, stale/blocked rejection, and redacted diagnostics."
+  }
+}

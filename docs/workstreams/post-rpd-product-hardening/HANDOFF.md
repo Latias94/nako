@@ -8,22 +8,24 @@ Last updated: 2026-05-21
 The post-RPD product roadmap is open as an umbrella. It chooses
 `metadata-provider-breadth` as the first execution lane and records NFO/link,
 playback/transcode, managed import, network, AI, and addon distribution as
-ordered follow-ons. `metadata-provider-breadth` is complete. The next mainline
-lane, `nfo-link-authority`, has completed VFS link dry-run diagnostics,
-Source Duplicate Relationship filesystem-link suggestions, NFO authority
-preview, and the link apply split decision. The next mainline should be
-`managed-import-staging`, which is now open.
+ordered follow-ons. `metadata-provider-breadth` is complete. `nfo-link-authority`
+is complete with VFS link dry-run diagnostics, Source Duplicate Relationship
+filesystem-link suggestions, NFO authority preview, and the link apply split
+decision. `managed-import-staging` is complete as a non-mutating staging and
+promotion-preview lane. The next mainline lane is
+`link-apply-and-import-promotion`.
 
 ## Active Task
 
-- Task ID: PRPH-050
+- Task ID: PRPH-070
 - Owner: planner
 - Files: `docs/workstreams/post-rpd-product-hardening`,
-  `docs/workstreams/nfo-link-authority`
+  `docs/workstreams/managed-import-staging`,
+  `docs/workstreams/link-apply-and-import-promotion`
 - Validation: child closeout reviewed; next executable lane recorded
 - Status: ACTIVE
-- Review: route execution through `managed-import-staging`
-- Evidence: `docs/workstreams/managed-import-staging/DESIGN.md`
+- Review: route execution through `link-apply-and-import-promotion`
+- Evidence: `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`
 
 ## Decisions Since Last Update
 
@@ -44,16 +46,21 @@ preview, and the link apply split decision. The next mainline should be
 - Defer actual hardlink/symlink apply to a follow-on after managed import
   staging defines promotion, rollback, cleanup, audit, and source duplicate
   confirmation semantics.
+- Managed Import Staging completed durable artifact records, redacted
+  diagnostics, and non-mutating promotion preview.
+- Actual promotion apply is split to `link-apply-and-import-promotion` because
+  it requires operator confirmation, plan revalidation, durable audit,
+  rollback/cleanup, VFS-only mutation, and catalog consistency.
 - Keep playback/transcode ops hardening as a parallel sidecar candidate only
   if it stays diagnostic/runtime-focused and avoids NFO/import write scope.
 
 ## Blockers
 
-- None for opening the next execution lane.
+- None for LAIP-020.
 
 ## Next Recommended Action
 
-- Execute `managed-import-staging` MIS-020.
-- Keep `post-rpd-product-hardening` active until the next lane is represented
-  by durable docs, or close it if the roadmap no longer reduces coordination
-  cost.
+- Execute `link-apply-and-import-promotion` LAIP-020.
+- Keep `post-rpd-product-hardening` active while it continues ordering the next
+  product-hardening lanes. Re-score playback/transcode ops, network, AI, and
+  addon runtime after the apply boundary is proven or split.

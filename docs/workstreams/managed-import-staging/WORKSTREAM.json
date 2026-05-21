@@ -2,17 +2,19 @@
   "schema_version": 1,
   "slug": "managed-import-staging",
   "title": "Managed Import Staging",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-21",
   "scope_kind": "execution",
   "problem": "Downloads, watch-folder candidates, and Addon-proposed artifacts need Taru-owned quarantine, diagnostics, and explicit promotion planning before any media library writes.",
   "task_prefix": "MIS",
-  "current_task": "MIS-050",
+  "current_task": "MIS-060",
   "completed_tasks": [
     "MIS-010",
     "MIS-020",
     "MIS-030",
-    "MIS-040"
+    "MIS-040",
+    "MIS-050",
+    "MIS-060"
   ],
   "authoritative_docs": [
     {
@@ -53,7 +55,8 @@
     "crates/taru-db/src/postgres.rs",
     "crates/taru-server/src/app/managed_import.rs",
     "crates/taru-server/src/app/tests/managed_import.rs",
-    "crates/taru-server/src/app/storage.rs"
+    "crates/taru-server/src/app/storage.rs",
+    "docs/workstreams/link-apply-and-import-promotion/DESIGN.md"
   ],
   "adr_refs": [
     "docs/adr/0002-internal-vfs-before-os-mounting.md",
@@ -63,8 +66,8 @@
     "docs/adr/0021-video-first-media-server-domain-model.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "MIS-050",
-    "notes": "Decide whether first promotion apply can safely stay in this lane or must split to link-apply-and-import-promotion. Do not implement library mutations until rollback, cleanup, audit, and operator confirmation gates are explicit."
+    "default_action": "handoff",
+    "next_task": "link-apply-and-import-promotion LAIP-020",
+    "notes": "Managed Import Staging is closed as a non-mutating staging and promotion-preview lane. Actual promotion apply is split to link-apply-and-import-promotion; do not implement library mutations without durable acceptance/audit, plan revalidation, rollback/cleanup, VFS-only mutation, catalog consistency, and NFO boundary gates."
   }
 }

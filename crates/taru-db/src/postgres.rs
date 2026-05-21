@@ -32,6 +32,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "managed import artifacts",
         include_str!("../migrations/postgres/0003_managed_import_artifacts.sql"),
     ),
+    (
+        4,
+        "managed import promotion applies",
+        include_str!("../migrations/postgres/0004_managed_import_promotion_applies.sql"),
+    ),
 ];
 
 const JOB_SELECT: &str = r#"
@@ -511,6 +516,27 @@ const MANAGED_IMPORT_ARTIFACT_SELECT: &str = r#"
                 created_at_ms,
                 updated_at_ms
             FROM managed_import_artifacts
+            "#;
+
+const MANAGED_IMPORT_PROMOTION_APPLY_SELECT: &str = r#"
+            SELECT
+                id::text AS id,
+                artifact_id::text AS artifact_id,
+                target_library_id::text AS target_library_id,
+                requested_by,
+                idempotency_key,
+                operation_kind,
+                source_artifact_uri,
+                destination_locator,
+                accepted_plan_json,
+                accepted_warnings_json,
+                state,
+                outcome_json,
+                safe_error_code,
+                safe_message,
+                created_at_ms,
+                updated_at_ms
+            FROM managed_import_promotion_applies
             "#;
 
 #[derive(Clone, Debug)]
@@ -4555,6 +4581,164 @@ impl ManagedImportRepository for PostgresStore {
         .map_err(database_error)?;
 
         self.get_managed_import_artifact(id).await
+    }
+
+    async fn upsert_managed_import_promotion_apply(
+        &self,
+        apply: NewManagedImportPromotionApply,
+    ) -> Result<ManagedImportPromotionApplyRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO managed_import_promotion_applies (
+                id, artifact_id, target_library_id, requested_by, idempotency_key,
+                operation_kind, source_artifact_uri, destination_locator,
+                accepted_plan_json, accepted_warnings_json, state, outcome_json,
+                safe_error_code, safe_message, created_at_ms, updated_at_ms
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            ON CONFLICT(id) DO UPDATE SET
+                artifact_id = excluded.artifact_id,
+                target_library_id = excluded.target_library_id,
+                requested_by = excluded.requested_by,
+                idempotency_key = excluded.idempotency_key,
+                operation_kind = excluded.operation_kind,
+                source_artifact_uri = excluded.source_artifact_uri,
+                destination_locator = excluded.destination_locator,
+                accepted_plan_json = excluded.accepted_plan_json,
+                accepted_warnings_json = excluded.accepted_warnings_json,
+                state = excluded.state,
+                outcome_json = excluded.outcome_json,
+                safe_error_code = excluded.safe_error_code,
+                safe_message = excluded.safe_message,
+                updated_at_ms = excluded.updated_at_ms,
+                updated_at = statement_timestamp()
+            "#,
+        )
+        .bind(apply.id.as_uuid())
+        .bind(apply.artifact_id.as_uuid())
+        .bind(apply.target_library_id.as_uuid())
+        .bind(apply.requested_by.to_string())
+        .bind(&apply.idempotency_key)
+        .bind(apply.operation_kind.as_str())
+        .bind(&apply.source_artifact_uri)
+        .bind(&apply.destination_locator)
+        .bind(&apply.accepted_plan_json)
+        .bind(&apply.accepted_warnings_json)
+        .bind(apply.state.as_str())
+        .bind(&apply.outcome_json)
+        .bind(&apply.safe_error_code)
+        .bind(&apply.safe_message)
+        .bind(apply.created_at_ms)
+        .bind(apply.updated_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_managed_import_promotion_apply(apply.id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "managed_import_promotion_apply",
+                id: apply.id.to_string(),
+            })
+    }
+
+    async fn get_managed_import_promotion_apply(
+        &self,
+        id: ManagedImportPromotionApplyId,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
+        let row = sqlx::query(&format!(
+            r#"
+            {MANAGED_IMPORT_PROMOTION_APPLY_SELECT}
+            WHERE id = $1
+            "#
+        ))
+        .bind(id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_managed_import_promotion_apply).transpose()
+    }
+
+    async fn find_managed_import_promotion_apply_by_idempotency_key(
+        &self,
+        target_library_id: LibraryId,
+        idempotency_key: &str,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
+        let row = sqlx::query(&format!(
+            r#"
+            {MANAGED_IMPORT_PROMOTION_APPLY_SELECT}
+            WHERE target_library_id = $1
+              AND idempotency_key = $2
+            "#
+        ))
+        .bind(target_library_id.as_uuid())
+        .bind(idempotency_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_managed_import_promotion_apply).transpose()
+    }
+
+    async fn list_managed_import_promotion_applies_for_artifact(
+        &self,
+        artifact_id: ManagedImportArtifactId,
+        page: PageRequest,
+    ) -> Result<Vec<ManagedImportPromotionApplyRecord>> {
+        let page = page.clamped();
+        let rows = sqlx::query(&format!(
+            r#"
+            {MANAGED_IMPORT_PROMOTION_APPLY_SELECT}
+            WHERE artifact_id = $1
+            ORDER BY updated_at_ms DESC, id ASC
+            LIMIT $2 OFFSET $3
+            "#
+        ))
+        .bind(artifact_id.as_uuid())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_managed_import_promotion_apply)
+            .collect()
+    }
+
+    async fn set_managed_import_promotion_apply_state(
+        &self,
+        id: ManagedImportPromotionApplyId,
+        state: ManagedImportPromotionApplyState,
+        updated_at_ms: i64,
+        outcome_json: Option<String>,
+        safe_error_code: Option<String>,
+        safe_message: Option<String>,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE managed_import_promotion_applies
+            SET state = $2,
+                updated_at_ms = $3,
+                outcome_json = $4,
+                safe_error_code = $5,
+                safe_message = $6,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(state.as_str())
+        .bind(updated_at_ms)
+        .bind(outcome_json)
+        .bind(safe_error_code)
+        .bind(safe_message)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_managed_import_promotion_apply(id).await
     }
 }
 
@@ -9543,6 +9727,30 @@ fn row_to_managed_import_artifact(row: PgRow) -> Result<ManagedImportArtifactRec
         fingerprint: row_get(&row, "fingerprint")?,
         state: ManagedImportArtifactState::parse(&row_get::<String>(&row, "state")?)?,
         diagnostics_json: row_get(&row, "diagnostics_json")?,
+        created_at_ms: row_get(&row, "created_at_ms")?,
+        updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
+fn row_to_managed_import_promotion_apply(row: PgRow) -> Result<ManagedImportPromotionApplyRecord> {
+    Ok(ManagedImportPromotionApplyRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        artifact_id: parse_id(row_get::<String>(&row, "artifact_id")?)?,
+        target_library_id: parse_id(row_get::<String>(&row, "target_library_id")?)?,
+        requested_by: UserPrincipalId::new(row_get::<String>(&row, "requested_by")?)?,
+        idempotency_key: row_get(&row, "idempotency_key")?,
+        operation_kind: ManagedImportPromotionOperationKind::parse(&row_get::<String>(
+            &row,
+            "operation_kind",
+        )?)?,
+        source_artifact_uri: row_get(&row, "source_artifact_uri")?,
+        destination_locator: row_get(&row, "destination_locator")?,
+        accepted_plan_json: row_get(&row, "accepted_plan_json")?,
+        accepted_warnings_json: row_get(&row, "accepted_warnings_json")?,
+        state: ManagedImportPromotionApplyState::parse(&row_get::<String>(&row, "state")?)?,
+        outcome_json: row_get(&row, "outcome_json")?,
+        safe_error_code: row_get(&row, "safe_error_code")?,
+        safe_message: row_get(&row, "safe_message")?,
         created_at_ms: row_get(&row, "created_at_ms")?,
         updated_at_ms: row_get(&row, "updated_at_ms")?,
     })

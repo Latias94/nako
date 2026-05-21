@@ -1198,6 +1198,66 @@ impl ManagedImportRepository for TaruDatabase {
             .set_managed_import_artifact_state(id, state, updated_at_ms, diagnostics_json)
             .await
     }
+
+    async fn upsert_managed_import_promotion_apply(
+        &self,
+        apply: NewManagedImportPromotionApply,
+    ) -> Result<ManagedImportPromotionApplyRecord> {
+        self.backend()
+            .upsert_managed_import_promotion_apply(apply)
+            .await
+    }
+
+    async fn get_managed_import_promotion_apply(
+        &self,
+        id: ManagedImportPromotionApplyId,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
+        self.backend().get_managed_import_promotion_apply(id).await
+    }
+
+    async fn find_managed_import_promotion_apply_by_idempotency_key(
+        &self,
+        target_library_id: LibraryId,
+        idempotency_key: &str,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
+        self.backend()
+            .find_managed_import_promotion_apply_by_idempotency_key(
+                target_library_id,
+                idempotency_key,
+            )
+            .await
+    }
+
+    async fn list_managed_import_promotion_applies_for_artifact(
+        &self,
+        artifact_id: ManagedImportArtifactId,
+        page: PageRequest,
+    ) -> Result<Vec<ManagedImportPromotionApplyRecord>> {
+        self.backend()
+            .list_managed_import_promotion_applies_for_artifact(artifact_id, page)
+            .await
+    }
+
+    async fn set_managed_import_promotion_apply_state(
+        &self,
+        id: ManagedImportPromotionApplyId,
+        state: ManagedImportPromotionApplyState,
+        updated_at_ms: i64,
+        outcome_json: Option<String>,
+        safe_error_code: Option<String>,
+        safe_message: Option<String>,
+    ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
+        self.backend()
+            .set_managed_import_promotion_apply_state(
+                id,
+                state,
+                updated_at_ms,
+                outcome_json,
+                safe_error_code,
+                safe_message,
+            )
+            .await
+    }
 }
 
 #[async_trait::async_trait]

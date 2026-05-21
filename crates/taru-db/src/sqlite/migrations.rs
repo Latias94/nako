@@ -157,6 +157,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "managed import artifacts",
         include_str!("../../migrations/0031_managed_import_artifacts.sql"),
     ),
+    (
+        32,
+        "managed import promotion applies",
+        include_str!("../../migrations/0032_managed_import_promotion_applies.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

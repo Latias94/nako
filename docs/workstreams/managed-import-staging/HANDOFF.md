@@ -1,11 +1,11 @@
 # Managed Import Staging — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Current State
 
-MIS-020 through MIS-040 are implemented. Taru now has a durable Managed Import
+MIS-020 through MIS-060 are complete. Taru now has a durable Managed Import
 Artifact domain and DB contract that is intentionally separate from low-level VFS
 staging manifests. Records can reference a staging manifest, but they own target
 library intent, source kind, import diagnostics, and acceptance/planning state.
@@ -15,16 +15,20 @@ non-mutating promotion preview that explains the destination Source Locator,
 copy/move/link dry-run options, duplicate hints, NFO sidecar authority hints,
 provider identity review hints, and explicit blocked reasons.
 
-## Active Task
+Actual promotion apply is split to
+`docs/workstreams/link-apply-and-import-promotion` because it is the first
+boundary that may mutate a Media Library root and catalog state.
 
-- Task ID: MIS-050
+## Final State
+
+- Task ID: MIS-060
 - Owner: planner
 - Files: `docs/workstreams/managed-import-staging`
-- Validation: DESIGN/HANDOFF document rollback, cleanup, audit, and operator
-  confirmation requirements
-- Status: READY
-- Evidence: MIS-020, MIS-030, and MIS-040 gates are recorded in
-  `EVIDENCE_AND_GATES.md`
+- Validation: evidence gates are fresh; split decision is explicit; parent
+  umbrella and index route to the follow-on
+- Status: DONE
+- Evidence: MIS-020, MIS-030, MIS-040, MIS-050, and MIS-060 entries are
+  recorded in `EVIDENCE_AND_GATES.md`
 
 ## Decisions
 
@@ -53,13 +57,27 @@ provider identity review hints, and explicit blocked reasons.
 - NFO/provider identity hints are intentionally explanatory, not canonical
   metadata writes. Provider identity remains a review signal until promotion
   apply has an acceptance workflow.
+- Promotion apply is not part of Managed Import Staging. It is split to
+  `link-apply-and-import-promotion` with explicit operator confirmation, plan
+  revalidation, durable audit, rollback/cleanup, VFS-only mutation, catalog
+  consistency, and NFO boundary requirements.
 
 ## Blockers
 
-- None for MIS-050.
+- None.
+
+## Follow-Ons
+
+- `link-apply-and-import-promotion`: implement actual promotion apply only
+  after durable acceptance/audit, plan revalidation, storage mutation
+  primitives, rollback/cleanup, and catalog consistency gates are proven.
+- Admin/operator API: expose Managed Import diagnostics and promotion previews
+  after the app-internal DTOs stabilize.
+- Downloader/watch-folder acquisition: remain downstream of Managed Import and
+  apply semantics; do not introduce protocol-specific acquisition into this
+  closed staging lane.
 
 ## Next Recommended Action
 
-- Execute MIS-050: decide whether first promotion apply can safely live in this
-  lane, or split to a dedicated `link-apply-and-import-promotion` follow-on with
-  rollback, cleanup, audit, operator confirmation, and storage mutation gates.
+- Continue with `link-apply-and-import-promotion` LAIP-020, the durable
+  promotion acceptance and audit model.

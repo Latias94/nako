@@ -1,6 +1,6 @@
 # Managed Import Staging Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -56,6 +56,11 @@ and produce an auditable promotion decision.
   - reasons promotion is blocked.
 - Promotion apply remains separate from the first planning slice unless apply,
   rollback, cleanup, and audit are fully proven.
+
+This target state is satisfied for staging and planning as of 2026-05-21.
+Actual promotion apply is intentionally split to
+`link-apply-and-import-promotion` because it is the first lane that may mutate a
+Media Library root.
 
 ## In Scope
 
@@ -129,8 +134,9 @@ proposed -> staging -> staged -> inspected -> planned -> accepted -> applying ->
 promoted/rejected/failed -> cleanup_pending -> cleaned
 ```
 
-The first executable slice should likely stop at `planned`, because apply has
-higher data-loss risk and should be split unless fully proven.
+The shipped Managed Import Staging lane stops at this safe planning boundary.
+States after `planned` remain lifecycle vocabulary for the follow-on apply
+lane, not behavior that staging silently performs.
 
 ### Existing Staging Reuse Decision
 
@@ -158,6 +164,52 @@ Open with a schema/model slice, not a downloader:
 4. Do not stage external network bytes yet; seed staged artifacts from existing
    local/VFS staging evidence in tests.
 
+## MIS-050 Apply Split Decision — 2026-05-21
+
+Decision: split actual promotion apply into a dedicated follow-on workstream,
+`link-apply-and-import-promotion`.
+
+Rationale:
+
+- Promotion apply crosses the boundary from explanation into file-system and
+  library mutation.
+- A preview can be recomputed and discarded safely; an apply can leave a Media
+  Library root, Media Source row, NFO sidecar, duplicate relationship, and audit
+  stream partially updated.
+- Hardlink/symlink apply depends on VFS planning, but it is not just a VFS
+  feature. It needs Managed Import artifact state, operator confirmation,
+  duplicate/source semantics, rollback, cleanup, and redacted audit reporting.
+- Copy/move/link strategy must be tied to a confirmed plan snapshot and
+  revalidated at apply time. A stale preview is not an authorization to write.
+- Move is particularly risky because it can remove the source artifact before
+  catalog commit is proven. The follow-on should make move support explicit and
+  may defer it behind copy/link apply.
+
+Minimum apply requirements before any media-library mutation:
+
+1. **Operator confirmation** — a command must select an operation and confirm
+   the target library, destination locator, duplicate policy, and local/NFO
+   authority implications.
+2. **Plan revalidation** — apply must re-run or verify the preview facts and
+   reject blocked or stale plans before touching storage.
+3. **Durable audit** — every attempt needs an idempotency key, selected
+   operation, state transitions, redacted diagnostics, and terminal outcome.
+4. **VFS-only mutation** — server code must not manipulate OS paths directly;
+   copy/move/link/delete/cleanup behavior must be mediated by storage
+   backends.
+5. **Rollback/cleanup** — if storage succeeds and database/catalog commit
+   fails, Taru must either remove the target it created or record a durable
+   cleanup-pending state with enough redacted evidence for an operator.
+6. **Catalog consistency** — a Media Source should not appear as promoted until
+   the target locator is durable and the repository transaction commits.
+7. **NFO boundaries** — NFO import/export remains explicit. Promotion apply
+   must not smuggle sidecar writes unless backup and authority rules are part
+   of that accepted operation.
+
+This lane therefore ships quarantine, diagnostics, durable artifact records,
+and non-mutating promotion preview. The follow-on owns the first mutating apply
+path.
+
 ## Closeout Condition
 
 This lane can close when:
@@ -168,3 +220,7 @@ This lane can close when:
 - first apply behavior is either proven with rollback/audit or explicitly split;
 - focused Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
   pass.
+
+All Managed Import Staging closeout conditions are satisfied as of 2026-05-21.
+The first apply behavior is explicitly split to
+`docs/workstreams/link-apply-and-import-promotion`.

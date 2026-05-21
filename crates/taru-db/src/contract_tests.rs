@@ -23,7 +23,8 @@ use taru_core::{
     LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
     ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
     ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
-    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportRepository,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
+    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
     ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
@@ -32,19 +33,19 @@ use taru_core::{
     NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
     NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
     NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
-    NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
-    NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
-    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
-    RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
-    TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionRepository, TranscodeSessionState,
-    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewOutboxEvent,
+    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, NfoImportPersistenceCommit, OutboxEventListFilter, OutboxEventStatus,
+    PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation, ScanRepository,
+    ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
+    SourceState, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
+    Studio, StudioId, Tag, TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
+    TranscodeSessionState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
+    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
 };
 use taru_search::{SearchIndex, SearchQuery};
@@ -4358,6 +4359,155 @@ where
     assert_eq!(missing, None);
 }
 
+async fn promotion_apply_contract_round_trips_acceptance_and_audit<S>(store: S)
+where
+    S: ManagedImportContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let artifact_id = ManagedImportArtifactId::new();
+    let artifact = store
+        .upsert_managed_import_artifact(NewManagedImportArtifact {
+            id: artifact_id,
+            target_library_id: library.id,
+            source_kind: ManagedImportSourceKind::WatchedCandidate,
+            source_uri: "file:///incoming/Demo.mkv".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: Some("local:///incoming/Demo.mkv".to_owned()),
+            original_file_name: Some("Demo.mkv".to_owned()),
+            intended_locator: Some("Movies/Demo (2026)/Demo.mkv".to_owned()),
+            size_bytes: Some(120),
+            fingerprint: Some("fingerprint-demo".to_owned()),
+            state: ManagedImportArtifactState::Planned,
+            diagnostics_json: Some(r#"{"preview":"ready"}"#.to_owned()),
+            created_at_ms: 2_000,
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(artifact.state, ManagedImportArtifactState::Planned);
+
+    let apply_id = ManagedImportPromotionApplyId::new();
+    let apply = NewManagedImportPromotionApply {
+        id: apply_id,
+        artifact_id,
+        target_library_id: library.id,
+        requested_by: UserPrincipalId::local_admin(),
+        idempotency_key: "promotion-demo-1".to_owned(),
+        operation_kind: ManagedImportPromotionOperationKind::Hardlink,
+        source_artifact_uri: Some("local:///incoming/Demo.mkv".to_owned()),
+        destination_locator: "local:///Contract Movies/Movies/Demo (2026)/Demo.mkv".to_owned(),
+        accepted_plan_json: r#"{"plan_version":1,"operation":"hardlink"}"#.to_owned(),
+        accepted_warnings_json: Some(r#"["duplicate_hint"]"#.to_owned()),
+        state: ManagedImportPromotionApplyState::Requested,
+        outcome_json: None,
+        safe_error_code: None,
+        safe_message: None,
+        created_at_ms: 2_100,
+        updated_at_ms: 2_100,
+    };
+
+    let saved = store
+        .upsert_managed_import_promotion_apply(apply)
+        .await
+        .unwrap();
+    assert_eq!(saved.id, apply_id);
+    assert_eq!(saved.artifact_id, artifact_id);
+    assert_eq!(saved.target_library_id, library.id);
+    assert_eq!(saved.requested_by, UserPrincipalId::local_admin());
+    assert_eq!(
+        saved.operation_kind,
+        ManagedImportPromotionOperationKind::Hardlink
+    );
+    assert_eq!(saved.state, ManagedImportPromotionApplyState::Requested);
+    assert_eq!(
+        saved.accepted_plan_json,
+        r#"{"plan_version":1,"operation":"hardlink"}"#
+    );
+    assert_eq!(saved.safe_error_code, None);
+    assert_eq!(saved.safe_message, None);
+    assert_eq!(
+        store
+            .get_managed_import_promotion_apply(apply_id)
+            .await
+            .unwrap(),
+        Some(saved.clone())
+    );
+    assert_eq!(
+        store
+            .find_managed_import_promotion_apply_by_idempotency_key(library.id, "promotion-demo-1",)
+            .await
+            .unwrap(),
+        Some(saved.clone())
+    );
+    assert_eq!(
+        store
+            .list_managed_import_promotion_applies_for_artifact(
+                artifact_id,
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap(),
+        vec![saved.clone()]
+    );
+
+    let accepted = store
+        .set_managed_import_promotion_apply_state(
+            apply_id,
+            ManagedImportPromotionApplyState::Accepted,
+            2_200,
+            Some(r#"{"validated":true,"writes_library":false}"#.to_owned()),
+            None,
+            Some("accepted for storage apply".to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(accepted.state, ManagedImportPromotionApplyState::Accepted);
+    assert_eq!(
+        accepted.outcome_json.as_deref(),
+        Some(r#"{"validated":true,"writes_library":false}"#)
+    );
+    assert_eq!(
+        accepted.safe_message.as_deref(),
+        Some("accepted for storage apply")
+    );
+
+    let cleanup_pending = store
+        .set_managed_import_promotion_apply_state(
+            apply_id,
+            ManagedImportPromotionApplyState::CleanupPending,
+            2_300,
+            Some(r#"{"storage_target_created":true,"catalog_committed":false}"#.to_owned()),
+            Some("catalog_commit_failed".to_owned()),
+            Some("cleanup required".to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        cleanup_pending.state,
+        ManagedImportPromotionApplyState::CleanupPending
+    );
+    assert_eq!(cleanup_pending.updated_at_ms, 2_300);
+    assert_eq!(
+        cleanup_pending.safe_error_code.as_deref(),
+        Some("catalog_commit_failed")
+    );
+
+    let missing = store
+        .set_managed_import_promotion_apply_state(
+            ManagedImportPromotionApplyId::new(),
+            ManagedImportPromotionApplyState::Rejected,
+            2_400,
+            None,
+            Some("missing_apply".to_owned()),
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing, None);
+}
+
 async fn migrate_contract<S>(store: S)
 where
     S: LifecycleContractBackend,
@@ -4612,4 +4762,14 @@ database_contract_pair!(
         "round_trips_artifacts_and_state"
     ),
     contract = managed_import_contract_round_trips_artifacts_and_state,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_promotion_apply_contract_round_trips_acceptance_and_audit,
+    postgres = postgres_promotion_apply_contract_round_trips_acceptance_and_audit,
+    case = ContractCase::migrated(
+        ContractFamily::ManagedImport,
+        "promotion_apply_round_trips_acceptance_and_audit"
+    ),
+    contract = promotion_apply_contract_round_trips_acceptance_and_audit,
 );

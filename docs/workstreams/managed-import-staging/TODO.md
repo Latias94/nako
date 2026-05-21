@@ -1,6 +1,6 @@
 # Managed Import Staging — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 Task IDs use the `MIS` prefix.
@@ -57,18 +57,19 @@ Task IDs use the `MIS` prefix.
 
 ## M4 — Apply Split Decision
 
-- [ ] MIS-050 [owner=planner] [deps=MIS-040] [scope=docs/workstreams/managed-import-staging]
+- [x] MIS-050 [owner=planner] [deps=MIS-040] [scope=docs/workstreams/managed-import-staging]
   Goal: Decide whether first promotion apply can be safely implemented in this
   lane or must split to `link-apply-and-import-promotion`.
   Validation: DESIGN/HANDOFF document rollback, cleanup, audit, and operator
   confirmation requirements.
-  Evidence: updated split decision.
-  Handoff: Implement apply or open follow-on.
+  Evidence: updated split decision in `DESIGN.md`; follow-on workstream
+  `docs/workstreams/link-apply-and-import-promotion`.
+  Handoff: Actual apply is split to `link-apply-and-import-promotion`.
 
 ## M5 — Closeout
 
-- [ ] MIS-060 [owner=planner] [deps=MIS-050] [scope=docs/workstreams/managed-import-staging]
+- [x] MIS-060 [owner=planner] [deps=MIS-050] [scope=docs/workstreams/managed-import-staging]
   Goal: Close or split Managed Import Staging.
   Validation: evidence gates are fresh; post-RPD umbrella points to next lane.
-  Evidence: closeout journal and parent handoff.
-  Handoff: Return to `post-rpd-product-hardening` for next lane scoring.
+  Evidence: closeout journal, parent handoff, and workstream index updates.
+  Handoff: Continue with `link-apply-and-import-promotion` LAIP-020.
