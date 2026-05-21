@@ -48,7 +48,8 @@ val generatedUniFfiDir = layout.buildDirectory.dir("generated/source/uniffi/main
 val generatedUniFfiSource = generatedUniFfiDir.map {
     it.file("uniffi/taru_client_uniffi/taru_client_uniffi.kt")
 }
-val generatedUniFfiJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/main")
+val generatedUniFfiDebugJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/debug")
+val generatedUniFfiReleaseJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/release")
 val hostUniFfiLibrary = repoRoot.file("target/debug/${hostUniFfiLibraryName()}")
 val androidAbiTargets = mapOf(
     "arm64-v8a" to "aarch64-linux-android",
@@ -92,10 +93,46 @@ fun androidNdkPrebuiltName(): String {
     }
 }
 
+fun selectedAndroidAbiTargets(): Map<String, String> {
+    val requestedAbis = providers.gradleProperty("taruRustAndroidAbis")
+        .orElse(providers.gradleProperty("taru.rust.android.abis"))
+        .orNull
+        ?.split(',', ';', ' ')
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.distinct()
+        ?: androidAbiTargets.keys.toList()
+    val unknownAbis = requestedAbis.filterNot(androidAbiTargets::containsKey)
+    require(unknownAbis.isEmpty()) {
+        "Unknown taru.rust.android.abis value(s): ${unknownAbis.joinToString()}. " +
+            "Supported values: ${androidAbiTargets.keys.joinToString()}."
+    }
+    return requestedAbis.associateWith { abi -> androidAbiTargets.getValue(abi) }
+}
+
+val selectedAndroidAbiTargets = selectedAndroidAbiTargets()
+
+val buildTaruClientUniFfiHost by tasks.registering(Exec::class) {
+    group = "taru rust"
+    description = "Builds the host taru-client-uniffi shared library for JVM tests and binding generation."
+    workingDir = repoRoot.asFile
+    inputs.files(
+        repoRoot.file("crates/taru-client-uniffi/Cargo.toml"),
+        repoRoot.file("Cargo.toml"),
+        repoRoot.file("Cargo.lock"),
+    )
+    inputs.dir(repoRoot.dir("crates/taru-client-core/src"))
+    inputs.dir(repoRoot.dir("crates/taru-client-protocol/src"))
+    inputs.dir(repoRoot.dir("crates/taru-client-uniffi/src"))
+    outputs.file(hostUniFfiLibrary)
+    commandLine("cargo", "build", "-p", "taru-client-uniffi")
+}
+
 val generateTaruClientUniFfiKotlin by tasks.registering(Exec::class) {
     group = "taru rust"
-    description = "Builds the host UniFFI library and generates Kotlin bindings for the Android app."
+    description = "Generates Kotlin bindings for the Android app from the host UniFFI library."
     workingDir = repoRoot.asFile
+    dependsOn(buildTaruClientUniFfiHost)
     inputs.files(
         repoRoot.file("crates/taru-client-core/src/lib.rs"),
         repoRoot.file("crates/taru-client-uniffi/src/lib.rs"),
@@ -103,15 +140,11 @@ val generateTaruClientUniFfiKotlin by tasks.registering(Exec::class) {
         repoRoot.file("crates/taru-uniffi-bindgen/Cargo.toml"),
         repoRoot.file("crates/taru-uniffi-bindgen/src/main.rs"),
     )
+    inputs.file(hostUniFfiLibrary)
     outputs.file(generatedUniFfiSource)
-    outputs.file(hostUniFfiLibrary)
 
     doFirst {
         generatedUniFfiDir.get().asFile.mkdirs()
-        providers.exec {
-            workingDir = repoRoot.asFile
-            commandLine("cargo", "build", "-p", "taru-client-uniffi")
-        }.result.get().assertNormalExitValue()
     }
     commandLine(
         "cargo",
@@ -130,9 +163,13 @@ val generateTaruClientUniFfiKotlin by tasks.registering(Exec::class) {
     )
 }
 
-val buildTaruClientUniFfiAndroid by tasks.registering {
+fun registerBuildTaruClientUniFfiAndroidTask(
+    variantName: String,
+    rustProfile: String,
+    outputDir: Provider<Directory>,
+) = tasks.register("buildTaruClientUniFfi${variantName.replaceFirstChar { it.uppercase() }}Android") {
     group = "taru rust"
-    description = "Builds Android ABI taru-client-uniffi shared libraries for APK packaging."
+    description = "Builds $variantName Android ABI taru-client-uniffi shared libraries for APK packaging."
     val ndkHome = providers.androidNdkHome()
     inputs.files(
         repoRoot.file("crates/taru-client-uniffi/Cargo.toml"),
@@ -142,9 +179,8 @@ val buildTaruClientUniFfiAndroid by tasks.registering {
     inputs.dir(repoRoot.dir("crates/taru-client-core/src"))
     inputs.dir(repoRoot.dir("crates/taru-client-uniffi/src"))
     inputs.dir(repoRoot.dir("crates/taru-client-protocol/src"))
-    androidAbiTargets.forEach { (abi, _) ->
-        outputs.file(generatedUniFfiJniLibsDir.map { it.file("$abi/libtaru_client_uniffi.so") })
-    }
+    inputs.property("taruRustAndroidAbis", selectedAndroidAbiTargets.keys.joinToString(","))
+    outputs.dir(outputDir)
 
     doLast {
         val resolvedNdkHome = ndkHome.orNull
@@ -152,26 +188,40 @@ val buildTaruClientUniFfiAndroid by tasks.registering {
         val prebuiltBin = file("$resolvedNdkHome/toolchains/llvm/prebuilt/${androidNdkPrebuiltName()}/bin")
         val ar = file("$prebuiltBin/llvm-ar${hostExecutableExtension()}")
         require(ar.isFile) { "Android NDK llvm-ar was not found at ${ar.absolutePath}" }
+        val outputRoot = outputDir.get().asFile
+        outputRoot.deleteRecursively()
+        outputRoot.mkdirs()
 
-        androidAbiTargets.forEach { (abi, target) ->
+        selectedAndroidAbiTargets.forEach { (abi, target) ->
             val linker = file("$prebuiltBin/${androidRustLinkerName(target)}")
             require(linker.isFile) { "Android NDK linker was not found at ${linker.absolutePath}" }
 
             providers.exec {
                 workingDir = repoRoot.asFile
                 val targetEnvKey = target.replace('-', '_')
+                val cargoCommand = mutableListOf(
+                    "cargo",
+                    "build",
+                    "-p",
+                    "taru-client-uniffi",
+                    "--target",
+                    target,
+                )
+                if (rustProfile == "release") {
+                    cargoCommand += "--release"
+                }
                 environment("AR_$targetEnvKey", ar.absolutePath)
                 environment("CC_$targetEnvKey", linker.absolutePath)
                 environment(
                     "CARGO_TARGET_${targetEnvKey.uppercase(Locale.ROOT)}_LINKER",
                     linker.absolutePath,
                 )
-                commandLine("cargo", "build", "-p", "taru-client-uniffi", "--target", target)
+                commandLine(cargoCommand)
             }.result.get().assertNormalExitValue()
 
             copy {
-                from(repoRoot.file("target/$target/debug/libtaru_client_uniffi.so"))
-                into(generatedUniFfiJniLibsDir.map { it.dir(abi) })
+                from(repoRoot.file("target/$target/$rustProfile/libtaru_client_uniffi.so"))
+                into(outputDir.map { it.dir(abi) })
             }
         }
     }
@@ -179,12 +229,37 @@ val buildTaruClientUniFfiAndroid by tasks.registering {
 
 android.sourceSets.named("main") {
     java.srcDir(generatedUniFfiDir)
-    jniLibs.srcDir(generatedUniFfiJniLibsDir)
 }
 
-tasks.named("preBuild") {
+android.sourceSets.named("debug") {
+    jniLibs.srcDir(generatedUniFfiDebugJniLibsDir)
+}
+
+android.sourceSets.named("release") {
+    jniLibs.srcDir(generatedUniFfiReleaseJniLibsDir)
+}
+
+val buildTaruClientUniFfiDebugAndroid = registerBuildTaruClientUniFfiAndroidTask(
+    variantName = "debug",
+    rustProfile = "debug",
+    outputDir = generatedUniFfiDebugJniLibsDir,
+)
+val buildTaruClientUniFfiReleaseAndroid = registerBuildTaruClientUniFfiAndroidTask(
+    variantName = "release",
+    rustProfile = "release",
+    outputDir = generatedUniFfiReleaseJniLibsDir,
+)
+
+tasks.matching { it.name.endsWith("Kotlin") && it.name.startsWith("compile") }.configureEach {
     dependsOn(generateTaruClientUniFfiKotlin)
-    dependsOn(buildTaruClientUniFfiAndroid)
+}
+
+tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
+    dependsOn(buildTaruClientUniFfiDebugAndroid)
+}
+
+tasks.matching { it.name == "mergeReleaseJniLibFolders" }.configureEach {
+    dependsOn(buildTaruClientUniFfiReleaseAndroid)
 }
 
 tasks.withType<Test>().configureEach {

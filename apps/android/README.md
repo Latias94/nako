@@ -50,10 +50,29 @@ Cargo workspace.
 
 ## Rust / UniFFI Build Topology
 
-The app generates Kotlin bindings from `crates/taru-client-uniffi` during
-ordinary Gradle builds and packages ABI-specific `libtaru_client_uniffi.so`
-files from the Android Rust targets. Generated binding sources and JNI
-libraries live under `app/build/generated/` and are not committed.
+The app uses three separate Rust/UniFFI artifacts:
+
+1. host `taru-client-uniffi` shared library for JVM tests and binding
+   generation;
+2. generated Kotlin bindings under `app/build/generated/source/uniffi/`;
+3. Android ABI `libtaru_client_uniffi.so` libraries under
+   `app/build/generated/jniLibs/<variant>/`.
+
+JVM unit tests depend only on the host library and generated Kotlin bindings.
+APK packaging builds Android ABI libraries through the variant JNI merge path,
+not through every ordinary `preBuild`.
+
+By default Android packaging builds all supported ABIs. For focused local
+iteration, pass a comma-separated ABI set:
+
+```powershell
+.\gradlew.bat :app:assembleDebug -PtaruRustAndroidAbis=x86_64
+.\gradlew.bat :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a,x86_64
+```
+
+Supported ABI names are `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`.
+Generated binding sources and JNI libraries live under `app/build/generated/`
+and are not committed.
 
 The connection flow uses the Rust core only for protocol-level request
 construction, response interpretation, API-version checks, public error parsing,

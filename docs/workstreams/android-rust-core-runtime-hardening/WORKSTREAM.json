@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "slug": "android-rust-core-runtime-hardening",
+  "title": "Android Rust Core Runtime Hardening",
+  "status": "active",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "The first Rust client-core / UniFFI Android connection tracer is proven, but the follow-on risks around Android native build ergonomics, taru-client core reuse, Rust wire tolerance, and playback tracer ownership are still unresolved.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-rust-core-runtime-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-rust-core-runtime-hardening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-rust-core-runtime-hardening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-rust-core-runtime-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-rust-core-runtime-hardening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/android-rust-core-runtime-hardening/WORKSTREAM.json > $null",
+    "git diff --check",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon",
+    "cargo fmt --package taru-client-core --package taru-client --check",
+    "cargo nextest run -p taru-client-core --no-fail-fast",
+    "cargo nextest run -p taru-client --no-fail-fast",
+    "cargo fmt --package taru-client-protocol --package taru-api --package taru-client --check",
+    "cargo nextest run -p taru-client-protocol --no-fail-fast",
+    "cargo nextest run -p taru-api kotlin_sdk --no-fail-fast",
+    "cargo fmt --package taru-client-core --package taru-client-uniffi --check",
+    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon"
+  ],
+  "evidence": [
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/workstreams/generated-sdk-runtime-ownership/CLOSEOUT.md",
+    "apps/android/app/build.gradle.kts",
+    "apps/android/README.md",
+    "crates/taru-client-core/src/lib.rs",
+    "crates/taru-client-uniffi/src/lib.rs",
+    "crates/taru-client/src/lib.rs",
+    "crates/taru-client-protocol/src/catalog.rs",
+    "apps/android/app/src/main/java/dev/taru/android/connection",
+    "apps/android/app/src/main/java/dev/taru/android/playback"
+  ],
+  "adr_refs": [
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "current_task": "RCR-030",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue in order: RCR-020 Android Rust/UniFFI build ergonomics, RCR-030 taru-client reuse of taru-client-core, RCR-040 Rust public wire tolerance, RCR-050 Android playback core tracer, then closeout."
+  }
+}
