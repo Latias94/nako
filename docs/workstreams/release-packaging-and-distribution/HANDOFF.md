@@ -23,28 +23,25 @@ operator install/release docs.
 
 ## Active Task
 
-- Task ID: RPD-030
+- Task ID: RPD-040
 - Owner: codex
 - Files:
-  - `crates/taru-server`
-  - `Dockerfile`
-  - `.dockerignore`
-  - `deploy`
   - `scripts`
+  - `.github`
   - `docs/deployment`
   - `docs/workstreams/release-packaging-and-distribution/`
 - Validation:
-  - focused server config/preflight tests
-  - `cargo build --locked --release -p taru-server`
-  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container -SkipRedactionInventory`
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf`
+  - `bash scripts/package-release.sh --dry-run`
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -SkipBuild -OutputDir target/package-release-rpd040`
   - `git diff --check`
 - Status: DONE
 
 ## Next Recommended Action
 
-Continue with RPD-040 release artifact scripts and CI shape. RPD-030 added the
-Taru server container contract, SQLite/PostgreSQL compose stacks, `database_url_env`
-for secret DB URL injection, and a `release-gate` container mode.
+Continue with RPD-050 operator release checklist and install docs. RPD-040 added
+repo-owned package scripts, release manifest/checksum output, artifact docs, and
+a GitHub Actions workflow shape that calls the Bash package script.
 
 ## Follow-On Candidates
 

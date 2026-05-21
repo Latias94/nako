@@ -26,8 +26,9 @@ cargo nextest run -p taru-server config --no-fail-fast
 # Compose static gate placeholder
 docker compose -f deploy/compose/<taru-compose>.yml config
 
-# Artifact script placeholder
+# Artifact script gate placeholder
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf
+bash scripts/package-release.sh --dry-run
 ```
 
 ## Evidence Log
@@ -47,10 +48,11 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatI
 | 2026-05-21 | RPD-030 config support | `cargo nextest run -p taru-server config --no-fail-fast` | Pass. Added `database_url_env` support so container PostgreSQL can inject the database URL without storing credentials in committed TOML. |
 | 2026-05-21 | RPD-030 binary build | `cargo build --locked --release -p taru-server` | Pass. Host release binary builds with locked dependencies; Dockerfile uses the same locked release-package build command. |
 | 2026-05-21 | RPD-030 compose gate | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container -SkipRedactionInventory` | Pass. Container gate runs Rust config tests plus `docker compose config` for SQLite and PostgreSQL Taru stacks with placeholder env values and a generated local media root. |
+| 2026-05-21 | RPD-040 dry-run scripts | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf`; `bash scripts/package-release.sh --dry-run` | Pass. Both packaging entrypoints expose a non-publishing dry-run path. Bash dry-run tolerates the current WSL environment without rustc and reports `unknown-target`. |
+| 2026-05-21 | RPD-040 package output | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -SkipBuild -OutputDir target/package-release-rpd040` | Pass. Generated zip archive, copied release manifest, and `SHA256SUMS`; manifest includes binary, Docker/compose/config examples, deployment docs, release artifact guide, license, README, git revision, target triple, dirty flag, and preflight command. |
 
 ## Open Evidence Gaps
 
 - Taru server image build should be proven where Docker build time is acceptable.
-- Release artifact scripts/checksums are not yet defined.
 - Shell script execution should be proven in Linux/CI once packaging workflows
   exist.

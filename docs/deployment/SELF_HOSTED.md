@@ -284,6 +284,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode pos
 - Taru compose stacks: `deploy/compose/taru-sqlite.yml` and
   `deploy/compose/taru-postgres.yml`
 - Backup/restore/upgrade runbook: `docs/deployment/BACKUP_RESTORE_UPGRADE.md`
+- Release artifact contract: `docs/deployment/RELEASE_ARTIFACTS.md`
+- Release artifact scripts: `scripts/package-release.ps1` and
+  `scripts/package-release.sh`
 - Release gate: `scripts/release-gate.ps1` and `scripts/release-gate.sh`
 - PostgreSQL contract harness: `scripts/postgres-contract-harness.ps1` and
   `scripts/postgres-contract-harness.sh`

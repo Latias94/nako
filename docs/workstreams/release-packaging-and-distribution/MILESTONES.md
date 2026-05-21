@@ -32,9 +32,9 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] A repo-owned script can build or dry-run release artifacts.
-- [ ] Artifact metadata/checksums are emitted.
-- [ ] CI workflow shape calls repo-owned scripts.
+- [x] A repo-owned script can build or dry-run release artifacts.
+- [x] Artifact metadata/checksums are emitted.
+- [x] CI workflow shape calls repo-owned scripts.
 
 ## M4 — Operator Release Docs
 

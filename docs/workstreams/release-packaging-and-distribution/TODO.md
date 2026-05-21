@@ -47,7 +47,7 @@ Task IDs use the `RPD` prefix.
 
 ## M3 — Release Artifact Script And CI Shape
 
-- [ ] RPD-040 [owner=codex] [deps=RPD-030] [scope=scripts,.github,docs/deployment,docs/workstreams/release-packaging-and-distribution]
+- [x] RPD-040 [owner=codex] [deps=RPD-030] [scope=scripts,.github,docs/deployment,docs/workstreams/release-packaging-and-distribution]
   Goal: Add a repeatable local/CI release artifact command that builds binaries
   or image artifacts, records version metadata, and emits checksums/evidence.
   Validation: local dry-run or focused artifact build; CI workflow syntax;
@@ -55,7 +55,8 @@ Task IDs use the `RPD` prefix.
   `git diff --check`.
   Review: CI should call repo-owned scripts rather than duplicate long command
   recipes.
-  Evidence: artifact manifest and workflow shape.
+  Evidence: `scripts/package-release.*`, `docs/deployment/RELEASE_ARTIFACTS.md`,
+  `.github/workflows/release-package.yml`, generated manifest and `SHA256SUMS`.
   Handoff: Continue with release checklist docs.
 
 ## M4 — Operator Release Checklist And Install Docs

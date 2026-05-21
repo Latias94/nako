@@ -1,0 +1,30 @@
+name: release-package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  package-linux:
+    name: package linux taru-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Package release artifact
+        run: bash scripts/package-release.sh
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: taru-server-release
+          path: |
+            target/package-release/taru-server-v*.tar.gz
+            target/package-release/*.release-manifest.json
+            target/package-release/SHA256SUMS
