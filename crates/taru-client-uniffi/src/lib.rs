@@ -50,6 +50,15 @@ pub struct CoreSearchItemsRequestInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CoreArtworkImageRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub image_id: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct CoreUserPlaybackPagedRequestInput {
     pub base_url: String,
     pub access_token: String,
@@ -395,6 +404,11 @@ pub fn build_search_items_request(input: CoreSearchItemsRequestInput) -> CoreHtt
 }
 
 #[uniffi::export]
+pub fn build_artwork_image_request(input: CoreArtworkImageRequestInput) -> CoreHttpRequest {
+    taru_client_core::build_artwork_image_request(&input.into()).into()
+}
+
+#[uniffi::export]
 pub fn build_get_user_playback_state_request(
     input: CoreUserPlaybackItemRequestInput,
 ) -> CoreHttpRequest {
@@ -490,6 +504,18 @@ impl From<CoreSearchItemsRequestInput> for taru_client_core::CoreSearchItemsRequ
             query: value.query,
             facets: value.facets,
             page: value.page.map(Into::into),
+        }
+    }
+}
+
+impl From<CoreArtworkImageRequestInput> for taru_client_core::CoreArtworkImageRequestInput {
+    fn from(value: CoreArtworkImageRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            image_id: value.image_id,
+            width: value.width,
+            height: value.height,
         }
     }
 }
@@ -893,6 +919,33 @@ mod tests {
         assert_eq!(
             tag_items.url,
             "https://taru.example/api/tags/tag%3Afavorite/items"
+        );
+    }
+
+    #[test]
+    fn uniffi_surface_exposes_artwork_image_request_builder() {
+        let request = build_artwork_image_request(CoreArtworkImageRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            image_id: "poster 1".to_owned(),
+            width: Some(320),
+            height: Some(180),
+        });
+
+        assert_eq!(
+            request.request_id,
+            taru_client_core::ARTWORK_IMAGE_REQUEST_ID
+        );
+        assert_eq!(
+            request.url,
+            "https://taru.example/api/images/poster%201?width=320&height=180"
+        );
+        assert_eq!(
+            request.safe_preview.headers,
+            vec![CoreHttpHeader {
+                name: "Authorization".to_owned(),
+                value: "Bearer <redacted>".to_owned(),
+            }]
         );
     }
 

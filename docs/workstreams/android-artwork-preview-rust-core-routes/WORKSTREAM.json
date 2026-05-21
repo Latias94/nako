@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "android-artwork-preview-rust-core-routes",
+  "title": "Android Artwork And Preview Rust Core Routes",
+  "status": "closed",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "Android selected artwork runtime route construction and browse preview fake route matching still use generated Kotlin SDK descriptors.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-artwork-preview-rust-core-routes/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-artwork-preview-rust-core-routes/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-artwork-preview-rust-core-routes/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-artwork-preview-rust-core-routes/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --package taru-client-core --check",
+    "cargo nextest run -p taru-client-core --no-fail-fast",
+    "cargo fmt --package taru-client-uniffi --check",
+    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "./scripts/guard-uniffi-boundary.ps1",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks",
+    "apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon",
+    "if (rg -n \"TaruPublicClientRequests|TaruRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(\" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }",
+    "if (rg -n \"TaruPublicClientRequests|PageQuery|pathAndQuery\" apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }",
+    "python -m json.tool docs/workstreams/android-artwork-preview-rust-core-routes/WORKSTREAM.json > $null",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-22",
+      "task": "APR-010",
+      "summary": "Opened the artwork and preview route cleanup lane and froze the ADR 0032 boundary."
+    },
+    {
+      "date": "2026-05-22",
+      "task": "APR-020",
+      "summary": "Added taru-client-core and UniFFI selected artwork image request builders; Rust core, UniFFI, and boundary gates passed."
+    },
+    {
+      "date": "2026-05-22",
+      "task": "APR-030",
+      "summary": "Migrated Android PublicArtworkSource to Rust-backed ArtworkCore descriptors and preserved unsafe/stale image URL rejection; artwork/resolver tests passed."
+    },
+    {
+      "date": "2026-05-22",
+      "task": "APR-040",
+      "summary": "Replaced browse preview generated SDK route matching with fixture-owned helpers and deleted the dead generated descriptor adapter; compile and route-owner scans passed."
+    },
+    {
+      "date": "2026-05-22",
+      "task": "APR-050",
+      "summary": "Updated Android docs and passed full Rust, UniFFI, boundary, Android, route-owner, preview, JSON, and diff gates."
+    },
+    {
+      "date": "2026-05-22",
+      "task": "APR-090",
+      "summary": "Closed the lane with final evidence, residual risks, and follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "related_workstreams": [
+    "docs/workstreams/android-browse-catalog-rust-core-routes/",
+    "docs/workstreams/android-user-playback-rust-core-routes/",
+    "docs/workstreams/android-playback-residual-rust-core-routes/",
+    "docs/workstreams/android-uniffi-boundary-hardening/"
+  ],
+  "next_task": null,
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "Lane complete. Generated SDK route descriptors remain acceptable in SDK contract tests only."
+  }
+}

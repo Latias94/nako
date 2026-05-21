@@ -1,3 +1,4 @@
+mod artwork;
 mod browse;
 mod connection;
 mod encoding;
@@ -8,6 +9,7 @@ mod request;
 mod response;
 mod user_playback;
 
+pub use artwork::{CoreArtworkImageRequestInput, build_artwork_image_request};
 pub use browse::{
     CoreBrowseEntityPagedRequestInput, CoreBrowseEntityRequestInput, CoreBrowsePagedRequestInput,
     CorePageQuery, CoreSearchItemsRequestInput, build_get_item_request, build_get_library_request,
@@ -22,7 +24,7 @@ pub use connection::{
 };
 pub use encoding::{encode_path_segment, url_on};
 pub use ids::{
-    CONNECTION_AUTH_PROBE_REQUEST_ID, CONNECTION_HEALTH_REQUEST_ID,
+    ARTWORK_IMAGE_REQUEST_ID, CONNECTION_AUTH_PROBE_REQUEST_ID, CONNECTION_HEALTH_REQUEST_ID,
     PLAYBACK_CANCEL_SESSION_REQUEST_ID, PLAYBACK_DECISION_REQUEST_ID,
     PLAYBACK_DIRECT_STREAM_HEAD_REQUEST_ID, PLAYBACK_DIRECT_STREAM_REQUEST_ID,
     PLAYBACK_HLS_PLAYLIST_REQUEST_ID, PLAYBACK_HLS_SEGMENT_REQUEST_ID,
@@ -529,6 +531,41 @@ mod tests {
             search.url,
             "https://taru.example/api/search?q=route%20demo&facet=genre%3Atest%2Ctag%3Afavorite&limit=12&offset=6"
         );
+    }
+
+    #[test]
+    fn artwork_image_request_uses_core_auth_variants_and_safe_preview() {
+        let image = build_artwork_image_request(&CoreArtworkImageRequestInput {
+            base_url: "https://taru.example/api/".to_owned(),
+            access_token: "secret-token".to_owned(),
+            image_id: "poster 1".to_owned(),
+            width: Some(320),
+            height: Some(180),
+        });
+
+        assert_eq!(image.request_id, ARTWORK_IMAGE_REQUEST_ID);
+        assert_eq!(image.method, "GET");
+        assert_eq!(
+            image.url,
+            "https://taru.example/api/images/poster%201?width=320&height=180"
+        );
+        assert_eq!(
+            image.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            image.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+
+        let unscaled = build_artwork_image_request(&CoreArtworkImageRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            image_id: "poster/1".to_owned(),
+            width: None,
+            height: None,
+        });
+        assert_eq!(unscaled.url, "https://taru.example/api/images/poster%2F1");
     }
 
     #[test]
