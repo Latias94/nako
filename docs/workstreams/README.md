@@ -10,6 +10,10 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
+- [nfo-link-authority](nfo-link-authority/README.md):
+  completed post-RPD mainline lane for making NFO/local metadata authority,
+  non-destructive link planning, and Source Duplicate Relationship evidence
+  explicit before managed import/download or addon file-write breadth.
 - [metadata-provider-breadth](metadata-provider-breadth/README.md):
   completed Wave 1 execution lane for capability-aware and explainable TMDB,
   Douban, and Bangumi metadata matching, non-destructive ambiguous refresh, and

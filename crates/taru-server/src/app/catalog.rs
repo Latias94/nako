@@ -9,10 +9,13 @@ use taru_api::public_client::{
 use taru_core::{
     CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord, CatalogGovernanceRepository,
     CatalogRepository, GenreId, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
-    MediaRepository, MediaSourceId, PageRequest, PersonId, Result, TagId, TaruError,
+    MediaRepository, MediaSource, MediaSourceId, PageRequest, PersonId, Result,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, TagId, TaruError,
 };
 use taru_db::TaruDatabase;
 use taru_search::{SearchIndex, SearchQuery};
+use taru_vfs::{StorageLinkKind, StorageLinkPlan, StorageLinkPlanStatus};
 
 #[derive(Clone, Debug)]
 pub(crate) struct CatalogAppService {
@@ -40,6 +43,50 @@ impl CatalogAppService {
         page: PageRequest,
     ) -> Result<Vec<CatalogGovernanceItemRecord>> {
         self.store.list_catalog_governance_items(filter, page).await
+    }
+
+    pub async fn record_filesystem_link_duplicate_suggestion(
+        &self,
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+        link_plan: &StorageLinkPlan,
+    ) -> Result<SourceDuplicateRelationship> {
+        if source_id == duplicate_source_id {
+            return Err(TaruError::InvalidInput {
+                message: "source duplicate relationship requires two distinct media sources"
+                    .to_owned(),
+            });
+        }
+
+        if !is_filesystem_link_duplicate_evidence_status(link_plan.status) {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "link plan status {} cannot create source duplicate evidence",
+                    storage_link_plan_status_label(link_plan.status)
+                ),
+            });
+        }
+
+        let source = self.get_media_source_record(source_id).await?;
+        let duplicate_source = self.get_media_source_record(duplicate_source_id).await?;
+        validate_link_plan_matches_source_records(&source, &duplicate_source, link_plan)?;
+
+        let relationship = SourceDuplicateRelationship {
+            id: SourceDuplicateRelationshipId::new(),
+            source_id,
+            duplicate_source_id,
+            evidence_kind: SourceDuplicateEvidenceKind::FilesystemLink,
+            evidence_value: Some(filesystem_link_evidence_value(link_plan)),
+            status: SourceDuplicateRelationshipStatus::Suggested,
+            confidence_milli: Some(filesystem_link_duplicate_confidence_milli(link_plan.status)),
+        }
+        .canonicalized();
+
+        self.store
+            .upsert_source_duplicate_relationship(&relationship)
+            .await?;
+
+        Ok(relationship)
     }
 
     pub async fn get_item(&self, item_id: MediaItemId) -> Result<ItemDetailResponse> {
@@ -306,5 +353,97 @@ impl CatalogAppService {
             source_id: source_id.to_string(),
             probe: media_probe_to_dto(probe),
         })
+    }
+
+    async fn get_media_source_record(&self, source_id: MediaSourceId) -> Result<MediaSource> {
+        self.store
+            .get_media_source(source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: source_id.to_string(),
+            })
+    }
+}
+
+fn is_filesystem_link_duplicate_evidence_status(status: StorageLinkPlanStatus) -> bool {
+    matches!(
+        status,
+        StorageLinkPlanStatus::Ready | StorageLinkPlanStatus::TargetExists
+    )
+}
+
+fn validate_link_plan_matches_source_records(
+    source: &MediaSource,
+    duplicate_source: &MediaSource,
+    link_plan: &StorageLinkPlan,
+) -> Result<()> {
+    if link_plan.source_uri.scheme() != "local" || link_plan.target_uri.scheme() != "local" {
+        return Err(TaruError::InvalidInput {
+            message: "filesystem link duplicate evidence currently requires local storage URIs"
+                .to_owned(),
+        });
+    }
+
+    if source.locator != link_plan.source_uri.as_str() {
+        return Err(TaruError::InvalidInput {
+            message: format!(
+                "link plan source URI does not match media source locator: {}",
+                source.id
+            ),
+        });
+    }
+
+    if duplicate_source.locator != link_plan.target_uri.as_str() {
+        return Err(TaruError::InvalidInput {
+            message: format!(
+                "link plan target URI does not match duplicate media source locator: {}",
+                duplicate_source.id
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+fn filesystem_link_evidence_value(link_plan: &StorageLinkPlan) -> String {
+    format!(
+        "link_plan:scheme={};kind={};status={}",
+        link_plan.source_uri.scheme(),
+        storage_link_kind_label(link_plan.kind),
+        storage_link_plan_status_label(link_plan.status)
+    )
+}
+
+fn filesystem_link_duplicate_confidence_milli(status: StorageLinkPlanStatus) -> u16 {
+    match status {
+        StorageLinkPlanStatus::TargetExists => 700,
+        StorageLinkPlanStatus::Ready => 600,
+        StorageLinkPlanStatus::Unsupported
+        | StorageLinkPlanStatus::SourceMissing
+        | StorageLinkPlanStatus::SourceNotFile
+        | StorageLinkPlanStatus::TargetParentMissing
+        | StorageLinkPlanStatus::TargetParentNotDirectory
+        | StorageLinkPlanStatus::SecurityViolation => 0,
+    }
+}
+
+fn storage_link_kind_label(kind: StorageLinkKind) -> &'static str {
+    match kind {
+        StorageLinkKind::Hard => "hard",
+        StorageLinkKind::Soft => "soft",
+    }
+}
+
+fn storage_link_plan_status_label(status: StorageLinkPlanStatus) -> &'static str {
+    match status {
+        StorageLinkPlanStatus::Ready => "ready",
+        StorageLinkPlanStatus::Unsupported => "unsupported",
+        StorageLinkPlanStatus::SourceMissing => "source_missing",
+        StorageLinkPlanStatus::SourceNotFile => "source_not_file",
+        StorageLinkPlanStatus::TargetParentMissing => "target_parent_missing",
+        StorageLinkPlanStatus::TargetParentNotDirectory => "target_parent_not_directory",
+        StorageLinkPlanStatus::TargetExists => "target_exists",
+        StorageLinkPlanStatus::SecurityViolation => "security_violation",
     }
 }

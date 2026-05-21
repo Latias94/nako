@@ -1,10 +1,12 @@
 mod codec;
 mod export;
 mod import;
+mod preview;
 mod summary;
 mod workflow;
 
 pub use codec::*;
+pub use preview::*;
 pub use summary::*;
 
 #[derive(Debug)]
@@ -757,6 +759,91 @@ mod tests {
         assert_eq!(summary.exported_items, 1);
         assert!(xml.contains("<title>Exported Title</title>"));
         assert!(xml.contains("<genre>Action</genre>"));
+    }
+
+    #[tokio::test]
+    async fn nfo_service_authority_preview_reports_export_decisions_without_writing() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("Movies")).unwrap();
+        fs::write(temp.path().join("Movies").join("fresh.mkv"), b"media").unwrap();
+        fs::write(temp.path().join("Movies").join("existing.mkv"), b"media").unwrap();
+        fs::write(
+            temp.path().join("Movies").join("existing.nfo"),
+            r#"<movie><title>Existing Sidecar</title><custom>keep</custom></movie>"#,
+        )
+        .unwrap();
+        let store = TaruDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library_id = LibraryId::new();
+        let fresh = seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/fresh.mkv",
+            CanonicalMetadata {
+                title: "Fresh Export".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let existing = seed_item_with_metadata(
+            &store,
+            library_id,
+            "local:///Movies/existing.mkv",
+            CanonicalMetadata {
+                title: "Existing Export".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        )
+        .await;
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let service = NfoService::new(backend, store.clone(), MovieNfoCodec);
+
+        let normal = service
+            .preview_authority(NfoAuthorityPreviewRequest {
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                operation: NfoAuthorityPreviewOperation::Export,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let forced = service
+            .preview_authority(NfoAuthorityPreviewRequest {
+                library_id,
+                policy: LocalMetadataPolicy::WriteSidecar,
+                operation: NfoAuthorityPreviewOperation::Export,
+                force: true,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(normal.scanned_sources, 2);
+        assert_eq!(normal.create_items, 1);
+        assert_eq!(normal.skip_items, 1);
+        assert!(normal.decisions.iter().any(|decision| {
+            decision.item_id == fresh.id
+                && decision.action == NfoAuthorityPreviewAction::Create
+                && decision.reason == NfoAuthorityPreviewReason::ExportWouldCreateSidecar
+        }));
+        assert!(normal.decisions.iter().any(|decision| {
+            decision.item_id == existing.id
+                && decision.action == NfoAuthorityPreviewAction::Skip
+                && decision.reason == NfoAuthorityPreviewReason::ExportWouldSkipExistingSidecar
+        }));
+        assert_eq!(forced.create_items, 1);
+        assert_eq!(forced.update_items, 1);
+        assert_eq!(forced.backup_required_items, 1);
+        assert!(forced.decisions.iter().any(|decision| {
+            decision.item_id == existing.id
+                && decision.action == NfoAuthorityPreviewAction::Update
+                && decision.backup_required
+                && decision.reason == NfoAuthorityPreviewReason::ExportWouldUpdateExistingSidecar
+        }));
+        assert!(!temp.path().join("Movies").join("fresh.nfo").exists());
+        assert_eq!(
+            fs::read_to_string(temp.path().join("Movies").join("existing.nfo")).unwrap(),
+            r#"<movie><title>Existing Sidecar</title><custom>keep</custom></movie>"#
+        );
     }
 
     #[tokio::test]

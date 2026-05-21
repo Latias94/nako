@@ -8,7 +8,8 @@ use taru_core::{
 };
 use taru_db::TaruDatabase;
 use taru_nfo::{
-    MovieNfoCodec, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
+    MovieNfoCodec, NfoAuthorityPreviewOperation, NfoAuthorityPreviewRequest,
+    NfoAuthorityPreviewSummary, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
     NfoExportSummary, NfoImportRequest, NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome,
     NfoService, NfoSidecarCheckpoint,
 };
@@ -134,6 +135,29 @@ impl NfoAppService {
     ) -> Result<NfoExportCommandOutput> {
         let job = self.create_nfo_export_job(library_id).await?;
         self.execute_nfo_export_command(job.id, library_id).await
+    }
+
+    pub(crate) async fn preview_library_nfo_authority(
+        &self,
+        library_id: LibraryId,
+        operation: NfoAuthorityPreviewOperation,
+        force: bool,
+    ) -> Result<NfoAuthorityPreviewSummary> {
+        let library = self.library_for_nfo(library_id).await?;
+        let backend = self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await?;
+        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+
+        service
+            .preview_authority(NfoAuthorityPreviewRequest {
+                library_id,
+                policy: library.options.metadata_profile.local_metadata_policy,
+                operation,
+                force,
+            })
+            .await
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {

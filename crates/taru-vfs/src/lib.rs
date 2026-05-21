@@ -344,6 +344,56 @@ pub struct StorageWriteReport {
     pub backup: Option<StorageBackupReport>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageLinkKind {
+    Hard,
+    Soft,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StorageLinkPlanRequest {
+    pub source_uri: StorageUri,
+    pub target_uri: StorageUri,
+    pub kind: StorageLinkKind,
+}
+
+impl StorageLinkPlanRequest {
+    #[must_use]
+    pub fn new(source_uri: StorageUri, target_uri: StorageUri, kind: StorageLinkKind) -> Self {
+        Self {
+            source_uri,
+            target_uri,
+            kind,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageLinkPlanStatus {
+    Ready,
+    Unsupported,
+    SourceMissing,
+    SourceNotFile,
+    TargetParentMissing,
+    TargetParentNotDirectory,
+    TargetExists,
+    SecurityViolation,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageLinkPlan {
+    pub source_uri: StorageUri,
+    pub target_uri: StorageUri,
+    pub kind: StorageLinkKind,
+    pub status: StorageLinkPlanStatus,
+    pub can_apply: bool,
+    pub source: Option<ObjectMetadata>,
+    pub target: Option<ObjectMetadata>,
+    pub message: String,
+}
+
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
     fn scheme(&self) -> &'static str;
@@ -402,6 +452,19 @@ pub trait StorageBackend: Send + Sync {
         }
     }
 
+    async fn plan_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
+        Ok(StorageLinkPlan {
+            source_uri: request.source_uri,
+            target_uri: request.target_uri,
+            kind: request.kind,
+            status: StorageLinkPlanStatus::Unsupported,
+            can_apply: false,
+            source: None,
+            target: None,
+            message: "storage backend does not support link planning".to_owned(),
+        })
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let _ = request;
         Err(TaruError::Unsupported(
@@ -455,6 +518,10 @@ where
         self.as_ref().write(request).await
     }
 
+    async fn plan_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
+        self.as_ref().plan_link(request).await
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         self.as_ref().stage(request).await
     }
@@ -503,6 +570,10 @@ where
 
     async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
         self.as_ref().write(request).await
+    }
+
+    async fn plan_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
+        self.as_ref().plan_link(request).await
     }
 
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {

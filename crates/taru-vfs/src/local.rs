@@ -11,8 +11,8 @@ use taru_core::{Result, StorageErrorKind, TaruError};
 use crate::{
     ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageBackend,
     StorageBackupMode, StorageBackupPolicy, StorageBackupPruneFailure, StorageBackupReport,
-    StorageCapabilities, StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest,
-    VirtualFile,
+    StorageCapabilities, StorageLinkPlan, StorageLinkPlanRequest, StorageLinkPlanStatus,
+    StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest, VirtualFile,
 };
 
 #[derive(Clone, Debug)]
@@ -349,6 +349,10 @@ impl StorageBackend for LocalFsBackend {
         }
     }
 
+    async fn plan_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
+        self.plan_local_link(request)
+    }
+
     async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
         let metadata = self.stat(&request.uri).await?;
         let file = self.open_range(&request.uri, None).await?;
@@ -372,6 +376,107 @@ impl StorageBackend for LocalFsBackend {
 }
 
 impl LocalFsBackend {
+    fn plan_local_link(&self, request: StorageLinkPlanRequest) -> Result<StorageLinkPlan> {
+        let source_path = match self.path_for(&request.source_uri) {
+            Ok(path) => path,
+            Err(TaruError::NotFound { .. }) => {
+                return Ok(link_plan(
+                    request,
+                    StorageLinkPlanStatus::SourceMissing,
+                    None,
+                    None,
+                    "link source does not exist",
+                ));
+            }
+            Err(TaruError::Storage {
+                kind: StorageErrorKind::SecurityViolation,
+                ..
+            }) => {
+                return Ok(link_plan(
+                    request,
+                    StorageLinkPlanStatus::SecurityViolation,
+                    None,
+                    None,
+                    "link source escaped the local backend root",
+                ));
+            }
+            Err(err) => return Err(err),
+        };
+        let source = self.metadata_for(&source_path, request.source_uri.clone())?;
+        if source.kind != ObjectKind::File {
+            return Ok(link_plan(
+                request,
+                StorageLinkPlanStatus::SourceNotFile,
+                Some(source),
+                None,
+                "link source is not a regular file",
+            ));
+        }
+
+        self.ensure_local_scheme(&request.target_uri)?;
+        let target_path = self.root.join(relative_path(&request.target_uri)?);
+        let parent = target_path.parent().ok_or_else(|| {
+            TaruError::storage(
+                request.target_uri.to_string(),
+                StorageErrorKind::SecurityViolation,
+                "local link target has no parent directory",
+            )
+        })?;
+        if !parent.exists() {
+            return Ok(link_plan(
+                request,
+                StorageLinkPlanStatus::TargetParentMissing,
+                Some(source),
+                None,
+                "link target parent does not exist",
+            ));
+        }
+        let canonical_parent = parent.canonicalize().map_err(|err| {
+            TaruError::storage_io(
+                request.target_uri.to_string(),
+                format!("failed to resolve local link target parent: {err}"),
+            )
+        })?;
+        if !canonical_parent.starts_with(&self.root) {
+            return Ok(link_plan(
+                request,
+                StorageLinkPlanStatus::SecurityViolation,
+                Some(source),
+                None,
+                "link target escaped the local backend root",
+            ));
+        }
+        if !parent.is_dir() {
+            return Ok(link_plan(
+                request,
+                StorageLinkPlanStatus::TargetParentNotDirectory,
+                Some(source),
+                None,
+                "link target parent is not a directory",
+            ));
+        }
+        if target_path.exists() || fs::symlink_metadata(&target_path).is_ok() {
+            let target = self
+                .metadata_for(&target_path, request.target_uri.clone())
+                .ok();
+            return Ok(link_plan(
+                request,
+                StorageLinkPlanStatus::TargetExists,
+                Some(source),
+                target,
+                "link target already exists",
+            ));
+        }
+
+        Ok(link_plan(
+            request,
+            StorageLinkPlanStatus::Ready,
+            Some(source),
+            None,
+            "link can be applied by the local backend",
+        ))
+    }
+
     fn write_string_atomic_replace(
         &self,
         uri: &StorageUri,
@@ -542,6 +647,25 @@ impl LocalFsBackend {
         })?;
         let relative = relative.to_string_lossy().replace('\\', "/");
         StorageUri::from_parts("local", &relative)
+    }
+}
+
+fn link_plan(
+    request: StorageLinkPlanRequest,
+    status: StorageLinkPlanStatus,
+    source: Option<ObjectMetadata>,
+    target: Option<ObjectMetadata>,
+    message: impl Into<String>,
+) -> StorageLinkPlan {
+    StorageLinkPlan {
+        source_uri: request.source_uri,
+        target_uri: request.target_uri,
+        kind: request.kind,
+        status,
+        can_apply: status == StorageLinkPlanStatus::Ready,
+        source,
+        target,
+        message: message.into(),
     }
 }
 
@@ -1028,6 +1152,99 @@ mod tests {
     }
 
     #[test]
+    fn local_backend_plans_hard_link_without_creating_target() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+            fs::write(temp.path().join("movies").join("demo.mkv"), "media").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let source = StorageUri::from_parts("local", "movies/demo.mkv").unwrap();
+            let target = StorageUri::from_parts("local", "movies/demo-copy.mkv").unwrap();
+
+            let plan = backend
+                .plan_link(StorageLinkPlanRequest::new(
+                    source.clone(),
+                    target.clone(),
+                    crate::StorageLinkKind::Hard,
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(plan.source_uri, source);
+            assert_eq!(plan.target_uri, target);
+            assert_eq!(plan.status, StorageLinkPlanStatus::Ready);
+            assert!(plan.can_apply);
+            assert_eq!(plan.source.unwrap().kind, ObjectKind::File);
+            assert_eq!(plan.target, None);
+            assert!(!temp.path().join("movies").join("demo-copy.mkv").exists());
+        });
+    }
+
+    #[test]
+    fn local_backend_link_plan_reports_existing_target_without_overwrite() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+            fs::write(temp.path().join("movies").join("demo.mkv"), "media").unwrap();
+            fs::write(temp.path().join("movies").join("demo-copy.mkv"), "existing").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let plan = backend
+                .plan_link(StorageLinkPlanRequest::new(
+                    StorageUri::from_parts("local", "movies/demo.mkv").unwrap(),
+                    StorageUri::from_parts("local", "movies/demo-copy.mkv").unwrap(),
+                    crate::StorageLinkKind::Soft,
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(plan.status, StorageLinkPlanStatus::TargetExists);
+            assert!(!plan.can_apply);
+            assert_eq!(plan.target.unwrap().kind, ObjectKind::File);
+            assert_eq!(
+                fs::read_to_string(temp.path().join("movies").join("demo-copy.mkv")).unwrap(),
+                "existing"
+            );
+        });
+    }
+
+    #[test]
+    fn local_backend_link_plan_reports_missing_source_and_parent() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::create_dir(temp.path().join("movies")).unwrap();
+            fs::write(temp.path().join("movies").join("demo.mkv"), "media").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let missing_source = backend
+                .plan_link(StorageLinkPlanRequest::new(
+                    StorageUri::from_parts("local", "movies/missing.mkv").unwrap(),
+                    StorageUri::from_parts("local", "movies/copy.mkv").unwrap(),
+                    crate::StorageLinkKind::Hard,
+                ))
+                .await
+                .unwrap();
+            let missing_parent = backend
+                .plan_link(StorageLinkPlanRequest::new(
+                    StorageUri::from_parts("local", "movies/demo.mkv").unwrap(),
+                    StorageUri::from_parts("local", "missing/copy.mkv").unwrap(),
+                    crate::StorageLinkKind::Hard,
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(missing_source.status, StorageLinkPlanStatus::SourceMissing);
+            assert!(!missing_source.can_apply);
+            assert_eq!(
+                missing_parent.status,
+                StorageLinkPlanStatus::TargetParentMissing
+            );
+            assert!(!missing_parent.can_apply);
+        });
+    }
+
+    #[test]
     fn default_backend_rejects_backup_writes_explicitly() {
         pollster::block_on(async {
             let backend = DirectOnlyBackend;
@@ -1045,6 +1262,25 @@ mod tests {
                 err,
                 TaruError::Unsupported("storage backend does not support backup writes")
             );
+        });
+    }
+
+    #[test]
+    fn default_backend_link_plan_is_unsupported_without_mutation() {
+        pollster::block_on(async {
+            let backend = DirectOnlyBackend;
+            let plan = backend
+                .plan_link(StorageLinkPlanRequest::new(
+                    StorageUri::from_parts("memory", "source.mkv").unwrap(),
+                    StorageUri::from_parts("memory", "target.mkv").unwrap(),
+                    crate::StorageLinkKind::Soft,
+                ))
+                .await
+                .unwrap();
+
+            assert_eq!(plan.status, StorageLinkPlanStatus::Unsupported);
+            assert!(!plan.can_apply);
+            assert!(plan.message.contains("does not support link planning"));
         });
     }
 

@@ -29,10 +29,12 @@
     }
   ],
   "child_workstreams": [
-    "docs/workstreams/metadata-provider-breadth"
+    "docs/workstreams/metadata-provider-breadth",
+    "docs/workstreams/nfo-link-authority"
   ],
   "completed_child_workstreams": [
-    "docs/workstreams/metadata-provider-breadth"
+    "docs/workstreams/metadata-provider-breadth",
+    "docs/workstreams/nfo-link-authority"
   ],
   "gates": [
     "git diff --check"
@@ -41,7 +43,9 @@
     "docs/workstreams/post-rpd-product-hardening/DESIGN.md",
     "docs/workstreams/post-rpd-product-hardening/EVIDENCE_AND_GATES.md",
     "docs/workstreams/metadata-provider-breadth/DESIGN.md",
-    "docs/workstreams/metadata-provider-breadth/EVIDENCE_AND_GATES.md"
+    "docs/workstreams/metadata-provider-breadth/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/nfo-link-authority/DESIGN.md",
+    "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
@@ -51,7 +55,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "open nfo-link-authority",
-    "notes": "Metadata provider breadth is completed. Use this umbrella for ordering only. Next mainline execution lane is NFO/link authority; playback/transcode ops hardening is the safest parallel sidecar candidate if its write scope stays disjoint."
+    "next_task": "managed-import-staging lane open",
+    "notes": "Metadata provider breadth and NFO/link authority are completed. Local authority diagnostics are now strong enough to design import/download promotion without unsafe writes. Recommended next mainline lane: managed-import-staging; actual hardlink/symlink apply remains a follow-on after promotion, rollback, cleanup, audit, and source duplicate confirmation semantics are explicit. Playback/transcode ops hardening remains the safest parallel sidecar candidate if its write scope stays disjoint."
   }
 }

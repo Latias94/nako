@@ -8,18 +8,22 @@ Last updated: 2026-05-21
 The post-RPD product roadmap is open as an umbrella. It chooses
 `metadata-provider-breadth` as the first execution lane and records NFO/link,
 playback/transcode, managed import, network, AI, and addon distribution as
-ordered follow-ons. `metadata-provider-breadth` is now complete, so the
-umbrella has re-scored the next lanes.
+ordered follow-ons. `metadata-provider-breadth` is complete. The next mainline
+lane, `nfo-link-authority`, has completed VFS link dry-run diagnostics,
+Source Duplicate Relationship filesystem-link suggestions, NFO authority
+preview, and the link apply split decision. The next mainline should be
+`managed-import-staging`.
 
 ## Active Task
 
-- Task ID: PRPH-030
+- Task ID: PRPH-050
 - Owner: planner
-- Files: `docs/workstreams/post-rpd-product-hardening`, `docs/workstreams/metadata-provider-breadth`
-- Validation: child closeout evidence reviewed; next-lane recommendation recorded
-- Status: DONE
-- Review: ready for `nfo-link-authority` opening
-- Evidence: `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
+- Files: `docs/workstreams/post-rpd-product-hardening`,
+  `docs/workstreams/nfo-link-authority`
+- Validation: child closeout reviewed; next executable lane recorded
+- Status: ACTIVE
+- Review: open `managed-import-staging`
+- Evidence: `docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
 
@@ -32,6 +36,14 @@ umbrella has re-scored the next lanes.
   must be explicit first.
 - Choose `nfo-link-authority` as the next mainline lane because it is the
   remaining high-risk local data-loss boundary.
+- Open `nfo-link-authority` with VFS link dry-run diagnostics as the first
+  non-destructive slice.
+- Record filesystem-link evidence as suggested Source Duplicate Relationships
+  without merging Media Sources or Media Items.
+- Add non-mutating NFO authority preview before sidecar writes.
+- Defer actual hardlink/symlink apply to a follow-on after managed import
+  staging defines promotion, rollback, cleanup, audit, and source duplicate
+  confirmation semantics.
 - Keep playback/transcode ops hardening as a parallel sidecar candidate only
   if it stays diagnostic/runtime-focused and avoids NFO/import write scope.
 
@@ -41,7 +53,7 @@ umbrella has re-scored the next lanes.
 
 ## Next Recommended Action
 
-- Open `nfo-link-authority` as the next execution workstream.
+- Open `managed-import-staging`.
 - Keep `post-rpd-product-hardening` active until the next lane is represented
   by durable docs, or close it if the roadmap no longer reduces coordination
   cost.

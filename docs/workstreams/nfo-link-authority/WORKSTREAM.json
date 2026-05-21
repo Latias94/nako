@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "slug": "nfo-link-authority",
+  "title": "NFO Link Authority",
+  "status": "complete",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "Taru has safe NFO write primitives, but local file/link authority is not explicit enough for managed import, downloads, AI suggestions, or addon file writes.",
+  "task_prefix": "LNA",
+  "current_task": null,
+  "completed_tasks": [
+    "LNA-010",
+    "LNA-020",
+    "LNA-030",
+    "LNA-040",
+    "LNA-050",
+    "LNA-060"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/nfo-link-authority/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/nfo-link-authority/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/nfo-link-authority/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/nfo-link-authority/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-vfs link --no-fail-fast",
+    "cargo nextest run -p taru-server catalog --no-fail-fast",
+    "cargo nextest run -p taru-nfo --no-fail-fast",
+    "cargo nextest run -p taru-server nfo --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    "crates/taru-vfs/src/lib.rs",
+    "crates/taru-vfs/src/local.rs",
+    "crates/taru-vfs/src/cache.rs",
+    "crates/taru-nfo/src/preview.rs",
+    "crates/taru-nfo/src/lib.rs",
+    "crates/taru-server/src/app/catalog.rs",
+    "crates/taru-server/src/app/nfo.rs",
+    "crates/taru-server/src/app/tests/catalog.rs",
+    "crates/taru-server/src/app/tests/nfo.rs",
+    "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0002-internal-vfs-before-os-mounting.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "continue_policy": {
+    "default_action": "return_to_parent",
+    "next_task": "post-rpd-product-hardening lane scoring",
+    "notes": "VFS link dry-run diagnostics, Source Duplicate Relationship filesystem-link suggestions, and non-mutating NFO authority preview are implemented. Actual hardlink/symlink apply is intentionally split to a follow-on after managed-import-staging defines promotion, rollback, cleanup, audit, and source duplicate confirmation semantics."
+  }
+}

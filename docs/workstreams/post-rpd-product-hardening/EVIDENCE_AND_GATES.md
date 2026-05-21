@@ -34,6 +34,10 @@ The exact closeout gate for metadata breadth is authoritative in
 | 2026-05-21 | PRPH-020 | `docs/workstreams/metadata-provider-breadth` | Pass. First execution lane opened with a capability/conflict/matching-first plan. |
 | 2026-05-21 | PRPH-030 | Reviewed `metadata-provider-breadth` closeout docs and re-scored NFO/link, playback/transcode, managed import, network, AI, and addon lanes in `DESIGN.md` | Pass. `nfo-link-authority` is the next mainline execution lane; playback/transcode ops is the safest parallel sidecar candidate. |
 | 2026-05-21 | child closeout | `cargo check --workspace --tests`; `cargo nextest run -p taru-api --no-fail-fast`; `cargo nextest run -p taru-metadata --no-fail-fast`; `cargo nextest run -p taru-server metadata --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check` | Pass. Authoritative command evidence is recorded in `docs/workstreams/metadata-provider-breadth/EVIDENCE_AND_GATES.md`. |
+| 2026-05-21 | PRPH-040 refresh | `docs/workstreams/nfo-link-authority` | Pass. Next mainline execution lane opened with LNA-020 as the first non-destructive VFS link planning slice. |
+| 2026-05-21 | PRPH-040 progress | `docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md` | Pass. NFO/link authority completed VFS link dry-run diagnostics and Source Duplicate Relationship filesystem-link suggestions; next executable task is LNA-040 NFO authority preview. |
+| 2026-05-21 | PRPH-040 progress | `docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md` | Pass. NFO/link authority completed non-mutating NFO authority preview; next executable task is LNA-050 link apply split decision. |
+| 2026-05-21 | PRPH-050 child closeout | `docs/workstreams/nfo-link-authority` | Pass. NFO/link authority is complete. Actual hardlink/symlink apply is split to a follow-on after managed import staging; next recommended mainline is `managed-import-staging`. |
 
 ## Notes
 
