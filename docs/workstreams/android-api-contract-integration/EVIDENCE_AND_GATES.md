@@ -1,6 +1,6 @@
 # Android API Contract Integration - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## Gates

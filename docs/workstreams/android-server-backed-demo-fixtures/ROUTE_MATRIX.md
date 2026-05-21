@@ -1,6 +1,6 @@
 # Android Server-Backed Demo Fixtures — Route Matrix
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-18
 
 ## Decision

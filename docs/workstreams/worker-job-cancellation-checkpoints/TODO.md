@@ -1,6 +1,6 @@
 # Worker Job Cancellation Checkpoints - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Evidence Freeze

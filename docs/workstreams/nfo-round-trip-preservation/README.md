@@ -1,6 +1,6 @@
 # NFO Round Trip Preservation
 
-Status: Active
+Status: Completed
 
 Goal: M47 NFO Round Trip preservation model.
 

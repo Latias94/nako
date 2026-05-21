@@ -1,6 +1,6 @@
 # Android Playback Session Integrity - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-19
 
 ## M0 - Scope And Contract Freeze

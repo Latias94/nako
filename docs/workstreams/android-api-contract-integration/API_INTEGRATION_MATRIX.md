@@ -1,6 +1,6 @@
 # Android API Integration Matrix
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 Legend:

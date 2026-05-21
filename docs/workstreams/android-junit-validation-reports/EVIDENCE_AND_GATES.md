@@ -1,7 +1,7 @@
 # Android JUnit Validation Reports - Evidence And Gates
 
-Status: Active
-Last updated: 2026-05-20
+Status: Closed
+Last updated: 2026-05-21
 
 ## Gates
 
@@ -100,6 +100,32 @@ git diff --check
     `apps/android/build/smoke-regression-ajvr/20260520-212823/report.junit.xml`.
   - Generated evidence:
     `apps/android/build/validation-ajvr/20260520-212603/report.junit.xml`.
+- AJVR-040 completed on 2026-05-21:
+  - Fresh validation:
+    script parse for `Android-JUnitReport.ps1`, `Smoke-Regression.ps1`, and
+    `Validate-AndroidLocal.ps1` passed.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States empty-setup -SkipBuild -RetriesPerState 0 -OutputRoot apps/android/build/smoke-regression-ajvr-closeout`
+    passed and wrote parseable JUnit XML.
+  - Fresh validation:
+    `[xml](Get-Content -LiteralPath 'apps/android/build/smoke-regression-ajvr-closeout/20260521-092256/report.junit.xml' -Raw) | Out-Null`
+    passed.
+  - Fresh validation:
+    `pwsh -NoProfile -File apps/android/scripts/Validate-AndroidLocal.ps1 -SkipSmoke -OutputRoot apps/android/build/validation-ajvr-closeout`
+    passed and wrote parseable JUnit XML.
+  - Fresh validation:
+    `[xml](Get-Content -LiteralPath 'apps/android/build/validation-ajvr-closeout/20260521-092418/report.junit.xml' -Raw) | Out-Null`
+    passed.
+  - Fresh validation:
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.connection.*" --no-daemon`
+    passed after preserving the access-key label in the password field
+    hierarchy.
+  - Fresh validation:
+    `git diff --check` passed.
+  - Generated evidence:
+    `apps/android/build/smoke-regression-ajvr-closeout/20260521-092256/report.junit.xml`.
+  - Generated evidence:
+    `apps/android/build/validation-ajvr-closeout/20260521-092418/report.junit.xml`.
 
 ## Notes
 

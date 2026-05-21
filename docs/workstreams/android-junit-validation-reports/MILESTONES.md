@@ -1,7 +1,7 @@
 # Android JUnit Validation Reports - Milestones
 
-Status: Active
-Last updated: 2026-05-20
+Status: Closed
+Last updated: 2026-05-21
 
 ## M1 - Contract
 
@@ -61,11 +61,11 @@ Evidence:
 
 ## M4 - Closeout
 
-Status: Active
+Status: Complete
 
 Exit criteria:
 
-- Fresh parseable JUnit evidence is recorded.
-- Existing Markdown and JSON outputs remain compatible.
-- CI upload/artifact retention and golden visual diffing remain separate
+- [x] Fresh parseable JUnit evidence is recorded.
+- [x] Existing Markdown and JSON outputs remain compatible.
+- [x] CI upload/artifact retention and golden visual diffing remain separate
   follow-ons.

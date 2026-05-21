@@ -1,6 +1,6 @@
 # Admin API TypeScript Contract Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-20
 
 ## Contract Boundary

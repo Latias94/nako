@@ -1,6 +1,6 @@
 # Android API Contract Integration - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-20
 
 ## M1 - Matrix Frozen

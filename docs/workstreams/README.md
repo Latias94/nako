@@ -55,8 +55,9 @@ attention.
   smoke-proving Person Detail from Cast & Crew, with broad relationship indexes
   split to `android-relationship-indexes`.
 - [android-relationship-indexes](android-relationship-indexes/DESIGN.md):
-  active follow-on for deciding and productizing Android People, Tags, and
-  Genres index pages without local filtering or Admin/internal API use.
+  closed follow-on that accepted Genres as the first relationship index, split
+  Tags into `android-tags-index`, and deferred a top-level People index until
+  role/search semantics are stronger.
 - [architecture-review-followups](architecture-review-followups/README.md):
   completed planning and routing lane for the 2026-05-18 architecture review
   findings, covering metadata/catalog atomicity, metadata merge-policy

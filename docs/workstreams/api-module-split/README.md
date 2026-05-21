@@ -1,6 +1,6 @@
 # taru-api Module Split
 
-Status: Active
+Status: Completed
 
 Goal: M46 `taru-api` module split.
 

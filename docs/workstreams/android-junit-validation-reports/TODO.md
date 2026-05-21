@@ -1,7 +1,7 @@
 # Android JUnit Validation Reports - TODO
 
-Status: Active
-Last updated: 2026-05-20
+Status: Closed
+Last updated: 2026-05-21
 
 ## Task Ledger
 
@@ -63,7 +63,7 @@ Last updated: 2026-05-20
     with `step.android-unit-tests`, `step.android-build`, and
     `step.smoke-regression` testcases.
 
-- [ ] AJVR-040 - Verify and close.
+- [x] AJVR-040 - Verify and close.
   - Owner: Codex
   - Dependencies: AJVR-030.
   - Scope:
@@ -73,3 +73,8 @@ Last updated: 2026-05-20
     - `git diff --check` passes.
     - remaining CI upload and golden screenshot work is split or deferred.
   - Evidence: closeout docs.
+    Completed on 2026-05-21:
+    script parse passed; focused smoke regression generated parseable
+    `report.junit.xml`; focused local validation generated parseable
+    `report.junit.xml`; `git diff --check` passed. CI upload/artifact
+    retention and golden visual diffing remain separate follow-ons.

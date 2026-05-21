@@ -1,11 +1,12 @@
 # Android JUnit Validation Reports - Handoff
 
-Status: Active
-Last updated: 2026-05-20
+Status: Closed
+Last updated: 2026-05-21
 
 ## Current State
 
-This lane follows the closed `android-structured-validation-reports` workstream.
+This lane is closed. It follows the closed
+`android-structured-validation-reports` workstream.
 Markdown and JSON reports already exist for smoke regression and local Android
 validation. AJVR-010 is complete: the JUnit XML contract is frozen in
 `DESIGN.md`. AJVR-020 is complete: `Smoke-Regression.ps1` now writes
@@ -13,19 +14,11 @@ validation. AJVR-010 is complete: the JUnit XML contract is frozen in
 complete: `Validate-AndroidLocal.ps1` now writes local validation
 `report.junit.xml` and links delegated smoke JUnit paths.
 
-## Active Task
+## Closeout
 
-- Task ID: AJVR-040
-- Owner: Codex
-- Files:
-  - `docs/workstreams/android-junit-validation-reports/`
-- Validation:
-  - `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Android-JUnitReport.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"`
-  - `pwsh -NoProfile -File apps/android/scripts/Smoke-Regression.ps1 -States empty-setup -SkipBuild -RetriesPerState 0`
-  - `pwsh -NoProfile -File apps/android/scripts/Validate-AndroidLocal.ps1 -SkipSmoke`
-  - parse generated JUnit XML reports
-  - `git diff --check`
-- Status: READY
+AJVR-040 completed on 2026-05-21. Fresh script parse, focused smoke regression
+JUnit generation, focused local validation JUnit generation, generated XML
+parse checks, focused connection UI unit tests, and `git diff --check` passed.
 
 ## Decisions
 
@@ -46,10 +39,9 @@ complete: `Validate-AndroidLocal.ps1` now writes local validation
 
 ## Blockers
 
-- None for AJVR-040.
+- None for this lane.
 
 ## Next Recommended Action
 
-- Execute AJVR-040: verify both generated JUnit report paths, update closeout
-  docs, and close the lane. CI upload/artifact retention and golden visual
-  diffing remain separate follow-ons.
+- Open separate lanes for CI upload/artifact retention or golden visual
+  diffing if those become release requirements.

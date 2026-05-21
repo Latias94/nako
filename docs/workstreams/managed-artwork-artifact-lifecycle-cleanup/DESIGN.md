@@ -1,6 +1,6 @@
 # Managed Artwork Artifact Lifecycle Cleanup Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Problem

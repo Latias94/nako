@@ -1,6 +1,6 @@
 # Typed Storage Errors Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-17
 
 ## Problem

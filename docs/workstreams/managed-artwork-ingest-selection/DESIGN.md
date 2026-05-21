@@ -1,6 +1,6 @@
 # Managed Artwork Ingest Selection
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-19
 
 ## Why This Lane Exists

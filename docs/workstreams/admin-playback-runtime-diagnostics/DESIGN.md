@@ -1,6 +1,6 @@
 # Admin Playback Runtime Diagnostics Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-18
 
 ## Problem

@@ -1,6 +1,6 @@
 # Metadata Provider Attempt Runtime Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-17
 
 ## Problem
