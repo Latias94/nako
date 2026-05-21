@@ -13,8 +13,9 @@ Upstream workstreams are complete:
 
 Admin Addon API currently supports registration/list/detail under
 `/admin/v1/addons`, explicit enable/disable lifecycle mutation, terminal
-unregister, plus token issue/list/rotate/revoke and grant replace/list. The
-remaining product gap is health/surface/resource diagnostics.
+unregister, redaction-safe health checks, plus token issue/list/rotate/revoke
+and grant replace/list. The remaining product gap is surface/resource
+diagnostics.
 
 AAO-010 is complete. The lane now has a frozen MVP contract:
 
@@ -46,18 +47,27 @@ Re-registration of the same manifest creates a new disabled registration ID
 through the normal registration route. `DELETE /admin/v1/addons/{addon_id}` is
 not mounted.
 
+AAO-040 is complete. `POST /admin/v1/addons/{addon_id}/health-check` calls the
+Addon Sidecar `{base_url}/health` endpoint through `taru-addon-client` using
+only protocol headers and a bounded timeout. It returns redaction-safe
+reachability, latency, protocol/manifest facts, and safe error codes. Health
+checks do not send administrator bearer tokens, Addon Tokens, resolved Secret
+Reference values, or resource-call payloads to Addon Sidecars.
+
 ## Active Task
 
-AAO-040 — Health checks.
+AAO-050 — Hosted surface read models.
 
 ## Next Steps
 
-1. Execute AAO-040 by adding a bounded Admin Addon Health Check protocol/client
-   path.
-2. Keep health reports redaction-safe: safe status, latency,
-   protocol/manifest facts, and safe error codes only.
-3. Never pass administrator bearer tokens, Addon Tokens, resolved Secret
-   Reference values, or raw network errors to/from the Addon Sidecar.
+1. Execute AAO-050 by adding Admin read models for manifest-declared Addon
+   Entry Points, Hosted Pages, configuration schema metadata, Secret Reference
+   fields, Addon Tasks, and Addon Event Subscriptions.
+2. Keep hosted page URLs external Addon Sidecar URLs and never append admin
+   bearer tokens, Addon Tokens, one-time launch secrets, or resolved Secret
+   Reference values.
+3. Keep DTOs in `taru-api::extension` and orchestration in
+   `taru-server::app::addons`.
 
 ## Constraints
 

@@ -1087,12 +1087,44 @@ errors are retryable, while other 4xx responses fail without retry. HTTP
 handlers only register and inspect addons in M5; they do not call addon
 resource endpoints inline.
 
+`POST /admin/v1/addons/{addon_id}/health-check` calls the Addon Sidecar
+health contract at `{base_url}/health` with protocol headers and a bounded
+timeout. It does not send administrator bearer tokens, Addon Tokens, resolved
+Secret Reference values, or resource-call payloads to the Addon Sidecar.
+
+Successful health checks return redaction-safe status, latency, protocol
+version, and manifest compatibility facts:
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000001",
+  "manifest_id": "example.metadata",
+  "status": "reachable",
+  "latency_ms": 12,
+  "protocol_version": "2026-05-15",
+  "addon_version": "0.1.0",
+  "resource_count": 1,
+  "protocol_checked_at": "2026-05-21T12:00:00.000Z"
+}
+```
+
+Failure responses still use `200 OK` when the registration exists and the
+diagnostic itself completed. They classify safe failure facts without echoing
+raw network errors or sidecar response bodies:
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000001",
+  "manifest_id": "example.metadata",
+  "status": "unreachable",
+  "latency_ms": 2001,
+  "safe_error_code": "transport_failure"
+}
+```
+
 Remaining planned Admin Addon Operations MVP routes are reserved under
 `/admin/v1/addons/{addon_id}`:
 
-- `POST /health-check` checks the Addon Sidecar with protocol headers and a
-  bounded timeout. It must not send administrator bearer tokens, Addon Tokens,
-  or resolved Secret Reference values to the Addon Sidecar.
 - `GET /surfaces` returns Admin read models for Addon Entry Points, Hosted
   Pages, configuration schema metadata, Secret Reference fields, Addon Task
   declarations, and Addon Event Subscription declarations.

@@ -1,10 +1,11 @@
 use axum::{Json, Router, routing::post};
 use taru_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonArtifact, AddonAuth, AddonConfigurationSchema,
-    AddonEntryPointDeclaration, AddonEntryPointKind, AddonHostedPageDeclaration,
-    AddonLibraryFileRole, AddonLibraryFileWritePayload, AddonLibraryFileWritePolicy, AddonManifest,
-    AddonMetadataPatch, AddonResource, AddonResourceDeclaration, AddonResourceRequest,
-    AddonResourceResponse, AddonScope,
+    AddonEntryPointDeclaration, AddonEntryPointKind, AddonHealthCheckRequest,
+    AddonHealthCheckResponse, AddonHealthManifestFacts, AddonHealthStatus,
+    AddonHostedPageDeclaration, AddonLibraryFileRole, AddonLibraryFileWritePayload,
+    AddonLibraryFileWritePolicy, AddonManifest, AddonMetadataPatch, AddonResource,
+    AddonResourceDeclaration, AddonResourceRequest, AddonResourceResponse, AddonScope,
 };
 
 pub const REFERENCE_ADDON_ID: &str = "taru.reference.metadata";
@@ -69,7 +70,9 @@ pub fn reference_manifest(base_url: impl Into<String>) -> AddonManifest {
 
 #[must_use]
 pub fn build_router() -> Router {
-    Router::new().route("/metadata", post(metadata))
+    Router::new()
+        .route("/health", post(health))
+        .route("/metadata", post(metadata))
 }
 
 #[must_use]
@@ -112,6 +115,20 @@ async fn metadata(Json(request): Json<AddonResourceRequest>) -> Json<AddonResour
             kind: "metadata_suggestion".to_owned(),
             payload: suggestion,
         }],
+    })
+}
+
+async fn health(Json(request): Json<AddonHealthCheckRequest>) -> Json<AddonHealthCheckResponse> {
+    Json(AddonHealthCheckResponse {
+        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+        manifest_id: request.manifest_id,
+        status: AddonHealthStatus::Ok,
+        checked_at: "2026-05-21T00:00:00.000Z".to_owned(),
+        manifest: AddonHealthManifestFacts {
+            addon_version: "0.1.0".to_owned(),
+            resource_count: 1,
+        },
+        diagnostics: serde_json::json!({"fixture": "taru-reference-addon"}),
     })
 }
 

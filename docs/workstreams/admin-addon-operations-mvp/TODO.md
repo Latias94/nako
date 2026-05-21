@@ -74,7 +74,7 @@ Task IDs use the `AAO` prefix.
 
 ## M2 — Health And Diagnostics
 
-- [ ] AAO-040 [owner=codex] [deps=AAO-010] [scope=crates/taru-addon-protocol,crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/guides/ADDON_AUTHOR_GUIDE.md,docs/api/HTTP_API.md]
+- [x] AAO-040 [owner=codex] [deps=AAO-010] [scope=crates/taru-addon-protocol,crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/guides/ADDON_AUTHOR_GUIDE.md,docs/api/HTTP_API.md]
   Goal: Add an Admin Addon Health Check that proves reachability and manifest
   compatibility through a bounded, redaction-safe Addon Protocol contract.
   Validation: `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-api -p taru-server --tests`; `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`; focused Admin Addon nextest; `git diff --check`.
@@ -82,6 +82,19 @@ Task IDs use the `AAO` prefix.
   reports must contain safe status, latency, protocol/manifest facts, and safe
   error codes only.
   Handoff: Continue with AAO-050 hosted surface read models.
+  Progress: Added Addon Health Check request/response protocol envelopes,
+  mockable `taru-addon-client::check_addon_health`, reference-addon `/health`,
+  Admin DTOs, and `POST /admin/v1/addons/{addon_id}/health-check`.
+  Health checks call `{base_url}/health` with protocol headers and a bounded
+  timeout, never with admin bearer tokens, Addon Tokens, resolved Secret
+  References, or resource payloads. Admin responses classify reachable,
+  degraded/unhealthy, protocol mismatch, and unreachable cases with safe facts
+  only.
+  Validation: `cargo check -p taru-addon-protocol -p taru-addon-client -p
+  taru-api -p taru-server --tests`; `cargo nextest run -p
+  taru-addon-protocol -p taru-addon-client --no-fail-fast`; `cargo nextest run
+  -p taru-server addons --no-fail-fast`; `cargo fmt --all -- --check`; `git
+  diff --check`.
 
 - [ ] AAO-050 [owner=codex] [deps=AAO-040] [scope=crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
   Goal: Add Admin read models for Addon Entry Points, Hosted Pages,

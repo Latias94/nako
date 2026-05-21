@@ -1,4 +1,5 @@
 use super::*;
+use axum::Json;
 use axum::http::HeaderValue;
 use std::sync::{
     Arc as StdArc,
@@ -27,6 +28,75 @@ fn png_with_size(width: u32, height: u32) -> Vec<u8> {
 
 pub(super) async fn tiny_artwork_server() -> (String, u64) {
     artwork_server(StatusCode::OK, "image/png", tiny_png()).await
+}
+
+async fn health_check_addon_server(
+    status: StatusCode,
+    response_status: AddonHealthStatus,
+    manifest_id: &'static str,
+    include_secret_echo: bool,
+) -> (String, StdArc<AtomicUsize>) {
+    let requests = StdArc::new(AtomicUsize::new(0));
+    let request_counter = StdArc::clone(&requests);
+    let router = Router::new().route(
+        "/health",
+        axum::routing::post(
+            move |headers: axum::http::HeaderMap, Json(request): Json<AddonHealthCheckRequest>| {
+                let request_counter = StdArc::clone(&request_counter);
+                async move {
+                    request_counter.fetch_add(1, Ordering::SeqCst);
+                    assert_eq!(
+                        headers
+                            .get("x-taru-addon-id")
+                            .and_then(|value| value.to_str().ok()),
+                        Some(manifest_id)
+                    );
+                    assert_eq!(
+                        headers
+                            .get("x-taru-addon-protocol-version")
+                            .and_then(|value| value.to_str().ok()),
+                        Some(ADDON_PROTOCOL_VERSION)
+                    );
+                    assert!(headers.get(header::AUTHORIZATION).is_none());
+                    assert!(headers.get("x-taru-addon-secret").is_none());
+                    assert_eq!(request.manifest_id, manifest_id);
+                    assert_eq!(request.protocol_version, ADDON_PROTOCOL_VERSION);
+
+                    let diagnostics = if include_secret_echo {
+                        serde_json::json!({
+                            "safe_note": "ok",
+                            "raw_network_error": "Bearer taru_at_should_not_echo"
+                        })
+                    } else {
+                        serde_json::json!({ "safe_note": "ok" })
+                    };
+
+                    (
+                        status,
+                        Json(ProtocolAddonHealthCheckResponse {
+                            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                            manifest_id: manifest_id.to_owned(),
+                            status: response_status,
+                            checked_at: "2026-05-21T12:00:00.000Z".to_owned(),
+                            manifest: AddonHealthManifestFacts {
+                                addon_version: "0.1.0".to_owned(),
+                                resource_count: 1,
+                            },
+                            diagnostics,
+                        }),
+                    )
+                }
+            },
+        ),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
 }
 
 async fn artwork_server(
@@ -829,6 +899,110 @@ async fn reference_addon_registers_queries_and_handles_resource_call() {
     assert_eq!(response.artifacts[0].kind, "metadata_suggestion");
 
     addon_server.abort();
+}
+
+#[tokio::test]
+async fn admin_addon_health_check_reports_safe_reachability_without_tokens() {
+    let (addon_base_url, requests) = health_check_addon_server(
+        StatusCode::OK,
+        AddonHealthStatus::Ok,
+        "taru.health.metadata",
+        true,
+    )
+    .await;
+    let mut manifest = taru_reference_addon::reference_manifest(addon_base_url);
+    manifest.id = "taru.health.metadata".to_owned();
+
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+
+    let path = format!("/admin/v1/addons/{addon_id}/health-check");
+    let response =
+        request_json::<AdminAddonHealthCheckResponse>(&router, Method::POST, &path).await;
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.manifest_id, "taru.health.metadata");
+    assert_eq!(response.status, AdminAddonHealthCheckStatus::Reachable);
+    assert_eq!(
+        response.protocol_version.as_deref(),
+        Some(ADDON_PROTOCOL_VERSION)
+    );
+    assert_eq!(response.addon_version.as_deref(), Some("0.1.0"));
+    assert_eq!(response.resource_count, Some(1));
+    assert!(response.safe_error_code.is_none());
+    assert_eq!(
+        response.protocol_checked_at.as_deref(),
+        Some("2026-05-21T12:00:00.000Z")
+    );
+    assert_eq!(requests.load(Ordering::SeqCst), 1);
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(!text.contains("taru_at_should_not_echo"));
+    assert!(!text.contains("raw_network_error"));
+    assert!(!text.contains("authorization"));
+}
+
+#[tokio::test]
+async fn admin_addon_health_check_classifies_unreachable_without_raw_error_leak() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let unreachable_base_url = format!("http://{}", listener.local_addr().unwrap());
+    drop(listener);
+
+    let mut manifest = taru_reference_addon::reference_manifest(unreachable_base_url);
+    manifest.id = "taru.unreachable.metadata".to_owned();
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/health-check");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonHealthCheckResponse>(&text).unwrap();
+
+    assert_eq!(response.status, AdminAddonHealthCheckStatus::Unreachable);
+    assert_eq!(
+        response.safe_error_code.as_deref(),
+        Some("transport_failure")
+    );
+    assert!(response.protocol_version.is_none());
+    assert!(!text.contains("Connection refused"));
+    assert!(!text.contains("os error"));
+    assert!(!text.contains("127.0.0.1"));
 }
 
 #[tokio::test]

@@ -6,7 +6,7 @@
   "last_updated": "2026-05-21",
   "objective": "Productize Addon administration with explicit lifecycle mutation, unregister semantics, health checks, hosted surface read models, and resource-call diagnostics without expanding into Addon Manager scope.",
   "task_prefix": "AAO",
-  "current_task": "AAO-040",
+  "current_task": "AAO-050",
   "first_executable_task": "AAO-010",
   "upstream_workstreams": [
     "release-packaging-and-distribution",

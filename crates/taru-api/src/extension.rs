@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use taru_addon_protocol::{AddonManifest, AddonScope};
+use taru_addon_protocol::{AddonHealthStatus, AddonManifest, AddonScope};
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
     AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
@@ -171,6 +171,45 @@ pub struct AdminAddonRegistrationsResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UpdateAddonStatusRequest {
     pub status: AddonStatus,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonHealthCheckStatus {
+    Reachable,
+    Degraded,
+    Unhealthy,
+    Unreachable,
+    ProtocolMismatch,
+    InvalidManifest,
+}
+
+impl From<AddonHealthStatus> for AdminAddonHealthCheckStatus {
+    fn from(value: AddonHealthStatus) -> Self {
+        match value {
+            AddonHealthStatus::Ok => Self::Reachable,
+            AddonHealthStatus::Degraded => Self::Degraded,
+            AddonHealthStatus::Unhealthy => Self::Unhealthy,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonHealthCheckResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub status: AdminAddonHealthCheckStatus,
+    pub latency_ms: u128,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub addon_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_count: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol_checked_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

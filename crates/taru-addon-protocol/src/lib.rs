@@ -368,6 +368,40 @@ pub struct AddonResourceResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonHealthCheckRequest {
+    pub protocol_version: String,
+    pub manifest_id: String,
+    pub request_id: String,
+    pub expected_addon_version: String,
+    pub expected_resource_count: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonHealthCheckResponse {
+    pub protocol_version: String,
+    pub manifest_id: String,
+    pub status: AddonHealthStatus,
+    pub checked_at: String,
+    pub manifest: AddonHealthManifestFacts,
+    #[serde(default)]
+    pub diagnostics: serde_json::Value,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonHealthStatus {
+    Ok,
+    Degraded,
+    Unhealthy,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonHealthManifestFacts {
+    pub addon_version: String,
+    pub resource_count: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonArtifact {
     pub kind: String,
     pub payload: serde_json::Value,
@@ -743,6 +777,49 @@ pub fn validate_resource_response(
             message: format!(
                 "response request_id {} did not match {request_id}",
                 response.request_id
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+pub fn validate_health_check_response(
+    response: &AddonHealthCheckResponse,
+    manifest: &AddonManifest,
+) -> AddonProtocolResult<()> {
+    if response.protocol_version != ADDON_PROTOCOL_VERSION {
+        return Err(AddonManifestError::UnsupportedProtocolVersion {
+            actual: response.protocol_version.clone(),
+        });
+    }
+    if response.manifest_id != manifest.id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "health manifest_id {} did not match {}",
+                response.manifest_id, manifest.id
+            ),
+        });
+    }
+    if response.checked_at.trim().is_empty() {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: "health checked_at must not be empty".to_owned(),
+        });
+    }
+    if response.manifest.addon_version != manifest.version {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "health addon_version {} did not match {}",
+                response.manifest.addon_version, manifest.version
+            ),
+        });
+    }
+    if response.manifest.resource_count != manifest.resources.len() {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "health resource_count {} did not match {}",
+                response.manifest.resource_count,
+                manifest.resources.len()
             ),
         });
     }
@@ -1156,6 +1233,45 @@ mod tests {
             serde_json::from_str::<AddonResourceRequest>(&json).unwrap(),
             request
         );
+    }
+
+    #[test]
+    fn health_check_envelopes_validate_manifest_facts() {
+        let manifest = valid_manifest();
+        let request = AddonHealthCheckRequest {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            manifest_id: manifest.id.clone(),
+            request_id: "health-1".to_owned(),
+            expected_addon_version: manifest.version.clone(),
+            expected_resource_count: manifest.resources.len(),
+        };
+        let response = AddonHealthCheckResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            manifest_id: manifest.id.clone(),
+            status: AddonHealthStatus::Ok,
+            checked_at: "2026-05-21T12:00:00.000Z".to_owned(),
+            manifest: AddonHealthManifestFacts {
+                addon_version: manifest.version.clone(),
+                resource_count: manifest.resources.len(),
+            },
+            diagnostics: serde_json::json!({"safe_note": "ok"}),
+        };
+
+        assert_eq!(
+            serde_json::from_str::<AddonHealthCheckRequest>(
+                &serde_json::to_string(&request).unwrap()
+            )
+            .unwrap(),
+            request
+        );
+        validate_health_check_response(&response, &manifest).unwrap();
+
+        let mut invalid = response;
+        invalid.manifest.resource_count += 1;
+        assert!(matches!(
+            validate_health_check_response(&invalid, &manifest),
+            Err(AddonManifestError::InvalidEnvelope { .. })
+        ));
     }
 
     #[test]

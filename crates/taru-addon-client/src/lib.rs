@@ -2,8 +2,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use taru_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, AddonAuth, AddonManifest, AddonManifestError, AddonResource,
-    AddonResourceRequest, AddonResourceResponse, AddonScope, ensure_scope_grant, validate_manifest,
+    ADDON_PROTOCOL_VERSION, AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse,
+    AddonManifest, AddonManifestError, AddonResource, AddonResourceRequest, AddonResourceResponse,
+    AddonScope, ensure_scope_grant, validate_health_check_response, validate_manifest,
     validate_resource_response,
 };
 
@@ -221,6 +222,66 @@ where
     }))
 }
 
+pub async fn check_addon_health<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    request_id: impl Into<String>,
+) -> AddonClientResult<AddonHealthCheckResponse>
+where
+    T: AddonTransport,
+{
+    validate_manifest(manifest)?;
+    let request_id = request_id.into();
+    let timeout_ms = manifest.default_timeout_ms.unwrap_or(10_000);
+    let envelope = AddonHealthCheckRequest {
+        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+        manifest_id: manifest.id.clone(),
+        request_id: request_id.clone(),
+        expected_addon_version: manifest.version.clone(),
+        expected_resource_count: manifest.resources.len(),
+    };
+    let body =
+        serde_json::to_string(&envelope).map_err(|err| AddonManifestError::InvalidEnvelope {
+            message: format!("failed to serialize addon health request: {err}"),
+        })?;
+    let response = transport
+        .post(AddonHttpRequest {
+            url: resource_url(&manifest.base_url, "/health"),
+            headers: vec![
+                ("content-type".to_owned(), "application/json".to_owned()),
+                (
+                    "x-taru-addon-protocol-version".to_owned(),
+                    ADDON_PROTOCOL_VERSION.to_owned(),
+                ),
+                ("x-taru-addon-id".to_owned(), manifest.id.clone()),
+                (
+                    "x-taru-addon-operation".to_owned(),
+                    "health-check".to_owned(),
+                ),
+                ("x-taru-request-id".to_owned(), request_id),
+            ],
+            body,
+            timeout_ms,
+        })
+        .await?;
+
+    if !(200..300).contains(&response.status) {
+        return Err(AddonClientError::HttpStatus {
+            status: response.status,
+        });
+    }
+
+    let envelope =
+        serde_json::from_str::<AddonHealthCheckResponse>(&response.body).map_err(|err| {
+            AddonManifestError::InvalidEnvelope {
+                message: format!("failed to parse addon health response: {err}"),
+            }
+        })?;
+    validate_health_check_response(&envelope, manifest)?;
+
+    Ok(envelope)
+}
+
 fn resource_url(base_url: &str, path: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path)
 }
@@ -411,6 +472,46 @@ mod tests {
             })
         );
         assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn checks_health_without_auth_or_resource_payload() {
+        let manifest = valid_manifest();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::to_string(&AddonHealthCheckResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                manifest_id: manifest.id.clone(),
+                status: taru_addon_protocol::AddonHealthStatus::Ok,
+                checked_at: "2026-05-21T12:00:00.000Z".to_owned(),
+                manifest: taru_addon_protocol::AddonHealthManifestFacts {
+                    addon_version: manifest.version.clone(),
+                    resource_count: manifest.resources.len(),
+                },
+                diagnostics: serde_json::json!({"safe_note": "ok"}),
+            })
+            .unwrap(),
+        }));
+
+        let response = check_addon_health(&transport, &manifest, "health-1")
+            .await
+            .unwrap();
+
+        assert_eq!(response.manifest_id, manifest.id);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://example.test/addon/health".to_owned()
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-taru-addon-operation"),
+            Some("health-check")
+        );
+        assert_eq!(header_value(&requests[0], "authorization"), None);
+        assert_eq!(header_value(&requests[0], "x-taru-addon-secret"), None);
+        assert!(requests[0].body.contains("\"manifest_id\":\"example\""));
+        assert!(!requests[0].body.contains("\"payload\""));
     }
 
     fn valid_manifest() -> AddonManifest {

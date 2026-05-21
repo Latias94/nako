@@ -15,8 +15,10 @@ use serde::{Serialize, de::DeserializeOwned};
 use taru_addon_client::{ReqwestAddonTransport, call_addon_resource};
 use taru_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
-    AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHostedPageDeclaration,
-    AddonManifest, AddonResource, AddonResourceDeclaration, AddonScope, AddonTaskDeclaration,
+    AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHealthCheckRequest,
+    AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse, AddonHealthManifestFacts,
+    AddonHealthStatus, AddonHostedPageDeclaration, AddonManifest, AddonResource,
+    AddonResourceDeclaration, AddonScope, AddonTaskDeclaration,
 };
 use taru_api::{
     admin::{
@@ -43,7 +45,8 @@ use taru_api::{
         AddonAccessCheckRequest, AddonAccessCheckResponse, AddonGrantAssignment,
         AddonGrantsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
         AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
-        AddonTokensResponse, AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
+        AddonTokensResponse, AdminAddonHealthCheckResponse, AdminAddonHealthCheckStatus,
+        AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
         AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
         EnqueueAutomationJobRequest, IssueAddonTokenRequest, RegisterAddonRequest,
         ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,

@@ -1,12 +1,13 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
+use taru_addon_client::{AddonClientError, ReqwestAddonTransport, check_addon_health};
 use taru_addon_protocol::{AddonManifest, AddonScope, ensure_scope_grant, validate_manifest};
 use taru_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
-    AddonTokenSummary, AddonTokensResponse, AdminAddonRegistrationDetail,
-    AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
-    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    UpdateAddonStatusRequest,
+    AddonTokenSummary, AddonTokensResponse, AdminAddonHealthCheckResponse,
+    AdminAddonHealthCheckStatus, AdminAddonRegistrationDetail, AdminAddonRegistrationResponse,
+    AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse, IssueAddonTokenRequest,
+    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
 };
 use taru_core::{
     AddonId, AddonIssuedToken, AddonRegistrationRecord, AddonRepository, AddonStatus, AddonTokenId,
@@ -223,6 +224,52 @@ impl AddonAppService {
         })
     }
 
+    pub async fn check_addon_health(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonHealthCheckResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(TaruError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let manifest = self.stored_manifest(&addon)?;
+        let started = Instant::now();
+        let response = check_addon_health(
+            &ReqwestAddonTransport::default(),
+            &manifest,
+            format!("addon-health-{addon_id}"),
+        )
+        .await;
+        let latency_ms = started.elapsed().as_millis();
+
+        match response {
+            Ok(response) => Ok(AdminAddonHealthCheckResponse {
+                addon_id,
+                manifest_id: addon.manifest_id,
+                status: response.status.into(),
+                latency_ms,
+                protocol_version: Some(response.protocol_version),
+                addon_version: Some(response.manifest.addon_version),
+                resource_count: Some(response.manifest.resource_count),
+                protocol_checked_at: Some(response.checked_at),
+                safe_error_code: None,
+            }),
+            Err(err) => Ok(AdminAddonHealthCheckResponse {
+                addon_id,
+                manifest_id: addon.manifest_id,
+                status: health_status_for_client_error(&err),
+                latency_ms,
+                protocol_version: None,
+                addon_version: None,
+                resource_count: None,
+                protocol_checked_at: None,
+                safe_error_code: Some(safe_health_error_code(&err).to_owned()),
+            }),
+        }
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
@@ -387,10 +434,7 @@ impl AddonAppService {
         &self,
         addon: &AddonRegistrationRecord,
     ) -> Result<()> {
-        let manifest: AddonManifest =
-            serde_json::from_str(&addon.manifest_json).map_err(|err| TaruError::InvalidInput {
-                message: format!("failed to parse stored addon manifest: {err}"),
-            })?;
+        let manifest = self.stored_manifest(addon)?;
         validate_manifest(&manifest).map_err(|err| TaruError::InvalidInput {
             message: err.to_string(),
         })?;
@@ -416,6 +460,12 @@ impl AddonAppService {
 
         Ok(())
     }
+
+    fn stored_manifest(&self, addon: &AddonRegistrationRecord) -> Result<AddonManifest> {
+        serde_json::from_str(&addon.manifest_json).map_err(|err| TaruError::InvalidInput {
+            message: format!("failed to parse stored addon manifest: {err}"),
+        })
+    }
 }
 
 fn ensure_addon_accepts_runtime_authority(
@@ -432,4 +482,30 @@ fn ensure_addon_accepts_runtime_authority(
     }
 
     Ok(())
+}
+
+fn health_status_for_client_error(err: &AddonClientError) -> AdminAddonHealthCheckStatus {
+    match err {
+        AddonClientError::Protocol(_) => AdminAddonHealthCheckStatus::ProtocolMismatch,
+        AddonClientError::HttpStatus { .. } | AddonClientError::Http { .. } => {
+            AdminAddonHealthCheckStatus::Unreachable
+        }
+    }
+}
+
+fn safe_health_error_code(err: &AddonClientError) -> &'static str {
+    match err {
+        AddonClientError::Protocol(_) => "protocol_mismatch",
+        AddonClientError::HttpStatus { status } if *status == 401 || *status == 403 => {
+            "unauthorized"
+        }
+        AddonClientError::HttpStatus { status } if *status == 404 => "health_endpoint_missing",
+        AddonClientError::HttpStatus { status } if *status == 408 => "timeout",
+        AddonClientError::HttpStatus { status } if *status == 429 => "rate_limited",
+        AddonClientError::HttpStatus { status } if (500..600).contains(status) => {
+            "sidecar_unhealthy"
+        }
+        AddonClientError::HttpStatus { .. } => "http_failure",
+        AddonClientError::Http { .. } => "transport_failure",
+    }
 }

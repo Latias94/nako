@@ -29,6 +29,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             post(unregister_addon),
         )
         .route(
+            "/admin/v1/addons/{addon_id}/health-check",
+            post(check_addon_health),
+        )
+        .route(
             "/admin/v1/addons/{addon_id}/tokens",
             get(list_addon_tokens).post(issue_addon_token),
         )
@@ -95,6 +99,14 @@ pub(super) async fn unregister_addon(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().unregister_addon(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn check_addon_health(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().check_addon_health(addon_id).await?))
 }
 
 #[instrument(skip(app))]

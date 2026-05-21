@@ -63,6 +63,51 @@ declaration scopes that are not listed in the manifest-level `scopes`.
 
 ## Envelopes
 
+### Health Check
+
+Addon Sidecars should expose `POST /health` below their manifest `base_url`.
+Taru uses this endpoint for Admin Addon Health Check operations. The request is
+bounded and carries protocol headers only; it does not include administrator
+bearer tokens, Addon Tokens, resolved Secret Reference values, or resource
+payloads.
+
+Request body:
+
+```json
+{
+  "protocol_version": "2026-05-15",
+  "manifest_id": "taru.reference.metadata",
+  "request_id": "health-1",
+  "expected_addon_version": "0.1.0",
+  "expected_resource_count": 1
+}
+```
+
+Response body:
+
+```json
+{
+  "protocol_version": "2026-05-15",
+  "manifest_id": "taru.reference.metadata",
+  "status": "ok",
+  "checked_at": "2026-05-21T12:00:00.000Z",
+  "manifest": {
+    "addon_version": "0.1.0",
+    "resource_count": 1
+  },
+  "diagnostics": {
+    "safe_note": "ready"
+  }
+}
+```
+
+Taru validates the protocol version, manifest ID, addon version, and resource
+count before reporting the sidecar as reachable. Addon diagnostics should be
+safe summary facts only; do not include credentials, raw request/response
+bodies, local paths, or raw network errors.
+
+### Resource Calls
+
 Taru calls resources with:
 
 ```json
