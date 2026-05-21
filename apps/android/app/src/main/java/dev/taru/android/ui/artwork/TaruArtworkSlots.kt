@@ -256,6 +256,7 @@ private fun kindLabel(kind: String?): String {
         ?.trim()
         .orEmpty()
     if (normalized.isBlank()) return "Media"
+    if (normalized.equals("media item", ignoreCase = true)) return "Title"
     return normalized
         .split(Regex("\\s+"))
         .joinToString(" ") { word ->

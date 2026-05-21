@@ -2,10 +2,15 @@ package dev.taru.android.playback
 
 import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
+import dev.taru.android.connection.SensitiveText
 import dev.taru.android.connection.TaruHttpRequest
+import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.media.MediaProbeDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+private const val AuthorizationHeaderName = "Authorization"
+private val BearerHeaderPattern = Regex("(?i)\\bBearer\\s+")
 
 data class PlaybackCapabilities(
     val directPlay: Boolean? = null,
@@ -107,12 +112,58 @@ enum class ClientHardwareAcceleration {
     QuickSync,
 }
 
+data class PlaybackRequestDescriptor(
+    val method: String,
+    val url: String,
+    val headers: Map<String, String> = emptyMap(),
+) {
+    init {
+        require(headers.keys.none { it.equals(AuthorizationHeaderName, ignoreCase = true) }) {
+            "Playback request descriptors must not carry Authorization."
+        }
+        require(headers.values.none { BearerHeaderPattern.containsMatchIn(it) }) {
+            "Playback request descriptors must not carry bearer tokens."
+        }
+    }
+
+    val safeRequest: SafeRequestPreview
+        get() = SafeRequestPreview(
+            method = method,
+            url = SensitiveText.sanitize(url),
+            headers = buildMap {
+                headers.forEach { (name, value) ->
+                    put(name, SensitiveText.sanitize(value))
+                }
+                put(AuthorizationHeaderName, "Bearer ${TaruPublicApiContract.redacted}")
+            },
+        )
+
+    fun authenticatedRequest(accessToken: String): TaruHttpRequest {
+        require(accessToken.isNotBlank()) {
+            "A server access key is required to build the final playback request."
+        }
+        return TaruHttpRequest(
+            method = method,
+            url = url,
+            headers = headers + (AuthorizationHeaderName to "Bearer $accessToken"),
+        )
+    }
+}
+
 data class PlaybackRequestTarget(
-    val request: TaruHttpRequest,
-    val safeRequest: SafeRequestPreview,
-    val sessionProbeRequest: TaruHttpRequest? = null,
+    val request: PlaybackRequestDescriptor,
+    val sessionProbeRequest: PlaybackRequestDescriptor? = null,
     val sessionId: String? = null,
 ) {
+    val safeRequest: SafeRequestPreview
+        get() = request.safeRequest
+
+    fun authenticatedRequest(accessToken: String): TaruHttpRequest =
+        request.authenticatedRequest(accessToken)
+
+    fun authenticatedSessionProbeRequest(accessToken: String): TaruHttpRequest? =
+        sessionProbeRequest?.authenticatedRequest(accessToken)
+
     override fun toString(): String =
         "PlaybackRequestTarget(safeRequest=$safeRequest, hasSessionProbeRequest=${sessionProbeRequest != null}, sessionId=$sessionId)"
 }

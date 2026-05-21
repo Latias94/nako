@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "slug": "android-fearless-client-refactor",
+  "title": "Android Fearless Client Refactor",
+  "status": "complete",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "The Android client foundation works, but early seams around Public Client API execution, browse orchestration, playback token safety, network policy, paging, and product UI hardening will become expensive unless refactored fearlessly now.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-fearless-client-refactor/DESIGN.md"
+    },
+    {
+      "role": "register",
+      "path": "docs/workstreams/android-fearless-client-refactor/REFACTOR_REGISTER.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-fearless-client-refactor/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-fearless-client-refactor/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon",
+    "apps/android/scripts/Validate-AndroidLocal.ps1",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "AFCR-000",
+      "path": "docs/workstreams/android-fearless-client-refactor/",
+      "status": "planned"
+    },
+    {
+      "task": "AFCR-010",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "PublicClientApiExecutor introduced; connection, browse, playback, and User Playback State route clients migrated; focused and full Android JVM tests passed on 2026-05-20."
+    },
+    {
+      "task": "AFCR-020",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Playback launch route state migrated to token-safe descriptors; Authorization is injected only at final runtime request boundaries; focused and full Android JVM tests passed on 2026-05-20."
+    },
+    {
+      "task": "AFCR-030",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "BrowseSession split into deep navigation, route-state, route-loading, search, detail/source/playback-selection, and playback-start modules; browse-focused and full Android JVM tests passed on 2026-05-21."
+    },
+    {
+      "task": "AFCR-040",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Android cleartext policy split into production deny and debug/local-development allow; transport has a final policy guard; connection-focused and full Android JVM tests passed on 2026-05-21."
+    },
+    {
+      "task": "AFCR-050",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Reusable server-backed paging helpers and load-more actions added for Search, relationship indexes, and public-backed facets; focused and full Android JVM tests passed on 2026-05-21."
+    },
+    {
+      "task": "AFCR-060",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Product-facing copy, first Android string-resource seams, and accessibility semantics added for key settings, browse, source picker, detail, player, artwork, and diagnostics surfaces; focused and full Android JVM tests passed on 2026-05-21."
+    },
+    {
+      "task": "AFCR-070",
+      "path": "docs/workstreams/android-fearless-client-refactor/HANDOFF.md",
+      "status": "passed",
+      "summary": "Architecture reassessment complete: keep Kotlin package seams for closeout; split generated Kotlin SDK, shared Rust/UniFFI client core, Gradle module split, artwork descriptors, broader paging, downloads/offline, external player handoff, and Android TV into separate target-state workstreams."
+    },
+    {
+      "task": "AFCR-080",
+      "path": "docs/workstreams/android-fearless-client-refactor/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Final closeout complete: full Android JVM tests, debug assemble, local validation with smoke, JSON validation, and git diff whitespace checks passed on 2026-05-21. Smoke harness copy assertions were updated to the AFCR-060 product language."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "task_prefix": "AFCR",
+  "priorities": [
+    {
+      "priority": "P0",
+      "description": "Security and architecture boundaries that should be fixed before more feature expansion."
+    },
+    {
+      "priority": "P1",
+      "description": "High-leverage refactors that reduce duplicated future work."
+    },
+    {
+      "priority": "P2",
+      "description": "Production-readiness, networking, paging, and scalability hardening."
+    },
+    {
+      "priority": "P3",
+      "description": "Product copy, accessibility, localization, and UX polish."
+    }
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "next_task": null,
+    "notes": "Android Fearless Client Refactor is complete. Keep package seams for this lane; split generated Kotlin SDK, shared Rust/UniFFI client core, Gradle module split, artwork descriptors, broader Home/Library Detail paging, downloads/offline, external player handoff, and Android TV into separate target-state workstreams when they become active product goals."
+  }
+}

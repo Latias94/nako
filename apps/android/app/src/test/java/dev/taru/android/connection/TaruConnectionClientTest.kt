@@ -28,7 +28,11 @@ class TaruConnectionClientTest {
                 ),
             ),
         )
-        val client = TaruConnectionClient(transport = transport, clockMillis = { 42L })
+        val client = TaruConnectionClient(
+            transport = transport,
+            clockMillis = { 42L },
+            securityPolicy = ConnectionSecurityPolicy.allowCleartextForLocalDevelopment(),
+        )
 
         val result = client.testConnection(
             baseUrlInput = " http://localhost:3000/ ",
@@ -86,7 +90,10 @@ class TaruConnectionClientTest {
                 ),
             ),
         )
-        val client = TaruConnectionClient(transport = transport)
+        val client = TaruConnectionClient(
+            transport = transport,
+            securityPolicy = ConnectionSecurityPolicy.allowCleartextForLocalDevelopment(),
+        )
 
         val result = client.testConnection(
             baseUrlInput = "http://localhost:3000",
@@ -132,7 +139,10 @@ class TaruConnectionClientTest {
     @Test
     fun `invalid url and missing token fail locally without transport`() = runBlocking {
         val transport = FakeTransport()
-        val client = TaruConnectionClient(transport = transport)
+        val client = TaruConnectionClient(
+            transport = transport,
+            securityPolicy = ConnectionSecurityPolicy.allowCleartextForLocalDevelopment(),
+        )
 
         val invalidUrl = client.testConnection("ftp://taru.example.test", "secret-token")
         val missingToken = client.testConnection("http://localhost:3000", " ")
@@ -146,6 +156,71 @@ class TaruConnectionClientTest {
             (missingToken as ConnectionCheckResult.Failure).diagnostics.category,
         )
         assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
+    fun `production policy rejects cleartext http before token or transport`() = runBlocking {
+        val transport = FakeTransport()
+        val client = TaruConnectionClient(transport = transport)
+
+        val result = client.testConnection(
+            baseUrlInput = "http://localhost:3000",
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is ConnectionCheckResult.Failure)
+        val diagnostics = (result as ConnectionCheckResult.Failure).diagnostics
+        assertEquals(ConnectionFailureCategory.InsecureCleartextHttp, diagnostics.category)
+        assertEquals("cleartext_http_not_allowed", diagnostics.publicError?.code)
+        assertEquals("http://localhost:3000", diagnostics.request?.url)
+        assertFalse(diagnostics.toString().contains("secret-token"))
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
+    fun `local development policy can explicitly allow cleartext http`() = runBlocking {
+        val transport = FakeTransport(
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    body = """{"status":"ok","version":"v1"}""",
+                ),
+            ),
+            ResponseStep(
+                TaruHttpResponse(
+                    statusCode = 200,
+                    headers = mapOf(TaruPublicApiContract.apiVersionHeader to listOf("v1")),
+                    body = """{"items":[],"page":{"limit":1,"offset":0,"returned":0}}""",
+                ),
+            ),
+        )
+        val client = TaruConnectionClient(
+            transport = transport,
+            securityPolicy = ConnectionSecurityPolicy.allowCleartextForLocalDevelopment(),
+        )
+
+        val result = client.testConnection(
+            baseUrlInput = "http://localhost:3000",
+            accessToken = "secret-token",
+        )
+
+        assertTrue(result is ConnectionCheckResult.Success)
+        assertEquals("http://localhost:3000/health", transport.requests.first().url)
+    }
+
+    @Test
+    fun `transport enforces production cleartext policy as final guard`() = runBlocking {
+        val transport = JdkTaruHttpTransport(
+            securityPolicy = ConnectionSecurityPolicy.production(),
+        )
+
+        val error = runCatching {
+            transport.execute(TaruHttpRequest("GET", "http://localhost:9/health"))
+        }.exceptionOrNull()
+
+        assertTrue(error is CleartextHttpNotPermittedException)
+        assertFalse(error.toString().contains("secret-token"))
     }
 
     @Test
@@ -196,7 +271,7 @@ class TaruConnectionClientTest {
                 normalizedBaseUrl = first.baseUrl,
                 diagnostics = SafeConnectionDiagnostics(
                     category = ConnectionFailureCategory.Unauthorized,
-                    userMessage = "The access token is invalid or expired.",
+                    userMessage = "The server access key is invalid or expired.",
                     publicError = PublicErrorEnvelope("unauthorized", "authentication required"),
                 ),
             ),

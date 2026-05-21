@@ -37,6 +37,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.ui.theme.TaruArtworkAccents
@@ -189,7 +193,14 @@ internal fun TaruStatusPill(
     onClick: (() -> Unit)? = null,
 ) {
     Surface(
-        modifier = Modifier.clickable(enabled = onClick != null) { onClick?.invoke() },
+        modifier = Modifier
+            .semantics {
+                contentDescription = text
+                if (onClick != null) {
+                    role = Role.Button
+                }
+            }
+            .clickable(enabled = onClick != null) { onClick?.invoke() },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)),
@@ -221,6 +232,9 @@ internal fun TaruStatusPill(
 @Composable
 internal fun TaruStatusChip(text: String) {
     Surface(
+        modifier = Modifier.semantics {
+            contentDescription = "Status: $text"
+        },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
@@ -308,6 +322,7 @@ internal fun TaruPressableScale(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                role = Role.Button,
                 onClick = onClick,
             ),
     ) {

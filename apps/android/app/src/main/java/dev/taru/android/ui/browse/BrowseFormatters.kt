@@ -21,34 +21,34 @@ internal fun itemSecondaryText(item: MediaItemDto): String =
 
 internal fun browseFailureTitle(category: BrowseFailureCategory): String =
     when (category) {
-        BrowseFailureCategory.MissingItem -> "Media Item unavailable"
-        BrowseFailureCategory.MissingLibrary -> "Media Library unavailable"
+        BrowseFailureCategory.MissingItem -> "Title unavailable"
+        BrowseFailureCategory.MissingLibrary -> "Library unavailable"
         BrowseFailureCategory.MissingPerson -> "Person unavailable"
-        BrowseFailureCategory.MissingAccessToken -> "Authentication required"
+        BrowseFailureCategory.MissingAccessToken -> "Sign in required"
         BrowseFailureCategory.UnreachableServer -> "Server unreachable"
-        BrowseFailureCategory.Unauthorized -> "Authentication failed"
-        BrowseFailureCategory.Forbidden -> "Permission denied"
+        BrowseFailureCategory.Unauthorized -> "Sign in again"
+        BrowseFailureCategory.Forbidden -> "No access to this library"
         BrowseFailureCategory.UnsupportedApiVersion -> "Unsupported server"
         BrowseFailureCategory.TlsOrCertificate -> "Certificate problem"
         BrowseFailureCategory.PublicApiError -> "Browse failed"
-        BrowseFailureCategory.InvalidResponse -> "Invalid response"
+        BrowseFailureCategory.InvalidResponse -> "Unexpected server reply"
     }
 
 internal fun playbackFailureTitle(category: PlaybackFailureCategory): String =
     when (category) {
-        PlaybackFailureCategory.MissingSource -> "Media Source unavailable"
+        PlaybackFailureCategory.MissingSource -> "Version unavailable"
         PlaybackFailureCategory.MissingSession -> "Playback session unavailable"
-        PlaybackFailureCategory.MissingAccessToken -> "Authentication required"
+        PlaybackFailureCategory.MissingAccessToken -> "Sign in required"
         PlaybackFailureCategory.UnreachableServer -> "Server unreachable"
-        PlaybackFailureCategory.Unauthorized -> "Authentication failed"
-        PlaybackFailureCategory.Forbidden -> "Permission denied"
+        PlaybackFailureCategory.Unauthorized -> "Sign in again"
+        PlaybackFailureCategory.Forbidden -> "No access to this title"
         PlaybackFailureCategory.UnsupportedApiVersion -> "Unsupported server"
         PlaybackFailureCategory.TlsOrCertificate -> "Certificate problem"
-        PlaybackFailureCategory.UnsupportedSource -> "Unsupported source"
-        PlaybackFailureCategory.SourceUnavailable -> "Source unavailable"
+        PlaybackFailureCategory.UnsupportedSource -> "Unsupported version"
+        PlaybackFailureCategory.SourceUnavailable -> "Version unavailable"
         PlaybackFailureCategory.SessionConflict -> "Session conflict"
         PlaybackFailureCategory.PublicApiError -> "Playback request failed"
-        PlaybackFailureCategory.InvalidResponse -> "Invalid response"
+        PlaybackFailureCategory.InvalidResponse -> "Unexpected server reply"
     }
 
 internal fun playbackModeLabel(mode: ClientPlaybackMode): String =

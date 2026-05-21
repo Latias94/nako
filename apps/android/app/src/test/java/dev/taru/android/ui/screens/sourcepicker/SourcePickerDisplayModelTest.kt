@@ -38,9 +38,48 @@ class SourcePickerDisplayModelTest {
         }.joinToString(" ")
 
         assertTrue(visibleText.contains("night-harbor.mkv"))
-        assertTrue(visibleText.contains("Media Library library-a"))
+        assertTrue(visibleText.contains("Library library-a"))
         assertFalse(visibleText.contains("file://"))
         assertFalse(visibleText.contains("/srv/private"))
+    }
+
+    @Test
+    fun sourcePickerAccessibilityModelDescribesSelectionAndAction() {
+        val selected = sourcePickerDisplayModel(
+            source = MediaSourceDto(
+                id = "source-1",
+                libraryId = "library-a",
+                fileName = "night-harbor.mkv",
+                sizeBytes = 42,
+            ),
+            index = 0,
+            selected = true,
+            activeDecision = null,
+        )
+        val unselected = selected.copy(selected = false)
+
+        assertEquals("Selected version: night-harbor.mkv. Library library-a / Version 1.", selected.accessibilityLabel)
+        assertEquals("Choose version: night-harbor.mkv. Library library-a / Version 1.", unselected.accessibilityLabel)
+        assertEquals("Selected", selected.stateDescription)
+        assertEquals("Not selected", unselected.stateDescription)
+    }
+
+    @Test
+    fun sourcePickerFallbackCopyUsesVersionLanguage() {
+        val model = sourcePickerDisplayModel(
+            source = MediaSourceDto(
+                id = "source-1",
+                libraryId = "",
+                fileName = "",
+            ),
+            index = 1,
+            selected = false,
+            activeDecision = null,
+        )
+
+        assertEquals("Version 2", model.primaryLabel)
+        assertFalse(model.primaryLabel.contains("Media Source"))
+        assertTrue(model.accessibilityLabel.startsWith("Choose version"))
     }
 
     @Test
@@ -108,7 +147,28 @@ class SourcePickerDisplayModelTest {
         assertEquals("Remux", remux.label)
         assertEquals("Container change", remux.warning)
         assertEquals("HLS", hls.label)
-        assertEquals("Server work required", hls.warning)
-        assertTrue(hls.consequence.contains("Server prepares"))
+        assertEquals("Prepared on server", hls.warning)
+        assertTrue(hls.consequence.contains("adaptive stream"))
+    }
+
+    @Test
+    fun resumeCopyAvoidsInternalUserPlaybackStateLanguage() {
+        val serverResume = resumePositionPresentation(
+            dev.taru.android.player.ResumePlaybackPosition(
+                positionMs = 92_000,
+                source = dev.taru.android.player.PlaybackResumeSource.UserPlaybackState,
+            ),
+        )
+        val localResume = resumePositionPresentation(
+            dev.taru.android.player.ResumePlaybackPosition(
+                positionMs = 92_000,
+                source = dev.taru.android.player.PlaybackResumeSource.DeviceLocal,
+            ),
+        )
+
+        assertEquals("Resume from your last server position", serverResume.title)
+        assertFalse(serverResume.body.contains("User Playback State"))
+        assertEquals("Resume where this device stopped", localResume.title)
+        assertFalse(localResume.body.contains("source"))
     }
 }

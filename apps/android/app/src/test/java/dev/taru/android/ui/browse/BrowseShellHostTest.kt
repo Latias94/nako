@@ -9,14 +9,13 @@ import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
 import dev.taru.android.browse.PageInfo
+import dev.taru.android.browse.PageRequest
 import dev.taru.android.browse.PersonDto
 import dev.taru.android.browse.PersonResponse
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.browse.FacetItemsResponse
-import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
-import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.media.MediaProbeDto
 import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.playback.ClientPlaybackDecision
@@ -24,6 +23,7 @@ import dev.taru.android.playback.ClientPlaybackMode
 import dev.taru.android.playback.PlaybackCapabilities
 import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackMediaSourceDto
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.PlaybackStartRequest
 import dev.taru.android.playback.PlaybackStartResult
@@ -236,10 +236,16 @@ private class RecordingHostBrowseDataSource(
             ),
         )
 
-    override suspend fun search(query: String): SearchUiState =
+    override suspend fun search(
+        query: String,
+        page: PageRequest,
+    ): SearchUiState =
         SearchUiState.Content(SearchResponse(hits = emptyList(), page = testPage(0)))
 
-    override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState =
+    override suspend fun loadFacet(
+        target: BrowseFacetTarget,
+        page: PageRequest,
+    ): FacetUiState =
         FacetUiState.Content(
             FacetItemsResponse(
                 family = dev.taru.android.browse.BrowseFacetFamily.Genre,
@@ -250,7 +256,10 @@ private class RecordingHostBrowseDataSource(
             ),
         )
 
-    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
+    override suspend fun loadRelationshipIndex(
+        family: RelationshipIndexFamily,
+        page: PageRequest,
+    ): RelationshipIndexUiState {
         relationshipIndexRequests += family
         return RelationshipIndexUiState.Content(
             family = family,
@@ -351,12 +360,7 @@ private fun testPlaybackDecision(sourceId: String): PlaybackDecisionResponse =
 
 private fun testPlaybackTarget(sourceId: String): PlaybackRequestTarget =
     PlaybackRequestTarget(
-        request = TaruHttpRequest(
-            method = "GET",
-            url = "http://127.0.0.1:3018/sources/$sourceId/stream",
-            headers = emptyMap(),
-        ),
-        safeRequest = SafeRequestPreview(
+        request = PlaybackRequestDescriptor(
             method = "GET",
             url = "http://127.0.0.1:3018/sources/$sourceId/stream",
             headers = emptyMap(),

@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import dev.taru.android.connection.ConnectionCheckResult
@@ -36,6 +37,7 @@ import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.connection.TaruConnectionClient
 import dev.taru.android.connection.TaruPublicApiContract
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
@@ -113,7 +115,7 @@ internal fun TaruConnectionShellContent(
                         modifier = Modifier.fillMaxWidth(),
                         value = state.accessToken,
                         onValueChange = { session.dispatch(ConnectionAction.AccessTokenChanged(it)) },
-                        label = { Text("Access Token") },
+                        label = { Text(stringResource(TaruStrings.accessKeyLabel)) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                     )
@@ -161,7 +163,7 @@ internal fun TaruConnectionShellContent(
 private fun ConnectionResultSummary(result: ConnectionCheckResult) {
     val text = when (result) {
         is ConnectionCheckResult.Success ->
-            "Connected. Public Client API ${result.apiVersion} is supported."
+            "Connected. This server is compatible (${result.apiVersion})."
         is ConnectionCheckResult.Failure -> when (result.diagnostics.category) {
             ConnectionFailureCategory.InvalidUrl,
             ConnectionFailureCategory.MissingAccessToken,
@@ -169,6 +171,7 @@ private fun ConnectionResultSummary(result: ConnectionCheckResult) {
             ConnectionFailureCategory.Unauthorized,
             ConnectionFailureCategory.UnsupportedApiVersion,
             ConnectionFailureCategory.TlsOrCertificate,
+            ConnectionFailureCategory.InsecureCleartextHttp,
             ConnectionFailureCategory.PublicApiError,
             ConnectionFailureCategory.InvalidResponse,
             -> result.diagnostics.userMessage
@@ -178,7 +181,7 @@ private fun ConnectionResultSummary(result: ConnectionCheckResult) {
         is ConnectionCheckResult.Success -> "Save this profile to make it active."
         is ConnectionCheckResult.Failure -> result.diagnostics.publicError?.let {
             "${it.code}: ${it.message}"
-        } ?: "Check the server address, token, or network and retry."
+        } ?: "Check the server address, sign-in key, or network and retry."
     }
 
     Surface(
@@ -262,7 +265,7 @@ private fun SavedServerProfiles(
                         )
                         profile.lastObservedApiVersion?.let { version ->
                             Text(
-                                text = "API $version",
+                                text = "Compatibility $version",
                                 color = TaruTextMuted,
                                 style = MaterialTheme.typography.labelMedium,
                             )

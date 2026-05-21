@@ -38,9 +38,30 @@ class SettingsPresentationTest {
         )
 
         assertEquals("2026-05-01", presentation.apiLabel)
-        assertEquals("transport_error", presentation.lastErrorLabel)
+        assertEquals("Connection issue", presentation.lastErrorLabel)
         assertTrue(presentation.report.contains("display_name=Home"))
         assertFalse(presentation.report.contains("server-token"))
         assertFalse(presentation.report.contains("secret-token"))
+        assertFalse(presentation.lastErrorLabel.contains("_"))
+    }
+
+    @Test
+    fun settingsPresentationUsesUserFacingLabelsForEmptyDiagnostics() {
+        val presentation = settingsDiagnosticsPresentation(
+            profile = ServerProfile(
+                id = "server-1",
+                displayName = "Home",
+                baseUrl = "https://home.example.test",
+                tokenReference = "server-token:server-1",
+            ),
+            snapshot = ServerProfileSnapshot(
+                profiles = emptyList(),
+                activeProfileId = null,
+            ),
+        )
+
+        assertEquals("Not checked yet", presentation.apiLabel)
+        assertEquals("No recent issue", presentation.lastErrorLabel)
+        assertEquals("No successful check yet", presentation.connectionLabel)
     }
 }

@@ -152,6 +152,7 @@ internal fun TaruBrowseShell(
                     onSearchQueryChange = { dispatchBrowseAction(BrowseAction.SearchQueryChanged(it)) },
                     onSubmitSearch = { dispatchBrowseAction(BrowseAction.SubmitSearch) },
                     onRetrySearch = { dispatchBrowseAction(BrowseAction.RetrySearch) },
+                    onLoadMoreSearch = { dispatchBrowseAction(BrowseAction.LoadMoreSearch) },
                     onChangeServer = onChangeServer,
                     onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                     onOpenLibrary = {
@@ -217,6 +218,7 @@ internal fun TaruBrowseShell(
                     state = shellState.relationshipIndexState,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
+                    onLoadMore = { dispatchBrowseAction(BrowseAction.LoadMoreRelationshipIndex) },
                     onChangeServer = onChangeServer,
                     onOpenFacet = { dispatchBrowseAction(BrowseAction.OpenFacet(it)) },
                 )
@@ -229,6 +231,7 @@ internal fun TaruBrowseShell(
                     state = shellState.facetState,
                     onBack = { dispatchBrowseAction(BrowseAction.Back) },
                     onRetry = { dispatchBrowseAction(BrowseAction.RetryCurrentRoute) },
+                    onLoadMore = { dispatchBrowseAction(BrowseAction.LoadMoreFacet) },
                     onChangeServer = onChangeServer,
                     onOpenItem = { dispatchBrowseAction(BrowseAction.OpenItem(it.id)) },
                 )
@@ -262,6 +265,7 @@ private fun TopLevelContent(
     onSearchQueryChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
     onRetrySearch: () -> Unit,
+    onLoadMoreSearch: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
     onOpenLibrary: () -> Unit,
@@ -307,6 +311,7 @@ private fun TopLevelContent(
                 onQueryChange = onSearchQueryChange,
                 onSubmit = onSubmitSearch,
                 onRetry = onRetrySearch,
+                onLoadMore = onLoadMoreSearch,
                 onChangeServer = onChangeServer,
                 onOpenItem = onOpenItem,
             )

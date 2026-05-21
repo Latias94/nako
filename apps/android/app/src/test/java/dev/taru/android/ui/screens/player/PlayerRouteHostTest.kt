@@ -1,9 +1,8 @@
 package dev.taru.android.ui.screens.player
 
 import androidx.media3.common.Player
-import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.player.PlaybackExitSnapshot
 import dev.taru.android.player.PlaybackLaunchRequest
@@ -189,15 +188,9 @@ private fun launch(): PlaybackLaunchRequest =
     playbackLaunchRequest(
         title = "Night Harbor",
         target = PlaybackRequestTarget(
-            request = TaruHttpRequest(
+            request = PlaybackRequestDescriptor(
                 method = "GET",
                 url = "http://127.0.0.1:3018/sources/source-1/stream/hls/playlist.m3u8",
-                headers = mapOf("Authorization" to "Bearer secret-token"),
-            ),
-            safeRequest = SafeRequestPreview(
-                method = "GET",
-                url = "http://127.0.0.1:3018/sources/source-1/stream/hls/playlist.m3u8",
-                headers = mapOf("Authorization" to "Bearer <redacted>"),
             ),
         ),
         serverProfileId = "server-1",

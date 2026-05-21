@@ -41,10 +41,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.rememberTaruClipboard
 import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PageTitle
@@ -96,7 +102,7 @@ internal fun SettingsHomeScreen(
             title = "Account Access",
             rows = listOf(
                 SettingsRow("Switch server", "Choose active profile", Icons.Rounded.SyncAlt, onChangeServer),
-                SettingsRow("Re-authenticate", "Replace access token", Icons.Rounded.Security, onChangeServer),
+                SettingsRow("Sign in again", "Refresh this server's saved access", Icons.Rounded.Security, onChangeServer),
                 SettingsRow("Server profile", "Connection details", Icons.Rounded.Storage, onOpenServerProfile),
             ),
         )
@@ -106,7 +112,7 @@ internal fun SettingsHomeScreen(
             rows = listOf(
                 SettingsRow("Playback decision", "Automatic", Icons.Rounded.PlayArrow),
                 SettingsRow("Streaming preference", "Prefer Direct when available", Icons.Rounded.SignalCellularAlt),
-                SettingsRow("Local resume", "Device-only until User Playback State API", Icons.Rounded.Movie),
+                SettingsRow("Resume", "This device remembers local playback positions", Icons.Rounded.Movie),
             ),
         )
 
@@ -121,12 +127,13 @@ internal fun SettingsHomeScreen(
         SettingsGroup(
             title = "Diagnostics",
             rows = listOf(
-                SettingsRow("Public Client API", diagnostics.apiLabel, Icons.Rounded.CheckCircle),
-                SettingsRow("Last public error", diagnostics.lastErrorLabel, Icons.Rounded.ErrorOutline),
+                SettingsRow("Server compatibility", diagnostics.apiLabel, Icons.Rounded.CheckCircle),
+                SettingsRow("Last connection issue", diagnostics.lastErrorLabel, Icons.Rounded.ErrorOutline),
                 SettingsRow(
                     "Copy diagnostics",
                     "Sanitized report",
                     Icons.Rounded.ContentCopy,
+                    accessibilityLabel = stringResource(TaruStrings.copyDiagnosticsAccessibility),
                     onClick = { clipboard.copyPlainText("Taru diagnostics", diagnostics.report) },
                 ),
             ),
@@ -164,7 +171,7 @@ internal fun ServerProfileScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(TaruStrings.back),
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall)) {
@@ -193,12 +200,13 @@ internal fun ServerProfileScreen(
             title = "Connection",
             rows = listOf(
                 SettingsRow("Base URL", activeProfile.baseUrl, Icons.Rounded.Language),
-                SettingsRow("Public Client API", diagnostics.apiLabel, Icons.Rounded.CheckCircle),
-                SettingsRow("Last public error", diagnostics.lastErrorLabel, Icons.Rounded.ErrorOutline),
+                SettingsRow("Server compatibility", diagnostics.apiLabel, Icons.Rounded.CheckCircle),
+                SettingsRow("Last connection issue", diagnostics.lastErrorLabel, Icons.Rounded.ErrorOutline),
                 SettingsRow(
                     "Copy diagnostics",
                     "Sanitized report",
                     Icons.Rounded.ContentCopy,
+                    accessibilityLabel = stringResource(TaruStrings.copyDiagnosticsAccessibility),
                     onClick = { clipboard.copyPlainText("Taru diagnostics", diagnostics.report) },
                 ),
             ),
@@ -229,6 +237,7 @@ private data class SettingsRow(
     val value: String?,
     val icon: ImageVector,
     val onClick: (() -> Unit)? = null,
+    val accessibilityLabel: String? = null,
 )
 
 @Composable
@@ -241,7 +250,15 @@ private fun ActiveServerPanel(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onOpenServerProfile() },
+            .semantics {
+                contentDescription = "${profile.displayName}. ${diagnostics.connectionLabel}. Open server profile."
+                role = Role.Button
+            }
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open server profile",
+                onClick = onOpenServerProfile,
+            ),
         shape = TaruShape.medium,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)),
@@ -275,14 +292,14 @@ private fun ActiveServerPanel(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                StatusChip(text = "API ${diagnostics.apiLabel}")
+                StatusChip(text = "Compatibility ${diagnostics.apiLabel}")
             }
             Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
                 Button(onClick = onOpenServerProfile) {
                     Text("Profile")
                 }
                 OutlinedButton(onClick = onChangeServer) {
-                    Text("Switch")
+                    Text(stringResource(TaruStrings.switchServer))
                 }
             }
         }
@@ -314,7 +331,7 @@ private fun ServerIdentityPanel(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = "Token reference is stored locally; token value is never shown.",
+                    text = "Your saved sign-in is stored locally. The secret value is never shown.",
                     color = TaruTextMuted,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -333,11 +350,11 @@ private fun AccessTokenPanel(onChangeServer: () -> Unit) {
             IconBadge(icon = Icons.Rounded.Lock)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Server Access Token",
+                    text = "Server sign-in",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Stored securely on this device. The token value is not displayed or copied.",
+                    text = "Stored securely on this device. The secret value is not displayed or copied.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -352,7 +369,7 @@ private fun AccessTokenPanel(onChangeServer: () -> Unit) {
                 contentDescription = null,
             )
             Spacer(modifier = Modifier.width(TaruSpacing.small))
-            Text("Re-authenticate")
+            Text("Sign in again")
         }
         OutlinedButton(
             onClick = onChangeServer,
@@ -363,7 +380,7 @@ private fun AccessTokenPanel(onChangeServer: () -> Unit) {
                 contentDescription = null,
             )
             Spacer(modifier = Modifier.width(TaruSpacing.small))
-            Text("Replace access token")
+            Text("Replace saved access")
         }
     }
 }
@@ -393,7 +410,20 @@ private fun SettingsListRow(row: SettingsRow) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = TaruTouchTarget.minimum)
-            .clickable(enabled = row.onClick != null) { row.onClick?.invoke() }
+            .semantics {
+                contentDescription = row.accessibilityLabel
+                    ?: listOfNotNull(row.label, row.value).joinToString(". ")
+                if (row.onClick != null) {
+                    role = Role.Button
+                }
+            }
+            .clickable(
+                enabled = row.onClick != null,
+                role = if (row.onClick != null) Role.Button else null,
+                onClickLabel = row.label,
+            ) {
+                row.onClick?.invoke()
+            }
             .padding(TaruSpacing.medium),
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
         verticalAlignment = Alignment.CenterVertically,
@@ -413,7 +443,7 @@ private fun SettingsListRow(row: SettingsRow) {
             row.value?.let {
                 Text(
                     text = it,
-                    color = if (it.equals("None", ignoreCase = true) || it.equals("Connected", ignoreCase = true)) {
+                    color = if (it.equals("Connected", ignoreCase = true)) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         TaruTextSecondary
@@ -437,7 +467,15 @@ private fun DangerSignOutPanel(onSignOut: () -> Unit) {
     ) {
         Row(
             modifier = Modifier
-                .clickable(onClick = onSignOut)
+                .semantics {
+                    contentDescription = "Sign out from this server. Removes saved access."
+                    role = Role.Button
+                }
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = "Sign out from this server",
+                    onClick = onSignOut,
+                )
                 .padding(TaruSpacing.large),
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
@@ -454,7 +492,7 @@ private fun DangerSignOutPanel(onSignOut: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Deletes the local token reference and returns to connection setup.",
+                    text = "Removes saved access for this server and returns to connection setup.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )

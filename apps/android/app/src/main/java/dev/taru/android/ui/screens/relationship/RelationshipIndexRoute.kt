@@ -26,13 +26,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.browse.ArtworkBackdrop
 import dev.taru.android.ui.browse.BrowseFacetTarget
 import dev.taru.android.ui.browse.EmptyCard
 import dev.taru.android.ui.browse.FailureCard
 import dev.taru.android.ui.browse.IconBadge
+import dev.taru.android.ui.browse.LoadMoreFooter
 import dev.taru.android.ui.browse.LoadingCard
 import dev.taru.android.ui.browse.RelationshipIndexFamily
 import dev.taru.android.ui.browse.RelationshipIndexRow
@@ -63,8 +70,8 @@ internal fun relationshipIndexPresentation(
     RelationshipIndexPresentation(
         title = content.family.label,
         subtitle = when (content.family) {
-            RelationshipIndexFamily.Genres -> "Server Genres Index"
-            RelationshipIndexFamily.Tags -> "Server Tags Index"
+            RelationshipIndexFamily.Genres -> "Browse by genre"
+            RelationshipIndexFamily.Tags -> "Browse by tag"
         },
         icon = relationshipIndexIcon(content.family),
         sectionTitle = when (content.family) {
@@ -76,8 +83,8 @@ internal fun relationshipIndexPresentation(
             RelationshipIndexFamily.Tags -> "No Tags"
         },
         emptyBody = when (content.family) {
-            RelationshipIndexFamily.Genres -> "The active server returned no visible Genre labels for this access token."
-            RelationshipIndexFamily.Tags -> "The active server returned no visible Tag labels for this access token."
+            RelationshipIndexFamily.Genres -> "No genres are visible for this server sign-in."
+            RelationshipIndexFamily.Tags -> "No tags are visible for this server sign-in."
         },
         resultLabel = "${content.rows.size} visible",
         returnedLabel = "${content.page.returned} returned",
@@ -96,6 +103,7 @@ internal fun RelationshipIndexRouteContent(
     state: RelationshipIndexUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
@@ -103,7 +111,7 @@ internal fun RelationshipIndexRouteContent(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(TaruStrings.back),
             )
         }
 
@@ -112,7 +120,7 @@ internal fun RelationshipIndexRouteContent(
             RelationshipIndexUiState.Loading,
             -> LoadingCard(
                 title = "Loading ${family.label}",
-                body = "Fetching server-backed relationship labels.",
+                body = "Loading labels from your server.",
             )
             is RelationshipIndexUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -121,6 +129,8 @@ internal fun RelationshipIndexRouteContent(
             )
             is RelationshipIndexUiState.Content -> RelationshipIndexScreen(
                 presentation = relationshipIndexPresentation(state),
+                content = state,
+                onLoadMore = onLoadMore,
                 onOpenFacet = onOpenFacet,
             )
         }
@@ -130,6 +140,8 @@ internal fun RelationshipIndexRouteContent(
 @Composable
 private fun RelationshipIndexScreen(
     presentation: RelationshipIndexPresentation,
+    content: RelationshipIndexUiState.Content,
+    onLoadMore: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
     RelationshipIndexHeader(presentation = presentation)
@@ -148,6 +160,12 @@ private fun RelationshipIndexScreen(
             icon = presentation.icon,
             rows = presentation.rows,
             onOpenFacet = onOpenFacet,
+        )
+        LoadMoreFooter(
+            canLoadMore = content.canLoadMore,
+            isLoadingMore = content.isLoadingMore,
+            failureMessage = content.loadMoreFailure?.userMessage,
+            onLoadMore = onLoadMore,
         )
     }
 }
@@ -205,7 +223,7 @@ private fun RelationshipIndexHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 ) {
-                    StatusChip(text = "Public API")
+                    StatusChip(text = "From server")
                     StatusChip(text = presentation.resultLabel)
                     StatusChip(text = presentation.returnedLabel)
                 }
@@ -244,6 +262,10 @@ private fun GenreIndexRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics {
+                contentDescription = "${row.title}. ${row.subtitle}"
+                role = Role.Button
+            }
             .clickable { onOpenFacet(row.target) },
         shape = TaruShape.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (index == 0) 0.72f else 0.38f),
@@ -277,7 +299,7 @@ private fun GenreIndexRow(
                 )
             }
             Text(
-                text = row.target.id?.let { "API backed" } ?: "API gap",
+                text = row.target.id?.let { "Open" } ?: "Not available",
                 color = TaruTextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )

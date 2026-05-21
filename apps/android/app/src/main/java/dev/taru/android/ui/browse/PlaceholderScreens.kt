@@ -7,6 +7,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import dev.taru.android.ui.TaruStrings
 
 @Composable
 internal fun PlaceholderTopLevel(
@@ -41,7 +43,7 @@ internal fun PlaceholderRoute(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(TaruStrings.back),
             )
         }
         PageTitle(
@@ -49,6 +51,6 @@ internal fun PlaceholderRoute(
             subtitle = subtitle,
             icon = Icons.Rounded.Search,
         )
-        EmptyCard(title = "Public API backed route", body = body)
+        EmptyCard(title = "Server-backed page", body = body)
     }
 }

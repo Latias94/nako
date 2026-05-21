@@ -1,13 +1,13 @@
 package dev.taru.android.player
 
 import dev.taru.android.connection.InMemoryTokenVault
-import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.userplayback.TaruUserPlaybackClient
@@ -145,15 +145,9 @@ class PlaybackExitCoordinatorTest {
         playbackLaunchRequest(
             title = "Night Harbor",
             target = PlaybackRequestTarget(
-                request = TaruHttpRequest(
+                request = PlaybackRequestDescriptor(
                     method = "GET",
                     url = "http://home.example.test/api/sources/source-1/stream/remux",
-                    headers = mapOf("Authorization" to "Bearer secret-token"),
-                ),
-                safeRequest = SafeRequestPreview(
-                    method = "GET",
-                    url = "http://home.example.test/api/sources/source-1/stream/remux",
-                    headers = mapOf("Authorization" to "Bearer <redacted>"),
                 ),
                 sessionId = sessionId,
             ),

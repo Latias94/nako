@@ -1,9 +1,8 @@
 package dev.taru.android.player
 
 import android.content.SharedPreferences
-import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,15 +16,9 @@ class PlaybackLaunchTest {
         val launch = playbackLaunchRequest(
             title = "Night Harbor",
             target = PlaybackRequestTarget(
-                request = TaruHttpRequest(
+                request = PlaybackRequestDescriptor(
                     method = "GET",
                     url = "http://127.0.0.1:3018/sources/source-1/stream/hls/playlist.m3u8",
-                    headers = mapOf("Authorization" to "Bearer secret-token"),
-                ),
-                safeRequest = SafeRequestPreview(
-                    method = "GET",
-                    url = "http://127.0.0.1:3018/sources/source-1/stream/hls/playlist.m3u8",
-                    headers = mapOf("Authorization" to "Bearer <redacted>"),
                 ),
             ),
             serverProfileId = "server-1",
@@ -36,9 +29,33 @@ class PlaybackLaunchTest {
             resumePositionMs = 12_000,
         )
 
+        assertEquals(null, launch.request.headers["Authorization"])
+        assertEquals("Bearer <redacted>", launch.safeRequest.headers["Authorization"])
+        assertEquals(
+            "Bearer secret-token",
+            launch.authenticatedRequest("secret-token").headers["Authorization"],
+        )
         assertTrue(launch.toString().contains("Bearer <redacted>"))
         assertTrue(launch.toString().contains("session-1"))
         assertFalse(launch.toString().contains("secret-token"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `playback request descriptor rejects authorization headers`() {
+        PlaybackRequestDescriptor(
+            method = "GET",
+            url = "http://127.0.0.1:3018/sources/source-1/stream",
+            headers = mapOf("Authorization" to "Bearer secret-token"),
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `playback request descriptor rejects bearer tokens in non auth headers`() {
+        PlaybackRequestDescriptor(
+            method = "GET",
+            url = "http://127.0.0.1:3018/sources/source-1/stream",
+            headers = mapOf("X-Debug" to "Bearer secret-token"),
+        )
     }
 
     @Test
@@ -46,15 +63,9 @@ class PlaybackLaunchTest {
         val launch = playbackLaunchRequest(
             title = "Night Harbor",
             target = PlaybackRequestTarget(
-                request = TaruHttpRequest(
+                request = PlaybackRequestDescriptor(
                     method = "GET",
                     url = "http://127.0.0.1:3018/sources/source-1/stream",
-                    headers = mapOf("Authorization" to "Bearer secret-token"),
-                ),
-                safeRequest = SafeRequestPreview(
-                    method = "GET",
-                    url = "http://127.0.0.1:3018/sources/source-1/stream",
-                    headers = mapOf("Authorization" to "Bearer <redacted>"),
                 ),
             ),
             serverProfileId = "server-1",

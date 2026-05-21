@@ -54,6 +54,7 @@ enum class ConnectionFailureCategory {
     Unauthorized,
     UnsupportedApiVersion,
     TlsOrCertificate,
+    InsecureCleartextHttp,
     PublicApiError,
     InvalidResponse,
 }

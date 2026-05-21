@@ -21,12 +21,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.LibrarySourceResponse
 import dev.taru.android.media.ClientMediaStreamKind
 import dev.taru.android.media.MediaProbeDto
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
@@ -44,7 +50,7 @@ internal fun LibraryDetailRouteContent(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(TaruStrings.back),
             )
         }
         when (state) {
@@ -52,7 +58,7 @@ internal fun LibraryDetailRouteContent(
             LibraryDetailUiState.Loading,
             -> LoadingCard(
                 title = "Loading Media Library",
-                body = "Fetching library summary and safe Media Source inventory.",
+                body = "Loading the library summary and playable versions.",
             )
             is LibraryDetailUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -79,13 +85,13 @@ private fun LibraryDetailScreen(
     LibraryDetailHeader(library = library)
 
     SectionHeader(
-        title = "Source inventory",
+        title = "Playable versions",
         action = returned.toString(),
     )
     if (sources.isEmpty()) {
         EmptyCard(
-            title = "No Media Sources",
-            body = "This library has no visible Media Sources in the current Public Client API page.",
+            title = "No playable versions",
+            body = "This library has no visible playable versions for the signed-in profile.",
         )
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium)) {
@@ -120,7 +126,7 @@ private fun LibraryDetailHeader(library: LibraryDto) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Public Client API backed Media Library.",
+                    text = "A server-backed library ready for browsing.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -144,6 +150,15 @@ private fun LibrarySourceRow(
 ) {
     val item = row.item
     PressableScale(
+        modifier = Modifier.semantics {
+            contentDescription = listOfNotNull(
+                item?.metadata?.title?.takeIf { it.isNotBlank() }
+                    ?: row.source.fileName.ifBlank { "Playable version" },
+                row.source.fileName.takeIf { it.isNotBlank() && it != item?.metadata?.title },
+                item?.kind,
+            ).joinToString(". ")
+            role = Role.Button
+        },
         onClick = {
             item
                 ?.id
@@ -172,7 +187,7 @@ private fun LibrarySourceRow(
                 ) {
                     Text(
                         text = item?.metadata?.title?.takeIf { it.isNotBlank() }
-                            ?: row.source.fileName.ifBlank { "Media Source" },
+                            ?: row.source.fileName.ifBlank { "Playable version" },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -192,7 +207,7 @@ private fun LibrarySourceRow(
                     }
                     if (item == null) {
                         Text(
-                            text = "This source is not linked to a visible Media Item in this response.",
+                            text = "This version is not linked to a visible title yet.",
                             color = TaruTextMuted,
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 2,

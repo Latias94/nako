@@ -12,7 +12,7 @@ class TaruArtworkSlotsTest {
         )
 
         assertEquals("N", presentation.initial)
-        assertEquals("Media Item", presentation.kindLabel)
+        assertEquals("Title", presentation.kindLabel)
         assertEquals("night harbor", presentation.seed)
     }
 

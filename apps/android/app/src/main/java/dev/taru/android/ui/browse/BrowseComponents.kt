@@ -45,6 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
@@ -53,6 +58,7 @@ import dev.taru.android.browse.LibraryDto
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.EmptyArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruPosterArtwork
@@ -151,7 +157,7 @@ internal fun ResumePlaceholder() {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Continue Watching appears only when authoritative User Playback State is available.",
+                    text = "Continue Watching appears after your server shares trusted watch progress.",
                     color = TaruTextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -257,11 +263,50 @@ internal fun FailureCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
                 Button(onClick = onRetry) {
-                    Text("Retry")
+                    Text(stringResource(TaruStrings.retry))
                 }
                 OutlinedButton(onClick = onChangeServer) {
-                    Text("Change server")
+                    Text(stringResource(TaruStrings.changeServer))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun LoadMoreFooter(
+    canLoadMore: Boolean,
+    isLoadingMore: Boolean,
+    failureMessage: String?,
+    onLoadMore: () -> Unit,
+) {
+    SurfaceCard {
+        Text(
+            text = if (canLoadMore) {
+                "More results may be available"
+            } else {
+                "You are all caught up"
+            },
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = failureMessage
+                ?: "Taru loads the next page from your server when one is available.",
+            color = TaruTextSecondary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (canLoadMore || failureMessage != null) {
+            Button(
+                onClick = onLoadMore,
+                enabled = canLoadMore && !isLoadingMore,
+            ) {
+                Text(
+                    if (isLoadingMore) {
+                        stringResource(TaruStrings.loadingMore)
+                    } else {
+                        stringResource(TaruStrings.loadMore)
+                    },
+                )
             }
         }
     }
@@ -300,7 +345,12 @@ internal fun MediaPosterCard(
         preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
     )
     PressableScale(
-        modifier = Modifier.width(116.dp),
+        modifier = Modifier
+            .width(116.dp)
+            .semantics {
+                contentDescription = mediaItemAccessibilityLabel(item)
+                role = Role.Button
+            },
         onClick = { onOpenItem(item) },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
@@ -339,7 +389,13 @@ internal fun MediaItemRow(
     val artworkRequest = artworkResolver.requestFor(
         preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
     )
-    PressableScale(onClick = { onOpenItem(item) }) {
+    PressableScale(
+        modifier = Modifier.semantics {
+            contentDescription = mediaItemAccessibilityLabel(item)
+            role = Role.Button
+        },
+        onClick = { onOpenItem(item) },
+    ) {
         SurfaceCard {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
@@ -393,6 +449,14 @@ private fun PosterArtworkSurface(
     )
 }
 
+private fun mediaItemAccessibilityLabel(item: MediaItemDto): String =
+    listOf(
+        "Open ${item.metadata.title}",
+        itemSecondaryText(item),
+    )
+        .filter { it.isNotBlank() }
+        .joinToString(". ")
+
 @Composable
 internal fun LibraryCardRow(
     libraries: List<LibraryDto>,
@@ -422,7 +486,12 @@ internal fun LibraryTile(
     }
 
     PressableScale(
-        modifier = Modifier.width(156.dp),
+        modifier = Modifier
+            .width(156.dp)
+            .semantics {
+                contentDescription = "${library.name}. ${librarySubtitle(library)}"
+                role = Role.Button
+            },
         onClick = { onOpenLibrary(library) },
     ) {
         LibraryTileSurface(library = library)
@@ -525,6 +594,10 @@ internal fun RelationshipCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "${row.title}. ${row.subtitle}"
+                        role = Role.Button
+                    }
                     .clickable { onOpenFacet(row.target) }
                     .padding(vertical = TaruSpacing.small),
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),

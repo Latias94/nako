@@ -2,8 +2,8 @@ package dev.taru.android.player
 
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
-import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.playback.ClientPlaybackMode
+import dev.taru.android.playback.PlaybackRequestDescriptor
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.PlaybackResult
 import dev.taru.android.playback.TranscodeSessionDto
@@ -154,15 +154,9 @@ class PlaybackExitEffectsTest {
         playbackLaunchRequest(
             title = "Night Harbor",
             target = PlaybackRequestTarget(
-                request = TaruHttpRequest(
+                request = PlaybackRequestDescriptor(
                     method = "GET",
                     url = "http://127.0.0.1:3018/sources/source-1/stream/remux",
-                    headers = mapOf("Authorization" to "Bearer secret-token"),
-                ),
-                safeRequest = SafeRequestPreview(
-                    method = "GET",
-                    url = "http://127.0.0.1:3018/sources/source-1/stream/remux",
-                    headers = mapOf("Authorization" to "Bearer <redacted>"),
                 ),
                 sessionId = sessionId,
             ),
@@ -201,7 +195,6 @@ class PlaybackExitEffectsTest {
             request = SafeRequestPreview(
                 method = "PUT",
                 url = "http://home.example.test/users/me/playback-state/items/item-1",
-                headers = mapOf("Authorization" to "Bearer <redacted>"),
             ),
         )
 
@@ -221,7 +214,6 @@ class PlaybackExitEffectsTest {
             request = SafeRequestPreview(
                 method = "POST",
                 url = "http://home.example.test/playback/sessions/$sessionId/cancel",
-                headers = mapOf("Authorization" to "Bearer <redacted>"),
             ),
         )
 }

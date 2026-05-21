@@ -1,26 +1,25 @@
 package dev.taru.android.playback
 
 import dev.taru.android.connection.PublicErrorEnvelope
+import dev.taru.android.connection.PublicApiAuth
+import dev.taru.android.connection.PublicApiFailure
+import dev.taru.android.connection.PublicApiFailureKind
+import dev.taru.android.connection.PublicApiResult
+import dev.taru.android.connection.PublicApiUrl
+import dev.taru.android.connection.PublicClientApiExecutor
 import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.SensitiveText
 import dev.taru.android.connection.ServerProfile
-import dev.taru.android.connection.TaruHttpRequest
-import dev.taru.android.connection.TaruHttpResponse
 import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.connection.TaruPublicApiContract
 import dev.taru.android.media.SourceProbeResponse
-import java.io.IOException
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import javax.net.ssl.SSLException
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 class TaruPlaybackClient(
     private val transport: TaruHttpTransport,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+    private val executor = PublicClientApiExecutor(transport, json)
+
     suspend fun getSourceProbe(
         profile: ServerProfile,
         accessToken: String,
@@ -29,14 +28,14 @@ class TaruPlaybackClient(
         if (sourceId.isBlank()) {
             return failure(
                 category = PlaybackFailureCategory.MissingSource,
-                userMessage = "Choose a Media Source before requesting source facts.",
+                userMessage = "Choose a version before loading details.",
             )
         }
 
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/probe",
+            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/probe",
         )
     }
 
@@ -49,65 +48,58 @@ class TaruPlaybackClient(
         if (sourceId.isBlank()) {
             return failure(
                 category = PlaybackFailureCategory.MissingSource,
-                userMessage = "Choose a Media Source before requesting playback.",
+                userMessage = "Choose a version before requesting playback.",
             )
         }
 
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/playback/decision${capabilitiesQuery(capabilities)}",
+            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/playback/decision${capabilitiesQuery(capabilities)}",
         )
     }
 
     fun directPlaybackTarget(
         profile: ServerProfile,
-        accessToken: String,
         sourceId: String,
         range: String? = null,
     ): PlaybackRequestTarget =
         playbackTarget(
             profile = profile,
-            accessToken = accessToken,
             method = "GET",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream",
+            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream",
             range = range,
         )
 
     fun headDirectPlaybackTarget(
         profile: ServerProfile,
-        accessToken: String,
         sourceId: String,
         range: String? = null,
     ): PlaybackRequestTarget =
         playbackTarget(
             profile = profile,
-            accessToken = accessToken,
             method = "HEAD",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream",
+            pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream",
             range = range,
         )
 
     fun remuxPlaybackTarget(
         profile: ServerProfile,
-        accessToken: String,
         sourceId: String,
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
         outputContainer: ClientOutputContainer = ClientOutputContainer.Mp4,
         range: String? = null,
     ): PlaybackRequestTarget {
-        val pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream/remux${
+        val pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream/remux${
             remuxQuery(capabilities, outputContainer)
         }"
         return playbackTarget(
             profile = profile,
-            accessToken = accessToken,
             method = "GET",
             pathAndQuery = pathAndQuery,
             range = range,
-            sessionProbeRequest = authenticatedRequest(
+            sessionProbeRequest = playbackRequestDescriptor(
                 profile = profile,
-                accessToken = accessToken,
                 method = "HEAD",
                 pathAndQuery = pathAndQuery,
             ),
@@ -116,21 +108,18 @@ class TaruPlaybackClient(
 
     fun hlsPlaylistTarget(
         profile: ServerProfile,
-        accessToken: String,
         sourceId: String,
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
     ): PlaybackRequestTarget {
-        val pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream/hls/playlist.m3u8${
+        val pathAndQuery = "/sources/${PublicApiUrl.encodePathSegment(sourceId)}/stream/hls/playlist.m3u8${
             capabilitiesQuery(capabilities)
         }"
         return playbackTarget(
             profile = profile,
-            accessToken = accessToken,
             method = "GET",
             pathAndQuery = pathAndQuery,
-            sessionProbeRequest = authenticatedRequest(
+            sessionProbeRequest = playbackRequestDescriptor(
                 profile = profile,
-                accessToken = accessToken,
                 method = "GET",
                 pathAndQuery = pathAndQuery,
             ),
@@ -139,16 +128,14 @@ class TaruPlaybackClient(
 
     fun hlsSegmentTarget(
         profile: ServerProfile,
-        accessToken: String,
         sessionId: String,
         segmentName: String,
     ): PlaybackRequestTarget =
         playbackTarget(
             profile = profile,
-            accessToken = accessToken,
             method = "GET",
-            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/hls/segments/${
-                encodePathSegment(segmentName)
+            pathAndQuery = "/playback/sessions/${PublicApiUrl.encodePathSegment(sessionId)}/hls/segments/${
+                PublicApiUrl.encodePathSegment(segmentName)
             }",
         )
 
@@ -167,7 +154,7 @@ class TaruPlaybackClient(
         return executeJson(
             profile = profile,
             accessToken = accessToken,
-            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}",
+            pathAndQuery = "/playback/sessions/${PublicApiUrl.encodePathSegment(sessionId)}",
         )
     }
 
@@ -187,32 +174,28 @@ class TaruPlaybackClient(
             profile = profile,
             accessToken = accessToken,
             method = "POST",
-            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/cancel",
+            pathAndQuery = "/playback/sessions/${PublicApiUrl.encodePathSegment(sessionId)}/cancel",
         )
     }
 
     fun recommendedPlaybackTarget(
         profile: ServerProfile,
-        accessToken: String,
         decision: PlaybackDecisionResponse,
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
     ): PlaybackRequestTarget? {
         val target = when (decision.decision.mode) {
             ClientPlaybackMode.DirectPlay -> directPlaybackTarget(
                 profile = profile,
-                accessToken = accessToken,
                 sourceId = decision.source.id,
             )
             ClientPlaybackMode.Remux -> remuxPlaybackTarget(
                 profile = profile,
-                accessToken = accessToken,
                 sourceId = decision.source.id,
                 capabilities = capabilities,
                 outputContainer = remuxOutputContainer(decision),
             )
             ClientPlaybackMode.Transcode -> hlsPlaylistTarget(
                 profile = profile,
-                accessToken = accessToken,
                 sourceId = decision.source.id,
                 capabilities = capabilities,
             )
@@ -226,14 +209,20 @@ class TaruPlaybackClient(
         decision: PlaybackDecisionResponse,
         capabilities: PlaybackCapabilities = PlaybackCapabilities(),
     ): PlaybackResult<PlaybackRequestTarget> {
+        if (accessToken.isBlank()) {
+            return failure(
+                category = PlaybackFailureCategory.MissingAccessToken,
+                userMessage = "Sign in again before requesting playback.",
+            )
+        }
+
         val target = recommendedPlaybackTarget(
             profile = profile,
-            accessToken = accessToken,
             decision = decision,
             capabilities = capabilities,
         ) ?: return failure(
             category = PlaybackFailureCategory.UnsupportedSource,
-            userMessage = "The server did not return a playable route for this source.",
+            userMessage = "The server did not return a playable path for this version.",
         )
 
         return when (decision.decision.mode) {
@@ -253,139 +242,95 @@ class TaruPlaybackClient(
         method: String = "GET",
         pathAndQuery: String,
     ): PlaybackResult<T> {
-        if (accessToken.isBlank()) {
-            return failure(
-                category = PlaybackFailureCategory.MissingAccessToken,
-                userMessage = "Re-authenticate this server before requesting playback.",
+        return when (
+            val result = executor.executeJson<T>(
+                baseUrl = profile.baseUrl,
+                pathAndQuery = pathAndQuery,
+                auth = PublicApiAuth.Bearer(accessToken),
+                method = method,
             )
-        }
-
-        val request = authenticatedRequest(
-            profile = profile,
-            accessToken = accessToken,
-            method = method,
-            pathAndQuery = pathAndQuery,
-        )
-        val response = when (val result = executeOrFailure(request, accessToken)) {
-            is TransportResult.Failure -> return result.failure
-            is TransportResult.Response -> result.response
-        }
-
-        if (!response.isSuccessful()) {
-            return httpFailure(request, response, accessToken)
-        }
-
-        val observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader)
-        if (observedApiVersion != null && observedApiVersion != TaruPublicApiContract.expectedApiVersion) {
-            return failure(
-                category = PlaybackFailureCategory.UnsupportedApiVersion,
-                userMessage = "This server uses an unsupported Public Client API version.",
-                observedApiVersion = observedApiVersion,
-                request = safeRequest(request),
+        ) {
+            is PublicApiResult.Success -> PlaybackResult.Success(
+                value = result.value,
+                request = result.request,
             )
+            is PublicApiResult.Failure -> failureFor(result.failure)
         }
-
-        val decoded = try {
-            json.decodeFromString<T>(response.body)
-        } catch (_: SerializationException) {
-            return invalidResponseFailure(request)
-        } catch (_: IllegalArgumentException) {
-            return invalidResponseFailure(request)
-        }
-
-        return PlaybackResult.Success(
-            value = decoded,
-            request = safeRequest(request),
-        )
     }
 
-    private suspend fun executeOrFailure(
-        request: TaruHttpRequest,
-        accessToken: String,
-    ): TransportResult =
-        try {
-            TransportResult.Response(transport.execute(request))
-        } catch (_: SSLException) {
-            TransportResult.Failure(
-                failure(
-                    category = PlaybackFailureCategory.TlsOrCertificate,
-                    userMessage = "The server TLS certificate could not be trusted.",
-                    request = safeRequest(request),
-                ),
-            )
-        } catch (error: IOException) {
-            TransportResult.Failure(
-                failure(
-                    category = PlaybackFailureCategory.UnreachableServer,
-                    userMessage = "The server could not be reached. Check the address and network.",
-                    publicError = PublicErrorEnvelope(
-                        code = "transport_error",
-                        message = SensitiveText.sanitize(error.message.orEmpty(), listOf(accessToken)),
-                    ),
-                    request = safeRequest(request),
-                ),
-            )
+    private fun failureFor(failure: PublicApiFailure): PlaybackResult.Failure {
+        val category = when (failure.kind) {
+            PublicApiFailureKind.MissingAccessToken -> PlaybackFailureCategory.MissingAccessToken
+            PublicApiFailureKind.UnreachableServer -> PlaybackFailureCategory.UnreachableServer
+            PublicApiFailureKind.TlsOrCertificate -> PlaybackFailureCategory.TlsOrCertificate
+            PublicApiFailureKind.UnsupportedApiVersion -> PlaybackFailureCategory.UnsupportedApiVersion
+            PublicApiFailureKind.InvalidResponse -> PlaybackFailureCategory.InvalidResponse
+            PublicApiFailureKind.HttpError -> when (failure.statusCode) {
+                400 -> PlaybackFailureCategory.UnsupportedSource
+                401 -> PlaybackFailureCategory.Unauthorized
+                403 -> PlaybackFailureCategory.Forbidden
+                404 -> PlaybackFailureCategory.SourceUnavailable
+                409 -> PlaybackFailureCategory.SessionConflict
+                else -> PlaybackFailureCategory.PublicApiError
+            }
         }
-
-    private fun httpFailure(
-        request: TaruHttpRequest,
-        response: TaruHttpResponse,
-        accessToken: String,
-    ): PlaybackResult.Failure {
-        val publicError = parsePublicError(response.body, accessToken)
-        val category = when (response.statusCode) {
-            400 -> PlaybackFailureCategory.UnsupportedSource
-            401 -> PlaybackFailureCategory.Unauthorized
-            403 -> PlaybackFailureCategory.Forbidden
-            404 -> PlaybackFailureCategory.SourceUnavailable
-            409 -> PlaybackFailureCategory.SessionConflict
-            else -> PlaybackFailureCategory.PublicApiError
-        }
-        val userMessage = when (category) {
-            PlaybackFailureCategory.UnsupportedSource ->
-                "This Media Source cannot be played with the current client capabilities."
-            PlaybackFailureCategory.Unauthorized ->
-                "The access token is invalid or expired."
-            PlaybackFailureCategory.Forbidden ->
-                "This access token cannot play the requested source."
-            PlaybackFailureCategory.SourceUnavailable ->
-                "The selected Media Source is no longer available."
-            PlaybackFailureCategory.SessionConflict ->
-                "A matching playback session is already running or cannot be changed yet."
-            else ->
-                "The server returned a playback API error."
-        }
-
         return failure(
             category = category,
-            userMessage = userMessage,
-            statusCode = response.statusCode,
-            observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader),
-            publicError = publicError,
-            request = safeRequest(request),
+            userMessage = userMessageFor(category),
+            statusCode = failure.statusCode,
+            observedApiVersion = failure.observedApiVersion,
+            publicError = failure.publicError,
+            request = failure.request,
         )
     }
+
+    private fun userMessageFor(category: PlaybackFailureCategory): String =
+        when (category) {
+            PlaybackFailureCategory.MissingSource ->
+                "Choose a version before requesting playback."
+            PlaybackFailureCategory.MissingSession ->
+                "Choose an active playback session before requesting status."
+            PlaybackFailureCategory.MissingAccessToken ->
+                "Sign in again before requesting playback."
+            PlaybackFailureCategory.UnreachableServer ->
+                "The server could not be reached. Check the address and network."
+            PlaybackFailureCategory.Unauthorized ->
+                "The server access key is invalid or expired."
+            PlaybackFailureCategory.Forbidden ->
+                "This profile cannot play the requested version."
+            PlaybackFailureCategory.UnsupportedApiVersion ->
+                "This server is not compatible with this Taru app version."
+            PlaybackFailureCategory.TlsOrCertificate ->
+                "The server TLS certificate could not be trusted."
+            PlaybackFailureCategory.UnsupportedSource ->
+                "This version cannot be played with the current device capabilities."
+            PlaybackFailureCategory.SourceUnavailable ->
+                "The selected version is no longer available."
+            PlaybackFailureCategory.SessionConflict ->
+                "A matching playback session is already running or cannot be changed yet."
+            PlaybackFailureCategory.InvalidResponse ->
+                "The playback reply could not be understood."
+            PlaybackFailureCategory.PublicApiError ->
+                "The server reported a playback issue."
+        }
 
     private fun playbackTarget(
         profile: ServerProfile,
-        accessToken: String,
         method: String,
         pathAndQuery: String,
         range: String? = null,
-        sessionProbeRequest: TaruHttpRequest? = null,
+        sessionProbeRequest: PlaybackRequestDescriptor? = null,
     ): PlaybackRequestTarget {
         val headers = buildMap {
-            put("Authorization", "Bearer $accessToken")
             range?.takeIf { it.isNotBlank() }?.let { put("Range", it) }
         }
-        val request = TaruHttpRequest(
+        val request = PlaybackRequestDescriptor(
             method = method,
-            url = joinUrl(profile.baseUrl, pathAndQuery),
+            url = PublicApiUrl.join(profile.baseUrl, pathAndQuery),
             headers = headers,
         )
         return PlaybackRequestTarget(
             request = request,
-            safeRequest = safeRequest(request),
             sessionProbeRequest = sessionProbeRequest,
         )
     }
@@ -400,24 +345,18 @@ class TaruPlaybackClient(
 
         val preflightRequest = target.sessionProbeRequest ?: return failure(
             category = PlaybackFailureCategory.MissingSession,
-            userMessage = "The playback route does not expose a public session preflight request.",
+            userMessage = "The prepared playback path cannot start a tracked session.",
             request = target.safeRequest,
         )
-        val response = when (val result = executeOrFailure(preflightRequest, accessToken)) {
-            is TransportResult.Failure -> return result.failure
-            is TransportResult.Response -> result.response
-        }
-        if (!response.isSuccessful()) {
-            return httpFailure(preflightRequest, response, accessToken)
-        }
-        val observedApiVersion = response.header(TaruPublicApiContract.apiVersionHeader)
-        if (observedApiVersion != null && observedApiVersion != TaruPublicApiContract.expectedApiVersion) {
-            return failure(
-                category = PlaybackFailureCategory.UnsupportedApiVersion,
-                userMessage = "This server uses an unsupported Public Client API version.",
-                observedApiVersion = observedApiVersion,
-                request = safeRequest(preflightRequest),
+        val authenticatedPreflightRequest = preflightRequest.authenticatedRequest(accessToken)
+        val response = when (
+            val result = executor.executeRequest(
+                request = authenticatedPreflightRequest,
+                secrets = listOf(accessToken),
             )
+        ) {
+            is PublicApiResult.Failure -> return failureFor(result.failure)
+            is PublicApiResult.Success -> result.response
         }
 
         val sessionId = response
@@ -425,8 +364,8 @@ class TaruPlaybackClient(
             ?.takeIf { it.isNotBlank() }
             ?: return failure(
                 category = PlaybackFailureCategory.MissingSession,
-                userMessage = "The server did not expose a playback session for this route.",
-                request = safeRequest(preflightRequest),
+                userMessage = "The server did not start a playback session for this path.",
+                request = preflightRequest.safeRequest,
             )
 
         return PlaybackResult.Success(
@@ -435,51 +374,14 @@ class TaruPlaybackClient(
         )
     }
 
-    private fun authenticatedRequest(
+    private fun playbackRequestDescriptor(
         profile: ServerProfile,
-        accessToken: String,
         method: String,
         pathAndQuery: String,
-    ): TaruHttpRequest =
-        TaruHttpRequest(
+    ): PlaybackRequestDescriptor =
+        PlaybackRequestDescriptor(
             method = method,
-            url = joinUrl(profile.baseUrl, pathAndQuery),
-            headers = mapOf("Authorization" to "Bearer $accessToken"),
-        )
-
-    private fun invalidResponseFailure(request: TaruHttpRequest): PlaybackResult.Failure =
-        failure(
-            category = PlaybackFailureCategory.InvalidResponse,
-            userMessage = "The playback response could not be understood.",
-            request = safeRequest(request),
-        )
-
-    private fun parsePublicError(
-        body: String,
-        accessToken: String,
-    ): PublicErrorEnvelope? =
-        try {
-            SensitiveText.sanitizeEnvelope(
-                json.decodeFromString<PublicErrorEnvelope>(body),
-                listOf(accessToken),
-            )
-        } catch (_: SerializationException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-
-    private fun safeRequest(request: TaruHttpRequest): SafeRequestPreview =
-        SafeRequestPreview(
-            method = request.method,
-            url = SensitiveText.sanitize(request.url),
-            headers = request.headers.mapValues { (name, value) ->
-                if (name.equals("Authorization", ignoreCase = true)) {
-                    "Bearer ${TaruPublicApiContract.redacted}"
-                } else {
-                    SensitiveText.sanitize(value)
-                }
-            },
+            url = PublicApiUrl.join(profile.baseUrl, pathAndQuery),
         )
 
     private fun failure(
@@ -540,27 +442,7 @@ class TaruPlaybackClient(
     }
 
     private fun queryString(pairs: List<Pair<String, String>>): String =
-        if (pairs.isEmpty()) {
-            ""
-        } else {
-            pairs.joinToString(
-                separator = "&",
-                prefix = "?",
-            ) { (name, value) ->
-                "${encodeQueryValue(name)}=${encodeQueryValue(value)}"
-            }
-        }
-
-    private fun joinUrl(baseUrl: String, pathAndQuery: String): String =
-        "${baseUrl.trimEnd('/')}$pathAndQuery"
-
-    private fun encodeQueryValue(value: String): String =
-        URLEncoder.encode(value, StandardCharsets.UTF_8)
-
-    private fun encodePathSegment(value: String): String =
-        URLEncoder
-            .encode(value, StandardCharsets.UTF_8)
-            .replace("+", "%20")
+        PublicApiUrl.queryString(pairs)
 
     private val ClientOutputContainer.wireValue: String
         get() = when (this) {
@@ -574,9 +456,4 @@ class TaruPlaybackClient(
             ?.outputContainer
             ?.takeIf { it != ClientOutputContainer.Hls }
             ?: ClientOutputContainer.Mp4
-
-    private sealed interface TransportResult {
-        data class Response(val response: TaruHttpResponse) : TransportResult
-        data class Failure(val failure: PlaybackResult.Failure) : TransportResult
-    }
 }

@@ -13,8 +13,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import dev.taru.android.browse.MediaItemDto
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
 import kotlin.math.roundToInt
@@ -26,13 +28,14 @@ internal fun SearchScreen(
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
     TaruScrollColumn {
         PageTitle(
             title = "Search",
-            subtitle = "Find a known title across the active server profile.",
+            subtitle = "Find a known title on your server.",
             icon = Icons.Rounded.Search,
         )
 
@@ -54,9 +57,9 @@ internal fun SearchScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
                     Button(
                         onClick = onSubmit,
-                        enabled = query.isNotBlank(),
-                    ) {
-                        Text("Search")
+                    enabled = query.isNotBlank(),
+                ) {
+                        Text(stringResource(TaruStrings.search))
                     }
                 }
             }
@@ -65,11 +68,11 @@ internal fun SearchScreen(
         when (state) {
             SearchUiState.Idle -> EmptyCard(
                 title = "Ready to search",
-                body = "Enter a title or keyword for the active server.",
+                body = "Enter a title or keyword for this server.",
             )
             SearchUiState.Loading -> LoadingCard(
                 title = "Searching",
-                body = "Fetching matching Media Items from the active server.",
+                body = "Loading matching titles from your server.",
             )
             is SearchUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -78,6 +81,7 @@ internal fun SearchScreen(
             )
             is SearchUiState.Content -> SearchResults(
                 state = state,
+                onLoadMore = onLoadMore,
                 onOpenItem = onOpenItem,
             )
         }
@@ -87,6 +91,7 @@ internal fun SearchScreen(
 @Composable
 private fun SearchResults(
     state: SearchUiState.Content,
+    onLoadMore: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
     val hits = state.response.hits
@@ -97,7 +102,7 @@ private fun SearchResults(
     if (hits.isEmpty()) {
         EmptyCard(
             title = "No matches",
-            body = "The server returned no Media Items for this search.",
+            body = "No titles matched this search.",
         )
     } else {
         hits.forEach { hit ->
@@ -108,11 +113,17 @@ private fun SearchResults(
             )
         }
         Text(
-            text = "Showing ${state.response.page.returned} result(s).",
+            text = "Showing ${hits.size} result(s). Latest page added ${state.response.page.returned}.",
             color = TaruTextSecondary,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+        LoadMoreFooter(
+            canLoadMore = state.canLoadMore,
+            isLoadingMore = state.isLoadingMore,
+            failureMessage = state.loadMoreFailure?.userMessage,
+            onLoadMore = onLoadMore,
         )
     }
 }

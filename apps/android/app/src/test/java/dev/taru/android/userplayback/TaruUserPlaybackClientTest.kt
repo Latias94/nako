@@ -15,7 +15,7 @@ import org.junit.Test
 
 class TaruUserPlaybackClientTest {
     @Test
-    fun `continue watching uses authoritative user playback route and safe response surface`() = runBlocking {
+    fun `continue watching uses authoritative watch progress route and safe response surface`() = runBlocking {
         val transport = FakeUserPlaybackTransport(
             ResponseStep(
                 ok(

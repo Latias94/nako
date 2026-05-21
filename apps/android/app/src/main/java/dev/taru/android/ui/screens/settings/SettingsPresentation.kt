@@ -3,6 +3,10 @@ package dev.taru.android.ui.screens.settings
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 
+private const val UnknownApiLabel = "Not checked yet"
+private const val NoRecentIssueLabel = "No recent issue"
+private const val NoSuccessfulCheckLabel = "No successful check yet"
+
 internal data class SettingsDiagnosticsPresentation(
     val apiLabel: String,
     val connectionLabel: String,
@@ -15,12 +19,12 @@ internal fun settingsDiagnosticsPresentation(
     profile: ServerProfile,
     snapshot: ServerProfileSnapshot,
 ): SettingsDiagnosticsPresentation {
-    val apiLabel = profile.lastObservedApiVersion ?: "Unknown"
-    val lastError = profile.lastPublicError?.code ?: "None"
+    val apiLabel = profile.lastObservedApiVersion ?: UnknownApiLabel
+    val lastError = profile.lastPublicError?.code?.toSettingsErrorLabel() ?: NoRecentIssueLabel
     val connectionLabel = if (profile.lastSuccessfulConnectionAtMillis != null) {
         "Connection verified"
     } else {
-        "No successful check recorded"
+        NoSuccessfulCheckLabel
     }
     return SettingsDiagnosticsPresentation(
         apiLabel = apiLabel,
@@ -38,3 +42,16 @@ internal fun settingsDiagnosticsPresentation(
         }.trim(),
     )
 }
+
+private fun String.toSettingsErrorLabel(): String =
+    when (this) {
+        "transport_error" -> "Connection issue"
+        "cleartext_http_not_allowed" -> "HTTPS required"
+        "unsupported_api_version" -> "Unsupported server"
+        "unauthorized" -> "Sign in again"
+        "forbidden" -> "Access denied"
+        "invalid_response" -> "Unexpected response"
+        else -> replace('_', ' ')
+            .replaceFirstChar { it.uppercase() }
+            .ifBlank { NoRecentIssueLabel }
+    }

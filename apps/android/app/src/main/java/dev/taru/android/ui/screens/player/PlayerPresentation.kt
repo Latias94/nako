@@ -29,7 +29,7 @@ internal fun playerChromePresentation(launch: PlaybackLaunchRequest): PlayerChro
     PlayerChromePresentation(
         title = launch.title.ifBlank { "Taru Playback" },
         modeLabel = playerModeLabel(launch.playbackMode),
-        sourceLabel = "Selected source",
+        sourceLabel = "Selected version",
         backdropTitle = launch.title.ifBlank { "Taru Playback" },
         resumeLabel = launch.resumePositionMs
             ?.takeIf { it > 0L }
@@ -39,7 +39,7 @@ internal fun playerChromePresentation(launch: PlaybackLaunchRequest): PlayerChro
             ?.let { "Playback session active" },
         sessionAccessibilityLabel = launch.sessionId
             ?.takeIf { it.isNotBlank() }
-            ?.let { "Playback session id $it" },
+            ?.let { "Playback session is active" },
     )
 
 internal fun playbackErrorPresentation(
@@ -50,7 +50,7 @@ internal fun playbackErrorPresentation(
     val code = errorCodeName?.takeIf { it.isNotBlank() } ?: "unknown"
     return PlaybackErrorPresentation(
         title = "Playback interrupted",
-        body = "The player could not continue this $mode route. Retry playback or return to detail and choose another source.",
+        body = "The player could not continue this $mode playback. Retry, or return to details and choose another version.",
         primaryAction = "Retry playback",
         secondaryAction = "Back to detail",
         diagnostics = playbackDiagnostics(
@@ -71,10 +71,10 @@ internal fun playerModeLabel(mode: ClientPlaybackMode): String =
 
 private fun resumeSourceLabel(source: PlaybackResumeSource?): String =
     when (source) {
-        PlaybackResumeSource.UserPlaybackState -> "Server resume"
+        PlaybackResumeSource.UserPlaybackState -> "Resume from server"
         PlaybackResumeSource.DeviceLocal,
         null,
-        -> "Local resume"
+        -> "Resume on this device"
     }
 
 internal fun durationLabel(positionMs: Long): String {

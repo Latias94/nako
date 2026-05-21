@@ -38,7 +38,7 @@ internal class ClientBrowseDataSource(
             return BrowseUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before browsing.",
+                    userMessage = "Sign in again before browsing.",
                 ),
             )
         }
@@ -100,7 +100,7 @@ internal class ClientBrowseDataSource(
             return LibraryDetailUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before opening library detail.",
+                    userMessage = "Sign in again before opening library details.",
                 ),
             )
         }
@@ -127,13 +127,16 @@ internal class ClientBrowseDataSource(
         }
     }
 
-    override suspend fun search(query: String): SearchUiState {
+    override suspend fun search(
+        query: String,
+        page: PageRequest,
+    ): SearchUiState {
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isBlank()) {
             return SearchUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before searching.",
+                    userMessage = "Sign in again before searching.",
                 ),
             )
         }
@@ -144,7 +147,7 @@ internal class ClientBrowseDataSource(
                 accessToken = accessToken,
                 query = SearchRequest(
                     query = query,
-                    page = PageRequest(limit = 24, offset = 0),
+                    page = page,
                 ),
             )
         ) {
@@ -159,7 +162,7 @@ internal class ClientBrowseDataSource(
             return PersonDetailUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before opening person detail.",
+                    userMessage = "Sign in again before opening person details.",
                 ),
             )
         }
@@ -189,13 +192,16 @@ internal class ClientBrowseDataSource(
         }
     }
 
-    override suspend fun loadRelationshipIndex(family: RelationshipIndexFamily): RelationshipIndexUiState {
+    override suspend fun loadRelationshipIndex(
+        family: RelationshipIndexFamily,
+        page: PageRequest,
+    ): RelationshipIndexUiState {
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isBlank()) {
             return RelationshipIndexUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before browsing relationship indexes.",
+                    userMessage = "Sign in again before browsing related labels.",
                 ),
             )
         }
@@ -205,7 +211,7 @@ internal class ClientBrowseDataSource(
                 val result = browseClient.listGenres(
                     profile = profile,
                     accessToken = accessToken,
-                    page = PageRequest(limit = 50, offset = 0),
+                    page = page,
                 )
             ) {
                 is BrowseResult.Success -> result.value.toRelationshipIndexContent()
@@ -215,7 +221,7 @@ internal class ClientBrowseDataSource(
                 val result = browseClient.listTags(
                     profile = profile,
                     accessToken = accessToken,
-                    page = PageRequest(limit = 50, offset = 0),
+                    page = page,
                 )
             ) {
                 is BrowseResult.Success -> result.value.toRelationshipIndexContent()
@@ -224,13 +230,16 @@ internal class ClientBrowseDataSource(
         }
     }
 
-    override suspend fun loadFacet(target: BrowseFacetTarget): FacetUiState {
+    override suspend fun loadFacet(
+        target: BrowseFacetTarget,
+        page: PageRequest,
+    ): FacetUiState {
         val accessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
         if (accessToken.isBlank()) {
             return FacetUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before browsing this facet.",
+                    userMessage = "Sign in again before browsing this list.",
                 ),
             )
         }
@@ -241,19 +250,19 @@ internal class ClientBrowseDataSource(
                 profile = profile,
                 accessToken = accessToken,
                 genreId = facetId,
-                page = PageRequest(limit = 24, offset = 0),
+                page = page,
             )
             BrowseFacetUiFamily.Tag -> browseClient.listTagItems(
                 profile = profile,
                 accessToken = accessToken,
                 tagId = facetId,
-                page = PageRequest(limit = 24, offset = 0),
+                page = page,
             )
             BrowseFacetUiFamily.Person -> browseClient.listPersonItems(
                 profile = profile,
                 accessToken = accessToken,
                 personId = facetId,
-                page = PageRequest(limit = 24, offset = 0),
+                page = page,
             )
             else -> return target.apiGapState()
         }
@@ -270,7 +279,7 @@ internal class ClientBrowseDataSource(
             return ItemDetailUiState.Failure(
                 SafeBrowseDiagnostics(
                     category = BrowseFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before opening detail.",
+                    userMessage = "Sign in again before opening details.",
                 ),
             )
         }
@@ -308,7 +317,7 @@ internal class ClientBrowseDataSource(
             return SourceProbeUiState.Failure(
                 SafePlaybackDiagnostics(
                     category = PlaybackFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before loading source facts.",
+                    userMessage = "Sign in again before loading version details.",
                 ),
             )
         }
@@ -331,7 +340,7 @@ internal class ClientBrowseDataSource(
             return PlaybackSelectionUiState.Failure(
                 SafePlaybackDiagnostics(
                     category = PlaybackFailureCategory.MissingAccessToken,
-                    userMessage = "Re-authenticate this server before requesting playback.",
+                    userMessage = "Sign in again before requesting playback.",
                 ),
             )
         }
@@ -349,7 +358,6 @@ internal class ClientBrowseDataSource(
                 response = result.value,
                 target = playbackClient.recommendedPlaybackTarget(
                     profile = profile,
-                    accessToken = accessToken,
                     decision = result.value,
                     capabilities = capabilities,
                 ),

@@ -23,10 +23,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.PersonDto
+import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.browse.EmptyCard
 import dev.taru.android.ui.browse.FailureCard
 import dev.taru.android.ui.browse.IconBadge
@@ -56,7 +58,7 @@ internal fun PersonDetailRouteContent(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(TaruStrings.back),
             )
         }
         when (state) {
@@ -64,7 +66,7 @@ internal fun PersonDetailRouteContent(
             PersonDetailUiState.Loading,
             -> LoadingCard(
                 title = "Loading Person",
-                body = "Gathering credits, identity, and related Media Items.",
+                body = "Loading credits, identity, and related titles.",
             )
             is PersonDetailUiState.Failure -> FailureCard(
                 diagnostics = state.diagnostics,
@@ -105,13 +107,13 @@ private fun PersonDetailScreen(
     PersonFacts(person = person)
 
     SectionHeader(
-        title = "Related Media Items",
+        title = "Related Titles",
         action = returned.toString(),
     )
     if (relatedItems.isEmpty()) {
         EmptyCard(
-            title = "No Related Media Items",
-            body = "No visible Media Items are linked to this person yet.",
+            title = "No related titles",
+            body = "No visible titles are linked to this person yet.",
         )
     } else {
         MediaPosterRow(
