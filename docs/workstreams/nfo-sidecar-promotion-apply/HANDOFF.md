@@ -83,7 +83,10 @@ Existing prerequisites are in place:
   creation or raw path/XML leakage. The third NSPA-060 slice injects import
   metadata commit failure before canonical mutation and proves
   `FailedBeforeMutation` without metadata, field lock, sidecar, or raw
-  diagnostic leakage.
+  diagnostic leakage. The fourth NSPA-060 slice forces a backup retention prune
+  diagnostic failure during export and proves the apply remains `Committed`
+  with redacted `prune_failure_count` diagnostics rather than a false failure or
+  raw path/XML leakage.
 
 ## Decisions
 
@@ -109,7 +112,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Continue NSPA-060 with TDD: add failing storage/repository doubles for backup
-  restore or rollback and retention diagnostic failures. Keep proving
+- Continue NSPA-060 with TDD: add failing storage/repository doubles or storage
+  seams for backup restore/rollback failures. Keep proving
   failed-before-mutation, rollback-complete, or repair-pending outcomes instead
   of any false committed state.

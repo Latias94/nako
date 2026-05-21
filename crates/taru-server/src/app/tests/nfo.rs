@@ -1756,6 +1756,136 @@ async fn nfo_sidecar_apply_exports_forced_update_with_backup_and_retention_diagn
 }
 
 #[tokio::test]
+async fn nfo_sidecar_apply_export_retention_diagnostic_failure_commits_with_redacted_warning() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie><title>Old Sidecar</title><custom>keep</custom></movie>"#,
+    )
+    .unwrap();
+    fs::create_dir(temp.path().join("demo.nfo.taru-backup-0000")).unwrap();
+    for index in 1..5 {
+        fs::write(
+            temp.path().join(format!("demo.nfo.taru-backup-000{index}")),
+            format!("old backup {index}"),
+        )
+        .unwrap();
+    }
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::WriteSidecar;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Updated Despite Retention Warning".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Export, true)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_export_preview_request(
+            &preview,
+            item.id,
+            source.id,
+            "nfo-sidecar-export-retention-diagnostic-failure-1",
+        ))
+        .await
+        .unwrap();
+
+    let applied = app
+        .nfo()
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let stored = store
+        .get_nfo_sidecar_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let outcome: serde_json::Value =
+        serde_json::from_str(stored.outcome_json.as_deref().unwrap()).unwrap();
+    let outcome_text = stored.outcome_json.as_deref().unwrap_or_default();
+    let sidecar_xml = fs::read_to_string(temp.path().join("demo.nfo")).unwrap();
+
+    assert_eq!(applied.state, NfoSidecarApplyState::Committed);
+    assert_eq!(stored.state, NfoSidecarApplyState::Committed);
+    assert!(sidecar_xml.contains("<title>Updated Despite Retention Warning</title>"));
+    assert!(sidecar_xml.contains("<custom>keep</custom>"));
+    assert!(temp.path().join("demo.nfo.taru-backup-0000").is_dir());
+    assert_eq!(outcome["committed"], true);
+    assert_eq!(outcome["storage_mutation"], true);
+    assert_eq!(outcome["metadata_mutation"], false);
+    assert_eq!(outcome["backed_up_items"], 1);
+    assert_eq!(outcome["backup_count"], 1);
+    assert_eq!(outcome["prune_failure_count"], 1);
+    assert!(!outcome_text.contains(&temp.path().display().to_string()));
+    assert!(!outcome_text.contains("<movie"));
+}
+
+#[tokio::test]
 async fn nfo_sidecar_apply_imports_accepted_sidecar_into_metadata_and_locks() {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
