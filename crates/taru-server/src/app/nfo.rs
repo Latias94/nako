@@ -13,8 +13,8 @@ use taru_nfo::{
     MovieNfoCodec, NfoAuthorityPreviewAction, NfoAuthorityPreviewDecision,
     NfoAuthorityPreviewOperation, NfoAuthorityPreviewReason, NfoAuthorityPreviewRequest,
     NfoAuthorityPreviewSummary, NfoCancellationCheck, NfoCancellationDecision, NfoExportRequest,
-    NfoExportSummary, NfoImportRequest, NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome,
-    NfoService, NfoSidecarCheckpoint,
+    NfoExportSourceRequest, NfoExportSourceSummary, NfoExportSummary, NfoImportRequest,
+    NfoImportSummary, NfoJobInput, NfoLibraryRunOutcome, NfoService, NfoSidecarCheckpoint,
 };
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 use tokio::sync::Semaphore;
@@ -52,6 +52,12 @@ pub(crate) struct AcceptNfoSidecarApplyRequest {
     pub(crate) sidecar_locator: String,
     pub(crate) accepted_preview: NfoAuthorityPreviewSummary,
     pub(crate) accepted_warning_codes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ApplyNfoSidecarApplyRequest {
+    pub(crate) apply_id: NfoSidecarApplyId,
+    pub(crate) requested_by: UserPrincipalId,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -353,6 +359,187 @@ impl NfoAppService {
         Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
             record, false,
         ))
+    }
+
+    pub(crate) async fn apply_sidecar_apply(
+        &self,
+        request: ApplyNfoSidecarApplyRequest,
+    ) -> Result<NfoSidecarApplyAcceptanceDiagnostic> {
+        let accepted = self
+            .store
+            .get_nfo_sidecar_apply(request.apply_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: request.apply_id.to_string(),
+            })?;
+
+        validate_nfo_sidecar_apply_request(&accepted, request.requested_by)?;
+        if accepted.state == NfoSidecarApplyState::Committed {
+            return Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+                accepted, true,
+            ));
+        }
+        if accepted.operation_kind != NfoSidecarApplyOperationKind::ExportSidecar {
+            return Err(TaruError::Unsupported(
+                "NFO sidecar apply currently supports export sidecar records only",
+            ));
+        }
+
+        let source_id = accepted
+            .media_source_id
+            .ok_or_else(|| TaruError::Conflict {
+                message: "accepted NFO export sidecar apply does not target a media source"
+                    .to_owned(),
+            })?;
+        let force = accepted_preview_force_from_record(&accepted)?;
+        let library = self.library_for_nfo(accepted.target_library_id).await?;
+        let current_preview = self
+            .preview_library_nfo_authority(
+                accepted.target_library_id,
+                NfoAuthorityPreviewOperation::Export,
+                force,
+            )
+            .await?;
+        if accepted_nfo_preview_json(&current_preview)? != accepted.accepted_preview_json {
+            self.record_nfo_sidecar_pre_mutation_failure(
+                &accepted,
+                "nfo_sidecar_apply_preview_stale",
+                "accepted NFO sidecar apply preview is stale",
+            )
+            .await?;
+            return Err(TaruError::Conflict {
+                message:
+                    "accepted NFO sidecar apply preview is stale; refresh preview before apply"
+                        .to_owned(),
+            });
+        }
+        validate_accepted_preview_target(
+            &current_preview,
+            accepted.target_library_id,
+            accepted.media_item_id,
+            accepted.media_source_id,
+            accepted.operation_kind,
+            NfoAuthorityPreviewOperation::Export,
+            &accepted.sidecar_locator,
+        )?;
+
+        let writing = self
+            .store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::WritingSidecar,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_apply_started_outcome_json(&accepted)?),
+                None,
+                Some("NFO sidecar export apply started".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })?;
+
+        let backend = match self
+            .storage_backends
+            .backend_for_library_root(&library)
+            .await
+        {
+            Ok(backend) => backend,
+            Err(err) => {
+                self.record_nfo_sidecar_pre_mutation_failure(
+                    &writing,
+                    "nfo_sidecar_apply_storage_backend_unavailable",
+                    "NFO sidecar export storage backend is unavailable",
+                )
+                .await?;
+                return Err(err);
+            }
+        };
+        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let summary = service
+            .export_media_source(NfoExportSourceRequest {
+                library_id: accepted.target_library_id,
+                source_id,
+                policy: library.options.metadata_profile.local_metadata_policy,
+                force,
+            })
+            .await?;
+
+        if summary.exported_items == 1 && summary.failed_items == 0 {
+            let committed = self
+                .store
+                .set_nfo_sidecar_apply_state(
+                    accepted.id,
+                    NfoSidecarApplyState::Committed,
+                    super::current_time_ms()?,
+                    Some(nfo_sidecar_export_committed_outcome_json(
+                        &accepted, &summary,
+                    )?),
+                    None,
+                    Some("NFO sidecar export apply committed".to_owned()),
+                )
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "nfo_sidecar_apply",
+                    id: accepted.id.to_string(),
+                })?;
+            return Ok(NfoSidecarApplyAcceptanceDiagnostic::from_record(
+                committed, false,
+            ));
+        }
+
+        let failed = self
+            .store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::FailedBeforeMutation,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_export_not_committed_outcome_json(
+                    &accepted, &summary,
+                )?),
+                Some("nfo_sidecar_export_not_committed".to_owned()),
+                Some("NFO sidecar export apply did not commit".to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })?;
+        Err(TaruError::Conflict {
+            message: format!(
+                "NFO sidecar export apply did not commit: {}",
+                failed
+                    .safe_error_code
+                    .as_deref()
+                    .unwrap_or("nfo_sidecar_export_not_committed")
+            ),
+        })
+    }
+
+    async fn record_nfo_sidecar_pre_mutation_failure(
+        &self,
+        accepted: &NfoSidecarApplyRecord,
+        safe_error_code: &'static str,
+        safe_message: &'static str,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.store
+            .set_nfo_sidecar_apply_state(
+                accepted.id,
+                NfoSidecarApplyState::FailedBeforeMutation,
+                super::current_time_ms()?,
+                Some(nfo_sidecar_pre_mutation_failure_outcome_json(
+                    accepted,
+                    safe_error_code,
+                )?),
+                Some(safe_error_code.to_owned()),
+                Some(safe_message.to_owned()),
+            )
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "nfo_sidecar_apply",
+                id: accepted.id.to_string(),
+            })
     }
 
     async fn create_nfo_import_job(&self, library_id: LibraryId) -> Result<Job> {
@@ -870,6 +1057,39 @@ fn validate_idempotent_nfo_sidecar_apply_replay(
     Ok(())
 }
 
+fn validate_nfo_sidecar_apply_request(
+    record: &NfoSidecarApplyRecord,
+    requested_by: UserPrincipalId,
+) -> Result<()> {
+    if record.requested_by != requested_by {
+        return Err(TaruError::Forbidden {
+            message: "NFO sidecar apply requester does not match the accepted operator".to_owned(),
+        });
+    }
+    if !matches!(
+        record.state,
+        NfoSidecarApplyState::Accepted | NfoSidecarApplyState::Committed
+    ) {
+        return Err(TaruError::Conflict {
+            message: format!(
+                "NFO sidecar apply is not in an applyable state: {}",
+                record.state.as_str()
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+fn accepted_preview_force_from_record(record: &NfoSidecarApplyRecord) -> Result<bool> {
+    serde_json::from_str::<serde_json::Value>(&record.accepted_preview_json)
+        .ok()
+        .and_then(|value| value.get("force").and_then(serde_json::Value::as_bool))
+        .ok_or_else(|| TaruError::Database {
+            message: "accepted NFO sidecar preview snapshot is missing force".to_owned(),
+        })
+}
+
 fn validate_nfo_accepted_warning_codes(warnings: Vec<String>) -> Result<Vec<String>> {
     let mut normalized = Vec::with_capacity(warnings.len());
     for warning in warnings {
@@ -928,6 +1148,85 @@ fn accepted_warnings_match_replay(
             codes.sort();
             codes == accepted_warning_codes
         })
+}
+
+fn nfo_sidecar_apply_started_outcome_json(record: &NfoSidecarApplyRecord) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": false,
+        "writes_library": false,
+        "storage_mutation": false,
+        "metadata_mutation": false,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::WritingSidecar,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator)
+    }))
+    .map_err(database_error)
+}
+
+fn nfo_sidecar_export_committed_outcome_json(
+    record: &NfoSidecarApplyRecord,
+    summary: &NfoExportSourceSummary,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": true,
+        "writes_library": true,
+        "storage_mutation": true,
+        "metadata_mutation": false,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::Committed,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator),
+        "sidecar_locator": record.sidecar_locator,
+        "source_id": summary.source_id,
+        "exported_items": summary.exported_items,
+        "backed_up_items": summary.backed_up_items,
+        "pruned_backup_items": summary.pruned_backup_items,
+        "pruned_backups": summary.pruned_backups,
+        "backup_count": summary.backups.len(),
+        "prune_failure_count": summary.prune_failures.len()
+    }))
+    .map_err(database_error)
+}
+
+fn nfo_sidecar_export_not_committed_outcome_json(
+    record: &NfoSidecarApplyRecord,
+    summary: &NfoExportSourceSummary,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": false,
+        "writes_library": false,
+        "storage_mutation": false,
+        "metadata_mutation": false,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::FailedBeforeMutation,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator),
+        "source_id": summary.source_id,
+        "exported_items": summary.exported_items,
+        "skipped_items": summary.skipped_items,
+        "failed_items": summary.failed_items,
+        "failure_count": summary.failures.len()
+    }))
+    .map_err(database_error)
+}
+
+fn nfo_sidecar_pre_mutation_failure_outcome_json(
+    record: &NfoSidecarApplyRecord,
+    safe_error_code: &str,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "accepted": true,
+        "committed": false,
+        "writes_library": false,
+        "storage_mutation": false,
+        "metadata_mutation": false,
+        "operation_kind": record.operation_kind,
+        "state": NfoSidecarApplyState::FailedBeforeMutation,
+        "sidecar_scheme": uri_scheme(&record.sidecar_locator),
+        "safe_error_code": safe_error_code
+    }))
+    .map_err(database_error)
 }
 
 fn accepted_nfo_preview_json(preview: &NfoAuthorityPreviewSummary) -> Result<String> {

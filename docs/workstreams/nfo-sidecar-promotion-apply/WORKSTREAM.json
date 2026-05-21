@@ -7,11 +7,12 @@
   "scope_kind": "execution",
   "problem": "NFO authority preview and safe sidecar write primitives exist, but actual NFO import/export mutation needs its own accepted, idempotent, rollback-aware Library File Write and metadata-authority boundary.",
   "task_prefix": "NSPA",
-  "current_task": "NSPA-040",
+  "current_task": "NSPA-050",
   "completed_tasks": [
     "NSPA-010",
     "NSPA-020",
-    "NSPA-030"
+    "NSPA-030",
+    "NSPA-040"
   ],
   "authoritative_docs": [
     {
@@ -71,7 +72,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "NSPA-040",
-    "notes": "Server-side NFO sidecar apply acceptance/replay is in place without file or metadata mutation. Next implement accepted export sidecar apply through taru-nfo and VFS write boundaries."
+    "next_task": "NSPA-050",
+    "notes": "Accepted NFO export sidecar apply is in place through taru-nfo and VFS write boundaries. Next implement accepted NFO import authority apply into canonical metadata and local authority."
   }
 }

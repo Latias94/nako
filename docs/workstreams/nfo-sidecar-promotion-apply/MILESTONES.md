@@ -41,10 +41,10 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Export apply uses `taru-nfo` round-trip preservation.
-- [ ] Sidecar writes are mediated by VFS storage APIs.
-- [ ] Backup, atomic replace, and retention diagnostics are recorded.
-- [ ] Operator-facing diagnostics redact raw paths and raw XML.
+- [x] Export apply uses `taru-nfo` round-trip preservation.
+- [x] Sidecar writes are mediated by VFS storage APIs.
+- [x] Backup, atomic replace, and retention diagnostics are recorded.
+- [x] Operator-facing diagnostics redact raw paths and raw XML.
 
 ## M4 — Import Authority Apply
 

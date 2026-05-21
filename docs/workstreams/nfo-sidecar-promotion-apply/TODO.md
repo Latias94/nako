@@ -43,14 +43,15 @@ Task IDs use the `NSPA` prefix.
 
 ## M3 — Export Sidecar Apply
 
-- [ ] NSPA-040 [owner=codex] [deps=NSPA-030,nfo-round-trip-preservation,nfo-storage-write-policy,nfo-sidecar-backup-policy,nfo-backup-retention-diagnostics] [scope=crates/taru-nfo,crates/taru-vfs,crates/taru-server]
+- [x] NSPA-040 [owner=codex] [deps=NSPA-030,nfo-round-trip-preservation,nfo-storage-write-policy,nfo-sidecar-backup-policy,nfo-backup-retention-diagnostics] [scope=crates/taru-nfo,crates/taru-vfs,crates/taru-server]
   Goal: Apply accepted NFO export by using round-trip preservation and
   VFS-backed backup/atomic write/retention diagnostics. Server code must not
   write raw OS paths directly.
   Validation: focused tests prove create, preservation-aware update,
   backup-required forced update, retention diagnostics, stale sidecar rejection,
   and redacted reports.
-  Evidence: export apply orchestration and NFO/VFS/server tests.
+  Evidence: `ApplyNfoSidecarApplyRequest`, `apply_sidecar_apply`, server export
+  apply tests, and existing `taru-nfo`/`taru-vfs` backup/atomic write tests.
   Handoff: Implement import authority apply in NSPA-050.
 
 ## M4 — Import Authority Apply

@@ -42,17 +42,30 @@ Existing prerequisites are in place:
   `NfoSidecarApplyAcceptanceDiagnostic`, `accept_sidecar_apply`, and focused
   server tests.
 
-## Active Task
-
 - Task ID: NSPA-040
 - Owner: codex
-- Files: `crates/taru-nfo`, `crates/taru-vfs`, `crates/taru-server`
+- Files: `crates/taru-server`; existing `taru-nfo` and `taru-vfs` export/write
+  boundaries
 - Validation: focused tests prove create, preservation-aware update,
   backup-required forced update, retention diagnostics, stale sidecar
   rejection, and redacted reports.
+- Status: DONE
+- Evidence: `ApplyNfoSidecarApplyRequest`, `apply_sidecar_apply`, server
+  export apply tests, and existing `taru-nfo`/`taru-vfs` backup/atomic write
+  tests.
+
+## Active Task
+
+- Task ID: NSPA-050
+- Owner: codex
+- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-nfo`,
+  `crates/taru-server`
+- Validation: focused tests prove accepted fields, skipped locked fields,
+  conflict reporting, hierarchy confirmation, stale target rejection, and no
+  sidecar write during import-only apply.
 - Status: READY
-- Evidence: NSPA-020 durable persistence/audit records and NSPA-030 explicit
-  acceptance/replay boundary.
+- Evidence: NSPA-020 durable persistence/audit records, NSPA-030 explicit
+  acceptance/replay boundary, and NSPA-040 export apply mutation boundary.
 
 ## Decisions
 
@@ -78,7 +91,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Execute NSPA-040 with TDD: add export-sidecar apply for accepted NFO apply
-  records by revalidating current preview facts, rendering through `taru-nfo`,
-  writing only through VFS backup/atomic replace APIs, recording committed or
-  failed-before-mutation audit state, and keeping diagnostics redacted.
+- Execute NSPA-050 with TDD: add import-authority apply for accepted NFO apply
+  records by revalidating current preview facts, reading through `taru-nfo`,
+  applying canonical metadata/local authority through repository boundaries,
+  respecting user-locked fields, and keeping import diagnostics redacted.
