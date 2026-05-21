@@ -93,6 +93,14 @@ pub struct NfoImportRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoImportSourceRequest {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub policy: LocalMetadataPolicy,
+    pub force: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NfoExportRequest {
     pub job_id: JobId,
     pub library_id: LibraryId,
@@ -112,6 +120,18 @@ pub struct NfoExportSourceRequest {
 pub struct NfoImportSummary {
     pub job_id: JobId,
     pub library_id: taru_core::LibraryId,
+    pub scanned_sources: u64,
+    pub discovered_nfo: u64,
+    pub imported_items: u64,
+    pub skipped_items: u64,
+    pub failed_items: u64,
+    pub failures: Vec<NfoFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NfoImportSourceSummary {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
     pub scanned_sources: u64,
     pub discovered_nfo: u64,
     pub imported_items: u64,

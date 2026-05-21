@@ -50,10 +50,10 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] NFO import applies local authority through canonical metadata boundaries.
-- [ ] User-locked fields are respected.
-- [ ] Accepted field, skipped field, and conflict outcomes are auditable.
-- [ ] Hierarchy confirmation is explicit and stale-safe.
+- [x] NFO import applies local authority through canonical metadata boundaries.
+- [x] User-locked fields are respected.
+- [x] Accepted field, skipped field, and conflict outcomes are auditable.
+- [x] Hierarchy confirmation is explicit and stale-safe.
 
 ## M5 — Rollback And Repair
 

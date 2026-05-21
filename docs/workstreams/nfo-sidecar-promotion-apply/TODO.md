@@ -56,13 +56,16 @@ Task IDs use the `NSPA` prefix.
 
 ## M4 — Import Authority Apply
 
-- [ ] NSPA-050 [owner=codex] [deps=NSPA-030,NSPA-040] [scope=crates/taru-core,crates/taru-db,crates/taru-nfo,crates/taru-server]
+- [x] NSPA-050 [owner=codex] [deps=NSPA-030,NSPA-040] [scope=crates/taru-core,crates/taru-db,crates/taru-nfo,crates/taru-server]
   Goal: Apply accepted NFO import into canonical metadata, field locks/local
   authority, and hierarchy confirmation while respecting user-locked fields.
   Validation: focused tests prove accepted fields, skipped locked fields,
   conflict reporting, hierarchy confirmation, stale target rejection, and no
   sidecar write during import-only apply.
-  Evidence: authority application code and contract/server tests.
+  Evidence: single-source NFO import apply in `taru-nfo`, accepted import apply
+  dispatch in `taru-server`, content-fingerprint preview revalidation, and
+  focused server tests for commit, stale content rejection, user locks, and
+  hierarchy confirmation.
   Handoff: Add partial-failure rollback/repair gates in NSPA-060.
 
 ## M5 — Partial Failure Rollback And Repair

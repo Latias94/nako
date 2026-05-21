@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use taru_core::{LocalMetadataPolicy, MediaKind, MediaRepository, Result, TaruError};
 use taru_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 
@@ -39,6 +40,7 @@ pub struct NfoAuthorityPreviewDecision {
     pub item_id: taru_core::MediaItemId,
     pub locator: String,
     pub nfo_uri: Option<StorageUri>,
+    pub content_fingerprint: Option<String>,
     pub action: NfoAuthorityPreviewAction,
     pub reason: NfoAuthorityPreviewReason,
     pub backup_required: bool,
@@ -141,6 +143,7 @@ where
                 item_id: source.item_id,
                 locator: source.locator,
                 nfo_uri: Some(nfo_uri),
+                content_fingerprint: None,
                 action: NfoAuthorityPreviewAction::PolicyRejected,
                 reason: NfoAuthorityPreviewReason::PolicyDoesNotAllowOperation,
                 backup_required: false,
@@ -158,6 +161,7 @@ where
                     item_id: source.item_id,
                     locator: source.locator,
                     nfo_uri: Some(nfo_uri),
+                    content_fingerprint: None,
                     action: NfoAuthorityPreviewAction::Skip,
                     reason: NfoAuthorityPreviewReason::ImportSidecarMissing,
                     backup_required: false,
@@ -188,6 +192,7 @@ where
             item_id: source.item_id,
             locator: source.locator,
             nfo_uri: Some(nfo_uri),
+            content_fingerprint: Some(xml_content_fingerprint(&xml)),
             action: NfoAuthorityPreviewAction::Update,
             reason: NfoAuthorityPreviewReason::ImportWouldReadSidecar,
             backup_required: false,
@@ -220,6 +225,7 @@ where
                 item_id: source.item_id,
                 locator: source.locator,
                 nfo_uri: Some(nfo_uri),
+                content_fingerprint: None,
                 action: NfoAuthorityPreviewAction::PolicyRejected,
                 reason: NfoAuthorityPreviewReason::PolicyDoesNotAllowOperation,
                 backup_required: false,
@@ -256,6 +262,7 @@ where
                 item_id: source.item_id,
                 locator: source.locator,
                 nfo_uri: Some(nfo_uri),
+                content_fingerprint: None,
                 action: NfoAuthorityPreviewAction::Skip,
                 reason: NfoAuthorityPreviewReason::UnsupportedMediaKind,
                 backup_required: false,
@@ -295,6 +302,7 @@ where
                         item_id: source.item_id,
                         locator: source.locator,
                         nfo_uri: Some(nfo_uri),
+                        content_fingerprint: None,
                         action: NfoAuthorityPreviewAction::Skip,
                         reason: NfoAuthorityPreviewReason::ExportWouldSkipExistingSidecar,
                         backup_required: false,
@@ -324,6 +332,7 @@ where
                     item_id: source.item_id,
                     locator: source.locator,
                     nfo_uri: Some(nfo_uri),
+                    content_fingerprint: Some(xml_content_fingerprint(&existing_xml)),
                     action: NfoAuthorityPreviewAction::Update,
                     reason: NfoAuthorityPreviewReason::ExportWouldUpdateExistingSidecar,
                     backup_required: true,
@@ -344,6 +353,7 @@ where
                     item_id: source.item_id,
                     locator: source.locator,
                     nfo_uri: Some(nfo_uri),
+                    content_fingerprint: None,
                     action: NfoAuthorityPreviewAction::Create,
                     reason: NfoAuthorityPreviewReason::ExportWouldCreateSidecar,
                     backup_required: false,
@@ -389,11 +399,16 @@ fn preview_failure(
         item_id: source.item_id,
         locator: source.locator.clone(),
         nfo_uri,
+        content_fingerprint: None,
         action: NfoAuthorityPreviewAction::Fail,
         reason,
         backup_required: false,
         message: err.to_string(),
     }
+}
+
+fn xml_content_fingerprint(xml: &str) -> String {
+    format!("sha256:{:x}", Sha256::digest(xml.as_bytes()))
 }
 
 fn import_policy_allowed(policy: LocalMetadataPolicy) -> bool {

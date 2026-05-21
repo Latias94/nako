@@ -12,9 +12,9 @@ use taru_vfs::StorageBackend;
 
 use super::{
     NfoCancellationCheck, NfoCancellationDecision, NfoCodec, NfoDocument, NfoFailure,
-    NfoFailureKind, NfoImportRequest, NfoImportSummary, NfoLibraryRunOutcome, NfoService,
-    NfoSidecarCheckpoint, NfoSidecarOperation, NoopNfoCancellationCheck,
-    workflow::nfo_uri_for_source,
+    NfoFailureKind, NfoImportRequest, NfoImportSourceRequest, NfoImportSourceSummary,
+    NfoImportSummary, NfoLibraryRunOutcome, NfoService, NfoSidecarCheckpoint, NfoSidecarOperation,
+    NoopNfoCancellationCheck, workflow::nfo_uri_for_source,
 };
 
 pub trait NfoImportRepository:
@@ -46,6 +46,60 @@ where
             .import_library_with_cancellation(request, &NoopNfoCancellationCheck)
             .await?
             .into_summary())
+    }
+
+    pub async fn import_media_source(
+        &self,
+        request: NfoImportSourceRequest,
+    ) -> Result<NfoImportSourceSummary> {
+        ensure_import_policy(request.policy)?;
+
+        let source = self
+            .repository
+            .get_media_source(request.source_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "media_source",
+                id: request.source_id.to_string(),
+            })?;
+        if source.library_id != request.library_id {
+            return Err(TaruError::Conflict {
+                message: "NFO import source does not belong to the requested library".to_owned(),
+            });
+        }
+
+        let mut summary = NfoImportSourceSummary {
+            library_id: request.library_id,
+            source_id: request.source_id,
+            scanned_sources: 1,
+            discovered_nfo: 0,
+            imported_items: 0,
+            skipped_items: 0,
+            failed_items: 0,
+            failures: Vec::new(),
+        };
+
+        match self
+            .import_source(source, request.policy, request.force)
+            .await
+        {
+            NfoImportOutcome::Imported => {
+                summary.discovered_nfo = 1;
+                summary.imported_items = 1;
+            }
+            NfoImportOutcome::Skipped { discovered } => {
+                if discovered {
+                    summary.discovered_nfo = 1;
+                }
+                summary.skipped_items = 1;
+            }
+            NfoImportOutcome::Failed(failure) => {
+                summary.failed_items = 1;
+                summary.failures.push(failure);
+            }
+        }
+
+        Ok(summary)
     }
 
     pub async fn import_library_with_cancellation(

@@ -52,6 +52,9 @@ claiming lane closeout.
 | 2026-05-21 | NSPA-040 red gate | `cargo nextest run -p taru-server nfo_sidecar_apply_exports_accepted_create_preview_and_commits_audit --no-fail-fast` | Expected fail. New export apply test could not compile before `ApplyNfoSidecarApplyRequest` and `apply_sidecar_apply` existed. |
 | 2026-05-21 | NSPA-040 implementation | `crates/taru-server/src/app/nfo.rs`; `crates/taru-server/src/app/tests/nfo.rs`; existing `taru-nfo` export source orchestration; existing VFS atomic backup write APIs | Pass. Accepted export sidecar apply now revalidates the current preview, writes through `taru-nfo` and VFS, commits audit state, idempotently replays committed applies, rejects stale apply before overwrite, and records redacted backup/retention diagnostics. |
 | 2026-05-21 | NSPA-040 focused verification | `cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast`; `cargo nextest run -p taru-server nfo --no-fail-fast`; `cargo nextest run -p taru-nfo --no-fail-fast`; `cargo nextest run -p taru-vfs --no-fail-fast`; `cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast`; `cargo fmt --all -- --check`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `git diff --check` | Pass. Export create apply, forced update with backup/retention diagnostics, stale apply rejection, existing NFO flows, NFO/VFS lower-level write behavior, durable persistence, formatting, JSON validity, and diff hygiene passed. `git diff --check` emitted only repository CRLF conversion warnings. |
+| 2026-05-21 | NSPA-050 red gate | `cargo nextest run -p taru-server nfo_sidecar_apply_imports_accepted_sidecar_into_metadata_and_locks --no-fail-fast` | Expected fail. Accepted import apply was still rejected with `Unsupported("NFO sidecar apply currently supports export sidecar records only")`. |
+| 2026-05-21 | NSPA-050 implementation | `crates/taru-nfo/src/import.rs`; `crates/taru-nfo/src/preview.rs`; `crates/taru-nfo/src/summary.rs`; `crates/taru-server/src/app/nfo.rs`; `crates/taru-server/src/app/tests/nfo.rs` | Pass. Accepted import sidecar apply now revalidates content-fingerprinted preview facts, reads through `taru-nfo`, applies canonical metadata/local authority through repository boundaries, respects user locks, confirms provisional hierarchy, keeps sidecars unchanged, and records redacted audit outcomes. |
+| 2026-05-21 | NSPA-050 focused verification | `cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast`; `cargo nextest run -p taru-server nfo --no-fail-fast`; `cargo nextest run -p taru-nfo --no-fail-fast`; `cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast`; `cargo fmt --all -- --check`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `git diff --check` | Pass. Import/export sidecar apply acceptance, import commit, stale import content rejection, user-lock preservation, hierarchy confirmation, existing NFO flows, lower-level NFO behavior, durable persistence, formatting, JSON validity, and diff hygiene passed. `git diff --check` emitted only repository CRLF conversion warnings. |
 
 ## Evidence Anchors
 
@@ -63,6 +66,9 @@ claiming lane closeout.
 - `crates/taru-db/src/sqlite/nfo_sidecar_apply.rs`
 - `crates/taru-db/migrations/0033_nfo_sidecar_applies.sql`
 - `crates/taru-db/migrations/postgres/0005_nfo_sidecar_applies.sql`
+- `crates/taru-nfo/src/import.rs`
+- `crates/taru-nfo/src/preview.rs`
+- `crates/taru-nfo/src/summary.rs`
 - `crates/taru-server/src/app/nfo.rs`
 - `crates/taru-server/src/app/tests/nfo.rs`
 - `docs/workstreams/nfo-link-authority/DESIGN.md`

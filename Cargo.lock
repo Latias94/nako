@@ -2515,6 +2515,7 @@ dependencies = [
  "async-trait",
  "roxmltree",
  "serde",
+ "sha2",
  "taru-catalog",
  "taru-core",
  "taru-db",

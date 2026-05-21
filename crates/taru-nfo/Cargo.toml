@@ -12,6 +12,7 @@ workspace = true
 async-trait.workspace = true
 roxmltree.workspace = true
 serde.workspace = true
+sha2.workspace = true
 taru-catalog = { path = "../taru-catalog" }
 taru-core = { path = "../taru-core" }
 taru-search = { path = "../taru-search" }

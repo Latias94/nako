@@ -54,18 +54,28 @@ Existing prerequisites are in place:
   export apply tests, and existing `taru-nfo`/`taru-vfs` backup/atomic write
   tests.
 
-## Active Task
-
 - Task ID: NSPA-050
 - Owner: codex
-- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-nfo`,
-  `crates/taru-server`
-- Validation: focused tests prove accepted fields, skipped locked fields,
-  conflict reporting, hierarchy confirmation, stale target rejection, and no
+- Files: `crates/taru-nfo`, `crates/taru-server`
+- Validation: focused tests prove accepted import fields, stale import content
+  rejection, user-locked field preservation, hierarchy confirmation, and no
   sidecar write during import-only apply.
+- Status: DONE
+- Evidence: `NfoImportSourceRequest`, `NfoService::import_media_source`,
+  content-fingerprint preview snapshots, import dispatch in
+  `apply_sidecar_apply`, and focused server tests.
+
+## Active Task
+
+- Task ID: NSPA-060
+- Owner: codex
+- Files: `crates/taru-server`, `crates/taru-vfs`, `crates/taru-db`
+- Validation: tests with failing storage/repository doubles prove no false
+  committed state and no unredacted diagnostics across export/import partial
+  failures.
 - Status: READY
-- Evidence: NSPA-020 durable persistence/audit records, NSPA-030 explicit
-  acceptance/replay boundary, and NSPA-040 export apply mutation boundary.
+- Evidence: NSPA-040 export apply and NSPA-050 import apply mutation
+  boundaries.
 
 ## Decisions
 
@@ -91,7 +101,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Execute NSPA-050 with TDD: add import-authority apply for accepted NFO apply
-  records by revalidating current preview facts, reading through `taru-nfo`,
-  applying canonical metadata/local authority through repository boundaries,
-  respecting user-locked fields, and keeping import diagnostics redacted.
+- Execute NSPA-060 with TDD: inject failures around accepted export/import
+  mutation and audit commits, then prove failed-before-mutation,
+  rollback-complete, or repair-pending outcomes instead of any false committed
+  state.

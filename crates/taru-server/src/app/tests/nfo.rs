@@ -1,7 +1,8 @@
 use super::*;
 use crate::app::nfo::{AcceptNfoSidecarApplyRequest, ApplyNfoSidecarApplyRequest};
 use taru_core::{
-    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState, UserPrincipalId,
+    LibraryItemRepository, LibraryItemState, NfoSidecarApplyOperationKind,
+    NfoSidecarApplyRepository, NfoSidecarApplyState, UserPrincipalId,
 };
 use taru_nfo::{
     NfoAuthorityPreviewAction, NfoAuthorityPreviewOperation, NfoAuthorityPreviewReason,
@@ -1470,6 +1471,474 @@ async fn nfo_sidecar_apply_exports_forced_update_with_backup_and_retention_diagn
     assert!(!outcome.contains("<movie"));
 }
 
+#[tokio::test]
+async fn nfo_sidecar_apply_imports_accepted_sidecar_into_metadata_and_locks() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie>
+  <title>Imported NFO Title</title>
+  <plot>Imported overview</plot>
+</movie>
+"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::LocalFirst;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Original Title".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Import, false)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_import_preview_request(
+            &preview,
+            item.id,
+            source.id,
+            "nfo-sidecar-import-apply-1",
+        ))
+        .await
+        .unwrap();
+
+    let applied = app
+        .nfo()
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let replayed = app
+        .nfo()
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let stored = store
+        .get_nfo_sidecar_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+    let locks = store.list_field_locks(item.id).await.unwrap();
+    let sidecar_xml = fs::read_to_string(temp.path().join("demo.nfo")).unwrap();
+    let outcome = stored.outcome_json.as_deref().unwrap_or_default();
+
+    assert_eq!(applied.state, NfoSidecarApplyState::Committed);
+    assert_eq!(applied.id, replayed.id);
+    assert!(replayed.replayed);
+    assert_eq!(loaded.metadata.title, "Imported NFO Title");
+    assert_eq!(
+        loaded.metadata.overview,
+        Some("Imported overview".to_owned())
+    );
+    assert!(locks.iter().any(|lock| {
+        lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::Nfo
+    }));
+    assert_eq!(
+        sidecar_xml,
+        r#"<movie>
+  <title>Imported NFO Title</title>
+  <plot>Imported overview</plot>
+</movie>
+"#
+    );
+    assert!(outcome.contains(r#""metadata_mutation":true"#));
+    assert!(outcome.contains(r#""storage_mutation":false"#));
+    assert!(outcome.contains(r#""imported_items":1"#));
+    assert!(!outcome.contains(&temp.path().display().to_string()));
+    assert!(!outcome.contains("<movie"));
+}
+
+#[tokio::test]
+async fn nfo_sidecar_apply_rejects_stale_import_content_without_metadata_or_sidecar_mutation() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("demo.mkv"), b"media").unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie>
+  <title>Accepted NFO Title</title>
+  <plot>Accepted overview</plot>
+</movie>
+"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Movies);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::LocalFirst;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Original Title".to_owned(),
+            overview: Some("Original overview".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///demo.mkv".to_owned(),
+        file_name: "demo.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Import, false)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_import_preview_request(
+            &preview,
+            item.id,
+            source.id,
+            "nfo-sidecar-import-stale-content-1",
+        ))
+        .await
+        .unwrap();
+    fs::write(
+        temp.path().join("demo.nfo"),
+        r#"<movie>
+  <title>Changed NFO Title</title>
+  <plot>Changed overview</plot>
+</movie>
+"#,
+    )
+    .unwrap();
+
+    let err = app
+        .nfo()
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap_err();
+    let stored = store
+        .get_nfo_sidecar_apply(accepted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+    let sidecar_xml = fs::read_to_string(temp.path().join("demo.nfo")).unwrap();
+    let outcome = stored.outcome_json.as_deref().unwrap_or_default();
+
+    assert!(matches!(err, TaruError::Conflict { .. }));
+    assert_eq!(stored.state, NfoSidecarApplyState::FailedBeforeMutation);
+    assert_eq!(loaded.metadata.title, "Original Title");
+    assert_eq!(
+        loaded.metadata.overview,
+        Some("Original overview".to_owned())
+    );
+    assert!(sidecar_xml.contains("Changed NFO Title"));
+    assert!(outcome.contains(r#""safe_error_code":"nfo_sidecar_apply_preview_stale""#));
+    assert!(!outcome.contains(&temp.path().display().to_string()));
+    assert!(!outcome.contains("<movie"));
+}
+
+#[tokio::test]
+async fn nfo_sidecar_apply_import_respects_user_locked_fields_and_confirms_hierarchy() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(temp.path().join("TV").join("Firefly")).unwrap();
+    fs::write(
+        temp.path()
+            .join("TV")
+            .join("Firefly")
+            .join("Firefly.S01E02.mkv"),
+        b"media",
+    )
+    .unwrap();
+    fs::write(
+        temp.path()
+            .join("TV")
+            .join("Firefly")
+            .join("Firefly.S01E02.nfo"),
+        r#"<episodedetails>
+  <title>The Train Job</title>
+  <showtitle>Firefly</showtitle>
+  <season>1</season>
+  <episode>2</episode>
+  <aired>2002-09-20</aired>
+  <plot>The crew takes a train heist job.</plot>
+</episodedetails>
+"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "TV".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Tv,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let mut options = LibraryOptions::from_preset(taru_core::LibraryPreset::Tv);
+    options.metadata_profile.local_metadata_policy = LocalMetadataPolicy::LocalFirst;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "TV".to_owned(),
+            roots: vec!["local:///TV".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let series = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Fireflie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let season = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(series.id),
+        metadata: CanonicalMetadata {
+            title: "Season 01".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let episode = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Episode,
+        parent_id: Some(season.id),
+        metadata: CanonicalMetadata {
+            title: "User Locked Episode Title".to_owned(),
+            overview: Some("Original overview".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: episode.id,
+        locator: "local:///TV/Firefly/Firefly.S01E02.mkv".to_owned(),
+        file_name: "Firefly.S01E02.mkv".to_owned(),
+        size_bytes: Some(1),
+        fingerprint: None,
+    };
+    for item in [&series, &season, &episode] {
+        store.upsert_media_item(item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id,
+                item_id: item.id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+    }
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_field_lock(&taru_core::MetadataFieldLock {
+            item_id: episode.id,
+            field: MetadataField::Title,
+            locked: true,
+            source: MetadataSource::User,
+        })
+        .await
+        .unwrap();
+    let preview = app
+        .nfo()
+        .preview_library_nfo_authority(library_id, NfoAuthorityPreviewOperation::Import, false)
+        .await
+        .unwrap();
+    let accepted = app
+        .nfo()
+        .accept_sidecar_apply(accept_current_import_preview_request(
+            &preview,
+            episode.id,
+            source.id,
+            "nfo-sidecar-import-hierarchy-lock-1",
+        ))
+        .await
+        .unwrap();
+
+    let applied = app
+        .nfo()
+        .apply_sidecar_apply(ApplyNfoSidecarApplyRequest {
+            apply_id: accepted.id,
+            requested_by: UserPrincipalId::local_admin(),
+        })
+        .await
+        .unwrap();
+    let loaded_series = store.get_media_item(series.id).await.unwrap().unwrap();
+    let loaded_season = store.get_media_item(season.id).await.unwrap().unwrap();
+    let loaded_episode = store.get_media_item(episode.id).await.unwrap().unwrap();
+    let locks = store.list_field_locks(episode.id).await.unwrap();
+    let sidecar_xml = fs::read_to_string(
+        temp.path()
+            .join("TV")
+            .join("Firefly")
+            .join("Firefly.S01E02.nfo"),
+    )
+    .unwrap();
+
+    assert_eq!(applied.state, NfoSidecarApplyState::Committed);
+    assert_eq!(loaded_series.metadata.title, "Firefly");
+    assert_eq!(loaded_season.metadata.title, "Season 1");
+    assert_eq!(loaded_episode.metadata.title, "User Locked Episode Title");
+    assert_eq!(
+        loaded_episode.metadata.overview,
+        Some("The crew takes a train heist job.".to_owned())
+    );
+    for item_id in [series.id, season.id, episode.id] {
+        assert!(
+            !store
+                .get_library_item_state(library_id, item_id)
+                .await
+                .unwrap()
+                .unwrap()
+                .provisional
+        );
+    }
+    assert!(locks.iter().any(|lock| {
+        lock.field == MetadataField::Title && lock.locked && lock.source == MetadataSource::User
+    }));
+    assert!(sidecar_xml.contains("<title>The Train Job</title>"));
+}
+
 fn accept_current_export_preview_request(
     preview: &NfoAuthorityPreviewSummary,
     item_id: MediaItemId,
@@ -1492,6 +1961,34 @@ fn accept_current_export_preview_request(
             .nfo_uri
             .as_ref()
             .expect("export preview should include sidecar locator")
+            .to_string(),
+        accepted_preview: preview.clone(),
+        accepted_warning_codes: Vec::new(),
+    }
+}
+
+fn accept_current_import_preview_request(
+    preview: &NfoAuthorityPreviewSummary,
+    item_id: MediaItemId,
+    source_id: MediaSourceId,
+    idempotency_key: &str,
+) -> AcceptNfoSidecarApplyRequest {
+    let decision = preview
+        .decisions
+        .iter()
+        .find(|decision| decision.item_id == item_id && decision.source_id == source_id)
+        .expect("preview should contain source decision");
+    AcceptNfoSidecarApplyRequest {
+        target_library_id: preview.library_id,
+        media_item_id: item_id,
+        media_source_id: Some(source_id),
+        requested_by: UserPrincipalId::local_admin(),
+        idempotency_key: idempotency_key.to_owned(),
+        operation_kind: NfoSidecarApplyOperationKind::ImportSidecar,
+        sidecar_locator: decision
+            .nfo_uri
+            .as_ref()
+            .expect("import preview should include sidecar locator")
             .to_string(),
         accepted_preview: preview.clone(),
         accepted_warning_codes: Vec::new(),
