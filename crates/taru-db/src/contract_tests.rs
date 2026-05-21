@@ -33,19 +33,21 @@ use taru_core::{
     NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
     NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
     NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
-    NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewOutboxEvent,
+    NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
     NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, NfoImportPersistenceCommit, OutboxEventListFilter, OutboxEventStatus,
-    PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation, ScanRepository,
-    ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
-    SourceState, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
-    Studio, StudioId, Tag, TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
-    TranscodeSessionState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
+    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
+    RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionListFilter, TranscodeSessionRepository, TranscodeSessionState,
+    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId, VfsCacheOperation,
+    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
 };
 use taru_search::{SearchIndex, SearchQuery};
@@ -65,6 +67,7 @@ enum ContractFamily {
     MetadataCatalog,
     ManagedArtwork,
     ManagedImport,
+    NfoSidecarApply,
     PlaybackRuntime,
     EventAddonAutomation,
     RuntimePromotion,
@@ -81,6 +84,7 @@ impl ContractFamily {
             Self::MetadataCatalog => "metadata_catalog",
             Self::ManagedArtwork => "managed_artwork",
             Self::ManagedImport => "managed_import",
+            Self::NfoSidecarApply => "nfo_sidecar_apply",
             Self::PlaybackRuntime => "playback_runtime",
             Self::EventAddonAutomation => "event_addon_automation",
             Self::RuntimePromotion => "runtime_promotion",
@@ -319,6 +323,16 @@ impl<T> ManagedImportContractBackend for T where
         + MediaRepository
         + StagingManifestRepository
         + ManagedImportRepository
+{
+}
+
+trait NfoSidecarApplyContractBackend:
+    LifecycleContractBackend + LibraryRepository + MediaRepository + NfoSidecarApplyRepository
+{
+}
+
+impl<T> NfoSidecarApplyContractBackend for T where
+    T: LifecycleContractBackend + LibraryRepository + MediaRepository + NfoSidecarApplyRepository
 {
 }
 
@@ -4508,6 +4522,138 @@ where
     assert_eq!(missing, None);
 }
 
+async fn nfo_sidecar_apply_contract_round_trips_acceptance_and_audit<S>(store: S)
+where
+    S: NfoSidecarApplyContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "NFO Apply Demo",
+        "local:///Contract Movies/NFO Apply Demo (2026)/NFO Apply Demo.mkv",
+    )
+    .await;
+
+    let apply_id = NfoSidecarApplyId::new();
+    let apply = NewNfoSidecarApply {
+        id: apply_id,
+        target_library_id: library.id,
+        media_item_id: source.item_id,
+        media_source_id: Some(source.id),
+        requested_by: UserPrincipalId::local_admin(),
+        idempotency_key: "nfo-sidecar-demo-1".to_owned(),
+        operation_kind: NfoSidecarApplyOperationKind::ExportSidecar,
+        sidecar_locator: "local:///Contract Movies/NFO Apply Demo (2026)/NFO Apply Demo.nfo"
+            .to_owned(),
+        accepted_preview_json: r#"{"preview_version":1,"operation":"export_sidecar"}"#.to_owned(),
+        accepted_warnings_json: Some(r#"["backup_required"]"#.to_owned()),
+        policy_version: "nfo-sidecar-policy-v1".to_owned(),
+        state: NfoSidecarApplyState::Requested,
+        outcome_json: None,
+        safe_error_code: None,
+        safe_message: None,
+        created_at_ms: 3_100,
+        updated_at_ms: 3_100,
+    };
+
+    let saved = store.upsert_nfo_sidecar_apply(apply).await.unwrap();
+    assert_eq!(saved.id, apply_id);
+    assert_eq!(saved.target_library_id, library.id);
+    assert_eq!(saved.media_item_id, source.item_id);
+    assert_eq!(saved.media_source_id, Some(source.id));
+    assert_eq!(saved.requested_by, UserPrincipalId::local_admin());
+    assert_eq!(
+        saved.operation_kind,
+        NfoSidecarApplyOperationKind::ExportSidecar
+    );
+    assert_eq!(saved.state, NfoSidecarApplyState::Requested);
+    assert_eq!(
+        saved.accepted_preview_json,
+        r#"{"preview_version":1,"operation":"export_sidecar"}"#
+    );
+    assert_eq!(saved.policy_version, "nfo-sidecar-policy-v1");
+    assert_eq!(saved.safe_error_code, None);
+    assert_eq!(saved.safe_message, None);
+    assert_eq!(
+        store.get_nfo_sidecar_apply(apply_id).await.unwrap(),
+        Some(saved.clone())
+    );
+    assert_eq!(
+        store
+            .find_nfo_sidecar_apply_by_idempotency_key(library.id, "nfo-sidecar-demo-1")
+            .await
+            .unwrap(),
+        Some(saved.clone())
+    );
+    assert_eq!(
+        store
+            .list_nfo_sidecar_applies_for_item(source.item_id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![saved.clone()]
+    );
+
+    let accepted = store
+        .set_nfo_sidecar_apply_state(
+            apply_id,
+            NfoSidecarApplyState::Accepted,
+            3_200,
+            Some(r#"{"preview_revalidated":true,"writes_library":false}"#.to_owned()),
+            None,
+            Some("accepted for nfo sidecar apply".to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(accepted.state, NfoSidecarApplyState::Accepted);
+    assert_eq!(accepted.updated_at_ms, 3_200);
+    assert_eq!(
+        accepted.outcome_json.as_deref(),
+        Some(r#"{"preview_revalidated":true,"writes_library":false}"#)
+    );
+    assert_eq!(
+        accepted.safe_message.as_deref(),
+        Some("accepted for nfo sidecar apply")
+    );
+
+    let repair_pending = store
+        .set_nfo_sidecar_apply_state(
+            apply_id,
+            NfoSidecarApplyState::RepairPending,
+            3_300,
+            Some(r#"{"sidecar_written":true,"audit_committed":false}"#.to_owned()),
+            Some("audit_commit_failed".to_owned()),
+            Some("repair pending; restore from recorded backup if needed".to_owned()),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(repair_pending.state, NfoSidecarApplyState::RepairPending);
+    assert_eq!(repair_pending.updated_at_ms, 3_300);
+    assert_eq!(
+        repair_pending.safe_error_code.as_deref(),
+        Some("audit_commit_failed")
+    );
+    assert_eq!(
+        repair_pending.safe_message.as_deref(),
+        Some("repair pending; restore from recorded backup if needed")
+    );
+
+    let missing = store
+        .set_nfo_sidecar_apply_state(
+            NfoSidecarApplyId::new(),
+            NfoSidecarApplyState::Rejected,
+            3_400,
+            None,
+            Some("missing_apply".to_owned()),
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing, None);
+}
+
 async fn migrate_contract<S>(store: S)
 where
     S: LifecycleContractBackend,
@@ -4772,4 +4918,14 @@ database_contract_pair!(
         "promotion_apply_round_trips_acceptance_and_audit"
     ),
     contract = promotion_apply_contract_round_trips_acceptance_and_audit,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_nfo_sidecar_apply_contract_round_trips_acceptance_and_audit,
+    postgres = postgres_nfo_sidecar_apply_contract_round_trips_acceptance_and_audit,
+    case = ContractCase::migrated(
+        ContractFamily::NfoSidecarApply,
+        "round_trips_acceptance_and_audit"
+    ),
+    contract = nfo_sidecar_apply_contract_round_trips_acceptance_and_audit,
 );

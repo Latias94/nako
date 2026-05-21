@@ -88,6 +88,7 @@ define_id!(ManagedArtworkIngestId);
 define_id!(ManagedArtworkArtifactId);
 define_id!(ManagedImportArtifactId);
 define_id!(ManagedImportPromotionApplyId);
+define_id!(NfoSidecarApplyId);
 define_id!(SelectedArtworkId);
 define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);

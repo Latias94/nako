@@ -16,7 +16,7 @@ Task IDs use the `NSPA` prefix.
 
 ## M1 — Durable Sidecar Apply Acceptance And Audit
 
-- [ ] NSPA-020 [owner=codex] [deps=NSPA-010,LAIP-070] [scope=crates/taru-core,crates/taru-db]
+- [x] NSPA-020 [owner=codex] [deps=NSPA-010,LAIP-070] [scope=crates/taru-core,crates/taru-db]
   Goal: Add sidecar apply IDs, operation/state enums, accepted preview snapshot,
   audit outcome records, repository traits, migrations, and backend-neutral
   contract tests.

@@ -42,12 +42,20 @@ claiming lane closeout.
 | --- | --- | --- | --- |
 | 2026-05-21 | NSPA-010 planning | `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`; `docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md`; `docs/workstreams/nfo-sidecar-promotion-apply/TODO.md` | Pass. NFO sidecar import/export mutation is split from Managed Import promotion and given its own accepted Library File Write / metadata-authority lane. |
 | 2026-05-21 | NSPA-010 planning verification | `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `python -m json.tool docs/workstreams/link-apply-and-import-promotion/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check` | Pass. Workstream JSON files are valid and diff hygiene passed. `git diff --check` emitted only repository CRLF conversion warnings. |
+| 2026-05-21 | NSPA-020 red gate | `cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast` | Expected fail. New backend-neutral contract could not compile before NFO sidecar apply domain/repository types existed. |
+| 2026-05-21 | NSPA-020 implementation | `crates/taru-core/src/nfo_sidecar_apply.rs`; `crates/taru-core/src/repository/nfo_sidecar_apply.rs`; `crates/taru-db/migrations/0033_nfo_sidecar_applies.sql`; `crates/taru-db/migrations/postgres/0005_nfo_sidecar_applies.sql`; SQLite/PostgreSQL adapters and facade dispatch | Pass. Durable sidecar apply records now persist accepted preview snapshots, idempotency keys, operation/state, policy version, and redacted audit outcome fields. |
+| 2026-05-21 | NSPA-020 focused verification | `cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast`; `cargo nextest run -p taru-db promotion_apply --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json` | Pass. Focused NFO sidecar apply and Managed Import promotion apply regression tests passed. Formatting, JSON validity, and diff hygiene passed; `git diff --check` emitted only repository CRLF conversion warnings. |
 
 ## Evidence Anchors
 
 - `docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md`
 - `docs/workstreams/nfo-sidecar-promotion-apply/TODO.md`
 - `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`
+- `crates/taru-core/src/nfo_sidecar_apply.rs`
+- `crates/taru-core/src/repository/nfo_sidecar_apply.rs`
+- `crates/taru-db/src/sqlite/nfo_sidecar_apply.rs`
+- `crates/taru-db/migrations/0033_nfo_sidecar_applies.sql`
+- `crates/taru-db/migrations/postgres/0005_nfo_sidecar_applies.sql`
 - `docs/workstreams/nfo-link-authority/DESIGN.md`
 - `docs/workstreams/nfo-round-trip-preservation/DESIGN.md`
 - `docs/workstreams/nfo-storage-write-policy/DESIGN.md`

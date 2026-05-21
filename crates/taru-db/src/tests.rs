@@ -39,6 +39,7 @@ async fn taru_database_postgres_runtime_capabilities_include_managed_artwork() {
             automation: true,
             managed_artwork: true,
             managed_import: true,
+            nfo_sidecar_apply: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,

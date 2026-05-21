@@ -20,11 +20,11 @@ Primary evidence:
 
 Exit criteria:
 
-- [ ] Sidecar apply IDs, operation/state enums, and accepted preview snapshot
+- [x] Sidecar apply IDs, operation/state enums, and accepted preview snapshot
   exist in core.
-- [ ] Repository trait is explicit.
-- [ ] SQLite/PostgreSQL migrations preserve backend parity.
-- [ ] Contract tests round-trip sidecar apply/audit records and idempotency
+- [x] Repository trait is explicit.
+- [x] SQLite/PostgreSQL migrations preserve backend parity.
+- [x] Contract tests round-trip sidecar apply/audit records and idempotency
   keys.
 
 ## M2 — Acceptance And Replay Boundary

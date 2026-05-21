@@ -16,6 +16,7 @@ pub(crate) mod managed_import;
 pub(crate) mod media;
 pub(crate) mod metadata;
 mod migrations;
+pub(crate) mod nfo_sidecar_apply;
 pub(crate) mod playback;
 pub(crate) mod provider_mapping;
 mod runtime;

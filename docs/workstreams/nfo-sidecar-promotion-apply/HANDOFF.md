@@ -20,15 +20,27 @@ Existing prerequisites are in place:
 - LAIP promotion apply proves accepted, idempotent, cleanup-aware storage and
   catalog mutation for Media Sources, but it does not mutate sidecars.
 
-## Active Task
+## Completed Task
 
 - Task ID: NSPA-020
 - Owner: codex
 - Files: `crates/taru-core`, `crates/taru-db`
 - Validation: focused DB contract tests for durable sidecar apply records,
   idempotency-key lookup, state transitions, and redacted audit snapshots.
+- Status: DONE
+- Evidence: core domain records, repository trait, SQLite/PostgreSQL
+  migrations and adapters, facade dispatch, and backend-neutral contract tests.
+
+## Active Task
+
+- Task ID: NSPA-030
+- Owner: codex
+- Files: `crates/taru-server`
+- Validation: focused server tests prove accepted preview snapshot, stale
+  preview rejection, idempotent replay, redacted diagnostics, and no VFS write
+  or canonical metadata mutation.
 - Status: READY
-- Evidence: NSPA-010 planning docs and PRPH-080 lane scoring
+- Evidence: NSPA-020 durable persistence and audit records.
 
 ## Decisions
 
@@ -54,5 +66,7 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Execute NSPA-020 with TDD: add failing persistence contract tests, then
-  implement durable sidecar apply domain and repository storage.
+- Execute NSPA-030 with TDD: add the server app-service command that accepts a
+  current NFO authority preview, records an NFO sidecar apply attempt, replays
+  matching idempotency keys, rejects stale/mismatched requests, and performs no
+  file or metadata mutation yet.

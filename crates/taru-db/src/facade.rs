@@ -26,6 +26,7 @@ trait DatabaseBackendAdapter:
     + ArtworkCandidateRepository
     + ManagedArtworkRepository
     + ManagedImportRepository
+    + NfoSidecarApplyRepository
     + MetadataRepository
     + ProviderMappingRepository
     + SourceDuplicateRepository
@@ -61,6 +62,7 @@ impl<T> DatabaseBackendAdapter for T where
         + ArtworkCandidateRepository
         + ManagedArtworkRepository
         + ManagedImportRepository
+        + NfoSidecarApplyRepository
         + MetadataRepository
         + ProviderMappingRepository
         + SourceDuplicateRepository
@@ -96,6 +98,7 @@ pub struct DatabaseBackendCapabilities {
     pub automation: bool,
     pub managed_artwork: bool,
     pub managed_import: bool,
+    pub nfo_sidecar_apply: bool,
     pub vfs_cache: bool,
     pub webhooks: bool,
     pub search_index: bool,
@@ -120,6 +123,7 @@ impl DatabaseBackendCapabilities {
             automation: true,
             managed_artwork: true,
             managed_import: true,
+            nfo_sidecar_apply: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,
@@ -144,6 +148,7 @@ impl DatabaseBackendCapabilities {
             automation: true,
             managed_artwork: true,
             managed_import: true,
+            nfo_sidecar_apply: true,
             vfs_cache: true,
             webhooks: true,
             search_index: true,
@@ -1249,6 +1254,64 @@ impl ManagedImportRepository for TaruDatabase {
     ) -> Result<Option<ManagedImportPromotionApplyRecord>> {
         self.backend()
             .set_managed_import_promotion_apply_state(
+                id,
+                state,
+                updated_at_ms,
+                outcome_json,
+                safe_error_code,
+                safe_message,
+            )
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl NfoSidecarApplyRepository for TaruDatabase {
+    async fn upsert_nfo_sidecar_apply(
+        &self,
+        apply: NewNfoSidecarApply,
+    ) -> Result<NfoSidecarApplyRecord> {
+        self.backend().upsert_nfo_sidecar_apply(apply).await
+    }
+
+    async fn get_nfo_sidecar_apply(
+        &self,
+        id: NfoSidecarApplyId,
+    ) -> Result<Option<NfoSidecarApplyRecord>> {
+        self.backend().get_nfo_sidecar_apply(id).await
+    }
+
+    async fn find_nfo_sidecar_apply_by_idempotency_key(
+        &self,
+        target_library_id: LibraryId,
+        idempotency_key: &str,
+    ) -> Result<Option<NfoSidecarApplyRecord>> {
+        self.backend()
+            .find_nfo_sidecar_apply_by_idempotency_key(target_library_id, idempotency_key)
+            .await
+    }
+
+    async fn list_nfo_sidecar_applies_for_item(
+        &self,
+        media_item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<NfoSidecarApplyRecord>> {
+        self.backend()
+            .list_nfo_sidecar_applies_for_item(media_item_id, page)
+            .await
+    }
+
+    async fn set_nfo_sidecar_apply_state(
+        &self,
+        id: NfoSidecarApplyId,
+        state: NfoSidecarApplyState,
+        updated_at_ms: i64,
+        outcome_json: Option<String>,
+        safe_error_code: Option<String>,
+        safe_message: Option<String>,
+    ) -> Result<Option<NfoSidecarApplyRecord>> {
+        self.backend()
+            .set_nfo_sidecar_apply_state(
                 id,
                 state,
                 updated_at_ms,
