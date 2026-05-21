@@ -491,6 +491,15 @@ impl StorageBackend for LibraryStorageBackend {
         self.record_result(&result);
         result
     }
+
+    async fn plan_link(
+        &self,
+        request: taru_vfs::StorageLinkPlanRequest,
+    ) -> Result<taru_vfs::StorageLinkPlan> {
+        let result = self.inner.plan_link(request).await;
+        self.record_result(&result);
+        result
+    }
 }
 
 impl LibraryStorageBackend {

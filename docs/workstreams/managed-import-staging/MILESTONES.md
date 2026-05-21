@@ -50,9 +50,16 @@ Primary evidence:
 
 Exit criteria:
 
-- Promotion planning is non-mutating.
-- Plan includes destination, duplicate/link, metadata/NFO, and blocked reasons.
-- Tests prove library roots are unchanged by planning.
+- [x] Promotion planning is non-mutating.
+- [x] Plan includes destination, duplicate/link, metadata/NFO, and blocked
+  reasons.
+- [x] Tests prove library roots are unchanged by planning.
+
+Primary evidence:
+
+- `crates/taru-core/src/managed_import.rs`
+- `crates/taru-server/src/app/managed_import.rs`
+- `crates/taru-server/src/app/tests/managed_import.rs`
 
 ## M4 — Apply/Follow-On Decision
 

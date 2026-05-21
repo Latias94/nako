@@ -148,6 +148,11 @@ impl TaruApp {
     }
 
     #[must_use]
+    pub(crate) fn managed_import(&self) -> managed_import::ManagedImportAppService {
+        self.services().managed_import.clone()
+    }
+
+    #[must_use]
     pub(crate) fn playback(&self) -> PlaybackAppService {
         self.services().playback.clone()
     }

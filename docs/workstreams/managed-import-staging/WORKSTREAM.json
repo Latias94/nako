@@ -7,11 +7,12 @@
   "scope_kind": "execution",
   "problem": "Downloads, watch-folder candidates, and Addon-proposed artifacts need Taru-owned quarantine, diagnostics, and explicit promotion planning before any media library writes.",
   "task_prefix": "MIS",
-  "current_task": "MIS-040",
+  "current_task": "MIS-050",
   "completed_tasks": [
     "MIS-010",
     "MIS-020",
-    "MIS-030"
+    "MIS-030",
+    "MIS-040"
   ],
   "authoritative_docs": [
     {
@@ -51,7 +52,8 @@
     "crates/taru-db/src/sqlite/managed_import.rs",
     "crates/taru-db/src/postgres.rs",
     "crates/taru-server/src/app/managed_import.rs",
-    "crates/taru-server/src/app/tests/managed_import.rs"
+    "crates/taru-server/src/app/tests/managed_import.rs",
+    "crates/taru-server/src/app/storage.rs"
   ],
   "adr_refs": [
     "docs/adr/0002-internal-vfs-before-os-mounting.md",
@@ -62,7 +64,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "MIS-040",
-    "notes": "Build non-mutating promotion plan preview. It must explain destination, duplicate/link hints, NFO/provider identity hints, and blocked reasons without copy/move/link/delete in library roots."
+    "next_task": "MIS-050",
+    "notes": "Decide whether first promotion apply can safely stay in this lane or must split to link-apply-and-import-promotion. Do not implement library mutations until rollback, cleanup, audit, and operator confirmation gates are explicit."
   }
 }

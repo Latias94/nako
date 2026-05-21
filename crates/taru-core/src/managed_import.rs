@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{LibraryId, ManagedImportArtifactId, Result, StagingManifestId, TaruError};
+use crate::{
+    ExternalProvider, LibraryId, LocalMetadataPolicy, ManagedImportArtifactId, MediaSourceId,
+    Result, SourceDuplicateEvidenceKind, StagingManifestId, TaruError,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -151,4 +154,96 @@ pub struct ManagedImportArtifactRecord {
     pub diagnostics_json: Option<String>,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedImportPromotionPlan {
+    pub artifact_id: ManagedImportArtifactId,
+    pub artifact_state: ManagedImportArtifactState,
+    pub target_library_id: LibraryId,
+    pub target_library_name: String,
+    pub destination_locator: Option<String>,
+    pub file_operations: Vec<ManagedImportPromotionFileOperation>,
+    pub duplicate_hints: Vec<ManagedImportPromotionDuplicateHint>,
+    pub nfo_authority: ManagedImportPromotionNfoAuthorityHint,
+    pub provider_identity: ManagedImportPromotionProviderIdentityHint,
+    pub blocked_reasons: Vec<ManagedImportPromotionBlockedReason>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedImportPromotionOperationKind {
+    Copy,
+    Move,
+    Hardlink,
+    Symlink,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedImportPromotionOperationStatus {
+    Ready,
+    Blocked,
+    Unsupported,
+    SourceMissing,
+    SourceNotFile,
+    TargetParentMissing,
+    TargetParentNotDirectory,
+    TargetExists,
+    SecurityViolation,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedImportPromotionFileOperation {
+    pub kind: ManagedImportPromotionOperationKind,
+    pub status: ManagedImportPromotionOperationStatus,
+    pub can_apply: bool,
+    pub source_scheme: Option<String>,
+    pub target_locator: Option<String>,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedImportPromotionDuplicateHint {
+    pub existing_source_id: Option<MediaSourceId>,
+    pub evidence_kind: SourceDuplicateEvidenceKind,
+    pub confidence_milli: Option<u16>,
+    pub size_matches: bool,
+    pub fingerprint_matches: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedImportPromotionNfoAuthorityHint {
+    pub policy: LocalMetadataPolicy,
+    pub sidecar_locator: Option<String>,
+    pub has_sidecar: bool,
+    pub import_supported: bool,
+    pub export_supported: bool,
+    pub would_read_sidecar: bool,
+    pub would_create_sidecar: bool,
+    pub backup_required: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagedImportPromotionProviderIdentityHint {
+    pub configured_providers: Vec<ExternalProvider>,
+    pub has_import_diagnostics: bool,
+    pub needs_identity_review: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedImportPromotionBlockedReason {
+    ArtifactNotReady,
+    MissingArtifactUri,
+    MissingDestinationLocator,
+    InvalidArtifactUri,
+    InvalidDestinationLocator,
+    DestinationEscapesLibrary,
+    ProviderIdentityMissing,
+    StoragePlanningUnavailable,
 }

@@ -45,6 +45,9 @@ claiming lane closeout.
 | 2026-05-21 | MIS-020 formatting | `cargo fmt --all -- --check` | Pass. |
 | 2026-05-21 | MIS-020 diff hygiene | `git diff --check` | Pass with repository line-ending warnings only; no whitespace errors. |
 | 2026-05-21 | MIS-030 server diagnostics | `cargo nextest run -p taru-server managed_import --no-fail-fast` | Pass. Service tests prove create/list diagnostics are redacted, library scoped, enriched from staging manifest facts, reject mutating creation states, and do not create Media Sources. |
+| 2026-05-21 | MIS-040 TDD red gate | `cargo nextest run -p taru-server managed_import --no-fail-fast` | Expected fail. New promotion-preview tests could not compile because the core promotion plan model and `preview_promotion_plan` app method did not exist yet. |
+| 2026-05-21 | MIS-040 promotion preview gate | `cargo nextest run -p taru-server managed_import --no-fail-fast` | Pass. Six service tests prove non-mutating promotion preview explains destination, hardlink/symlink dry-run status, duplicate hints, NFO authority hint, provider identity hint, explicit blockers, and destination-escape rejection without creating Media Sources or writing/copying/linking/deleting library files. |
+| 2026-05-21 | MIS-040 focused verification | `cargo fmt --all -- --check`; `cargo nextest run -p taru-server managed_import --no-fail-fast`; `cargo nextest run -p taru-db managed_import --no-fail-fast`; `cargo nextest run -p taru-vfs link --no-fail-fast`; `python -m json.tool docs/workstreams/managed-import-staging/WORKSTREAM.json`; `git diff --check` | Pass. Formatting, six Managed Import server tests, DB artifact contract, VFS link dry-run tests, workstream JSON validity, and diff hygiene are fresh. `git diff --check` emitted only repository CRLF conversion warnings. |
 
 ## Evidence Anchors
 
@@ -56,6 +59,7 @@ claiming lane closeout.
 - `crates/taru-db/src/postgres.rs`
 - `crates/taru-server/src/app/managed_import.rs`
 - `crates/taru-server/src/app/tests/managed_import.rs`
+- `crates/taru-server/src/app/storage.rs`
 - `crates/taru-server/src/app/staging.rs`
 - `docs/workstreams/managed-import-staging/DESIGN.md`
 - `docs/workstreams/nfo-link-authority/DESIGN.md`

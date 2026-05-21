@@ -42,13 +42,17 @@ Task IDs use the `MIS` prefix.
 
 ## M3 — Promotion Plan Preview
 
-- [ ] MIS-040 [owner=codex] [deps=MIS-020,MIS-030,nfo-link-authority] [scope=taru-core,taru-server]
+- [x] MIS-040 [owner=codex] [deps=MIS-020,MIS-030,nfo-link-authority] [scope=taru-core,taru-server]
   Goal: Produce a non-mutating promotion plan that explains target library,
   destination locator, duplicate/link hints, NFO authority preview, provider
   identity hints, and blocked reasons.
   Validation: tests prove planning does not create/copy/link/delete library
   files and records explicit blocked reasons.
-  Evidence: promotion plan model and app tests.
+  Evidence: promotion plan model and app tests. Completed with core promotion
+  plan DTOs, app-internal `preview_promotion_plan`, VFS link dry-run summary,
+  duplicate hints from fingerprint/size evidence, NFO sidecar authority hints,
+  provider identity review hints, and blocker tests that prove no Media Source
+  or library-file write occurs during preview.
   Handoff: Decide whether apply belongs here or a split follow-on.
 
 ## M4 — Apply Split Decision

@@ -14,6 +14,7 @@ use super::{
     catalog::CatalogAppService,
     jobs::{JobAppService, LibraryScanAppService},
     library::LibraryAppService,
+    managed_import::ManagedImportAppService,
     metadata::MetadataAppService,
     metadata_runtime,
     nfo::NfoAppService,
@@ -99,6 +100,7 @@ pub(super) struct TaruAppServices {
     pub(super) library: LibraryAppService,
     pub(super) storage: StorageDiagnosticsAppService,
     pub(super) metadata: MetadataAppService,
+    pub(super) managed_import: ManagedImportAppService,
     pub(super) nfo: NfoAppService,
     pub(super) playback: PlaybackAppService,
     pub(super) user_playback: UserPlaybackAppService,
@@ -136,6 +138,10 @@ impl TaruAppServices {
             runtime.metadata_providers,
             runtime.supervisor.clone(),
         );
+        let managed_import = ManagedImportAppService::new_with_storage(
+            store.clone(),
+            runtime.storage_backends.clone(),
+        );
         let nfo = NfoAppService::new(
             store.clone(),
             runtime.metadata_permits,
@@ -161,6 +167,7 @@ impl TaruAppServices {
             library,
             storage,
             metadata,
+            managed_import,
             nfo,
             playback,
             user_playback,
