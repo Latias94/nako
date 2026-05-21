@@ -38,6 +38,303 @@ use crate::providers::{
 
 mod fixtures;
 
+#[test]
+fn registry_diagnostics_include_provider_capabilities() {
+    let registry = MetadataProviderRegistry::new().with_provider(mock_provider(
+        ExternalProvider::Tmdb,
+        vec![],
+        mock_fetch_result(ExternalProvider::Tmdb, "603", CanonicalMetadata::default()),
+    ));
+
+    let diagnostic = registry.describe(&ExternalProvider::Tmdb).unwrap();
+    let capabilities = diagnostic.capabilities.unwrap();
+
+    assert_eq!(capabilities.provider, ExternalProvider::Tmdb);
+    assert_eq!(capabilities.provider_name, "mock");
+    assert!(capabilities.supports_search);
+    assert!(capabilities.supports_fetch);
+    assert!(capabilities.supports_external_id_match);
+    assert!(!capabilities.supports_hierarchy);
+    assert!(
+        capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Movie)
+    );
+    assert!(
+        capabilities
+            .supported_subject_kinds
+            .contains(&ProviderSubjectKind::Movie)
+    );
+    assert_eq!(
+        capabilities.credential_requirement,
+        MetadataProviderCredentialRequirement::Optional
+    );
+}
+
+#[test]
+fn built_in_provider_capabilities_are_diagnostics_safe() {
+    let tmdb = TmdbMetadataProvider::new(TmdbProviderConfig::new(fixtures::TMDB_TOKEN)).unwrap();
+    let bangumi = BangumiMetadataProvider::new(BangumiProviderConfig {
+        access_token: Some(fixtures::BANGUMI_TOKEN.into()),
+        ..BangumiProviderConfig::default()
+    })
+    .unwrap();
+    let douban = DoubanMetadataProvider::new(DoubanProviderConfig {
+        api_key: Some(fixtures::DOUBAN_API_KEY.into()),
+        headers: vec![("X-Douban-Secret".to_owned(), "header-secret".into())],
+        ..DoubanProviderConfig::default()
+    })
+    .unwrap();
+
+    let tmdb_capabilities = tmdb.capabilities();
+    let bangumi_capabilities = bangumi.capabilities();
+    let douban_capabilities = douban.capabilities();
+    let debug = format!("{tmdb_capabilities:?}\n{bangumi_capabilities:?}\n{douban_capabilities:?}");
+
+    assert_eq!(
+        tmdb_capabilities.credential_requirement,
+        MetadataProviderCredentialRequirement::Required
+    );
+    assert!(
+        tmdb_capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Series)
+    );
+    assert!(tmdb_capabilities.supports_hierarchy);
+    assert_eq!(
+        bangumi_capabilities.credential_requirement,
+        MetadataProviderCredentialRequirement::Optional
+    );
+    assert!(
+        bangumi_capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Episode)
+    );
+    assert_eq!(
+        douban_capabilities.credential_requirement,
+        MetadataProviderCredentialRequirement::Optional
+    );
+    assert!(
+        douban_capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Movie)
+    );
+    assert!(!debug.contains(fixtures::TMDB_TOKEN));
+    assert!(!debug.contains(fixtures::BANGUMI_TOKEN));
+    assert!(!debug.contains(fixtures::DOUBAN_API_KEY));
+    assert!(!debug.contains("header-secret"));
+}
+
+#[test]
+fn matching_policy_accepts_rejects_and_requires_confirmation_with_reasons() {
+    let policy = MetadataCandidateMatchingPolicy::strict();
+    let lookup = MetadataLookup {
+        kind: Some(MediaKind::Movie),
+        title: "The Matrix".to_owned(),
+        year: Some(1999),
+        language: None,
+        external_ids: Vec::new(),
+    };
+    let matches = policy.evaluate_for_lookup(
+        &lookup,
+        vec![
+            scored_candidate_with_release_date(
+                ExternalProvider::Tmdb,
+                "603",
+                "The Matrix",
+                Some("1999-03-31"),
+                0.95,
+            ),
+            scored_candidate_with_release_date(
+                ExternalProvider::Douban,
+                "1292052",
+                "The Matrix",
+                Some("1999"),
+                0.72,
+            ),
+            scored_candidate_with_release_date(
+                ExternalProvider::Bangumi,
+                "8",
+                "Cowboy Bebop",
+                Some("1998-04-03"),
+                0.30,
+            ),
+        ],
+    );
+
+    assert_eq!(
+        matches[0].decision,
+        MetadataCandidateMatchDecision::Accepted
+    );
+    assert!(
+        matches[0]
+            .reasons
+            .contains(&MetadataCandidateMatchReason::ExactTitle)
+    );
+    assert!(
+        matches[0]
+            .reasons
+            .contains(&MetadataCandidateMatchReason::ReleaseYearMatch)
+    );
+    assert!(matches[0].message.contains("accepted"));
+    assert_eq!(
+        matches[1].decision,
+        MetadataCandidateMatchDecision::NeedsConfirmation
+    );
+    assert!(matches[1].needs_confirmation());
+    assert!(matches[1].message.contains("needs confirmation"));
+    assert_eq!(
+        matches[2].decision,
+        MetadataCandidateMatchDecision::Rejected
+    );
+    assert!(
+        matches[2]
+            .reasons
+            .contains(&MetadataCandidateMatchReason::DifferentTitle)
+    );
+    assert!(
+        matches[2]
+            .reasons
+            .contains(&MetadataCandidateMatchReason::ReleaseYearMismatch)
+    );
+    assert!(matches[2].message.contains("below confirmation threshold"));
+}
+
+#[test]
+fn matching_policy_requires_confirmation_for_conflicting_high_confidence_candidates() {
+    let policy = MetadataCandidateMatchingPolicy::strict();
+    let matches = policy.evaluate(vec![
+        scored_candidate(ExternalProvider::Tmdb, "603", "The Matrix", 0.96),
+        scored_candidate(
+            ExternalProvider::Douban,
+            "conflict",
+            "The Matrix Reloaded",
+            0.94,
+        ),
+    ]);
+
+    assert_eq!(
+        matches[0].decision,
+        MetadataCandidateMatchDecision::NeedsConfirmation
+    );
+    assert_eq!(
+        matches[1].decision,
+        MetadataCandidateMatchDecision::NeedsConfirmation
+    );
+    assert!(
+        matches[0]
+            .reasons
+            .contains(&MetadataCandidateMatchReason::NearbyHighConfidenceConflict)
+    );
+    assert!(
+        matches[1]
+            .reasons
+            .contains(&MetadataCandidateMatchReason::NearbyHighConfidenceConflict)
+    );
+    assert!(matches[0].message.contains("conflict"));
+    assert!(matches[1].message.contains("conflict"));
+}
+
+#[test]
+fn candidate_conflict_review_collects_cross_provider_decisions_without_canonical_commit() {
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            release_date: Some("1999-03-31".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    let review = build_candidate_conflict_review(
+        &item,
+        Some("en-US".to_owned()),
+        vec![
+            scored_candidate_with_release_date(
+                ExternalProvider::Tmdb,
+                "603",
+                "The Matrix",
+                Some("1999-03-31"),
+                0.96,
+            ),
+            scored_candidate_with_release_date(
+                ExternalProvider::Douban,
+                "conflict",
+                "The Matrix Reloaded",
+                Some("2003"),
+                0.94,
+            ),
+        ],
+    );
+
+    assert_eq!(review.item_id, item.id);
+    assert_eq!(
+        review.status,
+        MetadataCandidateConflictReviewStatus::NeedsConfirmation
+    );
+    assert!(review.requires_confirmation());
+    assert_eq!(review.lookup.title, "The Matrix");
+    assert_eq!(review.lookup.year, Some(1999));
+    assert_eq!(review.decisions.len(), 2);
+    assert!(
+        review
+            .decisions
+            .iter()
+            .all(|decision| decision.decision == MetadataCandidateMatchDecision::NeedsConfirmation)
+    );
+    assert!(
+        review
+            .decisions
+            .iter()
+            .any(|decision| decision.provider == ExternalProvider::Tmdb)
+    );
+    assert!(
+        review
+            .decisions
+            .iter()
+            .any(|decision| decision.provider == ExternalProvider::Douban)
+    );
+    assert!(review.message.contains("manual confirmation"));
+}
+
+#[test]
+fn candidate_conflict_review_marks_all_rejected_candidates_as_no_acceptable_candidates() {
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            release_date: Some("1999".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    let review = build_candidate_conflict_review(
+        &item,
+        None,
+        vec![scored_candidate_with_release_date(
+            ExternalProvider::Bangumi,
+            "weak",
+            "Cowboy Bebop",
+            Some("1998"),
+            0.30,
+        )],
+    );
+
+    assert_eq!(
+        review.status,
+        MetadataCandidateConflictReviewStatus::NoAcceptableCandidates
+    );
+    assert_eq!(
+        review.decisions[0].decision,
+        MetadataCandidateMatchDecision::Rejected
+    );
+    assert!(review.message.contains("all were rejected"));
+}
+
 #[tokio::test]
 async fn hierarchy_confirmation_confirms_provisional_items_in_place() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
@@ -787,6 +1084,82 @@ async fn refresh_searches_fetches_caches_raw_and_preserves_locks() {
     assert_eq!(hits[0].item_id, item.id);
     assert_eq!(search_count.load(Ordering::SeqCst), 1);
     assert_eq!(fetch_count.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn refresh_search_requires_confirmation_for_ambiguous_candidate_without_commit() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let item = seed_movie(&store, "Ambiguous Matrix", Some("1999".to_owned()), vec![]).await;
+    let provider = mock_provider(
+        ExternalProvider::Tmdb,
+        vec![scored_candidate(
+            ExternalProvider::Tmdb,
+            "weak-603",
+            "The Matrix",
+            0.72,
+        )],
+        MetadataFetchResult {
+            provider: ExternalProvider::Tmdb,
+            provider_key: "weak-603".to_owned(),
+            graph: MetadataCandidateGraph::from_canonical(
+                MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                MediaKind::Movie,
+                CanonicalMetadata {
+                    title: "The Matrix".to_owned(),
+                    overview: Some("Should not be committed.".to_owned()),
+                    ..CanonicalMetadata::default()
+                },
+            ),
+            raw_json: r#"{"id":"weak-603"}"#.to_owned(),
+        },
+    );
+    let search_count = provider.search_count.clone();
+    let fetch_count = provider.fetch_count.clone();
+    let service = MetadataRefreshService::new(provider, store.clone());
+    let job_id = seed_metadata_job(&store, &item).await;
+
+    let err = service
+        .refresh_item(MetadataRefreshRequest {
+            job_id,
+            item_id: item.id,
+            profile: MetadataProfile::from_preset(LibraryPreset::Movies),
+            force: false,
+        })
+        .await
+        .unwrap_err();
+
+    let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+    let raw = store
+        .get_provider_raw_response(item.id, &ExternalProvider::Tmdb, "weak-603")
+        .await
+        .unwrap();
+    let mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let attempts = store.list_metadata_provider_attempts(job_id).await.unwrap();
+
+    assert!(err.to_string().contains("needs confirmation"));
+    assert_eq!(loaded.metadata.title, "Ambiguous Matrix");
+    assert_eq!(loaded.metadata.overview, None);
+    assert!(raw.is_none());
+    assert!(mappings.is_empty());
+    assert_eq!(search_count.load(Ordering::SeqCst), 1);
+    assert_eq!(fetch_count.load(Ordering::SeqCst), 0);
+    assert_eq!(attempts.len(), 1);
+    assert_eq!(attempts[0].status, MetadataProviderAttemptStatus::NoMatch);
+    assert_eq!(
+        attempts[0].error_class,
+        Some(MetadataProviderErrorClass::NoMatch)
+    );
+    assert!(
+        attempts[0]
+            .message
+            .as_deref()
+            .unwrap()
+            .contains("needs confirmation")
+    );
 }
 
 #[tokio::test]
@@ -1869,15 +2242,35 @@ fn mock_candidate(
     provider_key: &str,
     title: &str,
 ) -> MetadataCandidate {
+    scored_candidate(provider, provider_key, title, 0.95)
+}
+
+fn scored_candidate(
+    provider: ExternalProvider,
+    provider_key: &str,
+    title: &str,
+    score: f32,
+) -> MetadataCandidate {
+    scored_candidate_with_release_date(provider, provider_key, title, None, score)
+}
+
+fn scored_candidate_with_release_date(
+    provider: ExternalProvider,
+    provider_key: &str,
+    title: &str,
+    release_date: Option<&str>,
+    score: f32,
+) -> MetadataCandidate {
     MetadataCandidate {
         provider: provider.clone(),
         provider_key: provider_key.to_owned(),
-        score: 0.95,
+        score,
         graph: MetadataCandidateGraph::from_canonical(
             MetadataCandidateSource::Provider(provider),
             MediaKind::Movie,
             CanonicalMetadata {
                 title: title.to_owned(),
+                release_date: release_date.map(str::to_owned),
                 ..CanonicalMetadata::default()
             },
         ),

@@ -9,6 +9,7 @@ use taru_core::{
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
     MetadataHttpRuntimeConfig, MetadataHttpRuntimeStatus, MetadataLookup, MetadataProvider,
+    MetadataProviderCapabilities, MetadataProviderCredentialRequirement,
 };
 
 use super::{
@@ -74,6 +75,35 @@ impl MetadataProvider for BangumiMetadataProvider {
 
     fn provider_name(&self) -> &'static str {
         BANGUMI_PROVIDER_NAME
+    }
+
+    fn capabilities(&self) -> MetadataProviderCapabilities {
+        MetadataProviderCapabilities {
+            provider: ExternalProvider::Bangumi,
+            provider_name: BANGUMI_PROVIDER_NAME.to_owned(),
+            supported_media_kinds: vec![
+                MediaKind::Movie,
+                MediaKind::Series,
+                MediaKind::Season,
+                MediaKind::Episode,
+                MediaKind::Unknown,
+            ],
+            supported_subject_kinds: vec![
+                ProviderSubjectKind::Movie,
+                ProviderSubjectKind::Series,
+                ProviderSubjectKind::Season,
+                ProviderSubjectKind::Episode,
+                ProviderSubjectKind::Subject,
+            ],
+            supports_search: true,
+            supports_fetch: true,
+            supports_external_id_match: true,
+            supports_hierarchy: false,
+            credential_requirement: MetadataProviderCredentialRequirement::Optional,
+            notes: vec![
+                "Bangumi subject metadata is provider-subject oriented; hierarchy confirmation remains Taru-owned".to_owned(),
+            ],
+        }
     }
 
     fn runtime_status(&self) -> Option<MetadataHttpRuntimeStatus> {

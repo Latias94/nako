@@ -3,7 +3,7 @@ use taru_client_protocol::PageInfo;
 use taru_core::{
     ExternalProvider, LibraryId, MediaItemId, MediaKind, MetadataProfile,
     MetadataProviderAttemptRecord, MetadataRefreshMode, ProviderRawResponse,
-    ProviderRawResponseCleanup,
+    ProviderRawResponseCleanup, ProviderSubjectKind,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -37,6 +37,70 @@ pub struct MetadataRawResponsesResponse {
     pub page: PageInfo,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewResponse {
+    pub item_id: MediaItemId,
+    pub status: MetadataCandidateReviewStatus,
+    pub lookup: MetadataCandidateReviewLookup,
+    pub decisions: Vec<MetadataCandidateReviewDecision>,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewStatus {
+    Accepted,
+    NeedsConfirmation,
+    NoCandidates,
+    NoAcceptableCandidates,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewLookup {
+    pub kind: Option<MediaKind>,
+    pub title: String,
+    pub year: Option<u16>,
+    pub language: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewDecision {
+    pub provider: ExternalProvider,
+    pub provider_key: String,
+    pub media_kind: MediaKind,
+    pub title: String,
+    pub release_year: Option<u16>,
+    pub score: f32,
+    pub decision: MetadataCandidateReviewDecisionKind,
+    pub reasons: Vec<MetadataCandidateReviewReason>,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewDecisionKind {
+    Accepted,
+    NeedsConfirmation,
+    Rejected,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewReason {
+    ScoreAccepted,
+    ScoreNeedsConfirmation,
+    ScoreRejected,
+    NearbyHighConfidenceConflict,
+    ExactTitle,
+    DifferentTitle,
+    MissingLookupTitle,
+    MissingCandidateTitle,
+    ReleaseYearMatch,
+    ReleaseYearMismatch,
+    MissingLookupYear,
+    MissingCandidateReleaseYear,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataProviderDiagnosticsResponse {
     pub providers: Vec<MetadataProviderDiagnostic>,
@@ -47,8 +111,30 @@ pub struct MetadataProviderDiagnostic {
     pub provider: ExternalProvider,
     pub status: MetadataProviderDiagnosticStatus,
     pub provider_name: Option<String>,
+    pub capabilities: Option<MetadataProviderCapabilityDiagnostic>,
     pub reason: Option<String>,
     pub runtime: MetadataProviderRuntimeDiagnostic,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataProviderCapabilityDiagnostic {
+    pub supported_media_kinds: Vec<MediaKind>,
+    pub supported_subject_kinds: Vec<ProviderSubjectKind>,
+    pub supports_search: bool,
+    pub supports_fetch: bool,
+    pub supports_external_id_match: bool,
+    pub supports_hierarchy: bool,
+    pub credential_requirement: MetadataProviderCredentialRequirementDiagnostic,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProviderCredentialRequirementDiagnostic {
+    None,
+    Optional,
+    Required,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

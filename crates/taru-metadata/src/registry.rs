@@ -1,8 +1,11 @@
 use std::{collections::HashMap, fmt, sync::Arc};
 
-use taru_core::ExternalProvider;
+use taru_core::{ExternalProvider, Result};
 
-use crate::{MetadataHttpRuntimeStatus, MetadataProvider};
+use crate::{
+    MetadataCandidate, MetadataHttpRuntimeStatus, MetadataLookup, MetadataProvider,
+    MetadataProviderCapabilities,
+};
 #[derive(Clone, Default)]
 pub struct MetadataProviderRegistry {
     providers: HashMap<ExternalProvider, RegisteredMetadataProvider>,
@@ -77,6 +80,25 @@ impl MetadataProviderRegistry {
         self.providers.get(provider)
     }
 
+    pub async fn search_candidates(
+        &self,
+        providers: &[ExternalProvider],
+        lookup: MetadataLookup,
+    ) -> Result<Vec<MetadataCandidate>> {
+        let mut candidates = Vec::new();
+
+        for provider_id in providers {
+            let Some(RegisteredMetadataProvider::Available(provider)) =
+                self.providers.get(provider_id)
+            else {
+                continue;
+            };
+            candidates.extend(provider.search(lookup.clone()).await?);
+        }
+
+        Ok(candidates)
+    }
+
     #[must_use]
     pub fn describe(
         &self,
@@ -90,6 +112,7 @@ impl MetadataProviderRegistry {
                         provider: provider.clone(),
                         status: MetadataProviderRegistrationStatus::Available,
                         provider_name: Some(provider_impl.provider_name().to_owned()),
+                        capabilities: Some(provider_impl.capabilities()),
                         reason: None,
                         runtime_status: provider_impl.runtime_status(),
                     }
@@ -99,6 +122,7 @@ impl MetadataProviderRegistry {
                         provider: provider.clone(),
                         status: MetadataProviderRegistrationStatus::Disabled,
                         provider_name: None,
+                        capabilities: None,
                         reason: Some(reason.clone()),
                         runtime_status: None,
                     }
@@ -108,6 +132,7 @@ impl MetadataProviderRegistry {
                         provider: provider.clone(),
                         status: MetadataProviderRegistrationStatus::Unavailable,
                         provider_name: None,
+                        capabilities: None,
                         reason: Some(reason.clone()),
                         runtime_status: None,
                     }
@@ -128,6 +153,7 @@ pub struct MetadataProviderRegistrationDiagnostic {
     pub provider: ExternalProvider,
     pub status: MetadataProviderRegistrationStatus,
     pub provider_name: Option<String>,
+    pub capabilities: Option<MetadataProviderCapabilities>,
     pub reason: Option<String>,
     pub runtime_status: Option<MetadataHttpRuntimeStatus>,
 }

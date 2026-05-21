@@ -1,6 +1,7 @@
 use std::{collections::HashSet, env};
 
 use taru_api::metadata_diagnostics::{
+    MetadataProviderCapabilityDiagnostic, MetadataProviderCredentialRequirementDiagnostic,
     MetadataProviderDiagnostic, MetadataProviderDiagnosticStatus,
     MetadataProviderRuntimeDiagnostic, MetadataProviderRuntimeStateScope,
 };
@@ -10,6 +11,7 @@ use taru_metadata::{
     MetadataHttpRuntimeConfig, MetadataHttpRuntimeStatus, MetadataProviderRegistrationStatus,
     MetadataProviderRegistry, TmdbMetadataProvider, TmdbProviderConfig,
 };
+use taru_metadata::{MetadataProviderCapabilities, MetadataProviderCredentialRequirement};
 
 use crate::config::{
     MetadataProviderConfig, MetadataProviderHeaderConfig, MetadataProviderRuntimeConfig,
@@ -151,6 +153,7 @@ fn registry_provider_diagnostic(
             provider,
             status: MetadataProviderDiagnosticStatus::Unavailable,
             provider_name: None,
+            capabilities: None,
             reason: Some("metadata provider is not registered".to_owned()),
             runtime,
         };
@@ -170,8 +173,34 @@ fn registry_provider_diagnostic(
             }
         },
         provider_name: diagnostic.provider_name,
+        capabilities: diagnostic.capabilities.map(capability_diagnostic),
         reason: diagnostic.reason,
         runtime,
+    }
+}
+
+fn capability_diagnostic(
+    capabilities: MetadataProviderCapabilities,
+) -> MetadataProviderCapabilityDiagnostic {
+    MetadataProviderCapabilityDiagnostic {
+        supported_media_kinds: capabilities.supported_media_kinds,
+        supported_subject_kinds: capabilities.supported_subject_kinds,
+        supports_search: capabilities.supports_search,
+        supports_fetch: capabilities.supports_fetch,
+        supports_external_id_match: capabilities.supports_external_id_match,
+        supports_hierarchy: capabilities.supports_hierarchy,
+        credential_requirement: match capabilities.credential_requirement {
+            MetadataProviderCredentialRequirement::None => {
+                MetadataProviderCredentialRequirementDiagnostic::None
+            }
+            MetadataProviderCredentialRequirement::Optional => {
+                MetadataProviderCredentialRequirementDiagnostic::Optional
+            }
+            MetadataProviderCredentialRequirement::Required => {
+                MetadataProviderCredentialRequirementDiagnostic::Required
+            }
+        },
+        notes: capabilities.notes,
     }
 }
 

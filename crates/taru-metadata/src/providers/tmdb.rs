@@ -8,6 +8,7 @@ use taru_core::{
 use crate::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataHttpRuntime,
     MetadataHttpRuntimeConfig, MetadataHttpRuntimeStatus, MetadataLookup, MetadataProvider,
+    MetadataProviderCapabilities, MetadataProviderCredentialRequirement,
 };
 
 use super::{
@@ -74,6 +75,33 @@ impl MetadataProvider for TmdbMetadataProvider {
 
     fn provider_name(&self) -> &'static str {
         TMDB_PROVIDER_NAME
+    }
+
+    fn capabilities(&self) -> MetadataProviderCapabilities {
+        MetadataProviderCapabilities {
+            provider: ExternalProvider::Tmdb,
+            provider_name: TMDB_PROVIDER_NAME.to_owned(),
+            supported_media_kinds: vec![
+                MediaKind::Movie,
+                MediaKind::Series,
+                MediaKind::Season,
+                MediaKind::Episode,
+            ],
+            supported_subject_kinds: vec![
+                ProviderSubjectKind::Movie,
+                ProviderSubjectKind::Series,
+                ProviderSubjectKind::Season,
+                ProviderSubjectKind::Episode,
+            ],
+            supports_search: true,
+            supports_fetch: true,
+            supports_external_id_match: true,
+            supports_hierarchy: true,
+            credential_requirement: MetadataProviderCredentialRequirement::Required,
+            notes: vec![
+                "search supports movie and series lookups; season and episode fetch require TMDB compound provider keys".to_owned(),
+            ],
+        }
     }
 
     fn runtime_status(&self) -> Option<MetadataHttpRuntimeStatus> {

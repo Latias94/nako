@@ -1,5 +1,38 @@
 use super::*;
 
+#[derive(Clone)]
+struct CandidateReviewProviderServer {
+    base_url: String,
+}
+
+impl CandidateReviewProviderServer {
+    async fn start() -> Self {
+        let router = axum::Router::new()
+            .route(
+                "/bangumi/v0/search/subjects",
+                axum::routing::post(candidate_review_bangumi_search),
+            )
+            .route("/douban/movie/search", get(candidate_review_douban_search));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        Self {
+            base_url: format!("http://{addr}"),
+        }
+    }
+
+    fn bangumi_base_url(&self) -> String {
+        format!("{}/bangumi", self.base_url)
+    }
+
+    fn douban_base_url(&self) -> String {
+        format!("{}/douban", self.base_url)
+    }
+}
+
 #[tokio::test]
 async fn metadata_refresh_route_queues_background_job() {
     let temp = tempfile::tempdir().unwrap();
@@ -80,6 +113,160 @@ async fn metadata_refresh_route_queues_background_job() {
     assert!(job.has_input);
     assert!(!job.has_summary);
     assert!(!job.has_error);
+}
+
+#[tokio::test]
+async fn metadata_candidate_review_exposes_conflicts_without_committing_canonical_metadata() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let provider_server = CandidateReviewProviderServer::start().await;
+    let mut metadata = MetadataConfig::default();
+    metadata.providers = vec![
+        MetadataProviderConfig {
+            provider: ExternalProvider::Bangumi,
+            enabled: true,
+            token_env: None,
+            api_key_env: None,
+            api_base_url: Some(provider_server.bangumi_base_url()),
+            image_base_url: None,
+            language: None,
+            include_adult: false,
+            headers: Vec::new(),
+            runtime: Some(MetadataProviderRuntimeConfig {
+                min_interval_ms: 0,
+                ..MetadataProviderRuntimeConfig::default()
+            }),
+        },
+        MetadataProviderConfig {
+            provider: ExternalProvider::Douban,
+            enabled: true,
+            token_env: None,
+            api_key_env: None,
+            api_base_url: Some(provider_server.douban_base_url()),
+            image_base_url: None,
+            language: None,
+            include_adult: false,
+            headers: Vec::new(),
+            runtime: Some(MetadataProviderRuntimeConfig {
+                min_interval_ms: 0,
+                ..MetadataProviderRuntimeConfig::default()
+            }),
+        },
+    ];
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata,
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Anime".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Anime,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Conflict Demo".to_owned(),
+            release_date: Some("1999-03-31".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: item.id,
+            locator: "local:///Conflict Demo.mkv".to_owned(),
+            file_name: "Conflict Demo.mkv".to_owned(),
+            size_bytes: Some(1024),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+    let router = build_router(app);
+    let path = format!("/items/{}/metadata/candidates?language=zh-CN", item.id);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8_lossy(&bytes);
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let review: MetadataCandidateReviewResponse = serde_json::from_slice(&bytes).unwrap();
+    let loaded = store.get_media_item(item.id).await.unwrap().unwrap();
+    let raw = store
+        .list_provider_raw_responses(
+            item.id,
+            ProviderRawResponseFilter::default(),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    let mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(review.item_id, item.id);
+    assert_eq!(
+        review.status,
+        MetadataCandidateReviewStatus::NeedsConfirmation
+    );
+    assert_eq!(review.lookup.title, "Conflict Demo");
+    assert_eq!(review.decisions.len(), 2);
+    assert!(review.decisions.iter().all(
+        |decision| decision.decision == MetadataCandidateReviewDecisionKind::NeedsConfirmation
+    ));
+    assert!(
+        review
+            .decisions
+            .iter()
+            .any(|decision| decision.provider == ExternalProvider::Bangumi)
+    );
+    assert!(
+        review
+            .decisions
+            .iter()
+            .any(|decision| decision.provider == ExternalProvider::Douban)
+    );
+    assert!(review.message.contains("manual confirmation"));
+    assert_eq!(loaded.metadata.title, "Conflict Demo");
+    assert!(raw.is_empty());
+    assert!(mappings.is_empty());
 }
 
 #[tokio::test]
@@ -256,6 +443,21 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         providers.providers[0].status,
         MetadataProviderDiagnosticStatus::Available
     );
+    let capabilities = providers.providers[0].capabilities.as_ref().unwrap();
+    assert!(capabilities.supports_search);
+    assert!(capabilities.supports_fetch);
+    assert!(capabilities.supports_external_id_match);
+    assert!(!capabilities.supports_hierarchy);
+    assert!(
+        capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Movie)
+    );
+    assert!(
+        capabilities
+            .supported_subject_kinds
+            .contains(&ProviderSubjectKind::Movie)
+    );
     assert!(providers.providers[0].runtime.proxy_configured);
     assert_eq!(providers.providers[0].runtime.timeout_ms, 4_000);
     assert_eq!(providers.providers[0].runtime.max_attempts, 3);
@@ -269,6 +471,36 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
         providers.providers[0].runtime.state_scope,
         taru_api::metadata_diagnostics::MetadataProviderRuntimeStateScope::ProcessLocal
     );
+}
+
+async fn candidate_review_bangumi_search() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "data": [{
+            "id": 8,
+            "name": "Conflict Demo",
+            "name_cn": "Conflict Demo",
+            "summary": "Bangumi candidate.",
+            "date": "1999-03-31",
+            "images": {"large": "https://lain.bgm.tv/pic/cover/l/8.jpg"},
+            "tags": [{"name": "sci-fi"}],
+            "rating": {"score": 9.0}
+        }]
+    }))
+}
+
+async fn candidate_review_douban_search() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "subjects": [{
+            "id": "1292052",
+            "title": "Conflict Demo",
+            "original_title": "Conflict Demo",
+            "summary": "Douban candidate.",
+            "year": "1999",
+            "images": {"large": "https://img.doubanio.com/view/photo/l/public/p480747492.webp"},
+            "genres": ["科幻"],
+            "rating": {"average": 9.7}
+        }]
+    }))
 }
 
 #[tokio::test]

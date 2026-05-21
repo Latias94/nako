@@ -5,9 +5,11 @@ use std::{
 };
 
 use axum::{
+    Json,
     body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
     response::{IntoResponse, Response},
+    routing::get,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use taru_addon_protocol::{
@@ -47,10 +49,11 @@ use taru_api::{
         WebhookEndpointsResponse,
     },
     metadata_diagnostics::{
-        EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanResponse,
-        MetadataProviderAttemptsResponse, MetadataProviderDiagnosticStatus,
-        MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse,
-        MetadataRawResponsesResponse,
+        EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecisionKind,
+        MetadataCandidateReviewResponse, MetadataCandidateReviewStatus,
+        MetadataMaintenancePlanResponse, MetadataProviderAttemptsResponse,
+        MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse,
+        MetadataRawCleanupResponse, MetadataRawResponsesResponse,
     },
     public_client::{
         ClientTranscodeFailureCategory, ClientTranscodeSessionState, ErrorResponse, HealthResponse,
@@ -73,13 +76,13 @@ use taru_core::{
     MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
     NewIngestionFailure, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
-    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, Person,
-    PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
-    ProviderRawResponse, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
-    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, StorageErrorKind,
-    Tag, TagId, TaruError, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
-    TranscodeSessionState, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
-    VfsCachedObjectKind, WebhookEndpointStatus,
+    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus,
+    PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderRawResponseFilter, ProviderSubject,
+    ProviderSubjectId, ProviderSubjectKind, StagingManifestId, StagingManifestRepository,
+    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TaruError, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, VfsCacheOperation,
+    VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::TaruDatabase;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};

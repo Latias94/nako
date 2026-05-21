@@ -5,7 +5,8 @@ use taru_core::{
 };
 
 use crate::{
-    MetadataFetchRequest, MetadataLookup, MetadataMergePolicy, MetadataProvider,
+    MetadataCandidateMatchDecision, MetadataCandidateMatchingPolicy, MetadataFetchRequest,
+    MetadataLookup, MetadataMergePolicy, MetadataProvider,
     providers::{now_utc_string, release_year},
 };
 
@@ -325,22 +326,45 @@ where
         external_ids: item.metadata.external_ids.clone(),
     };
     let candidates = provider
-        .search(lookup)
+        .search(lookup.clone())
         .await
         .map_err(classify_provider_error)?;
-    let candidate = candidates
-        .into_iter()
-        .filter(|candidate| candidate.provider == provider_id)
-        .max_by(|left, right| left.score.total_cmp(&right.score))
-        .ok_or_else(|| {
-            MetadataProviderRefreshError::NoMatch(format!(
-                "{} returned no metadata candidate for item {}",
-                provider_label(&provider_id),
-                item.id
-            ))
-        })?;
+    let matches = MetadataCandidateMatchingPolicy::strict().evaluate_for_lookup(
+        &lookup,
+        candidates
+            .into_iter()
+            .filter(|candidate| candidate.provider == provider_id)
+            .collect(),
+    );
+    let candidate_match = matches.into_iter().next().ok_or_else(|| {
+        MetadataProviderRefreshError::NoMatch(format!(
+            "{} returned no metadata candidate for item {}",
+            provider_label(&provider_id),
+            item.id
+        ))
+    })?;
 
-    Ok((candidate.provider_key, MetadataMatchKind::Search))
+    match candidate_match.decision {
+        MetadataCandidateMatchDecision::Accepted => {
+            Ok((candidate_match.provider_key, MetadataMatchKind::Search))
+        }
+        MetadataCandidateMatchDecision::NeedsConfirmation => {
+            Err(MetadataProviderRefreshError::NoMatch(format!(
+                "{} candidate {} needs confirmation before metadata refresh: {}",
+                provider_label(&candidate_match.provider),
+                candidate_match.provider_key,
+                candidate_match.message
+            )))
+        }
+        MetadataCandidateMatchDecision::Rejected => {
+            Err(MetadataProviderRefreshError::NoMatch(format!(
+                "{} candidate {} was rejected before metadata refresh: {}",
+                provider_label(&candidate_match.provider),
+                candidate_match.provider_key,
+                candidate_match.message
+            )))
+        }
+    }
 }
 
 fn classify_provider_error(error: TaruError) -> MetadataProviderRefreshError {

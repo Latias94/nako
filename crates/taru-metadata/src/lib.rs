@@ -1,5 +1,6 @@
 mod confirmation;
 mod mapping;
+mod matching;
 mod provider_attempt;
 mod providers;
 mod registry;
@@ -10,6 +11,11 @@ mod types;
 pub use confirmation::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
     HierarchyConfirmationSummary, HierarchyProviderSubject,
+};
+pub use matching::{
+    MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus, MetadataCandidateMatch,
+    MetadataCandidateMatchDecision, MetadataCandidateMatchReason, MetadataCandidateMatchingPolicy,
+    build_candidate_conflict_review,
 };
 pub use providers::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,
@@ -34,6 +40,7 @@ pub use taru_core::{
 };
 pub use types::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataLookup, MetadataProvider,
+    MetadataProviderCapabilities, MetadataProviderCredentialRequirement,
 };
 
 #[cfg(test)]

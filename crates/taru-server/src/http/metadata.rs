@@ -33,6 +33,12 @@ pub(super) struct MetadataRawResponsesQuery {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct MetadataCandidateReviewQuery {
+    pub(super) provider: Option<ExternalProvider>,
+    pub(super) language: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct MetadataRawCleanupQuery {
     pub(super) provider: Option<ExternalProvider>,
     pub(super) fetched_before: Option<String>,
@@ -52,6 +58,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/items/{item_id}/metadata/raw",
             get(list_item_metadata_raw_responses),
+        )
+        .route(
+            "/items/{item_id}/metadata/candidates",
+            get(review_item_metadata_candidates),
         )
         .route("/metadata/providers", get(list_metadata_providers))
         .route(
@@ -112,6 +122,23 @@ pub(super) async fn list_item_metadata_raw_responses(
                     provider: query.provider,
                 },
                 query.page.try_into()?,
+            )
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn review_item_metadata_candidates(
+    State(app): State<TaruApp>,
+    Path(item_id): Path<MediaItemId>,
+    Query(query): Query<MetadataCandidateReviewQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.metadata()
+            .review_metadata_candidates(
+                item_id,
+                query.provider.map(|provider| vec![provider]),
+                query.language,
             )
             .await?,
     ))

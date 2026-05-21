@@ -3,11 +3,13 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use serde::Serialize;
 use taru_api::{
     metadata_diagnostics::{
-        EnqueueMetadataMaintenanceRequest, MetadataMaintenancePlanError,
-        MetadataMaintenancePlanItem, MetadataMaintenancePlanResponse,
-        MetadataProviderAttemptDiagnostic, MetadataProviderAttemptsResponse,
-        MetadataProviderDiagnosticsResponse, MetadataRawCleanupResponse,
-        MetadataRawResponsesResponse,
+        EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
+        MetadataCandidateReviewDecisionKind, MetadataCandidateReviewLookup,
+        MetadataCandidateReviewReason, MetadataCandidateReviewResponse,
+        MetadataCandidateReviewStatus, MetadataMaintenancePlanError, MetadataMaintenancePlanItem,
+        MetadataMaintenancePlanResponse, MetadataProviderAttemptDiagnostic,
+        MetadataProviderAttemptsResponse, MetadataProviderDiagnosticsResponse,
+        MetadataRawCleanupResponse, MetadataRawResponsesResponse,
     },
     public_client::page_info_from_request,
 };
@@ -20,8 +22,10 @@ use taru_core::{
 };
 use taru_db::TaruDatabase;
 use taru_metadata::{
-    MetadataProviderRegistry, MetadataRefreshJobInput, MetadataRefreshRequest,
-    MetadataRefreshSummary, MetadataStrategyExecutor,
+    MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus, MetadataCandidateMatch,
+    MetadataCandidateMatchDecision, MetadataCandidateMatchReason, MetadataProviderRegistry,
+    MetadataRefreshJobInput, MetadataRefreshRequest, MetadataRefreshSummary,
+    MetadataStrategyExecutor, build_candidate_conflict_review,
 };
 use time::OffsetDateTime;
 use tokio::sync::Semaphore;
@@ -225,6 +229,55 @@ impl MetadataAppService {
             items: planned,
             errors,
         })
+    }
+
+    pub async fn review_metadata_candidates(
+        &self,
+        item_id: MediaItemId,
+        providers: Option<Vec<ExternalProvider>>,
+        language: Option<String>,
+    ) -> Result<MetadataCandidateReviewResponse> {
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| TaruError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+        let library = self.library_for_item(item_id).await?;
+        let mut profile = self.effective_metadata_profile(&library, item.kind)?;
+        apply_metadata_provider_override(&mut profile, providers)?;
+        if let Some(language) = language
+            .as_ref()
+            .filter(|language| !language.trim().is_empty())
+        {
+            profile.language = Some(language.clone());
+        }
+
+        let candidates = self.search_metadata_candidates(&item, &profile).await?;
+        Ok(candidate_review_response(build_candidate_conflict_review(
+            &item,
+            profile.language,
+            candidates,
+        )))
+    }
+
+    async fn search_metadata_candidates(
+        &self,
+        item: &MediaItem,
+        profile: &MetadataProfile,
+    ) -> Result<Vec<taru_metadata::MetadataCandidate>> {
+        let lookup = taru_metadata::MetadataLookup {
+            kind: Some(item.kind),
+            title: item.metadata.title.clone(),
+            year: release_year(item.metadata.release_date.as_deref()),
+            language: profile.language.clone(),
+            external_ids: item.metadata.external_ids.clone(),
+        };
+        self.providers
+            .search_candidates(&profile.metadata_providers, lookup)
+            .await
     }
 
     pub(super) async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
@@ -845,11 +898,7 @@ impl MetadataAppService {
         }
 
         if let Some(providers) = request.providers.as_ref() {
-            if providers.is_empty() {
-                return Err(TaruError::InvalidInput {
-                    message: "metadata maintenance providers override must not be empty".to_owned(),
-                });
-            }
+            validate_metadata_provider_override(providers)?;
         }
 
         Ok(())
@@ -948,7 +997,7 @@ impl MetadataAppService {
         validate_profile_applies_to_item_kind(&profile, item.kind)?;
 
         if let Some(providers) = request.providers.as_ref() {
-            profile.metadata_providers = providers.clone();
+            apply_metadata_provider_override(&mut profile, Some(providers.clone()))?;
         }
         if let Some(language) = request
             .language
@@ -1057,6 +1106,112 @@ impl MetadataAppService {
     }
 }
 
+fn candidate_review_response(
+    review: MetadataCandidateConflictReview,
+) -> MetadataCandidateReviewResponse {
+    MetadataCandidateReviewResponse {
+        item_id: review.item_id,
+        status: match review.status {
+            MetadataCandidateConflictReviewStatus::Accepted => {
+                MetadataCandidateReviewStatus::Accepted
+            }
+            MetadataCandidateConflictReviewStatus::NeedsConfirmation => {
+                MetadataCandidateReviewStatus::NeedsConfirmation
+            }
+            MetadataCandidateConflictReviewStatus::NoCandidates => {
+                MetadataCandidateReviewStatus::NoCandidates
+            }
+            MetadataCandidateConflictReviewStatus::NoAcceptableCandidates => {
+                MetadataCandidateReviewStatus::NoAcceptableCandidates
+            }
+        },
+        lookup: MetadataCandidateReviewLookup {
+            kind: review.lookup.kind,
+            title: review.lookup.title,
+            year: review.lookup.year,
+            language: review.lookup.language,
+        },
+        decisions: review
+            .decisions
+            .into_iter()
+            .map(candidate_review_decision)
+            .collect(),
+        message: review.message,
+    }
+}
+
+fn candidate_review_decision(decision: MetadataCandidateMatch) -> MetadataCandidateReviewDecision {
+    MetadataCandidateReviewDecision {
+        provider: decision.provider,
+        provider_key: decision.provider_key,
+        media_kind: decision.media_kind,
+        title: decision.title,
+        release_year: decision.release_year,
+        score: decision.score,
+        decision: match decision.decision {
+            MetadataCandidateMatchDecision::Accepted => {
+                MetadataCandidateReviewDecisionKind::Accepted
+            }
+            MetadataCandidateMatchDecision::NeedsConfirmation => {
+                MetadataCandidateReviewDecisionKind::NeedsConfirmation
+            }
+            MetadataCandidateMatchDecision::Rejected => {
+                MetadataCandidateReviewDecisionKind::Rejected
+            }
+        },
+        reasons: decision
+            .reasons
+            .into_iter()
+            .map(candidate_review_reason)
+            .collect(),
+        message: decision.message,
+    }
+}
+
+fn candidate_review_reason(reason: MetadataCandidateMatchReason) -> MetadataCandidateReviewReason {
+    match reason {
+        MetadataCandidateMatchReason::ScoreAccepted => MetadataCandidateReviewReason::ScoreAccepted,
+        MetadataCandidateMatchReason::ScoreNeedsConfirmation => {
+            MetadataCandidateReviewReason::ScoreNeedsConfirmation
+        }
+        MetadataCandidateMatchReason::ScoreRejected => MetadataCandidateReviewReason::ScoreRejected,
+        MetadataCandidateMatchReason::NearbyHighConfidenceConflict => {
+            MetadataCandidateReviewReason::NearbyHighConfidenceConflict
+        }
+        MetadataCandidateMatchReason::ExactTitle => MetadataCandidateReviewReason::ExactTitle,
+        MetadataCandidateMatchReason::DifferentTitle => {
+            MetadataCandidateReviewReason::DifferentTitle
+        }
+        MetadataCandidateMatchReason::MissingLookupTitle => {
+            MetadataCandidateReviewReason::MissingLookupTitle
+        }
+        MetadataCandidateMatchReason::MissingCandidateTitle => {
+            MetadataCandidateReviewReason::MissingCandidateTitle
+        }
+        MetadataCandidateMatchReason::ReleaseYearMatch => {
+            MetadataCandidateReviewReason::ReleaseYearMatch
+        }
+        MetadataCandidateMatchReason::ReleaseYearMismatch => {
+            MetadataCandidateReviewReason::ReleaseYearMismatch
+        }
+        MetadataCandidateMatchReason::MissingLookupYear => {
+            MetadataCandidateReviewReason::MissingLookupYear
+        }
+        MetadataCandidateMatchReason::MissingCandidateReleaseYear => {
+            MetadataCandidateReviewReason::MissingCandidateReleaseYear
+        }
+    }
+}
+
+fn release_year(value: Option<&str>) -> Option<u16> {
+    let year = value?.get(0..4)?;
+    if year.chars().all(|character| character.is_ascii_digit()) {
+        year.parse().ok()
+    } else {
+        None
+    }
+}
+
 fn metadata_maintenance_resource_class(request: &EnqueueMetadataMaintenanceRequest) -> String {
     request
         .providers
@@ -1064,6 +1219,28 @@ fn metadata_maintenance_resource_class(request: &EnqueueMetadataMaintenanceReque
         .and_then(|providers| providers.first())
         .map(|provider| format!("metadata.{}", provider_resource_name(provider)))
         .unwrap_or_else(|| "metadata.maintenance".to_owned())
+}
+
+fn apply_metadata_provider_override(
+    profile: &mut MetadataProfile,
+    providers: Option<Vec<ExternalProvider>>,
+) -> Result<()> {
+    if let Some(providers) = providers {
+        validate_metadata_provider_override(&providers)?;
+        profile.metadata_providers = providers;
+    }
+
+    Ok(())
+}
+
+fn validate_metadata_provider_override(providers: &[ExternalProvider]) -> Result<()> {
+    if providers.is_empty() {
+        return Err(TaruError::InvalidInput {
+            message: "metadata providers override must not be empty".to_owned(),
+        });
+    }
+
+    Ok(())
 }
 
 fn validate_profile_applies_to_item_kind(

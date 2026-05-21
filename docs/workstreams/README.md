@@ -6,13 +6,22 @@ attention.
 
 ## Current Workstreams
 
+- [post-rpd-product-hardening](post-rpd-product-hardening/README.md):
+  active roadmap umbrella for ordering post-packaging product lanes across
+  metadata provider breadth, NFO/link authority, playback/transcode hardening,
+  managed import staging, network access, AI assistance, and addon distribution.
+- [metadata-provider-breadth](metadata-provider-breadth/README.md):
+  completed Wave 1 execution lane for capability-aware and explainable TMDB,
+  Douban, and Bangumi metadata matching, non-destructive ambiguous refresh, and
+  cross-provider candidate review before NFO/link, import, AI, or addon
+  metadata breadth depends on provider authority.
 - [self-hosted-release-readiness](self-hosted-release-readiness/README.md):
   completed release hardening lane for turning Taru's completed server/runtime
   capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL
   gates, API/SDK/redaction checks, deployment examples, backup/restore
   runbooks, and end-to-end smoke evidence.
 - [release-packaging-and-distribution](release-packaging-and-distribution/README.md):
-  active release hardening lane for turning the verified self-hosted baseline
+  completed release hardening lane for turning the verified self-hosted baseline
   into operator-facing artifacts, container/compose packaging, startup/config
   preflight, release scripts, checksums, and install/upgrade documentation.
 - [fearless-architecture-deepening](fearless-architecture-deepening/README.md):
