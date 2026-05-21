@@ -116,6 +116,7 @@ internal fun TaruConnectionShellContent(
                         value = state.accessToken,
                         onValueChange = { session.dispatch(ConnectionAction.AccessTokenChanged(it)) },
                         label = { Text(stringResource(TaruStrings.accessKeyLabel)) },
+                        placeholder = { Text(stringResource(TaruStrings.accessKeyLabel)) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                     )
