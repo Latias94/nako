@@ -5,13 +5,12 @@ Last updated: 2026-05-21
 
 ## Current State
 
-The lane is open. `RCR-010`, `RCR-020`, `RCR-030`, and `RCR-040` are complete.
+The lane is open. `RCR-010`, `RCR-020`, `RCR-030`, `RCR-040`, and `RCR-050`
+are complete.
 
 ## Active Task
 
-`RCR-050`: use the Rust core / UniFFI boundary for playback decision request
-construction and playback target interpretation while keeping Android-owned
-transport, diagnostics, and Media3.
+`RCR-090`: close the lane with fresh evidence, residual risks, and follow-ons.
 
 ## Guardrails
 
@@ -23,6 +22,6 @@ transport, diagnostics, and Media3.
 
 ## Recommended Next Step
 
-Implement `RCR-050` across `taru-client-core`, `taru-client-uniffi`, and Android
-playback. Keep Android DTO mapping and product diagnostics app-owned unless the
-task explicitly moves a portable rule into Rust.
+Run the closeout gates, write `CLOSEOUT.md`, and make `TODO.md`,
+`MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and `WORKSTREAM.json`
+agree on the final lane state.

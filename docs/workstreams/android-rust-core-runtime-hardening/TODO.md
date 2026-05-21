@@ -57,17 +57,21 @@ Last updated: 2026-05-21
 
 ## M4 — Android Playback Core Tracer
 
-- [ ] RCR-050 [owner=codex] [deps=RCR-040] [scope=crates/taru-client-core,crates/taru-client-uniffi,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/test/java/dev/taru/android/playback]
+- [x] RCR-050 [owner=codex] [deps=RCR-040] [scope=crates/taru-client-core,crates/taru-client-uniffi,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/test/java/dev/taru/android/playback]
   Goal: Use the Rust core / UniFFI boundary for playback decision request
   construction and playback target interpretation while keeping Android-owned
   transport execution, diagnostics, and Media3.
-  Validation: `cargo fmt --package taru-client-core --package taru-client-uniffi --check`; `cargo nextest run -p taru-client-core --no-fail-fast`; `cargo nextest run -p taru-client-uniffi --no-fail-fast`; `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon`; `apps/android/gradlew.bat -p apps/android :app:assembleDebug -Ptaru.rust.android.abis=x86_64 --no-daemon`
+  Validation: `cargo fmt --package taru-client-core --package taru-client-uniffi --check`; `cargo nextest run -p taru-client-core --no-fail-fast`; `cargo nextest run -p taru-client-uniffi --no-fail-fast`; `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon`; `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon`
   Review: Rust may choose safe playback request targets, but Android must keep
   Media3, session preflight execution, product errors, and user messages.
   Evidence: `crates/taru-client-core/src/lib.rs`;
   `apps/android/app/src/main/java/dev/taru/android/playback`;
   `EVIDENCE_AND_GATES.md`
-  Handoff: Pending.
+  Handoff: DONE. Rust core now owns playback decision request construction,
+  explicit direct/remux/HLS target builders, recommended target interpretation,
+  HLS segment route construction, and session-preflight request descriptors.
+  Android still owns transport execution, token/profile state, DTO-to-product
+  mapping, diagnostics, session header handling, and Media3 launch policy.
 
 ## M5 — Closeout
 

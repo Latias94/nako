@@ -127,3 +127,26 @@ git diff --check
   - `cargo nextest run -p taru-api --no-fail-fast` passed with 45 tests.
   - `cargo check --workspace --tests` passed after fixing server test moved-value
     fallout.
+- 2026-05-21: Completed `RCR-050` Android playback core tracer.
+  - Added core playback request builders for decision, direct stream, direct
+    HEAD, remux stream/session probe, HLS playlist/session probe, and HLS
+    segment routes.
+  - Added UniFFI exports for those builders without moving runtime policy into
+    the binding crate.
+  - Android playback now uses `PlaybackCore`/`RustPlaybackCore` for portable
+    playback request construction and recommended-target interpretation.
+  - Android still owns transport execution, token/profile state, diagnostics,
+    Kotlin DTO mapping, public session header handling, and Media3 policy.
+  - Fixed explicit remux behavior so unsupported HLS/unknown remux containers
+    do not force an incorrect remux `output_container` query, while recommended
+    remux decisions still preserve valid `mp4`/`mkv` output choices.
+  - `cargo fmt --package taru-client-core --package taru-client-uniffi --check`
+    passed.
+  - `cargo nextest run -p taru-client-core --no-fail-fast` passed with 11 tests.
+  - `cargo nextest run -p taru-client-uniffi --no-fail-fast` passed with 2 tests.
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+    passed after the explicit remux target boundary was corrected.
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon`
+    passed.
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon`
+    passed.

@@ -58,6 +58,8 @@ named constructors and explicit `wire_value()` helpers.
 
 ## M4 — Android Playback Core Tracer
 
+Status: Complete on 2026-05-21.
+
 Exit when:
 
 - playback decision request construction uses Rust core through UniFFI;
@@ -65,6 +67,13 @@ Exit when:
 - Android still owns Media3, transport execution, session preflight execution,
   diagnostics, profile/token storage, and product copy;
 - focused playback tests and Android assemble pass.
+
+Result: `taru-client-core` exposes playback decision, direct stream, remux
+stream, HLS playlist, HLS segment, and recommended-target request builders.
+`taru-client-uniffi` exports those builders as binding-only functions.
+Android playback consumes the Rust core for portable URL/query/method/session
+preflight decisions while retaining app-owned transport, token/profile,
+diagnostic, DTO mapping, and Media3 responsibilities.
 
 ## M5 — Closeout
 

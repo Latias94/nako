@@ -1,5 +1,12 @@
 pub const CONNECTION_HEALTH_REQUEST_ID: &str = "connection.health";
 pub const CONNECTION_AUTH_PROBE_REQUEST_ID: &str = "connection.auth_probe";
+pub const PLAYBACK_DECISION_REQUEST_ID: &str = "playback.decision";
+pub const PLAYBACK_DIRECT_STREAM_REQUEST_ID: &str = "playback.direct_stream";
+pub const PLAYBACK_DIRECT_STREAM_HEAD_REQUEST_ID: &str = "playback.direct_stream_head";
+pub const PLAYBACK_REMUX_STREAM_REQUEST_ID: &str = "playback.remux_stream";
+pub const PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID: &str = "playback.remux_session_probe";
+pub const PLAYBACK_HLS_PLAYLIST_REQUEST_ID: &str = "playback.hls_playlist";
+pub const PLAYBACK_HLS_SEGMENT_REQUEST_ID: &str = "playback.hls_segment";
 
 const REDACTED: &str = "<redacted>";
 
@@ -7,6 +14,98 @@ const REDACTED: &str = "<redacted>";
 pub struct CoreConnectionProbeInput {
     pub base_url: String,
     pub access_token: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackCapabilities {
+    pub direct_play: Option<bool>,
+    pub containers: Vec<String>,
+    pub video_codecs: Vec<String>,
+    pub audio_codecs: Vec<String>,
+}
+
+impl CorePlaybackCapabilities {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self {
+            direct_play: None,
+            containers: Vec::new(),
+            video_codecs: Vec::new(),
+            audio_codecs: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackDecisionRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub source_id: String,
+    pub capabilities: CorePlaybackCapabilities,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CorePlaybackMode {
+    DirectPlay,
+    Remux,
+    Transcode,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CoreOutputContainer {
+    Hls,
+    Mp4,
+    Mkv,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackDecisionSummary {
+    pub source_id: String,
+    pub mode: CorePlaybackMode,
+    pub transcode_output_container: Option<CoreOutputContainer>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackTargetInput {
+    pub base_url: String,
+    pub decision: CorePlaybackDecisionSummary,
+    pub capabilities: CorePlaybackCapabilities,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreDirectPlaybackTargetInput {
+    pub base_url: String,
+    pub source_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreRemuxPlaybackTargetInput {
+    pub base_url: String,
+    pub source_id: String,
+    pub capabilities: CorePlaybackCapabilities,
+    pub output_container: Option<CoreOutputContainer>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreHlsPlaylistTargetInput {
+    pub base_url: String,
+    pub source_id: String,
+    pub capabilities: CorePlaybackCapabilities,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackTarget {
+    pub request: CoreHttpRequest,
+    pub session_probe_request: Option<CoreHttpRequest>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackSegmentInput {
+    pub base_url: String,
+    pub session_id: String,
+    pub segment_name: String,
 }
 
 impl CoreConnectionProbeInput {
@@ -158,6 +257,147 @@ pub fn interpret_core_response(
         return Err(failure);
     }
     Ok(())
+}
+
+#[must_use]
+pub fn build_playback_decision_request(
+    input: &CorePlaybackDecisionRequestInput,
+) -> CoreHttpRequest {
+    build_core_request(
+        &CoreHttpRequestSpec::new(
+            PLAYBACK_DECISION_REQUEST_ID,
+            &input.base_url,
+            "GET",
+            &format!(
+                "/sources/{}/playback/decision",
+                encode_path_segment(&input.source_id)
+            ),
+        )
+        .query(playback_capability_query(&input.capabilities))
+        .access_token(Some(input.access_token.clone())),
+    )
+}
+
+#[must_use]
+pub fn build_recommended_playback_target(
+    input: &CorePlaybackTargetInput,
+) -> Option<CorePlaybackTarget> {
+    match input.decision.mode {
+        CorePlaybackMode::DirectPlay => Some(build_direct_playback_target(
+            &CoreDirectPlaybackTargetInput {
+                base_url: input.base_url.clone(),
+                source_id: input.decision.source_id.clone(),
+            },
+        )),
+        CorePlaybackMode::Remux => {
+            Some(build_remux_playback_target(&CoreRemuxPlaybackTargetInput {
+                base_url: input.base_url.clone(),
+                source_id: input.decision.source_id.clone(),
+                capabilities: input.capabilities.clone(),
+                output_container: remux_output_container(&input.decision),
+            }))
+        }
+        CorePlaybackMode::Transcode => {
+            Some(build_hls_playlist_target(&CoreHlsPlaylistTargetInput {
+                base_url: input.base_url.clone(),
+                source_id: input.decision.source_id.clone(),
+                capabilities: input.capabilities.clone(),
+            }))
+        }
+        CorePlaybackMode::Unknown => None,
+    }
+}
+
+#[must_use]
+pub fn build_direct_playback_target(input: &CoreDirectPlaybackTargetInput) -> CorePlaybackTarget {
+    CorePlaybackTarget {
+        request: streaming_request(
+            PLAYBACK_DIRECT_STREAM_REQUEST_ID,
+            &input.base_url,
+            &input.source_id,
+            "/stream",
+            Vec::new(),
+            None,
+        ),
+        session_probe_request: None,
+    }
+}
+
+#[must_use]
+pub fn build_head_direct_playback_target(
+    input: &CoreDirectPlaybackTargetInput,
+) -> CorePlaybackTarget {
+    CorePlaybackTarget {
+        request: streaming_request(
+            PLAYBACK_DIRECT_STREAM_HEAD_REQUEST_ID,
+            &input.base_url,
+            &input.source_id,
+            "/stream",
+            Vec::new(),
+            Some("HEAD"),
+        ),
+        session_probe_request: None,
+    }
+}
+
+#[must_use]
+pub fn build_remux_playback_target(input: &CoreRemuxPlaybackTargetInput) -> CorePlaybackTarget {
+    let query = remux_query(&input.capabilities, input.output_container);
+    CorePlaybackTarget {
+        request: streaming_request(
+            PLAYBACK_REMUX_STREAM_REQUEST_ID,
+            &input.base_url,
+            &input.source_id,
+            "/stream/remux",
+            query.clone(),
+            None,
+        ),
+        session_probe_request: Some(streaming_request(
+            PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID,
+            &input.base_url,
+            &input.source_id,
+            "/stream/remux",
+            query,
+            Some("HEAD"),
+        )),
+    }
+}
+
+#[must_use]
+pub fn build_hls_playlist_target(input: &CoreHlsPlaylistTargetInput) -> CorePlaybackTarget {
+    let query = playback_capability_query(&input.capabilities);
+    CorePlaybackTarget {
+        request: streaming_request(
+            PLAYBACK_HLS_PLAYLIST_REQUEST_ID,
+            &input.base_url,
+            &input.source_id,
+            "/stream/hls/playlist.m3u8",
+            query.clone(),
+            None,
+        ),
+        session_probe_request: Some(streaming_request(
+            PLAYBACK_HLS_PLAYLIST_REQUEST_ID,
+            &input.base_url,
+            &input.source_id,
+            "/stream/hls/playlist.m3u8",
+            query,
+            None,
+        )),
+    }
+}
+
+#[must_use]
+pub fn build_hls_segment_request(input: &CorePlaybackSegmentInput) -> CoreHttpRequest {
+    build_core_request(&CoreHttpRequestSpec::new(
+        PLAYBACK_HLS_SEGMENT_REQUEST_ID,
+        &input.base_url,
+        "GET",
+        &format!(
+            "/playback/sessions/{}/hls/segments/{}",
+            encode_path_segment(&input.session_id),
+            encode_path_segment(&input.segment_name)
+        ),
+    ))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -392,6 +632,81 @@ fn auth_probe_request(input: &CoreConnectionProbeInput) -> CoreHttpRequest {
         ])
         .access_token(Some(input.access_token.clone())),
     )
+}
+
+fn streaming_request(
+    request_id: &str,
+    base_url: &str,
+    source_id: &str,
+    suffix: &str,
+    query: Vec<CoreQueryParam>,
+    method: Option<&str>,
+) -> CoreHttpRequest {
+    build_core_request(
+        &CoreHttpRequestSpec::new(
+            request_id,
+            base_url,
+            method.unwrap_or("GET"),
+            &format!("/sources/{}{}", encode_path_segment(source_id), suffix),
+        )
+        .query(query),
+    )
+}
+
+fn playback_capability_query(capabilities: &CorePlaybackCapabilities) -> Vec<CoreQueryParam> {
+    let mut query = Vec::new();
+    if let Some(direct_play) = capabilities.direct_play {
+        query.push(CoreQueryParam::new(
+            "direct_play",
+            if direct_play { "true" } else { "false" },
+        ));
+    }
+    if !capabilities.containers.is_empty() {
+        query.push(CoreQueryParam::new(
+            "container",
+            capabilities.containers.join(","),
+        ));
+    }
+    if !capabilities.video_codecs.is_empty() {
+        query.push(CoreQueryParam::new(
+            "video_codec",
+            capabilities.video_codecs.join(","),
+        ));
+    }
+    if !capabilities.audio_codecs.is_empty() {
+        query.push(CoreQueryParam::new(
+            "audio_codec",
+            capabilities.audio_codecs.join(","),
+        ));
+    }
+    query
+}
+
+fn remux_query(
+    capabilities: &CorePlaybackCapabilities,
+    output_container: Option<CoreOutputContainer>,
+) -> Vec<CoreQueryParam> {
+    let mut query = playback_capability_query(capabilities);
+    if let Some(value) = output_container.and_then(output_container_wire_value) {
+        query.push(CoreQueryParam::new("output_container", value));
+    }
+    query
+}
+
+fn remux_output_container(decision: &CorePlaybackDecisionSummary) -> Option<CoreOutputContainer> {
+    match decision.transcode_output_container {
+        Some(CoreOutputContainer::Mkv) => Some(CoreOutputContainer::Mkv),
+        Some(CoreOutputContainer::Mp4) | None => Some(CoreOutputContainer::Mp4),
+        Some(CoreOutputContainer::Hls | CoreOutputContainer::Unknown) => None,
+    }
+}
+
+fn output_container_wire_value(value: CoreOutputContainer) -> Option<&'static str> {
+    match value {
+        CoreOutputContainer::Hls | CoreOutputContainer::Unknown => None,
+        CoreOutputContainer::Mp4 => Some("mp4"),
+        CoreOutputContainer::Mkv => Some("mkv"),
+    }
 }
 
 fn request(
@@ -653,6 +968,98 @@ mod tests {
         let failure = interpret_core_response(&version, Some(&request), &[]).unwrap_err();
         assert_eq!(failure.kind, CoreRuntimeFailureKind::UnsupportedApiVersion);
         assert_eq!(failure.observed_api_version.as_deref(), Some("v2"));
+    }
+
+    #[test]
+    fn playback_decision_request_uses_core_route_query_auth_and_redaction() {
+        let request = build_playback_decision_request(&CorePlaybackDecisionRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            source_id: "source 1".to_owned(),
+            capabilities: CorePlaybackCapabilities {
+                direct_play: Some(true),
+                containers: vec!["mp4".to_owned(), "webm".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+            },
+        });
+
+        assert_eq!(request.request_id, PLAYBACK_DECISION_REQUEST_ID);
+        assert_eq!(
+            request.url,
+            "https://taru.example/api/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus"
+        );
+        assert_eq!(
+            request.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            request.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+    }
+
+    #[test]
+    fn playback_targets_follow_mode_without_auth_or_media3_policy() {
+        let input = CorePlaybackTargetInput {
+            base_url: "https://taru.example/api".to_owned(),
+            decision: CorePlaybackDecisionSummary {
+                source_id: "source 1".to_owned(),
+                mode: CorePlaybackMode::Remux,
+                transcode_output_container: Some(CoreOutputContainer::Mkv),
+            },
+            capabilities: CorePlaybackCapabilities {
+                direct_play: Some(false),
+                containers: vec!["mp4".to_owned(), "mkv".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+            },
+        };
+
+        let target = build_recommended_playback_target(&input).unwrap();
+
+        assert_eq!(target.request.request_id, PLAYBACK_REMUX_STREAM_REQUEST_ID);
+        assert_eq!(
+            target.request.url,
+            "https://taru.example/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+        );
+        assert!(target.request.headers.is_empty());
+        let preflight = target.session_probe_request.unwrap();
+        assert_eq!(
+            preflight.request_id,
+            PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID
+        );
+        assert_eq!(preflight.method, "HEAD");
+        assert_eq!(preflight.url, target.request.url);
+
+        let explicit_hls_remux = build_remux_playback_target(&CoreRemuxPlaybackTargetInput {
+            base_url: "https://taru.example/api".to_owned(),
+            source_id: "source 1".to_owned(),
+            capabilities: CorePlaybackCapabilities::empty(),
+            output_container: Some(CoreOutputContainer::Hls),
+        });
+        assert_eq!(
+            explicit_hls_remux.request.url,
+            "https://taru.example/api/sources/source%201/stream/remux"
+        );
+
+        let explicit_direct = build_direct_playback_target(&CoreDirectPlaybackTargetInput {
+            base_url: "https://taru.example/api".to_owned(),
+            source_id: "source 1".to_owned(),
+        });
+        assert_eq!(
+            explicit_direct.request.url,
+            "https://taru.example/api/sources/source%201/stream"
+        );
+
+        let unknown = build_recommended_playback_target(&CorePlaybackTargetInput {
+            decision: CorePlaybackDecisionSummary {
+                mode: CorePlaybackMode::Unknown,
+                ..input.decision
+            },
+            ..input
+        });
+        assert_eq!(unknown, None);
     }
 
     #[test]

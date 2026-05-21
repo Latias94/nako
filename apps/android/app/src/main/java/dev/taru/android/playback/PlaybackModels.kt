@@ -3,6 +3,7 @@ package dev.taru.android.playback
 import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.SensitiveText
+import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.media.MediaProbeDto
 import dev.taru.sdk.TARU_API_VERSION
@@ -128,6 +129,50 @@ data class PlaybackRequestTarget(
 
     override fun toString(): String =
         "PlaybackRequestTarget(safeRequest=$safeRequest, hasSessionProbeRequest=${sessionProbeRequest != null}, sessionId=$sessionId)"
+}
+
+interface PlaybackCore {
+    fun playbackDecisionRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sourceId: String,
+        capabilities: PlaybackCapabilities,
+    ): PlaybackRequestDescriptor
+
+    fun recommendedPlaybackTarget(
+        profile: ServerProfile,
+        decision: PlaybackDecisionResponse,
+        capabilities: PlaybackCapabilities,
+    ): PlaybackRequestTarget?
+
+    fun directPlaybackTarget(
+        profile: ServerProfile,
+        sourceId: String,
+    ): PlaybackRequestTarget
+
+    fun headDirectPlaybackTarget(
+        profile: ServerProfile,
+        sourceId: String,
+    ): PlaybackRequestTarget
+
+    fun remuxPlaybackTarget(
+        profile: ServerProfile,
+        sourceId: String,
+        capabilities: PlaybackCapabilities,
+        outputContainer: ClientOutputContainer?,
+    ): PlaybackRequestTarget
+
+    fun hlsPlaylistTarget(
+        profile: ServerProfile,
+        sourceId: String,
+        capabilities: PlaybackCapabilities,
+    ): PlaybackRequestTarget
+
+    fun hlsSegmentTarget(
+        profile: ServerProfile,
+        sessionId: String,
+        segmentName: String,
+    ): PlaybackRequestTarget
 }
 
 data class TranscodeSessionResponse(
