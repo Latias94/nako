@@ -1,0 +1,11 @@
+[profile.default]
+failure-output = "immediate-final"
+success-output = "never"
+fail-fast = false
+retries = 0
+
+[profile.release-full]
+failure-output = "immediate-final"
+success-output = "final"
+fail-fast = false
+retries = 0

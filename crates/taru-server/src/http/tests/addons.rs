@@ -25,7 +25,7 @@ fn png_with_size(width: u32, height: u32) -> Vec<u8> {
     cursor.into_inner()
 }
 
-async fn tiny_artwork_server() -> (String, u64) {
+pub(super) async fn tiny_artwork_server() -> (String, u64) {
     artwork_server(StatusCode::OK, "image/png", tiny_png()).await
 }
 
@@ -101,7 +101,7 @@ async fn changing_artwork_server(
     )
 }
 
-async fn propose_and_accept_remote_artwork(
+pub(super) async fn propose_and_accept_remote_artwork(
     router: &Router,
     library_id: LibraryId,
     item_id: MediaItemId,

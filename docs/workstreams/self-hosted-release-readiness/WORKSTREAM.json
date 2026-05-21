@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "slug": "self-hosted-release-readiness",
+  "title": "Self-Hosted Release Readiness",
+  "status": "completed",
+  "updated": "2026-05-21",
+  "scope_kind": "release_hardening",
+  "problem": "Taru has strong subsystem architecture but lacks one repeatable self-hosted release baseline for deployment, upgrade, diagnostics, SQLite/PostgreSQL verification, API/SDK/redaction gates, backup/restore, and end-to-end smoke.",
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/self-hosted-release-readiness/README.md" },
+    { "role": "design", "path": "docs/workstreams/self-hosted-release-readiness/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/self-hosted-release-readiness/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/self-hosted-release-readiness/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/self-hosted-release-readiness/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/self-hosted-release-readiness/HANDOFF.md" }
+  ],
+  "current_task": null,
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "Self-hosted release readiness is complete. Future work should open separate lanes for AI, network traversal/tunneling, Native Plugin ABI, provider breadth, SDK/package publishing, or release packaging."
+  }
+}

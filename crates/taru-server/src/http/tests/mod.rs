@@ -108,6 +108,7 @@ mod catalog;
 mod library;
 mod metadata;
 mod playback;
+mod self_host_smoke;
 mod system;
 mod user_playback;
 mod webhooks;

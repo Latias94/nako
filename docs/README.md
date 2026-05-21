@@ -44,6 +44,10 @@ policy, and workstream-level design notes for Taru.
 - [Automation provider guide](guides/AUTOMATION_PROVIDER_GUIDE.md): external
   automation provider configuration and artifact policy.
 - [Local setup](development/LOCAL_SETUP.md): local development workflow.
+- [Self-hosted deployment](deployment/SELF_HOSTED.md): SQLite/PostgreSQL
+  deployment examples and operator configuration guidance.
+- [Backup/restore/upgrade](deployment/BACKUP_RESTORE_UPGRADE.md): self-hosted
+  state classification, backup, restore, and migration runbook.
 - [Test strategy](development/TEST_STRATEGY.md): validation gates and coverage
   expectations.
 - [Licensing](legal/LICENSING.md): license policy and reference-code boundary.

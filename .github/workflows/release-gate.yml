@@ -1,0 +1,101 @@
+name: release-gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  fast:
+    name: fast release gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Install TypeScript SDK dependencies
+        run: npm ci --prefix sdk/typescript
+
+      - name: Install Admin Web dependencies
+        run: npm ci --prefix apps/admin-web
+
+      - name: Run fast release gate
+        run: bash scripts/release-gate.sh --mode fast
+
+  postgres-contracts:
+    name: postgres managed artwork contracts
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: taru
+          POSTGRES_PASSWORD: taru
+          POSTGRES_DB: taru_contract
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taru -d taru_contract"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TARU_TEST_POSTGRES_URL: postgres://taru:taru@127.0.0.1:5432/taru_contract
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run PostgreSQL contract harness
+        run: bash scripts/postgres-contract-harness.sh --suite managed-artwork --require-tooling
+
+  self-host-smoke:
+    name: self-host sqlite smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run self-host smoke
+        run: bash scripts/self-host-smoke.sh --backend sqlite
+
+  api-sdk-redaction:
+    name: api sdk redaction gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Install TypeScript SDK dependencies
+        run: npm ci --prefix sdk/typescript
+
+      - name: Install Admin Web dependencies
+        run: npm ci --prefix apps/admin-web
+
+      - name: Run API SDK redaction gate
+        run: bash scripts/release-gate.sh --mode api

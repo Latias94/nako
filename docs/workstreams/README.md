@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [self-hosted-release-readiness](self-hosted-release-readiness/README.md):
+  completed release hardening lane for turning Taru's completed server/runtime
+  capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL
+  gates, API/SDK/redaction checks, deployment examples, backup/restore
+  runbooks, and end-to-end smoke evidence.
 - [fearless-architecture-deepening](fearless-architecture-deepening/README.md):
   completed M63 architecture-first lane for deepening Addon Side Effect
   Modules, Addon metadata commit atomicity, Library ingestion workflow seams,
