@@ -86,6 +86,14 @@ generated Kotlin public-client SDK DTOs before mapping them into Android app
 models. Treat the generated SDK as the API contract/DTO transition layer for
 browse data, not as the runtime route-construction owner.
 
+User Playback State runtime route construction follows the same boundary:
+Rust core builds resume, Continue Watching, playback-progress, and watched-state
+request descriptors, while Android still serializes generated SDK request
+bodies, decodes generated SDK response DTOs, executes platform transport, and
+maps product diagnostics. Treat the generated SDK as the DTO/body contract
+transition layer for user-playback data, not as the runtime route-construction
+owner.
+
 Use the native UniFFI smoke script when you need to prove packaged JNI libraries
 load on a connected device or emulator:
 

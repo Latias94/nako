@@ -49,6 +49,28 @@ pub struct CoreSearchItemsRequestInput {
     pub page: Option<CorePageQuery>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CoreUserPlaybackPagedRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub page: Option<CorePageQuery>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CoreUserPlaybackItemRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub item_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CoreUserPlaybackItemWriteRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub item_id: String,
+    pub body_utf8: String,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
 pub enum CorePlaybackMode {
     DirectPlay,
@@ -339,6 +361,34 @@ pub fn build_search_items_request(input: CoreSearchItemsRequestInput) -> CoreHtt
     taru_client_core::build_search_items_request(&input.into()).into()
 }
 
+#[uniffi::export]
+pub fn build_get_user_playback_state_request(
+    input: CoreUserPlaybackItemRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_get_user_playback_state_request(&input.into()).into()
+}
+
+#[uniffi::export]
+pub fn build_list_continue_watching_request(
+    input: CoreUserPlaybackPagedRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_list_continue_watching_request(&input.into()).into()
+}
+
+#[uniffi::export]
+pub fn build_update_user_playback_progress_request(
+    input: CoreUserPlaybackItemWriteRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_update_user_playback_progress_request(&input.into()).into()
+}
+
+#[uniffi::export]
+pub fn build_set_user_watched_state_request(
+    input: CoreUserPlaybackItemWriteRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_set_user_watched_state_request(&input.into()).into()
+}
+
 impl From<taru_client_core::CoreHttpHeader> for CoreHttpHeader {
     fn from(value: taru_client_core::CoreHttpHeader) -> Self {
         Self {
@@ -407,6 +457,41 @@ impl From<CoreSearchItemsRequestInput> for taru_client_core::CoreSearchItemsRequ
             query: value.query,
             facets: value.facets,
             page: value.page.map(Into::into),
+        }
+    }
+}
+
+impl From<CoreUserPlaybackPagedRequestInput>
+    for taru_client_core::CoreUserPlaybackPagedRequestInput
+{
+    fn from(value: CoreUserPlaybackPagedRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            page: value.page.map(Into::into),
+        }
+    }
+}
+
+impl From<CoreUserPlaybackItemRequestInput> for taru_client_core::CoreUserPlaybackItemRequestInput {
+    fn from(value: CoreUserPlaybackItemRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            item_id: value.item_id,
+        }
+    }
+}
+
+impl From<CoreUserPlaybackItemWriteRequestInput>
+    for taru_client_core::CoreUserPlaybackItemWriteRequestInput
+{
+    fn from(value: CoreUserPlaybackItemWriteRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            item_id: value.item_id,
+            body_utf8: value.body_utf8,
         }
     }
 }
@@ -709,6 +794,72 @@ mod tests {
         assert_eq!(
             tag_items.url,
             "https://taru.example/api/tags/tag%3Afavorite/items"
+        );
+    }
+
+    #[test]
+    fn uniffi_surface_exposes_user_playback_request_builders() {
+        let continue_watching =
+            build_list_continue_watching_request(CoreUserPlaybackPagedRequestInput {
+                base_url: "https://taru.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                page: Some(CorePageQuery {
+                    limit: Some(12),
+                    offset: Some(24),
+                }),
+            });
+        assert_eq!(
+            continue_watching.url,
+            "https://taru.example/api/users/me/playback-state/continue-watching?limit=12&offset=24"
+        );
+        assert_eq!(
+            continue_watching.safe_preview.headers,
+            vec![CoreHttpHeader {
+                name: "Authorization".to_owned(),
+                value: "Bearer <redacted>".to_owned(),
+            }]
+        );
+
+        let progress =
+            build_update_user_playback_progress_request(CoreUserPlaybackItemWriteRequestInput {
+                base_url: "https://taru.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                item_id: "item 1".to_owned(),
+                body_utf8: r#"{"position_ms":123000}"#.to_owned(),
+            });
+        assert_eq!(progress.request_id, "user_playback.progress");
+        assert_eq!(progress.method, "PUT");
+        assert_eq!(
+            progress.url,
+            "https://taru.example/api/users/me/playback-state/items/item%201/progress"
+        );
+        assert_eq!(
+            progress.headers,
+            vec![
+                CoreHttpHeader {
+                    name: "Authorization".to_owned(),
+                    value: "Bearer secret-token".to_owned(),
+                },
+                CoreHttpHeader {
+                    name: "Content-Type".to_owned(),
+                    value: "application/json".to_owned(),
+                },
+            ]
+        );
+        assert_eq!(
+            progress.body_utf8.as_deref(),
+            Some(r#"{"position_ms":123000}"#)
+        );
+
+        let watched = build_set_user_watched_state_request(CoreUserPlaybackItemWriteRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            item_id: "item/1".to_owned(),
+            body_utf8: r#"{"watched":true}"#.to_owned(),
+        });
+        assert_eq!(
+            watched.url,
+            "https://taru.example/api/users/me/playback-state/items/item%2F1/watched"
         );
     }
 }
