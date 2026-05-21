@@ -520,6 +520,158 @@ async fn admin_addon_status_patch_enables_and_disables_runtime_access() {
 }
 
 #[tokio::test]
+async fn admin_addon_unregister_revokes_tokens_clears_grants_and_preserves_audit() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::ItemMetadataRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let token_path = format!("/admin/v1/addons/{addon_id}/tokens");
+    let grants_path = format!("/admin/v1/addons/{addon_id}/grants");
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &token_path,
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &grants_path,
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let allowed_before_unregister = addon_access_check(
+        &router,
+        Some(&issued.raw_token),
+        AddonAccessCheckRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+        },
+    )
+    .await;
+    assert_eq!(allowed_before_unregister.status(), StatusCode::OK);
+
+    let unregistered = request_json::<AdminAddonRegistrationResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/unregister"),
+    )
+    .await;
+    assert_eq!(unregistered.addon.summary.status, AddonStatus::Unregistered);
+    assert_eq!(unregistered.addon.summary.id, addon_id);
+    assert_eq!(unregistered.addon.manifest.id, registered.addon.manifest.id);
+    let unregistered_json = serde_json::to_value(&unregistered).unwrap();
+    assert!(unregistered_json["addon"].get("manifest_json").is_none());
+    assert!(!unregistered_json.to_string().contains(&issued.raw_token));
+    assert!(!unregistered_json.to_string().contains("token_hash"));
+
+    let detail_path = format!("/admin/v1/addons/{addon_id}");
+    let detail =
+        request_json::<AdminAddonRegistrationResponse>(&router, Method::GET, &detail_path).await;
+    assert_eq!(detail.addon.summary.status, AddonStatus::Unregistered);
+
+    let tokens = request_json::<AddonTokensResponse>(&router, Method::GET, &token_path).await;
+    assert_eq!(tokens.tokens.len(), 1);
+    assert_eq!(tokens.tokens[0].id, issued.token.id);
+    assert_eq!(tokens.tokens[0].status, AddonTokenStatus::Revoked);
+    assert!(tokens.tokens[0].revoked_at.is_some());
+
+    let grants = request_json::<AddonGrantsResponse>(&router, Method::GET, &grants_path).await;
+    assert!(grants.grants.is_empty());
+
+    let runtime_after_unregister = addon_access_check(
+        &router,
+        Some(&issued.raw_token),
+        AddonAccessCheckRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+        },
+    )
+    .await;
+    assert_eq!(runtime_after_unregister.status(), StatusCode::UNAUTHORIZED);
+
+    let enable_after_unregister = response_body_json(
+        &router,
+        Method::PATCH,
+        &format!("/admin/v1/addons/{addon_id}/status"),
+        &UpdateAddonStatusRequest {
+            status: AddonStatus::Enabled,
+        },
+    )
+    .await;
+    assert_eq!(enable_after_unregister.status(), StatusCode::CONFLICT);
+
+    let re_register_without_new_id = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: registered.addon.manifest.clone(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::ItemMetadataRead,
+            ],
+            status: None,
+        },
+    )
+    .await;
+    assert_eq!(re_register_without_new_id.status(), StatusCode::OK);
+    let re_registered_without_new_id =
+        body_json::<AdminAddonRegistrationResponse>(re_register_without_new_id).await;
+    assert_ne!(re_registered_without_new_id.addon.summary.id, addon_id);
+    assert_eq!(
+        re_registered_without_new_id.addon.summary.status,
+        AddonStatus::Disabled
+    );
+
+    let re_register_enabled = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: Some(taru_core::AddonId::new()),
+            manifest: registered.addon.manifest.clone(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::ItemMetadataRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    assert_eq!(re_register_enabled.status(), StatusCode::BAD_REQUEST);
+
+    let delete_unregistered = response_for(&router, Method::DELETE, &detail_path).await;
+    assert_eq!(delete_unregistered.status(), StatusCode::METHOD_NOT_ALLOWED);
+}
+
+#[tokio::test]
 async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_ones() {
     let temp = tempfile::tempdir().unwrap();
     let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;

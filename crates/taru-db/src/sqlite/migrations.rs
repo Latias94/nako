@@ -167,6 +167,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "nfo sidecar applies",
         include_str!("../../migrations/0033_nfo_sidecar_applies.sql"),
     ),
+    (
+        34,
+        "addon unregistration",
+        include_str!("../../migrations/0034_addon_unregistration.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

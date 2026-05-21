@@ -261,6 +261,13 @@ impl AddonRepository for TaruDatabase {
             .await
     }
 
+    async fn unregister_addon_registration(
+        &self,
+        id: AddonId,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        self.backend().unregister_addon_registration(id).await
+    }
+
     async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord> {
         self.backend().create_addon_token(token).await
     }

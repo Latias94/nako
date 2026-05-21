@@ -3036,6 +3036,103 @@ async fn taru_database_sqlite_round_trips_addon_tokens_and_grants() {
 }
 
 #[tokio::test]
+async fn taru_database_sqlite_unregisters_addon_registration_atomically() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "example.unregister".to_owned(),
+            name: "Example Unregister".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05-15".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: r#"{"id":"example.unregister"}"#.to_owned(),
+            granted_scopes: vec!["item_metadata_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let active_token = store
+        .create_addon_token(NewAddonToken {
+            id: AddonTokenId::new(),
+            addon_id,
+            label: "active".to_owned(),
+            token_prefix: "taru_at_active".to_owned(),
+            token_hash: "sha256:active-unregister".to_owned(),
+        })
+        .await
+        .unwrap();
+    let revoked_token = store
+        .create_addon_token(NewAddonToken {
+            id: AddonTokenId::new(),
+            addon_id,
+            label: "already revoked".to_owned(),
+            token_prefix: "taru_at_revoked".to_owned(),
+            token_hash: "sha256:revoked-unregister".to_owned(),
+        })
+        .await
+        .unwrap();
+    store.revoke_addon_token(revoked_token.id).await.unwrap();
+    store
+        .replace_addon_grants(
+            addon_id,
+            vec![NewAddonGrant {
+                id: AddonGrantId::new(),
+                addon_id,
+                permission: AddonPermission::MetadataWrite,
+                library_id: None,
+            }],
+        )
+        .await
+        .unwrap();
+
+    let unregistered = store
+        .unregister_addon_registration(addon_id)
+        .await
+        .unwrap()
+        .expect("addon registration is unregistered");
+    assert_eq!(unregistered.status, AddonStatus::Unregistered);
+    assert_eq!(
+        store.get_addon_registration(addon_id).await.unwrap(),
+        Some(unregistered.clone())
+    );
+    assert_eq!(
+        store
+            .list_addon_registrations(Some(AddonStatus::Unregistered))
+            .await
+            .unwrap(),
+        vec![unregistered]
+    );
+
+    let tokens = store.list_addon_tokens(addon_id).await.unwrap();
+    assert_eq!(tokens.len(), 2);
+    assert!(
+        tokens
+            .iter()
+            .all(|token| token.status == AddonTokenStatus::Revoked)
+    );
+    assert!(
+        tokens
+            .iter()
+            .find(|token| token.id == active_token.id)
+            .and_then(|token| token.revoked_at.as_ref())
+            .is_some()
+    );
+    assert!(store.list_addon_grants(addon_id).await.unwrap().is_empty());
+    assert_eq!(
+        store
+            .unregister_addon_registration(AddonId::new())
+            .await
+            .unwrap(),
+        None
+    );
+}
+
+#[tokio::test]
 async fn taru_database_sqlite_round_trips_addon_side_effects_idempotently() {
     let sqlite = SqliteStore::connect_in_memory().await.unwrap();
     sqlite.migrate().await.unwrap();

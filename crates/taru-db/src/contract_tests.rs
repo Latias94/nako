@@ -2993,6 +2993,60 @@ where
     let revoked = store.revoke_addon_token(active.id).await.unwrap().unwrap();
     assert_eq!(revoked.status.as_str(), "revoked");
     assert!(revoked.revoked_at.is_some());
+
+    let active_for_unregister = store
+        .create_addon_token(NewAddonToken {
+            id: AddonTokenId::new(),
+            addon_id,
+            label: "unregister active".to_owned(),
+            token_prefix: "taru_at_unregister".to_owned(),
+            token_hash: "hash-unregister-active".to_owned(),
+        })
+        .await
+        .unwrap();
+    store
+        .replace_addon_grants(
+            addon_id,
+            vec![NewAddonGrant {
+                id: taru_core::AddonGrantId::new(),
+                addon_id,
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library.id),
+            }],
+        )
+        .await
+        .unwrap();
+    let unregistered = store
+        .unregister_addon_registration(addon_id)
+        .await
+        .unwrap()
+        .expect("addon unregister returns registration");
+    assert_eq!(unregistered.status, AddonStatus::Unregistered);
+    assert!(
+        store
+            .list_addon_registrations(Some(AddonStatus::Unregistered))
+            .await
+            .unwrap()
+            .iter()
+            .any(|addon| addon.id == addon_id)
+    );
+    assert_eq!(
+        store
+            .get_addon_token(active_for_unregister.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        taru_core::AddonTokenStatus::Revoked
+    );
+    assert!(store.list_addon_grants(addon_id).await.unwrap().is_empty());
+    assert!(
+        store
+            .unregister_addon_registration(AddonId::new())
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 async fn automation_provider_and_artifact_contract<S>(store: S)

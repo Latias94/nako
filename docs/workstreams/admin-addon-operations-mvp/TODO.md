@@ -49,7 +49,7 @@ Task IDs use the `AAO` prefix.
   nextest run -p taru-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
   `git diff --check`.
 
-- [ ] AAO-030 [owner=codex] [deps=AAO-020] [scope=crates/taru-core/src/addon.rs,crates/taru-db/migrations,crates/taru-db/migrations/postgres,crates/taru-db/src/sqlite/addons.rs,crates/taru-db/src/postgres.rs,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs]
+- [x] AAO-030 [owner=codex] [deps=AAO-020] [scope=crates/taru-core/src/addon.rs,crates/taru-core/src/repository/addon.rs,crates/taru-db/migrations,crates/taru-db/migrations/postgres,crates/taru-db/src/sqlite/addons.rs,crates/taru-db/src/postgres.rs,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Implement unregister/delete semantics with token revocation and
   redaction-safe Admin response.
   Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; focused DB Addon contract; focused Admin Addon nextest; PostgreSQL opt-in when `TARU_TEST_POSTGRES_URL` is available; `git diff --check`.
@@ -57,6 +57,20 @@ Task IDs use the `AAO` prefix.
   documents physical deletion. Runtime Addon Token access must fail after
   unregister.
   Handoff: Continue with AAO-040 health checks.
+  Progress: Added terminal `unregistered` Addon status, explicit
+  `POST /admin/v1/addons/{addon_id}/unregister`, and backend-neutral
+  `unregister_addon_registration` that transitions registration state, revokes
+  active Addon Tokens, clears accepted grants, and preserves retained token /
+  Side Effect / Addon Artwork Candidate history. Re-registration of a terminal
+  manifest creates a new disabled registration ID through the normal register
+  route; direct enable/token issue/token rotate/grant replace against the
+  terminal registration is rejected. `DELETE /admin/v1/addons/{addon_id}` is
+  not mounted.
+  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server
+  --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo
+  nextest run -p taru-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
+  `git diff --check`. PostgreSQL opt-in contract was not run because
+  `TARU_TEST_POSTGRES_URL` was not available in this session.
 
 ## M2 — Health And Diagnostics
 

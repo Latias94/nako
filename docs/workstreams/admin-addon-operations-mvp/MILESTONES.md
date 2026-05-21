@@ -17,17 +17,21 @@ Exit criteria:
 
 ## M1 — Lifecycle Mutation
 
-Status: In progress. AAO-020 shipped explicit enable/disable mutation through
-`PATCH /admin/v1/addons/{addon_id}/status`, with SQLite/PostgreSQL repository
-parity and runtime Addon Token access failing while disabled.
+Status: Complete. AAO-020 shipped explicit enable/disable mutation through
+`PATCH /admin/v1/addons/{addon_id}/status`. AAO-030 shipped terminal
+unregister through `POST /admin/v1/addons/{addon_id}/unregister`, with
+SQLite/PostgreSQL repository parity and runtime Addon Token access failing
+while disabled or unregistered.
 
 Exit criteria:
 
 - Admin API has explicit enable/disable mutation. Complete.
 - Admin API has unregister/delete behavior with documented semantics.
-- Runtime Addon Token access fails for disabled Addons. Unregistered behavior
-  remains AAO-030.
-- SQLite/PostgreSQL semantics stay aligned for enable/disable status mutation.
+  Complete.
+- Runtime Addon Token access fails for disabled or unregistered Addons.
+  Complete.
+- SQLite/PostgreSQL semantics stay aligned for lifecycle state changes.
+  Complete.
 
 ## M2 — Health And Diagnostics
 

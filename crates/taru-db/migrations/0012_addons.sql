@@ -1,6 +1,6 @@
 CREATE TABLE addon_registrations (
     id TEXT PRIMARY KEY NOT NULL,
-    manifest_id TEXT NOT NULL UNIQUE,
+    manifest_id TEXT NOT NULL,
     name TEXT NOT NULL,
     version TEXT NOT NULL,
     protocol_version TEXT NOT NULL,

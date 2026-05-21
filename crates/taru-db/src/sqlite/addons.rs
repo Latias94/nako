@@ -35,6 +35,7 @@ impl AddonRepository for SqliteStore {
                 granted_scopes_json = excluded.granted_scopes_json,
                 status = excluded.status,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE addon_registrations.status <> 'unregistered'
             "#,
         )
         .bind(addon.id.to_string())
@@ -193,6 +194,58 @@ impl AddonRepository for SqliteStore {
             return Ok(None);
         }
 
+        self.get_addon_registration(id).await
+    }
+
+    async fn unregister_addon_registration(
+        &self,
+        id: AddonId,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        let result = sqlx::query(
+            r#"
+            UPDATE addon_registrations
+            SET
+                status = ?2,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(AddonStatus::Unregistered.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            transaction.commit().await.map_err(database_error)?;
+            return Ok(None);
+        }
+
+        sqlx::query(
+            r#"
+            UPDATE addon_tokens
+            SET
+                status = ?2,
+                revoked_at = COALESCE(revoked_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            WHERE addon_id = ?1 AND status = ?3
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(AddonTokenStatus::Revoked.as_str())
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM addon_grants WHERE addon_id = ?1")
+            .bind(id.to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
         self.get_addon_registration(id).await
     }
 

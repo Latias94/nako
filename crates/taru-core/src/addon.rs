@@ -15,6 +15,7 @@ pub const ADDON_TOKEN_DISPLAY_PREFIX_LEN: usize = 18;
 pub enum AddonStatus {
     Enabled,
     Disabled,
+    Unregistered,
 }
 
 impl AddonStatus {
@@ -23,6 +24,7 @@ impl AddonStatus {
         match self {
             Self::Enabled => "enabled",
             Self::Disabled => "disabled",
+            Self::Unregistered => "unregistered",
         }
     }
 
@@ -30,6 +32,7 @@ impl AddonStatus {
         match value {
             "enabled" => Ok(Self::Enabled),
             "disabled" => Ok(Self::Disabled),
+            "unregistered" => Ok(Self::Unregistered),
             _ => Err(TaruError::Database {
                 message: format!("unknown addon status stored in database: {value}"),
             }),

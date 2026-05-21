@@ -748,6 +748,24 @@ where
     body_json(response).await
 }
 
+async fn response_body_json<B>(router: &Router, method: Method, uri: &str, body: &B) -> Response
+where
+    B: Serialize,
+{
+    router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
 async fn body_json<T>(response: axum::response::Response) -> T
 where
     T: DeserializeOwned,

@@ -42,6 +42,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "nfo sidecar applies",
         include_str!("../migrations/postgres/0005_nfo_sidecar_applies.sql"),
     ),
+    (
+        6,
+        "addon unregistration",
+        include_str!("../migrations/postgres/0006_addon_unregistration.sql"),
+    ),
 ];
 
 const JOB_SELECT: &str = r#"
@@ -1109,6 +1114,7 @@ impl AddonRepository for PostgresStore {
                 granted_scopes_json = excluded.granted_scopes_json,
                 status = excluded.status,
                 updated_at = statement_timestamp()
+            WHERE addon_registrations.status <> 'unregistered'
             "#,
         )
         .bind(addon.id.as_uuid())
@@ -1200,6 +1206,58 @@ impl AddonRepository for PostgresStore {
             return Ok(None);
         }
 
+        self.get_addon_registration(id).await
+    }
+
+    async fn unregister_addon_registration(
+        &self,
+        id: AddonId,
+    ) -> Result<Option<AddonRegistrationRecord>> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        let result = sqlx::query(
+            r#"
+            UPDATE addon_registrations
+            SET
+                status = $2,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(AddonStatus::Unregistered.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            transaction.commit().await.map_err(database_error)?;
+            return Ok(None);
+        }
+
+        sqlx::query(
+            r#"
+            UPDATE addon_tokens
+            SET
+                status = $2,
+                revoked_at = COALESCE(revoked_at, statement_timestamp())
+            WHERE addon_id = $1 AND status = $3
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(AddonTokenStatus::Revoked.as_str())
+        .bind(AddonTokenStatus::Active.as_str())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query("DELETE FROM addon_grants WHERE addon_id = $1")
+            .bind(id.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
         self.get_addon_registration(id).await
     }
 

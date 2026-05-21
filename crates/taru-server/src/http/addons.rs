@@ -25,6 +25,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             patch(update_addon_status),
         )
         .route(
+            "/admin/v1/addons/{addon_id}/unregister",
+            post(unregister_addon),
+        )
+        .route(
             "/admin/v1/addons/{addon_id}/tokens",
             get(list_addon_tokens).post(issue_addon_token),
         )
@@ -83,6 +87,14 @@ pub(super) async fn update_addon_status(
     Ok(Json(
         app.addons().update_addon_status(addon_id, request).await?,
     ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn unregister_addon(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().unregister_addon(addon_id).await?))
 }
 
 #[instrument(skip(app))]

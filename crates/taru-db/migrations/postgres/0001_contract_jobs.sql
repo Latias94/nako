@@ -689,7 +689,7 @@ CREATE INDEX IF NOT EXISTS automation_artifacts_status_idx
 
 CREATE TABLE IF NOT EXISTS addon_registrations (
     id uuid PRIMARY KEY NOT NULL,
-    manifest_id text NOT NULL UNIQUE,
+    manifest_id text NOT NULL,
     name text NOT NULL,
     version text NOT NULL,
     protocol_version text NOT NULL,
@@ -703,6 +703,9 @@ CREATE TABLE IF NOT EXISTS addon_registrations (
 
 CREATE INDEX IF NOT EXISTS addon_registrations_status_idx
     ON addon_registrations(status, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS addon_registrations_active_manifest_idx
+    ON addon_registrations(manifest_id)
+    WHERE status <> 'unregistered';
 
 CREATE TABLE IF NOT EXISTS addon_tokens (
     id uuid PRIMARY KEY NOT NULL,

@@ -1044,6 +1044,8 @@ provenance, Source Locators, storage URIs, or local filesystem paths.
 `GET /admin/v1/addons` lists registration summaries.
 `GET /admin/v1/addons?status=enabled` and
 `GET /admin/v1/addons?status=disabled` filter by status.
+`GET /admin/v1/addons?status=unregistered` lists retained terminal
+registrations for Admin audit/detail views.
 `GET /admin/v1/addons/{addon_id}` returns one registration detail or
 `404 not_found`.
 
@@ -1064,6 +1066,20 @@ but runtime Addon Token authentication fails before permission checks and does
 not refresh token `last_used_at`. The route accepts only `enabled` and
 `disabled`; terminal unregister remains a separate command.
 
+`POST /admin/v1/addons/{addon_id}/unregister` is the terminal unregister
+command. It transitions the registration to `unregistered`, revokes active
+Addon Tokens, clears accepted grants, and preserves registration, token, Side
+Effect, and Addon Artwork Candidate audit history. The response uses the same
+redaction-safe registration detail envelope.
+
+`unregistered` Addons cannot be enabled, cannot issue or rotate Addon Tokens,
+cannot replace accepted grants, and cannot authenticate runtime Addon routes.
+Re-registering a previously unregistered manifest through
+`POST /admin/v1/addons` creates a new registration ID and starts from
+`disabled`; Taru intentionally does not mount
+`DELETE /admin/v1/addons/{addon_id}` because unregister is not physical
+deletion.
+
 Addon resource calls use a versioned request/response envelope in
 `taru-addon-protocol`. The HTTP caller helper lives in `taru-addon-client`;
 calls are bounded by timeout and `max_attempts`; 408, 429, 5xx, and transport
@@ -1074,11 +1090,6 @@ resource endpoints inline.
 Remaining planned Admin Addon Operations MVP routes are reserved under
 `/admin/v1/addons/{addon_id}`:
 
-- `POST /unregister` transitions the Addon to terminal `unregistered` runtime
-  state, revokes active Addon Tokens, clears accepted grants, and preserves
-  registration, token, Side Effect, and candidate audit history. Taru does not
-  mount `DELETE /admin/v1/addons/{addon_id}` for this MVP because unregister is
-  not physical deletion.
 - `POST /health-check` checks the Addon Sidecar with protocol headers and a
   bounded timeout. It must not send administrator bearer tokens, Addon Tokens,
   or resolved Secret Reference values to the Addon Sidecar.

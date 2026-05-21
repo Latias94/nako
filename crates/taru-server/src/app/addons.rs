@@ -97,7 +97,46 @@ impl AddonAppService {
         &self,
         request: RegisterAddonRequest,
     ) -> Result<AdminAddonRegistrationResponse> {
+        let request_id = request.id;
+        let manifest_id = request.manifest.id.clone();
         let addon = self.normalize_addon_registration(request)?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(TaruError::InvalidInput {
+                message: "addon registration cannot start as unregistered".to_owned(),
+            });
+        }
+
+        let existing = self
+            .store
+            .find_addon_registration_by_manifest_id(&manifest_id)
+            .await?;
+        if let Some(existing) = existing {
+            if existing.status == AddonStatus::Unregistered {
+                if request_id.is_some_and(|id| id == existing.id) {
+                    return Err(TaruError::Conflict {
+                        message: format!(
+                            "addon manifest {} is unregistered; register a new addon id",
+                            existing.manifest_id
+                        ),
+                    });
+                }
+                if addon.status != AddonStatus::Disabled {
+                    return Err(TaruError::InvalidInput {
+                        message: format!(
+                            "addon manifest {manifest_id} was previously unregistered; re-registration must start disabled"
+                        ),
+                    });
+                }
+            } else if request_id.is_some_and(|id| id != existing.id) || request_id.is_none() {
+                return Err(TaruError::Conflict {
+                    message: format!(
+                        "addon manifest {} is already registered as {}",
+                        existing.manifest_id, existing.id
+                    ),
+                });
+            }
+        }
+
         let addon = self.store.upsert_addon_registration(addon).await?;
 
         Ok(AdminAddonRegistrationResponse {
@@ -137,6 +176,16 @@ impl AddonAppService {
         request: UpdateAddonStatusRequest,
     ) -> Result<AdminAddonRegistrationResponse> {
         let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if request.status == AddonStatus::Unregistered {
+            return Err(TaruError::InvalidInput {
+                message: "use addon unregister command for terminal unregistration".to_owned(),
+            });
+        }
+        if addon.status == AddonStatus::Unregistered {
+            return Err(TaruError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
         if request.status == AddonStatus::Enabled {
             self.validate_registered_addon_can_be_enabled(&addon)?;
         }
@@ -155,12 +204,32 @@ impl AddonAppService {
         })
     }
 
+    pub async fn unregister_addon(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonRegistrationResponse> {
+        self.get_addon_registration_or_not_found(addon_id).await?;
+        let addon = self
+            .store
+            .unregister_addon_registration(addon_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "addon_registration",
+                id: addon_id.to_string(),
+            })?;
+
+        Ok(AdminAddonRegistrationResponse {
+            addon: self.admin_addon_detail(&addon)?,
+        })
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
         request: IssueAddonTokenRequest,
     ) -> Result<AddonTokenIssuedResponse> {
-        self.get_addon_registration_or_not_found(addon_id).await?;
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        ensure_addon_accepts_runtime_authority(&addon, "issue addon token")?;
         let issued = AddonIssuedToken::generate();
         let token = self
             .store
@@ -198,7 +267,8 @@ impl AddonAppService {
         token_id: AddonTokenId,
         request: IssueAddonTokenRequest,
     ) -> Result<AddonTokenRotationResponse> {
-        self.get_addon_registration_or_not_found(addon_id).await?;
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        ensure_addon_accepts_runtime_authority(&addon, "rotate addon token")?;
         let existing =
             self.store
                 .get_addon_token(token_id)
@@ -276,7 +346,8 @@ impl AddonAppService {
         addon_id: AddonId,
         request: ReplaceAddonGrantsRequest,
     ) -> Result<AddonGrantsResponse> {
-        self.get_addon_registration_or_not_found(addon_id).await?;
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        ensure_addon_accepts_runtime_authority(&addon, "replace addon grants")?;
         let grants = normalize_grants(addon_id, request.grants)?;
         let grants = self.store.replace_addon_grants(addon_id, grants).await?;
 
@@ -345,4 +416,20 @@ impl AddonAppService {
 
         Ok(())
     }
+}
+
+fn ensure_addon_accepts_runtime_authority(
+    addon: &AddonRegistrationRecord,
+    operation: &'static str,
+) -> Result<()> {
+    if addon.status == AddonStatus::Unregistered {
+        return Err(TaruError::Conflict {
+            message: format!(
+                "cannot {operation} for unregistered addon registration {}",
+                addon.id
+            ),
+        });
+    }
+
+    Ok(())
 }

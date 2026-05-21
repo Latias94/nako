@@ -31,6 +31,11 @@ pub trait AddonRepository: Send + Sync {
         status: AddonStatus,
     ) -> Result<Option<AddonRegistrationRecord>>;
 
+    async fn unregister_addon_registration(
+        &self,
+        id: AddonId,
+    ) -> Result<Option<AddonRegistrationRecord>>;
+
     async fn create_addon_token(&self, token: NewAddonToken) -> Result<AddonTokenRecord>;
 
     async fn get_addon_token(&self, id: AddonTokenId) -> Result<Option<AddonTokenRecord>>;
