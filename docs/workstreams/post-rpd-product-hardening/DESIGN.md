@@ -149,7 +149,8 @@ app-service replay,
 VFS-mediated copy/hardlink/symlink target apply, catalog commit ordering,
 duplicate evidence, and cleanup-complete/cleanup-pending audit. LAIP-070 split
 NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply` because it
-is a separate **Library File Write** and metadata-authority workflow.
+is a separate **Library File Write** and metadata-authority workflow. LAIP-080
+closed the promotion apply lane after fresh closeout gates.
 
 ### Wave 4 — Network And AI
 
@@ -289,9 +290,9 @@ The apply boundary is now split into two separate mutation classes:
 
 | Lane | Current score | Why | Decision |
 | --- | --- | --- | --- |
-| Link Apply And Import Promotion | Closing | It owns accepted staged artifact promotion, VFS-mediated target creation, catalog commit ordering, duplicate evidence, and cleanup audit. NFO sidecar mutation has been split out. | Finish LAIP-080 closeout before starting another mutation lane. |
-| NFO Sidecar Promotion Apply | High | NFO export/import is the next local data-loss boundary: sidecar backup, round-trip preservation, local authority, field locks, hierarchy confirmation, rollback/repair, idempotency, and audit need a dedicated lane. | Opened as `nfo-sidecar-promotion-apply`; execute after LAIP closeout if local metadata authority remains the highest risk. |
-| Playback / Transcode Ops Hardening | High sidecar | Daily playback confidence still matters and can stay mostly disjoint if limited to diagnostics, preset validation, fallback reasons, and runtime evidence. | Re-score against NFO sidecar apply after LAIP closeout. |
+| Link Apply And Import Promotion | Complete | It owns accepted staged artifact promotion, VFS-mediated target creation, catalog commit ordering, duplicate evidence, and cleanup audit. NFO sidecar mutation has been split out. | Closed at LAIP-080; use as the downstream promotion boundary for acquisition/import lanes. |
+| NFO Sidecar Promotion Apply | High | NFO export/import is the next local data-loss boundary: sidecar backup, round-trip preservation, local authority, field locks, hierarchy confirmation, rollback/repair, idempotency, and audit need a dedicated lane. | Opened as `nfo-sidecar-promotion-apply`; candidate next mainline lane for PRPH-080. |
+| Playback / Transcode Ops Hardening | High sidecar | Daily playback confidence still matters and can stay mostly disjoint if limited to diagnostics, preset validation, fallback reasons, and runtime evidence. | Re-score against NFO sidecar apply during PRPH-080. |
 | Network Access Boundary | Useful but not data-authority critical | Remote access should consume existing auth/deployment boundaries and avoid weakening library mutation policy. | Defer or run as docs/runtime sidecar. |
 | AI Assisted Library Ops | Blocked by acceptance durability | AI suggestions should enter as generated artifacts and reuse accepted metadata/import/sidecar apply boundaries. | Defer until accepted side-effect lanes are stable. |
 | Addon Runtime / Distribution | Downstream consumer | Addons should call Taru-owned apply/file-write APIs instead of inventing direct filesystem mutation. | Defer until core side-effect APIs are proven. |

@@ -2,9 +2,10 @@
 
 ## Status
 
-Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete; the
-current mainline execution lane is `link-apply-and-import-promotion` closeout,
-with `nfo-sidecar-promotion-apply` opened as a follow-on split.
+Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
+`link-apply-and-import-promotion` is complete; `nfo-sidecar-promotion-apply`
+is opened as a follow-on split. The next mainline step is PRPH-080 lane
+scoring.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -42,9 +43,9 @@ product risk is whether Taru can safely manage a real library:
 
 After Managed Import promotion apply proved VFS-mediated target creation,
 catalog commit ordering, duplicate evidence, and cleanup audit, LAIP-070 split
-NFO sidecar mutation to `nfo-sidecar-promotion-apply`. Finish LAIP closeout
-first, then re-score whether NFO sidecar apply or playback/transcode ops
-hardening should be the next mainline lane.
+NFO sidecar mutation to `nfo-sidecar-promotion-apply`, and LAIP-080 closed the
+promotion apply lane. Re-score whether NFO sidecar apply or playback/transcode
+ops hardening should be the next mainline lane.
 
 ## Authoritative Docs
 

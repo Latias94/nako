@@ -1,6 +1,6 @@
 # Link Apply And Import Promotion Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Why This Lane Exists
@@ -30,7 +30,7 @@ missing or unauthorized target.
 - `docs/workstreams/nfo-link-authority`
 - `docs/workstreams/addon-library-file-write-policy`
 
-## Current Baseline
+## Starting Baseline
 
 - Managed Import artifacts are durable and library-scoped.
 - Promotion preview computes destination, duplicate/link, NFO, provider, and
@@ -40,6 +40,23 @@ missing or unauthorized target.
 - There is no durable promotion acceptance/apply record.
 - There is no VFS-backed copy/link apply path tied to Managed Import.
 - There is no rollback/cleanup record for partial promotion failure.
+
+## Shipped Scope
+
+As of closeout, this lane shipped:
+
+- durable Managed Import promotion acceptance/apply/audit records with
+  SQLite/PostgreSQL parity;
+- explicit app-service acceptance and idempotent replay before mutation;
+- VFS-mediated copy/hardlink/symlink apply primitives and typed unsupported
+  backend behavior;
+- server-side promotion apply orchestration that revalidates plan facts and
+  writes catalog state only after target creation;
+- duplicate relationship persistence from accepted promotion evidence;
+- VFS-mediated cleanup after catalog commit failure, with cleanup-complete or
+  cleanup-pending audit outcomes;
+- a split decision that routes NFO sidecar mutation to
+  `nfo-sidecar-promotion-apply`.
 
 ## Target State
 
@@ -151,6 +168,9 @@ Apply must not trust an old preview DTO. Before mutation, it must check:
 The apply orchestration should prefer compensating cleanup after a target was
 created but catalog commit failed. If cleanup cannot be completed safely, record
 cleanup-pending with redacted evidence and never mark the artifact promoted.
+`rollback_complete` remains reserved for future restore/move/delete semantics;
+this lane closes with cleanup-complete and cleanup-pending coverage for created
+promotion targets.
 
 ### Audit And Redaction
 
@@ -215,13 +235,15 @@ Start with durable acceptance/audit records before storage mutation:
 
 ## Closeout Condition
 
-This lane can close when:
+This lane is closed because:
 
-- durable promotion acceptance/audit records exist with backend parity;
-- apply commands are explicit, idempotent, and revalidate preview facts;
-- copy/hardlink/symlink apply is mediated by VFS/storage, not OS paths;
-- catalog writes are committed only after target locator durability is proven;
-- rollback or cleanup-pending behavior is tested after injected partial failure;
-- NFO sidecar mutation is split to a dedicated accepted Library File Write lane;
-- focused Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
+- [x] durable promotion acceptance/audit records exist with backend parity;
+- [x] apply commands are explicit, idempotent, and revalidate preview facts;
+- [x] copy/hardlink/symlink apply is mediated by VFS/storage, not OS paths;
+- [x] catalog writes are committed only after target locator durability is proven;
+- [x] cleanup-complete or cleanup-pending behavior is tested after injected
+  partial failure;
+- [x] NFO sidecar mutation is split to a dedicated accepted Library File Write
+  lane;
+- [x] focused Rust gates, `cargo fmt --all -- --check`, and `git diff --check`
   pass.

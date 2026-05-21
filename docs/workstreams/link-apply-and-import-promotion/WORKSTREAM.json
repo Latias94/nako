@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "link-apply-and-import-promotion",
   "title": "Link Apply And Import Promotion",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-21",
   "scope_kind": "execution",
   "problem": "Managed Import previews and NFO/link dry-runs need an operator-confirmed, auditable, rollback-aware mutation boundary before staged artifacts can become Media Sources in a Media Library.",
   "task_prefix": "LAIP",
-  "current_task": "LAIP-080",
+  "current_task": null,
   "completed_tasks": [
     "LAIP-010",
     "LAIP-020",
@@ -15,7 +15,8 @@
     "LAIP-040",
     "LAIP-050",
     "LAIP-060",
-    "LAIP-070"
+    "LAIP-070",
+    "LAIP-080"
   ],
   "authoritative_docs": [
     {
@@ -76,8 +77,8 @@
     "docs/adr/0021-video-first-media-server-domain-model.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "LAIP-080",
-    "notes": "Durable promotion acceptance/audit, app-service acceptance/replay, VFS-mediated copy/hardlink/symlink apply primitives, first server-side promotion apply orchestration, and post-storage catalog failure cleanup audit gates are implemented. NFO sidecar import/export mutation is split to docs/workstreams/nfo-sidecar-promotion-apply as a separate accepted Library File Write and metadata-authority lane. Next close or split LAIP and return to post-rpd-product-hardening for lane scoring."
+    "default_action": "return_to_parent",
+    "next_task": "post-rpd-product-hardening PRPH-080",
+    "notes": "Link Apply And Import Promotion is complete. Durable promotion acceptance/audit, app-service acceptance/replay, VFS-mediated copy/hardlink/symlink apply primitives, server-side promotion apply orchestration, duplicate evidence persistence, and post-storage catalog failure cleanup audit gates are implemented and freshly verified. NFO sidecar import/export mutation is split to docs/workstreams/nfo-sidecar-promotion-apply as a separate accepted Library File Write and metadata-authority lane. Return to post-rpd-product-hardening for lane scoring."
   }
 }

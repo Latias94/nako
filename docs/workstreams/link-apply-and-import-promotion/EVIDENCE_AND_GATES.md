@@ -1,6 +1,6 @@
 # Link Apply And Import Promotion — Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Gate Set
@@ -55,6 +55,7 @@ claiming lane closeout.
 | 2026-05-21 | LAIP-060 verification gate | `cargo fmt --all -- --check`; `cargo nextest run -p taru-vfs cleanup --no-fail-fast`; `cargo nextest run -p taru-vfs --no-fail-fast`; `cargo nextest run -p taru-server managed_import --no-fail-fast`; `cargo nextest run -p taru-db promotion_apply --no-fail-fast`; `python -m json.tool docs/workstreams/link-apply-and-import-promotion/WORKSTREAM.json`; `git diff --check` | Pass. Fresh verification proves formatting, focused cleanup behavior, full `taru-vfs` regression coverage, Managed Import apply/cleanup regression coverage, promotion apply persistence contract coverage, workstream JSON validity, and diff hygiene. `git diff --check` emitted only repository CRLF conversion warnings. |
 | 2026-05-21 | LAIP-070 split decision | `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`; `docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md` | Pass. NFO sidecar import/export mutation is split to a dedicated accepted Library File Write and metadata-authority lane. LAIP remains focused on staged artifact promotion, VFS-mediated target creation, catalog commit ordering, duplicate evidence, and cleanup audit. |
 | 2026-05-21 | LAIP-070 planning verification | `python -m json.tool docs/workstreams/link-apply-and-import-promotion/WORKSTREAM.json`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check` | Pass. Workstream JSON files are valid and diff hygiene passed. `git diff --check` emitted only repository CRLF conversion warnings. |
+| 2026-05-21 | LAIP-080 closeout verification | `cargo fmt --all -- --check`; `cargo nextest run -p taru-db promotion_apply --no-fail-fast`; `cargo nextest run -p taru-vfs cleanup --no-fail-fast`; `cargo nextest run -p taru-server managed_import --no-fail-fast`; `cargo nextest run -p taru-vfs link --no-fail-fast`; `python -m json.tool docs/workstreams/link-apply-and-import-promotion/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`; `git diff --check` | Pass. Fresh closeout evidence proves formatting, promotion apply persistence, VFS cleanup, Managed Import apply/cleanup orchestration, VFS link planning/apply regression coverage, workstream JSON validity, and diff hygiene. |
 
 ## Evidence Anchors
 

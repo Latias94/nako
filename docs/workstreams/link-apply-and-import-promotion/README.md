@@ -1,9 +1,10 @@
 # Link Apply And Import Promotion
 
-Status: Active
+Status: Complete
 
-Current task: LAIP-080 closeout. LAIP-070 split NFO sidecar import/export
-mutation to `nfo-sidecar-promotion-apply`.
+Closed on 2026-05-21. LAIP-070 split NFO sidecar import/export mutation to
+`nfo-sidecar-promotion-apply`; LAIP-080 closed this lane after fresh promotion
+apply, cleanup, formatting, and diff gates.
 
 This workstream is the follow-on split from `managed-import-staging` and
 `nfo-link-authority`. It owns the first safe mutation path from a Managed Import
@@ -16,16 +17,28 @@ not torrent/Usenet acquisition, background downloader orchestration, or Admin UI
 polish. A promotion preview is explanatory only; this lane defines what makes a
 specific apply command authorized, idempotent, reversible, and observable.
 
+## Shipped Outcome
+
+- Durable promotion acceptance/apply audit records.
+- Explicit app-service acceptance and idempotent replay.
+- VFS-mediated copy/hardlink/symlink apply primitives.
+- Server-side promotion apply with plan revalidation and catalog commit after
+  target creation.
+- Duplicate relationship persistence from accepted promotion evidence.
+- Cleanup-complete and cleanup-pending audit after injected post-storage
+  catalog failure.
+- Dedicated NFO sidecar follow-on for import/export Library File Writes.
+
 ## Goals
 
-- Add durable promotion acceptance/apply audit records separate from preview
+- [x] Add durable promotion acceptance/apply audit records separate from preview
   DTOs.
-- Revalidate promotion plan facts before any storage mutation.
-- Apply copy/hardlink/symlink through VFS/storage backends only.
-- Commit Media Source and Source Duplicate Relationship state only after the
+- [x] Revalidate promotion plan facts before any storage mutation.
+- [x] Apply copy/hardlink/symlink through VFS/storage backends only.
+- [x] Commit Media Source and Source Duplicate Relationship state only after the
   target locator is durable.
-- Record rollback or cleanup-pending evidence after partial failure.
-- Keep NFO import/export side effects explicit and split to
+- [x] Record cleanup-complete or cleanup-pending evidence after partial failure.
+- [x] Keep NFO import/export side effects explicit and split to
   `nfo-sidecar-promotion-apply` instead of hiding them in Managed Import
   promotion.
 

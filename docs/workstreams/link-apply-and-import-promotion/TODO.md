@@ -1,6 +1,6 @@
 # Link Apply And Import Promotion — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 Task IDs use the `LAIP` prefix.
@@ -110,8 +110,12 @@ Task IDs use the `LAIP` prefix.
 
 ## M7 — Closeout
 
-- [ ] LAIP-080 [owner=planner] [deps=LAIP-070] [scope=docs/workstreams/link-apply-and-import-promotion]
+- [x] LAIP-080 [owner=planner] [deps=LAIP-070] [scope=docs/workstreams/link-apply-and-import-promotion]
   Goal: Close or split Link Apply And Import Promotion.
   Validation: evidence gates are fresh; parent umbrella points to the next lane.
-  Evidence: closeout journal and parent handoff.
-  Handoff: Return to `post-rpd-product-hardening` for next lane scoring.
+  Evidence: Completed with fresh formatting, promotion-apply persistence,
+  VFS link/cleanup, server Managed Import apply, JSON, and diff gates recorded
+  in `EVIDENCE_AND_GATES.md`; NFO sidecar mutation is represented by
+  `docs/workstreams/nfo-sidecar-promotion-apply`; parent umbrella points to
+  PRPH-080 lane scoring.
+  Handoff: Return to `post-rpd-product-hardening` for PRPH-080 lane scoring.

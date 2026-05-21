@@ -1,6 +1,6 @@
 # Link Apply And Import Promotion — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## M0 — Lane Open
@@ -108,6 +108,13 @@ Primary evidence:
 
 Exit criteria:
 
-- Fresh validation is recorded.
-- Parent umbrella and workstream index agree on status.
-- Follow-ons are explicit.
+- [x] Fresh validation is recorded.
+- [x] Parent umbrella and workstream index agree on status.
+- [x] Follow-ons are explicit.
+
+Primary evidence:
+
+- Closeout evidence in
+  `docs/workstreams/link-apply-and-import-promotion/EVIDENCE_AND_GATES.md`.
+- Follow-on lane in `docs/workstreams/nfo-sidecar-promotion-apply`.
+- Parent umbrella handoff in `docs/workstreams/post-rpd-product-hardening`.

@@ -1,6 +1,6 @@
 # Link Apply And Import Promotion — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Current State
@@ -28,15 +28,15 @@ outcomes for stale or source-missing apply attempts, and recording
 cleanup-complete or cleanup-pending terminal audits when catalog commit fails
 after storage target creation.
 
-## Active Task
+## Closeout
 
 - Task ID: LAIP-080
 - Owner: planner
 - Files: `docs/workstreams/link-apply-and-import-promotion`
-- Validation: evidence gates are fresh; parent umbrella points to the next lane;
-  NFO sidecar follow-on is explicitly represented.
-- Status: READY
-- Evidence: LAIP-010 through LAIP-070 are recorded in `EVIDENCE_AND_GATES.md`
+- Validation: evidence gates are fresh; parent umbrella points to PRPH-080 lane
+  scoring; NFO sidecar follow-on is explicitly represented.
+- Status: COMPLETE
+- Evidence: LAIP-010 through LAIP-080 are recorded in `EVIDENCE_AND_GATES.md`
 
 ## Decisions
 
@@ -75,10 +75,13 @@ after storage target creation.
 
 ## Blockers
 
-- None for LAIP-080.
+- None.
 
 ## Next Recommended Action
 
-- Execute LAIP-080: verify docs/JSON hygiene, close or split the LAIP lane, and
-  return to `post-rpd-product-hardening` for next-lane scoring. The NFO sidecar
-  follow-on starts at `nfo-sidecar-promotion-apply` NSPA-020 when chosen.
+- Return to `post-rpd-product-hardening` PRPH-080 lane scoring. The next mainline
+  decision is whether to execute `nfo-sidecar-promotion-apply` NSPA-020 for
+  local sidecar authority, run playback/transcode ops hardening as a disjoint
+  runtime-confidence lane, or route another downstream lane. Downloads and
+  watch-folder acquisition should still consume staged artifacts and the proven
+  promotion apply boundary rather than bypassing it.

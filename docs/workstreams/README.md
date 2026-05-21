@@ -11,10 +11,10 @@ attention.
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
 - [link-apply-and-import-promotion](link-apply-and-import-promotion/README.md):
-  active post-RPD mainline follow-on for turning Managed Import promotion
+  completed post-RPD mainline follow-on for turning Managed Import promotion
   previews into operator-confirmed, idempotent, rollback-aware Media Library
-  mutations through VFS/storage and durable audit records. Current task is
-  LAIP-080 closeout after NFO sidecar mutation was split out.
+  mutations through VFS/storage and durable audit records. NFO sidecar mutation
+  is split out.
 - [nfo-sidecar-promotion-apply](nfo-sidecar-promotion-apply/README.md):
   active follow-on split for accepted NFO import/export sidecar mutation as a
   Library File Write and metadata-authority workflow, with backup, round-trip,

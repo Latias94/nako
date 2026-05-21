@@ -12,25 +12,24 @@ ordered follow-ons. `metadata-provider-breadth` is complete. `nfo-link-authority
 is complete with VFS link dry-run diagnostics, Source Duplicate Relationship
 filesystem-link suggestions, NFO authority preview, and the link apply split
 decision. `managed-import-staging` is complete as a non-mutating staging and
-promotion-preview lane. The next mainline lane is
-`link-apply-and-import-promotion`, now at LAIP-080 closeout after implementing
-accepted promotion apply, VFS-mediated target creation, catalog commit ordering,
-duplicate evidence, and cleanup-complete/cleanup-pending audit. LAIP-070 split
-NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply`.
+promotion-preview lane. `link-apply-and-import-promotion` is complete after
+implementing accepted promotion apply, VFS-mediated target creation, catalog
+commit ordering, duplicate evidence, and cleanup-complete/cleanup-pending
+audit. LAIP-070 split NFO sidecar import/export mutation to
+`nfo-sidecar-promotion-apply`. The next umbrella task is PRPH-080 lane scoring.
 
 ## Active Task
 
-- Task ID: PRPH-070
+- Task ID: PRPH-080
 - Owner: planner
 - Files: `docs/workstreams/post-rpd-product-hardening`,
-  `docs/workstreams/link-apply-and-import-promotion`,
   `docs/workstreams/nfo-sidecar-promotion-apply`
-- Validation: LAIP closeout reviewed; next executable lane recorded
-- Status: ACTIVE
-- Review: finish `link-apply-and-import-promotion` LAIP-080, then re-score
-  `nfo-sidecar-promotion-apply`, playback/transcode ops, network, AI, addon
-  runtime, and downloads/watch-folder
-- Evidence: `docs/workstreams/link-apply-and-import-promotion/DESIGN.md`
+- Validation: re-score `nfo-sidecar-promotion-apply`, playback/transcode ops,
+  network, AI, addon runtime, and downloads/watch-folder against current
+  closeout evidence.
+- Status: READY
+- Review: choose the next executable child lane and update umbrella docs.
+- Evidence: `docs/workstreams/link-apply-and-import-promotion/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
 
@@ -56,8 +55,9 @@ NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply`.
 - Actual promotion apply is split to `link-apply-and-import-promotion` because
   it requires operator confirmation, plan revalidation, durable audit,
   rollback/cleanup, VFS-only mutation, and catalog consistency.
-- `link-apply-and-import-promotion` has implemented accepted promotion apply
-  through cleanup/rollback gates.
+- `link-apply-and-import-promotion` is complete with fresh closeout evidence for
+  accepted promotion apply, VFS-mediated target creation, catalog commit
+  ordering, duplicate evidence, and cleanup-complete/cleanup-pending audit.
 - NFO sidecar import/export mutation is split to
   `nfo-sidecar-promotion-apply` because it is a separate accepted **Library
   File Write** and metadata-authority workflow with backup, retention,
@@ -68,11 +68,11 @@ NFO sidecar import/export mutation to `nfo-sidecar-promotion-apply`.
 
 ## Blockers
 
-- None for LAIP-080.
+- None for PRPH-080.
 
 ## Next Recommended Action
 
-- Execute `link-apply-and-import-promotion` LAIP-080 closeout.
+- Execute PRPH-080 lane scoring.
 - Keep `post-rpd-product-hardening` active while it continues ordering the next
   product-hardening lanes. Re-score NFO sidecar apply, playback/transcode ops,
   network, AI, addon runtime, and downloads/watch-folder after LAIP closeout.
