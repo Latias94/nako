@@ -1,10 +1,10 @@
 package dev.taru.android.browse
 
-import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.PublicApiFailure
 import dev.taru.android.connection.PublicApiFailureKind
 import dev.taru.android.connection.PublicApiResult
-import dev.taru.android.connection.PublicClientApiExecutor
+import dev.taru.android.connection.PublicClientRuntime
+import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
@@ -25,8 +25,8 @@ import dev.taru.sdk.TagsResponse as SdkTagsResponse
 import kotlinx.serialization.json.Json
 
 class TaruBrowseClient private constructor(
-    private val transport: TaruHttpTransport,
-    private val json: Json = Json { ignoreUnknownKeys = true },
+    transport: TaruHttpTransport,
+    json: Json = Json { ignoreUnknownKeys = true },
     private val browseCore: BrowseCore,
 ) {
     constructor(
@@ -38,7 +38,7 @@ class TaruBrowseClient private constructor(
         browseCore = RustBrowseCore,
     )
 
-    private val executor = PublicClientApiExecutor(transport, json)
+    private val runtime = PublicClientRuntime(transport, json)
 
     suspend fun listLibraries(
         profile: ServerProfile,
@@ -47,7 +47,7 @@ class TaruBrowseClient private constructor(
     ): BrowseResult<LibraryListResponse> =
         executeSdkJson<SdkLibraryListResponse, LibraryListResponse>(
             accessToken = accessToken,
-            request = browseCore.listLibraries(profile, accessToken, page).request,
+            buildRequest = { token -> browseCore.listLibraries(profile, token, page).request },
             transform = SdkLibraryListResponse::toAndroid,
         )
 
@@ -65,7 +65,7 @@ class TaruBrowseClient private constructor(
 
         return executeSdkJson<SdkLibraryResponse, LibraryResponse>(
             accessToken = accessToken,
-            request = browseCore.libraryDetail(profile, accessToken, libraryId).request,
+            buildRequest = { token -> browseCore.libraryDetail(profile, token, libraryId).request },
             notFoundCategory = BrowseFailureCategory.MissingLibrary,
             transform = SdkLibraryResponse::toAndroid,
         )
@@ -86,7 +86,7 @@ class TaruBrowseClient private constructor(
 
         return executeSdkJson<SdkLibrarySourcesResponse, LibrarySourcesResponse>(
             accessToken = accessToken,
-            request = browseCore.librarySources(profile, accessToken, libraryId, page).request,
+            buildRequest = { token -> browseCore.librarySources(profile, token, libraryId, page).request },
             notFoundCategory = BrowseFailureCategory.MissingLibrary,
             transform = SdkLibrarySourcesResponse::toAndroid,
         )
@@ -99,7 +99,7 @@ class TaruBrowseClient private constructor(
     ): BrowseResult<ItemsResponse> =
         executeSdkJson<SdkItemsResponse, ItemsResponse>(
             accessToken = accessToken,
-            request = browseCore.listItems(profile, accessToken, page).request,
+            buildRequest = { token -> browseCore.listItems(profile, token, page).request },
             transform = SdkItemsResponse::toAndroid,
         )
 
@@ -110,7 +110,7 @@ class TaruBrowseClient private constructor(
     ): BrowseResult<SearchResponse> =
         executeSdkJson<SdkSearchResponse, SearchResponse>(
             accessToken = accessToken,
-            request = browseCore.searchItems(profile, accessToken, query).request,
+            buildRequest = { token -> browseCore.searchItems(profile, token, query).request },
             transform = SdkSearchResponse::toAndroid,
         )
 
@@ -128,7 +128,7 @@ class TaruBrowseClient private constructor(
 
         return executeSdkJson<SdkItemDetailResponse, ItemDetailResponse>(
             accessToken = accessToken,
-            request = browseCore.itemDetail(profile, accessToken, itemId).request,
+            buildRequest = { token -> browseCore.itemDetail(profile, token, itemId).request },
             transform = SdkItemDetailResponse::toAndroid,
         )
     }
@@ -147,7 +147,7 @@ class TaruBrowseClient private constructor(
 
         return executeSdkJson<SdkImagesResponse, ImagesResponse>(
             accessToken = accessToken,
-            request = browseCore.itemImages(profile, accessToken, itemId).request,
+            buildRequest = { token -> browseCore.itemImages(profile, token, itemId).request },
             transform = SdkImagesResponse::toAndroid,
         )
     }
@@ -166,7 +166,7 @@ class TaruBrowseClient private constructor(
 
         return executeSdkJson<SdkPersonResponse, PersonResponse>(
             accessToken = accessToken,
-            request = browseCore.personDetail(profile, accessToken, personId).request,
+            buildRequest = { token -> browseCore.personDetail(profile, token, personId).request },
             notFoundCategory = BrowseFailureCategory.MissingPerson,
             transform = SdkPersonResponse::toAndroid,
         )
@@ -179,7 +179,7 @@ class TaruBrowseClient private constructor(
     ): BrowseResult<GenreListResponse> =
         executeSdkJson<SdkGenreListResponse, GenreListResponse>(
             accessToken = accessToken,
-            request = browseCore.listGenres(profile, accessToken, page).request,
+            buildRequest = { token -> browseCore.listGenres(profile, token, page).request },
             transform = SdkGenreListResponse::toAndroid,
         )
 
@@ -190,7 +190,7 @@ class TaruBrowseClient private constructor(
     ): BrowseResult<TagListResponse> =
         executeSdkJson<SdkTagsResponse, TagListResponse>(
             accessToken = accessToken,
-            request = browseCore.listTags(profile, accessToken, page).request,
+            buildRequest = { token -> browseCore.listTags(profile, token, page).request },
             transform = SdkTagsResponse::toAndroid,
         )
 
@@ -210,7 +210,7 @@ class TaruBrowseClient private constructor(
         return when (
             val result = executeSdkJson<SdkGenreItemsResponse, GenreItemsResponse>(
                 accessToken = accessToken,
-                request = browseCore.listGenreItems(profile, accessToken, genreId, page).request,
+                buildRequest = { token -> browseCore.listGenreItems(profile, token, genreId, page).request },
                 transform = SdkGenreItemsResponse::toAndroid,
             )
         ) {
@@ -244,7 +244,7 @@ class TaruBrowseClient private constructor(
         return when (
             val result = executeSdkJson<SdkTagItemsResponse, TagItemsResponse>(
                 accessToken = accessToken,
-                request = browseCore.listTagItems(profile, accessToken, tagId, page).request,
+                buildRequest = { token -> browseCore.listTagItems(profile, token, tagId, page).request },
                 transform = SdkTagItemsResponse::toAndroid,
             )
         ) {
@@ -278,7 +278,7 @@ class TaruBrowseClient private constructor(
         return when (
             val result = executeSdkJson<SdkPersonItemsResponse, PersonItemsResponse>(
                 accessToken = accessToken,
-                request = browseCore.listPersonItems(profile, accessToken, personId, page).request,
+                buildRequest = { token -> browseCore.listPersonItems(profile, token, personId, page).request },
                 transform = SdkPersonItemsResponse::toAndroid,
             )
         ) {
@@ -298,31 +298,21 @@ class TaruBrowseClient private constructor(
 
     private suspend inline fun <reified WireT, AppT> executeSdkJson(
         accessToken: String,
-        request: TaruHttpRequest,
+        crossinline buildRequest: (String) -> TaruHttpRequest,
         notFoundCategory: BrowseFailureCategory = BrowseFailureCategory.MissingItem,
-        transform: (WireT) -> AppT,
+        noinline transform: (WireT) -> AppT,
     ): BrowseResult<AppT> =
         when (
-            val result = executor.executeRequest(
-                request = request,
-                secrets = listOf(accessToken),
+            val result = runtime.executeAuthenticatedJson(
+                accessToken = accessToken,
+                buildRequest = buildRequest,
+                transform = transform,
             )
         ) {
-            is PublicApiResult.Success -> {
-                val value = runCatching {
-                    json.decodeFromString<WireT>(result.response.body)
-                }.getOrElse {
-                    return failure(
-                        category = BrowseFailureCategory.InvalidResponse,
-                        userMessage = userMessageFor(BrowseFailureCategory.InvalidResponse),
-                        request = result.request,
-                    )
-                }
-                BrowseResult.Success(
-                    value = transform(value),
-                    request = result.request,
-                )
-            }
+            is PublicApiResult.Success -> BrowseResult.Success(
+                value = result.value,
+                request = result.request,
+            )
             is PublicApiResult.Failure -> failureFor(notFoundCategory, result.failure)
         }
 

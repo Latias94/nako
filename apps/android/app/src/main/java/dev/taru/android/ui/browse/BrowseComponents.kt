@@ -1,35 +1,20 @@
 package dev.taru.android.ui.browse
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -37,19 +22,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
@@ -62,26 +43,17 @@ import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.EmptyArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruPosterArtwork
-import dev.taru.android.ui.components.TaruArtworkBackdrop as DesignArtworkBackdrop
-import dev.taru.android.ui.components.TaruIconBadge as DesignIconBadge
-import dev.taru.android.ui.components.TaruPressableScale as DesignPressableScale
-import dev.taru.android.ui.components.TaruScreenColumn as DesignScreenColumn
-import dev.taru.android.ui.components.TaruSectionHeader as DesignSectionHeader
-import dev.taru.android.ui.components.TaruStateCard as DesignStateCard
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruPressableScale
+import dev.taru.android.ui.components.TaruStateCard
 import dev.taru.android.ui.components.TaruStateTone
-import dev.taru.android.ui.components.TaruStatusChip as DesignStatusChip
-import dev.taru.android.ui.components.TaruStatusPill as DesignStatusPill
-import dev.taru.android.ui.components.TaruSurfaceCard as DesignSurfaceCard
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruSurfaceCard
 import dev.taru.android.ui.theme.TaruAspectRatio
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
-
-@Composable
-internal fun TaruScrollColumn(content: @Composable ColumnScope.() -> Unit) {
-    DesignScreenColumn(content = content)
-}
 
 @Composable
 internal fun PageTitle(
@@ -95,7 +67,7 @@ internal fun PageTitle(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(icon = icon)
+        TaruIconBadge(icon = icon)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -119,19 +91,6 @@ internal fun PageTitle(
 }
 
 @Composable
-internal fun SectionHeader(
-    title: String,
-    action: String? = null,
-    onAction: (() -> Unit)? = null,
-) {
-    DesignSectionHeader(
-        title = title,
-        action = action,
-        onAction = onAction,
-    )
-}
-
-@Composable
 internal fun SectionLabel(text: String) {
     Text(
         text = text,
@@ -142,12 +101,12 @@ internal fun SectionLabel(text: String) {
 
 @Composable
 internal fun ResumePlaceholder() {
-    SurfaceCard {
+    TaruSurfaceCard {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.Rounded.PlayArrow)
+            TaruIconBadge(icon = Icons.Rounded.PlayArrow)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -167,22 +126,11 @@ internal fun ResumePlaceholder() {
 }
 
 @Composable
-internal fun SurfaceCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    DesignSurfaceCard(
-        modifier = modifier,
-        content = content,
-    )
-}
-
-@Composable
 internal fun InfoCard(
     title: String,
     body: String,
 ) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -200,7 +148,7 @@ internal fun LoadingCard(
     title: String,
     body: String,
 ) {
-    DesignStateCard(
+    TaruStateCard(
         title = title,
         body = body,
         tone = TaruStateTone.Loading,
@@ -212,7 +160,7 @@ internal fun EmptyCard(
     title: String,
     body: String,
 ) {
-    DesignStateCard(
+    TaruStateCard(
         title = title,
         body = body,
         tone = TaruStateTone.Neutral,
@@ -280,7 +228,7 @@ internal fun LoadMoreFooter(
     failureMessage: String?,
     onLoadMore: () -> Unit,
 ) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Text(
             text = if (canLoadMore) {
                 "More results may be available"
@@ -344,7 +292,7 @@ internal fun MediaPosterCard(
     val artworkRequest = artworkResolver.requestFor(
         preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
     )
-    PressableScale(
+    TaruPressableScale(
         modifier = Modifier
             .width(116.dp)
             .semantics {
@@ -389,14 +337,14 @@ internal fun MediaItemRow(
     val artworkRequest = artworkResolver.requestFor(
         preferredPublicArtwork(artworkRefs, PublicArtworkSlot.Poster),
     )
-    PressableScale(
+    TaruPressableScale(
         modifier = Modifier.semantics {
             contentDescription = mediaItemAccessibilityLabel(item)
             role = Role.Button
         },
         onClick = { onOpenItem(item) },
     ) {
-        SurfaceCard {
+        TaruSurfaceCard {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
@@ -427,7 +375,7 @@ internal fun MediaItemRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                StatusChip(text = trailingLabel)
+                TaruStatusChip(text = trailingLabel)
             }
         }
     }
@@ -485,7 +433,7 @@ internal fun LibraryTile(
         return
     }
 
-    PressableScale(
+    TaruPressableScale(
         modifier = Modifier
             .width(156.dp)
             .semantics {
@@ -509,7 +457,7 @@ private fun LibraryTileSurface(library: LibraryDto) {
             modifier = Modifier.padding(TaruSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
         ) {
-            IconBadge(icon = Icons.AutoMirrored.Rounded.LibraryBooks)
+            TaruIconBadge(icon = Icons.AutoMirrored.Rounded.LibraryBooks)
             Text(
                 text = library.name,
                 style = MaterialTheme.typography.titleMedium,
@@ -529,12 +477,12 @@ private fun LibraryTileSurface(library: LibraryDto) {
 
 @Composable
 internal fun LibraryListCard(library: LibraryDto) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.AutoMirrored.Rounded.LibraryBooks)
+            TaruIconBadge(icon = Icons.AutoMirrored.Rounded.LibraryBooks)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -589,7 +537,7 @@ internal fun RelationshipCard(
     rows: List<RelationshipRow>,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
-    SurfaceCard {
+    TaruSurfaceCard {
         rows.forEach { row ->
             Row(
                 modifier = Modifier
@@ -603,7 +551,7 @@ internal fun RelationshipCard(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconBadge(icon = row.icon, compact = true)
+                TaruIconBadge(icon = row.icon, compact = true)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = row.title,
@@ -618,57 +566,4 @@ internal fun RelationshipCard(
             }
         }
     }
-}
-
-@Composable
-internal fun StatusPill(
-    text: String,
-    icon: ImageVector,
-    onClick: (() -> Unit)? = null,
-) {
-    DesignStatusPill(
-        text = text,
-        icon = icon,
-        onClick = onClick,
-    )
-}
-
-@Composable
-internal fun StatusChip(text: String) {
-    DesignStatusChip(text = text)
-}
-
-@Composable
-internal fun IconBadge(
-    icon: ImageVector,
-    compact: Boolean = false,
-) {
-    DesignIconBadge(
-        icon = icon,
-        compact = compact,
-    )
-}
-
-@Composable
-internal fun ArtworkBackdrop(
-    title: String,
-    modifier: Modifier = Modifier,
-) {
-    DesignArtworkBackdrop(
-        title = title,
-        modifier = modifier,
-    )
-}
-
-@Composable
-internal fun PressableScale(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    DesignPressableScale(
-        modifier = modifier,
-        onClick = onClick,
-        content = content,
-    )
 }

@@ -1,28 +1,28 @@
 package dev.taru.android.playback
 
-import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.PublicApiFailure
 import dev.taru.android.connection.PublicApiFailureKind
 import dev.taru.android.connection.PublicApiResult
-import dev.taru.android.connection.PublicClientApiExecutor
+import dev.taru.android.connection.PublicClientRuntime
+import dev.taru.android.connection.PublicErrorEnvelope
 import dev.taru.android.connection.SafeRequestPreview
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
 import dev.taru.android.connection.TaruHttpTransport
-import dev.taru.android.media.toAndroid
 import dev.taru.android.media.SourceProbeResponse
-import dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER
+import dev.taru.android.media.toAndroid
 import dev.taru.sdk.PlaybackDecisionResponse as SdkPlaybackDecisionResponse
 import dev.taru.sdk.SourceProbeResponse as SdkSourceProbeResponse
+import dev.taru.sdk.TARU_PLAYBACK_SESSION_ID_HEADER
 import dev.taru.sdk.TranscodeSessionResponse as SdkTranscodeSessionResponse
 import kotlinx.serialization.json.Json
 
 class TaruPlaybackClient(
-    private val transport: TaruHttpTransport,
-    private val json: Json = Json { ignoreUnknownKeys = true },
+    transport: TaruHttpTransport,
+    json: Json = Json { ignoreUnknownKeys = true },
     private val playbackCore: PlaybackCore = RustPlaybackCore,
 ) {
-    private val executor = PublicClientApiExecutor(transport, json)
+    private val runtime = PublicClientRuntime(transport, json)
 
     suspend fun getSourceProbe(
         profile: ServerProfile,
@@ -35,15 +35,14 @@ class TaruPlaybackClient(
                 userMessage = "Choose a version before loading details.",
             )
         }
-        if (accessToken.isBlank()) {
-            return missingAccessTokenFailure()
-        }
 
         return executeSdkJson<SdkSourceProbeResponse, SourceProbeResponse>(
             accessToken = accessToken,
-            request = playbackCore
-                .sourceProbeRequest(profile, accessToken, sourceId)
-                .authenticatedRequest(accessToken),
+            buildRequest = { token ->
+                playbackCore
+                    .sourceProbeRequest(profile, token, sourceId)
+                    .authenticatedRequest(token)
+            },
             transform = SdkSourceProbeResponse::toAndroid,
         )
     }
@@ -60,36 +59,20 @@ class TaruPlaybackClient(
                 userMessage = "Choose a version before requesting playback.",
             )
         }
-        if (accessToken.isBlank()) {
-            return missingAccessTokenFailure()
-        }
-
-        val request = playbackCore.playbackDecisionRequest(
-            profile = profile,
+        return executeSdkJson<SdkPlaybackDecisionResponse, PlaybackDecisionResponse>(
             accessToken = accessToken,
-            sourceId = sourceId,
-            capabilities = capabilities,
-        )
-        val result = executor.executeRequest(
-            request = request.authenticatedRequest(accessToken),
-            secrets = listOf(accessToken),
-        )
-        return when (result) {
-            is PublicApiResult.Failure -> failureFor(result.failure)
-            is PublicApiResult.Success -> {
-                val value = runCatching {
-                    json.decodeFromString<SdkPlaybackDecisionResponse>(result.response.body)
-                        .toAndroid()
-                }.getOrElse {
-                    return failure(
-                        category = PlaybackFailureCategory.InvalidResponse,
-                        userMessage = userMessageFor(PlaybackFailureCategory.InvalidResponse),
-                        request = request.safeRequest,
+            buildRequest = { token ->
+                playbackCore
+                    .playbackDecisionRequest(
+                        profile = profile,
+                        accessToken = token,
+                        sourceId = sourceId,
+                        capabilities = capabilities,
                     )
-                }
-                PlaybackResult.Success(value = value, request = result.request)
-            }
-        }
+                    .authenticatedRequest(token)
+            },
+            transform = SdkPlaybackDecisionResponse::toAndroid,
+        )
     }
 
     fun directPlaybackTarget(
@@ -165,15 +148,14 @@ class TaruPlaybackClient(
                 userMessage = "Choose an active playback session before requesting status.",
             )
         }
-        if (accessToken.isBlank()) {
-            return missingAccessTokenFailure()
-        }
 
         return executeSdkJson<SdkTranscodeSessionResponse, TranscodeSessionResponse>(
             accessToken = accessToken,
-            request = playbackCore
-                .playbackSessionRequest(profile, accessToken, sessionId)
-                .authenticatedRequest(accessToken),
+            buildRequest = { token ->
+                playbackCore
+                    .playbackSessionRequest(profile, token, sessionId)
+                    .authenticatedRequest(token)
+            },
             transform = SdkTranscodeSessionResponse::toAndroid,
         )
     }
@@ -189,15 +171,14 @@ class TaruPlaybackClient(
                 userMessage = "Choose an active playback session before requesting cancellation.",
             )
         }
-        if (accessToken.isBlank()) {
-            return missingAccessTokenFailure()
-        }
 
         return executeSdkJson<SdkTranscodeSessionResponse, TranscodeSessionResponse>(
             accessToken = accessToken,
-            request = playbackCore
-                .cancelPlaybackSessionRequest(profile, accessToken, sessionId)
-                .authenticatedRequest(accessToken),
+            buildRequest = { token ->
+                playbackCore
+                    .cancelPlaybackSessionRequest(profile, token, sessionId)
+                    .authenticatedRequest(token)
+            },
             transform = SdkTranscodeSessionResponse::toAndroid,
         )
     }
@@ -254,33 +235,22 @@ class TaruPlaybackClient(
 
     private suspend inline fun <reified WireT, AppT> executeSdkJson(
         accessToken: String,
-        request: TaruHttpRequest,
-        transform: (WireT) -> AppT,
-    ): PlaybackResult<AppT> {
-        return when (
-            val result = executor.executeRequest(
-                request = request,
-                secrets = listOf(accessToken),
+        crossinline buildRequest: (String) -> TaruHttpRequest,
+        noinline transform: (WireT) -> AppT,
+    ): PlaybackResult<AppT> =
+        when (
+            val result = runtime.executeAuthenticatedJson(
+                accessToken = accessToken,
+                buildRequest = buildRequest,
+                transform = transform,
             )
         ) {
-            is PublicApiResult.Success -> {
-                val value = runCatching {
-                    json.decodeFromString<WireT>(result.response.body)
-                }.getOrElse {
-                    return failure(
-                        category = PlaybackFailureCategory.InvalidResponse,
-                        userMessage = userMessageFor(PlaybackFailureCategory.InvalidResponse),
-                        request = result.request,
-                    )
-                }
-                PlaybackResult.Success(
-                    value = transform(value),
-                    request = result.request,
-                )
-            }
+            is PublicApiResult.Success -> PlaybackResult.Success(
+                value = result.value,
+                request = result.request,
+            )
             is PublicApiResult.Failure -> failureFor(result.failure)
         }
-    }
 
     private fun failureFor(failure: PublicApiFailure): PlaybackResult.Failure {
         val category = when (failure.kind) {
@@ -307,12 +277,6 @@ class TaruPlaybackClient(
             request = failure.request,
         )
     }
-
-    private fun missingAccessTokenFailure(): PlaybackResult.Failure =
-        failure(
-            category = PlaybackFailureCategory.MissingAccessToken,
-            userMessage = userMessageFor(PlaybackFailureCategory.MissingAccessToken),
-        )
 
     private fun userMessageFor(category: PlaybackFailureCategory): String =
         when (category) {
@@ -366,11 +330,10 @@ class TaruPlaybackClient(
             userMessage = "The prepared playback path cannot start a tracked session.",
             request = target.safeRequest,
         )
-        val authenticatedPreflightRequest = preflightRequest.authenticatedRequest(accessToken)
         val response = when (
-            val result = executor.executeRequest(
-                request = authenticatedPreflightRequest,
-                secrets = listOf(accessToken),
+            val result = runtime.executeAuthenticatedResponse(
+                accessToken = accessToken,
+                request = preflightRequest.authenticatedRequest(accessToken),
             )
         ) {
             is PublicApiResult.Failure -> return failureFor(result.failure)

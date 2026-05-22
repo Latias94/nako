@@ -2,6 +2,7 @@ package dev.taru.android.ui.browse
 
 import dev.taru.android.browse.BrowseFailureCategory
 import dev.taru.android.browse.PageRequest
+import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.InMemoryTokenVault
 import dev.taru.android.connection.ServerProfile
@@ -14,10 +15,130 @@ import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import dev.taru.sdk.TARU_API_VERSION_HEADER
 
 class ClientBrowseDataSourceTest {
+    @Test
+    fun `home keeps items visible when library section fails`() = runBlocking {
+        val transport = QueuedTransport(
+            publicError(statusCode = 503, code = "library_unavailable", message = "library temporarily unavailable"),
+            ok(
+                """
+                {
+                  "items": [
+                    ${mediaItemJson(id = "night-harbor", title = "Night Harbor").prependIndent("                    ")}
+                  ],
+                  "page": {"limit": 24, "offset": 0, "returned": 1}
+                }
+                """.trimIndent(),
+            ),
+            ok(
+                """
+                {
+                  "items": [],
+                  "page": {"limit": 12, "offset": 0, "returned": 0}
+                }
+                """.trimIndent(),
+            ),
+            ok(
+                """
+                {
+                  "item_id": "night-harbor",
+                  "images": []
+                }
+                """.trimIndent(),
+            ),
+        )
+        val dataSource = testDataSource(transport)
+
+        val state = dataSource.loadHome()
+
+        val content = state as BrowseUiState.Content
+        assertEquals(HomeSectionState.Unavailable::class, content.home.libraries::class)
+        assertEquals("Night Harbor", content.home.items.valueOrNull()?.items?.single()?.metadata?.title)
+        assertEquals(emptyMap<String, List<PublicImageRefDto>>(), content.artworkByItemId)
+        assertEquals(
+            listOf(
+                "http://127.0.0.1:3018/libraries?limit=50&offset=0",
+                "http://127.0.0.1:3018/items?limit=24&offset=0",
+                "http://127.0.0.1:3018/users/me/playback-state/continue-watching?limit=12&offset=0",
+                "http://127.0.0.1:3018/items/night-harbor/images",
+            ),
+            transport.requests.map { it.url },
+        )
+    }
+
+    @Test
+    fun `home records continue watching failure as degraded section`() = runBlocking {
+        val transport = QueuedTransport(
+            ok(
+                """
+                ${libraryListJson()}
+                """.trimIndent(),
+            ),
+            ok(
+                """
+                {
+                  "items": [],
+                  "page": {"limit": 24, "offset": 0, "returned": 0}
+                }
+                """.trimIndent(),
+            ),
+            publicError(statusCode = 503, code = "continue_unavailable", message = "continue watching unavailable"),
+        )
+        val dataSource = testDataSource(transport)
+
+        val state = dataSource.loadHome()
+
+        val content = state as BrowseUiState.Content
+        assertEquals(1, content.home.libraries.valueOrNull()?.libraries?.size)
+        assertEquals(0, content.home.items.valueOrNull()?.items?.size)
+        val unavailable = content.home.continueWatching as HomeSectionState.Unavailable
+        assertEquals(BrowseFailureCategory.PublicApiError, unavailable.diagnostics.category)
+        assertFalse(unavailable.diagnostics.userMessage.contains("secret-token"))
+    }
+
+    @Test
+    fun `home records artwork failures without blocking visible items`() = runBlocking {
+        val transport = QueuedTransport(
+            ok(
+                """
+                ${libraryListJson()}
+                """.trimIndent(),
+            ),
+            ok(
+                """
+                {
+                  "items": [
+                    ${mediaItemJson(id = "night-harbor", title = "Night Harbor").prependIndent("                    ")}
+                  ],
+                  "page": {"limit": 24, "offset": 0, "returned": 1}
+                }
+                """.trimIndent(),
+            ),
+            ok(
+                """
+                {
+                  "items": [],
+                  "page": {"limit": 12, "offset": 0, "returned": 0}
+                }
+                """.trimIndent(),
+            ),
+            publicError(statusCode = 503, code = "artwork_unavailable", message = "artwork unavailable"),
+        )
+        val dataSource = testDataSource(transport)
+
+        val state = dataSource.loadHome()
+
+        val content = state as BrowseUiState.Content
+        assertEquals("Night Harbor", content.home.items.valueOrNull()?.items?.single()?.metadata?.title)
+        assertEquals(emptyMap<String, List<PublicImageRefDto>>(), content.artworkByItemId)
+        assertEquals(true, content.home.artwork.hasFailures)
+        assertEquals("night-harbor", content.home.artwork.failures.single().itemId)
+    }
+
     @Test
     fun `detail version probe and playback decision fail safely without saved access`() = runBlocking {
         val transport = RecordingTransport()
@@ -255,7 +376,7 @@ class ClientBrowseDataSourceTest {
         assertEquals(0, (facetState as FacetUiState.Content).response.page.returned)
         assertEquals(
             listOf(
-                "http://127.0.0.1:3018/search?q=night+harbor&limit=24&offset=48",
+                "http://127.0.0.1:3018/search?q=night%20harbor&limit=24&offset=48",
                 "http://127.0.0.1:3018/genres/genre-mystery/items?limit=24&offset=72",
             ),
             transport.requests.map { it.url },
@@ -291,6 +412,53 @@ class ClientBrowseDataSourceTest {
         """.trimIndent()
 }
 
+private fun libraryListJson(): String =
+    """
+    {
+      "libraries": [
+        {
+          "id": "library-movies",
+          "name": "Movies",
+          "options": {
+            "domain": "video",
+            "metadata_profile": {
+              "country": null,
+              "image_providers": [],
+              "item_kinds": ["movie"],
+              "language": null,
+              "local_metadata_policy": "read_only",
+              "local_readers": [],
+              "metadata_providers": [],
+              "refresh_mode": "default"
+            },
+            "naming_strategy": "movie",
+            "preset": "movies",
+            "scan": {
+              "max_depth": null,
+              "realtime_monitor": false
+            }
+          },
+          "roots": []
+        }
+      ],
+      "page": {"limit": 50, "offset": 0, "returned": 1}
+    }
+    """.trimIndent()
+
+private fun testDataSource(transport: TaruHttpTransport): ClientBrowseDataSource {
+    val vault = InMemoryTokenVault()
+    val profile = testProfile()
+    vault.saveToken(profile.tokenReference, "secret-token")
+    return ClientBrowseDataSource(
+        profile = profile,
+        tokenVault = vault,
+        browseClient = TaruBrowseClient(transport),
+        playbackClient = TaruPlaybackClient(transport),
+        playbackPreferencesStore = InMemoryPlaybackPreferencesStore(),
+        userPlaybackClient = TaruUserPlaybackClient(transport),
+    )
+}
+
 private class RecordingTransport : TaruHttpTransport {
     val requests: MutableList<TaruHttpRequest> = mutableListOf()
 
@@ -317,6 +485,17 @@ private fun ok(body: String): TaruHttpResponse =
         statusCode = 200,
         headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
         body = body,
+    )
+
+private fun publicError(
+    statusCode: Int,
+    code: String,
+    message: String,
+): TaruHttpResponse =
+    TaruHttpResponse(
+        statusCode = statusCode,
+        headers = mapOf(TARU_API_VERSION_HEADER to listOf("v1")),
+        body = """{"error":{"code":"$code","message":"$message"}}""",
     )
 
 private fun testProfile(): ServerProfile =

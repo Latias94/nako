@@ -40,25 +40,30 @@ internal class BrowseShellHost(
         initialSnapshot = snapshot,
         runtime = runtime.settingsRuntime(),
     )
-    private var displayedRoute: TaruRoute? = null
+    private val effectCoordinator = BrowseSessionEffectCoordinator(
+        initialState = initialState,
+        sink = BrowseSessionSink(
+            browseSession = browseSession,
+            saveState = saveState,
+        ),
+    )
 
     val state: StateFlow<BrowseShellState> = browseSession.state
 
     init {
         hostScope.launch {
             browseSession.state.collect { next ->
-                publishSaveableState(next)
-                dispatchRouteDisplayedIfNeeded(next.currentRoute)
+                effectCoordinator.accept(next)
             }
         }
         browseSession.dispatch(BrowseAction.LoadHome)
-        publishSaveableState(browseSession.state.value)
+        effectCoordinator.start()
     }
 
     fun dispatch(action: BrowseAction): Job? {
         val job = browseSession.dispatch(action)
-        publishSaveableState(browseSession.state.value)
-        return job
+        val effectJob = effectCoordinator.afterUserAction()
+        return job ?: effectJob
     }
 
     fun dispatchSettings(action: SettingsAction) {
@@ -68,17 +73,22 @@ internal class BrowseShellHost(
     fun close() {
         hostScope.cancel()
     }
+}
 
-    private fun dispatchRouteDisplayedIfNeeded(route: TaruRoute) {
-        if (route == displayedRoute) {
-            return
-        }
-        displayedRoute = route
-        browseSession.dispatch(BrowseAction.RouteDisplayed(route))
-        publishSaveableState(browseSession.state.value)
-    }
+private class BrowseSessionSink(
+    private val browseSession: BrowseSession,
+    private val saveState: (BrowseShellState) -> Unit,
+) : BrowseSessionEffectSink {
+    override val currentState: BrowseShellState
+        get() = browseSession.state.value
 
-    private fun publishSaveableState(state: BrowseShellState) {
+    override fun publishSaveableState(state: BrowseShellState) {
         saveState(state)
     }
+
+    override fun runLoadIntent(intent: BrowseSessionLoadIntent): Job? =
+        when (intent) {
+            is BrowseSessionLoadIntent.RouteDisplayed ->
+                browseSession.dispatch(BrowseAction.RouteDisplayed(intent.route))
+        }
 }

@@ -17,6 +17,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.ui.TaruStrings
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruSurfaceCard
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
 import kotlin.math.roundToInt
@@ -32,14 +35,14 @@ internal fun SearchScreen(
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         PageTitle(
             title = "Search",
             subtitle = "Find a known title on your server.",
             icon = Icons.Rounded.Search,
         )
 
-        SurfaceCard {
+        TaruSurfaceCard {
             Column(verticalArrangement = Arrangement.spacedBy(TaruSpacing.medium)) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
@@ -95,7 +98,7 @@ private fun SearchResults(
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
     val hits = state.response.hits
-    SectionHeader(
+    TaruSectionHeader(
         title = "Results",
         action = "${state.response.page.returned}",
     )

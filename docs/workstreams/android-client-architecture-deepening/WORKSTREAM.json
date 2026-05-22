@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "slug": "android-client-architecture-deepening",
+  "title": "Android Client Architecture Deepening",
+  "status": "completed",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "The Android client has a solid foundation, but Public Client runtime orchestration, browse side effects, player lifecycle, UI component ownership, Home read models, and persistence/build hygiene need fearless deepening before the next product wave expands them.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-client-architecture-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-client-architecture-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/android-client-architecture-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-client-architecture-deepening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon --no-parallel",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel",
+    "apps/android/scripts/Validate-AndroidLocal.ps1",
+    "git diff --check",
+    "python -m json.tool docs/workstreams/android-client-architecture-deepening/WORKSTREAM.json > $null"
+  ],
+  "evidence": [
+    {
+      "task": "ACAD-010",
+      "path": "docs/workstreams/android-client-architecture-deepening/DESIGN.md",
+      "status": "passed",
+      "summary": "Opened the fearless Android architecture-deepening lane and split the review findings into vertical tasks. No production code changed."
+    },
+    {
+      "task": "ACAD-020",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Introduced PublicClientRuntime above PublicClientApiExecutor, migrated connection, browse, playback, and User Playback State clients to it, deleted obsolete executor helpers, and passed focused plus full Android JVM tests on 2026-05-22."
+    },
+    {
+      "task": "ACAD-030",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Introduced BrowseSessionEffectCoordinator and BrowseSessionLoadIntent, moved saveable-state and route-displayed effect ownership out of BrowseShellHost, preserved transient player-route detail state, and passed focused plus full Android JVM tests on 2026-05-22."
+    },
+    {
+      "task": "ACAD-040",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Introduced PlaybackSessionRuntime and PlaybackSessionRuntimeFactory, promoted PlayerRouteHost to the Android-owned runtime seam, moved Media3/token/exit runtime construction out of PlaybackPlayerRoute, and passed focused plus full Android JVM tests on 2026-05-22."
+    },
+    {
+      "task": "ACAD-050",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Removed browse-package pass-through wrappers for generic design-system primitives, switched callers to direct ui.components imports, extracted Source Picker and Detail presentation builders into test-covered files, and passed focused UI plus full Android JVM tests on 2026-05-22."
+    },
+    {
+      "task": "ACAD-060",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Introduced HomeReadModel and section-level HomeSectionState/Managed Artwork states, updated Home data loading and rendering for partial/degraded sections, added ClientBrowseDataSource partial-success/degraded-section tests, and passed focused browse plus full Android JVM tests on 2026-05-22."
+    },
+    {
+      "task": "ACAD-070",
+      "path": "docs/workstreams/android-client-architecture-deepening/EVIDENCE_AND_GATES.md",
+      "status": "passed",
+      "summary": "Adopted lifecycle-runtime-compose and collectAsStateWithLifecycle for app, browse, connection, and player state collection, recorded persistence/build follow-on decisions, and passed focused lifecycle tests plus Validate-AndroidLocal.ps1 -SkipSmoke on 2026-05-22."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "task_prefix": "ACAD",
+  "current_task": null,
+  "completed_at": "2026-05-22",
+  "task_order": [
+    "ACAD-010",
+    "ACAD-020",
+    "ACAD-030",
+    "ACAD-040",
+    "ACAD-050",
+    "ACAD-060",
+    "ACAD-070",
+    "ACAD-090"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "next_task": null,
+    "notes": "ACAD-090 closeout is complete. Split large product scopes such as downloads/offline, Android TV, PiP/Cast full implementation, DataStore/Room migration, Gradle module split, token-vault replacement, CI/device-farm policy, or SDK publishing into separate workstreams when prioritized."
+  }
+}
