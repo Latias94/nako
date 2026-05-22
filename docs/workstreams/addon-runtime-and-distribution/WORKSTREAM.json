@@ -7,11 +7,12 @@
   "scope_kind": "execution",
   "problem": "Addon sidecars and Admin operations exist, but Taru needs a safe package/install/runtime readiness and routing boundary before broader Addon distribution or manager behavior can ship without weakening extension trust boundaries.",
   "task_prefix": "ARD",
-  "current_task": "ARD-040",
+  "current_task": "ARD-050",
   "completed_tasks": [
     "ARD-010",
     "ARD-020",
-    "ARD-030"
+    "ARD-030",
+    "ARD-040"
   ],
   "authoritative_docs": [
     {
@@ -81,7 +82,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ARD-040",
-    "notes": "ARD-030 completed Admin-only runtime readiness diagnostics for Addon Sidecars with typed, redacted classification of sidecar reachability, protocol/manifest compatibility, grant gaps, Secret Reference gaps, network policy blockers, degraded/unhealthy sidecars, and unsafe responses. Continue with ARD-040 declared task/event routing plans. Keep Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, Jellyfin Plugin Compatibility, direct library writes, downloader protocol adapters, local AI runtime, Public Client API changes, and taru-client-protocol changes out of scope unless split into a dedicated lane."
+    "next_task": "ARD-050",
+    "notes": "ARD-040 completed durable Addon task/event routing plans with SQLite/PostgreSQL migrations, Admin sync diagnostics, idempotent manifest replacement, disabled/missing-grant/unsupported-event deferral, no hidden scheduler/outbox side effects, generated Admin Web contract/client support, and no taru-client-protocol changes. Continue with ARD-050 Addon Artifact And Intake Handoff. Keep Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, Jellyfin Plugin Compatibility, direct library writes, downloader protocol adapters, local AI runtime, Public Client API changes, hidden schedulers, and taru-client-protocol changes out of scope unless split into a dedicated lane."
   }
 }

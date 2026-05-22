@@ -17,6 +17,7 @@ export const TARU_ADMIN_ROUTES = {
   playbackRuntime: "/admin/v1/playback/runtime",
   playbackSupport: "/admin/v1/playback/support",
   addonRuntimeReadiness: "/admin/v1/addons/{addon_id}/runtime-readiness",
+  addonRoutingPlans: "/admin/v1/addons/{addon_id}/routing-plans",
   storageStaging: "/admin/v1/storage/staging",
   systemConfig: "/admin/v1/system/config",
 } as const;
@@ -548,6 +549,34 @@ export interface AdminAddonRuntimeReadinessResponse {
       safe_error_code?: string;
     }>;
   };
+}
+
+export type AdminAddonRoutingDeclarationKind = "task" | "event_subscription";
+
+export type AdminAddonRoutingPlanStatus = "executable" | "deferred";
+
+export type AdminAddonRoutingPlanTarget = "addon_task_job" | "event_outbox" | "none";
+
+export interface AdminAddonRoutingPlansResponse {
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  manifest_fingerprint: string;
+  executable: number;
+  deferred: number;
+  plans: Array<{
+    declaration_kind: AdminAddonRoutingDeclarationKind;
+    declaration_id: string;
+    status: AdminAddonRoutingPlanStatus;
+    target: AdminAddonRoutingPlanTarget;
+    safe_reason_code?: string;
+    job_kind?: string;
+    event_kind?: string;
+    required_scope_count: number;
+    filter_configured: boolean;
+    timeout_ms?: number;
+    max_attempts?: number;
+  }>;
 }
 
 export interface AdminStorageStagingDiagnosticsResponse {

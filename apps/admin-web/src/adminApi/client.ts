@@ -1,4 +1,5 @@
 import type {
+  AdminAddonRoutingPlansResponse,
   AdminAddonRuntimeReadinessResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminAcquisitionIntakeCandidateListResponse,
@@ -98,6 +99,13 @@ export class AdminApiClient {
   async getAddonRuntimeReadiness(addonId: string): Promise<AdminAddonRuntimeReadinessResponse> {
     return this.postJson<AdminAddonRuntimeReadinessResponse>(
       routeWithParam(TARU_ADMIN_ROUTES.addonRuntimeReadiness, "addon_id", addonId),
+      {},
+    );
+  }
+
+  async getAddonRoutingPlans(addonId: string): Promise<AdminAddonRoutingPlansResponse> {
+    return this.postJson<AdminAddonRoutingPlansResponse>(
+      routeWithParam(TARU_ADMIN_ROUTES.addonRoutingPlans, "addon_id", addonId),
       {},
     );
   }

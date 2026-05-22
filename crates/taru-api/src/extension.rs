@@ -5,12 +5,14 @@ use taru_addon_protocol::{
 };
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
-    AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
-    AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
-    AddonTokenRecord, AddonTokenStatus, AutomationArtifactRecord, AutomationCapability,
-    AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, EventId, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
-    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
+    AddonRoutingDeclarationKind, AddonRoutingPlanRecord, AddonRoutingPlanStatus,
+    AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord,
+    AddonSideEffectTarget, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
+    AddonTokenId, AddonTokenRecord, AddonTokenStatus, AutomationArtifactRecord,
+    AutomationCapability, AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
+    AutomationProviderStatus, EventId, JobKind, LibraryId, MediaItemId, MediaSourceId,
+    OutboxEventRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord,
+    WebhookEndpointStatus,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -368,6 +370,107 @@ pub struct AdminAddonSurfacesResponse {
     pub secret_reference_fields: Vec<AdminAddonSecretReferenceFieldSurface>,
     pub tasks: Vec<AdminAddonTaskSurface>,
     pub event_subscriptions: Vec<AdminAddonEventSubscriptionSurface>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRoutingPlansResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub manifest_fingerprint: String,
+    pub executable: usize,
+    pub deferred: usize,
+    pub plans: Vec<AdminAddonRoutingPlan>,
+}
+
+impl AdminAddonRoutingPlansResponse {
+    #[must_use]
+    pub fn from_records(
+        addon_id: AddonId,
+        manifest_id: String,
+        manifest_version: String,
+        manifest_fingerprint: String,
+        records: Vec<AddonRoutingPlanRecord>,
+    ) -> Self {
+        let executable = records
+            .iter()
+            .filter(|plan| plan.status == AddonRoutingPlanStatus::Executable)
+            .count();
+        let deferred = records
+            .iter()
+            .filter(|plan| plan.status == AddonRoutingPlanStatus::Deferred)
+            .count();
+
+        Self {
+            addon_id,
+            manifest_id,
+            manifest_version,
+            manifest_fingerprint,
+            executable,
+            deferred,
+            plans: records
+                .into_iter()
+                .map(AdminAddonRoutingPlan::from_record)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRoutingPlan {
+    pub declaration_kind: AddonRoutingDeclarationKind,
+    pub declaration_id: String,
+    pub status: AddonRoutingPlanStatus,
+    pub target: AddonRoutingPlanTarget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_kind: Option<JobKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_kind: Option<String>,
+    pub required_scope_count: usize,
+    pub filter_configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_attempts: Option<u32>,
+}
+
+impl AdminAddonRoutingPlan {
+    #[must_use]
+    pub fn from_record(record: AddonRoutingPlanRecord) -> Self {
+        #[derive(Deserialize)]
+        struct RoutingPlanSummary {
+            #[serde(default)]
+            required_scope_count: usize,
+            #[serde(default)]
+            filter_configured: bool,
+            #[serde(default)]
+            timeout_ms: Option<u64>,
+            #[serde(default)]
+            max_attempts: Option<u32>,
+        }
+
+        let summary = serde_json::from_str::<RoutingPlanSummary>(&record.plan_json).ok();
+
+        Self {
+            declaration_kind: record.declaration_kind,
+            declaration_id: record.declaration_id,
+            status: record.status,
+            target: record.target,
+            safe_reason_code: record.safe_reason_code,
+            job_kind: record.job_kind,
+            event_kind: record.event_kind,
+            required_scope_count: summary
+                .as_ref()
+                .map_or(0, |summary| summary.required_scope_count),
+            filter_configured: summary
+                .as_ref()
+                .is_some_and(|summary| summary.filter_configured),
+            timeout_ms: summary.as_ref().and_then(|summary| summary.timeout_ms),
+            max_attempts: summary.as_ref().and_then(|summary| summary.max_attempts),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

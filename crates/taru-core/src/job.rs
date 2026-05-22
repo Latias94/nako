@@ -15,6 +15,7 @@ pub enum JobKind {
     Transcode,
     WebhookDelivery,
     Automation,
+    AddonTask,
 }
 
 impl JobKind {
@@ -31,6 +32,7 @@ impl JobKind {
             Self::Transcode => "transcode",
             Self::WebhookDelivery => "webhook_delivery",
             Self::Automation => "automation",
+            Self::AddonTask => "addon_task",
         }
     }
 
@@ -46,6 +48,7 @@ impl JobKind {
             "transcode" => Ok(Self::Transcode),
             "webhook_delivery" => Ok(Self::WebhookDelivery),
             "automation" => Ok(Self::Automation),
+            "addon_task" => Ok(Self::AddonTask),
             _ => Err(TaruError::Database {
                 message: format!("unknown job kind stored in database: {value}"),
             }),
@@ -217,6 +220,12 @@ mod tests {
     fn job_status_round_trips_cancelled() {
         assert_eq!(JobStatus::Cancelled.as_str(), "cancelled");
         assert_eq!(JobStatus::parse("cancelled").unwrap(), JobStatus::Cancelled);
+    }
+
+    #[test]
+    fn addon_task_kind_round_trips() {
+        assert_eq!(JobKind::AddonTask.as_str(), "addon_task");
+        assert_eq!(JobKind::parse("addon_task").unwrap(), JobKind::AddonTask);
     }
 
     #[test]

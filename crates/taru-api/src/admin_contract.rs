@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 15] = [
+const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 16] = [
     ("overview", "overview"),
     (
         "acquisitionIntakeCandidates",
@@ -32,6 +32,7 @@ const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 15] = [
         "addonRuntimeReadiness",
         "addons/{addon_id}/runtime-readiness",
     ),
+    ("addonRoutingPlans", "addons/{addon_id}/routing-plans"),
     ("storageStaging", "storage/staging"),
     ("systemConfig", "system/config"),
 ];
@@ -589,6 +590,34 @@ export interface AdminAddonRuntimeReadinessResponse {
   };
 }
 
+export type AdminAddonRoutingDeclarationKind = "task" | "event_subscription";
+
+export type AdminAddonRoutingPlanStatus = "executable" | "deferred";
+
+export type AdminAddonRoutingPlanTarget = "addon_task_job" | "event_outbox" | "none";
+
+export interface AdminAddonRoutingPlansResponse {
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  manifest_fingerprint: string;
+  executable: number;
+  deferred: number;
+  plans: Array<{
+    declaration_kind: AdminAddonRoutingDeclarationKind;
+    declaration_id: string;
+    status: AdminAddonRoutingPlanStatus;
+    target: AdminAddonRoutingPlanTarget;
+    safe_reason_code?: string;
+    job_kind?: string;
+    event_kind?: string;
+    required_scope_count: number;
+    filter_configured: boolean;
+    timeout_ms?: number;
+    max_attempts?: number;
+  }>;
+}
+
 export interface AdminStorageStagingDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -843,6 +872,7 @@ mod tests {
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
             "AdminAddonRuntimeReadinessResponse",
+            "AdminAddonRoutingPlansResponse",
             "AdminNetworkAccessDiagnostics",
             "AdminServerConfigDiagnosticsResponse",
         ] {

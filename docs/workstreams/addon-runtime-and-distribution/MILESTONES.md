@@ -63,21 +63,25 @@ Primary evidence:
 
 ## M3 — Declared Task/Event Routing Without Hidden Schedulers
 
-Status: next.
+Status: completed on 2026-05-22.
 
 Exit criteria:
 
-- Manifest-declared Addon Tasks and Event Subscriptions produce explicit routing
-  plans.
-- Executable plans reuse existing job/outbox/addon side-effect boundaries.
-- Deferred runtime behavior is blocked with typed reasons rather than hidden
-  schedulers.
+- [x] Manifest-declared Addon Tasks and Event Subscriptions produce explicit
+  routing plans.
+- [x] Executable plans reuse existing job/outbox/addon side-effect boundaries.
+- [x] Deferred runtime behavior is blocked with typed reasons rather than
+  hidden schedulers.
 
 Primary evidence:
 
 - `crates/taru-core/src/addon.rs`
 - `crates/taru-server/src/app`
 - `crates/taru-db`
+- `crates/taru-server/src/http/addons.rs`
+- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/taru-api/src/extension.rs`
+- `apps/admin-web/src/adminApi`
 
 ## M4 — Addon Artifact And Intake Handoff
 

@@ -8,6 +8,7 @@ export type {
   AdminAcquisitionIntakeCandidateDiagnostic,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminAddonRoutingPlansResponse,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemListResponse,
   AdminGeneratedArtifactProposal,

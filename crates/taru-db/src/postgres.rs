@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Display, path::PathBuf, str::FromStr};
+use std::{borrow::Cow, collections::HashSet, fmt::Display, path::PathBuf, str::FromStr};
 
 use sqlx::{
     Decode, PgPool, Postgres, Row, Type,
@@ -51,6 +51,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         7,
         "addon unregistration",
         include_str!("../migrations/postgres/0007_addon_unregistration.sql"),
+    ),
+    (
+        8,
+        "addon routing plans",
+        include_str!("../migrations/postgres/0008_addon_routing_plans.sql"),
     ),
 ];
 
@@ -369,6 +374,26 @@ const ADDON_TOKEN_SELECT: &str = r#"
                 to_char(revoked_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS revoked_at,
                 to_char(last_used_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_used_at
             FROM addon_tokens
+            "#;
+
+const ADDON_ROUTING_PLAN_SELECT: &str = r#"
+            SELECT
+                id::text AS id,
+                addon_id::text AS addon_id,
+                manifest_id,
+                manifest_version,
+                manifest_fingerprint,
+                declaration_kind,
+                declaration_id,
+                status,
+                target,
+                safe_reason_code,
+                job_kind,
+                event_kind,
+                plan_json,
+                to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
+                to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
+            FROM addon_routing_plans
             "#;
 
 const ADDON_SIDE_EFFECT_SELECT: &str = r#"
@@ -1521,6 +1546,135 @@ impl AddonRepository for PostgresStore {
         .map_err(database_error)?;
 
         rows.into_iter().map(row_to_addon_grant).collect()
+    }
+
+    async fn replace_addon_routing_plans(
+        &self,
+        addon_id: AddonId,
+        plans: Vec<NewAddonRoutingPlan>,
+    ) -> Result<Vec<AddonRoutingPlanRecord>> {
+        for plan in &plans {
+            if plan.addon_id != addon_id {
+                return Err(TaruError::InvalidInput {
+                    message: "addon routing plan addon_id does not match replacement target"
+                        .to_owned(),
+                });
+            }
+        }
+
+        let desired_keys = plans
+            .iter()
+            .map(|plan| {
+                (
+                    plan.declaration_kind.as_str().to_owned(),
+                    plan.declaration_id.clone(),
+                )
+            })
+            .collect::<HashSet<_>>();
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        for plan in plans {
+            sqlx::query(
+                r#"
+                INSERT INTO addon_routing_plans (
+                    id,
+                    addon_id,
+                    manifest_id,
+                    manifest_version,
+                    manifest_fingerprint,
+                    declaration_kind,
+                    declaration_id,
+                    status,
+                    target,
+                    safe_reason_code,
+                    job_kind,
+                    event_kind,
+                    plan_json
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ON CONFLICT(addon_id, declaration_kind, declaration_id) DO UPDATE SET
+                    manifest_id = excluded.manifest_id,
+                    manifest_version = excluded.manifest_version,
+                    manifest_fingerprint = excluded.manifest_fingerprint,
+                    status = excluded.status,
+                    target = excluded.target,
+                    safe_reason_code = excluded.safe_reason_code,
+                    job_kind = excluded.job_kind,
+                    event_kind = excluded.event_kind,
+                    plan_json = excluded.plan_json,
+                    updated_at = statement_timestamp()
+                "#,
+            )
+            .bind(plan.id.as_uuid())
+            .bind(plan.addon_id.as_uuid())
+            .bind(&plan.manifest_id)
+            .bind(&plan.manifest_version)
+            .bind(plan.manifest_fingerprint.as_str())
+            .bind(plan.declaration_kind.as_str())
+            .bind(&plan.declaration_id)
+            .bind(plan.status.as_str())
+            .bind(plan.target.as_str())
+            .bind(&plan.safe_reason_code)
+            .bind(plan.job_kind.map(|kind| kind.as_str().to_owned()))
+            .bind(&plan.event_kind)
+            .bind(&plan.plan_json)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        let existing_rows = sqlx::query(
+            r#"
+            SELECT declaration_kind, declaration_id
+            FROM addon_routing_plans
+            WHERE addon_id = $1
+            "#,
+        )
+        .bind(addon_id.as_uuid())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+        for row in existing_rows {
+            let declaration_kind = row_get::<String>(&row, "declaration_kind")?;
+            let declaration_id = row_get::<String>(&row, "declaration_id")?;
+            if desired_keys.contains(&(declaration_kind.clone(), declaration_id.clone())) {
+                continue;
+            }
+            sqlx::query(
+                r#"
+                DELETE FROM addon_routing_plans
+                WHERE addon_id = $1 AND declaration_kind = $2 AND declaration_id = $3
+                "#,
+            )
+            .bind(addon_id.as_uuid())
+            .bind(declaration_kind)
+            .bind(declaration_id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+        self.list_addon_routing_plans(addon_id).await
+    }
+
+    async fn list_addon_routing_plans(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<Vec<AddonRoutingPlanRecord>> {
+        let rows = sqlx::query(&format!(
+            r#"
+            {ADDON_ROUTING_PLAN_SELECT}
+            WHERE addon_id = $1
+            ORDER BY declaration_kind ASC, declaration_id ASC, created_at ASC, id ASC
+            "#
+        ))
+        .bind(addon_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_addon_routing_plan).collect()
     }
 
     async fn create_addon_side_effect(
@@ -10608,6 +10762,36 @@ fn row_to_addon_grant(row: PgRow) -> Result<AddonGrantRecord> {
         permission: AddonPermission::parse(&row_get::<String>(&row, "permission")?)?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         created_at: row_get(&row, "created_at")?,
+    })
+}
+
+fn row_to_addon_routing_plan(row: PgRow) -> Result<AddonRoutingPlanRecord> {
+    let job_kind = row_get::<Option<String>>(&row, "job_kind")?
+        .map(|kind| JobKind::parse(&kind))
+        .transpose()?;
+
+    Ok(AddonRoutingPlanRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        manifest_id: row_get(&row, "manifest_id")?,
+        manifest_version: row_get(&row, "manifest_version")?,
+        manifest_fingerprint: AddonManifestFingerprint::parse(row_get::<String>(
+            &row,
+            "manifest_fingerprint",
+        )?)?,
+        declaration_kind: AddonRoutingDeclarationKind::parse(&row_get::<String>(
+            &row,
+            "declaration_kind",
+        )?)?,
+        declaration_id: row_get(&row, "declaration_id")?,
+        status: AddonRoutingPlanStatus::parse(&row_get::<String>(&row, "status")?)?,
+        target: AddonRoutingPlanTarget::parse(&row_get::<String>(&row, "target")?)?,
+        safe_reason_code: row_get(&row, "safe_reason_code")?,
+        job_kind,
+        event_kind: row_get(&row, "event_kind")?,
+        plan_json: row_get(&row, "plan_json")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
     })
 }
 

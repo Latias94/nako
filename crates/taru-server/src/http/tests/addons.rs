@@ -1739,6 +1739,261 @@ async fn admin_addon_surfaces_returns_manifest_declarations_without_launch_secre
 }
 
 #[tokio::test]
+async fn admin_addon_routing_plans_syncs_manifest_declarations_without_hidden_work() {
+    let (_temp, router, _source, store) =
+        router_with_media_source_config("routing-plan.mkv", b"media", |_| {}).await;
+
+    let mut manifest = taru_reference_addon::reference_manifest("https://addon.example.test/base");
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scanned",
+        DomainEventKind::LibraryScanned.as_str(),
+        "/events/library-scanned",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"library_preset":"movies","token":"taru_at_should_not_echo"}),
+    )];
+    manifest.tasks = vec![
+        AddonTaskDeclaration::new(
+            "bulk-metadata-scrape",
+            "Bulk Metadata Scrape",
+            "/tasks/bulk-metadata-scrape",
+            vec![AddonScope::AutomationRun],
+        )
+        .with_execution_bounds(Some(30_000), Some(2)),
+    ];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRoutingPlansResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.executable, 2);
+    assert_eq!(response.deferred, 0);
+    assert!(response.manifest_fingerprint.starts_with("sha256:"));
+    let task = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "bulk-metadata-scrape")
+        .unwrap();
+    assert_eq!(task.status, AddonRoutingPlanStatus::Executable);
+    assert_eq!(task.target, AddonRoutingPlanTarget::AddonTaskJob);
+    assert_eq!(task.job_kind, Some(JobKind::AddonTask));
+    assert_eq!(task.required_scope_count, 1);
+    assert_eq!(task.timeout_ms, Some(30_000));
+    assert_eq!(task.max_attempts, Some(2));
+    let event = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "library-scanned")
+        .unwrap();
+    assert_eq!(event.status, AddonRoutingPlanStatus::Executable);
+    assert_eq!(event.target, AddonRoutingPlanTarget::EventOutbox);
+    assert_eq!(
+        event.event_kind.as_deref(),
+        Some(DomainEventKind::LibraryScanned.as_str())
+    );
+    assert!(event.filter_configured);
+    assert!(!text.contains("taru_at_should_not_echo"));
+    assert!(!text.contains("library_preset"));
+
+    assert!(
+        store
+            .list_jobs(
+                taru_core::JobListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_outbox_events(
+                taru_core::OutboxEventListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let repeated =
+        request_json::<AdminAddonRoutingPlansResponse>(&router, Method::POST, &path).await;
+    assert_eq!(repeated.plans.len(), 2);
+    assert_eq!(
+        store
+            .list_addon_routing_plans(addon_id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[tokio::test]
+async fn admin_addon_routing_plans_defers_missing_grants_and_unsupported_events_safely() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "unknown-event",
+        "library_scan.succeeded",
+        "/events/unknown",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"token":"taru_at_should_not_echo"}),
+    )];
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-task",
+        "Bulk Task",
+        "/tasks/bulk",
+        vec![AddonScope::AutomationRun],
+    )];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRoutingPlansResponse>(&text).unwrap();
+
+    assert_eq!(response.executable, 0);
+    assert_eq!(response.deferred, 2);
+    let task = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "bulk-task")
+        .unwrap();
+    assert_eq!(task.status, AddonRoutingPlanStatus::Deferred);
+    assert_eq!(task.target, AddonRoutingPlanTarget::None);
+    assert_eq!(task.safe_reason_code.as_deref(), Some("missing_grant"));
+    assert_eq!(task.job_kind, None);
+    let event = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "unknown-event")
+        .unwrap();
+    assert_eq!(event.status, AddonRoutingPlanStatus::Deferred);
+    assert_eq!(event.target, AddonRoutingPlanTarget::None);
+    assert_eq!(
+        event.safe_reason_code.as_deref(),
+        Some("unsupported_event_kind")
+    );
+    assert_eq!(event.event_kind, None);
+    assert!(!text.contains("library_scan.succeeded"));
+    assert!(!text.contains("taru_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn admin_addon_routing_plans_defers_disabled_addons_without_runtime_targets() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scanned",
+        DomainEventKind::LibraryScanned.as_str(),
+        "/events/library-scanned",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"token":"taru_at_should_not_echo"}),
+    )];
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-task",
+        "Bulk Task",
+        "/tasks/bulk",
+        vec![AddonScope::AutomationRun],
+    )];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Disabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRoutingPlansResponse>(&text).unwrap();
+
+    assert_eq!(response.executable, 0);
+    assert_eq!(response.deferred, 2);
+    for plan in &response.plans {
+        assert_eq!(plan.status, AddonRoutingPlanStatus::Deferred);
+        assert_eq!(plan.target, AddonRoutingPlanTarget::None);
+        assert_eq!(plan.safe_reason_code.as_deref(), Some("addon_disabled"));
+        assert_eq!(plan.job_kind, None);
+    }
+    let event = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "library-scanned")
+        .unwrap();
+    assert_eq!(
+        event.event_kind.as_deref(),
+        Some(DomainEventKind::LibraryScanned.as_str())
+    );
+    assert!(!text.contains("taru_at_should_not_echo"));
+}
+
+#[tokio::test]
 async fn admin_addon_resource_call_diagnostic_classifies_safe_success_without_payload_echo() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addon_base_url = format!("http://{}", listener.local_addr().unwrap());

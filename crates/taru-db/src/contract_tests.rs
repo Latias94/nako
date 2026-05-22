@@ -3,54 +3,56 @@ use std::{future::Future, sync::OnceLock};
 use taru_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
     AcquisitionIntakeCandidateState, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
-    AddonId, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit, AddonPermission,
-    AddonRepository, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus, AddonSideEffectId,
-    AddonSideEffectRequestFingerprint, AddonSideEffectTarget, AddonSideEffectValidationStatus,
-    AddonStatus, AddonTokenId, ArtworkCandidateId, ArtworkCandidateRecord,
-    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask,
-    ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind,
-    AutomationArtifactStatus, AutomationCapability, AutomationProviderStatus, AutomationRepository,
-    CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
-    CatalogGovernanceRepository, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
-    CatalogRepository, CatalogSearchProjection, Collection, CollectionId, CollectionItem,
-    CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot, DomainEventKind,
-    DomainEventSubject, EventOutboxRepository, ExternalId, ExternalProvider, FailLeasedJob, Genre,
-    GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass,
-    IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
-    IngestionFailureResolution, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
-    Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard,
-    JobLeaseHeartbeat, JobLeaseRepository, JobRepository, JobRunToken, JobStatus, JobWorkerId,
-    Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
-    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
-    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
-    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
-    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
-    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
-    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    AddonId, AddonManifestFingerprint, AddonMetadataWriteCatalogCommit,
+    AddonMetadataWritePersistenceCommit, AddonPermission, AddonRepository,
+    AddonRoutingDeclarationKind, AddonRoutingPlanId, AddonRoutingPlanStatus,
+    AddonRoutingPlanTarget, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
+    AddonSideEffectId, AddonSideEffectRequestFingerprint, AddonSideEffectTarget,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTokenId, ArtworkCandidateId,
+    ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
+    ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository,
+    AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
+    AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
+    CatalogGovernanceItemListFilter, CatalogGovernanceRepository, CatalogItemGraphReplacement,
+    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection, Collection,
+    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
+    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
+    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
+    JobRunToken, JobStatus, JobWorkerId, Library, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
+    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
+    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource,
-    NewAcquisitionIntakeCandidate, NewAddonGrant, NewAddonRegistration, NewAddonSideEffect,
-    NewAddonToken, NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig,
-    NewIngestionFailure, NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest,
-    NewManagedImportArtifact, NewManagedImportPromotionApply, NewMetadataProviderAttempt,
-    NewNfoSidecarApply, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
-    NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
-    NfoSidecarApplyId, NfoSidecarApplyOperationKind, NfoSidecarApplyRepository,
-    NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
-    ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
-    ProviderRawResponse, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
-    RecoverExpiredJobLeases, RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
-    TaruError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionRepository, TranscodeSessionState,
-    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    NewAcquisitionIntakeCandidate, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan,
+    NewAddonSideEffect, NewAddonToken, NewArtworkCandidate, NewAutomationArtifact,
+    NewAutomationProviderConfig, NewIngestionFailure, NewJob, NewManagedArtworkArtifact,
+    NewManagedArtworkIngest, NewManagedImportArtifact, NewManagedImportPromotionApply,
+    NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent, NewStagingManifestRecord,
+    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
+    NfoImportPersistenceCommit, NfoSidecarApplyId, NfoSidecarApplyOperationKind,
+    NfoSidecarApplyRepository, NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus,
+    PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation, ScanRepository,
+    ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
+    SourceState, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
+    Studio, StudioId, Tag, TagId, TaruError, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
+    TranscodeSessionState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
+    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
     WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
 };
 use taru_search::{SearchIndex, SearchQuery};
@@ -3067,6 +3069,182 @@ where
     );
 }
 
+async fn addon_routing_plan_replaces_manifest_declarations_contract<S>(store: S)
+where
+    S: EventAddonAutomationContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "dev.taru.contract.routing".to_owned(),
+            name: "Contract Routing Addon".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "2026-05".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: r#"{"id":"dev.taru.contract.routing","version":"0.1.0"}"#.to_owned(),
+            granted_scopes: vec!["automation_run".to_owned(), "webhook_event_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let first_fingerprint =
+        AddonManifestFingerprint::new(r#"{"id":"dev.taru.contract.routing","version":"0.1.0"}"#);
+    let first_plans = vec![
+        NewAddonRoutingPlan {
+            id: AddonRoutingPlanId::new(),
+            addon_id,
+            manifest_id: "dev.taru.contract.routing".to_owned(),
+            manifest_version: "0.1.0".to_owned(),
+            manifest_fingerprint: first_fingerprint.clone(),
+            declaration_kind: AddonRoutingDeclarationKind::Task,
+            declaration_id: "bulk-refresh".to_owned(),
+            status: AddonRoutingPlanStatus::Executable,
+            target: AddonRoutingPlanTarget::AddonTaskJob,
+            safe_reason_code: None,
+            job_kind: Some(JobKind::AddonTask),
+            event_kind: None,
+            plan_json: r#"{"schema":"taru.addon.routing_plan.v1","declaration_id":"bulk-refresh"}"#
+                .to_owned(),
+        },
+        NewAddonRoutingPlan {
+            id: AddonRoutingPlanId::new(),
+            addon_id,
+            manifest_id: "dev.taru.contract.routing".to_owned(),
+            manifest_version: "0.1.0".to_owned(),
+            manifest_fingerprint: first_fingerprint.clone(),
+            declaration_kind: AddonRoutingDeclarationKind::EventSubscription,
+            declaration_id: "library-scanned".to_owned(),
+            status: AddonRoutingPlanStatus::Executable,
+            target: AddonRoutingPlanTarget::EventOutbox,
+            safe_reason_code: None,
+            job_kind: None,
+            event_kind: Some(DomainEventKind::LibraryScanned.as_str().to_owned()),
+            plan_json:
+                r#"{"schema":"taru.addon.routing_plan.v1","declaration_id":"library-scanned"}"#
+                    .to_owned(),
+        },
+    ];
+
+    let created = store
+        .replace_addon_routing_plans(addon_id, first_plans.clone())
+        .await
+        .unwrap();
+    assert_eq!(created.len(), 2);
+    assert!(created.iter().any(|plan| {
+        plan.declaration_id == "bulk-refresh"
+            && plan.status == AddonRoutingPlanStatus::Executable
+            && plan.target == AddonRoutingPlanTarget::AddonTaskJob
+            && plan.job_kind == Some(JobKind::AddonTask)
+    }));
+    assert!(created.iter().any(|plan| {
+        plan.declaration_id == "library-scanned"
+            && plan.event_kind.as_deref() == Some(DomainEventKind::LibraryScanned.as_str())
+    }));
+
+    let idempotent = store
+        .replace_addon_routing_plans(addon_id, first_plans)
+        .await
+        .unwrap();
+    assert_eq!(idempotent.len(), 2);
+    assert_eq!(
+        idempotent
+            .iter()
+            .filter(|plan| plan.declaration_id == "bulk-refresh")
+            .count(),
+        1
+    );
+
+    let next_fingerprint =
+        AddonManifestFingerprint::new(r#"{"id":"dev.taru.contract.routing","version":"0.2.0"}"#);
+    let replaced = store
+        .replace_addon_routing_plans(
+            addon_id,
+            vec![NewAddonRoutingPlan {
+                id: AddonRoutingPlanId::new(),
+                addon_id,
+                manifest_id: "dev.taru.contract.routing".to_owned(),
+                manifest_version: "0.2.0".to_owned(),
+                manifest_fingerprint: next_fingerprint.clone(),
+                declaration_kind: AddonRoutingDeclarationKind::EventSubscription,
+                declaration_id: "metadata-refreshed".to_owned(),
+                status: AddonRoutingPlanStatus::Deferred,
+                target: AddonRoutingPlanTarget::None,
+                safe_reason_code: Some("missing_grant".to_owned()),
+                job_kind: None,
+                event_kind: Some(DomainEventKind::ItemMetadataRefreshed.as_str().to_owned()),
+                plan_json: r#"{"schema":"taru.addon.routing_plan.v1","declaration_id":"metadata-refreshed","reason":"missing_grant"}"#.to_owned(),
+            }],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(replaced.len(), 1);
+    assert_eq!(replaced[0].declaration_id, "metadata-refreshed");
+    assert_eq!(replaced[0].manifest_fingerprint, next_fingerprint);
+    assert_eq!(
+        replaced[0].safe_reason_code.as_deref(),
+        Some("missing_grant")
+    );
+    assert!(
+        store
+            .list_addon_routing_plans(addon_id)
+            .await
+            .unwrap()
+            .iter()
+            .all(|plan| plan.declaration_id != "bulk-refresh")
+    );
+
+    assert!(
+        store
+            .list_jobs(JobListFilter::default(), PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_outbox_events(OutboxEventListFilter::default(), PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let mismatched = store
+        .replace_addon_routing_plans(
+            addon_id,
+            vec![NewAddonRoutingPlan {
+                id: AddonRoutingPlanId::new(),
+                addon_id: AddonId::new(),
+                manifest_id: "dev.taru.contract.routing".to_owned(),
+                manifest_version: "0.2.0".to_owned(),
+                manifest_fingerprint: next_fingerprint,
+                declaration_kind: AddonRoutingDeclarationKind::Task,
+                declaration_id: "bad".to_owned(),
+                status: AddonRoutingPlanStatus::Deferred,
+                target: AddonRoutingPlanTarget::None,
+                safe_reason_code: Some("missing_grant".to_owned()),
+                job_kind: None,
+                event_kind: None,
+                plan_json: "{}".to_owned(),
+            }],
+        )
+        .await;
+    assert!(matches!(mismatched, Err(TaruError::InvalidInput { .. })));
+    assert_eq!(
+        store
+            .list_addon_routing_plans(addon_id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let _ = library;
+}
+
 async fn automation_provider_and_artifact_contract<S>(store: S)
 where
     S: EventAddonAutomationContractBackend,
@@ -5148,6 +5326,18 @@ database_contract_pair!(
         "addon_registration_token_grant_and_side_effect"
     ),
     contract = addon_registration_token_grant_and_side_effect_contract,
+);
+
+database_contract_pair!(
+    sqlite =
+        sqlite_event_addon_automation_contract_addon_routing_plan_replaces_manifest_declarations,
+    postgres =
+        postgres_event_addon_automation_contract_addon_routing_plan_replaces_manifest_declarations,
+    case = ContractCase::migrated(
+        ContractFamily::EventAddonAutomation,
+        "addon_routing_plan_replaces_manifest_declarations"
+    ),
+    contract = addon_routing_plan_replaces_manifest_declarations_contract,
 );
 
 database_contract_pair!(

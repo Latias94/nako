@@ -167,4 +167,41 @@ describe("AdminApiClient", () => {
       },
     );
   });
+
+  it("posts addon routing-plan syncs through the Admin-only route", async () => {
+    const response = {
+      addon_id: "addon/with space",
+      manifest_id: "taru.metadata",
+      manifest_version: "0.1.0",
+      manifest_fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      executable: 1,
+      deferred: 1,
+      plans: [
+        {
+          declaration_kind: "task",
+          declaration_id: "bulk-task",
+          status: "executable",
+          target: "addon_task_job",
+          job_kind: "addon_task",
+          required_scope_count: 1,
+          filter_configured: false,
+          timeout_ms: 30000,
+          max_attempts: 2,
+        },
+      ],
+    };
+    const fetcher = vi.fn(async () => Response.json(response));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.getAddonRoutingPlans("addon/with space")).resolves.toEqual(response);
+
+    expect(fetcher).toHaveBeenCalledWith("/admin/v1/addons/addon%2Fwith%20space/routing-plans", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer redacted-test-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+  });
 });

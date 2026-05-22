@@ -35,25 +35,28 @@ boundary enforcement, Admin readiness diagnostics, and closeout. PRPH-150
 selected `ai-assisted-library-ops` next. AI Assisted Library Ops is complete
 with Generated Artifact proposal/readiness, Admin diagnostics, explicit
 accept/reject planning, and closeout. PRPH-170 opened
-`addon-runtime-and-distribution` as the current mainline lane.
+`addon-runtime-and-distribution` as the current mainline lane. ARD-040 declared
+task/event routing is complete with durable routing plans and no hidden
+schedulers.
 
 ## Active Task
 
-- Task ID: `addon-runtime-and-distribution` ARD-040
+- Task ID: `addon-runtime-and-distribution` ARD-050
 - Owner: codex
 - Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-server/src/app`,
   `crates/taru-server/src/http/admin.rs`,
   `docs/workstreams/addon-runtime-and-distribution`
-- Validation: focused app/db tests for Addon task/event routing plans,
-  idempotency, stale manifest checks, and no hidden scheduler/event delivery
-  side effects; relevant Admin/system tests; `cargo fmt --all -- --check`; `git
-  diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
+- Validation: focused app/db tests for Addon artifact/intake handoff and
+  stale-target checks; relevant Admin/system tests; `cargo fmt --all
+  -- --check`; `git diff --check`; `git diff --name-only --
+  crates/taru-client-protocol`.
 - Status: READY
-- Review: keep task/event routing explicit and Taru-owned; avoid hidden
-  schedulers, direct Addon filesystem/library authority, Addon Manager
+- Review: keep Generated Artifact and acquisition candidate handoff explicit
+  and Taru-owned; avoid direct Canonical Metadata, NFO sidecar, Media Source,
+  Managed Import, library-file writes, hidden schedulers, Addon Manager
   discovery/install/update, marketplace, package signing, process supervision,
-  Native Plugin ABI, Public Client API churn, and
-  `taru-client-protocol` changes.
+  Native Plugin ABI, Public Client API churn, and `taru-client-protocol`
+  changes.
 - Evidence: PRPH-170 lane scoring in `DESIGN.md`, AI Assisted Library Ops
   closeout evidence, Addon Architecture Deepening, Admin Addon Operations MVP,
   Downloads / Watch-Folder Intake, Network Access Boundary, and completed
@@ -147,16 +150,21 @@ accept/reject planning, and closeout. PRPH-170 opened
   are complete.
 - ARD-030 Admin-only runtime readiness diagnostics are complete. The next slice
   is declared task/event routing into explicit Taru-owned plans.
+- ARD-040 declared task/event routing is complete with durable
+  `addon_routing_plans`, idempotent manifest replacement, disabled/missing-grant
+  / unsupported-event deferral, Admin Web contract/client support, and no hidden
+  scheduler/outbox side effects. The next slice is Addon Artifact And Intake
+  Handoff.
 
 ## Blockers
 
-- None for ARD-040.
+- None for ARD-050.
 
 ## Next Recommended Action
 
-- Execute `addon-runtime-and-distribution` ARD-040.
-- Turn manifest-declared Addon Tasks and Event Subscriptions into Taru-owned
-  routing plans with explicit executable/deferred reasons.
+- Execute `addon-runtime-and-distribution` ARD-050.
+- Prove Addon-produced Generated Artifacts and acquisition candidates enter
+  existing AILO proposal/review and DWI acquisition-intake boundaries.
 - Keep Addon Manager discovery/install/update, marketplace hosting, package
   signing trust root, process/container supervision, Native Plugin ABI,
   downloader protocol adapters, local AI runtime, Public Client API changes,

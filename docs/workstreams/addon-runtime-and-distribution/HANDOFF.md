@@ -25,12 +25,12 @@ Prerequisites are complete:
   Admin-only diagnostics, and explicit accept/reject planning without
   autonomous writes.
 
-ARD-030 is complete. The lane is scoped to Addon Sidecar package/install/runtime
+ARD-040 is complete. The lane is scoped to Addon Sidecar package/install/runtime
 readiness and routing, not Addon Manager automation or Native Plugin runtime.
 
 ## Current Task
 
-- Task ID: ARD-040
+- Task ID: ARD-050
 - Owner: codex
 - Files:
   - `crates/taru-core`
@@ -39,15 +39,15 @@ readiness and routing, not Addon Manager automation or Native Plugin runtime.
   - `crates/taru-server/src/http/admin.rs`
   - `docs/workstreams/addon-runtime-and-distribution`
 - Validation:
-  - focused app/db tests for routing plans, idempotency, stale manifest checks,
-    and no hidden scheduler/event delivery side effects
+  - focused app/db tests for Addon artifact/intake handoff and stale-target
+    checks
   - relevant Admin/system tests
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - Status: READY
-- Review: route declared tasks/events into Taru-owned plans without automatic
-  sidecar schedulers, direct filesystem/library authority, or hidden runtime
-  side effects.
+- Review: route Addon-produced Generated Artifacts and acquisition candidates
+  into existing AILO/DWI boundaries without direct Canonical Metadata, NFO
+  sidecar, Media Source, Managed Import, or library-file writes.
 
 Progress so far:
 
@@ -71,6 +71,12 @@ Progress so far:
   Secret Reference configuration, network policy blockers, and unsafe responses
   without echoing tokens, raw network errors, sidecar payloads, URLs, or secret
   fields.
+- Added durable task/event routing plans, `JobKind::AddonTask`, Admin
+  `POST /admin/v1/addons/{addon_id}/routing-plans`, generated Admin Web
+  contract/client support, and DB/Admin tests proving idempotent manifest
+  replacement, stale-plan removal, disabled/missing-grant/unsupported-event
+  deferral, no hidden scheduler/outbox side effects, and no manifest secret
+  echo.
 
 ## Decisions Since Opening
 
@@ -89,12 +95,13 @@ Progress so far:
 
 ## Blockers
 
-- None for ARD-040.
+- None for ARD-050.
 
 ## Next Recommended Action
 
-Start ARD-040 by turning manifest-declared Addon Tasks and Event Subscriptions
-into explicit Taru-owned routing plans. Keep automatic Addon Manager
-discovery/install/update, package signing, process supervision, logs, rollback,
-Native Plugin ABI, downloader protocols, local AI runtime, Public Client API
-changes, direct library writes, and hidden schedulers out of scope.
+Start ARD-050 by proving Addon-produced Generated Artifacts and acquisition
+candidates enter existing AILO proposal/review and DWI acquisition-intake
+boundaries. Keep automatic Addon Manager discovery/install/update, package
+signing, process supervision, logs, rollback, Native Plugin ABI, downloader
+protocols, local AI runtime, Public Client API changes, direct library writes,
+and hidden schedulers out of scope.

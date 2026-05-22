@@ -68,17 +68,31 @@ Task IDs use the `ARD` prefix.
 
 ## M3 — Declared Task/Event Routing Without Hidden Schedulers
 
-- [ ] ARD-040 [owner=codex] [deps=ARD-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server/src/app,crates/taru-server/src/http/admin.rs]
+- [x] ARD-040 [owner=codex] [deps=ARD-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server/src/app,crates/taru-server/src/http/admin.rs]
   Goal: Turn manifest-declared Addon Tasks and Event Subscriptions into
   Taru-owned routing plans: executable only where existing job/outbox/addon
   side-effect boundaries can own lifecycle, otherwise blocked with explicit
   deferred reasons.
+  Progress: Added durable `addon_routing_plans` for SQLite/PostgreSQL, routing
+  plan domain records, `JobKind::AddonTask`, idempotent manifest-declaration
+  replacement, Admin DTOs, `POST
+  /admin/v1/addons/{addon_id}/routing-plans`, generated Admin Web contract
+  support, and client coverage. Plans are executable only when the Addon is
+  enabled, required grants are present, and event kinds are supported; disabled
+  addons, missing grants, and unsupported event kinds are deferred with safe
+  reason codes and no runtime target.
   Validation: focused app/db tests for routing plans, idempotency, stale
   manifest checks, and no hidden scheduler/event delivery side effects; relevant
   Admin/system tests; `cargo fmt --all -- --check`; `git diff --check`.
   Review: check durable audit, target revalidation, no background scheduler
   hidden in this lane, and no direct Addon filesystem/library authority.
-  Evidence: routing-plan tests and Admin diagnostics.
+  Evidence: `cargo check -p taru-api -p taru-server --tests`; `cargo nextest
+  run -p taru-db addon --no-fail-fast`; `cargo nextest run -p taru-server
+  admin_addon_routing_plans --no-fail-fast`; `cargo nextest run -p taru-server
+  addons --no-fail-fast`; `cargo nextest run -p taru-api admin_contract
+  --no-fail-fast`; `npm run check`; `npm test -- src/adminApi/client.test.ts`;
+  `cargo fmt --all -- --check`; `git diff --name-only --
+  crates/taru-client-protocol`.
   Handoff: Add artifact/intake handoff in ARD-050.
 
 ## M4 — Addon Artifact And Intake Handoff

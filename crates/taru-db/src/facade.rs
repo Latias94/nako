@@ -392,6 +392,23 @@ impl AddonRepository for TaruDatabase {
         self.backend().list_addon_grants(addon_id).await
     }
 
+    async fn replace_addon_routing_plans(
+        &self,
+        addon_id: AddonId,
+        plans: Vec<NewAddonRoutingPlan>,
+    ) -> Result<Vec<AddonRoutingPlanRecord>> {
+        self.backend()
+            .replace_addon_routing_plans(addon_id, plans)
+            .await
+    }
+
+    async fn list_addon_routing_plans(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<Vec<AddonRoutingPlanRecord>> {
+        self.backend().list_addon_routing_plans(addon_id).await
+    }
+
     async fn create_addon_side_effect(
         &self,
         side_effect: NewAddonSideEffect,

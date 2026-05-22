@@ -23,9 +23,10 @@ queues and side-effect APIs.
 ARD-030 completed the Admin-only runtime readiness boundary for Addon Sidecars:
 operators can classify reachability, protocol/manifest compatibility, local
 grant and Secret Reference gaps, network policy blockers, sidecar degraded /
-unhealthy states, and unsafe responses through redacted diagnostics. The next
-executable task is ARD-040: route manifest-declared tasks and event
-subscriptions into Taru-owned plans without hidden schedulers.
+unhealthy states, and unsafe responses through redacted diagnostics. ARD-040
+is now complete; manifest-declared tasks and event subscriptions route into
+Taru-owned plans, and the next executable task is ARD-050: hand Addon-produced
+artifacts and acquisition candidates into existing proposal/intake semantics.
 
 ## Authoritative Docs
 

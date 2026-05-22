@@ -725,6 +725,36 @@ pub(crate) fn row_to_addon_grant(row: SqliteRow) -> Result<AddonGrantRecord> {
     })
 }
 
+pub(crate) fn row_to_addon_routing_plan(row: SqliteRow) -> Result<AddonRoutingPlanRecord> {
+    let job_kind = row_get::<Option<String>>(&row, "job_kind")?
+        .map(|kind| JobKind::parse(&kind))
+        .transpose()?;
+
+    Ok(AddonRoutingPlanRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        manifest_id: row_get(&row, "manifest_id")?,
+        manifest_version: row_get(&row, "manifest_version")?,
+        manifest_fingerprint: AddonManifestFingerprint::parse(row_get::<String>(
+            &row,
+            "manifest_fingerprint",
+        )?)?,
+        declaration_kind: AddonRoutingDeclarationKind::parse(&row_get::<String>(
+            &row,
+            "declaration_kind",
+        )?)?,
+        declaration_id: row_get(&row, "declaration_id")?,
+        status: AddonRoutingPlanStatus::parse(&row_get::<String>(&row, "status")?)?,
+        target: AddonRoutingPlanTarget::parse(&row_get::<String>(&row, "target")?)?,
+        safe_reason_code: row_get(&row, "safe_reason_code")?,
+        job_kind,
+        event_kind: row_get(&row, "event_kind")?,
+        plan_json: row_get(&row, "plan_json")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
 pub(crate) fn row_to_addon_side_effect(row: SqliteRow) -> Result<AddonSideEffectRecord> {
     let target = AddonSideEffectTarget {
         kind: AddonSideEffectTargetKind::parse(&row_get::<String>(&row, "target_kind")?)?,

@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AddonGrantId, AddonId, AddonSideEffectId, AddonTokenId, CatalogItemGraphReplacement,
-    CatalogSearchProjection, LibraryId, MediaItem, MediaItemId, MediaSourceId, Result,
-    SecretString, TaruError,
+    AddonGrantId, AddonId, AddonRoutingPlanId, AddonSideEffectId, AddonTokenId,
+    CatalogItemGraphReplacement, CatalogSearchProjection, JobKind, LibraryId, MediaItem,
+    MediaItemId, MediaSourceId, Result, SecretString, TaruError,
 };
 
 pub const ADDON_TOKEN_RAW_PREFIX: &str = "taru_at_";
@@ -168,6 +168,138 @@ pub enum AddonSideEffectApplyStatus {
     Applied,
     Failed,
     Skipped,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRoutingDeclarationKind {
+    Task,
+    EventSubscription,
+}
+
+impl AddonRoutingDeclarationKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Task => "task",
+            Self::EventSubscription => "event_subscription",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "task" => Ok(Self::Task),
+            "event_subscription" => Ok(Self::EventSubscription),
+            _ => Err(TaruError::Database {
+                message: format!(
+                    "unknown addon routing declaration kind stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRoutingPlanStatus {
+    Executable,
+    Deferred,
+}
+
+impl AddonRoutingPlanStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Executable => "executable",
+            Self::Deferred => "deferred",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "executable" => Ok(Self::Executable),
+            "deferred" => Ok(Self::Deferred),
+            _ => Err(TaruError::Database {
+                message: format!("unknown addon routing plan status stored in database: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRoutingPlanTarget {
+    AddonTaskJob,
+    EventOutbox,
+    None,
+}
+
+impl AddonRoutingPlanTarget {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AddonTaskJob => "addon_task_job",
+            Self::EventOutbox => "event_outbox",
+            Self::None => "none",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "addon_task_job" => Ok(Self::AddonTaskJob),
+            "event_outbox" => Ok(Self::EventOutbox),
+            "none" => Ok(Self::None),
+            _ => Err(TaruError::Database {
+                message: format!("unknown addon routing plan target stored in database: {value}"),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonManifestFingerprint {
+    value: String,
+}
+
+impl AddonManifestFingerprint {
+    #[must_use]
+    pub fn new(manifest_json: &str) -> Self {
+        let mut hasher = Sha256::new();
+        update_fingerprint_part(&mut hasher, "addon-manifest-v1");
+        update_fingerprint_part(&mut hasher, manifest_json);
+        let digest = hasher.finalize();
+
+        Self {
+            value: format!("sha256:{}", lowercase_hex(&digest)),
+        }
+    }
+
+    pub fn parse(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let valid = value.strip_prefix("sha256:").is_some_and(|digest| {
+            digest.len() == 64 && digest.chars().all(|c| c.is_ascii_hexdigit())
+        });
+        if !valid {
+            return Err(TaruError::Database {
+                message: format!("invalid addon manifest fingerprint: {value}"),
+            });
+        }
+
+        Ok(Self {
+            value: value.to_ascii_lowercase(),
+        })
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+
+impl std::fmt::Display for AddonManifestFingerprint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.value)
+    }
 }
 
 impl AddonSideEffectApplyStatus {
@@ -344,6 +476,43 @@ pub struct AddonGrantRecord {
     pub permission: AddonPermission,
     pub library_id: Option<LibraryId>,
     pub created_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewAddonRoutingPlan {
+    pub id: AddonRoutingPlanId,
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub manifest_fingerprint: AddonManifestFingerprint,
+    pub declaration_kind: AddonRoutingDeclarationKind,
+    pub declaration_id: String,
+    pub status: AddonRoutingPlanStatus,
+    pub target: AddonRoutingPlanTarget,
+    pub safe_reason_code: Option<String>,
+    pub job_kind: Option<JobKind>,
+    pub event_kind: Option<String>,
+    pub plan_json: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRoutingPlanRecord {
+    pub id: AddonRoutingPlanId,
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub manifest_fingerprint: AddonManifestFingerprint,
+    pub declaration_kind: AddonRoutingDeclarationKind,
+    pub declaration_id: String,
+    pub status: AddonRoutingPlanStatus,
+    pub target: AddonRoutingPlanTarget,
+    pub safe_reason_code: Option<String>,
+    pub job_kind: Option<JobKind>,
+    pub event_kind: Option<String>,
+    #[serde(skip_serializing)]
+    pub plan_json: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -567,5 +736,36 @@ mod tests {
         assert!(!principal.allows(AddonPermission::MetadataWrite, None));
         assert!(principal.allows(AddonPermission::ArtworkWrite, Some(library_id)));
         assert!(principal.allows(AddonPermission::ArtworkWrite, None));
+    }
+
+    #[test]
+    fn addon_routing_plan_wire_terms_round_trip() {
+        assert_eq!(AddonRoutingDeclarationKind::Task.as_str(), "task");
+        assert_eq!(
+            AddonRoutingDeclarationKind::parse("event_subscription").unwrap(),
+            AddonRoutingDeclarationKind::EventSubscription
+        );
+        assert_eq!(
+            AddonRoutingPlanStatus::parse(AddonRoutingPlanStatus::Executable.as_str()).unwrap(),
+            AddonRoutingPlanStatus::Executable
+        );
+        assert_eq!(
+            AddonRoutingPlanTarget::parse(AddonRoutingPlanTarget::EventOutbox.as_str()).unwrap(),
+            AddonRoutingPlanTarget::EventOutbox
+        );
+    }
+
+    #[test]
+    fn addon_manifest_fingerprint_redacts_and_changes_with_manifest() {
+        let first = AddonManifestFingerprint::new(r#"{"id":"example","secret":"taru_at_secret"}"#);
+        let second = AddonManifestFingerprint::new(r#"{"id":"example","secret":"changed"}"#);
+
+        assert!(first.as_str().starts_with("sha256:"));
+        assert_ne!(first, second);
+        assert!(!first.as_str().contains("taru_at_secret"));
+        assert_eq!(
+            AddonManifestFingerprint::parse(first.as_str()).unwrap(),
+            first
+        );
     }
 }

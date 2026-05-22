@@ -46,6 +46,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             get(get_addon_surfaces),
         )
         .route(
+            "/admin/v1/addons/{addon_id}/routing-plans",
+            post(sync_addon_routing_plans),
+        )
+        .route(
             "/admin/v1/addons/{addon_id}/diagnostics/resource-call",
             post(diagnose_addon_resource_call),
         )
@@ -150,6 +154,14 @@ pub(super) async fn get_addon_surfaces(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().get_addon_surfaces(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn sync_addon_routing_plans(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().sync_addon_routing_plans(addon_id).await?))
 }
 
 #[instrument(skip(app))]
