@@ -48,7 +48,7 @@ const navItems: NavItem[] = [
   { label: "Jobs", id: "jobs", icon: ListChecks, sourceKey: "jobs", source: "mock" },
   { label: "Playback", id: "playback", icon: PlayCircle, sourceKey: "playbackRuntime", source: "mock" },
   { label: "Storage", id: "storage", icon: HardDrive, sourceKey: "storageStaging", source: "mock" },
-  { label: "Automation", id: "automation", icon: Cable, sourceKey: "events", source: "planned" },
+  { label: "Automation", id: "automation", icon: Cable, sourceKey: "generatedArtifactProposals", source: "planned" },
   { label: "Addons", id: "addons", icon: Puzzle, source: "planned" },
   { label: "Network", id: "network", icon: Boxes, sourceKey: "systemConfig", source: "mock" },
   { label: "Settings", id: "settings", icon: Settings, sourceKey: "systemConfig", source: "mock" },
@@ -389,18 +389,30 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
 
           <section className="panel" id="automation">
             <PanelHeader
-              title="Automation Events"
-              source={loadState.data.sources.events}
-              description="Redacted event outbox history for webhooks and automation."
+              title="Generated Artifacts"
+              source={loadState.data.sources.generatedArtifactProposals}
+              description="AI-assisted proposals with prompt and payload content reduced to fingerprints and readiness."
             />
             <div className="stackList">
-              {loadState.data.events.events.map((event) => (
-                <div className="listRow" key={event.id}>
+              {loadState.data.generatedArtifactProposals.proposals.map((proposal) => (
+                <div className="listRow" key={proposal.id}>
                   <div>
-                    <strong>{event.kind}</strong>
-                    <span>{event.attempts} attempts</span>
+                    <strong>{proposal.capability}</strong>
+                    <span>
+                      {proposal.targetKind} · {proposal.providerName ?? "unknown provider"} ·{" "}
+                      {proposal.payloadShape}
+                    </span>
                   </div>
-                  <StatusPill label={event.status} tone={event.hasError ? "bad" : "good"} />
+                  <StatusPill
+                    label={proposal.readinessStatus}
+                    tone={
+                      proposal.readinessStatus === "ready"
+                        ? "good"
+                        : proposal.readinessStatus === "stale"
+                          ? "warn"
+                          : "bad"
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -591,7 +603,7 @@ function summarizeSources(data: AdminConsoleData) {
     data.sources.jobs,
     combinedSource(data.sources.playbackSessions, data.sources.playbackRuntime),
     combinedSource(data.sources.overview, data.sources.storageStaging),
-    data.sources.events,
+    data.sources.generatedArtifactProposals,
     "planned",
     data.sources.systemConfig,
     data.sources.systemConfig,

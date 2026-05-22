@@ -155,6 +155,13 @@ impl AutomationRepository for SqliteStore {
         self.get_automation_artifact_or_not_found(artifact.id).await
     }
 
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>> {
+        self.get_automation_artifact(id).await
+    }
+
     async fn set_automation_artifact_status(
         &self,
         id: AutomationArtifactId,
@@ -320,10 +327,10 @@ impl AutomationRepository for SqliteStore {
 }
 
 impl SqliteStore {
-    pub(crate) async fn get_automation_artifact_or_not_found(
+    pub(crate) async fn get_automation_artifact(
         &self,
         id: AutomationArtifactId,
-    ) -> Result<AutomationArtifactRecord> {
+    ) -> Result<Option<AutomationArtifactRecord>> {
         let row = sqlx::query(
             r#"
             SELECT
@@ -349,8 +356,15 @@ impl SqliteStore {
         .await
         .map_err(database_error)?;
 
-        row.map(row_to_automation_artifact)
-            .transpose()?
+        row.map(row_to_automation_artifact).transpose()
+    }
+
+    pub(crate) async fn get_automation_artifact_or_not_found(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<AutomationArtifactRecord> {
+        self.get_automation_artifact(id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "automation_artifact",
                 id: id.to_string(),

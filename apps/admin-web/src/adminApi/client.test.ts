@@ -6,6 +6,7 @@ import {
   mockAcquisitionIntakeCandidates,
   mockCatalogGovernance,
   mockEvents,
+  mockGeneratedArtifactProposals,
   mockJobs,
   mockOverview,
   mockPlaybackRuntime,
@@ -51,6 +52,7 @@ describe("AdminApiClient", () => {
     const responses = new Map<string, unknown>([
       [TARU_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
       [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
+      [TARU_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
       [TARU_ADMIN_ROUTES.events, mockEvents],
       [TARU_ADMIN_ROUTES.jobs, mockJobs],
       [TARU_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
@@ -75,6 +77,9 @@ describe("AdminApiClient", () => {
     await expect(
       client.getAcquisitionIntakeCandidates({ library_id: "library-anime", state: "ready" }),
     ).resolves.toEqual(mockAcquisitionIntakeCandidates);
+    await expect(client.getGeneratedArtifactProposals({ limit: 5 })).resolves.toEqual(
+      mockGeneratedArtifactProposals,
+    );
     await expect(client.getEvents()).resolves.toEqual(mockEvents);
     await expect(client.getJobs()).resolves.toEqual(mockJobs);
     await expect(client.getPlaybackSessions()).resolves.toEqual(mockPlaybackSessions);
@@ -88,6 +93,7 @@ describe("AdminApiClient", () => {
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
       TARU_ADMIN_ROUTES.catalogGovernanceItems,
       `${TARU_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
+      `${TARU_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       TARU_ADMIN_ROUTES.events,
       TARU_ADMIN_ROUTES.jobs,
       TARU_ADMIN_ROUTES.playbackSessions,

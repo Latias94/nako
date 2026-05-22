@@ -2,6 +2,8 @@ import type {
   AdminCatalogGovernanceItemListResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminGeneratedArtifactProposalListResponse,
+  AdminGeneratedArtifactProposalsQuery,
   AdminWatchFolderDiscoveryRequest,
   AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
@@ -57,6 +59,14 @@ export class AdminApiClient {
     return this.postJson<AdminWatchFolderDiscoveryResponse>(
       TARU_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
       request,
+    );
+  }
+
+  async getGeneratedArtifactProposals(
+    query: AdminGeneratedArtifactProposalsQuery = {},
+  ): Promise<AdminGeneratedArtifactProposalListResponse> {
+    return this.getJson<AdminGeneratedArtifactProposalListResponse>(
+      withQuery(TARU_ADMIN_ROUTES.generatedArtifactProposals, query),
     );
   }
 
@@ -144,7 +154,10 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
 
 function withQuery(
   path: string,
-  query: AdminPlaybackSupportQuery | AdminAcquisitionIntakeCandidatesQuery,
+  query:
+    | AdminPlaybackSupportQuery
+    | AdminAcquisitionIntakeCandidatesQuery
+    | AdminGeneratedArtifactProposalsQuery,
 ) {
   const params = new URLSearchParams();
 

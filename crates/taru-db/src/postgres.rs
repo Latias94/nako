@@ -1789,6 +1789,13 @@ impl AutomationRepository for PostgresStore {
         self.get_automation_artifact_or_not_found(artifact.id).await
     }
 
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>> {
+        self.get_automation_artifact(id).await
+    }
+
     async fn set_automation_artifact_status(
         &self,
         id: AutomationArtifactId,
@@ -9691,6 +9698,19 @@ async fn upsert_image_asset_tx(
 }
 
 impl PostgresStore {
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>> {
+        let row = sqlx::query(&format!("{AUTOMATION_ARTIFACT_SELECT} WHERE id = $1"))
+            .bind(id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_automation_artifact).transpose()
+    }
+
     async fn rows_to_media_items(&self, rows: Vec<PgRow>) -> Result<Vec<MediaItem>> {
         let mut items = Vec::with_capacity(rows.len());
 
@@ -9943,14 +9963,8 @@ impl PostgresStore {
         &self,
         id: AutomationArtifactId,
     ) -> Result<AutomationArtifactRecord> {
-        let row = sqlx::query(&format!("{AUTOMATION_ARTIFACT_SELECT} WHERE id = $1"))
-            .bind(id.as_uuid())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(database_error)?;
-
-        row.map(row_to_automation_artifact)
-            .transpose()?
+        self.get_automation_artifact(id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "automation_artifact",
                 id: id.to_string(),

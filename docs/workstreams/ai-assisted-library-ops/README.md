@@ -23,10 +23,14 @@ applies them.
 AILO-010 opened the lane after Network Access Boundary closeout. AILO-020 then
 deepened existing Automation Artifacts into a backend Generated Artifact
 proposal queue with stable target, provenance, payload summary, confidence, and
-readiness semantics. The next executable slice is AILO-030: expose Admin-only
-proposal diagnostics and typed Admin Web support without adding a local model
-runtime, autonomous writes, vector database, Addon distribution, downloader
-protocols, or Public Client API churn.
+readiness semantics. AILO-030 exposed that queue through Admin-only proposal
+diagnostics and typed Admin Web support while keeping prompts, raw generated
+payloads, provider secrets, Source Locators, local paths, Public Client API, and
+`taru-client-protocol` out of the surface. AILO-040 then added explicit
+accept/reject planning for metadata-cleanup proposals: accept marks the
+proposal as accepted for a later metadata authority workflow, reject records a
+no-mutation rejection, and stale proposals cannot be accepted. The next slice is
+AILO-050 closeout and follow-on splitting.
 
 ## Authoritative Docs
 

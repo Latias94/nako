@@ -7,10 +7,12 @@
   "scope_kind": "execution",
   "problem": "AI-like outputs can help with title matching, metadata cleanup, summaries, recommendations, and intake triage, but they must enter Taru as Generated Artifacts with explicit acceptance rather than autonomous canonical metadata, sidecar, or library-file writes.",
   "task_prefix": "AILO",
-  "current_task": "AILO-030",
+  "current_task": "AILO-050",
   "completed_tasks": [
     "AILO-010",
-    "AILO-020"
+    "AILO-020",
+    "AILO-030",
+    "AILO-040"
   ],
   "authoritative_docs": [
     {
@@ -62,6 +64,10 @@
     "crates/taru-server/src/app/automation.rs",
     "crates/taru-server/src/app/tests/automation.rs",
     "crates/taru-api/src/admin.rs",
+    "crates/taru-api/src/admin_contract.rs",
+    "crates/taru-server/src/http/admin.rs",
+    "crates/taru-server/src/http/tests/system.rs",
+    "crates/taru-server/src/app/tests/automation.rs",
     "apps/admin-web/src/adminApi"
   ],
   "adr_refs": [
@@ -73,7 +79,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AILO-030",
-    "notes": "AILO-020 completed backend Generated Artifact proposal/readiness semantics over existing automation artifacts. Continue with AILO-030 Admin-only proposal diagnostics and typed Admin Web support. Keep provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, autonomous writes, Public Client API, and taru-client-protocol changes out of scope."
+    "next_task": "AILO-050",
+    "notes": "AILO-040 completed explicit Generated Artifact review planning for metadata-cleanup proposals without autonomous writes. Continue with AILO-050 closeout/follow-on split. Keep provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, direct sidecar/library-file mutation, Public Client API, and taru-client-protocol changes out of scope unless split into follow-on lanes."
   }
 }

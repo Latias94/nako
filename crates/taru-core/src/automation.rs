@@ -317,6 +317,109 @@ pub struct GeneratedArtifactProposal {
     pub accepted_at: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactReviewDecision {
+    Accept,
+    Reject,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactAcceptancePlanStatus {
+    Ready,
+    Blocked,
+    Stale,
+    AlreadyAccepted,
+    AlreadyRejected,
+}
+
+impl GeneratedArtifactAcceptancePlanStatus {
+    #[must_use]
+    pub const fn executable(self) -> bool {
+        matches!(self, Self::Ready)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactAcceptanceActionKind {
+    StageMetadataAuthorityReview,
+    RejectProposal,
+    Noop,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactAcceptancePlanReason {
+    Ready,
+    OperatorRejected,
+    MetadataAuthorityApplyRequired,
+    ProposalNotReady,
+    UnsupportedArtifactKind,
+    MissingMediaItemTarget,
+    ArtifactAlreadyAccepted,
+    ArtifactAlreadyRejected,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactAcceptanceBoundary {
+    pub accepted_into_canonical_metadata: bool,
+    pub writes_sidecar: bool,
+    pub writes_library_files: bool,
+    pub applies_immediately: bool,
+    pub requires_metadata_authority_apply: bool,
+}
+
+impl GeneratedArtifactAcceptanceBoundary {
+    #[must_use]
+    pub const fn deferred_metadata_authority() -> Self {
+        Self {
+            accepted_into_canonical_metadata: false,
+            writes_sidecar: false,
+            writes_library_files: false,
+            applies_immediately: false,
+            requires_metadata_authority_apply: true,
+        }
+    }
+
+    #[must_use]
+    pub const fn no_mutation() -> Self {
+        Self {
+            accepted_into_canonical_metadata: false,
+            writes_sidecar: false,
+            writes_library_files: false,
+            applies_immediately: false,
+            requires_metadata_authority_apply: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactAcceptancePlan {
+    pub artifact_id: AutomationArtifactId,
+    pub decision: GeneratedArtifactReviewDecision,
+    pub status: GeneratedArtifactAcceptancePlanStatus,
+    pub action: GeneratedArtifactAcceptanceActionKind,
+    pub reasons: Vec<GeneratedArtifactAcceptancePlanReason>,
+    pub capability: AutomationCapability,
+    pub kind: AutomationArtifactKind,
+    pub target: GeneratedArtifactTarget,
+    pub payload: GeneratedArtifactPayloadSummary,
+    pub readiness: GeneratedArtifactReadiness,
+    pub boundary: GeneratedArtifactAcceptanceBoundary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactReviewResult {
+    pub artifact_id: AutomationArtifactId,
+    pub decision: GeneratedArtifactReviewDecision,
+    pub artifact_status: AutomationArtifactStatus,
+    pub accepted_at: Option<String>,
+    pub idempotent_replay: bool,
+    pub plan: GeneratedArtifactAcceptancePlan,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewAutomationProviderConfig {
     pub id: AutomationProviderId,

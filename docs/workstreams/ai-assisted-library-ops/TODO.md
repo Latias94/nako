@@ -37,7 +37,7 @@ Task IDs use the `AILO` prefix.
 
 ## M2 — Admin Proposal Diagnostics
 
-- [ ] AILO-030 [owner=codex] [deps=AILO-020] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,apps/admin-web/src/adminApi]
+- [x] AILO-030 [owner=codex] [deps=AILO-020] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,apps/admin-web/src/adminApi]
   Goal: Expose Admin-only Generated Artifact proposal diagnostics and typed
   Admin web support without exposing prompts, raw generated payloads, provider
   secrets, raw Source Locators, local paths, or Public Client API shape.
@@ -46,12 +46,23 @@ Task IDs use the `AILO` prefix.
   `npm run check` from `apps/admin-web`; `git diff --name-only -- crates/taru-client-protocol`.
   Review: `review-workstream` must check Admin boundary ownership and redaction.
   Evidence: Admin DTO/contract, route tests, Admin web contract sync, and Public
-  Client protocol boundary check.
+  Client protocol boundary check:
+  `crates/taru-api/src/admin.rs`
+  `admin_generated_artifact_proposals_expose_summaries_not_raw_prompt_or_payload`;
+  `crates/taru-api/src/admin_contract.rs`
+  `admin_contract_includes_read_model_route_constants`,
+  `admin_contract_excludes_generated_fetch_runtime_and_raw_sensitive_fields`,
+  `admin_web_generated_contract_matches_generator_output`, and
+  `admin_contract_routes_stay_out_of_public_client_inventory`;
+  `crates/taru-server/src/http/tests/system.rs`
+  `admin_v1_generated_artifact_proposals_are_admin_only_redacted_and_read_only`;
+  `apps/admin-web/src/adminApi` typed client/data source/mocks and generated
+  contract.
   Handoff: Add acceptance planning in AILO-040.
 
 ## M3 — Acceptance Planning Without Autonomous Writes
 
-- [ ] AILO-040 [owner=codex] [deps=AILO-030] [scope=crates/taru-server/src/app,crates/taru-core,crates/taru-db,crates/taru-api/src/admin.rs]
+- [x] AILO-040 [owner=codex] [deps=AILO-030] [scope=crates/taru-server/src/app,crates/taru-core,crates/taru-db,crates/taru-api/src/admin.rs]
   Goal: Add explicit accept/reject planning for at least title-match or
   metadata-cleanup proposals, routing accepted changes through existing
   metadata authority/NFO/apply boundaries and proving no autonomous writes.
@@ -60,7 +71,15 @@ Task IDs use the `AILO` prefix.
   --check`.
   Review: `review-workstream` must check acceptance audit, target revalidation,
   stale evidence, and no direct canonical mutation.
-  Evidence: acceptance planning tests and redacted audit diagnostics.
+  Evidence: `crates/taru-server/src/app/tests/automation.rs`
+  `automation_app_reviews_metadata_cleanup_proposal_without_canonical_mutation`
+  and
+  `automation_app_blocks_stale_generated_artifact_acceptance_and_allows_reject`;
+  `crates/taru-api/src/admin.rs`
+  `admin_generated_artifact_review_response_exposes_boundary_not_raw_payload`;
+  `crates/taru-server/src/http/tests/system.rs`
+  `admin_v1_generated_artifact_review_accepts_without_autonomous_metadata_writes`;
+  Admin contract sync includes generated artifact review plan/review routes.
   Handoff: Close or split concrete provider adapters/local runtime in AILO-050.
 
 ## M4 — Closeout And Follow-On Split

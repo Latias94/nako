@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 11] = [
+const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 14] = [
     ("overview", "overview"),
     (
         "acquisitionIntakeCandidates",
@@ -9,6 +9,18 @@ const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 11] = [
     (
         "acquisitionIntakeWatchFolderDiscovery",
         "acquisition/intake/watch-folder-discovery",
+    ),
+    (
+        "generatedArtifactProposals",
+        "automation/generated-artifacts/proposals",
+    ),
+    (
+        "generatedArtifactReviewPlan",
+        "automation/generated-artifacts/{artifact_id}/review-plan",
+    ),
+    (
+        "generatedArtifactReview",
+        "automation/generated-artifacts/{artifact_id}/review",
     ),
     ("catalogGovernanceItems", "catalog/governance/items"),
     ("events", "events"),
@@ -98,6 +110,12 @@ export interface AdminWatchFolderDiscoveryRequest {
 export interface AdminStorageStagingQuery extends AdminPageQuery {
   purpose?: string;
   state?: string;
+}
+
+export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
+
+export interface AdminGeneratedArtifactReviewRequest {
+  decision: "accept" | "reject";
 }
 
 export interface PageInfo {
@@ -297,6 +315,100 @@ export interface AdminWatchFolderDiscoveryResponse {
   writes_library: boolean;
   managed_import_artifacts_created: boolean;
   promotion_apply: boolean;
+}
+
+export interface AdminGeneratedArtifactProposalListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  proposals: AdminGeneratedArtifactProposal[];
+  page: PageInfo;
+}
+
+export interface AdminGeneratedArtifactProposal {
+  id: string;
+  kind: string;
+  capability: string;
+  status: string;
+  target: AdminGeneratedArtifactTarget;
+  provenance: AdminGeneratedArtifactProvenance;
+  payload: AdminGeneratedArtifactPayloadSummary;
+  readiness: AdminGeneratedArtifactReadiness;
+  created_at: string;
+  updated_at: string;
+  accepted_at: string | null;
+}
+
+export interface AdminGeneratedArtifactTarget {
+  kind: string;
+  library_id: string | null;
+  item_id: string | null;
+  source_id: string | null;
+}
+
+export interface AdminGeneratedArtifactProvenance {
+  provider_id: string;
+  provider_name: string | null;
+  job_id: string;
+  capability: string;
+  idempotency_key_fingerprint: string | null;
+  prompt_fingerprint: string | null;
+  attempt_count: number | null;
+  artifact_created_at: string;
+}
+
+export interface AdminGeneratedArtifactPayloadSummary {
+  valid_json: boolean;
+  shape: string;
+  payload_fingerprint: string;
+  payload_bytes: number;
+  object_field_count: number | null;
+  array_item_count: number | null;
+  has_textual_values: boolean;
+  has_explanation: boolean;
+  confidence_milli: number | null;
+}
+
+export interface AdminGeneratedArtifactReadiness {
+  status: string;
+  actionable: boolean;
+  reasons: string[];
+}
+
+export interface AdminGeneratedArtifactReviewPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: AdminGeneratedArtifactAcceptancePlan;
+}
+
+export interface AdminGeneratedArtifactReviewResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  artifact_id: string;
+  decision: "accept" | "reject";
+  artifact_status: string;
+  accepted_at: string | null;
+  idempotent_replay: boolean;
+  plan: AdminGeneratedArtifactAcceptancePlan;
+}
+
+export interface AdminGeneratedArtifactAcceptancePlan {
+  artifact_id: string;
+  decision: "accept" | "reject";
+  status: string;
+  action: string;
+  reasons: string[];
+  capability: string;
+  kind: string;
+  target: AdminGeneratedArtifactTarget;
+  payload: AdminGeneratedArtifactPayloadSummary;
+  readiness: AdminGeneratedArtifactReadiness;
+  boundary: {
+    accepted_into_canonical_metadata: boolean;
+    writes_sidecar: boolean;
+    writes_library_files: boolean;
+    applies_immediately: boolean;
+    requires_metadata_authority_apply: boolean;
+  };
 }
 
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
@@ -678,8 +790,13 @@ mod tests {
             "AdminPlaybackSupportQuery",
             "AdminAcquisitionIntakeCandidatesQuery",
             "AdminWatchFolderDiscoveryRequest",
+            "AdminGeneratedArtifactProposalsQuery",
+            "AdminGeneratedArtifactReviewRequest",
             "AdminAcquisitionIntakeCandidateListResponse",
             "AdminWatchFolderDiscoveryResponse",
+            "AdminGeneratedArtifactProposalListResponse",
+            "AdminGeneratedArtifactReviewPlanResponse",
+            "AdminGeneratedArtifactReviewResponse",
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
@@ -705,10 +822,13 @@ mod tests {
             "source_locator",
             "cache_uri",
             "storage_uri",
+            "prompt_json",
+            "artifact_json",
             "database_url",
             "output_path",
             "local_path",
             "raw_source_url",
+            "raw_generated",
             "token_value",
             "access_token",
             "bearer_token",

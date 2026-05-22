@@ -6,6 +6,7 @@ import {
   mockAcquisitionIntakeCandidates,
   mockCatalogGovernance,
   mockEvents,
+  mockGeneratedArtifactProposals,
   mockJobs,
   mockOverview,
   mockPlaybackRuntime,
@@ -21,6 +22,7 @@ describe("Admin data source", () => {
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
         [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [TARU_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
         [TARU_ADMIN_ROUTES.events]: mockEvents,
         [TARU_ADMIN_ROUTES.jobs]: mockJobs,
         [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
@@ -34,6 +36,7 @@ describe("Admin data source", () => {
 
     expect(data.sources.overview).toBe("live");
     expect(data.sources.acquisitionIntake).toBe("live");
+    expect(data.sources.generatedArtifactProposals).toBe("live");
     expect(data.sources.jobs).toBe("live");
     expect(data.sources.playbackSessions).toBe("live");
     expect(data.sources.playbackRuntime).toBe("live");
@@ -53,6 +56,12 @@ describe("Admin data source", () => {
       sourceScheme: "local",
       state: "ready",
       hasDiagnostics: true,
+    });
+    expect(data.generatedArtifactProposals.proposals[0]).toMatchObject({
+      capability: "metadata_cleanup",
+      targetKind: "media_source",
+      readinessStatus: "ready",
+      confidenceMilli: 810,
     });
     expect(data.playback.accelerators).toContainEqual({
       name: "nvenc",
@@ -74,6 +83,7 @@ describe("Admin data source", () => {
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
         [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [TARU_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
         [TARU_ADMIN_ROUTES.events]: mockEvents,
         [TARU_ADMIN_ROUTES.jobs]: new Response("offline", { status: 503 }),
         [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,

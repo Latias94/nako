@@ -449,6 +449,13 @@ impl AutomationRepository for TaruDatabase {
         self.backend().create_automation_artifact(artifact).await
     }
 
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>> {
+        self.backend().get_automation_artifact(id).await
+    }
+
     async fn set_automation_artifact_status(
         &self,
         id: AutomationArtifactId,

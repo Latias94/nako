@@ -28,6 +28,11 @@ pub trait AutomationRepository: Send + Sync {
         artifact: NewAutomationArtifact,
     ) -> Result<AutomationArtifactRecord>;
 
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>>;
+
     async fn set_automation_artifact_status(
         &self,
         id: AutomationArtifactId,
