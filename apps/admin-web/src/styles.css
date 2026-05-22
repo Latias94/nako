@@ -503,6 +503,219 @@ td {
   display: grid;
 }
 
+.addonOnboardingPanel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 8px;
+  background: oklch(97% 0.012 78);
+}
+
+.addonOnboardingPanel p {
+  margin: 6px 0 0;
+  color: oklch(45% 0.024 68);
+  font-size: 0.9rem;
+}
+
+.onboardingGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+  gap: 12px;
+}
+
+.manifestEditor {
+  display: grid;
+  gap: 8px;
+  color: oklch(35% 0.024 66);
+  font-weight: 700;
+}
+
+.manifestEditor textarea {
+  width: 100%;
+  min-height: 210px;
+  resize: vertical;
+  border: 1px solid oklch(82% 0.022 75);
+  border-radius: 7px;
+  padding: 10px;
+  background: oklch(99% 0.006 80);
+  color: oklch(27% 0.026 65);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.manifestPreviewCard {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.013 76);
+}
+
+.manifestPreviewCard span {
+  color: oklch(47% 0.024 68);
+  font-size: 0.84rem;
+}
+
+.credentialGrantPanel {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 8px;
+  background: oklch(97% 0.012 78);
+}
+
+.credentialGrantPanel p {
+  margin: 6px 0 0;
+  color: oklch(45% 0.024 68);
+  font-size: 0.9rem;
+}
+
+.credentialGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(240px, 0.7fr);
+  gap: 12px;
+}
+
+.credentialCard {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.013 76);
+}
+
+.compactField {
+  display: grid;
+  gap: 6px;
+  color: oklch(35% 0.024 66);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.compactField input,
+.compactField select {
+  width: 100%;
+  border: 1px solid oklch(82% 0.022 75);
+  border-radius: 7px;
+  padding: 9px 10px;
+  background: oklch(99% 0.006 80);
+  color: oklch(27% 0.026 65);
+}
+
+.oneTimeSecret {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid oklch(78% 0.08 55);
+  border-radius: 7px;
+  background: oklch(94% 0.04 70);
+}
+
+.oneTimeSecret code {
+  overflow-x: auto;
+  padding: 8px;
+  border-radius: 6px;
+  background: oklch(25% 0.026 65);
+  color: oklch(96% 0.014 78);
+}
+
+.readinessCard {
+  gap: 8px;
+}
+
+.readinessItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: oklch(40% 0.024 68);
+  font-size: 0.86rem;
+}
+
+.installGuidePanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid oklch(86% 0.018 75);
+}
+
+.installGuidePanel p {
+  margin: 6px 0 0;
+  color: oklch(45% 0.024 68);
+  font-size: 0.9rem;
+}
+
+.snippetGrid,
+.guideStepGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.snippetPreview,
+.guideSteps {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.013 76);
+}
+
+.snippetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.snippetHeader span {
+  color: oklch(47% 0.024 68);
+  font-size: 0.78rem;
+}
+
+.snippetPreview pre,
+.guideSteps code {
+  display: block;
+  overflow-x: auto;
+  padding: 10px;
+  border-radius: 6px;
+  background: oklch(25% 0.026 65);
+  color: oklch(96% 0.014 78);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.snippetPreview ul,
+.guideSteps ol {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: oklch(45% 0.024 68);
+  font-size: 0.84rem;
+}
+
+.guideSteps li {
+  display: grid;
+  gap: 6px;
+}
+
+.guideSteps span {
+  color: oklch(47% 0.024 68);
+}
+
 @media (max-width: 960px) {
   .appShell {
     grid-template-columns: 1fr;
@@ -529,7 +742,11 @@ td {
 
   .metricGrid,
   .contentGrid,
-  .splitPanel {
+  .splitPanel,
+  .onboardingGrid,
+  .credentialGrid,
+  .snippetGrid,
+  .guideStepGrid {
     grid-template-columns: 1fr;
   }
 }

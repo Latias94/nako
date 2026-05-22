@@ -511,6 +511,34 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
     let invalid_error = body_json::<ErrorResponse>(invalid).await;
     assert_eq!(invalid_error.code, "invalid_input");
 
+    let disabled_without_grants = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: {
+                let mut manifest = addon_manifest();
+                manifest.id = "example.metadata.disabled-without-grants".to_owned();
+                manifest
+            },
+            granted_scopes: vec![],
+            status: Some(AddonStatus::Disabled),
+        },
+    )
+    .await;
+    assert_eq!(
+        disabled_without_grants.addon.summary.status,
+        AddonStatus::Disabled
+    );
+    assert!(
+        disabled_without_grants
+            .addon
+            .summary
+            .granted_scopes
+            .is_empty()
+    );
+
     let missing_scope = post_addon_registration(
         &router,
         RegisterAddonRequest {
@@ -1736,6 +1764,138 @@ async fn admin_addon_surfaces_returns_manifest_declarations_without_launch_secre
     assert!(!text.contains("taru_at_"));
     assert!(!text.contains("launch_token"));
     assert!(!text.contains("secret_value"));
+}
+
+#[tokio::test]
+async fn admin_addon_install_guide_generates_sidecar_snippets_without_lifecycle_control_or_secrets()
+{
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = taru_reference_addon::reference_manifest("http://subtitle-lab:9100/base");
+    manifest.id = "dev.taru.subtitle-lab".to_owned();
+    manifest.name = "Subtitle Lab".to_owned();
+    manifest.version = "0.3.0".to_owned();
+    manifest.secret_reference_fields = vec![
+        taru_addon_protocol::AddonSecretReferenceFieldDeclaration::new(
+            "provider-api-key",
+            "Provider API key",
+            Some("Resolved by Taru at runtime".to_owned()),
+            true,
+        ),
+    ];
+
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+
+    let path = format!("/admin/v1/addons/{addon_id}/install-guide");
+    let raw = response_for(&router, Method::GET, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonInstallGuideResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.manifest_id, "dev.taru.subtitle-lab");
+    assert_eq!(response.addon_name, "Subtitle Lab");
+    assert_eq!(response.addon_version, "0.3.0");
+    assert_eq!(response.base_url, "http://subtitle-lab:9100/base");
+    assert!(!response.lifecycle_boundary.taru_manages_containers);
+    assert!(!response.lifecycle_boundary.taru_manages_processes);
+    assert!(!response.lifecycle_boundary.taru_manages_packages);
+    assert_eq!(response.secret_references.len(), 1);
+    assert_eq!(response.secret_references[0].id, "provider-api-key");
+    assert_eq!(
+        response.secret_references[0].env_var,
+        "ADDON_SECRET_PROVIDER_API_KEY"
+    );
+    assert_eq!(
+        response.secret_references[0].placeholder,
+        "secret-reference:provider-api-key"
+    );
+    assert_eq!(
+        response.docker_compose.filename,
+        "compose.dev-taru-subtitle-lab.yml"
+    );
+    assert!(
+        response
+            .docker_compose
+            .content
+            .contains("dev-taru-subtitle-lab:")
+    );
+    assert!(
+        response
+            .docker_compose
+            .content
+            .contains("secret-reference:provider-api-key")
+    );
+    assert_eq!(response.systemd.filename, "dev-taru-subtitle-lab.service");
+    assert!(
+        response
+            .systemd
+            .content
+            .contains("Environment=\"TARU_ADDON_BASE_URL=http://subtitle-lab:9100/base\"")
+    );
+    assert!(
+        response
+            .systemd
+            .content
+            .contains("ExecStart=<addon-sidecar-command> --listen 0.0.0.0:9100")
+    );
+    assert_eq!(response.health_check_steps.len(), 2);
+    assert!(response.health_check_steps[0].command.contains("/health"));
+    assert!(
+        response.health_check_steps[1]
+            .command
+            .contains("/health-check")
+    );
+    assert_eq!(response.registration_verification_steps.len(), 2);
+    assert!(
+        response.registration_verification_steps[0]
+            .command
+            .contains("/admin/v1/addons/")
+    );
+    assert!(
+        response.registration_verification_steps[1]
+            .command
+            .contains("/surfaces")
+    );
+
+    for forbidden in [
+        "raw_token",
+        "taru_at_",
+        "Bearer ",
+        "resolved_secret",
+        "secret_value",
+        "docker.sock",
+        "docker stop",
+        "docker start",
+        "systemctl start",
+        "systemctl stop",
+        "source_locator",
+        "storage_uri",
+        "local_path",
+        "C:\\",
+        "/Users/",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "install guide leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]

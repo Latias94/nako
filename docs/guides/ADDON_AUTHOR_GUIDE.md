@@ -169,9 +169,72 @@ required by every declared resource. Registration, listing, and detail lookup
 are Admin API operations; Taru no longer mounts the old root `/addons`
 management routes.
 
+Admin Web provides a manifest onboarding panel for this route. Operators can
+paste the manifest JSON, preview key facts, and register the Addon as
+`disabled` before starting the sidecar. This supports both install orders:
+register first and use the generated **Addon Install Guide**, or start the
+sidecar first and then paste its manifest. Registration itself does not require
+network reachability; the **Addon Health Check** verifies `{base_url}/health`
+after the sidecar is running.
+
+The onboarding panel intentionally does not fetch arbitrary manifest URLs or
+control Docker, systemd, Kubernetes, SSH, host agents, package installation,
+process lifecycle, logs, upgrades, or removal.
+
 Runtime secrets are not stored in the manifest. If an addon uses bearer or
 shared-secret auth, Taru resolves the secret at call time and sends it as an
 HTTP header.
+
+## Credentials and Grants
+
+After manifest registration and sidecar installation, operators use Admin Web
+to issue an Addon Token and configure accepted Addon Grants. The raw token is
+shown exactly once when it is issued or rotated; addon authors should document
+where operators place that value in the sidecar's own environment or secret
+store.
+
+Addon Tokens authenticate sidecar-to-Taru runtime requests. They are not admin
+bearer tokens, and they are rejected by Admin API and Public Client API routes.
+Accepted Addon Grants are separate from manifest scopes: scopes declare what an
+addon can ask for, while grants record what Taru will accept for protected side
+effects such as metadata, artwork, subtitle, or library-file writes.
+
+Addon authors should assume:
+
+- token rotation does not restart the sidecar automatically;
+- Taru will not push raw tokens into hosted pages or install guides;
+- raw token values should never be logged by the sidecar;
+- sidecar startup, restart, and secret injection remain operator-owned unless a
+  future Addon Manager explicitly changes that boundary.
+
+## Install Guide
+
+Taru can generate an **Addon Install Guide** for a registered Addon Sidecar via
+`GET /admin/v1/addons/{addon_id}/install-guide`.
+
+The guide is for operators, not for Taru-managed lifecycle automation. It
+contains Docker Compose and systemd snippets as inert text, Secret Reference
+placeholders, direct sidecar health-check commands, Taru Admin health-check
+commands, and registration/surface verification commands.
+
+Addon authors should treat the generated snippets as a compatibility aid:
+
+- publish a stable container image or binary command that can replace the
+  guide placeholders;
+- keep `base_url` reachable from Taru but do not require Taru to mount Docker
+  sockets, call systemd, or supervise the process;
+- declare Secret Reference fields in the manifest instead of documenting
+  plaintext environment variables;
+- expose `POST /health` so the guide's direct and Taru-mediated health checks
+  can verify protocol, manifest ID, version, and resource count;
+- keep hosted pages external and untrusted; do not expect Taru to pass admin
+  bearer tokens or Addon Tokens into an install guide or hosted page.
+
+The install guide intentionally does not include resolved Secret Reference
+values, raw Addon Tokens, admin bearer tokens, Source Locators, storage paths,
+or process-control instructions such as start/stop/restart. If Taru later grows
+an Addon Manager, it should be a separate product surface and protocol
+boundary.
 
 ## Protected Write Payload Contracts
 

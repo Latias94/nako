@@ -1,7 +1,18 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 16] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 24] = [
     ("overview", "overview"),
+    ("addons", "addons"),
+    ("addonDetail", "addons/:addon_id"),
+    ("addonStatus", "addons/:addon_id/status"),
+    ("addonUnregister", "addons/:addon_id/unregister"),
+    ("addonHealthCheck", "addons/:addon_id/health-check"),
+    ("addonSurfaces", "addons/:addon_id/surfaces"),
+    ("addonInstallGuide", "addons/:addon_id/install-guide"),
+    (
+        "addonResourceCallDiagnostic",
+        "addons/:addon_id/diagnostics/resource-call",
+    ),
     (
         "acquisitionIntakeCandidates",
         "acquisition/intake/candidates",
@@ -49,7 +60,7 @@ pub fn admin_typescript_contract() -> String {
         ADMIN_API_VERSION
     ));
     output.push_str("export const TARU_ADMIN_ROUTES = {\n");
-    for (key, suffix) in ADMIN_READ_MODEL_ROUTE_SUFFIXES {
+    for (key, suffix) in ADMIN_ROUTE_SUFFIXES {
         output.push_str(&format!("  {key}: \"{}\",\n", admin_route_path(suffix)));
     }
     output.push_str("} as const;\n\n");
@@ -121,6 +132,369 @@ export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
+}
+export type AddonStatus = "enabled" | "disabled" | "unregistered";
+
+export type AddonScope =
+  | "catalog_read"
+  | "item_metadata_read"
+  | "item_metadata_suggest"
+  | "image_read"
+  | "subtitle_read"
+  | "stream_url_read"
+  | "recommendation_write"
+  | "automation_run"
+  | "webhook_event_read";
+
+export type AddonResource =
+  | "catalog"
+  | "metadata"
+  | "image"
+  | "stream"
+  | "subtitle"
+  | "recommendation"
+  | "automation"
+  | "webhook";
+
+export type AddonEntryPointKind =
+  | "item_action"
+  | "library_action"
+  | "admin_action"
+  | "settings"
+  | "diagnostics"
+  | "task_launcher";
+
+export type AddonPermission =
+  | "metadata_write"
+  | "artwork_write"
+  | "subtitle_write"
+  | "library_file_write";
+
+export type AddonTokenStatus = "active" | "revoked" | "rotated";
+
+export type AddonAuth = "none" | "bearer" | "shared_secret";
+
+export type AdminAddonHealthCheckStatus =
+  | "reachable"
+  | "degraded"
+  | "unhealthy"
+  | "unreachable"
+  | "protocol_mismatch"
+  | "invalid_manifest";
+
+export type AdminAddonResourceCallDiagnosticStatus =
+  | "succeeded"
+  | "missing_resource"
+  | "missing_grant"
+  | "authorization_gap"
+  | "unreachable"
+  | "protocol_mismatch"
+  | "retryable_http_failure"
+  | "http_failure"
+  | "unsafe_response";
+
+export interface AdminAddonsQuery {
+  status?: AddonStatus;
+}
+
+export interface RegisterAddonRequest {
+  id?: string;
+  manifest: AdminAddonManifest;
+  granted_scopes?: AddonScope[];
+  status?: AddonStatus;
+}
+
+export interface AdminAddonResourceDeclaration {
+  kind: AddonResource;
+  path: string;
+  input_schema: string | null;
+  output_schema: string | null;
+  required_scopes: AddonScope[];
+  timeout_ms: number | null;
+  max_attempts: number | null;
+}
+
+export interface AdminAddonManifest {
+  id: string;
+  name: string;
+  version: string;
+  protocol_version: string;
+  base_url: string;
+  description: string | null;
+  resources: AdminAddonResourceDeclaration[];
+  entry_points?: AdminAddonEntryPointDeclaration[];
+  hosted_pages?: AdminAddonHostedPageDeclaration[];
+  configuration_schema?: AdminAddonConfigurationSchemaDeclaration;
+  secret_reference_fields?: AdminAddonSecretReferenceFieldDeclaration[];
+  event_subscriptions?: AdminAddonEventSubscriptionDeclaration[];
+  tasks?: AdminAddonTaskDeclaration[];
+  auth: AddonAuth;
+  default_timeout_ms: number | null;
+  default_max_attempts: number | null;
+  scopes: AddonScope[];
+}
+
+export interface AdminAddonEntryPointDeclaration {
+  id: string;
+  kind: AddonEntryPointKind;
+  label: string;
+  path: string;
+  hosted_page_id?: string;
+  required_scopes?: AddonScope[];
+}
+
+export interface AdminAddonHostedPageDeclaration {
+  id: string;
+  title: string;
+  path: string;
+  required_scopes?: AddonScope[];
+}
+
+export interface AdminAddonConfigurationSchemaDeclaration {
+  schema_id: string;
+  schema: Record<string, unknown>;
+}
+
+export interface AdminAddonSecretReferenceFieldDeclaration {
+  id: string;
+  label: string;
+  description?: string;
+  required?: boolean;
+}
+
+export interface AdminAddonEventSubscriptionDeclaration {
+  id: string;
+  event_kind: string;
+  path: string;
+  required_scopes?: AddonScope[];
+  filters?: Record<string, unknown>;
+}
+
+export interface AdminAddonTaskDeclaration {
+  id: string;
+  name: string;
+  path: string;
+  description?: string;
+  required_scopes?: AddonScope[];
+  timeout_ms?: number;
+  max_attempts?: number;
+}
+
+export interface AdminAddonRegistrationSummary {
+  id: string;
+  manifest_id: string;
+  name: string;
+  version: string;
+  protocol_version: string;
+  base_url: string;
+  granted_scopes: string[];
+  status: AddonStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminAddonRegistrationDetail {
+  summary: AdminAddonRegistrationSummary;
+  manifest: AdminAddonManifest;
+}
+
+export interface AdminAddonRegistrationResponse {
+  addon: AdminAddonRegistrationDetail;
+}
+
+export interface AdminAddonRegistrationsResponse {
+  addons: AdminAddonRegistrationSummary[];
+}
+
+export interface UpdateAddonStatusRequest {
+  status: AddonStatus;
+}
+
+export interface AdminAddonHealthCheckResponse {
+  addon_id: string;
+  manifest_id: string;
+  status: AdminAddonHealthCheckStatus;
+  latency_ms: number;
+  protocol_version?: string;
+  addon_version?: string;
+  resource_count?: number;
+  protocol_checked_at?: string;
+  safe_error_code?: string;
+}
+
+export interface AdminAddonEntryPointSurface {
+  id: string;
+  kind: AddonEntryPointKind;
+  label: string;
+  path: string;
+  hosted_page_id?: string;
+  required_scopes: AddonScope[];
+}
+
+export interface AdminAddonHostedPageSurface {
+  id: string;
+  title: string;
+  path: string;
+  url: string;
+  required_scopes: AddonScope[];
+}
+
+export interface AdminAddonConfigurationSchemaSurface {
+  schema_id: string;
+  schema: Record<string, unknown>;
+}
+
+export interface AdminAddonSecretReferenceFieldSurface {
+  id: string;
+  label: string;
+  description?: string;
+  required: boolean;
+}
+
+export interface AdminAddonTaskSurface {
+  id: string;
+  name: string;
+  path: string;
+  description?: string;
+  required_scopes: AddonScope[];
+  timeout_ms?: number;
+  max_attempts?: number;
+}
+
+export interface AdminAddonEventSubscriptionSurface {
+  id: string;
+  event_kind: string;
+  path: string;
+  required_scopes: AddonScope[];
+  filters: Record<string, unknown>;
+}
+
+export interface AdminAddonSurfacesResponse {
+  addon_id: string;
+  manifest_id: string;
+  entry_points: AdminAddonEntryPointSurface[];
+  hosted_pages: AdminAddonHostedPageSurface[];
+  configuration_schema?: AdminAddonConfigurationSchemaSurface;
+  secret_reference_fields: AdminAddonSecretReferenceFieldSurface[];
+  tasks: AdminAddonTaskSurface[];
+  event_subscriptions: AdminAddonEventSubscriptionSurface[];
+}
+
+export interface AdminAddonResourceCallDiagnosticRequest {
+  resource: AddonResource;
+  payload?: Record<string, unknown>;
+}
+
+export interface AdminAddonResourceCallDiagnosticResponse {
+  addon_id: string;
+  manifest_id: string;
+  resource: AddonResource;
+  status: AdminAddonResourceCallDiagnosticStatus;
+  latency_ms: number;
+  attempts: number;
+  http_status?: number;
+  safe_error_code?: string;
+}
+
+export interface AdminAddonInstallGuideResponse {
+  addon_id: string;
+  manifest_id: string;
+  addon_name: string;
+  addon_version: string;
+  protocol_version: string;
+  base_url: string;
+  status: AddonStatus;
+  docker_compose: AdminAddonInstallGuideSnippet;
+  systemd: AdminAddonInstallGuideSnippet;
+  secret_references: AdminAddonInstallGuideSecretReference[];
+  health_check_steps: AdminAddonInstallGuideStep[];
+  registration_verification_steps: AdminAddonInstallGuideStep[];
+  lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AdminAddonInstallGuideSnippet {
+  title: string;
+  filename: string;
+  content: string;
+  notes: string[];
+}
+
+export interface AdminAddonInstallGuideSecretReference {
+  id: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  env_var: string;
+  placeholder: string;
+}
+
+export interface AdminAddonInstallGuideStep {
+  title: string;
+  command: string;
+  expected_result: string;
+}
+
+export interface AdminAddonInstallGuideLifecycleBoundary {
+  taru_manages_containers: boolean;
+  taru_manages_processes: boolean;
+  taru_manages_packages: boolean;
+  message: string;
+}
+
+export interface IssueAddonTokenRequest {
+  label?: string;
+}
+
+export interface AddonTokenSummary {
+  id: string;
+  addon_id: string;
+  label: string;
+  token_prefix: string;
+  status: AddonTokenStatus;
+  created_at: string;
+  rotated_at: string | null;
+  revoked_at: string | null;
+  last_used_at: string | null;
+}
+
+export interface AddonTokensResponse {
+  tokens: AddonTokenSummary[];
+}
+
+export interface AddonTokenResponse {
+  token: AddonTokenSummary;
+}
+
+export interface AddonTokenIssuedResponse {
+  token: AddonTokenSummary;
+  raw_token: string;
+}
+
+export interface AddonTokenRotationResponse {
+  rotated: AddonTokenSummary;
+  token: AddonTokenSummary;
+  raw_token: string;
+}
+
+export interface ReplaceAddonGrantsRequest {
+  grants?: AddonGrantAssignment[];
+}
+
+export interface AddonGrantAssignment {
+  permission: AddonPermission;
+  library_id?: string | null;
+}
+
+export interface AddonGrantRecord {
+  id: string;
+  addon_id: string;
+  permission: AddonPermission;
+  library_id: string | null;
+  created_at: string;
+}
+
+export interface AddonGrantsResponse {
+  grants: AddonGrantRecord[];
 }
 
 export interface PageInfo {
@@ -842,10 +1216,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn admin_contract_includes_read_model_route_constants() {
+    fn admin_contract_includes_route_constants() {
         let contract = admin_typescript_contract();
 
-        for (key, suffix) in ADMIN_READ_MODEL_ROUTE_SUFFIXES {
+        for (key, suffix) in ADMIN_ROUTE_SUFFIXES {
             let path = admin_route_path(suffix);
             assert!(
                 contract.contains(&format!("{key}: \"{path}\"")),
@@ -859,6 +1233,26 @@ mod tests {
             "AdminJobsQuery",
             "AdminPlaybackSessionsQuery",
             "AdminPlaybackSupportQuery",
+            "AdminAddonsQuery",
+            "RegisterAddonRequest",
+            "AdminAddonManifest",
+            "AdminAddonEntryPointDeclaration",
+            "AdminAddonRegistrationSummary",
+            "AdminAddonRegistrationsResponse",
+            "AdminAddonRegistrationResponse",
+            "UpdateAddonStatusRequest",
+            "AdminAddonHealthCheckResponse",
+            "AdminAddonSurfacesResponse",
+            "AdminAddonInstallGuideResponse",
+            "AdminAddonResourceCallDiagnosticRequest",
+            "AdminAddonResourceCallDiagnosticResponse",
+            "IssueAddonTokenRequest",
+            "AddonTokensResponse",
+            "AddonTokenIssuedResponse",
+            "AddonTokenRotationResponse",
+            "AddonTokenResponse",
+            "ReplaceAddonGrantsRequest",
+            "AddonGrantsResponse",
             "AdminAcquisitionIntakeCandidatesQuery",
             "AdminWatchFolderDiscoveryRequest",
             "AdminGeneratedArtifactProposalsQuery",
@@ -913,6 +1307,16 @@ mod tests {
                 "Admin contract leaked forbidden term: {forbidden}"
             );
         }
+
+        assert!(
+            contract.contains("raw_token: string"),
+            "Admin contract should expose raw_token only for one-time addon token issue/rotation responses"
+        );
+        assert_eq!(
+            contract.matches("raw_token").count(),
+            2,
+            "raw_token must stay limited to explicit one-time token response DTOs"
+        );
     }
 
     #[test]
@@ -931,7 +1335,7 @@ mod tests {
     fn admin_contract_routes_stay_out_of_public_client_inventory() {
         let public_paths = public_client_paths().collect::<Vec<_>>();
 
-        for (_key, suffix) in ADMIN_READ_MODEL_ROUTE_SUFFIXES {
+        for (_key, suffix) in ADMIN_ROUTE_SUFFIXES {
             let admin_path = admin_route_path(suffix);
             assert!(
                 !public_paths.contains(&admin_path.as_str()),

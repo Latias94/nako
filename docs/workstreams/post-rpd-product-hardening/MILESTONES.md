@@ -1,6 +1,6 @@
 # Post-RPD Product Hardening — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## M0 — Scope And Evidence Freeze
@@ -45,11 +45,13 @@ Primary evidence:
 
 ## M3 — Umbrella Closeout Or Refresh
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Active child lanes own their implementation details.
-- Remaining lanes are either opened, re-scored, or intentionally deferred.
-- Workstream index reflects the current active product lane.
+- [x] Active child lanes own their implementation details.
+- [x] Remaining lanes are either opened, re-scored, or intentionally deferred.
+- [x] Workstream index reflects that this roadmap umbrella is complete.
 
 ## M4 — Post-LAIP Lane Scoring
 
@@ -216,3 +218,24 @@ Primary evidence:
 
 - `docs/workstreams/ai-assisted-library-ops/EVIDENCE_AND_GATES.md`
 - `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`
+
+## M14 — Post-Addon Runtime Closeout And Umbrella Completion
+
+Status: completed on 2026-05-22.
+
+Exit criteria:
+
+- [x] Addon Runtime And Distribution closeout evidence is reviewed.
+- [x] All planned post-RPD mainline lanes are represented by dedicated
+  workstreams.
+- [x] Remaining downloader, Addon Manager, package signing, process
+  supervision, tunnel runtime, local AI runtime, and Public Client surface
+  work is split as follow-ons.
+- [x] Parent umbrella status, handoff, evidence, and workstream metadata are
+  marked complete.
+
+Primary evidence:
+
+- `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
+- `docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`

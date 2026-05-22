@@ -30,10 +30,202 @@ No active implementation goal is currently set.
 
 Recommended next goal:
 
-- Admin Web Console Addon Operations UI, or a dedicated Addon Manager lane if
-  process/package lifecycle automation becomes the product priority.
+- Secret Reference configuration UX, or real Addon end-to-end smoke with
+  `nako-official-addons`.
 
 ## Completed Goals
+
+### Admin Web Addon Credential and Grant Onboarding
+
+Status: completed.
+
+Objective:
+
+- Productize the Admin Web credential and authority handoff for registered
+  **Addon Sidecars**.
+- Let administrators issue and rotate one-time Addon Tokens, revoke Addon
+  Tokens, replace accepted Addon Grants, and use an enable readiness checklist.
+- Preserve the boundary that Taru authorizes and calls sidecars but does not
+  install, start, stop, update, remove, log, or supervise sidecar processes.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-addon-credential-grant-onboarding/` as the
+  authoritative execution lane.
+- Generated Admin API TypeScript contract coverage for token issue/rotation
+  one-time responses and grant replacement request shapes.
+- Admin Web client/data-source/UI actions for token issue/rotate/revoke,
+  accepted grant replacement, and enable readiness.
+
+Non-goals:
+
+- No Addon Manager lifecycle automation, Docker/systemd/Kubernetes/SSH/host
+  agent control, or sidecar process supervision.
+- No secret manager integration.
+- No arbitrary URL-based manifest fetch.
+- No Public Client API exposure.
+
+First executable task:
+
+- AWACG-020 Admin API contract and Admin Web data-source actions for
+  token/grant onboarding.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-web-addon-credential-grant-onboarding/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
+
+### Admin Web Addon Onboarding
+
+Status: completed.
+
+Objective:
+
+- Productize a safe Admin Web first-run onboarding path for **Addon Sidecars**.
+- Let administrators paste an Addon manifest JSON document, preview key facts,
+  and register it through the Admin API with `status: "disabled"` by default.
+- Preserve the boundary that registration is not installation: Taru stores and
+  validates the manifest snapshot, generates guidance, and verifies health, but
+  does not start, stop, install, update, remove, or supervise the sidecar.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-addon-onboarding/` as the authoritative execution
+  lane.
+- Admin Web client/data-source support for `POST /admin/v1/addons`
+  registration from pasted manifest JSON.
+- Admin Web onboarding UI that hands off to Addon Operations and the Addon
+  Install Guide after successful registration.
+
+Non-goals:
+
+- No Addon Manager lifecycle automation, marketplace, package signing,
+  Docker/systemd/Kubernetes/SSH/host-agent control, or sidecar process
+  supervision.
+- No arbitrary URL-based manifest fetch in this lane.
+- No Public Client API exposure.
+- No token issuance or grant editor unless needed as a minimal continuation
+  handoff.
+
+First executable task:
+
+- AWAON-020 Admin Web client/data-source registration support for pasted
+  manifest JSON, defaulting to disabled.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-web-addon-onboarding/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p taru-server register_addon_routes_disabled_by_default_and_validate_contract --no-fail-fast`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
+
+### Addon Install Guide Generation
+
+Status: completed.
+
+Objective:
+
+- Productize an Admin-only **Addon Install Guide** for registered **Addon
+  Sidecars**.
+- Generate Docker Compose and systemd snippets as inert operator guidance.
+- Surface Secret Reference checklist, Addon Health Check verification, and
+  registration verification steps without resolving secrets.
+- Expose the guide in Admin Web through the generated Admin API TypeScript
+  contract and existing data-source seam.
+
+Deliverables:
+
+- `docs/workstreams/addon-install-guide-generation/` as the authoritative
+  execution lane.
+- `GET /admin/v1/addons/{addon_id}/install-guide` Admin API route and DTO.
+- Generated Admin Web contract entries and Addon Operations guide preview.
+
+Non-goals:
+
+- No Addon Manager discovery, install, update, remove, marketplace, package
+  signing, Docker socket control, systemd control, Kubernetes adapter, SSH
+  host agent, log collection, or **Addon Sidecar** process supervision.
+- No resolved secret values or secret-manager integration.
+- No Public Client API exposure.
+
+First executable task:
+
+- AIG-020 server-owned install guide route, DTO, generated TypeScript contract,
+  and focused Rust tests.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/addon-install-guide-generation/`.
+- Closeout proof:
+  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p taru-server install_guide --no-fail-fast`;
+  - `cargo fmt --all -- --check`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
+
+### Admin Web Addon Operations
+
+Status: completed.
+
+Objective:
+
+- Productize the completed Admin Addon Operations backend in the Admin Web
+  Console.
+- Add generated Admin API TypeScript contract coverage for Addon Operations
+  route constants and DTOs.
+- Deepen the Admin Web `src/adminApi` seam so Addons are live-capable with
+  safe mock fallback.
+- Render an Addons operations surface for list/detail facts, lifecycle status,
+  grants/tokens summary, **Addon Health Check**, manifest surfaces, and
+  resource-call diagnostics.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-addon-operations/` as the authoritative
+  execution lane.
+- Generated Admin API TypeScript contract entries for Addon Operations.
+- `apps/admin-web` data-source, mock fixture, and UI tests for Addon
+  Operations.
+
+Non-goals:
+
+- No Addon Manager discovery, install, update, marketplace, package signing,
+  Docker socket control, or **Addon Sidecar** process supervision.
+- No new Addon Protocol behavior.
+- No OAuth-first Addon authorization.
+- No embedded trusted frontend plugin runtime.
+
+First executable task:
+
+- AWAO-020 generated Admin API TypeScript contract coverage after AWAO-010
+  workstream baseline.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-web-addon-operations/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo nextest run -p taru-server addons --no-fail-fast`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
 
 ### Admin Addon Operations MVP
 

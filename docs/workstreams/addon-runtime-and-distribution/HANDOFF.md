@@ -1,12 +1,12 @@
 # Addon Runtime And Distribution — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
 
-This lane is open as the next mainline child of
-`post-rpd-product-hardening` after AI Assisted Library Ops closed.
+This lane is complete and has returned to `post-rpd-product-hardening` for
+final umbrella closeout.
 
 Prerequisites are complete:
 
@@ -25,9 +25,9 @@ Prerequisites are complete:
   Admin-only diagnostics, and explicit accept/reject planning without
   autonomous writes.
 
-ARD-050 is complete. The lane is scoped to Addon Sidecar package/install/runtime
-readiness, routing, and proposal/intake handoff, not Addon Manager automation
-or Native Plugin runtime.
+ARD-020 through ARD-060 are complete. The lane shipped Addon Sidecar
+package/install/runtime readiness, routing, and proposal/intake handoff, not
+Addon Manager automation or Native Plugin runtime.
 
 ## Current Task
 
@@ -42,7 +42,7 @@ or Native Plugin runtime.
   - `python -m json.tool` for local and parent WORKSTREAM.json files
   - `git diff --check`
   - `git diff --name-only -- crates/taru-client-protocol`
-- Status: READY
+- Status: DONE
 - Review: close the lane or split follow-ons for Addon Manager discovery/
   install/update, package signing, marketplace, process supervision, logs,
   rollback, Native Plugin ABI, downloader protocols, Public Client surfaces,
@@ -122,12 +122,13 @@ attempt, not as passing closeout evidence.
 
 ## Blockers
 
-- None for ARD-050.
+- None.
 
 ## Next Recommended Action
 
-Start ARD-060 closeout. Re-run final lane evidence where the environment allows
-it, decide which Addon Manager/distribution/runtime scopes must become follow-on
-workstreams, update the parent `post-rpd-product-hardening` umbrella with the
-next lane decision, and keep Public Client API changes, direct library writes,
-and hidden schedulers out of this lane.
+Return to `post-rpd-product-hardening` and close the umbrella. If new work is
+needed, open a dedicated follow-on lane for Addon Manager discovery/install/
+update, marketplace hosting, package signing trust roots, process/container
+supervision, logs/rollback, Native Plugin ABI, downloader protocol adapters,
+local AI/model runtime, Public Client surfaces, or concrete Addon distribution
+automation. Do not hide those scopes inside this closed lane.

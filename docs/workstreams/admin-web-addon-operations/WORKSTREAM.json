@@ -1,0 +1,23 @@
+{
+  "slug": "admin-web-addon-operations",
+  "title": "Admin Web Addon Operations",
+  "status": "completed",
+  "current_task": null,
+  "created_at": "2026-05-22",
+  "updated_at": "2026-05-22",
+  "owner": "codex",
+  "scope": [
+    "crates/taru-api/src/admin_contract.rs",
+    "apps/admin-web/src/adminApi",
+    "apps/admin-web/src/App.tsx",
+    "apps/admin-web/src/App.test.tsx",
+    "docs/workstreams/admin-web-addon-operations"
+  ],
+  "non_goals": [
+    "Addon Manager discovery/install/update/marketplace",
+    "Docker socket or process supervision",
+    "Addon Protocol behavior changes",
+    "OAuth-first Addon authorization",
+    "trusted embedded frontend plugin runtime"
+  ]
+}

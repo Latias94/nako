@@ -1,11 +1,11 @@
 # Post-RPD Product Hardening — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
 
-The post-RPD product roadmap is open as an umbrella. It chooses
+The post-RPD product roadmap is complete as an umbrella. It chose
 `metadata-provider-breadth` as the first execution lane and records NFO/link,
 playback/transcode, managed import, network, AI, and addon distribution as
 ordered follow-ons. `metadata-provider-breadth` is complete. `nfo-link-authority`
@@ -35,37 +35,20 @@ boundary enforcement, Admin readiness diagnostics, and closeout. PRPH-150
 selected `ai-assisted-library-ops` next. AI Assisted Library Ops is complete
 with Generated Artifact proposal/readiness, Admin diagnostics, explicit
 accept/reject planning, and closeout. PRPH-170 opened
-`addon-runtime-and-distribution` as the current mainline lane. ARD-040 declared
+`addon-runtime-and-distribution` as the final mainline lane. ARD-040 declared
 task/event routing is complete with durable routing plans and no hidden
-schedulers.
+schedulers. ARD-050 Addon Artifact And Intake Handoff and ARD-060 closeout are
+now complete. All planned post-RPD mainline lanes are represented by dedicated
+workstreams and no default mainline task remains in this umbrella.
 
 ## Active Task
 
-- Task ID: `addon-runtime-and-distribution` ARD-050
-- Owner: codex
-- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-server/src/app`,
-  `crates/taru-server/src/http/admin.rs`,
-  `docs/workstreams/addon-runtime-and-distribution`
-- Validation: focused app/db tests for Addon artifact/intake handoff and
-  stale-target checks; relevant Admin/system tests; `cargo fmt --all
-  -- --check`; `git diff --check`; `git diff --name-only --
-  crates/taru-client-protocol`.
-- Status: READY
-- Review: keep Generated Artifact and acquisition candidate handoff explicit
-  and Taru-owned; avoid direct Canonical Metadata, NFO sidecar, Media Source,
-  Managed Import, library-file writes, hidden schedulers, Addon Manager
-  discovery/install/update, marketplace, package signing, process supervision,
-  Native Plugin ABI, Public Client API churn, and `taru-client-protocol`
-  changes.
-- Evidence: PRPH-170 lane scoring in `DESIGN.md`, AI Assisted Library Ops
-  closeout evidence, Addon Architecture Deepening, Admin Addon Operations MVP,
-  Downloads / Watch-Folder Intake, Network Access Boundary, and completed
-  side-effect / proposal / intake boundaries. ARD-020 completed package/install
-  descriptor validation and redacted Admin install-guide preview. ARD-030
-  completed Admin-only runtime readiness diagnostics for sidecar reachability,
-  protocol/manifest compatibility, grant gaps, Secret Reference gaps, network
-  policy blockers, degraded/unhealthy sidecars, and unsafe responses without
-  raw payload, URL, token, or secret echo.
+- Task ID: PRPH-180 / umbrella closeout
+- Owner: planner
+- Status: DONE
+- Evidence: `docs/workstreams/post-rpd-product-hardening/DESIGN.md`,
+  `docs/workstreams/post-rpd-product-hardening/EVIDENCE_AND_GATES.md`, and
+  `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -155,18 +138,28 @@ schedulers.
   / unsupported-event deferral, Admin Web contract/client support, and no hidden
   scheduler/outbox side effects. The next slice is Addon Artifact And Intake
   Handoff.
+- ARD-050 Addon Artifact And Intake Handoff is complete. Addon Token runtime
+  routes now submit Generated Artifacts into AILO proposal semantics and
+  acquisition candidates into DWI intake semantics without direct Canonical
+  Metadata, NFO sidecar, Media Source, Managed Import, promotion, or library
+  file-write authority.
+- ARD-060 closed Addon Runtime And Distribution and split Addon Manager
+  discovery/install/update, marketplace hosting, package signing trust roots,
+  process/container supervision, logs/rollback, Native Plugin ABI, downloader
+  protocol adapters, local AI/model runtime, Public Client surfaces, direct
+  library writes, hidden schedulers, and `taru-client-protocol` changes into
+  explicit follow-ons.
+- PRPH-180 closes this umbrella. Future productization work should open a
+  focused follow-on lane rather than reopening the post-RPD roadmap umbrella.
 
 ## Blockers
 
-- None for ARD-050.
+- None.
 
 ## Next Recommended Action
 
-- Execute `addon-runtime-and-distribution` ARD-050.
-- Prove Addon-produced Generated Artifacts and acquisition candidates enter
-  existing AILO proposal/review and DWI acquisition-intake boundaries.
-- Keep Addon Manager discovery/install/update, marketplace hosting, package
-  signing trust root, process/container supervision, Native Plugin ABI,
-  downloader protocol adapters, local AI runtime, Public Client API changes,
-  direct library writes, hidden schedulers, and `taru-client-protocol` changes
-  as separate follow-ons.
+- No default mainline action remains in this umbrella.
+- Open a new dedicated workstream when a concrete follow-on is selected, such
+  as protocol downloader adapters, Addon Manager/distribution automation,
+  package signing, process supervision/logs/rollback, concrete tunnel runtime,
+  local AI/model runtime, or Public Client surfaces.

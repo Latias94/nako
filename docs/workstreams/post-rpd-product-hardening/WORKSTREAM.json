@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "post-rpd-product-hardening",
   "title": "Post-RPD Product Hardening",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "roadmap_umbrella",
   "problem": "After packaging, Taru needs an ordered product-hardening roadmap so metadata, NFO/link, playback, managed import, network, AI, and addon work do not blur authority boundaries.",
@@ -49,7 +49,8 @@
     "docs/workstreams/playback-transcode-ops-hardening",
     "docs/workstreams/downloads-watch-folder-intake",
     "docs/workstreams/network-access-boundary",
-    "docs/workstreams/ai-assisted-library-ops"
+    "docs/workstreams/ai-assisted-library-ops",
+    "docs/workstreams/addon-runtime-and-distribution"
   ],
   "gates": [
     "git diff --check"
@@ -85,8 +86,8 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "addon-runtime-and-distribution ARD-050",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, Playback/Transcode Ops Hardening, Downloads / Watch-Folder Intake, Network Access Boundary, and AI Assisted Library Ops are completed. PRPH-170 opened Addon Runtime And Distribution as the current mainline lane after Generated Artifact proposal/review semantics were proven. ARD-020 completed package/install descriptor validation and redacted Admin install-guide preview. ARD-030 completed Admin-only runtime readiness diagnostics. ARD-040 completed declared task/event routing plans with durable routing-plan audit, explicit executable/deferred reasons, disabled-addon safety, no hidden scheduler/outbox side effects, Admin Web contract/client support, and no taru-client-protocol changes. Continue with ARD-050 Addon Artifact And Intake Handoff. Do not add Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, direct library writes, downloader protocol adapters, local AI runtime, Public Client API churn, hidden schedulers, or taru-client-protocol changes unless split into a dedicated lane."
+    "default_action": "done",
+    "next_task": null,
+    "notes": "Post-RPD Product Hardening is complete as an umbrella roadmap. The ordered mainline lanes metadata-provider-breadth, nfo-link-authority, managed-import-staging, link-apply-and-import-promotion, nfo-sidecar-promotion-apply, playback-transcode-ops-hardening, downloads-watch-folder-intake, network-access-boundary, ai-assisted-library-ops, and addon-runtime-and-distribution are represented by dedicated workstreams and are complete or split into explicit follow-ons. Further work should open a new dedicated lane for protocol downloader adapters, Addon Manager/distribution automation, concrete tunnel runtime/endpoint discovery, local AI/model runtime, Public Client surfaces, or other follow-ons rather than reopening this umbrella."
   }
 }

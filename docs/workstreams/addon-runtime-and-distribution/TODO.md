@@ -1,6 +1,6 @@
 # Addon Runtime And Distribution — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `ARD` prefix.
@@ -129,7 +129,7 @@ Task IDs use the `ARD` prefix.
 
 ## M5 — Closeout And Follow-On Split
 
-- [ ] ARD-060 [owner=planner] [deps=ARD-050] [scope=docs/workstreams/addon-runtime-and-distribution,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+- [x] ARD-060 [owner=planner] [deps=ARD-050] [scope=docs/workstreams/addon-runtime-and-distribution,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
   Goal: Verify final gates, close or split Addon Manager discovery/install,
   package signing, marketplace, process supervision, logs, rollback, Native
   Plugin ABI, downloader protocols, Public Client surfaces, and local AI/model
@@ -140,5 +140,12 @@ Task IDs use the `ARD` prefix.
   --check`; `git diff --name-only -- crates/taru-client-protocol`.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
-  re-score notes.
-  Handoff: Return to `post-rpd-product-hardening` with the next lane decision.
+  final closeout notes. Addon Manager discovery/install/update, marketplace
+  hosting, package signing trust roots, process/container supervision, logs,
+  rollback, Native Plugin ABI, downloader protocol adapters, Public Client
+  surfaces, local AI/model runtime, direct library writes, hidden schedulers,
+  and `taru-client-protocol` changes were split rather than hidden in this
+  lane.
+  Handoff: DONE. Return to `post-rpd-product-hardening`; the post-RPD roadmap
+  now has every planned mainline lane represented and either completed or split
+  into explicit follow-ons.

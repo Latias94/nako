@@ -51,6 +51,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             post(sync_addon_routing_plans),
         )
         .route(
+            "/admin/v1/addons/{addon_id}/install-guide",
+            get(get_addon_install_guide),
+        )
+        .route(
             "/admin/v1/addons/{addon_id}/diagnostics/resource-call",
             post(diagnose_addon_resource_call),
         )
@@ -171,6 +175,14 @@ pub(super) async fn sync_addon_routing_plans(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().sync_addon_routing_plans(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn get_addon_install_guide(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().get_addon_install_guide(addon_id).await?))
 }
 
 #[instrument(skip(app))]

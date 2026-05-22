@@ -2,18 +2,19 @@
   "schema_version": 1,
   "slug": "addon-runtime-and-distribution",
   "title": "Addon Runtime And Distribution",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "execution",
   "problem": "Addon sidecars and Admin operations exist, but Taru needs a safe package/install/runtime readiness and routing boundary before broader Addon distribution or manager behavior can ship without weakening extension trust boundaries.",
   "task_prefix": "ARD",
-  "current_task": "ARD-060",
+  "current_task": null,
   "completed_tasks": [
     "ARD-010",
     "ARD-020",
     "ARD-030",
     "ARD-040",
-    "ARD-050"
+    "ARD-050",
+    "ARD-060"
   ],
   "authoritative_docs": [
     {
@@ -82,8 +83,8 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "ARD-060",
-    "notes": "ARD-050 completed Addon Token handoff routes for Generated Artifacts and acquisition candidates. Generated Artifacts now enter existing AILO proposal semantics through Addon-backed Automation Providers and Addon Task jobs with idempotency replay/conflict checks, stale target rejection, provider capability preservation, redaction, and no Canonical Metadata/NFO/library-file mutation. Acquisition candidates now enter DWI AddonProposed intake records with redacted diagnostics and no Media Source, Managed Import, promotion, or library-file authority. Focused ARD-050 gates passed; the broader taru-server addons gate was attempted but blocked by Windows socket error 10055 and must be retried in a fresh environment before final closeout if required. Continue with ARD-060 closeout/follow-on split. Keep Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, Jellyfin Plugin Compatibility, direct library writes, downloader protocol adapters, local AI runtime, Public Client API changes, hidden schedulers, and taru-client-protocol changes out of scope unless split into a dedicated lane."
+    "default_action": "return_to_parent",
+    "next_task": "post-rpd-product-hardening PRPH-040 closeout",
+    "notes": "Addon Runtime And Distribution is complete. ARD-020 through ARD-050 shipped the sidecar package/install descriptor boundary, redacted install-guide preview, Admin-only runtime readiness diagnostics, declared task/event routing plans, and Addon Generated Artifact / acquisition-intake handoff into existing AILO/DWI semantics. ARD-060 closed the lane and split Addon Manager discovery/install/update, marketplace hosting, package signing trust roots, process/container supervision, logs/rollback, Native Plugin ABI, downloader protocol adapters, local AI/model runtime, Public Client surfaces, direct library writes, hidden schedulers, and taru-client-protocol changes into explicit follow-ons. Return to post-rpd-product-hardening for final umbrella closeout."
   }
 }

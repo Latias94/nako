@@ -1,0 +1,25 @@
+{
+  "slug": "admin-web-addon-onboarding",
+  "title": "Admin Web Addon Onboarding",
+  "status": "completed",
+  "current_task": null,
+  "created_at": "2026-05-22",
+  "updated_at": "2026-05-22",
+  "owner": "codex",
+  "scope": [
+    "apps/admin-web/src/adminApi",
+    "apps/admin-web/src/App.tsx",
+    "apps/admin-web/src/App.test.tsx",
+    "apps/admin-web/src/styles.css",
+    "docs/api/HTTP_API.md",
+    "docs/guides/ADDON_AUTHOR_GUIDE.md",
+    "docs/workstreams/admin-web-addon-onboarding"
+  ],
+  "non_goals": [
+    "Addon Manager lifecycle automation",
+    "Docker socket or process supervision",
+    "URL-based manifest fetch/discovery",
+    "marketplace/package signing/update flow",
+    "Public Client API exposure"
+  ]
+}

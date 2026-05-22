@@ -1,6 +1,6 @@
 # Addon Runtime And Distribution
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Purpose
@@ -20,13 +20,18 @@ queues and side-effect APIs.
 
 ## Current Decision
 
-ARD-030 completed the Admin-only runtime readiness boundary for Addon Sidecars:
-operators can classify reachability, protocol/manifest compatibility, local
-grant and Secret Reference gaps, network policy blockers, sidecar degraded /
-unhealthy states, and unsafe responses through redacted diagnostics. ARD-040
-is now complete; manifest-declared tasks and event subscriptions route into
-Taru-owned plans, and the next executable task is ARD-050: hand Addon-produced
-artifacts and acquisition candidates into existing proposal/intake semantics.
+This lane is complete. ARD-020 through ARD-050 shipped the Addon Sidecar
+package/install descriptor boundary, redacted install-guide preview, Admin-only
+runtime readiness diagnostics, declared task/event routing plans, and
+Addon-produced Generated Artifact / acquisition-intake handoff.
+
+ARD-060 closes the lane and returns routing to
+`post-rpd-product-hardening`. Addon Manager discovery/install/update,
+marketplace hosting, package signing trust roots, process/container
+supervision, rollback/log streaming, Native Plugin ABI, downloader protocol
+adapters, local AI/model runtime, Public Client surfaces, and
+`taru-client-protocol` changes remain split follow-ons rather than hidden in
+this lane.
 
 ## Authoritative Docs
 

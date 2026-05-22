@@ -590,6 +590,58 @@ pub struct AdminAddonResourceCallDiagnosticResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuideResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub addon_name: String,
+    pub addon_version: String,
+    pub protocol_version: String,
+    pub base_url: String,
+    pub status: AddonStatus,
+    pub docker_compose: AdminAddonInstallGuideSnippet,
+    pub systemd: AdminAddonInstallGuideSnippet,
+    pub secret_references: Vec<AdminAddonInstallGuideSecretReference>,
+    pub health_check_steps: Vec<AdminAddonInstallGuideStep>,
+    pub registration_verification_steps: Vec<AdminAddonInstallGuideStep>,
+    pub lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuideSnippet {
+    pub title: String,
+    pub filename: String,
+    pub content: String,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuideSecretReference {
+    pub id: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub required: bool,
+    pub env_var: String,
+    pub placeholder: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuideStep {
+    pub title: String,
+    pub command: String,
+    pub expected_result: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuideLifecycleBoundary {
+    pub taru_manages_containers: bool,
+    pub taru_manages_processes: bool,
+    pub taru_manages_packages: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct IssueAddonTokenRequest {
     #[serde(default)]
     pub label: Option<String>,

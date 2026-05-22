@@ -1,5 +1,13 @@
 import type {
+  AddonGrantsResponse,
+  AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
+  AdminAddonHealthCheckResponse,
+  AdminAddonInstallGuideResponse,
+  AdminAddonRegistrationResponse,
+  AdminAddonRegistrationsResponse,
+  AdminAddonResourceCallDiagnosticResponse,
+  AdminAddonSurfacesResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminGeneratedArtifactProposalListResponse,
   AdminJobListResponse,
@@ -282,6 +290,276 @@ export const mockGeneratedArtifactProposals: AdminGeneratedArtifactProposalListR
     },
   ],
   page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockAddons: AdminAddonRegistrationsResponse = {
+  addons: [
+    {
+      id: "addon-subtitle-lab",
+      manifest_id: "dev.taru.subtitle-lab",
+      name: "Subtitle Lab",
+      version: "0.3.0",
+      protocol_version: "2026-05-15",
+      base_url: "http://subtitle-lab:9100",
+      granted_scopes: ["subtitle_read", "item_metadata_read"],
+      status: "enabled",
+      created_at: "2026-05-22T02:10:00.000Z",
+      updated_at: "2026-05-22T02:45:00.000Z",
+    },
+    {
+      id: "addon-artwork-curator",
+      manifest_id: "dev.taru.artwork-curator",
+      name: "Artwork Curator",
+      version: "0.2.1",
+      protocol_version: "2026-05-15",
+      base_url: "http://artwork-curator:9200",
+      granted_scopes: ["image_read", "item_metadata_suggest"],
+      status: "disabled",
+      created_at: "2026-05-21T20:10:00.000Z",
+      updated_at: "2026-05-22T01:00:00.000Z",
+    },
+  ],
+};
+
+export const mockAddonDetail: AdminAddonRegistrationResponse = {
+  addon: {
+    summary: mockAddons.addons[0],
+    manifest: {
+      id: "dev.taru.subtitle-lab",
+      name: "Subtitle Lab",
+      version: "0.3.0",
+      protocol_version: "2026-05-15",
+      base_url: "http://subtitle-lab:9100",
+      description: "Suggests subtitle sidecars and metadata improvements.",
+      resources: [
+        {
+          kind: "subtitle",
+          path: "/resources/subtitles",
+          input_schema: null,
+          output_schema: null,
+          required_scopes: ["subtitle_read"],
+          timeout_ms: 5000,
+          max_attempts: 2,
+        },
+        {
+          kind: "metadata",
+          path: "/resources/metadata",
+          input_schema: null,
+          output_schema: null,
+          required_scopes: ["item_metadata_read"],
+          timeout_ms: null,
+          max_attempts: null,
+        },
+      ],
+      auth: "bearer",
+      default_timeout_ms: 5000,
+      default_max_attempts: 2,
+      scopes: ["subtitle_read", "item_metadata_read"],
+    },
+  },
+};
+
+export const mockAddonHealth: AdminAddonHealthCheckResponse = {
+  addon_id: "addon-subtitle-lab",
+  manifest_id: "dev.taru.subtitle-lab",
+  status: "reachable",
+  latency_ms: 42,
+  protocol_version: "2026-05-15",
+  addon_version: "0.3.0",
+  resource_count: 2,
+  protocol_checked_at: "2026-05-22T02:46:00.000Z",
+};
+
+export const mockAddonSurfaces: AdminAddonSurfacesResponse = {
+  addon_id: "addon-subtitle-lab",
+  manifest_id: "dev.taru.subtitle-lab",
+  entry_points: [
+    {
+      id: "inspect-subtitles",
+      kind: "item_action",
+      label: "Inspect subtitles",
+      path: "/entry/subtitles",
+      hosted_page_id: "diagnostics",
+      required_scopes: ["subtitle_read"],
+    },
+  ],
+  hosted_pages: [
+    {
+      id: "diagnostics",
+      title: "Subtitle diagnostics",
+      path: "/pages/diagnostics",
+      url: "http://subtitle-lab:9100/pages/diagnostics",
+      required_scopes: ["subtitle_read"],
+    },
+  ],
+  configuration_schema: {
+    schema_id: "subtitle-lab-settings",
+    schema: {
+      type: "object",
+      properties: {
+        preferredLanguage: { type: "string" },
+      },
+    },
+  },
+  secret_reference_fields: [
+    {
+      id: "subtitle-provider-key",
+      label: "Provider API key",
+      description: "Secret Reference resolved by Taru at runtime.",
+      required: false,
+    },
+  ],
+  tasks: [
+    {
+      id: "scan-missing-subtitles",
+      name: "Scan missing subtitles",
+      path: "/tasks/missing-subtitles",
+      description: "Find media items without subtitle sidecars.",
+      required_scopes: ["subtitle_read"],
+      timeout_ms: 30000,
+      max_attempts: 1,
+    },
+  ],
+  event_subscriptions: [
+    {
+      id: "scan-completed",
+      event_kind: "scan.completed",
+      path: "/events/scan-completed",
+      required_scopes: ["item_metadata_read"],
+      filters: {},
+    },
+  ],
+};
+
+export const mockAddonTokens: AddonTokensResponse = {
+  tokens: [
+    {
+      id: "addon-token-active",
+      addon_id: "addon-subtitle-lab",
+      label: "sidecar runtime",
+      token_prefix: "taru_at_subtitle",
+      status: "active",
+      created_at: "2026-05-22T02:10:00.000Z",
+      rotated_at: null,
+      revoked_at: null,
+      last_used_at: "2026-05-22T02:44:00.000Z",
+    },
+  ],
+};
+
+export const mockAddonGrants: AddonGrantsResponse = {
+  grants: [
+    {
+      id: "addon-grant-subtitle",
+      addon_id: "addon-subtitle-lab",
+      permission: "subtitle_write",
+      library_id: "library-anime",
+      created_at: "2026-05-22T02:10:00.000Z",
+    },
+  ],
+};
+
+export const mockAddonDiagnostic: AdminAddonResourceCallDiagnosticResponse = {
+  addon_id: "addon-subtitle-lab",
+  manifest_id: "dev.taru.subtitle-lab",
+  resource: "subtitle",
+  status: "succeeded",
+  latency_ms: 85,
+  attempts: 1,
+  http_status: 200,
+};
+
+export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
+  addon_id: "addon-subtitle-lab",
+  manifest_id: "dev.taru.subtitle-lab",
+  addon_name: "Subtitle Lab",
+  addon_version: "0.3.0",
+  protocol_version: "2026-05-15",
+  base_url: "http://subtitle-lab:9100",
+  status: "enabled",
+  docker_compose: {
+    title: "Docker Compose sidecar snippet",
+    filename: "compose.dev-taru-subtitle-lab.yml",
+    content: [
+      "services:",
+      "  dev-taru-subtitle-lab:",
+      "    image: \"<replace-with-dev-taru-subtitle-lab-image>:0.3.0\"",
+      "    restart: unless-stopped",
+      "    environment:",
+      "      TARU_ADDON_BASE_URL: \"http://subtitle-lab:9100\"",
+      "      TARU_ADDON_PROTOCOL_VERSION: \"2026-05-15\"",
+      "      TARU_ADDON_MANIFEST_ID: \"dev.taru.subtitle-lab\"",
+      "      ADDON_SECRET_SUBTITLE_PROVIDER_KEY: \"secret-reference:subtitle-provider-key\"",
+      "    healthcheck:",
+      "      test: [\"CMD-SHELL\", \"curl -fsS http://subtitle-lab:9100/health >/dev/null\"]",
+    ].join("\n"),
+    notes: [
+      "Run this Addon Sidecar as a separate service on a network Taru can reach.",
+      "Taru does not mount the Docker socket or manage this container lifecycle.",
+    ],
+  },
+  systemd: {
+    title: "systemd sidecar unit snippet",
+    filename: "dev-taru-subtitle-lab.service",
+    content: [
+      "[Unit]",
+      "Description=Subtitle Lab Addon Sidecar",
+      "After=network-online.target",
+      "",
+      "[Service]",
+      "Type=simple",
+      "Environment=\"TARU_ADDON_BASE_URL=http://subtitle-lab:9100\"",
+      "Environment=\"TARU_ADDON_PROTOCOL_VERSION=2026-05-15\"",
+      "Environment=\"TARU_ADDON_MANIFEST_ID=dev.taru.subtitle-lab\"",
+      "Environment=\"ADDON_SECRET_SUBTITLE_PROVIDER_KEY=secret-reference:subtitle-provider-key\"",
+      "ExecStart=<addon-sidecar-command> --listen 0.0.0.0:9100",
+      "Restart=on-failure",
+    ].join("\n"),
+    notes: [
+      "Replace <addon-sidecar-command> with the Addon author's binary and arguments.",
+      "Taru does not call systemd or supervise this process.",
+    ],
+  },
+  secret_references: [
+    {
+      id: "subtitle-provider-key",
+      label: "Provider API key",
+      description: "Secret Reference resolved by Taru at runtime.",
+      required: false,
+      env_var: "ADDON_SECRET_SUBTITLE_PROVIDER_KEY",
+      placeholder: "secret-reference:subtitle-provider-key",
+    },
+  ],
+  health_check_steps: [
+    {
+      title: "Check the Addon Sidecar health contract directly",
+      command: "curl -fsS -X POST 'http://subtitle-lab:9100/health' -H 'Content-Type: application/json'",
+      expected_result: "The sidecar returns matching protocol, manifest, addon version, and resource-count facts.",
+    },
+    {
+      title: "Check the Addon through Taru Admin API",
+      command: "curl -fsS -X POST \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab/health-check\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "Taru returns a redaction-safe Addon Health Check status.",
+    },
+  ],
+  registration_verification_steps: [
+    {
+      title: "Verify the registered Addon manifest snapshot",
+      command: "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "The response summary contains manifest_id `dev.taru.subtitle-lab` and status `enabled`.",
+    },
+    {
+      title: "Verify declared Addon surfaces",
+      command: "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab/surfaces\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "The response lists Addon surface declarations only.",
+    },
+  ],
+  lifecycle_boundary: {
+    taru_manages_containers: false,
+    taru_manages_processes: false,
+    taru_manages_packages: false,
+    message: "Taru generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Taru.",
+  },
 };
 
 export const mockEvents: AdminOutboxEventListResponse = {
@@ -821,6 +1099,12 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
 
 export const mockSources: AdminSourceMap = {
   overview: "mock",
+  addons: "mock",
+  addonHealth: "mock",
+  addonSurfaces: "mock",
+  addonInstallGuide: "mock",
+  addonTokens: "mock",
+  addonGrants: "mock",
   acquisitionIntake: "mock",
   catalogGovernance: "mock",
   generatedArtifactProposals: "mock",
@@ -836,6 +1120,139 @@ export const mockAdminConsoleData: AdminConsoleData = {
   sources: mockSources,
   errors: {},
   overview: mockOverview,
+  addons: {
+    selectedAddonId: "addon-subtitle-lab",
+    addons: mockAddons.addons.map((addon) => ({
+      id: addon.id,
+      manifestId: addon.manifest_id,
+      name: addon.name,
+      version: addon.version,
+      protocolVersion: addon.protocol_version,
+      baseUrl: addon.base_url,
+      status: addon.status,
+      grantedScopes: addon.granted_scopes,
+      updatedAt: addon.updated_at,
+    })),
+    selectedAddon: {
+      id: mockAddonDetail.addon.summary.id,
+      manifestId: mockAddonDetail.addon.summary.manifest_id,
+      name: mockAddonDetail.addon.summary.name,
+      version: mockAddonDetail.addon.summary.version,
+      protocolVersion: mockAddonDetail.addon.summary.protocol_version,
+      baseUrl: mockAddonDetail.addon.summary.base_url,
+      status: mockAddonDetail.addon.summary.status,
+      grantedScopes: mockAddonDetail.addon.summary.granted_scopes,
+      updatedAt: mockAddonDetail.addon.summary.updated_at,
+      description: mockAddonDetail.addon.manifest.description,
+      resourceCount: mockAddonDetail.addon.manifest.resources.length,
+      resourceKinds: mockAddonDetail.addon.manifest.resources.map((resource) => resource.kind),
+      authMode: mockAddonDetail.addon.manifest.auth,
+      defaultTimeoutMs: mockAddonDetail.addon.manifest.default_timeout_ms,
+      defaultMaxAttempts: mockAddonDetail.addon.manifest.default_max_attempts,
+    },
+    health: {
+      addonId: mockAddonHealth.addon_id,
+      status: mockAddonHealth.status,
+      latencyMs: mockAddonHealth.latency_ms,
+      protocolVersion: mockAddonHealth.protocol_version ?? null,
+      addonVersion: mockAddonHealth.addon_version ?? null,
+      resourceCount: mockAddonHealth.resource_count ?? null,
+      safeErrorCode: mockAddonHealth.safe_error_code ?? null,
+    },
+    surfaces: {
+      entryPoints: mockAddonSurfaces.entry_points.map((entryPoint) => ({
+        id: entryPoint.id,
+        label: entryPoint.label,
+        kind: entryPoint.kind,
+        path: entryPoint.path,
+        hostedPageId: entryPoint.hosted_page_id ?? null,
+      })),
+      hostedPages: mockAddonSurfaces.hosted_pages.map((page) => ({
+        id: page.id,
+        title: page.title,
+        path: page.path,
+        url: page.url,
+      })),
+      configurationSchemaId: mockAddonSurfaces.configuration_schema?.schema_id ?? null,
+      secretReferenceFieldCount: mockAddonSurfaces.secret_reference_fields.length,
+      tasks: mockAddonSurfaces.tasks.map((task) => ({
+        id: task.id,
+        name: task.name,
+        path: task.path,
+      })),
+      eventSubscriptions: mockAddonSurfaces.event_subscriptions.map((subscription) => ({
+        id: subscription.id,
+        eventKind: subscription.event_kind,
+        path: subscription.path,
+      })),
+    },
+    installGuide: {
+      addonId: mockAddonInstallGuide.addon_id,
+      manifestId: mockAddonInstallGuide.manifest_id,
+      addonName: mockAddonInstallGuide.addon_name,
+      addonVersion: mockAddonInstallGuide.addon_version,
+      protocolVersion: mockAddonInstallGuide.protocol_version,
+      baseUrl: mockAddonInstallGuide.base_url,
+      status: mockAddonInstallGuide.status,
+      dockerCompose: {
+        title: mockAddonInstallGuide.docker_compose.title,
+        filename: mockAddonInstallGuide.docker_compose.filename,
+        content: mockAddonInstallGuide.docker_compose.content,
+        notes: mockAddonInstallGuide.docker_compose.notes,
+      },
+      systemd: {
+        title: mockAddonInstallGuide.systemd.title,
+        filename: mockAddonInstallGuide.systemd.filename,
+        content: mockAddonInstallGuide.systemd.content,
+        notes: mockAddonInstallGuide.systemd.notes,
+      },
+      secretReferences: mockAddonInstallGuide.secret_references.map((secret) => ({
+        id: secret.id,
+        label: secret.label,
+        description: secret.description ?? null,
+        required: secret.required,
+        envVar: secret.env_var,
+        placeholder: secret.placeholder,
+      })),
+      healthCheckSteps: mockAddonInstallGuide.health_check_steps.map((step) => ({
+        title: step.title,
+        command: step.command,
+        expectedResult: step.expected_result,
+      })),
+      registrationVerificationSteps: mockAddonInstallGuide.registration_verification_steps.map((step) => ({
+        title: step.title,
+        command: step.command,
+        expectedResult: step.expected_result,
+      })),
+      lifecycleBoundary: {
+        taruManagesContainers: mockAddonInstallGuide.lifecycle_boundary.taru_manages_containers,
+        taruManagesProcesses: mockAddonInstallGuide.lifecycle_boundary.taru_manages_processes,
+        taruManagesPackages: mockAddonInstallGuide.lifecycle_boundary.taru_manages_packages,
+        message: mockAddonInstallGuide.lifecycle_boundary.message,
+      },
+    },
+    tokens: mockAddonTokens.tokens.map((token) => ({
+      id: token.id,
+      label: token.label,
+      tokenPrefix: token.token_prefix,
+      status: token.status,
+      lastUsedAt: token.last_used_at,
+    })),
+    grants: mockAddonGrants.grants.map((grant) => ({
+      id: grant.id,
+      permission: grant.permission,
+      libraryId: grant.library_id,
+    })),
+    diagnostic: {
+      addonId: mockAddonDiagnostic.addon_id,
+      resource: mockAddonDiagnostic.resource,
+      status: mockAddonDiagnostic.status,
+      latencyMs: mockAddonDiagnostic.latency_ms,
+      attempts: mockAddonDiagnostic.attempts,
+      httpStatus: mockAddonDiagnostic.http_status ?? null,
+      safeErrorCode: mockAddonDiagnostic.safe_error_code ?? null,
+    },
+  },
   libraries: [
     {
       id: "library-anime",

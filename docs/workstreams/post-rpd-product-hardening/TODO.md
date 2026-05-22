@@ -1,6 +1,6 @@
 # Post-RPD Product Hardening — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `PRPH` prefix. This is an umbrella roadmap, so implementation
@@ -32,11 +32,13 @@ tasks belong in child workstreams.
 
 ## M3 — Umbrella Closeout
 
-- [ ] PRPH-040 [owner=planner] [deps=PRPH-030] [scope=docs/workstreams/post-rpd-product-hardening]
+- [x] PRPH-040 [owner=planner] [deps=PRPH-030] [scope=docs/workstreams/post-rpd-product-hardening]
   Goal: Close or refresh the umbrella once the active product lanes are represented by dedicated workstreams.
   Validation: Fresh review of active/deferred lanes and workstream index.
   Evidence: EVIDENCE_AND_GATES.md and HANDOFF.md.
-  Handoff: Keep this umbrella active only while it reduces coordination cost.
+  Handoff: DONE. The umbrella is closed after all planned post-RPD mainline
+  lanes were represented by dedicated workstreams and remaining work was split
+  into explicit follow-ons.
 
 ## M4 — Post-LAIP Lane Scoring
 
@@ -174,10 +176,25 @@ tasks belong in child workstreams.
   child workstream docs, and workstream index agree on the next executable lane.
   Evidence: `DESIGN.md` Post-AILO Closeout Re-Score and
   `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`.
-  Handoff: DONE. ARD-020 completed package / install descriptor and redacted
-  install-guide boundary, and ARD-030 completed Admin-only runtime readiness
-  diagnostics. Execute `addon-runtime-and-distribution` ARD-040 declared
-  task/event routing plans without adding Addon Manager automation, package
+  Handoff: DONE. Opened `addon-runtime-and-distribution`; ARD-020 through
+  ARD-060 are now complete without adding Addon Manager automation, package
   signing, process supervision, Native Plugin ABI, direct library writes,
   Public Client API churn, hidden schedulers, or `taru-client-protocol`
   changes.
+
+## M14 — Post-Addon Runtime Closeout And Umbrella Completion
+
+- [x] PRPH-180 [owner=planner] [deps=ARD-060] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/addon-runtime-and-distribution,docs/workstreams/README.md]
+  Goal: Review Addon Runtime And Distribution closeout evidence, mark the
+  Addon lane complete, split remaining downloader, Addon Manager, package
+  signing, process supervision, tunnel runtime, local AI runtime, and Public
+  Client surface follow-ons, and close the post-RPD umbrella.
+  Validation: Parent and child WORKSTREAM.json files validate; DESIGN.md,
+  TODO.md, MILESTONES.md, EVIDENCE_AND_GATES.md, HANDOFF.md, and workstream
+  index agree; `git diff --check`; `git diff --name-only --
+  crates/taru-client-protocol`.
+  Evidence: `DESIGN.md` Post-ARD Closeout And Umbrella Completion,
+  `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`, and
+  `docs/workstreams/addon-runtime-and-distribution/WORKSTREAM.json`.
+  Handoff: DONE. Future work should open focused follow-on lanes rather than
+  reopening this roadmap umbrella.

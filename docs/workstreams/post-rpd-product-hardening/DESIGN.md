@@ -1,6 +1,6 @@
 # Post-RPD Product Hardening Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -522,12 +522,37 @@ AI-specific paths.
 | Local AI Runtime / Vector Search | Useful follow-on | Generated Artifact semantics exist, but model execution, embeddings, storage, GPU scheduling, and provider adapters are separate operational concerns. | Split after Addon runtime/distribution or when a concrete provider/runtime is selected. |
 
 PRPH-170 therefore opens `addon-runtime-and-distribution` as the next mainline
-lane. ARD-020 package/install descriptor and redacted install-guide boundary
-are complete, ARD-030 runtime readiness diagnostics are complete, and the next
-executable task is ARD-040 declared task/event routing plans. It must not add
+lane. ARD-020 through ARD-060 are now complete. The Addon lane did not add
 Addon Manager discovery, automatic install/update, package signing trust root,
 process supervision, Native Plugin ABI, direct library writes, Public Client
 API changes, hidden schedulers, or `taru-client-protocol` changes.
+
+## Post-ARD Closeout And Umbrella Completion — 2026-05-22
+
+`addon-runtime-and-distribution` is now complete. Taru can validate and preview
+sidecar package/install descriptors, generate redaction-safe install guidance,
+classify runtime readiness, record declared task/event routing plans, and route
+Addon-produced Generated Artifacts and acquisition candidates into the existing
+AILO/DWI proposal and intake boundaries without autonomous Canonical Metadata,
+NFO sidecar, Media Source, Managed Import, library-file writes, hidden
+schedulers, Public Client API changes, or `taru-client-protocol` churn.
+
+That satisfies the post-RPD umbrella's main coordination purpose: the ordered
+productization roadmap has been translated into concrete workstreams, and each
+mainline lane has either closed with evidence or split remaining work into
+explicit follow-ons.
+
+| Follow-on | Why it is not hidden in PRPH | Routing decision |
+| --- | --- | --- |
+| Protocol downloader adapters | DWI created safe Acquisition Intake, but concrete torrent/Usenet/RSS/download-client adapters need credential, retry, sandbox, and adapter-failure policies. | Open a downloader-adapter lane when a concrete adapter is selected. |
+| Addon Manager / marketplace / package signing | ARD proved package/install/runtime readiness, not discovery, trust roots, automatic install/update, or package hosting. | Open an Addon Manager / distribution automation lane. |
+| Process/container supervision, logs, rollback | ARD explicitly keeps Addon Sidecars outside Taru lifecycle management. | Open a runtime supervision lane only with explicit operator lifecycle semantics. |
+| Concrete tunnel runtime / endpoint discovery | NAB proved policy/readiness, not starting tunnel providers or exposing endpoint discovery to clients. | Open a network runtime/client-discovery lane. |
+| Local AI/model runtime and vector search | AILO proved Generated Artifact semantics, not model execution, embeddings, GPU scheduling, or provider adapters. | Open a local AI runtime lane when the runtime target is chosen. |
+| Public Client surfaces | Admin diagnostics exist; Public Client API shape remains intentionally unchanged. | Open a Public Client/API contract lane. |
+
+No further default mainline task remains inside this umbrella. Future work
+should start from one of the split follow-ons above or a new product goal.
 
 ## Closeout Condition
 
@@ -537,3 +562,5 @@ This umbrella can close when:
 - each completed execution lane records fresh evidence and closeout;
 - deferred lanes are either opened or explicitly re-scored;
 - `docs/workstreams/README.md` points to the current active product lane.
+
+Status: met on 2026-05-22.

@@ -24,6 +24,12 @@ import type {
   AdminSourceMap,
   DataSourceMode,
 } from "./adminApi/dataSource";
+import type {
+  AddonGrantAssignmentInput,
+  AddonManifestPreview,
+  AddonOnboardingResult,
+  AddonTokenActionResult,
+} from "./adminApi/types";
 import { mockAdminConsoleData } from "./adminApi/mockData";
 
 type LoadState =
@@ -59,6 +65,13 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
     status: "loading",
     data: mockAdminConsoleData,
   });
+  const [addonActionMessage, setAddonActionMessage] = useState<string | null>(null);
+  const [manifestJson, setManifestJson] = useState("");
+  const [manifestPreview, setManifestPreview] = useState<AddonManifestPreview | null>(null);
+  const [onboardingResult, setOnboardingResult] = useState<AddonOnboardingResult | null>(null);
+  const [tokenLabel, setTokenLabel] = useState("sidecar runtime");
+  const [grantPermission, setGrantPermission] = useState<AddonGrantAssignmentInput["permission"]>("metadata_write");
+  const [oneTimeToken, setOneTimeToken] = useState<AddonTokenActionResult | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -92,6 +105,152 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
   }, [dataSource]);
 
   const sourceCounts = useMemo(() => summarizeSources(loadState.data), [loadState.data]);
+  const selectedAddon = loadState.data.addons.selectedAddon;
+
+  const runAddonStatusAction = async (status: "enabled" | "disabled") => {
+    if (!selectedAddon || !dataSource.setAddonStatus) {
+      return;
+    }
+
+    const addons = await dataSource.setAddonStatus(selectedAddon.id, status);
+    setLoadState((current) => ({ ...current, data: { ...current.data, addons } }));
+    setAddonActionMessage(`${selectedAddon.name} ${status}`);
+  };
+
+  const runAddonHealthCheck = async () => {
+    if (!selectedAddon || !dataSource.checkAddonHealth) {
+      return;
+    }
+
+    const health = await dataSource.checkAddonHealth(selectedAddon.id);
+    setLoadState((current) => ({
+      ...current,
+      data: { ...current.data, addons: { ...current.data.addons, health } },
+    }));
+    setAddonActionMessage(`${selectedAddon.name} health ${health.status}`);
+  };
+
+  const runAddonDiagnostic = async () => {
+    if (!selectedAddon || !dataSource.diagnoseAddonResource) {
+      return;
+    }
+
+    const resource = selectedAddon.resourceKinds[0] ?? "metadata";
+    const diagnostic = await dataSource.diagnoseAddonResource(selectedAddon.id, resource);
+    setLoadState((current) => ({
+      ...current,
+      data: { ...current.data, addons: { ...current.data.addons, diagnostic } },
+    }));
+    setAddonActionMessage(`${selectedAddon.name} diagnostic ${diagnostic.status}`);
+  };
+
+  const updateManifestJson = (value: string) => {
+    setManifestJson(value);
+    setOnboardingResult(null);
+    if (!value.trim()) {
+      setManifestPreview(null);
+      return;
+    }
+
+    setManifestPreview(
+      dataSource.previewAddonManifestJson?.(value) ?? {
+        status: "invalid_json",
+        error: "Manifest preview is unavailable.",
+      },
+    );
+  };
+
+  const registerAddonManifest = async () => {
+    if (!dataSource.registerAddonManifestJson || !manifestJson.trim()) {
+      return;
+    }
+
+    const result = await dataSource.registerAddonManifestJson(manifestJson);
+    setOnboardingResult(result);
+    if (result.status === "registered") {
+      setAddonActionMessage(`${result.addon.name} registered as ${result.addon.status}`);
+    }
+  };
+
+  const issueAddonToken = async () => {
+    if (!selectedAddon || !dataSource.issueAddonToken) {
+      return;
+    }
+    const result = await dataSource.issueAddonToken(selectedAddon.id, tokenLabel);
+    setOneTimeToken(result);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          tokens: [result.token, ...current.data.addons.tokens],
+        },
+      },
+    }));
+  };
+
+  const rotateFirstAddonToken = async () => {
+    if (!selectedAddon || !dataSource.rotateAddonToken || !loadState.data.addons.tokens[0]) {
+      return;
+    }
+    const result = await dataSource.rotateAddonToken(
+      selectedAddon.id,
+      loadState.data.addons.tokens[0].id,
+      `${tokenLabel} rotated`,
+    );
+    setOneTimeToken(result);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          tokens: [result.token, ...current.data.addons.tokens],
+        },
+      },
+    }));
+  };
+
+  const revokeFirstAddonToken = async () => {
+    if (!selectedAddon || !dataSource.revokeAddonToken || !loadState.data.addons.tokens[0]) {
+      return;
+    }
+    const revoked = await dataSource.revokeAddonToken(selectedAddon.id, loadState.data.addons.tokens[0].id);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          tokens: current.data.addons.tokens.map((token) => (token.id === revoked.id ? revoked : token)),
+        },
+      },
+    }));
+    setAddonActionMessage(`Token ${revoked.id} revoked`);
+  };
+
+  const replaceAddonGrants = async () => {
+    if (!selectedAddon || !dataSource.replaceAddonGrants) {
+      return;
+    }
+    const grants = await dataSource.replaceAddonGrants(selectedAddon.id, [
+      {
+        permission: grantPermission,
+        libraryId: null,
+      },
+    ]);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          grants,
+        },
+      },
+    }));
+  };
 
   return (
     <div className="appShell">
@@ -418,6 +577,451 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
             </div>
           </section>
 
+          <section className="panel wide" id="addons">
+            <PanelHeader
+              title="Addon Operations"
+              source={combinedSource(
+                loadState.data.sources.addons,
+                loadState.data.sources.addonHealth,
+                loadState.data.sources.addonSurfaces,
+                loadState.data.sources.addonInstallGuide,
+                loadState.data.sources.addonTokens,
+                loadState.data.sources.addonGrants,
+              )}
+              description="Manage Addon Sidecars without installing, launching, or trusting their processes."
+            />
+            <section className="addonOnboardingPanel" aria-label="Addon Onboarding">
+              <div>
+                <h3>Addon Onboarding</h3>
+                <p>
+                  Paste an Addon manifest JSON document to register the Addon
+                  as disabled. Registration does not install or start the
+                  sidecar.
+                </p>
+              </div>
+              <div className="onboardingGrid">
+                <label className="manifestEditor">
+                  <span>Addon manifest JSON</span>
+                  <textarea
+                    aria-label="Addon manifest JSON"
+                    value={manifestJson}
+                    onChange={(event) => updateManifestJson(event.target.value)}
+                    placeholder='{"id":"dev.taru.example","protocol_version":"2026-05-15","base_url":"http://example-addon:9100"}'
+                    rows={9}
+                  />
+                </label>
+                <div className="manifestPreviewCard">
+                  <strong>Manifest preview</strong>
+                  {manifestPreview?.status === "ready" && manifestPreview.summary ? (
+                    <>
+                      <p>{manifestPreview.summary.name}</p>
+                      <span>
+                        {manifestPreview.summary.manifestId} · {manifestPreview.summary.resourceCount} resources
+                      </span>
+                      <div className="capabilityLine">
+                        <StatusPill label={manifestPreview.summary.protocolVersion} tone="info" />
+                        <StatusPill label={`${manifestPreview.summary.declaredScopes.length} scopes`} tone="muted" />
+                        <StatusPill label={`${manifestPreview.summary.secretReferenceCount} secrets`} tone="muted" />
+                      </div>
+                    </>
+                  ) : (
+                    <p>{manifestPreview?.error ?? "Paste manifest JSON to preview registration facts."}</p>
+                  )}
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      manifestPreview?.status !== "ready" ||
+                      !dataSource.registerAddonManifestJson
+                    }
+                    onClick={registerAddonManifest}
+                    type="button"
+                  >
+                    Register disabled Addon
+                  </button>
+                </div>
+              </div>
+              {onboardingResult?.status === "registered" ? (
+                <div className="notice subtle" role="status">
+                  <ShieldCheck size={17} />
+                  <div>
+                    <strong>
+                      {onboardingResult.addon.name} registered as {onboardingResult.addon.status}
+                    </strong>
+                    <ul>
+                      {onboardingResult.nextSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : null}
+              {onboardingResult?.status === "invalid_json" || onboardingResult?.status === "server_error" ? (
+                <div className="notice warning" role="alert">
+                  <CircleAlert size={17} />
+                  <span>{onboardingResult.error}</span>
+                </div>
+              ) : null}
+            </section>
+            <div className="splitPanel">
+              <div>
+                <h3>Registered Addons</h3>
+                <div className="stackList">
+                  {loadState.data.addons.addons.map((addon) => (
+                    <div className="listRow" key={addon.id}>
+                      <div>
+                        <strong>{addon.name}</strong>
+                        <span>
+                          {addon.manifestId} · {addon.protocolVersion}
+                        </span>
+                      </div>
+                      <StatusPill
+                        label={addon.status}
+                        tone={
+                          addon.status === "enabled"
+                            ? "good"
+                            : addon.status === "disabled"
+                              ? "warn"
+                              : "muted"
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="runtimeCard">
+                <Puzzle size={18} />
+                <h3>{loadState.data.addons.selectedAddon?.name ?? "No Addon selected"}</h3>
+                <p>{loadState.data.addons.selectedAddon?.description ?? "Select an Addon to inspect its operations."}</p>
+                <p className="runtimeNote">
+                  Health: {loadState.data.addons.health?.status ?? "unknown"} ·{" "}
+                  {loadState.data.addons.health?.latencyMs ?? 0} ms
+                </p>
+                <div className="capabilityLine">
+                  <StatusPill
+                    label={`${loadState.data.addons.selectedAddon?.resourceCount ?? 0} resources`}
+                    tone="info"
+                  />
+                  <StatusPill label={`${loadState.data.addons.grants.length} grants`} tone="info" />
+                  <StatusPill label={`${loadState.data.addons.tokens.length} tokens`} tone="muted" />
+                </div>
+              </div>
+            </div>
+
+            <div className="capabilityLine">
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.setAddonStatus}
+                onClick={() => runAddonStatusAction("enabled")}
+                type="button"
+              >
+                Enable Addon
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.setAddonStatus}
+                onClick={() => runAddonStatusAction("disabled")}
+                type="button"
+              >
+                Disable Addon
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.checkAddonHealth}
+                onClick={runAddonHealthCheck}
+                type="button"
+              >
+                Run health check
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.diagnoseAddonResource}
+                onClick={runAddonDiagnostic}
+                type="button"
+              >
+                Run resource diagnostic
+              </button>
+            </div>
+            {addonActionMessage ? (
+              <div className="notice subtle" role="status">
+                <ShieldCheck size={17} />
+                <span>{addonActionMessage}</span>
+              </div>
+            ) : null}
+
+            <section className="credentialGrantPanel" aria-label="Addon Credentials and Grants">
+              <div>
+                <h3>Addon Credentials & Grants</h3>
+                <p>
+                  Create one-time Addon Tokens and accepted grants before enabling the sidecar.
+                  Raw tokens are shown only immediately after issue or rotation.
+                </p>
+              </div>
+              <div className="credentialGrid">
+                <div className="credentialCard">
+                  <h4>Addon Tokens</h4>
+                  <label className="compactField">
+                    <span>Addon token label</span>
+                    <input
+                      aria-label="Addon token label"
+                      value={tokenLabel}
+                      onChange={(event) => setTokenLabel(event.target.value)}
+                    />
+                  </label>
+                  <div className="capabilityLine">
+                    <button
+                      className="secondaryButton"
+                      disabled={!selectedAddon || !dataSource.issueAddonToken}
+                      onClick={issueAddonToken}
+                      type="button"
+                    >
+                      Issue token
+                    </button>
+                    <button
+                      className="secondaryButton"
+                      disabled={!selectedAddon || !dataSource.rotateAddonToken || loadState.data.addons.tokens.length === 0}
+                      onClick={rotateFirstAddonToken}
+                      type="button"
+                    >
+                      Rotate first token
+                    </button>
+                    <button
+                      className="secondaryButton"
+                      disabled={!selectedAddon || !dataSource.revokeAddonToken || loadState.data.addons.tokens.length === 0}
+                      onClick={revokeFirstAddonToken}
+                      type="button"
+                    >
+                      Revoke first token
+                    </button>
+                  </div>
+                  {oneTimeToken ? (
+                    <div className="oneTimeSecret" role="status">
+                      <strong>Copy this Addon Token now. It will not be shown again.</strong>
+                      <code>{oneTimeToken.rawToken}</code>
+                      <span>
+                        Saved summary: {oneTimeToken.token.label} · {oneTimeToken.token.tokenPrefix}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="stackList">
+                    {loadState.data.addons.tokens.map((token) => (
+                      <div className="listRow" key={token.id}>
+                        <div>
+                          <strong>{token.label}</strong>
+                          <span>{token.id} · {token.tokenPrefix}</span>
+                        </div>
+                        <StatusPill label={token.status} tone={token.status === "active" ? "good" : "muted"} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="credentialCard">
+                  <h4>Accepted Grants</h4>
+                  <label className="compactField">
+                    <span>Addon grant permission</span>
+                    <select
+                      aria-label="Addon grant permission"
+                      value={grantPermission}
+                      onChange={(event) =>
+                        setGrantPermission(event.target.value as AddonGrantAssignmentInput["permission"])
+                      }
+                    >
+                      <option value="metadata_write">metadata_write</option>
+                      <option value="artwork_write">artwork_write</option>
+                      <option value="subtitle_write">subtitle_write</option>
+                      <option value="library_file_write">library_file_write</option>
+                    </select>
+                  </label>
+                  <button
+                    className="secondaryButton"
+                    disabled={!selectedAddon || !dataSource.replaceAddonGrants}
+                    onClick={replaceAddonGrants}
+                    type="button"
+                  >
+                    Replace grants
+                  </button>
+                  <div className="stackList">
+                    {loadState.data.addons.grants.map((grant) => (
+                      <div className="listRow" key={grant.id}>
+                        <div>
+                          <strong>{grant.permission} · {grant.libraryId ?? "global"}</strong>
+                          <span>{grant.id}</span>
+                        </div>
+                        <StatusPill label="accepted" tone="info" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="credentialCard readinessCard">
+                  <h4>Enable readiness</h4>
+                  <ReadinessItem
+                    label="Manifest registered"
+                    ready={Boolean(selectedAddon)}
+                  />
+                  <ReadinessItem
+                    label="Health reachable or checked"
+                    ready={loadState.data.addons.health?.status === "reachable"}
+                  />
+                  <ReadinessItem
+                    label="Active token available"
+                    ready={loadState.data.addons.tokens.some((token) => token.status === "active")}
+                  />
+                  <ReadinessItem
+                    label="Accepted grants configured"
+                    ready={loadState.data.addons.grants.length > 0}
+                  />
+                  <ReadinessItem
+                    label="Sidecar lifecycle remains external"
+                    ready
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Surface</th>
+                    <th>Kind</th>
+                    <th>Path</th>
+                    <th>Safety</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadState.data.addons.surfaces?.entryPoints.map((entryPoint) => (
+                    <tr key={entryPoint.id}>
+                      <td>{entryPoint.label}</td>
+                      <td>{entryPoint.kind}</td>
+                      <td>{entryPoint.path}</td>
+                      <td>{entryPoint.hostedPageId ? "external hosted page" : "Taru action"}</td>
+                    </tr>
+                  ))}
+                  {loadState.data.addons.surfaces?.hostedPages.map((page) => (
+                    <tr key={page.id}>
+                      <td>{page.title}</td>
+                      <td>hosted_page</td>
+                      <td>{page.path}</td>
+                      <td>external and untrusted</td>
+                    </tr>
+                  ))}
+                  {loadState.data.addons.surfaces?.tasks.map((task) => (
+                    <tr key={task.id}>
+                      <td>{task.name}</td>
+                      <td>addon_task</td>
+                      <td>{task.path}</td>
+                      <td>declaration only</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="settingGrid">
+              <div className="settingRow">
+                <span>Resource diagnostic</span>
+                <strong>
+                  {loadState.data.addons.diagnostic?.resource ?? "none"} ·{" "}
+                  {loadState.data.addons.diagnostic?.status ?? "not run"}
+                </strong>
+              </div>
+              <div className="settingRow">
+                <span>Diagnostic attempts</span>
+                <strong>
+                  {loadState.data.addons.diagnostic?.attempts ?? 0}
+                  {loadState.data.addons.diagnostic?.httpStatus
+                    ? ` · HTTP ${loadState.data.addons.diagnostic.httpStatus}`
+                    : ""}
+                </strong>
+              </div>
+              <div className="settingRow">
+                <span>Secret references</span>
+                <strong>{loadState.data.addons.surfaces?.secretReferenceFieldCount ?? 0} configured fields</strong>
+              </div>
+              <div className="settingRow">
+                <span>Configuration schema</span>
+                <strong>{loadState.data.addons.surfaces?.configurationSchemaId ?? "not declared"}</strong>
+              </div>
+            </div>
+
+            <section className="installGuidePanel" aria-label="Addon Install Guide">
+              <div>
+                <h3>Addon Install Guide</h3>
+                <p>
+                  {loadState.data.addons.installGuide?.lifecycleBoundary.message ??
+                    "Install guide is unavailable for this Addon."}
+                </p>
+              </div>
+              <div className="capabilityLine">
+                <StatusPill
+                  label={
+                    loadState.data.addons.installGuide?.lifecycleBoundary.taruManagesContainers
+                      ? "Taru controls containers"
+                      : "No container control"
+                  }
+                  tone="muted"
+                />
+                <StatusPill
+                  label={
+                    loadState.data.addons.installGuide?.lifecycleBoundary.taruManagesProcesses
+                      ? "Taru controls processes"
+                      : "No process control"
+                  }
+                  tone="muted"
+                />
+                <StatusPill
+                  label={`${loadState.data.addons.installGuide?.secretReferences.length ?? 0} Secret References`}
+                  tone="info"
+                />
+              </div>
+
+              {loadState.data.addons.installGuide ? (
+                <>
+                  <div className="snippetGrid">
+                    <SnippetPreview snippet={loadState.data.addons.installGuide.dockerCompose} />
+                    <SnippetPreview snippet={loadState.data.addons.installGuide.systemd} />
+                  </div>
+
+                  <div className="guideStepGrid">
+                    <GuideStepList
+                      title="Health-check verification"
+                      steps={loadState.data.addons.installGuide.healthCheckSteps}
+                    />
+                    <GuideStepList
+                      title="Registration verification"
+                      steps={loadState.data.addons.installGuide.registrationVerificationSteps}
+                    />
+                  </div>
+
+                  <div className="tableWrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Secret Reference</th>
+                          <th>Env var</th>
+                          <th>Placeholder</th>
+                          <th>Required</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loadState.data.addons.installGuide.secretReferences.map((secret) => (
+                          <tr key={secret.id}>
+                            <td>{secret.label}</td>
+                            <td>{secret.envVar}</td>
+                            <td>{secret.placeholder}</td>
+                            <td>{secret.required ? "required" : "optional"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
+            </section>
+          </section>
+
           <section className="panel" id="network">
             <PanelHeader
               title="Network Access"
@@ -577,6 +1181,68 @@ function StatusPill({
   return <span className={`statusPill ${tone}`}>{label}</span>;
 }
 
+function SnippetPreview({
+  snippet,
+}: {
+  snippet: {
+    title: string;
+    filename: string;
+    content: string;
+    notes: string[];
+  };
+}) {
+  return (
+    <article className="snippetPreview">
+      <div className="snippetHeader">
+        <strong>{snippet.title}</strong>
+        <span>{snippet.filename}</span>
+      </div>
+      <pre>{snippet.content}</pre>
+      <ul>
+        {snippet.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+function GuideStepList({
+  title,
+  steps,
+}: {
+  title: string;
+  steps: Array<{
+    title: string;
+    command: string;
+    expectedResult: string;
+  }>;
+}) {
+  return (
+    <article className="guideSteps">
+      <h4>{title}</h4>
+      <ol>
+        {steps.map((step) => (
+          <li key={step.title}>
+            <strong>{step.title}</strong>
+            <code>{step.command}</code>
+            <span>{step.expectedResult}</span>
+          </li>
+        ))}
+      </ol>
+    </article>
+  );
+}
+
+function ReadinessItem({ label, ready }: { label: string; ready: boolean }) {
+  return (
+    <div className="readinessItem">
+      <StatusPill label={ready ? "ready" : "needs action"} tone={ready ? "good" : "warn"} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 function SourceLabel({ source }: { source: DataSourceMode }) {
   const label =
     source === "live"
@@ -605,6 +1271,15 @@ function summarizeSources(data: AdminConsoleData) {
     combinedSource(data.sources.overview, data.sources.storageStaging),
     data.sources.generatedArtifactProposals,
     "planned",
+    data.sources.events,
+    combinedSource(
+      data.sources.addons,
+      data.sources.addonHealth,
+      data.sources.addonSurfaces,
+      data.sources.addonInstallGuide,
+      data.sources.addonTokens,
+      data.sources.addonGrants,
+    ),
     data.sources.systemConfig,
     data.sources.systemConfig,
   ];

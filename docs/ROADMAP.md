@@ -11,10 +11,88 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: no active architecture/productization focus is set after Admin Addon
-Operations MVP closeout.
+Status: no active architecture/productization focus is set after Admin Web
+Addon Credential and Grant Onboarding closeout.
 
 Latest completed architecture focus:
+
+Admin Web Addon Credential and Grant Onboarding completes the bridge from a
+registered disabled **Addon Sidecar** to an enabled runtime Addon:
+
+- one-time Addon Token issue and rotation display;
+- Addon Token revoke;
+- accepted Addon Grant replacement;
+- enable readiness checklist for health, token, grant, and lifecycle boundary
+  facts.
+
+This focus is intentionally not Addon Manager work. Taru will not install,
+launch, stop, restart, update, remove, log, or supervise Addon Sidecar
+processes in this lane.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-web-addon-credential-grant-onboarding/`
+
+Previous architecture focus:
+
+Admin Web Addon Onboarding turns the completed Addon Operations and Addon
+Install Guide surfaces into a first-run product flow for externally run
+**Addon Sidecars**:
+
+- paste and preview an Addon manifest JSON document;
+- register the Addon through the Admin API as disabled by default;
+- hand off to Addon Operations, Addon Install Guide, and Addon Health Check;
+- keep registration separate from install/start/stop/update/remove lifecycle
+  control.
+
+This focus is intentionally not Addon Manager work. Taru will not fetch
+arbitrary manifest URLs, install packages, launch, stop, restart, update,
+remove, log, or supervise Addon Sidecar processes in this lane.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-web-addon-onboarding/`
+
+Previous architecture focus:
+
+Addon Install Guide Generation turns the completed Addon Operations backend and
+Admin Web surface into an operator-friendly deployment guide for externally run
+Addon Sidecars:
+
+- server-owned Admin API guide generation for registered Addons;
+- Docker Compose and systemd snippets as inert text guidance;
+- Secret Reference checklist without resolved secret values;
+- Addon Health Check and registration verification steps;
+- Admin Web preview through the generated Admin API TypeScript contract.
+
+This focus is intentionally not Addon Manager work. Taru will not install,
+launch, stop, restart, update, remove, log, or supervise Addon Sidecar
+processes in this lane.
+
+Authoritative lane:
+
+- `docs/workstreams/addon-install-guide-generation/`
+
+Previous architecture focus:
+
+Admin Web Addon Operations closed on 2026-05-22. Admin Addon Operations MVP had
+already closed the backend lifecycle, health, surfaces, and diagnostics
+capabilities; this lane exposed those capabilities safely in the Admin Web
+Console:
+
+- generated Admin API TypeScript contract coverage for Addon Operations;
+- live-capable Admin Web Addon data-source seam with safe mock fallback;
+- Addon list/detail operations surface;
+- enable/disable, **Addon Health Check**, and resource-call diagnostic actions;
+- manifest surface rendering for **Addon Entry Points**, **Addon Hosted
+  Pages**, configuration schema metadata, **Addon Tasks**, and **Addon Event
+  Subscriptions**.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-web-addon-operations/`
+
+Previous architecture focus:
 
 Admin Addon Operations MVP closed on 2026-05-21. Release Packaging and Addon
 Architecture Deepening were already complete, and this lane productized

@@ -6,12 +6,26 @@ attention.
 
 ## Current Workstreams
 
+- [admin-web-addon-credential-grant-onboarding](admin-web-addon-credential-grant-onboarding/README.md):
+  completed Addon productization lane for one-time Addon Token issue/rotation,
+  token revoke, accepted Addon Grant replacement, and enable readiness in
+  Admin Web without expanding into sidecar lifecycle supervision.
+- [admin-web-addon-onboarding](admin-web-addon-onboarding/README.md):
+  completed Addon productization lane for paste-and-preview manifest JSON
+  registration in Admin Web, defaulting registrations to disabled and handing
+  off to Addon Operations, Install Guide, and Health Check without expanding
+  into Addon Manager URL discovery or sidecar lifecycle supervision.
+- [addon-install-guide-generation](addon-install-guide-generation/README.md):
+  completed Addon productization lane for generating redaction-safe Docker
+  Compose, systemd, Secret Reference, health-check, and registration
+  verification guidance for externally run Addon Sidecars without expanding
+  into Addon Manager install/update or process supervision.
 - [post-rpd-product-hardening](post-rpd-product-hardening/README.md):
-  active roadmap umbrella for ordering post-packaging product lanes across
+  completed roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
 - [addon-runtime-and-distribution](addon-runtime-and-distribution/README.md):
-  active post-RPD mainline lane for Addon Sidecar package/install descriptor,
+  completed post-RPD mainline lane for Addon Sidecar package/install descriptor,
   redacted install-guide, runtime readiness, task/event/artifact routing, and
   Admin-only diagnostics before any Addon Manager automation, marketplace,
   package signing, process supervision, or Native Plugin ABI.
@@ -78,6 +92,11 @@ attention.
   semantics, Addon Health Check, hosted Addon surface read models, and
   redaction-safe resource-call diagnostics without expanding into Addon Manager
   scope.
+- [admin-web-addon-operations](admin-web-addon-operations/README.md):
+  completed Addon productization lane for turning completed Admin Addon
+  Operations API capabilities into a live-capable Admin Web Console Addons
+  surface without expanding into Addon Manager install/update or sidecar
+  process supervision.
 - [addon-architecture-deepening](addon-architecture-deepening/README.md):
   completed architecture-first lane for deepening Addon Side Effect runtime,
   fingerprinted idempotency, Protected Write payload contracts, Addon Manifest

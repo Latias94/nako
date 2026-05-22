@@ -1,6 +1,6 @@
 # Addon Runtime And Distribution Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -189,3 +189,18 @@ This lane can close when:
 - Public Client API and `taru-client-protocol` remain unchanged;
 - Addon Manager, package signing, marketplace, process supervision, Native
   Plugin ABI, downloader protocols, and local AI runtime are split follow-ons.
+
+## Closeout — 2026-05-22
+
+This lane is complete. Taru now has the sidecar Addon package/install
+descriptor boundary, redacted install-guide preview, Admin-only runtime
+readiness diagnostics, declared task/event routing plans, and Addon Generated
+Artifact / acquisition-intake handoff into existing Taru-owned AILO and DWI
+semantics.
+
+The lane intentionally did **not** ship Addon Manager discovery/install/update,
+marketplace hosting, package signing trust roots, process/container
+supervision, logs/rollback, Native Plugin ABI, Jellyfin Plugin Compatibility,
+downloader protocol adapters, local AI/model runtime, Public Client surfaces,
+direct library writes, hidden schedulers, or `taru-client-protocol` changes.
+Those remain explicit follow-ons that require dedicated workstreams.

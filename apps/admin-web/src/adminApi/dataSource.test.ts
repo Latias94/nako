@@ -4,6 +4,14 @@ import { createAdminDataSource } from "./dataSource";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
+  mockAddonDetail,
+  mockAddonDiagnostic,
+  mockAddonGrants,
+  mockAddonHealth,
+  mockAddonInstallGuide,
+  mockAddons,
+  mockAddonSurfaces,
+  mockAddonTokens,
   mockCatalogGovernance,
   mockEvents,
   mockGeneratedArtifactProposals,
@@ -20,6 +28,14 @@ describe("Admin data source", () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.addons]: mockAddons,
+        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
         [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
         [TARU_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
@@ -35,6 +51,12 @@ describe("Admin data source", () => {
     const data = await dataSource.load();
 
     expect(data.sources.overview).toBe("live");
+    expect(data.sources.addons).toBe("live");
+    expect(data.sources.addonHealth).toBe("live");
+    expect(data.sources.addonSurfaces).toBe("live");
+    expect(data.sources.addonInstallGuide).toBe("live");
+    expect(data.sources.addonTokens).toBe("live");
+    expect(data.sources.addonGrants).toBe("live");
     expect(data.sources.acquisitionIntake).toBe("live");
     expect(data.sources.generatedArtifactProposals).toBe("live");
     expect(data.sources.jobs).toBe("live");
@@ -46,6 +68,45 @@ describe("Admin data source", () => {
       exposureMode: "reverse_proxy",
       readinessStatus: "ready",
       tunnelProviderCount: 1,
+    });
+    expect(data.addons.addons[0]).toMatchObject({
+      name: "Subtitle Lab",
+      status: "enabled",
+      protocolVersion: "2026-05-15",
+    });
+    expect(data.addons.selectedAddon).toMatchObject({
+      resourceCount: 2,
+      authMode: "bearer",
+    });
+    expect(data.addons.health).toMatchObject({
+      status: "reachable",
+      latencyMs: 42,
+    });
+    expect(data.addons.surfaces?.hostedPages[0]).toMatchObject({
+      title: "Subtitle diagnostics",
+    });
+    expect(data.addons.installGuide).toMatchObject({
+      addonName: "Subtitle Lab",
+      dockerCompose: {
+        filename: "compose.dev-taru-subtitle-lab.yml",
+      },
+      lifecycleBoundary: {
+        taruManagesContainers: false,
+        taruManagesProcesses: false,
+      },
+    });
+    expect(data.addons.installGuide?.secretReferences[0]).toMatchObject({
+      envVar: "ADDON_SECRET_SUBTITLE_PROVIDER_KEY",
+      placeholder: "secret-reference:subtitle-provider-key",
+    });
+    expect(data.addons.tokens[0].tokenPrefix).toBe("taru_at_subtitle");
+    expect(data.addons.grants[0]).toMatchObject({
+      permission: "subtitle_write",
+      libraryId: "library-anime",
+    });
+    expect(data.addons.diagnostic).toMatchObject({
+      resource: "subtitle",
+      status: "succeeded",
     });
     expect(data.jobs[0]).toMatchObject({
       kind: "library_scan",
@@ -81,6 +142,14 @@ describe("Admin data source", () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.addons]: new Response("offline", { status: 503 }),
+        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
         [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
         [TARU_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
@@ -96,10 +165,211 @@ describe("Admin data source", () => {
     const data = await dataSource.load();
 
     expect(data.sources.overview).toBe("live");
+    expect(data.sources.addons).toBe("mock");
+    expect(data.errors.addons).toContain("HTTP 503");
+    expect(data.addons.addons[0].id).toBe("addon-subtitle-lab");
     expect(data.sources.jobs).toBe("mock");
     expect(data.errors.jobs).toContain("HTTP 503");
     expect(data.jobs[0].id).toBe("job-scan");
     expect(data.sources.playbackRuntime).toBe("live");
+  });
+
+  it("exposes safe Addon action methods through the data-source seam", async () => {
+    const dataSource = createAdminDataSource({
+      fetcher: fetcherFor({
+        [TARU_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab")]: {
+          ...mockAddonDetail,
+          addon: {
+            ...mockAddonDetail.addon,
+            summary: {
+              ...mockAddonDetail.addon.summary,
+              status: "disabled",
+            },
+          },
+        },
+        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: {
+          ...mockAddonHealth,
+          status: "degraded",
+          safe_error_code: "latency_budget_exceeded",
+        },
+        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: {
+          ...mockAddonDiagnostic,
+          status: "retryable_http_failure",
+          http_status: 503,
+          safe_error_code: "upstream_unavailable",
+        },
+      }),
+    });
+
+    await expect(dataSource.setAddonStatus?.("addon-subtitle-lab", "disabled")).resolves.toMatchObject({
+      selectedAddon: {
+        status: "disabled",
+      },
+    });
+    await expect(dataSource.checkAddonHealth?.("addon-subtitle-lab")).resolves.toMatchObject({
+      status: "degraded",
+      safeErrorCode: "latency_budget_exceeded",
+    });
+    await expect(dataSource.diagnoseAddonResource?.("addon-subtitle-lab", "subtitle")).resolves.toMatchObject({
+      status: "retryable_http_failure",
+      httpStatus: 503,
+      safeErrorCode: "upstream_unavailable",
+    });
+  });
+
+  it("registers pasted Addon manifest JSON as a disabled Addon and returns onboarding handoff state", async () => {
+    let postedBody: unknown;
+    const dataSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        if (url.pathname === TARU_ADMIN_ROUTES.addons && init?.method === "POST") {
+          postedBody = JSON.parse(String(init.body));
+          return Response.json({
+            ...mockAddonDetail,
+            addon: {
+              ...mockAddonDetail.addon,
+              summary: {
+                ...mockAddonDetail.addon.summary,
+                status: "disabled",
+                granted_scopes: [],
+              },
+            },
+          });
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    const result = await dataSource.registerAddonManifestJson?.(
+      JSON.stringify(mockAddonDetail.addon.manifest, null, 2),
+    );
+
+    expect(postedBody).toMatchObject({
+      manifest: mockAddonDetail.addon.manifest,
+      granted_scopes: [],
+      status: "disabled",
+    });
+    expect(result).toMatchObject({
+      status: "registered",
+      addon: {
+        name: "Subtitle Lab",
+        status: "disabled",
+        resourceCount: 2,
+      },
+      nextSteps: [
+        "Open the generated Addon Install Guide",
+        "Start the Addon Sidecar outside Taru",
+        "Run Addon Health Check before enabling",
+      ],
+    });
+  });
+
+  it("rejects invalid pasted Addon manifest JSON before calling the Admin API", async () => {
+    let called = false;
+    const dataSource = createAdminDataSource({
+      fetcher: async () => {
+        called = true;
+        return Response.json(mockAddonDetail);
+      },
+    });
+
+    await expect(dataSource.registerAddonManifestJson?.("{ bad json")).resolves.toMatchObject({
+      status: "invalid_json",
+      error: "Manifest JSON could not be parsed.",
+    });
+
+    expect(called).toBe(false);
+  });
+
+  it("exposes Addon credential and grant onboarding actions without putting raw tokens in load data", async () => {
+    const dataSource = createAdminDataSource({
+      fetcher: fetcherFor({
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: {
+          token: mockAddonTokens.tokens[0],
+          raw_token: "taru_at_one_time_raw_token",
+        },
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`]: {
+          rotated: mockAddonTokens.tokens[0],
+          token: {
+            ...mockAddonTokens.tokens[0],
+            id: "addon-token-rotated",
+            token_prefix: "taru_at_rotated",
+          },
+          raw_token: "taru_at_rotated_one_time_raw_token",
+        },
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`]: {
+          token: {
+            ...mockAddonTokens.tokens[0],
+            status: "revoked",
+            revoked_at: "2026-05-22T03:00:00.000Z",
+          },
+        },
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: {
+          grants: [
+            {
+              id: "addon-grant-metadata",
+              addon_id: "addon-subtitle-lab",
+              permission: "metadata_write",
+              library_id: null,
+              created_at: "2026-05-22T03:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    });
+
+    await expect(dataSource.issueAddonToken?.("addon-subtitle-lab", "sidecar runtime")).resolves.toMatchObject({
+      rawToken: "taru_at_one_time_raw_token",
+      token: {
+        tokenPrefix: "taru_at_subtitle",
+      },
+    });
+    await expect(dataSource.rotateAddonToken?.("addon-subtitle-lab", "addon-token-active", "replacement")).resolves.toMatchObject({
+      rawToken: "taru_at_rotated_one_time_raw_token",
+      token: {
+        id: "addon-token-rotated",
+      },
+    });
+    await expect(dataSource.revokeAddonToken?.("addon-subtitle-lab", "addon-token-active")).resolves.toMatchObject({
+      status: "revoked",
+    });
+    await expect(
+      dataSource.replaceAddonGrants?.("addon-subtitle-lab", [
+        { permission: "metadata_write", libraryId: null },
+      ]),
+    ).resolves.toEqual([
+      {
+        id: "addon-grant-metadata",
+        permission: "metadata_write",
+        libraryId: null,
+      },
+    ]);
+
+    const loaded = await createAdminDataSource({
+      fetcher: fetcherFor({
+        [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.addons]: mockAddons,
+        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
+        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
+        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [TARU_ADMIN_ROUTES.events]: mockEvents,
+        [TARU_ADMIN_ROUTES.jobs]: mockJobs,
+        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
+      }),
+    }).load();
+
+    expect(JSON.stringify(loaded)).not.toContain("raw_token");
+    expect(JSON.stringify(loaded)).not.toContain("one_time_raw_token");
   });
 });
 

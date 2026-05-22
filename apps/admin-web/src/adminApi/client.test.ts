@@ -4,6 +4,14 @@ import { AdminApiClient } from "./client";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
+  mockAddonDetail,
+  mockAddonDiagnostic,
+  mockAddonGrants,
+  mockAddonHealth,
+  mockAddonInstallGuide,
+  mockAddons,
+  mockAddonSurfaces,
+  mockAddonTokens,
   mockCatalogGovernance,
   mockEvents,
   mockGeneratedArtifactProposals,
@@ -51,6 +59,13 @@ describe("AdminApiClient", () => {
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
       [TARU_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
+      [TARU_ADMIN_ROUTES.addons, mockAddons],
+      [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"), mockAddonDetail],
+      [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"), mockAddonHealth],
+      [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"), mockAddonSurfaces],
+      [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
+      [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`, mockAddonTokens],
+      [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`, mockAddonGrants],
       [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
       [TARU_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
       [TARU_ADMIN_ROUTES.events, mockEvents],
@@ -74,6 +89,13 @@ describe("AdminApiClient", () => {
     const client = new AdminApiClient({ fetcher });
 
     await expect(client.getCatalogGovernanceItems()).resolves.toEqual(mockCatalogGovernance);
+    await expect(client.getAddons({ status: "enabled" })).resolves.toEqual(mockAddons);
+    await expect(client.getAddonDetail("addon-subtitle-lab")).resolves.toEqual(mockAddonDetail);
+    await expect(client.checkAddonHealth("addon-subtitle-lab")).resolves.toEqual(mockAddonHealth);
+    await expect(client.getAddonSurfaces("addon-subtitle-lab")).resolves.toEqual(mockAddonSurfaces);
+    await expect(client.getAddonInstallGuide("addon-subtitle-lab")).resolves.toEqual(mockAddonInstallGuide);
+    await expect(client.getAddonTokens("addon-subtitle-lab")).resolves.toEqual(mockAddonTokens);
+    await expect(client.getAddonGrants("addon-subtitle-lab")).resolves.toEqual(mockAddonGrants);
     await expect(
       client.getAcquisitionIntakeCandidates({ library_id: "library-anime", state: "ready" }),
     ).resolves.toEqual(mockAcquisitionIntakeCandidates);
@@ -92,6 +114,13 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
       TARU_ADMIN_ROUTES.catalogGovernanceItems,
+      `${TARU_ADMIN_ROUTES.addons}?status=enabled`,
+      TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"),
+      TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
+      TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"),
+      TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"),
+      `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
+      `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
       `${TARU_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
       `${TARU_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       TARU_ADMIN_ROUTES.events,
@@ -102,6 +131,154 @@ describe("AdminApiClient", () => {
       TARU_ADMIN_ROUTES.storageStaging,
       TARU_ADMIN_ROUTES.systemConfig,
     ]);
+  });
+
+  it("sends Addon lifecycle and diagnostic mutations through Admin-only routes", async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+      if (url.pathname.endsWith("/diagnostics/resource-call")) {
+        return Response.json(mockAddonDiagnostic);
+      }
+      return Response.json(mockAddonDetail);
+    });
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(
+      client.updateAddonStatus("addon-subtitle-lab", { status: "disabled" }),
+    ).resolves.toEqual(mockAddonDetail);
+    await expect(client.unregisterAddon("addon-subtitle-lab")).resolves.toEqual(mockAddonDetail);
+    await expect(
+      client.diagnoseAddonResourceCall("addon-subtitle-lab", {
+        resource: "subtitle",
+        payload: { safe_probe: true },
+      }),
+    ).resolves.toEqual(mockAddonDiagnostic);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        TARU_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab"),
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: "disabled" }),
+        },
+      ],
+      [
+        TARU_ADMIN_ROUTES.addonUnregister.replace(":addon_id", "addon-subtitle-lab"),
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+      [
+        TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab"),
+        {
+          method: "POST",
+          body: JSON.stringify({ resource: "subtitle", payload: { safe_probe: true } }),
+        },
+      ],
+    ]);
+  });
+
+  it("sends Addon token and grant mutations through Admin-only routes", async () => {
+    const issuedToken = {
+      token: mockAddonTokens.tokens[0],
+      raw_token: "taru_at_one_time_raw_token",
+    };
+    const rotatedToken = {
+      rotated: mockAddonTokens.tokens[0],
+      token: {
+        ...mockAddonTokens.tokens[0],
+        id: "addon-token-rotated",
+        token_prefix: "taru_at_rotated",
+      },
+      raw_token: "taru_at_rotated_one_time_raw_token",
+    };
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+      if (url.pathname.endsWith("/tokens")) {
+        return Response.json(issuedToken);
+      }
+      if (url.pathname.endsWith("/rotate")) {
+        return Response.json(rotatedToken);
+      }
+      if (url.pathname.endsWith("/revoke")) {
+        return Response.json({ token: { ...mockAddonTokens.tokens[0], status: "revoked" } });
+      }
+      if (url.pathname.endsWith("/grants")) {
+        return Response.json(mockAddonGrants);
+      }
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.issueAddonToken("addon-subtitle-lab", { label: "sidecar runtime" })).resolves.toEqual(
+      issuedToken,
+    );
+    await expect(
+      client.rotateAddonToken("addon-subtitle-lab", "addon-token-active", { label: "replacement" }),
+    ).resolves.toEqual(rotatedToken);
+    await expect(client.revokeAddonToken("addon-subtitle-lab", "addon-token-active")).resolves.toMatchObject({
+      token: {
+        status: "revoked",
+      },
+    });
+    await expect(
+      client.replaceAddonGrants("addon-subtitle-lab", {
+        grants: [{ permission: "metadata_write", library_id: null }],
+      }),
+    ).resolves.toEqual(mockAddonGrants);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
+        {
+          method: "POST",
+          body: JSON.stringify({ label: "sidecar runtime" }),
+        },
+      ],
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`,
+        {
+          method: "POST",
+          body: JSON.stringify({ label: "replacement" }),
+        },
+      ],
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ grants: [{ permission: "metadata_write", library_id: null }] }),
+        },
+      ],
+    ]);
+  });
+
+  it("registers an Addon manifest through the Admin-only route as disabled by default", async () => {
+    const fetcher = vi.fn(async () => Response.json(mockAddonDetail));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.registerAddon(mockAddonDetail.addon.manifest)).resolves.toEqual(mockAddonDetail);
+
+    expect(fetcher).toHaveBeenCalledWith(TARU_ADMIN_ROUTES.addons, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer redacted-test-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: undefined,
+        manifest: mockAddonDetail.addon.manifest,
+        granted_scopes: [],
+        status: "disabled",
+      }),
+    });
   });
 
   it("posts watch-folder discovery requests through the Admin-only route", async () => {
