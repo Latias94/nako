@@ -174,8 +174,8 @@ tasks belong in child workstreams.
   child workstream docs, and workstream index agree on the next executable lane.
   Evidence: `DESIGN.md` Post-AILO Closeout Re-Score and
   `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`.
-  Handoff: DONE. Execute `addon-runtime-and-distribution` ARD-020 package /
-  install descriptor and redacted install-guide boundary without adding Addon
-  Manager automation, package signing, process supervision, Native Plugin ABI,
-  direct library writes, Public Client API churn, or `taru-client-protocol`
-  changes.
+  Handoff: DONE. ARD-020 completed package / install descriptor and redacted
+  install-guide boundary. Execute `addon-runtime-and-distribution` ARD-030
+  runtime readiness diagnostics without adding Addon Manager automation,
+  package signing, process supervision, Native Plugin ABI, direct library
+  writes, Public Client API churn, or `taru-client-protocol` changes.

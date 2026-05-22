@@ -73,7 +73,8 @@
     "docs/workstreams/network-access-boundary/EVIDENCE_AND_GATES.md",
     "docs/workstreams/ai-assisted-library-ops/DESIGN.md",
     "docs/workstreams/ai-assisted-library-ops/EVIDENCE_AND_GATES.md",
-    "docs/workstreams/addon-runtime-and-distribution/DESIGN.md"
+    "docs/workstreams/addon-runtime-and-distribution/DESIGN.md",
+    "docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
@@ -85,7 +86,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "addon-runtime-and-distribution ARD-020",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, Playback/Transcode Ops Hardening, Downloads / Watch-Folder Intake, Network Access Boundary, and AI Assisted Library Ops are completed. PRPH-170 opened Addon Runtime And Distribution as the current mainline lane after Generated Artifact proposal/review semantics were proven. Continue with ARD-020 package/install descriptor and redacted install-guide boundary. Do not add Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, direct library writes, downloader protocol adapters, local AI runtime, Public Client API churn, or taru-client-protocol changes unless split into a dedicated lane."
+    "next_task": "addon-runtime-and-distribution ARD-030",
+    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, Playback/Transcode Ops Hardening, Downloads / Watch-Folder Intake, Network Access Boundary, and AI Assisted Library Ops are completed. PRPH-170 opened Addon Runtime And Distribution as the current mainline lane after Generated Artifact proposal/review semantics were proven. ARD-020 completed package/install descriptor validation and redacted Admin install-guide preview. Continue with ARD-030 runtime readiness diagnostics. Do not add Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, direct library writes, downloader protocol adapters, local AI runtime, Public Client API churn, or taru-client-protocol changes unless split into a dedicated lane."
   }
 }

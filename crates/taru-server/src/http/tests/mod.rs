@@ -17,8 +17,9 @@ use taru_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
     AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHealthCheckRequest,
     AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse, AddonHealthManifestFacts,
-    AddonHealthStatus, AddonHostedPageDeclaration, AddonManifest, AddonResource,
-    AddonResourceDeclaration, AddonScope, AddonTaskDeclaration,
+    AddonHealthStatus, AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest,
+    AddonResource, AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
+    AddonSecretReferenceBinding, AddonSecretReferenceFieldDeclaration, AddonTaskDeclaration,
 };
 use taru_api::{
     admin::{
@@ -51,6 +52,7 @@ use taru_api::{
         AddonGrantsResponse, AddonSideEffectResponse, AddonSideEffectTargetRequest,
         AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
         AddonTokensResponse, AdminAddonHealthCheckResponse, AdminAddonHealthCheckStatus,
+        AdminAddonInstallGuidePreviewRequest, AdminAddonInstallGuidePreviewResponse,
         AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
         AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
         AdminAddonResourceCallDiagnosticStatus, AdminAddonSurfacesResponse,

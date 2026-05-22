@@ -23,19 +23,23 @@ Primary evidence:
 
 ## M1 — Package And Install Guide Boundary
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Addon package/install descriptor vocabulary exists in a safe protocol/admin
+- [x] Addon package/install descriptor vocabulary exists in a safe protocol/admin
   boundary.
-- Install-guide previews are redacted and do not include admin tokens, resolved
+- [x] Install-guide previews are redacted and do not include admin tokens, resolved
   secrets, local paths, or credential-bearing URLs.
-- Protocol crates remain permissive and free of server internals.
+- [x] Protocol crates remain permissive and free of server internals.
 
 Primary evidence:
 
 - `crates/taru-addon-protocol`
-- `crates/taru-api/src/admin.rs`
+- `crates/taru-api/src/extension.rs`
 - `crates/taru-server/src/app`
+- `crates/taru-server/src/http/addons.rs`
+- `crates/taru-server/src/http/tests/addons.rs`
 
 ## M2 — Runtime Readiness And Sidecar Compatibility
 

@@ -6,9 +6,9 @@ use axum::{
     routing::{get, patch, post},
 };
 use taru_api::extension::{
-    AddonAccessCheckRequest, AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest,
-    UpdateAddonStatusRequest,
+    AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest,
+    AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
 use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
@@ -20,6 +20,10 @@ use super::{auth, error::ApiResult, query::AddonListQuery};
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/addons", get(list_addons).post(register_addon))
+        .route(
+            "/admin/v1/addons/install-guide-preview",
+            post(preview_addon_install_guide),
+        )
         .route("/admin/v1/addons/{addon_id}", get(get_addon))
         .route(
             "/admin/v1/addons/{addon_id}/status",
@@ -63,6 +67,14 @@ pub(super) fn runtime_routes() -> Router<TaruApp> {
     Router::new()
         .route("/addon/v1/access-check", post(check_addon_access))
         .route("/addon/v1/side-effects", post(submit_addon_side_effect))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn preview_addon_install_guide(
+    State(app): State<TaruApp>,
+    Json(request): Json<AdminAddonInstallGuidePreviewRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().preview_addon_install_guide(request)?))
 }
 
 #[instrument(skip(app))]

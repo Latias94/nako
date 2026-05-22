@@ -18,28 +18,31 @@ Task IDs use the `ARD` prefix.
 
 ## M1 — Package And Install Guide Boundary
 
-- [ ] ARD-020 [owner=codex] [deps=ARD-010] [scope=crates/taru-addon-protocol,crates/taru-api/src/admin.rs,crates/taru-server/src/app,crates/taru-server/src/http/admin.rs]
+- [x] ARD-020 [owner=codex] [deps=ARD-010] [scope=crates/taru-addon-protocol,crates/taru-api/src/extension.rs,crates/taru-server/src/app,crates/taru-server/src/http/addons.rs]
   Goal: Define a stable Addon package/install descriptor and validation model
   that can summarize sidecar image/binary/runtime requirements, manifest facts,
   Secret Reference needs, grants, network exposure prerequisites, and generated
   install-guide snippets without storing or exposing secrets.
-  Progress: Protocol crate now has `AddonInstallDescriptor`, runtime reference
-  validation, Secret Reference binding validation, redacted `AddonInstallGuide`
-  generation, and focused tests. ARD-020 remains open until Admin DTO/server
-  install-guide preview tests are added.
+  Progress: Added `AddonInstallDescriptor`, runtime reference validation,
+  Secret Reference binding validation, redacted `AddonInstallGuide`
+  generation, Admin preview DTOs, `POST
+  /admin/v1/addons/install-guide-preview`, app validation, and redaction tests.
   Validation: focused `taru-addon-protocol` tests; focused Admin DTO/server
   tests for redacted install-guide previews; `cargo fmt --all -- --check`;
+  `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
+  Evidence: `cargo nextest run -p taru-addon-protocol --no-fail-fast`; `cargo
+  nextest run -p taru-server admin_addon_install_guide_preview
+  --no-fail-fast`; `cargo nextest run -p taru-server addons --no-fail-fast`;
+  `cargo nextest run -p taru-api --no-fail-fast`; `cargo fmt --all -- --check`;
   `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
   Review: `review-workstream` must check permissive protocol boundaries,
   no server-internal dependencies in protocol crates, no admin-token leakage,
   and no Addon Manager/process-supervision behavior.
-  Evidence: protocol/package descriptor tests and Admin install-guide redaction
-  tests.
   Handoff: Add runtime readiness diagnostics in ARD-030.
 
 ## M2 — Runtime Readiness And Sidecar Compatibility
 
-- [ ] ARD-030 [owner=codex] [deps=ARD-020] [scope=crates/taru-addon-client,crates/taru-server/src/app,crates/taru-api/src/admin.rs,crates/taru-server/src/http/admin.rs,apps/admin-web/src/adminApi]
+- [ ] ARD-030 [owner=codex] [deps=ARD-020] [scope=crates/taru-addon-client,crates/taru-server/src/app,crates/taru-api/src/extension.rs,crates/taru-server/src/http/addons.rs,apps/admin-web/src/adminApi]
   Goal: Add Admin-only runtime readiness diagnostics that classify sidecar
   reachability, protocol version mismatch, manifest mismatch, grant gaps,
   missing Secret References, network policy blockers, and unsafe response

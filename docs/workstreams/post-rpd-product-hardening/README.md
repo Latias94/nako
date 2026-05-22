@@ -49,8 +49,9 @@ closed Network Access Boundary and opened AI Assisted Library Ops. PRPH-160
 opened the AI lane, and AILO-050 returned to this umbrella after Generated
 Artifact proposal/readiness, Admin diagnostics, and explicit accept/reject
 planning were proven without autonomous writes. PRPH-170 now selects Addon
-Runtime / Distribution as the current mainline lane. The next executable task
-is ARD-020 package/install descriptor and redacted install-guide boundary.
+Runtime / Distribution as the current mainline lane. ARD-020 completed the
+package/install descriptor and redacted install-guide boundary. The next
+executable task is ARD-030 runtime readiness diagnostics.
 
 ## Authoritative Docs
 

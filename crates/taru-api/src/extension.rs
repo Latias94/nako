@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{
-    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonManifest, AddonResource,
-    AddonScope, AddonTaskDeclaration,
+    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonInstallDescriptor,
+    AddonInstallGuide, AddonManifest, AddonResource, AddonScope, AddonTaskDeclaration,
 };
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
@@ -174,6 +174,16 @@ pub struct AdminAddonRegistrationsResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UpdateAddonStatusRequest {
     pub status: AddonStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuidePreviewRequest {
+    pub descriptor: AddonInstallDescriptor,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuidePreviewResponse {
+    pub guide: AddonInstallGuide,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

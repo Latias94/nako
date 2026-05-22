@@ -28,26 +28,28 @@ Prerequisites are complete:
 ARD-010 is complete. The lane is scoped to Addon Sidecar package/install/runtime
 readiness and routing, not Addon Manager automation or Native Plugin runtime.
 
-## Active Task
+## Current Task
 
-- Task ID: ARD-020
+- Task ID: ARD-030
 - Owner: codex
 - Files:
-  - `crates/taru-addon-protocol`
-  - `crates/taru-api/src/admin.rs`
+  - `crates/taru-addon-client`
+  - `crates/taru-api/src/extension.rs`
   - `crates/taru-server/src/app`
-  - `crates/taru-server/src/http/admin.rs`
+  - `crates/taru-server/src/http/addons.rs`
+  - `apps/admin-web/src/adminApi`
   - `docs/workstreams/addon-runtime-and-distribution`
 - Validation:
-  - focused `taru-addon-protocol` tests
-  - focused Admin DTO/server tests for redacted install-guide previews
+  - focused addon-client/app/Admin tests
+  - `cargo nextest run -p taru-server addons --no-fail-fast`
+  - `cargo nextest run -p taru-api --no-fail-fast`
+  - `npm run check` from `apps/admin-web`
+  - `git diff --name-only -- crates/taru-client-protocol`
   - `cargo fmt --all -- --check`
   - `git diff --check`
-  - `git diff --name-only -- crates/taru-client-protocol`
-- Status: IN_PROGRESS
-- Review: define package/install descriptor semantics without adding process
-  supervision, marketplace behavior, package signing, Native Plugin ABI, admin
-  token leakage, Public Client API churn, or direct library writes.
+- Status: READY
+- Review: add runtime readiness diagnostics without automatic Addon process or
+  container supervision.
 
 Progress so far:
 
@@ -57,15 +59,12 @@ Progress so far:
   paths, credential-bearing runtime references, unknown/duplicate Secret
   Reference bindings, and likely raw secret values without echoing rejected
   values.
-- Added focused protocol tests and ran the full `taru-addon-protocol` nextest
-  gate.
-
-Remaining ARD-020 work:
-
-- Add Admin DTO and server/app preview boundary for redacted install-guide
-  previews.
-- Add focused Admin route tests proving no admin token, Addon Token, raw secret
-  value, local path, or raw package content is echoed.
+- Added Admin DTOs, app validation, and `POST
+  /admin/v1/addons/install-guide-preview`.
+- Added focused Admin route tests proving no admin token, Addon Token, raw
+  secret value, local path, or raw package content is echoed.
+- Ran focused protocol/Admin tests plus `cargo nextest run -p taru-server addons
+  --no-fail-fast` and `cargo nextest run -p taru-api --no-fail-fast`.
 
 ## Decisions Since Opening
 
@@ -84,11 +83,14 @@ Remaining ARD-020 work:
 
 ## Blockers
 
-- None for ARD-020.
+- None for ARD-030.
 
 ## Next Recommended Action
 
-Continue ARD-020 by adding the Admin install-guide preview boundary and tests.
-Keep Addon Manager discovery/install/update, package signing, process
-supervision, logs, rollback, Native Plugin ABI, downloader protocols, local AI
-runtime, Public Client API changes, and direct library writes out of scope.
+Start ARD-030 by adding Admin-only runtime readiness diagnostics that classify
+sidecar reachability, protocol version mismatch, manifest mismatch, grant gaps,
+missing Secret References, network policy blockers, and unsafe responses
+without echoing raw network errors or sidecar payloads. Keep Addon Manager
+discovery/install/update, package signing, process supervision, logs, rollback,
+Native Plugin ABI, downloader protocols, local AI runtime, Public Client API
+changes, and direct library writes out of scope.

@@ -480,6 +480,154 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
 }
 
 #[tokio::test]
+async fn admin_addon_install_guide_preview_redacts_package_and_secret_material() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration::new(
+        "metadata_api_key",
+        "Metadata API key",
+        Some("Resolved by Taru at runtime".to_owned()),
+        true,
+    )];
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-metadata-scrape",
+        "Bulk Metadata Scrape",
+        "/tasks/bulk-metadata-scrape",
+        vec![AddonScope::ItemMetadataSuggest],
+    )];
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scan-finished",
+        "library_scan.succeeded",
+        "/events/library-scan-finished",
+        vec![AddonScope::ItemMetadataRead],
+        serde_json::json!({"library_preset":"movies"}),
+    )];
+    let descriptor = AddonInstallDescriptor {
+        manifest,
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: Some("ghcr.io/taru/example-metadata-addon:0.1.0".to_owned()),
+            binary: None,
+            command: None,
+        },
+        secret_reference_bindings: vec![AddonSecretReferenceBinding {
+            field_id: "metadata_api_key".to_owned(),
+            secret_ref: "env:TARU_METADATA_ADDON_TOKEN".to_owned(),
+        }],
+        install_notes: vec![
+            "Do not include TARU_METADATA_ADDON_TOKEN=secret-value in the guide".to_owned(),
+        ],
+    };
+
+    let response = request_body_json::<AdminAddonInstallGuidePreviewResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest { descriptor },
+    )
+    .await;
+    let text = serde_json::to_string(&response).unwrap();
+
+    assert_eq!(response.guide.manifest_id, "example.metadata");
+    assert_eq!(response.guide.runtime_kind, AddonRuntimeKind::HttpSidecar);
+    assert_eq!(
+        response.guide.runtime_reference.value,
+        "ghcr.io/taru/example-metadata-addon:0.1.0"
+    );
+    assert_eq!(response.guide.required_secret_fields.len(), 1);
+    assert!(response.guide.required_secret_fields[0].provided);
+    assert!(response.guide.missing_required_secret_fields.is_empty());
+    assert_eq!(response.guide.task_count, 1);
+    assert_eq!(response.guide.event_subscription_count, 1);
+    assert!(!text.contains("secret-value"));
+    assert!(!text.contains("TARU_METADATA_ADDON_TOKEN="));
+    assert!(!text.contains("Bearer "));
+    assert!(!text.contains("taru_at_"));
+    assert!(!text.contains("C:\\"));
+    assert!(!text.contains("file:///"));
+}
+
+#[tokio::test]
+async fn admin_addon_install_guide_preview_rejects_raw_secret_and_local_runtime_paths() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration::new(
+        "metadata_api_key",
+        "Metadata API key",
+        Some("Resolved by Taru at runtime".to_owned()),
+        true,
+    )];
+    let mut descriptor = AddonInstallDescriptor {
+        manifest,
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: None,
+            binary: Some("C:\\addons\\metadata.exe".to_owned()),
+            command: None,
+        },
+        secret_reference_bindings: Vec::new(),
+        install_notes: Vec::new(),
+    };
+
+    let local_runtime = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest {
+            descriptor: descriptor.clone(),
+        },
+    )
+    .await;
+    assert_eq!(local_runtime.status(), StatusCode::BAD_REQUEST);
+    let local_runtime_text =
+        serde_json::to_string(&body_json::<ErrorResponse>(local_runtime).await).unwrap();
+    assert!(!local_runtime_text.contains("C:\\addons\\metadata.exe"));
+
+    descriptor.runtime.binary = Some("taru-metadata-addon".to_owned());
+    descriptor.secret_reference_bindings = vec![AddonSecretReferenceBinding {
+        field_id: "metadata_api_key".to_owned(),
+        secret_ref: "metadata-secret-token-value".to_owned(),
+    }];
+    let raw_secret = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest { descriptor },
+    )
+    .await;
+    assert_eq!(raw_secret.status(), StatusCode::BAD_REQUEST);
+    let raw_secret_text =
+        serde_json::to_string(&body_json::<ErrorResponse>(raw_secret).await).unwrap();
+    assert!(!raw_secret_text.contains("metadata-secret-token-value"));
+
+    let mut descriptor = AddonInstallDescriptor {
+        manifest: addon_manifest(),
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: Some("ghcr.io/taru/example-metadata-addon:0.1.0".to_owned()),
+            binary: None,
+            command: None,
+        },
+        secret_reference_bindings: Vec::new(),
+        install_notes: Vec::new(),
+    };
+    descriptor.manifest.resources[0].path = "C:\\secret\\metadata".to_owned();
+    let invalid_manifest = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest { descriptor },
+    )
+    .await;
+    assert_eq!(invalid_manifest.status(), StatusCode::BAD_REQUEST);
+    let invalid_manifest_text =
+        serde_json::to_string(&body_json::<ErrorResponse>(invalid_manifest).await).unwrap();
+    assert!(!invalid_manifest_text.contains("C:\\secret\\metadata"));
+}
+
+#[tokio::test]
 async fn admin_addon_status_patch_enables_and_disables_runtime_access() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

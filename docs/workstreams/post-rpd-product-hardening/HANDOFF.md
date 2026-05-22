@@ -39,23 +39,24 @@ accept/reject planning, and closeout. PRPH-170 opened
 
 ## Active Task
 
-- Task ID: `addon-runtime-and-distribution` ARD-020
+- Task ID: `addon-runtime-and-distribution` ARD-030
 - Owner: codex
-- Files: `crates/taru-addon-protocol`, `crates/taru-api/src/admin.rs`,
-  `crates/taru-server/src/app`, `crates/taru-server/src/http/admin.rs`,
+- Files: `crates/taru-addon-client`, `crates/taru-api/src/extension.rs`,
+  `crates/taru-server/src/app`, `crates/taru-server/src/http/addons.rs`,
   `docs/workstreams/addon-runtime-and-distribution`
-- Validation: focused `taru-addon-protocol` tests; focused Admin DTO/server
-  tests for redacted install-guide previews; `cargo fmt --all -- --check`;
+- Validation: focused addon-client/app/Admin runtime readiness tests; `cargo
+  nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all -- --check`;
   `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
 - Status: READY
-- Review: keep package/install descriptor semantics separate from Addon Manager
+- Review: keep runtime readiness diagnostics separate from Addon Manager
   discovery/install/update, marketplace, package signing, process supervision,
   Native Plugin ABI, direct library writes, Public Client API churn, and
   `taru-client-protocol` changes.
 - Evidence: PRPH-170 lane scoring in `DESIGN.md`, AI Assisted Library Ops
   closeout evidence, Addon Architecture Deepening, Admin Addon Operations MVP,
   Downloads / Watch-Folder Intake, Network Access Boundary, and completed
-  side-effect / proposal / intake boundaries.
+  side-effect / proposal / intake boundaries. ARD-020 completed package/install
+  descriptor validation and redacted Admin install-guide preview.
 
 ## Decisions Since Last Update
 
@@ -139,13 +140,15 @@ accept/reject planning, and closeout. PRPH-170 opened
 
 ## Blockers
 
-- None for ARD-020.
+- None for ARD-030.
 
 ## Next Recommended Action
 
-- Execute `addon-runtime-and-distribution` ARD-020.
-- Define package/install descriptor and redacted install-guide preview
-  semantics for Addon Sidecars.
+- Execute `addon-runtime-and-distribution` ARD-030.
+- Add Admin-only runtime readiness diagnostics that classify sidecar
+  reachability, protocol mismatch, manifest mismatch, grant gaps, missing
+  Secret References, network policy blockers, and unsafe responses without
+  echoing raw network errors or sidecar payloads.
 - Keep Addon Manager discovery/install/update, marketplace hosting, package
   signing trust root, process/container supervision, Native Plugin ABI,
   downloader protocol adapters, local AI runtime, Public Client API changes,

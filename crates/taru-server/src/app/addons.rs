@@ -3,12 +3,16 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 use taru_addon_client::{
     AddonClientError, ReqwestAddonTransport, call_addon_resource_with_outcome, check_addon_health,
 };
-use taru_addon_protocol::{AddonManifest, AddonScope, ensure_scope_grant, validate_manifest};
+use taru_addon_protocol::{
+    AddonManifest, AddonScope, addon_install_guide, ensure_scope_grant,
+    validate_install_descriptor, validate_manifest,
+};
 use taru_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
     AddonTokenSummary, AddonTokensResponse, AdminAddonConfigurationSchemaSurface,
     AdminAddonEntryPointSurface, AdminAddonEventSubscriptionSurface, AdminAddonHealthCheckResponse,
-    AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface, AdminAddonRegistrationDetail,
+    AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface, AdminAddonInstallGuidePreviewRequest,
+    AdminAddonInstallGuidePreviewResponse, AdminAddonRegistrationDetail,
     AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
     AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
     AdminAddonResourceCallDiagnosticStatus, AdminAddonSecretReferenceFieldSurface,
@@ -175,6 +179,21 @@ impl AddonAppService {
             .collect();
 
         Ok(AdminAddonRegistrationsResponse { addons })
+    }
+
+    pub fn preview_addon_install_guide(
+        &self,
+        request: AdminAddonInstallGuidePreviewRequest,
+    ) -> Result<AdminAddonInstallGuidePreviewResponse> {
+        validate_install_descriptor(&request.descriptor).map_err(|_err| {
+            TaruError::InvalidInput {
+                message: "invalid addon install descriptor".to_owned(),
+            }
+        })?;
+
+        Ok(AdminAddonInstallGuidePreviewResponse {
+            guide: addon_install_guide(&request.descriptor),
+        })
     }
 
     pub async fn update_addon_status(

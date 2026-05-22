@@ -20,10 +20,10 @@ queues and side-effect APIs.
 
 ## Current Decision
 
-ARD-010 opens the lane after AI Assisted Library Ops closeout. The first
-executable task is ARD-020: define the package/manifest/install-guide boundary
-for Addon Sidecars while keeping Addon Manager automation, package signing,
-process supervision, marketplace discovery, and Native Plugin ABI out of scope.
+ARD-020 completed the package/manifest/install-guide boundary for Addon
+Sidecars. The next executable task is ARD-030: add Admin-only runtime readiness
+diagnostics while keeping Addon Manager automation, package signing, process
+supervision, marketplace discovery, and Native Plugin ABI out of scope.
 
 ## Authoritative Docs
 
