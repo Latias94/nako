@@ -11,10 +11,30 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: no active architecture/productization focus is set after Addon Install
-Guide Generation closeout.
+Status: no active architecture/productization focus is set after Admin Web
+Addon Onboarding closeout.
 
 Latest completed architecture focus:
+
+Admin Web Addon Onboarding turns the completed Addon Operations and Addon
+Install Guide surfaces into a first-run product flow for externally run
+**Addon Sidecars**:
+
+- paste and preview an Addon manifest JSON document;
+- register the Addon through the Admin API as disabled by default;
+- hand off to Addon Operations, Addon Install Guide, and Addon Health Check;
+- keep registration separate from install/start/stop/update/remove lifecycle
+  control.
+
+This focus is intentionally not Addon Manager work. Taru will not fetch
+arbitrary manifest URLs, install packages, launch, stop, restart, update,
+remove, log, or supervise Addon Sidecar processes in this lane.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-web-addon-onboarding/`
+
+Previous architecture focus:
 
 Addon Install Guide Generation turns the completed Addon Operations backend and
 Admin Web surface into an operator-friendly deployment guide for externally run

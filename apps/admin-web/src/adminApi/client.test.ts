@@ -173,6 +173,27 @@ describe("AdminApiClient", () => {
     ]);
   });
 
+  it("registers an Addon manifest through the Admin-only route as disabled by default", async () => {
+    const fetcher = vi.fn(async () => Response.json(mockAddonDetail));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.registerAddon(mockAddonDetail.addon.manifest)).resolves.toEqual(mockAddonDetail);
+
+    expect(fetcher).toHaveBeenCalledWith(TARU_ADMIN_ROUTES.addons, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer redacted-test-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: undefined,
+        manifest: mockAddonDetail.addon.manifest,
+        granted_scopes: [],
+        status: "disabled",
+      }),
+    });
+  });
+
   it("posts watch-folder discovery requests through the Admin-only route", async () => {
     const fetcher = vi.fn(async () => Response.json(mockWatchFolderDiscovery));
     const client = new AdminApiClient({ token: "redacted-test-token", fetcher });

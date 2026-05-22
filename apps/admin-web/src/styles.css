@@ -503,6 +503,64 @@ td {
   display: grid;
 }
 
+.addonOnboardingPanel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 8px;
+  background: oklch(97% 0.012 78);
+}
+
+.addonOnboardingPanel p {
+  margin: 6px 0 0;
+  color: oklch(45% 0.024 68);
+  font-size: 0.9rem;
+}
+
+.onboardingGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+  gap: 12px;
+}
+
+.manifestEditor {
+  display: grid;
+  gap: 8px;
+  color: oklch(35% 0.024 66);
+  font-weight: 700;
+}
+
+.manifestEditor textarea {
+  width: 100%;
+  min-height: 210px;
+  resize: vertical;
+  border: 1px solid oklch(82% 0.022 75);
+  border-radius: 7px;
+  padding: 10px;
+  background: oklch(99% 0.006 80);
+  color: oklch(27% 0.026 65);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.manifestPreviewCard {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.013 76);
+}
+
+.manifestPreviewCard span {
+  color: oklch(47% 0.024 68);
+  font-size: 0.84rem;
+}
+
 .installGuidePanel {
   display: grid;
   gap: 14px;
@@ -605,6 +663,7 @@ td {
   .metricGrid,
   .contentGrid,
   .splitPanel,
+  .onboardingGrid,
   .snippetGrid,
   .guideStepGrid {
     grid-template-columns: 1fr;

@@ -206,6 +206,71 @@ describe("Admin data source", () => {
       safeErrorCode: "upstream_unavailable",
     });
   });
+
+  it("registers pasted Addon manifest JSON as a disabled Addon and returns onboarding handoff state", async () => {
+    let postedBody: unknown;
+    const dataSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        if (url.pathname === TARU_ADMIN_ROUTES.addons && init?.method === "POST") {
+          postedBody = JSON.parse(String(init.body));
+          return Response.json({
+            ...mockAddonDetail,
+            addon: {
+              ...mockAddonDetail.addon,
+              summary: {
+                ...mockAddonDetail.addon.summary,
+                status: "disabled",
+                granted_scopes: [],
+              },
+            },
+          });
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    const result = await dataSource.registerAddonManifestJson?.(
+      JSON.stringify(mockAddonDetail.addon.manifest, null, 2),
+    );
+
+    expect(postedBody).toMatchObject({
+      manifest: mockAddonDetail.addon.manifest,
+      granted_scopes: [],
+      status: "disabled",
+    });
+    expect(result).toMatchObject({
+      status: "registered",
+      addon: {
+        name: "Subtitle Lab",
+        status: "disabled",
+        resourceCount: 2,
+      },
+      nextSteps: [
+        "Open the generated Addon Install Guide",
+        "Start the Addon Sidecar outside Taru",
+        "Run Addon Health Check before enabling",
+      ],
+    });
+  });
+
+  it("rejects invalid pasted Addon manifest JSON before calling the Admin API", async () => {
+    let called = false;
+    const dataSource = createAdminDataSource({
+      fetcher: async () => {
+        called = true;
+        return Response.json(mockAddonDetail);
+      },
+    });
+
+    await expect(dataSource.registerAddonManifestJson?.("{ bad json")).resolves.toMatchObject({
+      status: "invalid_json",
+      error: "Manifest JSON could not be parsed.",
+    });
+
+    expect(called).toBe(false);
+  });
 });
 
 function fetcherFor(routes: Record<string, unknown | Response>): typeof fetch {

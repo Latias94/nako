@@ -2,6 +2,7 @@ import type {
   AdminNetworkAccessDiagnostics,
   AdminOverviewResponse,
   AddonResource,
+  AdminAddonManifest,
   PageInfo,
 } from "./generated/contract";
 
@@ -16,6 +17,7 @@ export type {
   AdminAcquisitionIntakeCandidatesQuery,
   AdminAddonHealthCheckResponse,
   AdminAddonInstallGuideResponse,
+  AdminAddonManifest,
   AdminAddonRegistrationResponse,
   AdminAddonRegistrationSummary,
   AdminAddonRegistrationsResponse,
@@ -104,6 +106,45 @@ export type AddonOperationsSummary = {
   tokens: AddonTokenSummaryRow[];
   grants: AddonGrantSummaryRow[];
   diagnostic: AddonDiagnosticSummary | null;
+};
+
+export type AddonOnboardingResult =
+  | {
+      status: "registered";
+      addon: AddonOnboardingRegistrationSummary;
+      nextSteps: string[];
+    }
+  | {
+      status: "invalid_json" | "server_error";
+      error: string;
+    };
+
+export type AddonOnboardingRegistrationSummary = {
+  id: string;
+  manifestId: string;
+  name: string;
+  version: string;
+  protocolVersion: string;
+  baseUrl: string;
+  status: string;
+  resourceCount: number;
+  grantedScopes: string[];
+};
+
+export type AddonManifestPreview = {
+  status: "ready" | "invalid_json";
+  manifest?: AdminAddonManifest;
+  error?: string;
+  summary?: {
+    manifestId: string;
+    name: string;
+    version: string;
+    protocolVersion: string;
+    baseUrl: string;
+    resourceCount: number;
+    declaredScopes: string[];
+    secretReferenceCount: number;
+  };
 };
 
 export type AddonRow = {

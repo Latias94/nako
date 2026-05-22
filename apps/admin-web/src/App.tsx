@@ -24,6 +24,10 @@ import type {
   AdminSourceMap,
   DataSourceMode,
 } from "./adminApi/dataSource";
+import type {
+  AddonManifestPreview,
+  AddonOnboardingResult,
+} from "./adminApi/types";
 import { mockAdminConsoleData } from "./adminApi/mockData";
 
 type LoadState =
@@ -60,6 +64,9 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
     data: mockAdminConsoleData,
   });
   const [addonActionMessage, setAddonActionMessage] = useState<string | null>(null);
+  const [manifestJson, setManifestJson] = useState("");
+  const [manifestPreview, setManifestPreview] = useState<AddonManifestPreview | null>(null);
+  const [onboardingResult, setOnboardingResult] = useState<AddonOnboardingResult | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -130,6 +137,34 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
       data: { ...current.data, addons: { ...current.data.addons, diagnostic } },
     }));
     setAddonActionMessage(`${selectedAddon.name} diagnostic ${diagnostic.status}`);
+  };
+
+  const updateManifestJson = (value: string) => {
+    setManifestJson(value);
+    setOnboardingResult(null);
+    if (!value.trim()) {
+      setManifestPreview(null);
+      return;
+    }
+
+    setManifestPreview(
+      dataSource.previewAddonManifestJson?.(value) ?? {
+        status: "invalid_json",
+        error: "Manifest preview is unavailable.",
+      },
+    );
+  };
+
+  const registerAddonManifest = async () => {
+    if (!dataSource.registerAddonManifestJson || !manifestJson.trim()) {
+      return;
+    }
+
+    const result = await dataSource.registerAddonManifestJson(manifestJson);
+    setOnboardingResult(result);
+    if (result.status === "registered") {
+      setAddonActionMessage(`${result.addon.name} registered as ${result.addon.status}`);
+    }
   };
 
   return (
@@ -458,6 +493,78 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
               )}
               description="Manage Addon Sidecars without installing, launching, or trusting their processes."
             />
+            <section className="addonOnboardingPanel" aria-label="Addon Onboarding">
+              <div>
+                <h3>Addon Onboarding</h3>
+                <p>
+                  Paste an Addon manifest JSON document to register the Addon
+                  as disabled. Registration does not install or start the
+                  sidecar.
+                </p>
+              </div>
+              <div className="onboardingGrid">
+                <label className="manifestEditor">
+                  <span>Addon manifest JSON</span>
+                  <textarea
+                    aria-label="Addon manifest JSON"
+                    value={manifestJson}
+                    onChange={(event) => updateManifestJson(event.target.value)}
+                    placeholder='{"id":"dev.taru.example","protocol_version":"2026-05-15","base_url":"http://example-addon:9100"}'
+                    rows={9}
+                  />
+                </label>
+                <div className="manifestPreviewCard">
+                  <strong>Manifest preview</strong>
+                  {manifestPreview?.status === "ready" && manifestPreview.summary ? (
+                    <>
+                      <p>{manifestPreview.summary.name}</p>
+                      <span>
+                        {manifestPreview.summary.manifestId} · {manifestPreview.summary.resourceCount} resources
+                      </span>
+                      <div className="capabilityLine">
+                        <StatusPill label={manifestPreview.summary.protocolVersion} tone="info" />
+                        <StatusPill label={`${manifestPreview.summary.declaredScopes.length} scopes`} tone="muted" />
+                        <StatusPill label={`${manifestPreview.summary.secretReferenceCount} secrets`} tone="muted" />
+                      </div>
+                    </>
+                  ) : (
+                    <p>{manifestPreview?.error ?? "Paste manifest JSON to preview registration facts."}</p>
+                  )}
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      manifestPreview?.status !== "ready" ||
+                      !dataSource.registerAddonManifestJson
+                    }
+                    onClick={registerAddonManifest}
+                    type="button"
+                  >
+                    Register disabled Addon
+                  </button>
+                </div>
+              </div>
+              {onboardingResult?.status === "registered" ? (
+                <div className="notice subtle" role="status">
+                  <ShieldCheck size={17} />
+                  <div>
+                    <strong>
+                      {onboardingResult.addon.name} registered as {onboardingResult.addon.status}
+                    </strong>
+                    <ul>
+                      {onboardingResult.nextSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : null}
+              {onboardingResult?.status === "invalid_json" || onboardingResult?.status === "server_error" ? (
+                <div className="notice warning" role="alert">
+                  <CircleAlert size={17} />
+                  <span>{onboardingResult.error}</span>
+                </div>
+              ) : null}
+            </section>
             <div className="splitPanel">
               <div>
                 <h3>Registered Addons</h3>

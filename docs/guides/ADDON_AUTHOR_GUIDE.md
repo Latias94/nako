@@ -169,6 +169,18 @@ required by every declared resource. Registration, listing, and detail lookup
 are Admin API operations; Taru no longer mounts the old root `/addons`
 management routes.
 
+Admin Web provides a manifest onboarding panel for this route. Operators can
+paste the manifest JSON, preview key facts, and register the Addon as
+`disabled` before starting the sidecar. This supports both install orders:
+register first and use the generated **Addon Install Guide**, or start the
+sidecar first and then paste its manifest. Registration itself does not require
+network reachability; the **Addon Health Check** verifies `{base_url}/health`
+after the sidecar is running.
+
+The onboarding panel intentionally does not fetch arbitrary manifest URLs or
+control Docker, systemd, Kubernetes, SSH, host agents, package installation,
+process lifecycle, logs, upgrades, or removal.
+
 Runtime secrets are not stored in the manifest. If an addon uses bearer or
 shared-secret auth, Taru resolves the secret at call time and sends it as an
 HTTP header.

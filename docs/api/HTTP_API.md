@@ -930,6 +930,15 @@ caller must explicitly request `"status": "enabled"` and grant every scope
 required by each declared resource before an enabled registration is accepted.
 The old root `/addons` registration/list/detail routes are not mounted.
 
+Admin Web onboarding uses this same route for pasted manifest JSON. The UI
+submits `status: "disabled"` and an empty `granted_scopes` list by default so
+registration remains a manifest snapshot operation, not a trust or lifecycle
+operation. The Addon Sidecar does not need to be running during registration;
+reachability is verified later through `POST
+/admin/v1/addons/{addon_id}/health-check`. Taru does not fetch arbitrary
+manifest URLs in this flow, and it does not install, launch, stop, update,
+remove, or supervise the sidecar.
+
 ```json
 {
   "id": null,

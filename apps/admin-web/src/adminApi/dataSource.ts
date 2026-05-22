@@ -43,9 +43,11 @@ import type {
   AdminErrorMap,
   AdminSectionKey,
   AdminSourceMap,
+  AddonManifestPreview,
   AddonDiagnosticSummary,
   AddonHealthSummary,
   AddonInstallGuideSummary,
+  AddonOnboardingResult,
   AddonOperationsSummary,
   CatalogGovernanceSummary,
   DataSourceMode,
@@ -65,6 +67,8 @@ export type AdminDataSource = {
   setAddonStatus?(addonId: string, status: "enabled" | "disabled"): Promise<AddonOperationsSummary>;
   checkAddonHealth?(addonId: string): Promise<AddonHealthSummary>;
   diagnoseAddonResource?(addonId: string, resource: AddonResource): Promise<AddonDiagnosticSummary>;
+  previewAddonManifestJson?(manifestJson: string): AddonManifestPreview;
+  registerAddonManifestJson?(manifestJson: string): Promise<AddonOnboardingResult>;
 };
 
 type LoadResult<T> = {
@@ -210,7 +214,91 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         }),
       );
     },
+    previewAddonManifestJson(manifestJson) {
+      return previewAddonManifestJson(manifestJson);
+    },
+    async registerAddonManifestJson(manifestJson) {
+      const preview = previewAddonManifestJson(manifestJson);
+      if (preview.status === "invalid_json" || !preview.manifest) {
+        return {
+          status: "invalid_json",
+          error: preview.error ?? "Manifest JSON could not be parsed.",
+        };
+      }
+
+      try {
+        return mapAddonOnboardingResult(
+          await client.registerAddon(preview.manifest, {
+            grantedScopes: [],
+            status: "disabled",
+          }),
+        );
+      } catch (error: unknown) {
+        return {
+          status: "server_error",
+          error: error instanceof Error ? error.message : "Addon registration failed.",
+        };
+      }
+    },
   };
+}
+
+function previewAddonManifestJson(manifestJson: string): AddonManifestPreview {
+  try {
+    const manifest = JSON.parse(manifestJson);
+
+    return {
+      status: "ready",
+      manifest,
+      summary: {
+        manifestId: stringField(manifest.id),
+        name: stringField(manifest.name),
+        version: stringField(manifest.version),
+        protocolVersion: stringField(manifest.protocol_version),
+        baseUrl: stringField(manifest.base_url),
+        resourceCount: Array.isArray(manifest.resources) ? manifest.resources.length : 0,
+        declaredScopes: Array.isArray(manifest.scopes) ? manifest.scopes.map(String) : [],
+        secretReferenceCount: Array.isArray(manifest.secret_reference_fields)
+          ? manifest.secret_reference_fields.length
+          : 0,
+      },
+    };
+  } catch {
+    return {
+      status: "invalid_json",
+      error: "Manifest JSON could not be parsed.",
+    };
+  }
+}
+
+function mapAddonOnboardingResult(
+  response: AdminAddonRegistrationResponse,
+): AddonOnboardingResult {
+  const { summary, manifest } = response.addon;
+
+  return {
+    status: "registered",
+    addon: {
+      id: summary.id,
+      manifestId: summary.manifest_id,
+      name: summary.name,
+      version: summary.version,
+      protocolVersion: summary.protocol_version,
+      baseUrl: summary.base_url,
+      status: summary.status,
+      resourceCount: manifest.resources.length,
+      grantedScopes: summary.granted_scopes,
+    },
+    nextSteps: [
+      "Open the generated Addon Install Guide",
+      "Start the Addon Sidecar outside Taru",
+      "Run Addon Health Check before enabling",
+    ],
+  };
+}
+
+function stringField(value: unknown) {
+  return typeof value === "string" ? value : "";
 }
 
 function mapAddons(

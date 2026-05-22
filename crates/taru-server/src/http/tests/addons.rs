@@ -464,6 +464,34 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
     let invalid_error = body_json::<ErrorResponse>(invalid).await;
     assert_eq!(invalid_error.code, "invalid_input");
 
+    let disabled_without_grants = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: {
+                let mut manifest = addon_manifest();
+                manifest.id = "example.metadata.disabled-without-grants".to_owned();
+                manifest
+            },
+            granted_scopes: vec![],
+            status: Some(AddonStatus::Disabled),
+        },
+    )
+    .await;
+    assert_eq!(
+        disabled_without_grants.addon.summary.status,
+        AddonStatus::Disabled
+    );
+    assert!(
+        disabled_without_grants
+            .addon
+            .summary
+            .granted_scopes
+            .is_empty()
+    );
+
     let missing_scope = post_addon_registration(
         &router,
         RegisterAddonRequest {

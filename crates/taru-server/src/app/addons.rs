@@ -72,13 +72,16 @@ impl AddonAppService {
             .into_iter()
             .filter(|scope| seen.insert(*scope))
             .collect::<Vec<_>>();
+        let status = request.status.unwrap_or(AddonStatus::Disabled);
 
-        for resource in &request.manifest.resources {
-            ensure_scope_grant(&request.manifest, resource.kind, &granted_scopes).map_err(
-                |err| TaruError::InvalidInput {
-                    message: err.to_string(),
-                },
-            )?;
+        if status == AddonStatus::Enabled {
+            for resource in &request.manifest.resources {
+                ensure_scope_grant(&request.manifest, resource.kind, &granted_scopes).map_err(
+                    |err| TaruError::InvalidInput {
+                        message: err.to_string(),
+                    },
+                )?;
+            }
         }
 
         let manifest_json =
@@ -99,7 +102,7 @@ impl AddonAppService {
             base_url: request.manifest.base_url,
             manifest_json,
             granted_scopes,
-            status: request.status.unwrap_or(AddonStatus::Disabled),
+            status,
         })
     }
 

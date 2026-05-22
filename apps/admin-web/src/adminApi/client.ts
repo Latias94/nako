@@ -23,6 +23,7 @@ import type {
   AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
+  RegisterAddonRequest,
   UpdateAddonStatusRequest,
 } from "./generated/contract";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
@@ -54,6 +55,22 @@ export class AdminApiClient {
 
   async getAddonDetail(addonId: string): Promise<AdminAddonRegistrationResponse> {
     return this.getJson<AdminAddonRegistrationResponse>(addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId));
+  }
+
+  async registerAddon(
+    manifest: RegisterAddonRequest["manifest"],
+    options: {
+      id?: string;
+      grantedScopes?: RegisterAddonRequest["granted_scopes"];
+      status?: RegisterAddonRequest["status"];
+    } = {},
+  ): Promise<AdminAddonRegistrationResponse> {
+    return this.postJson<AdminAddonRegistrationResponse>(TARU_ADMIN_ROUTES.addons, {
+      id: options.id,
+      manifest,
+      granted_scopes: options.grantedScopes ?? [],
+      status: options.status ?? "disabled",
+    } satisfies RegisterAddonRequest);
   }
 
   async updateAddonStatus(

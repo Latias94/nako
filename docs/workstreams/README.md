@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [admin-web-addon-onboarding](admin-web-addon-onboarding/README.md):
+  completed Addon productization lane for paste-and-preview manifest JSON
+  registration in Admin Web, defaulting registrations to disabled and handing
+  off to Addon Operations, Install Guide, and Health Check without expanding
+  into Addon Manager URL discovery or sidecar lifecycle supervision.
 - [addon-install-guide-generation](addon-install-guide-generation/README.md):
   completed Addon productization lane for generating redaction-safe Docker
   Compose, systemd, Secret Reference, health-check, and registration

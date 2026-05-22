@@ -197,4 +197,102 @@ describe("Admin web console scaffold", () => {
     expect(await screen.findByText("Subtitle Lab diagnostic retryable_http_failure")).toBeInTheDocument();
     expect(screen.getByText("subtitle · retryable_http_failure")).toBeInTheDocument();
   });
+
+  it("registers pasted Addon manifest JSON from the onboarding panel and keeps the sidecar lifecycle external", async () => {
+    const dataSource: AdminDataSource = {
+      async load() {
+        return mockAdminConsoleData;
+      },
+      previewAddonManifestJson(manifestJson) {
+        const manifest = JSON.parse(manifestJson);
+        return {
+          status: "ready",
+          manifest,
+          summary: {
+            manifestId: manifest.id,
+            name: manifest.name,
+            version: manifest.version,
+            protocolVersion: manifest.protocol_version,
+            baseUrl: manifest.base_url,
+            resourceCount: manifest.resources.length,
+            declaredScopes: manifest.scopes,
+            secretReferenceCount: manifest.secret_reference_fields?.length ?? 0,
+          },
+        };
+      },
+      async registerAddonManifestJson() {
+        return {
+          status: "registered",
+          addon: {
+            id: "addon-subtitle-lab",
+            manifestId: "dev.taru.subtitle-lab",
+            name: "Subtitle Lab",
+            version: "0.3.0",
+            protocolVersion: "2026-05-15",
+            baseUrl: "http://subtitle-lab:9100",
+            status: "disabled",
+            resourceCount: 2,
+            grantedScopes: [],
+          },
+          nextSteps: [
+            "Open the generated Addon Install Guide",
+            "Start the Addon Sidecar outside Taru",
+            "Run Addon Health Check before enabling",
+          ],
+        };
+      },
+    };
+
+    render(<App dataSource={dataSource} />);
+
+    const manifestBox = await screen.findByLabelText("Addon manifest JSON");
+    fireEvent.change(manifestBox, {
+      target: {
+        value: JSON.stringify(
+          {
+            id: "dev.taru.subtitle-lab",
+            name: "Subtitle Lab",
+            version: "0.3.0",
+            protocol_version: "2026-05-15",
+            base_url: "http://subtitle-lab:9100",
+            description: "Suggests subtitle sidecars and metadata improvements.",
+            resources: [
+              {
+                kind: "subtitle",
+                path: "/resources/subtitles",
+                input_schema: null,
+                output_schema: null,
+                required_scopes: ["subtitle_read"],
+                timeout_ms: 5000,
+                max_attempts: 2,
+              },
+              {
+                kind: "metadata",
+                path: "/resources/metadata",
+                input_schema: null,
+                output_schema: null,
+                required_scopes: ["item_metadata_read"],
+                timeout_ms: null,
+                max_attempts: null,
+              },
+            ],
+            auth: "bearer",
+            default_timeout_ms: 5000,
+            default_max_attempts: 2,
+            scopes: ["subtitle_read", "item_metadata_read"],
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    expect(screen.getByText("dev.taru.subtitle-lab · 2 resources")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Register disabled Addon"));
+
+    expect((await screen.findAllByText("Subtitle Lab registered as disabled")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Start the Addon Sidecar outside Taru")).toBeInTheDocument();
+    expect(screen.getByText(/Registration does not install or start the/)).toBeInTheDocument();
+  });
 });

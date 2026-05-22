@@ -30,11 +30,59 @@ No active implementation goal is currently set.
 
 Recommended next goal:
 
-- Addon Manager planning only if Taru should own discovery/install/update or
-  sidecar lifecycle automation; otherwise continue product hardening around
-  Addon author packaging examples and operator docs.
+- Addon token/grant onboarding UX, or URL-based manifest discovery after
+  SSRF/trust policy is explicitly designed.
 
 ## Completed Goals
+
+### Admin Web Addon Onboarding
+
+Status: completed.
+
+Objective:
+
+- Productize a safe Admin Web first-run onboarding path for **Addon Sidecars**.
+- Let administrators paste an Addon manifest JSON document, preview key facts,
+  and register it through the Admin API with `status: "disabled"` by default.
+- Preserve the boundary that registration is not installation: Taru stores and
+  validates the manifest snapshot, generates guidance, and verifies health, but
+  does not start, stop, install, update, remove, or supervise the sidecar.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-addon-onboarding/` as the authoritative execution
+  lane.
+- Admin Web client/data-source support for `POST /admin/v1/addons`
+  registration from pasted manifest JSON.
+- Admin Web onboarding UI that hands off to Addon Operations and the Addon
+  Install Guide after successful registration.
+
+Non-goals:
+
+- No Addon Manager lifecycle automation, marketplace, package signing,
+  Docker/systemd/Kubernetes/SSH/host-agent control, or sidecar process
+  supervision.
+- No arbitrary URL-based manifest fetch in this lane.
+- No Public Client API exposure.
+- No token issuance or grant editor unless needed as a minimal continuation
+  handoff.
+
+First executable task:
+
+- AWAON-020 Admin Web client/data-source registration support for pasted
+  manifest JSON, defaulting to disabled.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-web-addon-onboarding/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p taru-server register_addon_routes_disabled_by_default_and_validate_contract --no-fail-fast`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
 
 ### Addon Install Guide Generation
 

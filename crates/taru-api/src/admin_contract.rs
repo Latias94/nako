@@ -175,6 +175,13 @@ export interface AdminAddonsQuery {
   status?: AddonStatus;
 }
 
+export interface RegisterAddonRequest {
+  id?: string;
+  manifest: AdminAddonManifest;
+  granted_scopes?: AddonScope[];
+  status?: AddonStatus;
+}
+
 export interface AdminAddonResourceDeclaration {
   kind: AddonResource;
   path: string;
@@ -193,10 +200,62 @@ export interface AdminAddonManifest {
   base_url: string;
   description: string | null;
   resources: AdminAddonResourceDeclaration[];
+  entry_points?: AdminAddonEntryPointDeclaration[];
+  hosted_pages?: AdminAddonHostedPageDeclaration[];
+  configuration_schema?: AdminAddonConfigurationSchemaDeclaration;
+  secret_reference_fields?: AdminAddonSecretReferenceFieldDeclaration[];
+  event_subscriptions?: AdminAddonEventSubscriptionDeclaration[];
+  tasks?: AdminAddonTaskDeclaration[];
   auth: AddonAuth;
   default_timeout_ms: number | null;
   default_max_attempts: number | null;
   scopes: AddonScope[];
+}
+
+export interface AdminAddonEntryPointDeclaration {
+  id: string;
+  kind: AddonEntryPointKind;
+  label: string;
+  path: string;
+  hosted_page_id?: string;
+  required_scopes?: AddonScope[];
+}
+
+export interface AdminAddonHostedPageDeclaration {
+  id: string;
+  title: string;
+  path: string;
+  required_scopes?: AddonScope[];
+}
+
+export interface AdminAddonConfigurationSchemaDeclaration {
+  schema_id: string;
+  schema: Record<string, unknown>;
+}
+
+export interface AdminAddonSecretReferenceFieldDeclaration {
+  id: string;
+  label: string;
+  description?: string;
+  required?: boolean;
+}
+
+export interface AdminAddonEventSubscriptionDeclaration {
+  id: string;
+  event_kind: string;
+  path: string;
+  required_scopes?: AddonScope[];
+  filters?: Record<string, unknown>;
+}
+
+export interface AdminAddonTaskDeclaration {
+  id: string;
+  name: string;
+  path: string;
+  description?: string;
+  required_scopes?: AddonScope[];
+  timeout_ms?: number;
+  max_attempts?: number;
 }
 
 export interface AdminAddonRegistrationSummary {
@@ -965,6 +1024,9 @@ mod tests {
             "AdminPlaybackSessionsQuery",
             "AdminPlaybackSupportQuery",
             "AdminAddonsQuery",
+            "RegisterAddonRequest",
+            "AdminAddonManifest",
+            "AdminAddonEntryPointDeclaration",
             "AdminAddonRegistrationSummary",
             "AdminAddonRegistrationsResponse",
             "AdminAddonRegistrationResponse",
