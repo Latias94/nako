@@ -85,11 +85,13 @@ Primary evidence:
 
 ## M4 — Addon Artifact And Intake Handoff
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Addon-produced Generated Artifacts enter AILO proposal/review semantics.
-- Addon-produced acquisition candidates enter DWI intake semantics.
-- Tests prove no autonomous Canonical Metadata, NFO sidecar, Media Source,
+- [x] Addon-produced Generated Artifacts enter AILO proposal/review semantics.
+- [x] Addon-produced acquisition candidates enter DWI intake semantics.
+- [x] Tests prove no autonomous Canonical Metadata, NFO sidecar, Media Source,
   Managed Import, or library-file writes.
 
 Primary evidence:
@@ -97,6 +99,10 @@ Primary evidence:
 - `crates/taru-server/src/app`
 - `crates/taru-core/src/automation.rs`
 - `crates/taru-core/src/acquisition_intake.rs`
+- `crates/taru-api/src/extension.rs`
+- `crates/taru-server/src/http/addons.rs`
+- `crates/taru-server/src/http/tests/addons.rs`
+- `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`
 
 ## M5 — Closeout And Follow-On Split
 

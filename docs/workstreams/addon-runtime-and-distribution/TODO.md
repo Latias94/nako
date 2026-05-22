@@ -97,18 +97,34 @@ Task IDs use the `ARD` prefix.
 
 ## M4 — Addon Artifact And Intake Handoff
 
-- [ ] ARD-050 [owner=codex] [deps=ARD-040] [scope=crates/taru-server/src/app,crates/taru-core,crates/taru-db,crates/taru-api/src/admin.rs]
+- [x] ARD-050 [owner=codex] [deps=ARD-040] [scope=crates/taru-api/src/extension.rs,crates/taru-server/src/app,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests]
   Goal: Prove Addon-produced Generated Artifacts and acquisition candidates
   enter existing AILO/DWI proposal/intake boundaries rather than creating direct
   Canonical Metadata, NFO sidecar, Media Source, Managed Import, or library-file
   writes.
-  Validation: focused app/db tests for Addon artifact/intake handoff and
-  stale-target checks; relevant Admin/system tests; `cargo fmt --all
+  Progress: Added Addon Token runtime routes for Generated Artifact handoff and
+  acquisition-intake candidate handoff. Generated Artifact submissions now
+  upsert an Addon-backed Automation Provider, enqueue an Addon Task job, create
+  a Proposed automation artifact for existing AILO proposal review, preserve
+  provider capabilities across repeated submissions, reject stale library/item/
+  source targets, and enforce idempotency-key replay/conflict semantics without
+  mutating canonical metadata or files. Acquisition candidates now enter DWI
+  `AddonProposed` intake records with redacted diagnostics and no promotion,
+  Media Source, Managed Import, or library-file write authority.
+  Validation: focused app/HTTP tests for Addon artifact/intake handoff,
+  idempotency, stale-target checks, redaction, no canonical mutation, no Managed
+  Import artifacts, and no Media Source creation; relevant Admin contract test;
+  `cargo check -p taru-api -p taru-server --tests`; `cargo fmt --all
   -- --check`; `git diff --check`; `git diff --name-only --
   crates/taru-client-protocol`.
   Review: check acceptance/audit routing, redaction, and no direct canonical
   or library mutation.
-  Evidence: Addon-to-Generated-Artifact and Addon-to-Acquisition-Intake tests.
+  Evidence: `cargo nextest run -p taru-server
+  addon_generated_artifact_handoff --no-fail-fast`; `cargo nextest run -p
+  taru-server addon_acquisition_candidate_handoff --no-fail-fast`; `cargo
+  nextest run -p taru-server addon_handoff --no-fail-fast`; `cargo nextest run
+  -p taru-api admin_contract --no-fail-fast`; `cargo fmt --all -- --check`;
+  `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
   Handoff: Close or split Addon Manager/process supervision in ARD-060.
 
 ## M5 — Closeout And Follow-On Split

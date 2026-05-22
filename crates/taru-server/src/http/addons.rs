@@ -8,7 +8,8 @@ use axum::{
 use taru_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest,
     AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest, RegisterAddonRequest,
-    ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
+    ReplaceAddonGrantsRequest, SubmitAddonAcquisitionCandidateRequest,
+    SubmitAddonGeneratedArtifactRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
 use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
@@ -74,6 +75,14 @@ pub(super) fn routes() -> Router<TaruApp> {
 pub(super) fn runtime_routes() -> Router<TaruApp> {
     Router::new()
         .route("/addon/v1/access-check", post(check_addon_access))
+        .route(
+            "/addon/v1/generated-artifacts",
+            post(submit_addon_generated_artifact),
+        )
+        .route(
+            "/addon/v1/acquisition/intake/candidates",
+            post(submit_addon_acquisition_candidate),
+        )
         .route("/addon/v1/side-effects", post(submit_addon_side_effect))
 }
 
@@ -268,6 +277,42 @@ pub(super) async fn submit_addon_side_effect(
     Ok(Json(
         app.addons()
             .submit_addon_side_effect(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn submit_addon_generated_artifact(
+    State(app): State<TaruApp>,
+    headers: HeaderMap,
+    Json(request): Json<SubmitAddonGeneratedArtifactRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| taru_core::TaruError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .submit_addon_generated_artifact(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn submit_addon_acquisition_candidate(
+    State(app): State<TaruApp>,
+    headers: HeaderMap,
+    Json(request): Json<SubmitAddonAcquisitionCandidateRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| taru_core::TaruError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .submit_addon_acquisition_candidate(raw_token, request)
             .await?,
     ))
 }

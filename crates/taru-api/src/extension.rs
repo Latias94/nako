@@ -8,11 +8,11 @@ use taru_core::{
     AddonRoutingDeclarationKind, AddonRoutingPlanRecord, AddonRoutingPlanStatus,
     AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord,
     AddonSideEffectTarget, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
-    AddonTokenId, AddonTokenRecord, AddonTokenStatus, AutomationArtifactRecord,
-    AutomationCapability, AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, EventId, JobKind, LibraryId, MediaItemId, MediaSourceId,
-    OutboxEventRecord, WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord,
-    WebhookEndpointStatus,
+    AddonTokenId, AddonTokenRecord, AddonTokenStatus, AutomationArtifactId, AutomationArtifactKind,
+    AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability, AutomationJobInput,
+    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, EventId, JobId,
+    JobKind, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
+    WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -763,5 +763,103 @@ impl AddonSideEffectSummary {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonSideEffectResponse {
     pub side_effect: AddonSideEffectSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SubmitAddonGeneratedArtifactRequest {
+    pub capability: AutomationCapability,
+    pub kind: AutomationArtifactKind,
+    pub library_id: Option<LibraryId>,
+    pub item_id: Option<MediaItemId>,
+    pub source_id: Option<MediaSourceId>,
+    pub idempotency_key: String,
+    pub prompt: serde_json::Value,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonGeneratedArtifactSummary {
+    pub artifact_id: AutomationArtifactId,
+    pub provider_id: AutomationProviderId,
+    pub job_id: JobId,
+    pub capability: AutomationCapability,
+    pub kind: AutomationArtifactKind,
+    pub library_id: Option<LibraryId>,
+    pub item_id: Option<MediaItemId>,
+    pub source_id: Option<MediaSourceId>,
+    pub status: AutomationArtifactStatus,
+    pub writes_canonical_metadata: bool,
+    pub writes_sidecar: bool,
+    pub writes_library_files: bool,
+    pub creates_media_source: bool,
+    pub creates_managed_import: bool,
+}
+
+impl AddonGeneratedArtifactSummary {
+    #[must_use]
+    pub fn from_record(record: AutomationArtifactRecord) -> Self {
+        Self {
+            artifact_id: record.id,
+            provider_id: record.provider_id,
+            job_id: record.job_id,
+            capability: record.capability,
+            kind: record.kind,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            source_id: record.source_id,
+            status: record.status,
+            writes_canonical_metadata: false,
+            writes_sidecar: false,
+            writes_library_files: false,
+            creates_media_source: false,
+            creates_managed_import: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonGeneratedArtifactResponse {
+    pub artifact: AddonGeneratedArtifactSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SubmitAddonAcquisitionCandidateRequest {
+    pub target_library_id: LibraryId,
+    pub source_key: String,
+    pub source_uri: String,
+    pub display_name: Option<String>,
+    pub intended_locator: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub fingerprint: Option<String>,
+    pub state: Option<taru_core::AcquisitionIntakeCandidateState>,
+    pub diagnostics: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAcquisitionCandidateSummary {
+    pub id: taru_core::AcquisitionIntakeCandidateId,
+    pub target_library_id: LibraryId,
+    pub state: taru_core::AcquisitionIntakeCandidateState,
+    pub source_kind: String,
+    pub source_scheme: Option<String>,
+    pub source_ref_redacted: String,
+    pub source_key_fingerprint: String,
+    pub has_display_name: bool,
+    pub has_intended_locator: bool,
+    pub size_bytes: Option<u64>,
+    pub has_fingerprint: bool,
+    pub has_diagnostics: bool,
+    pub managed_import_artifact_id: Option<taru_core::ManagedImportArtifactId>,
+    pub writes_library: bool,
+    pub creates_media_source: bool,
+    pub creates_managed_import: bool,
+    pub promotion_apply: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAcquisitionCandidateResponse {
+    pub candidate: AddonAcquisitionCandidateSummary,
     pub idempotent_replay: bool,
 }

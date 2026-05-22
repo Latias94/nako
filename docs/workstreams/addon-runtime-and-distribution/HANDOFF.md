@@ -25,29 +25,28 @@ Prerequisites are complete:
   Admin-only diagnostics, and explicit accept/reject planning without
   autonomous writes.
 
-ARD-040 is complete. The lane is scoped to Addon Sidecar package/install/runtime
-readiness and routing, not Addon Manager automation or Native Plugin runtime.
+ARD-050 is complete. The lane is scoped to Addon Sidecar package/install/runtime
+readiness, routing, and proposal/intake handoff, not Addon Manager automation
+or Native Plugin runtime.
 
 ## Current Task
 
-- Task ID: ARD-050
-- Owner: codex
+- Task ID: ARD-060
+- Owner: planner
 - Files:
-  - `crates/taru-core`
-  - `crates/taru-db`
-  - `crates/taru-server/src/app`
-  - `crates/taru-server/src/http/admin.rs`
   - `docs/workstreams/addon-runtime-and-distribution`
+  - `docs/workstreams/post-rpd-product-hardening`
+  - `docs/workstreams/README.md`
 - Validation:
-  - focused app/db tests for Addon artifact/intake handoff and stale-target
-    checks
-  - relevant Admin/system tests
-  - `cargo fmt --all -- --check`
+  - `verify-rust-workstream` final evidence for the lane
+  - `python -m json.tool` for local and parent WORKSTREAM.json files
   - `git diff --check`
+  - `git diff --name-only -- crates/taru-client-protocol`
 - Status: READY
-- Review: route Addon-produced Generated Artifacts and acquisition candidates
-  into existing AILO/DWI boundaries without direct Canonical Metadata, NFO
-  sidecar, Media Source, Managed Import, or library-file writes.
+- Review: close the lane or split follow-ons for Addon Manager discovery/
+  install/update, package signing, marketplace, process supervision, logs,
+  rollback, Native Plugin ABI, downloader protocols, Public Client surfaces,
+  and local AI/model runtime. Do not hide those scopes in this lane.
 
 Progress so far:
 
@@ -77,6 +76,34 @@ Progress so far:
   replacement, stale-plan removal, disabled/missing-grant/unsupported-event
   deferral, no hidden scheduler/outbox side effects, and no manifest secret
   echo.
+- Added Addon Token runtime routes `POST /addon/v1/generated-artifacts` and
+  `POST /addon/v1/acquisition/intake/candidates`.
+- Generated Artifact submissions now require Addon scopes, revalidate
+  library/item/source ownership, upsert an Addon-backed Automation Provider,
+  preserve existing provider capabilities across later capability submissions,
+  enqueue an Addon Task job, and create Proposed AILO automation artifacts.
+- Generated Artifact idempotency now replays identical idempotency keys and
+  rejects conflicting payloads with safe `409` diagnostics.
+- Acquisition candidates now enter DWI `AddonProposed` acquisition-intake
+  records with redacted source diagnostics and no promotion/apply authority.
+- Focused tests prove no Canonical Metadata, NFO sidecar, Media Source, Managed
+  Import, or library-file writes occur during Addon artifact/intake handoff.
+
+Validation so far:
+
+- `cargo check -p taru-api -p taru-server --tests`
+- `cargo nextest run -p taru-server addon_generated_artifact_handoff --no-fail-fast`
+- `cargo nextest run -p taru-server addon_acquisition_candidate_handoff --no-fail-fast`
+- `cargo nextest run -p taru-server addon_handoff --no-fail-fast`
+- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+- `git diff --name-only -- crates/taru-client-protocol`
+
+Broad-gate note: `cargo nextest run -p taru-server addons --no-fail-fast` and a
+retry with `-j 1` were attempted, but the Windows host hit socket error 10055
+after the ARD-050 focused tests had passed. Treat that as an environment-limited
+attempt, not as passing closeout evidence.
 
 ## Decisions Since Opening
 
@@ -99,9 +126,8 @@ Progress so far:
 
 ## Next Recommended Action
 
-Start ARD-050 by proving Addon-produced Generated Artifacts and acquisition
-candidates enter existing AILO proposal/review and DWI acquisition-intake
-boundaries. Keep automatic Addon Manager discovery/install/update, package
-signing, process supervision, logs, rollback, Native Plugin ABI, downloader
-protocols, local AI runtime, Public Client API changes, direct library writes,
-and hidden schedulers out of scope.
+Start ARD-060 closeout. Re-run final lane evidence where the environment allows
+it, decide which Addon Manager/distribution/runtime scopes must become follow-on
+workstreams, update the parent `post-rpd-product-hardening` umbrella with the
+next lane decision, and keep Public Client API changes, direct library writes,
+and hidden schedulers out of this lane.
