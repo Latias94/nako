@@ -1,10 +1,27 @@
-# Taru Brand Assets
+# Brand Assets
 
-This directory contains source-level product branding assets shared across Taru
+This directory contains source-level product branding assets shared across Taru/Nako
 platforms.
+
+## Nako
+
+<img src="./nako-app-icon-1024.png" alt="Nako app icon" width="160">
+
+Tagline:
+
+> Your media home, gently kept.
+
+One-line introduction:
+
+> Nako is an open-source, self-hosted media home for gently organizing,
+> keeping, and playing your films, shows, anime, and personal collection.
+
+The Nako icon rationale and final generation prompt are recorded in
+[nako-brand-identity](../../docs/workstreams/nako-brand-identity/README.md).
 
 ## Product Icon
 
+- `nako-app-icon-1024.png` is the selected Nako source product/app icon.
 - `taru-app-icon-1024.png` is the current source product/app icon.
 - Platform-specific launcher icons should be generated from this source asset
   and stored in each platform's native resource tree.

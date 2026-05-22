@@ -6,6 +6,9 @@ attention.
 
 ## Current Workstreams
 
+- [nako-brand-identity](nako-brand-identity/README.md):
+  design record for Nako's selected source icon, public tagline, one-line
+  introduction, icon meaning, and final image-generation prompt.
 - [admin-web-addon-credential-grant-onboarding](admin-web-addon-credential-grant-onboarding/README.md):
   completed Addon productization lane for one-time Addon Token issue/rotation,
   token revoke, accepted Addon Grant replacement, and enable readiness in
