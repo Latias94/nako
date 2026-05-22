@@ -1,6 +1,7 @@
 import type {
   AdminNetworkAccessDiagnostics,
   AdminOverviewResponse,
+  AddonPermission,
   AddonResource,
   AdminAddonManifest,
   PageInfo,
@@ -8,6 +9,7 @@ import type {
 
 export type {
   AddonGrantsResponse,
+  AddonPermission,
   AddonResource,
   AddonScope,
   AddonStatus,
@@ -218,6 +220,16 @@ export type AddonGrantSummaryRow = {
   id: string;
   permission: string;
   libraryId: string | null;
+};
+
+export type AddonGrantAssignmentInput = {
+  permission: AddonPermission;
+  libraryId: string | null;
+};
+
+export type AddonTokenActionResult = {
+  token: AddonTokenSummaryRow;
+  rawToken: string;
 };
 
 export type AddonDiagnosticSummary = {

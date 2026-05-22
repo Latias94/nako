@@ -44,11 +44,15 @@ import type {
   AdminSectionKey,
   AdminSourceMap,
   AddonManifestPreview,
+  AddonGrantAssignmentInput,
   AddonDiagnosticSummary,
   AddonHealthSummary,
   AddonInstallGuideSummary,
   AddonOnboardingResult,
   AddonOperationsSummary,
+  AddonTokenActionResult,
+  AddonTokenSummaryRow,
+  AddonGrantSummaryRow,
   CatalogGovernanceSummary,
   DataSourceMode,
   EventSummary,
@@ -69,6 +73,13 @@ export type AdminDataSource = {
   diagnoseAddonResource?(addonId: string, resource: AddonResource): Promise<AddonDiagnosticSummary>;
   previewAddonManifestJson?(manifestJson: string): AddonManifestPreview;
   registerAddonManifestJson?(manifestJson: string): Promise<AddonOnboardingResult>;
+  issueAddonToken?(addonId: string, label: string): Promise<AddonTokenActionResult>;
+  rotateAddonToken?(addonId: string, tokenId: string, label: string): Promise<AddonTokenActionResult>;
+  revokeAddonToken?(addonId: string, tokenId: string): Promise<AddonTokenSummaryRow>;
+  replaceAddonGrants?(
+    addonId: string,
+    grants: AddonGrantAssignmentInput[],
+  ): Promise<AddonGrantSummaryRow[]>;
 };
 
 type LoadResult<T> = {
@@ -240,6 +251,32 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         };
       }
     },
+    async issueAddonToken(addonId, label) {
+      const response = await client.issueAddonToken(addonId, { label });
+      return {
+        token: mapAddonToken(response.token),
+        rawToken: response.raw_token,
+      };
+    },
+    async rotateAddonToken(addonId, tokenId, label) {
+      const response = await client.rotateAddonToken(addonId, tokenId, { label });
+      return {
+        token: mapAddonToken(response.token),
+        rawToken: response.raw_token,
+      };
+    },
+    async revokeAddonToken(addonId, tokenId) {
+      return mapAddonToken((await client.revokeAddonToken(addonId, tokenId)).token);
+    },
+    async replaceAddonGrants(addonId, grants) {
+      const response = await client.replaceAddonGrants(addonId, {
+        grants: grants.map((grant) => ({
+          permission: grant.permission,
+          library_id: grant.libraryId,
+        })),
+      });
+      return response.grants.map(mapAddonGrant);
+    },
   };
 }
 
@@ -373,19 +410,27 @@ function mapAddons(
       })),
     },
     installGuide: mapAddonInstallGuide(installGuide),
-    tokens: tokens.tokens.map((token) => ({
-      id: token.id,
-      label: token.label,
-      tokenPrefix: token.token_prefix,
-      status: token.status,
-      lastUsedAt: token.last_used_at,
-    })),
-    grants: grants.grants.map((grant) => ({
-      id: grant.id,
-      permission: grant.permission,
-      libraryId: grant.library_id,
-    })),
+    tokens: tokens.tokens.map(mapAddonToken),
+    grants: grants.grants.map(mapAddonGrant),
     diagnostic: mapAddonDiagnostic(diagnostic),
+  };
+}
+
+function mapAddonToken(token: AddonTokensResponse["tokens"][number]): AddonTokenSummaryRow {
+  return {
+    id: token.id,
+    label: token.label,
+    tokenPrefix: token.token_prefix,
+    status: token.status,
+    lastUsedAt: token.last_used_at,
+  };
+}
+
+function mapAddonGrant(grant: AddonGrantsResponse["grants"][number]): AddonGrantSummaryRow {
+  return {
+    id: grant.id,
+    permission: grant.permission,
+    libraryId: grant.library_id,
   };
 }
 

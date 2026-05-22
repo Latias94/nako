@@ -185,6 +185,28 @@ Runtime secrets are not stored in the manifest. If an addon uses bearer or
 shared-secret auth, Taru resolves the secret at call time and sends it as an
 HTTP header.
 
+## Credentials and Grants
+
+After manifest registration and sidecar installation, operators use Admin Web
+to issue an Addon Token and configure accepted Addon Grants. The raw token is
+shown exactly once when it is issued or rotated; addon authors should document
+where operators place that value in the sidecar's own environment or secret
+store.
+
+Addon Tokens authenticate sidecar-to-Taru runtime requests. They are not admin
+bearer tokens, and they are rejected by Admin API and Public Client API routes.
+Accepted Addon Grants are separate from manifest scopes: scopes declare what an
+addon can ask for, while grants record what Taru will accept for protected side
+effects such as metadata, artwork, subtitle, or library-file writes.
+
+Addon authors should assume:
+
+- token rotation does not restart the sidecar automatically;
+- Taru will not push raw tokens into hosted pages or install guides;
+- raw token values should never be logged by the sidecar;
+- sidecar startup, restart, and secret injection remain operator-owned unless a
+  future Addon Manager explicitly changes that boundary.
+
 ## Install Guide
 
 Taru can generate an **Addon Install Guide** for a registered Addon Sidecar via

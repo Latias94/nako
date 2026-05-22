@@ -173,6 +173,87 @@ describe("AdminApiClient", () => {
     ]);
   });
 
+  it("sends Addon token and grant mutations through Admin-only routes", async () => {
+    const issuedToken = {
+      token: mockAddonTokens.tokens[0],
+      raw_token: "taru_at_one_time_raw_token",
+    };
+    const rotatedToken = {
+      rotated: mockAddonTokens.tokens[0],
+      token: {
+        ...mockAddonTokens.tokens[0],
+        id: "addon-token-rotated",
+        token_prefix: "taru_at_rotated",
+      },
+      raw_token: "taru_at_rotated_one_time_raw_token",
+    };
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+      if (url.pathname.endsWith("/tokens")) {
+        return Response.json(issuedToken);
+      }
+      if (url.pathname.endsWith("/rotate")) {
+        return Response.json(rotatedToken);
+      }
+      if (url.pathname.endsWith("/revoke")) {
+        return Response.json({ token: { ...mockAddonTokens.tokens[0], status: "revoked" } });
+      }
+      if (url.pathname.endsWith("/grants")) {
+        return Response.json(mockAddonGrants);
+      }
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.issueAddonToken("addon-subtitle-lab", { label: "sidecar runtime" })).resolves.toEqual(
+      issuedToken,
+    );
+    await expect(
+      client.rotateAddonToken("addon-subtitle-lab", "addon-token-active", { label: "replacement" }),
+    ).resolves.toEqual(rotatedToken);
+    await expect(client.revokeAddonToken("addon-subtitle-lab", "addon-token-active")).resolves.toMatchObject({
+      token: {
+        status: "revoked",
+      },
+    });
+    await expect(
+      client.replaceAddonGrants("addon-subtitle-lab", {
+        grants: [{ permission: "metadata_write", library_id: null }],
+      }),
+    ).resolves.toEqual(mockAddonGrants);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
+        {
+          method: "POST",
+          body: JSON.stringify({ label: "sidecar runtime" }),
+        },
+      ],
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`,
+        {
+          method: "POST",
+          body: JSON.stringify({ label: "replacement" }),
+        },
+      ],
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+      [
+        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ grants: [{ permission: "metadata_write", library_id: null }] }),
+        },
+      ],
+    ]);
+  });
+
   it("registers an Addon manifest through the Admin-only route as disabled by default", async () => {
     const fetcher = vi.fn(async () => Response.json(mockAddonDetail));
     const client = new AdminApiClient({ token: "redacted-test-token", fetcher });

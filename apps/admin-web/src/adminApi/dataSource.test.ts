@@ -271,6 +271,96 @@ describe("Admin data source", () => {
 
     expect(called).toBe(false);
   });
+
+  it("exposes Addon credential and grant onboarding actions without putting raw tokens in load data", async () => {
+    const dataSource = createAdminDataSource({
+      fetcher: fetcherFor({
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: {
+          token: mockAddonTokens.tokens[0],
+          raw_token: "taru_at_one_time_raw_token",
+        },
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`]: {
+          rotated: mockAddonTokens.tokens[0],
+          token: {
+            ...mockAddonTokens.tokens[0],
+            id: "addon-token-rotated",
+            token_prefix: "taru_at_rotated",
+          },
+          raw_token: "taru_at_rotated_one_time_raw_token",
+        },
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`]: {
+          token: {
+            ...mockAddonTokens.tokens[0],
+            status: "revoked",
+            revoked_at: "2026-05-22T03:00:00.000Z",
+          },
+        },
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: {
+          grants: [
+            {
+              id: "addon-grant-metadata",
+              addon_id: "addon-subtitle-lab",
+              permission: "metadata_write",
+              library_id: null,
+              created_at: "2026-05-22T03:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    });
+
+    await expect(dataSource.issueAddonToken?.("addon-subtitle-lab", "sidecar runtime")).resolves.toMatchObject({
+      rawToken: "taru_at_one_time_raw_token",
+      token: {
+        tokenPrefix: "taru_at_subtitle",
+      },
+    });
+    await expect(dataSource.rotateAddonToken?.("addon-subtitle-lab", "addon-token-active", "replacement")).resolves.toMatchObject({
+      rawToken: "taru_at_rotated_one_time_raw_token",
+      token: {
+        id: "addon-token-rotated",
+      },
+    });
+    await expect(dataSource.revokeAddonToken?.("addon-subtitle-lab", "addon-token-active")).resolves.toMatchObject({
+      status: "revoked",
+    });
+    await expect(
+      dataSource.replaceAddonGrants?.("addon-subtitle-lab", [
+        { permission: "metadata_write", libraryId: null },
+      ]),
+    ).resolves.toEqual([
+      {
+        id: "addon-grant-metadata",
+        permission: "metadata_write",
+        libraryId: null,
+      },
+    ]);
+
+    const loaded = await createAdminDataSource({
+      fetcher: fetcherFor({
+        [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.addons]: mockAddons,
+        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
+        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
+        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [TARU_ADMIN_ROUTES.events]: mockEvents,
+        [TARU_ADMIN_ROUTES.jobs]: mockJobs,
+        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
+      }),
+    }).load();
+
+    expect(JSON.stringify(loaded)).not.toContain("raw_token");
+    expect(JSON.stringify(loaded)).not.toContain("one_time_raw_token");
+  });
 });
 
 function fetcherFor(routes: Record<string, unknown | Response>): typeof fetch {

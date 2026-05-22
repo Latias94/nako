@@ -12,9 +12,28 @@ milestone.
 ## Current Architecture Focus
 
 Status: no active architecture/productization focus is set after Admin Web
-Addon Onboarding closeout.
+Addon Credential and Grant Onboarding closeout.
 
 Latest completed architecture focus:
+
+Admin Web Addon Credential and Grant Onboarding completes the bridge from a
+registered disabled **Addon Sidecar** to an enabled runtime Addon:
+
+- one-time Addon Token issue and rotation display;
+- Addon Token revoke;
+- accepted Addon Grant replacement;
+- enable readiness checklist for health, token, grant, and lifecycle boundary
+  facts.
+
+This focus is intentionally not Addon Manager work. Taru will not install,
+launch, stop, restart, update, remove, log, or supervise Addon Sidecar
+processes in this lane.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-web-addon-credential-grant-onboarding/`
+
+Previous architecture focus:
 
 Admin Web Addon Onboarding turns the completed Addon Operations and Addon
 Install Guide surfaces into a first-run product flow for externally run

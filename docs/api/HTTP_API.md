@@ -1306,6 +1306,13 @@ issuing credentials to a registered Addon Sidecar; they do not make an addon an
 admin client, and they are separate from the manifest `auth` value used when
 Taru calls the addon.
 
+Admin Web credential onboarding wraps these routes as an operator checklist:
+issue or rotate a token, copy the raw token immediately, configure the sidecar
+outside Taru, replace accepted Addon Grants, run Health Check, then enable the
+Addon. Raw token values are one-time action responses only; list, detail,
+Install Guide, and fallback/mock read models expose token summaries such as
+prefix and status, not the secret token material.
+
 `POST /admin/v1/addons/{addon_id}/tokens` issues a new Addon Token. The response
 contains the raw token exactly once:
 
@@ -1336,6 +1343,11 @@ token as `rotated` and returns one replacement raw token. `POST
 Accepted Addon Permissions are managed separately from manifest
 `granted_scopes`. `PUT /admin/v1/addons/{addon_id}/grants` replaces the accepted
 grant set:
+
+Admin Web currently offers a small explicit editor for accepted grants. Grant
+replacement is not manifest declaration editing: manifest scopes describe what
+the sidecar may request, while accepted grants describe which side effects Taru
+will allow after authentication and policy checks.
 
 ```json
 {

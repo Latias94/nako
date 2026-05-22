@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [admin-web-addon-credential-grant-onboarding](admin-web-addon-credential-grant-onboarding/README.md):
+  completed Addon productization lane for one-time Addon Token issue/rotation,
+  token revoke, accepted Addon Grant replacement, and enable readiness in
+  Admin Web without expanding into sidecar lifecycle supervision.
 - [admin-web-addon-onboarding](admin-web-addon-onboarding/README.md):
   completed Addon productization lane for paste-and-preview manifest JSON
   registration in Admin Web, defaulting registrations to disabled and handing

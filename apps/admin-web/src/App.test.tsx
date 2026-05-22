@@ -198,6 +198,80 @@ describe("Admin web console scaffold", () => {
     expect(screen.getByText("subtitle · retryable_http_failure")).toBeInTheDocument();
   });
 
+  it("runs Addon credential and grant onboarding actions with one-time token display", async () => {
+    const dataSource: AdminDataSource = {
+      async load() {
+        return mockAdminConsoleData;
+      },
+      async issueAddonToken() {
+        return {
+          rawToken: "taru_at_one_time_raw_token",
+          token: {
+            id: "addon-token-new",
+            label: "sidecar runtime",
+            tokenPrefix: "taru_at_new",
+            status: "active",
+            lastUsedAt: null,
+          },
+        };
+      },
+      async rotateAddonToken() {
+        return {
+          rawToken: "taru_at_rotated_one_time_raw_token",
+          token: {
+            id: "addon-token-rotated",
+            label: "rotated runtime",
+            tokenPrefix: "taru_at_rotated",
+            status: "active",
+            lastUsedAt: null,
+          },
+        };
+      },
+      async revokeAddonToken() {
+        return {
+          id: "addon-token-active",
+          label: "sidecar runtime",
+          tokenPrefix: "taru_at_subtitle",
+          status: "revoked",
+          lastUsedAt: "2026-05-22T02:44:00.000Z",
+        };
+      },
+      async replaceAddonGrants() {
+        return [
+          {
+            id: "addon-grant-metadata",
+            permission: "metadata_write",
+            libraryId: null,
+          },
+        ];
+      },
+    };
+
+    render(<App dataSource={dataSource} />);
+
+    await screen.findByText("Addon Credentials & Grants");
+    fireEvent.change(screen.getByLabelText("Addon token label"), {
+      target: { value: "sidecar runtime" },
+    });
+    fireEvent.click(screen.getByText("Issue token"));
+    expect(await screen.findByText("Copy this Addon Token now. It will not be shown again.")).toBeInTheDocument();
+    expect(screen.getByText("taru_at_one_time_raw_token")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Rotate first token"));
+    expect(await screen.findByText("taru_at_rotated_one_time_raw_token")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Revoke first token"));
+    expect(await screen.findByText("Token addon-token-active revoked")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Addon grant permission"), {
+      target: { value: "metadata_write" },
+    });
+    fireEvent.click(screen.getByText("Replace grants"));
+    expect(await screen.findByText("metadata_write · global")).toBeInTheDocument();
+    expect(screen.getByText("Enable readiness")).toBeInTheDocument();
+    expect(screen.getByText("Sidecar lifecycle remains external")).toBeInTheDocument();
+  });
+
   it("registers pasted Addon manifest JSON from the onboarding panel and keeps the sidecar lifecycle external", async () => {
     const dataSource: AdminDataSource = {
       async load() {

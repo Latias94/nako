@@ -419,6 +419,10 @@ export interface AdminAddonInstallGuideLifecycleBoundary {
   message: string;
 }
 
+export interface IssueAddonTokenRequest {
+  label?: string;
+}
+
 export interface AddonTokenSummary {
   id: string;
   addon_id: string;
@@ -433,6 +437,30 @@ export interface AddonTokenSummary {
 
 export interface AddonTokensResponse {
   tokens: AddonTokenSummary[];
+}
+
+export interface AddonTokenResponse {
+  token: AddonTokenSummary;
+}
+
+export interface AddonTokenIssuedResponse {
+  token: AddonTokenSummary;
+  raw_token: string;
+}
+
+export interface AddonTokenRotationResponse {
+  rotated: AddonTokenSummary;
+  token: AddonTokenSummary;
+  raw_token: string;
+}
+
+export interface ReplaceAddonGrantsRequest {
+  grants?: AddonGrantAssignment[];
+}
+
+export interface AddonGrantAssignment {
+  permission: AddonPermission;
+  library_id?: string | null;
 }
 
 export interface AddonGrantRecord {
@@ -1036,7 +1064,12 @@ mod tests {
             "AdminAddonInstallGuideResponse",
             "AdminAddonResourceCallDiagnosticRequest",
             "AdminAddonResourceCallDiagnosticResponse",
+            "IssueAddonTokenRequest",
             "AddonTokensResponse",
+            "AddonTokenIssuedResponse",
+            "AddonTokenRotationResponse",
+            "AddonTokenResponse",
+            "ReplaceAddonGrantsRequest",
             "AddonGrantsResponse",
             "AdminAcquisitionIntakeCandidatesQuery",
             "AdminWatchFolderDiscoveryRequest",
@@ -1074,7 +1107,6 @@ mod tests {
             "token_value",
             "access_token",
             "bearer_token",
-            "raw_token",
             "resolved_secret",
             "providerrawresponse",
         ] {
@@ -1083,6 +1115,16 @@ mod tests {
                 "Admin contract leaked forbidden term: {forbidden}"
             );
         }
+
+        assert!(
+            contract.contains("raw_token: string"),
+            "Admin contract should expose raw_token only for one-time addon token issue/rotation responses"
+        );
+        assert_eq!(
+            contract.matches("raw_token").count(),
+            2,
+            "raw_token must stay limited to explicit one-time token response DTOs"
+        );
     }
 
     #[test]

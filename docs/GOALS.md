@@ -30,10 +30,56 @@ No active implementation goal is currently set.
 
 Recommended next goal:
 
-- Addon token/grant onboarding UX, or URL-based manifest discovery after
-  SSRF/trust policy is explicitly designed.
+- Secret Reference configuration UX, or real Addon end-to-end smoke with
+  `nako-official-addons`.
 
 ## Completed Goals
+
+### Admin Web Addon Credential and Grant Onboarding
+
+Status: completed.
+
+Objective:
+
+- Productize the Admin Web credential and authority handoff for registered
+  **Addon Sidecars**.
+- Let administrators issue and rotate one-time Addon Tokens, revoke Addon
+  Tokens, replace accepted Addon Grants, and use an enable readiness checklist.
+- Preserve the boundary that Taru authorizes and calls sidecars but does not
+  install, start, stop, update, remove, log, or supervise sidecar processes.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-addon-credential-grant-onboarding/` as the
+  authoritative execution lane.
+- Generated Admin API TypeScript contract coverage for token issue/rotation
+  one-time responses and grant replacement request shapes.
+- Admin Web client/data-source/UI actions for token issue/rotate/revoke,
+  accepted grant replacement, and enable readiness.
+
+Non-goals:
+
+- No Addon Manager lifecycle automation, Docker/systemd/Kubernetes/SSH/host
+  agent control, or sidecar process supervision.
+- No secret manager integration.
+- No arbitrary URL-based manifest fetch.
+- No Public Client API exposure.
+
+First executable task:
+
+- AWACG-020 Admin API contract and Admin Web data-source actions for
+  token/grant onboarding.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-web-addon-credential-grant-onboarding/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
 
 ### Admin Web Addon Onboarding
 

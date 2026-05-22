@@ -25,8 +25,10 @@ import type {
   DataSourceMode,
 } from "./adminApi/dataSource";
 import type {
+  AddonGrantAssignmentInput,
   AddonManifestPreview,
   AddonOnboardingResult,
+  AddonTokenActionResult,
 } from "./adminApi/types";
 import { mockAdminConsoleData } from "./adminApi/mockData";
 
@@ -67,6 +69,9 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
   const [manifestJson, setManifestJson] = useState("");
   const [manifestPreview, setManifestPreview] = useState<AddonManifestPreview | null>(null);
   const [onboardingResult, setOnboardingResult] = useState<AddonOnboardingResult | null>(null);
+  const [tokenLabel, setTokenLabel] = useState("sidecar runtime");
+  const [grantPermission, setGrantPermission] = useState<AddonGrantAssignmentInput["permission"]>("metadata_write");
+  const [oneTimeToken, setOneTimeToken] = useState<AddonTokenActionResult | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -165,6 +170,86 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
     if (result.status === "registered") {
       setAddonActionMessage(`${result.addon.name} registered as ${result.addon.status}`);
     }
+  };
+
+  const issueAddonToken = async () => {
+    if (!selectedAddon || !dataSource.issueAddonToken) {
+      return;
+    }
+    const result = await dataSource.issueAddonToken(selectedAddon.id, tokenLabel);
+    setOneTimeToken(result);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          tokens: [result.token, ...current.data.addons.tokens],
+        },
+      },
+    }));
+  };
+
+  const rotateFirstAddonToken = async () => {
+    if (!selectedAddon || !dataSource.rotateAddonToken || !loadState.data.addons.tokens[0]) {
+      return;
+    }
+    const result = await dataSource.rotateAddonToken(
+      selectedAddon.id,
+      loadState.data.addons.tokens[0].id,
+      `${tokenLabel} rotated`,
+    );
+    setOneTimeToken(result);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          tokens: [result.token, ...current.data.addons.tokens],
+        },
+      },
+    }));
+  };
+
+  const revokeFirstAddonToken = async () => {
+    if (!selectedAddon || !dataSource.revokeAddonToken || !loadState.data.addons.tokens[0]) {
+      return;
+    }
+    const revoked = await dataSource.revokeAddonToken(selectedAddon.id, loadState.data.addons.tokens[0].id);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          tokens: current.data.addons.tokens.map((token) => (token.id === revoked.id ? revoked : token)),
+        },
+      },
+    }));
+    setAddonActionMessage(`Token ${revoked.id} revoked`);
+  };
+
+  const replaceAddonGrants = async () => {
+    if (!selectedAddon || !dataSource.replaceAddonGrants) {
+      return;
+    }
+    const grants = await dataSource.replaceAddonGrants(selectedAddon.id, [
+      {
+        permission: grantPermission,
+        libraryId: null,
+      },
+    ]);
+    setLoadState((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        addons: {
+          ...current.data.addons,
+          grants,
+        },
+      },
+    }));
   };
 
   return (
@@ -652,6 +737,137 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
               </div>
             ) : null}
 
+            <section className="credentialGrantPanel" aria-label="Addon Credentials and Grants">
+              <div>
+                <h3>Addon Credentials & Grants</h3>
+                <p>
+                  Create one-time Addon Tokens and accepted grants before enabling the sidecar.
+                  Raw tokens are shown only immediately after issue or rotation.
+                </p>
+              </div>
+              <div className="credentialGrid">
+                <div className="credentialCard">
+                  <h4>Addon Tokens</h4>
+                  <label className="compactField">
+                    <span>Addon token label</span>
+                    <input
+                      aria-label="Addon token label"
+                      value={tokenLabel}
+                      onChange={(event) => setTokenLabel(event.target.value)}
+                    />
+                  </label>
+                  <div className="capabilityLine">
+                    <button
+                      className="secondaryButton"
+                      disabled={!selectedAddon || !dataSource.issueAddonToken}
+                      onClick={issueAddonToken}
+                      type="button"
+                    >
+                      Issue token
+                    </button>
+                    <button
+                      className="secondaryButton"
+                      disabled={!selectedAddon || !dataSource.rotateAddonToken || loadState.data.addons.tokens.length === 0}
+                      onClick={rotateFirstAddonToken}
+                      type="button"
+                    >
+                      Rotate first token
+                    </button>
+                    <button
+                      className="secondaryButton"
+                      disabled={!selectedAddon || !dataSource.revokeAddonToken || loadState.data.addons.tokens.length === 0}
+                      onClick={revokeFirstAddonToken}
+                      type="button"
+                    >
+                      Revoke first token
+                    </button>
+                  </div>
+                  {oneTimeToken ? (
+                    <div className="oneTimeSecret" role="status">
+                      <strong>Copy this Addon Token now. It will not be shown again.</strong>
+                      <code>{oneTimeToken.rawToken}</code>
+                      <span>
+                        Saved summary: {oneTimeToken.token.label} · {oneTimeToken.token.tokenPrefix}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="stackList">
+                    {loadState.data.addons.tokens.map((token) => (
+                      <div className="listRow" key={token.id}>
+                        <div>
+                          <strong>{token.label}</strong>
+                          <span>{token.id} · {token.tokenPrefix}</span>
+                        </div>
+                        <StatusPill label={token.status} tone={token.status === "active" ? "good" : "muted"} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="credentialCard">
+                  <h4>Accepted Grants</h4>
+                  <label className="compactField">
+                    <span>Addon grant permission</span>
+                    <select
+                      aria-label="Addon grant permission"
+                      value={grantPermission}
+                      onChange={(event) =>
+                        setGrantPermission(event.target.value as AddonGrantAssignmentInput["permission"])
+                      }
+                    >
+                      <option value="metadata_write">metadata_write</option>
+                      <option value="artwork_write">artwork_write</option>
+                      <option value="subtitle_write">subtitle_write</option>
+                      <option value="library_file_write">library_file_write</option>
+                    </select>
+                  </label>
+                  <button
+                    className="secondaryButton"
+                    disabled={!selectedAddon || !dataSource.replaceAddonGrants}
+                    onClick={replaceAddonGrants}
+                    type="button"
+                  >
+                    Replace grants
+                  </button>
+                  <div className="stackList">
+                    {loadState.data.addons.grants.map((grant) => (
+                      <div className="listRow" key={grant.id}>
+                        <div>
+                          <strong>{grant.permission} · {grant.libraryId ?? "global"}</strong>
+                          <span>{grant.id}</span>
+                        </div>
+                        <StatusPill label="accepted" tone="info" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="credentialCard readinessCard">
+                  <h4>Enable readiness</h4>
+                  <ReadinessItem
+                    label="Manifest registered"
+                    ready={Boolean(selectedAddon)}
+                  />
+                  <ReadinessItem
+                    label="Health reachable or checked"
+                    ready={loadState.data.addons.health?.status === "reachable"}
+                  />
+                  <ReadinessItem
+                    label="Active token available"
+                    ready={loadState.data.addons.tokens.some((token) => token.status === "active")}
+                  />
+                  <ReadinessItem
+                    label="Accepted grants configured"
+                    ready={loadState.data.addons.grants.length > 0}
+                  />
+                  <ReadinessItem
+                    label="Sidecar lifecycle remains external"
+                    ready
+                  />
+                </div>
+              </div>
+            </section>
+
             <div className="tableWrap">
               <table>
                 <thead>
@@ -1003,6 +1219,15 @@ function GuideStepList({
         ))}
       </ol>
     </article>
+  );
+}
+
+function ReadinessItem({ label, ready }: { label: string; ready: boolean }) {
+  return (
+    <div className="readinessItem">
+      <StatusPill label={ready ? "ready" : "needs action"} tone={ready ? "good" : "warn"} />
+      <span>{label}</span>
+    </div>
   );
 }
 

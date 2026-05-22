@@ -1,5 +1,8 @@
 import type {
   AddonGrantsResponse,
+  AddonTokenIssuedResponse,
+  AddonTokenResponse,
+  AddonTokenRotationResponse,
   AddonTokensResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminAcquisitionIntakeCandidateListResponse,
@@ -23,7 +26,9 @@ import type {
   AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
+  IssueAddonTokenRequest,
   RegisterAddonRequest,
+  ReplaceAddonGrantsRequest,
   UpdateAddonStatusRequest,
 } from "./generated/contract";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
@@ -119,8 +124,46 @@ export class AdminApiClient {
     return this.getJson<AddonTokensResponse>(`${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens`);
   }
 
+  async issueAddonToken(
+    addonId: string,
+    request: IssueAddonTokenRequest,
+  ): Promise<AddonTokenIssuedResponse> {
+    return this.postJson<AddonTokenIssuedResponse>(
+      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens`,
+      request,
+    );
+  }
+
+  async rotateAddonToken(
+    addonId: string,
+    tokenId: string,
+    request: IssueAddonTokenRequest,
+  ): Promise<AddonTokenRotationResponse> {
+    return this.postJson<AddonTokenRotationResponse>(
+      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/rotate`,
+      request,
+    );
+  }
+
+  async revokeAddonToken(addonId: string, tokenId: string): Promise<AddonTokenResponse> {
+    return this.postJson<AddonTokenResponse>(
+      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/revoke`,
+      {},
+    );
+  }
+
   async getAddonGrants(addonId: string): Promise<AddonGrantsResponse> {
     return this.getJson<AddonGrantsResponse>(`${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/grants`);
+  }
+
+  async replaceAddonGrants(
+    addonId: string,
+    request: ReplaceAddonGrantsRequest,
+  ): Promise<AddonGrantsResponse> {
+    return this.putJson<AddonGrantsResponse>(
+      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/grants`,
+      request,
+    );
   }
 
   async getCatalogGovernanceItems(): Promise<AdminCatalogGovernanceItemListResponse> {
@@ -210,6 +253,23 @@ export class AdminApiClient {
   private async patchJson<T>(path: string, body: unknown): Promise<T> {
     const response = await this.fetcher(`${this.baseUrl}${path}`, {
       method: "PATCH",
+      headers: {
+        ...this.headers(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Admin API request failed with HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as T;
+  }
+
+  private async putJson<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
+      method: "PUT",
       headers: {
         ...this.headers(),
         "Content-Type": "application/json",

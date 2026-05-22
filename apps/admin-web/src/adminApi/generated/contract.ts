@@ -389,6 +389,10 @@ export interface AdminAddonInstallGuideLifecycleBoundary {
   message: string;
 }
 
+export interface IssueAddonTokenRequest {
+  label?: string;
+}
+
 export interface AddonTokenSummary {
   id: string;
   addon_id: string;
@@ -403,6 +407,30 @@ export interface AddonTokenSummary {
 
 export interface AddonTokensResponse {
   tokens: AddonTokenSummary[];
+}
+
+export interface AddonTokenResponse {
+  token: AddonTokenSummary;
+}
+
+export interface AddonTokenIssuedResponse {
+  token: AddonTokenSummary;
+  raw_token: string;
+}
+
+export interface AddonTokenRotationResponse {
+  rotated: AddonTokenSummary;
+  token: AddonTokenSummary;
+  raw_token: string;
+}
+
+export interface ReplaceAddonGrantsRequest {
+  grants?: AddonGrantAssignment[];
+}
+
+export interface AddonGrantAssignment {
+  permission: AddonPermission;
+  library_id?: string | null;
 }
 
 export interface AddonGrantRecord {
