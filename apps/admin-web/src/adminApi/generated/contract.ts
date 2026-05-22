@@ -5,6 +5,13 @@ export const TARU_ADMIN_API_VERSION = "v1" as const;
 
 export const TARU_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
+  addons: "/admin/v1/addons",
+  addonDetail: "/admin/v1/addons/:addon_id",
+  addonStatus: "/admin/v1/addons/:addon_id/status",
+  addonUnregister: "/admin/v1/addons/:addon_id/unregister",
+  addonHealthCheck: "/admin/v1/addons/:addon_id/health-check",
+  addonSurfaces: "/admin/v1/addons/:addon_id/surfaces",
+  addonResourceCallDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-call",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
@@ -71,6 +78,238 @@ export interface AdminWatchFolderDiscoveryRequest {
 export interface AdminStorageStagingQuery extends AdminPageQuery {
   purpose?: string;
   state?: string;
+}
+
+export type AddonStatus = "enabled" | "disabled" | "unregistered";
+
+export type AddonScope =
+  | "catalog_read"
+  | "item_metadata_read"
+  | "item_metadata_suggest"
+  | "image_read"
+  | "subtitle_read"
+  | "stream_url_read"
+  | "recommendation_write"
+  | "automation_run"
+  | "webhook_event_read";
+
+export type AddonResource =
+  | "catalog"
+  | "metadata"
+  | "image"
+  | "stream"
+  | "subtitle"
+  | "recommendation"
+  | "automation"
+  | "webhook";
+
+export type AddonEntryPointKind =
+  | "item_action"
+  | "library_action"
+  | "admin_action"
+  | "settings"
+  | "diagnostics"
+  | "task_launcher";
+
+export type AddonPermission =
+  | "metadata_write"
+  | "artwork_write"
+  | "subtitle_write"
+  | "library_file_write";
+
+export type AddonTokenStatus = "active" | "revoked" | "rotated";
+
+export type AddonAuth = "none" | "bearer" | "shared_secret";
+
+export type AdminAddonHealthCheckStatus =
+  | "reachable"
+  | "degraded"
+  | "unhealthy"
+  | "unreachable"
+  | "protocol_mismatch"
+  | "invalid_manifest";
+
+export type AdminAddonResourceCallDiagnosticStatus =
+  | "succeeded"
+  | "missing_resource"
+  | "missing_grant"
+  | "authorization_gap"
+  | "unreachable"
+  | "protocol_mismatch"
+  | "retryable_http_failure"
+  | "http_failure"
+  | "unsafe_response";
+
+export interface AdminAddonsQuery {
+  status?: AddonStatus;
+}
+
+export interface AdminAddonResourceDeclaration {
+  kind: AddonResource;
+  path: string;
+  input_schema: string | null;
+  output_schema: string | null;
+  required_scopes: AddonScope[];
+  timeout_ms: number | null;
+  max_attempts: number | null;
+}
+
+export interface AdminAddonManifest {
+  id: string;
+  name: string;
+  version: string;
+  protocol_version: string;
+  base_url: string;
+  description: string | null;
+  resources: AdminAddonResourceDeclaration[];
+  auth: AddonAuth;
+  default_timeout_ms: number | null;
+  default_max_attempts: number | null;
+  scopes: AddonScope[];
+}
+
+export interface AdminAddonRegistrationSummary {
+  id: string;
+  manifest_id: string;
+  name: string;
+  version: string;
+  protocol_version: string;
+  base_url: string;
+  granted_scopes: string[];
+  status: AddonStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminAddonRegistrationDetail {
+  summary: AdminAddonRegistrationSummary;
+  manifest: AdminAddonManifest;
+}
+
+export interface AdminAddonRegistrationResponse {
+  addon: AdminAddonRegistrationDetail;
+}
+
+export interface AdminAddonRegistrationsResponse {
+  addons: AdminAddonRegistrationSummary[];
+}
+
+export interface UpdateAddonStatusRequest {
+  status: AddonStatus;
+}
+
+export interface AdminAddonHealthCheckResponse {
+  addon_id: string;
+  manifest_id: string;
+  status: AdminAddonHealthCheckStatus;
+  latency_ms: number;
+  protocol_version?: string;
+  addon_version?: string;
+  resource_count?: number;
+  protocol_checked_at?: string;
+  safe_error_code?: string;
+}
+
+export interface AdminAddonEntryPointSurface {
+  id: string;
+  kind: AddonEntryPointKind;
+  label: string;
+  path: string;
+  hosted_page_id?: string;
+  required_scopes: AddonScope[];
+}
+
+export interface AdminAddonHostedPageSurface {
+  id: string;
+  title: string;
+  path: string;
+  url: string;
+  required_scopes: AddonScope[];
+}
+
+export interface AdminAddonConfigurationSchemaSurface {
+  schema_id: string;
+  schema: Record<string, unknown>;
+}
+
+export interface AdminAddonSecretReferenceFieldSurface {
+  id: string;
+  label: string;
+  description?: string;
+  required: boolean;
+}
+
+export interface AdminAddonTaskSurface {
+  id: string;
+  name: string;
+  path: string;
+  description?: string;
+  required_scopes: AddonScope[];
+  timeout_ms?: number;
+  max_attempts?: number;
+}
+
+export interface AdminAddonEventSubscriptionSurface {
+  id: string;
+  event_kind: string;
+  path: string;
+  required_scopes: AddonScope[];
+  filters: Record<string, unknown>;
+}
+
+export interface AdminAddonSurfacesResponse {
+  addon_id: string;
+  manifest_id: string;
+  entry_points: AdminAddonEntryPointSurface[];
+  hosted_pages: AdminAddonHostedPageSurface[];
+  configuration_schema?: AdminAddonConfigurationSchemaSurface;
+  secret_reference_fields: AdminAddonSecretReferenceFieldSurface[];
+  tasks: AdminAddonTaskSurface[];
+  event_subscriptions: AdminAddonEventSubscriptionSurface[];
+}
+
+export interface AdminAddonResourceCallDiagnosticRequest {
+  resource: AddonResource;
+  payload?: Record<string, unknown>;
+}
+
+export interface AdminAddonResourceCallDiagnosticResponse {
+  addon_id: string;
+  manifest_id: string;
+  resource: AddonResource;
+  status: AdminAddonResourceCallDiagnosticStatus;
+  latency_ms: number;
+  attempts: number;
+  http_status?: number;
+  safe_error_code?: string;
+}
+
+export interface AddonTokenSummary {
+  id: string;
+  addon_id: string;
+  label: string;
+  token_prefix: string;
+  status: AddonTokenStatus;
+  created_at: string;
+  rotated_at: string | null;
+  revoked_at: string | null;
+  last_used_at: string | null;
+}
+
+export interface AddonTokensResponse {
+  tokens: AddonTokenSummary[];
+}
+
+export interface AddonGrantRecord {
+  id: string;
+  addon_id: string;
+  permission: AddonPermission;
+  library_id: string | null;
+  created_at: string;
+}
+
+export interface AddonGrantsResponse {
+  grants: AddonGrantRecord[];
 }
 
 export interface PageInfo {

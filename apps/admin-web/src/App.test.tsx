@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { App } from "./App";
@@ -14,6 +14,11 @@ describe("Admin web console scaffold", () => {
           sources: {
             ...mockAdminConsoleData.sources,
             overview: "live",
+            addons: "live",
+            addonHealth: "live",
+            addonSurfaces: "live",
+            addonTokens: "live",
+            addonGrants: "live",
             acquisitionIntake: "live",
             jobs: "live",
             playbackRuntime: "live",
@@ -45,6 +50,11 @@ describe("Admin web console scaffold", () => {
 
     expect(await screen.findByText("Live Library")).toBeInTheDocument();
     expect(screen.getByText("Acquisition Intake")).toBeInTheDocument();
+    expect(screen.getByText("Addon Operations")).toBeInTheDocument();
+    expect(screen.getAllByText("Subtitle Lab").length).toBeGreaterThan(0);
+    expect(screen.getByText("Health: reachable · 42 ms")).toBeInTheDocument();
+    expect(screen.getByText("external and untrusted")).toBeInTheDocument();
+    expect(screen.getByText("subtitle · succeeded")).toBeInTheDocument();
     expect(screen.getByText("Network Access")).toBeInTheDocument();
     expect(screen.getByText("reverse_proxy")).toBeInTheDocument();
     expect(screen.getByText("candidate-ready")).toBeInTheDocument();
@@ -94,6 +104,11 @@ describe("Admin web console scaffold", () => {
           sources: {
             ...mockAdminConsoleData.sources,
             overview: "live",
+            addons: "live",
+            addonHealth: "live",
+            addonSurfaces: "live",
+            addonTokens: "live",
+            addonGrants: "live",
             acquisitionIntake: "live",
             jobs: "live",
             playbackRuntime: "live",
@@ -113,9 +128,67 @@ describe("Admin web console scaffold", () => {
     expect(renderedText).not.toContain("cache_uri");
     expect(renderedText).not.toContain("local_path");
     expect(renderedText).not.toContain("output_path");
+    expect(renderedText).not.toContain("raw_token");
+    expect(renderedText).not.toContain("bearer");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");
     expect(renderedText).not.toContain("redacted-test-token");
+  });
+
+  it("runs safe Addon operations through data-source actions", async () => {
+    const dataSource: AdminDataSource = {
+      async load() {
+        return mockAdminConsoleData;
+      },
+      async setAddonStatus() {
+        return {
+          ...mockAdminConsoleData.addons,
+          selectedAddon: mockAdminConsoleData.addons.selectedAddon
+            ? {
+                ...mockAdminConsoleData.addons.selectedAddon,
+                status: "disabled",
+              }
+            : null,
+          addons: mockAdminConsoleData.addons.addons.map((addon) =>
+            addon.id === "addon-subtitle-lab" ? { ...addon, status: "disabled" } : addon,
+          ),
+        };
+      },
+      async checkAddonHealth() {
+        return {
+          addonId: "addon-subtitle-lab",
+          status: "degraded",
+          latencyMs: 120,
+          protocolVersion: "2026-05-15",
+          addonVersion: "0.3.0",
+          resourceCount: 2,
+          safeErrorCode: "latency_budget_exceeded",
+        };
+      },
+      async diagnoseAddonResource() {
+        return {
+          addonId: "addon-subtitle-lab",
+          resource: "subtitle",
+          status: "retryable_http_failure",
+          latencyMs: 140,
+          attempts: 2,
+          httpStatus: 503,
+          safeErrorCode: "upstream_unavailable",
+        };
+      },
+    };
+
+    render(<App dataSource={dataSource} />);
+
+    fireEvent.click(await screen.findByText("Disable Addon"));
+    expect(await screen.findByText("Subtitle Lab disabled")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Run health check"));
+    expect(await screen.findByText("Subtitle Lab health degraded")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Run resource diagnostic"));
+    expect(await screen.findByText("Subtitle Lab diagnostic retryable_http_failure")).toBeInTheDocument();
+    expect(screen.getByText("subtitle · retryable_http_failure")).toBeInTheDocument();
   });
 });

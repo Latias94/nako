@@ -30,10 +30,61 @@ No active implementation goal is currently set.
 
 Recommended next goal:
 
-- Admin Web Console Addon Operations UI, or a dedicated Addon Manager lane if
-  process/package lifecycle automation becomes the product priority.
+- Addon Install Guide generation for Docker Compose/systemd snippets, or a
+  dedicated Addon Manager lane if process/package lifecycle automation becomes
+  the product priority.
 
 ## Completed Goals
+
+### Admin Web Addon Operations
+
+Status: completed.
+
+Objective:
+
+- Productize the completed Admin Addon Operations backend in the Admin Web
+  Console.
+- Add generated Admin API TypeScript contract coverage for Addon Operations
+  route constants and DTOs.
+- Deepen the Admin Web `src/adminApi` seam so Addons are live-capable with
+  safe mock fallback.
+- Render an Addons operations surface for list/detail facts, lifecycle status,
+  grants/tokens summary, **Addon Health Check**, manifest surfaces, and
+  resource-call diagnostics.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-addon-operations/` as the authoritative
+  execution lane.
+- Generated Admin API TypeScript contract entries for Addon Operations.
+- `apps/admin-web` data-source, mock fixture, and UI tests for Addon
+  Operations.
+
+Non-goals:
+
+- No Addon Manager discovery, install, update, marketplace, package signing,
+  Docker socket control, or **Addon Sidecar** process supervision.
+- No new Addon Protocol behavior.
+- No OAuth-first Addon authorization.
+- No embedded trusted frontend plugin runtime.
+
+First executable task:
+
+- AWAO-020 generated Admin API TypeScript contract coverage after AWAO-010
+  workstream baseline.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/admin-web-addon-operations/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo nextest run -p taru-server addons --no-fail-fast`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
 
 ### Admin Addon Operations MVP
 

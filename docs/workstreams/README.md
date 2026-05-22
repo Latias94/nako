@@ -68,6 +68,11 @@ attention.
   semantics, Addon Health Check, hosted Addon surface read models, and
   redaction-safe resource-call diagnostics without expanding into Addon Manager
   scope.
+- [admin-web-addon-operations](admin-web-addon-operations/README.md):
+  completed Addon productization lane for turning completed Admin Addon
+  Operations API capabilities into a live-capable Admin Web Console Addons
+  surface without expanding into Addon Manager install/update or sidecar
+  process supervision.
 - [addon-architecture-deepening](addon-architecture-deepening/README.md):
   completed architecture-first lane for deepening Addon Side Effect runtime,
   fingerprinted idempotency, Protected Write payload contracts, Addon Manifest

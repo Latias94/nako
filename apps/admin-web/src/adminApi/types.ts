@@ -1,13 +1,28 @@
 import type {
   AdminNetworkAccessDiagnostics,
   AdminOverviewResponse,
+  AddonResource,
   PageInfo,
 } from "./generated/contract";
 
 export type {
+  AddonGrantsResponse,
+  AddonResource,
+  AddonScope,
+  AddonStatus,
+  AddonTokensResponse,
   AdminAcquisitionIntakeCandidateDiagnostic,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminAddonHealthCheckResponse,
+  AdminAddonRegistrationResponse,
+  AdminAddonRegistrationSummary,
+  AdminAddonRegistrationsResponse,
+  AdminAddonResourceCallDiagnosticRequest,
+  AdminAddonResourceCallDiagnosticResponse,
+  AdminAddonResourceCallDiagnosticStatus,
+  AdminAddonSurfacesResponse,
+  AdminAddonsQuery,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListItem,
@@ -34,6 +49,11 @@ export type DataSourceMode = "live" | "hybrid" | "mock" | "planned";
 
 export type AdminSectionKey =
   | "overview"
+  | "addons"
+  | "addonHealth"
+  | "addonSurfaces"
+  | "addonTokens"
+  | "addonGrants"
   | "acquisitionIntake"
   | "catalogGovernance"
   | "events"
@@ -51,6 +71,7 @@ export type AdminConsoleData = {
   sources: AdminSourceMap;
   errors: AdminErrorMap;
   overview: AdminOverviewResponse;
+  addons: AddonOperationsSummary;
   libraries: LibraryRow[];
   catalog: CatalogGovernanceSummary;
   acquisitionIntake: IntakeSummary;
@@ -69,6 +90,100 @@ export type LibraryRow = {
   status: "ready" | "degraded" | "unavailable";
   itemCount: number;
   lastScan: string;
+};
+
+export type AddonOperationsSummary = {
+  selectedAddonId: string | null;
+  addons: AddonRow[];
+  selectedAddon: AddonDetail | null;
+  health: AddonHealthSummary | null;
+  surfaces: AddonSurfaceSummary | null;
+  tokens: AddonTokenSummaryRow[];
+  grants: AddonGrantSummaryRow[];
+  diagnostic: AddonDiagnosticSummary | null;
+};
+
+export type AddonRow = {
+  id: string;
+  manifestId: string;
+  name: string;
+  version: string;
+  protocolVersion: string;
+  baseUrl: string;
+  status: string;
+  grantedScopes: string[];
+  updatedAt: string;
+};
+
+export type AddonDetail = AddonRow & {
+  description: string | null;
+  resourceCount: number;
+  resourceKinds: AddonResource[];
+  authMode: string;
+  defaultTimeoutMs: number | null;
+  defaultMaxAttempts: number | null;
+};
+
+export type AddonHealthSummary = {
+  addonId: string;
+  status: string;
+  latencyMs: number;
+  protocolVersion: string | null;
+  addonVersion: string | null;
+  resourceCount: number | null;
+  safeErrorCode: string | null;
+};
+
+export type AddonSurfaceSummary = {
+  entryPoints: Array<{
+    id: string;
+    label: string;
+    kind: string;
+    path: string;
+    hostedPageId: string | null;
+  }>;
+  hostedPages: Array<{
+    id: string;
+    title: string;
+    path: string;
+    url: string;
+  }>;
+  configurationSchemaId: string | null;
+  secretReferenceFieldCount: number;
+  tasks: Array<{
+    id: string;
+    name: string;
+    path: string;
+  }>;
+  eventSubscriptions: Array<{
+    id: string;
+    eventKind: string;
+    path: string;
+  }>;
+};
+
+export type AddonTokenSummaryRow = {
+  id: string;
+  label: string;
+  tokenPrefix: string;
+  status: string;
+  lastUsedAt: string | null;
+};
+
+export type AddonGrantSummaryRow = {
+  id: string;
+  permission: string;
+  libraryId: string | null;
+};
+
+export type AddonDiagnosticSummary = {
+  addonId: string;
+  resource: AddonResource;
+  status: string;
+  latencyMs: number;
+  attempts: number;
+  httpStatus: number | null;
+  safeErrorCode: string | null;
 };
 
 export type CatalogGovernanceSummary = {

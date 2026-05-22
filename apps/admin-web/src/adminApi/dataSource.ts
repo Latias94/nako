@@ -2,6 +2,13 @@ import { AdminApiClient, type AdminApiClientOptions } from "./client";
 import {
   mockAdminConsoleData,
   mockAcquisitionIntakeCandidates,
+  mockAddonDetail,
+  mockAddonDiagnostic,
+  mockAddonGrants,
+  mockAddonHealth,
+  mockAddons,
+  mockAddonSurfaces,
+  mockAddonTokens,
   mockCatalogGovernance,
   mockEvents,
   mockJobs,
@@ -12,7 +19,14 @@ import {
   mockSystemConfig,
 } from "./mockData";
 import type {
+  AddonGrantsResponse,
+  AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
+  AdminAddonHealthCheckResponse,
+  AdminAddonRegistrationResponse,
+  AdminAddonRegistrationsResponse,
+  AdminAddonResourceCallDiagnosticResponse,
+  AdminAddonSurfacesResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
@@ -22,10 +36,14 @@ import type {
   AdminStorageStagingDiagnosticsResponse,
 } from "./generated/contract";
 import type {
+  AddonResource,
   AdminConsoleData,
   AdminErrorMap,
   AdminSectionKey,
   AdminSourceMap,
+  AddonDiagnosticSummary,
+  AddonHealthSummary,
+  AddonOperationsSummary,
   CatalogGovernanceSummary,
   DataSourceMode,
   EventSummary,
@@ -41,6 +59,9 @@ export type { AdminConsoleData, AdminSourceMap, DataSourceMode };
 
 export type AdminDataSource = {
   load(): Promise<AdminConsoleData>;
+  setAddonStatus?(addonId: string, status: "enabled" | "disabled"): Promise<AddonOperationsSummary>;
+  checkAddonHealth?(addonId: string): Promise<AddonHealthSummary>;
+  diagnoseAddonResource?(addonId: string, resource: AddonResource): Promise<AddonDiagnosticSummary>;
 };
 
 type LoadResult<T> = {
@@ -56,6 +77,13 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     async load() {
       const [
         overview,
+        addons,
+        addonDetail,
+        addonHealth,
+        addonSurfaces,
+        addonTokens,
+        addonGrants,
+        addonDiagnostic,
         catalogGovernance,
         acquisitionIntakeCandidates,
         events,
@@ -66,6 +94,20 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         systemConfig,
       ] = await Promise.all([
         loadSection(() => client.getOverview(), mockOverview),
+        loadSection(() => client.getAddons(), mockAddons),
+        loadSection(() => client.getAddonDetail(mockAddons.addons[0]?.id ?? ""), mockAddonDetail),
+        loadSection(() => client.checkAddonHealth(mockAddons.addons[0]?.id ?? ""), mockAddonHealth),
+        loadSection(() => client.getAddonSurfaces(mockAddons.addons[0]?.id ?? ""), mockAddonSurfaces),
+        loadSection(() => client.getAddonTokens(mockAddons.addons[0]?.id ?? ""), mockAddonTokens),
+        loadSection(() => client.getAddonGrants(mockAddons.addons[0]?.id ?? ""), mockAddonGrants),
+        loadSection(
+          () =>
+            client.diagnoseAddonResourceCall(mockAddons.addons[0]?.id ?? "", {
+              resource: mockAddonDiagnostic.resource,
+              payload: {},
+            }),
+          mockAddonDiagnostic,
+        ),
         loadSection(() => client.getCatalogGovernanceItems(), mockCatalogGovernance),
         loadSection(() => client.getAcquisitionIntakeCandidates(), mockAcquisitionIntakeCandidates),
         loadSection(() => client.getEvents(), mockEvents),
@@ -78,6 +120,11 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
 
       const sources: AdminSourceMap = {
         overview: overview.source,
+        addons: addons.source,
+        addonHealth: addonHealth.source,
+        addonSurfaces: addonSurfaces.source,
+        addonTokens: addonTokens.source,
+        addonGrants: addonGrants.source,
         catalogGovernance: catalogGovernance.source,
         acquisitionIntake: acquisitionIntakeCandidates.source,
         events: events.source,
@@ -90,6 +137,11 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       const errors: AdminErrorMap = {};
 
       recordError(errors, "overview", overview);
+      recordError(errors, "addons", addons);
+      recordError(errors, "addonHealth", addonHealth);
+      recordError(errors, "addonSurfaces", addonSurfaces);
+      recordError(errors, "addonTokens", addonTokens);
+      recordError(errors, "addonGrants", addonGrants);
       recordError(errors, "catalogGovernance", catalogGovernance);
       recordError(errors, "acquisitionIntake", acquisitionIntakeCandidates);
       recordError(errors, "events", events);
@@ -104,6 +156,15 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         sources,
         errors,
         overview: overview.value,
+        addons: mapAddons(
+          addons.value,
+          addonDetail.value,
+          addonHealth.value,
+          addonSurfaces.value,
+          addonTokens.value,
+          addonGrants.value,
+          addonDiagnostic.value,
+        ),
         catalog: mapCatalogGovernance(catalogGovernance.value),
         acquisitionIntake: mapAcquisitionIntake(acquisitionIntakeCandidates.value),
         events: mapEvents(events.value),
@@ -114,6 +175,141 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         settings: mapSettings(systemConfig.value),
       };
     },
+    async setAddonStatus(addonId, status) {
+      const updated = await client.updateAddonStatus(addonId, { status });
+      return mapAddons(
+        { addons: [updated.addon.summary] },
+        updated,
+        mockAddonHealth,
+        mockAddonSurfaces,
+        mockAddonTokens,
+        mockAddonGrants,
+        mockAddonDiagnostic,
+      );
+    },
+    async checkAddonHealth(addonId) {
+      return mapAddonHealth(await client.checkAddonHealth(addonId));
+    },
+    async diagnoseAddonResource(addonId, resource) {
+      return mapAddonDiagnostic(
+        await client.diagnoseAddonResourceCall(addonId, {
+          resource,
+          payload: {},
+        }),
+      );
+    },
+  };
+}
+
+function mapAddons(
+  registrations: AdminAddonRegistrationsResponse,
+  detail: AdminAddonRegistrationResponse,
+  health: AdminAddonHealthCheckResponse,
+  surfaces: AdminAddonSurfacesResponse,
+  tokens: AddonTokensResponse,
+  grants: AddonGrantsResponse,
+  diagnostic: AdminAddonResourceCallDiagnosticResponse,
+): AddonOperationsSummary {
+  const addons = registrations.addons.map((addon) => ({
+    id: addon.id,
+    manifestId: addon.manifest_id,
+    name: addon.name,
+    version: addon.version,
+    protocolVersion: addon.protocol_version,
+    baseUrl: addon.base_url,
+    status: addon.status,
+    grantedScopes: addon.granted_scopes,
+    updatedAt: addon.updated_at,
+  }));
+  const selectedAddon = detail.addon;
+
+  return {
+    selectedAddonId: selectedAddon.summary.id,
+    addons,
+    selectedAddon: {
+      id: selectedAddon.summary.id,
+      manifestId: selectedAddon.summary.manifest_id,
+      name: selectedAddon.summary.name,
+      version: selectedAddon.summary.version,
+      protocolVersion: selectedAddon.summary.protocol_version,
+      baseUrl: selectedAddon.summary.base_url,
+      status: selectedAddon.summary.status,
+      grantedScopes: selectedAddon.summary.granted_scopes,
+      updatedAt: selectedAddon.summary.updated_at,
+      description: selectedAddon.manifest.description,
+      resourceCount: selectedAddon.manifest.resources.length,
+      resourceKinds: selectedAddon.manifest.resources.map((resource) => resource.kind),
+      authMode: selectedAddon.manifest.auth,
+      defaultTimeoutMs: selectedAddon.manifest.default_timeout_ms,
+      defaultMaxAttempts: selectedAddon.manifest.default_max_attempts,
+    },
+    health: mapAddonHealth(health),
+    surfaces: {
+      entryPoints: surfaces.entry_points.map((entryPoint) => ({
+        id: entryPoint.id,
+        label: entryPoint.label,
+        kind: entryPoint.kind,
+        path: entryPoint.path,
+        hostedPageId: entryPoint.hosted_page_id ?? null,
+      })),
+      hostedPages: surfaces.hosted_pages.map((page) => ({
+        id: page.id,
+        title: page.title,
+        path: page.path,
+        url: page.url,
+      })),
+      configurationSchemaId: surfaces.configuration_schema?.schema_id ?? null,
+      secretReferenceFieldCount: surfaces.secret_reference_fields.length,
+      tasks: surfaces.tasks.map((task) => ({
+        id: task.id,
+        name: task.name,
+        path: task.path,
+      })),
+      eventSubscriptions: surfaces.event_subscriptions.map((subscription) => ({
+        id: subscription.id,
+        eventKind: subscription.event_kind,
+        path: subscription.path,
+      })),
+    },
+    tokens: tokens.tokens.map((token) => ({
+      id: token.id,
+      label: token.label,
+      tokenPrefix: token.token_prefix,
+      status: token.status,
+      lastUsedAt: token.last_used_at,
+    })),
+    grants: grants.grants.map((grant) => ({
+      id: grant.id,
+      permission: grant.permission,
+      libraryId: grant.library_id,
+    })),
+    diagnostic: mapAddonDiagnostic(diagnostic),
+  };
+}
+
+function mapAddonHealth(response: AdminAddonHealthCheckResponse): AddonHealthSummary {
+  return {
+    addonId: response.addon_id,
+    status: response.status,
+    latencyMs: response.latency_ms,
+    protocolVersion: response.protocol_version ?? null,
+    addonVersion: response.addon_version ?? null,
+    resourceCount: response.resource_count ?? null,
+    safeErrorCode: response.safe_error_code ?? null,
+  };
+}
+
+function mapAddonDiagnostic(
+  response: AdminAddonResourceCallDiagnosticResponse,
+): AddonDiagnosticSummary {
+  return {
+    addonId: response.addon_id,
+    resource: response.resource,
+    status: response.status,
+    latencyMs: response.latency_ms,
+    attempts: response.attempts,
+    httpStatus: response.http_status ?? null,
+    safeErrorCode: response.safe_error_code ?? null,
   };
 }
 

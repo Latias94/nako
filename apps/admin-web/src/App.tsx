@@ -59,6 +59,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
     status: "loading",
     data: mockAdminConsoleData,
   });
+  const [addonActionMessage, setAddonActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -92,6 +93,44 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
   }, [dataSource]);
 
   const sourceCounts = useMemo(() => summarizeSources(loadState.data), [loadState.data]);
+  const selectedAddon = loadState.data.addons.selectedAddon;
+
+  const runAddonStatusAction = async (status: "enabled" | "disabled") => {
+    if (!selectedAddon || !dataSource.setAddonStatus) {
+      return;
+    }
+
+    const addons = await dataSource.setAddonStatus(selectedAddon.id, status);
+    setLoadState((current) => ({ ...current, data: { ...current.data, addons } }));
+    setAddonActionMessage(`${selectedAddon.name} ${status}`);
+  };
+
+  const runAddonHealthCheck = async () => {
+    if (!selectedAddon || !dataSource.checkAddonHealth) {
+      return;
+    }
+
+    const health = await dataSource.checkAddonHealth(selectedAddon.id);
+    setLoadState((current) => ({
+      ...current,
+      data: { ...current.data, addons: { ...current.data.addons, health } },
+    }));
+    setAddonActionMessage(`${selectedAddon.name} health ${health.status}`);
+  };
+
+  const runAddonDiagnostic = async () => {
+    if (!selectedAddon || !dataSource.diagnoseAddonResource) {
+      return;
+    }
+
+    const resource = selectedAddon.resourceKinds[0] ?? "metadata";
+    const diagnostic = await dataSource.diagnoseAddonResource(selectedAddon.id, resource);
+    setLoadState((current) => ({
+      ...current,
+      data: { ...current.data, addons: { ...current.data.addons, diagnostic } },
+    }));
+    setAddonActionMessage(`${selectedAddon.name} diagnostic ${diagnostic.status}`);
+  };
 
   return (
     <div className="appShell">
@@ -406,6 +445,172 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
             </div>
           </section>
 
+          <section className="panel wide" id="addons">
+            <PanelHeader
+              title="Addon Operations"
+              source={combinedSource(
+                loadState.data.sources.addons,
+                loadState.data.sources.addonHealth,
+                loadState.data.sources.addonSurfaces,
+                loadState.data.sources.addonTokens,
+                loadState.data.sources.addonGrants,
+              )}
+              description="Manage Addon Sidecars without installing, launching, or trusting their processes."
+            />
+            <div className="splitPanel">
+              <div>
+                <h3>Registered Addons</h3>
+                <div className="stackList">
+                  {loadState.data.addons.addons.map((addon) => (
+                    <div className="listRow" key={addon.id}>
+                      <div>
+                        <strong>{addon.name}</strong>
+                        <span>
+                          {addon.manifestId} · {addon.protocolVersion}
+                        </span>
+                      </div>
+                      <StatusPill
+                        label={addon.status}
+                        tone={
+                          addon.status === "enabled"
+                            ? "good"
+                            : addon.status === "disabled"
+                              ? "warn"
+                              : "muted"
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="runtimeCard">
+                <Puzzle size={18} />
+                <h3>{loadState.data.addons.selectedAddon?.name ?? "No Addon selected"}</h3>
+                <p>{loadState.data.addons.selectedAddon?.description ?? "Select an Addon to inspect its operations."}</p>
+                <p className="runtimeNote">
+                  Health: {loadState.data.addons.health?.status ?? "unknown"} ·{" "}
+                  {loadState.data.addons.health?.latencyMs ?? 0} ms
+                </p>
+                <div className="capabilityLine">
+                  <StatusPill
+                    label={`${loadState.data.addons.selectedAddon?.resourceCount ?? 0} resources`}
+                    tone="info"
+                  />
+                  <StatusPill label={`${loadState.data.addons.grants.length} grants`} tone="info" />
+                  <StatusPill label={`${loadState.data.addons.tokens.length} tokens`} tone="muted" />
+                </div>
+              </div>
+            </div>
+
+            <div className="capabilityLine">
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.setAddonStatus}
+                onClick={() => runAddonStatusAction("enabled")}
+                type="button"
+              >
+                Enable Addon
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.setAddonStatus}
+                onClick={() => runAddonStatusAction("disabled")}
+                type="button"
+              >
+                Disable Addon
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.checkAddonHealth}
+                onClick={runAddonHealthCheck}
+                type="button"
+              >
+                Run health check
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={!selectedAddon || !dataSource.diagnoseAddonResource}
+                onClick={runAddonDiagnostic}
+                type="button"
+              >
+                Run resource diagnostic
+              </button>
+            </div>
+            {addonActionMessage ? (
+              <div className="notice subtle" role="status">
+                <ShieldCheck size={17} />
+                <span>{addonActionMessage}</span>
+              </div>
+            ) : null}
+
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Surface</th>
+                    <th>Kind</th>
+                    <th>Path</th>
+                    <th>Safety</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadState.data.addons.surfaces?.entryPoints.map((entryPoint) => (
+                    <tr key={entryPoint.id}>
+                      <td>{entryPoint.label}</td>
+                      <td>{entryPoint.kind}</td>
+                      <td>{entryPoint.path}</td>
+                      <td>{entryPoint.hostedPageId ? "external hosted page" : "Taru action"}</td>
+                    </tr>
+                  ))}
+                  {loadState.data.addons.surfaces?.hostedPages.map((page) => (
+                    <tr key={page.id}>
+                      <td>{page.title}</td>
+                      <td>hosted_page</td>
+                      <td>{page.path}</td>
+                      <td>external and untrusted</td>
+                    </tr>
+                  ))}
+                  {loadState.data.addons.surfaces?.tasks.map((task) => (
+                    <tr key={task.id}>
+                      <td>{task.name}</td>
+                      <td>addon_task</td>
+                      <td>{task.path}</td>
+                      <td>declaration only</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="settingGrid">
+              <div className="settingRow">
+                <span>Resource diagnostic</span>
+                <strong>
+                  {loadState.data.addons.diagnostic?.resource ?? "none"} ·{" "}
+                  {loadState.data.addons.diagnostic?.status ?? "not run"}
+                </strong>
+              </div>
+              <div className="settingRow">
+                <span>Diagnostic attempts</span>
+                <strong>
+                  {loadState.data.addons.diagnostic?.attempts ?? 0}
+                  {loadState.data.addons.diagnostic?.httpStatus
+                    ? ` · HTTP ${loadState.data.addons.diagnostic.httpStatus}`
+                    : ""}
+                </strong>
+              </div>
+              <div className="settingRow">
+                <span>Secret references</span>
+                <strong>{loadState.data.addons.surfaces?.secretReferenceFieldCount ?? 0} configured fields</strong>
+              </div>
+              <div className="settingRow">
+                <span>Configuration schema</span>
+                <strong>{loadState.data.addons.surfaces?.configurationSchemaId ?? "not declared"}</strong>
+              </div>
+            </div>
+          </section>
+
           <section className="panel" id="network">
             <PanelHeader
               title="Network Access"
@@ -592,7 +797,13 @@ function summarizeSources(data: AdminConsoleData) {
     combinedSource(data.sources.playbackSessions, data.sources.playbackRuntime),
     combinedSource(data.sources.overview, data.sources.storageStaging),
     data.sources.events,
-    "planned",
+    combinedSource(
+      data.sources.addons,
+      data.sources.addonHealth,
+      data.sources.addonSurfaces,
+      data.sources.addonTokens,
+      data.sources.addonGrants,
+    ),
     data.sources.systemConfig,
     data.sources.systemConfig,
   ];
